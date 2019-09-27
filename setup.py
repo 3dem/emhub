@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
+# * [2] MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -90,13 +92,13 @@ setup(
 
     # This should be your name or the name of the organization which owns the
     # project.
-    author='J.M. De la Rosa Trevin,
-            Grigory Sharov',  # Optional
+    author='J.M. De la Rosa Trevin, '
+           'Grigory Sharov',  # Optional
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='delarosatrevin@scilifelab.se, 
-                  gsharov@mrc-lmb.cam.ac.uk',  # Optional
+    author_email='delarosatrevin@scilifelab.se, '
+                 'gsharov@mrc-lmb.cam.ac.uk',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #
