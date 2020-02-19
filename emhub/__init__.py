@@ -16,6 +16,7 @@ templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '
 def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config.from_mapping(
         SECRET_KEY='dev',
         DATABASE=os.path.join(app.instance_path, 'emhub.sqlite'),
