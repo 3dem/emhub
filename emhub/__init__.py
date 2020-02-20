@@ -201,4 +201,4 @@ def get_micshifts_fn(micId):
 
 
 def get_fn(basename):
-    return os.path.join(EMHUB_TESTDATA, "t20_pngs", basename)
+    return os.path.join(EMHUB_TESTDATA, "t20s_pngs", basename)
