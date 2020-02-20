@@ -93,12 +93,13 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
     @app.route('/get_content', methods=['POST'])
     def get_content():
         content_template = request.form['content_id'] + '.html'
+
+        # FIXME: DB query is here
         from .models import User
         users = User.query.all()
 
         if content_template in templates:
-            return render_template(content_template, users=users,
-                               title="Show Users")
+            return render_template(content_template, users=users)
 
         return "<h1>Template '%s' not found</h1>" % content_template
 
