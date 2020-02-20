@@ -44,7 +44,7 @@
                                     <div class="card card-figure">
                                         <!-- .card-figure -->
                                         <figure class="figure">
-                                            <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                            <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
                                             <!-- .figure-caption -->
                                             <figcaption class="figure-caption">
                                                 <h6 class="figure-title"> Micrograph </h6>
@@ -76,7 +76,7 @@
                                     <div class="card card-figure">
                                         <!-- .card-figure -->
                                         <figure class="figure">
-                                            <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                            <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
                                             <!-- .figure-caption -->
                                             <figcaption class="figure-caption">
                                                 <h6 class="figure-title"> PSD plot </h6>
@@ -497,6 +497,24 @@
 
                 });
         }
+
+        var requestMicThumb = $.ajax({
+            url: "{{ url_for('get_mic_thumb') }}",
+            type: "POST",
+            data: {micId : 1},
+            dataType: "json"
+           // contentType: "img/png"
+        });
+
+        requestMicThumb.done(function(data) {
+                //alert("length: " + $("#img_micrograph").length);
+            $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['thumb-base64']);
+            $("#img_psd").attr('src', 'data:image/png;base64,' + data['psd-base64']);
+        });
+
+        requestMicThumb.fail(function(jqXHR, textStatus) {
+          alert( "Request failed: " + textStatus );
+        });
 
     });
 

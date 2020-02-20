@@ -13,6 +13,8 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
 
+EMHUB_TESTDATA = os.environ.get('EMHUB_TESTDATA', '')
+
 db = SQLAlchemy()
 
 
@@ -87,8 +89,12 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
     def get_mic_thumb():
         micId = int(request.form['micId'])
         micThumb = get_micthumb_fn(micId)
-        encoded = fn_to_base64(micThumb)
-        return send_json_data({'thumbnail': micThumb, 'base64': encoded})
+        micThumbBase64 = fn_to_base64(micThumb)
+        micPsd = get_micpsd_fn(micId)
+        micPsdBase64 = fn_to_base64(micPsd)
+        return send_json_data({'thumb': micThumb, 'thumb-base64': micThumbBase64,
+                               'psd': micPsd, 'psd-base64': micPsdBase64
+                               })
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
@@ -175,8 +181,13 @@ def get_mic_prefix(micId):
 
 
 def get_micthumb_fn(micId):
-    return get_fn('imgMicThumbs/%s_thumbnail.png' % get_mic_prefix(micId))
+    return get_fn('imgMic/%s_thumbnail.png' % get_mic_prefix(micId))
+
+
+def get_micpsd_fn(micId):
+    return get_fn('imgPsd/%s_aligned_mic_ctfEstimation.png'
+                  % get_mic_prefix(micId))
 
 
 def get_fn(basename):
-    return "emdash/static/t20-tutorial/" + basename
+    return os.path.join(EMHUB_TESTDATA, "t20_pngs", basename)
