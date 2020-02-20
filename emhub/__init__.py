@@ -196,5 +196,6 @@ def get_micshifts_fn(micId):
     return get_fn('imgShift/%s_global_shifts.png'
                   % get_mic_prefix(micId))
 
+
 def get_fn(basename):
-    return os.path.join(EMHUB_TESTDATA, "t20s_pngs", basename)
+    return os.path.join(EMHUB_TESTDATA, "t20_pngs", basename)

@@ -36,7 +36,7 @@
                         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                             <!-- title row -->
                             <div class="row">
-                                <p>Last processed item</p>
+                                <p id="itemId">Results for the last processed item</p>
                             </div>
                             <!-- thumbnails row -->
                             <div class="row">
@@ -324,8 +324,8 @@
                     // FIXME: mic should be now propagated to micId below
                     onclick: function (d) {
                         console.log("onclick on item#", d.index);
-                        var mic = d.index;
-                        request_micrograph_images(mic);
+                        request_micrograph_images(d.index);
+                        document.getElementById("itemId").innerHTML = "Results for item #" + d.index;
                     },
                 },
                 zoom: {enabled: true},
@@ -443,7 +443,7 @@
                 });
         }
 
-        request_micrograph_images(1);
+        //request_micrograph_images(1);
 
     });
 
