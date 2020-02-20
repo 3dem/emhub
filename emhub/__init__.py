@@ -108,12 +108,12 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
         # the content id by _
         @classmethod
         def get(cls, content_id):
-            get_data_func_name = 'get_%s_data' % content_id.replace('-', '_')
-            get_data_func = getattr(cls, get_data_func_name, None)
-            return {} if get_data_func is None else get_data_func()
+            get_func_name = 'get_%s' % content_id.replace('-', '_')
+            get_func = getattr(cls, get_func_name, None)
+            return {} if get_func is None else get_func()
 
         @classmethod
-        def get_session_live_data(cls):
+        def get_session_live(cls):
             sample = ['Defocus'] + [30, 200, 100, 400, 150, 250, 150, 200, 170, 240,
                                    350, 150, 100, 400, 150, 250, 150, 200, 170, 240,
                                    100, 150,
