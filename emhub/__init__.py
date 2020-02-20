@@ -85,12 +85,42 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
-        content_template = request.form['content_id'] + '.html'
+        content_id = request.form['content_id']
+        content_template = content_id + '.html'
 
         if content_template in templates:
-            return render_template(content_template)
+            return render_template(content_template,
+                                   **ContentData.get(content_id))
 
         return "<h1>Template '%s' not found</h1>" % content_template
+
+    class ContentData:
+        # To have a quick way to retrieve data based on the content-id, we just
+        # need to call the function get_$content-id_data and it will be
+        # automatically retrieved. In the name, we need to replace the - in
+        # the content id by _
+        @classmethod
+        def get(cls, content_id):
+            get_data_func_name = 'get_%s_data' % content_id.replace('-', '_')
+            get_data_func = getattr(cls, get_data_func_name, None)
+            return {} if get_data_func is None else get_data_func()
+
+        @classmethod
+        def get_session_live_data(cls):
+            sample = ['Defocus'] + [30, 200, 100, 400, 150, 250, 150, 200, 170, 240,
+                                   350, 150, 100, 400, 150, 250, 150, 200, 170, 240,
+                                   100, 150,
+                                   250, 150, 200, 170, 240, 30, 200, 100, 400, 150,
+                                   250, 150,
+                                   200, 170, 240, 350, 150, 100, 400, 350, 220, 250,
+                                   300, 270,
+                                   140, 150, 90, 150, 50, 120, 70, 40]
+            bar1 = {'label': 'CTF Defocus',
+                    'data': [12, 19, 3, 17, 28, 24, 7],}
+
+            return {'sample': sample,
+                    'bar1': bar1}
+
 
     return app
 
