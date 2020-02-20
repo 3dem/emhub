@@ -294,12 +294,19 @@
     "use strict";
     $(function() {
 
+        var mic = 1;
+
         if ($('#c3chart_zoom').length) {
             var chart = c3.generate({
                 bindto: "#c3chart_zoom",
                 data: {
                     columns: [ {{ sample|tojson }} ],
-                    colors: {sample: '#5969ff'}
+                    colors: {sample: '#5969ff'},
+                    // FIXME: mic should be now propagated to micId below
+                    onclick: function (d) {
+                        console.log("onclick on item#", d.index);
+                        mic = d.index;
+                    },
                 },
                 zoom: {enabled: true},
                 axis: {
@@ -419,7 +426,7 @@
         var requestMicThumb = $.ajax({
             url: "{{ url_for('get_mic_thumb') }}",
             type: "POST",
-            data: {micId : 1},
+            data: {micId : mic}, // FIXME
             dataType: "json"
            // contentType: "img/png"
         });
