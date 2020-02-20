@@ -135,22 +135,25 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
                                    300, 270,
                                    140, 150, 90, 150, 50, 120, 70, 40]
 
-            from .models import User
+            from .models import User, Session
+            session = Session.query.get(1)  # put session id here
             data = User.query.all()
             bar1 = {'label': 'CTF Defocus',
                     'data': [item.defocus for item in data]}
 
             return {'sample': sample,
                     'bar1': bar1,
-                    'users': data}
+                    'users': data,
+                    'session': session}
 
     db.init_app(app)
 
     with app.app_context():
         if not os.path.exists(os.path.join(app.instance_path, 'emhub.sqlite')):
-            from .create_db import create_database
+            from .create_db import create_db_test, create_db_sessions
             db.create_all()
-            create_database()
+            create_db_test()
+            create_db_sessions()
 
     return app
 
@@ -196,6 +199,7 @@ def get_micpsd_fn(micId):
 def get_micshifts_fn(micId):
     return get_fn('imgShift/%s_global_shifts.png'
                   % get_mic_prefix(micId))
+
 
 def get_fn(basename):
     return os.path.join(EMHUB_TESTDATA, "t20s_pngs", basename)

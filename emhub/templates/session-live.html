@@ -4,13 +4,13 @@
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="page-header">
-                <h2 class="pageheader-title">Session name...</h2>
-                <!-- <p class="pageheader-text">Nulla euismod urna eros, sit amet scelerisque torton lectus vel mauris facilisis faucibus at enim quis massa lobortis rutrum.</p> -->
+                <h2 class="pageheader-title">{{ session.projectName }}</h2>
+                <p class="pageheader-text">{{ session.description }}</p>
                 <div class="page-breadcrumb">
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb">
                             <li class="breadcrumb-item"><a href="#" class="breadcrumb-link">Sessions</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">Krios 1</li>
+                            <li class="breadcrumb-item active" aria-current="page">{{ session.microscope }}</li>
                         </ol>
                     </nav>
                 </div>
@@ -36,7 +36,7 @@
                         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                             <!-- title row -->
                             <div class="row">
-                                <p>Last processed item</p>
+                                <p id="itemId">Results for the last processed item</p>
                             </div>
                             <!-- thumbnails row -->
                             <div class="row">
@@ -133,43 +133,47 @@
                                             <tbody>
                                             <tr>
                                                 <td>Voltage</td>
-                                                <td>300 keV</td>
+                                                <td>{{ session.voltage }} keV</td>
                                             </tr>
                                             <tr>
                                                 <td>Cs</td>
-                                                <td>2.7 mm</td>
+                                                <td>{{ session.cs }} mm</td>
                                             </tr>
                                             <tr>
                                                 <td>VPP</td>
+                                                {% if session.phasePlate %}
+                                                <td>Yes</td>
+                                                {% else %}
                                                 <td>No</td>
+                                                {% endif %}
                                             </tr>
                                             <tr>
                                                 <td>Detector</td>
-                                                <td>Falcon</td>
+                                                <td>{{ session.detector }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Mode</td>
-                                                <td>Linear</td>
+                                                <td>{{ session.detectorMode }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Pixel size</td>
-                                                <td>1.1 A</td>
+                                                <td>{{ session.pixelSize }} A</td>
                                             </tr>
                                             <tr>
                                                 <td>Dose per frame</td>
-                                                <td>1.0 e/A2</td>
+                                                <td>{{ session.dosePerFrame }} e/A2</td>
                                             </tr>
                                             <tr>
                                                 <td>Total dose</td>
-                                                <td>35 e/A2</td>
+                                                <td>{{ session.totalDose }} e/A2</td>
                                             </tr>
                                             <tr>
                                                 <td>Exp. time</td>
-                                                <td>1 s</td>
+                                                <td>{{ session.exposureTime }} s</td>
                                             </tr>
                                             <tr>
                                                 <td>Num. of frames</td>
-                                                <td>40</td>
+                                                <td>{{ session.numOfFrames }}</td>
                                             </tr>
 
                                             </tbody>
@@ -185,23 +189,23 @@
                                             <tbody>
                                             <tr>
                                                 <td>User</td>
-                                                <td>Abcdefergerg</td>
+                                                <td>{{ session.username }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Started</td>
-                                                <td>27/11/2020 30:23</td>
+                                                <td>{{ session.dateCreated }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Particle size</td>
-                                                <td>140-160 A</td>
+                                                <td>{{ session.ptclsSizeMin }}-{{ session.ptclsSizeMax }} A</td>
                                             </tr>
                                             <tr>
                                                 <td>Num. of particles</td>
-                                                <td>-</td>
+                                                <td>{{ session.numOfPtcls }}</td>
                                             </tr>
                                             <tr>
                                                 <td>2D classes</td>
-                                                <td>-</td>
+                                                <td>{{ session.numOfCls2D }}</td>
                                             </tr>
 
                                             </tbody>
@@ -324,8 +328,8 @@
                     // FIXME: mic should be now propagated to micId below
                     onclick: function (d) {
                         console.log("onclick on item#", d.index);
-                        var mic = d.index;
-                        request_micrograph_images(mic);
+                        request_micrograph_images(d.index);
+                        document.getElementById("itemId").innerHTML = "Results for item #" + d.index;
                     },
                 },
                 zoom: {enabled: true},
@@ -443,7 +447,7 @@
                 });
         }
 
-        request_micrograph_images(1);
+        //request_micrograph_images(1);
 
     });
 
