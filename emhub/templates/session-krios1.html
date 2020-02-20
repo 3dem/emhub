@@ -1,55 +1,47 @@
-
-
-<!-- ============================================================== -->
-<!-- ecommerce-product content -->
-<!-- ============================================================== -->
 <!-- wrapper  -->
-<!-- ============================================================== -->
-
-        <div class="container-fluid dashboard-content ">
-            <!-- ============================================================== -->
-            <!-- pageheader  -->
-            <!-- ============================================================== -->
-            <div class="row">
-                <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                    <div class="page-header">
-                        <h2 class="pageheader-title">Session name...</h2>
-                        <!-- <p class="pageheader-text">Nulla euismod urna eros, sit amet scelerisque torton lectus vel mauris facilisis faucibus at enim quis massa lobortis rutrum.</p> -->
-                        <div class="page-breadcrumb">
-                            <nav aria-label="breadcrumb">
-                                <ol class="breadcrumb">
-                                    <li class="breadcrumb-item"><a href="#" class="breadcrumb-link">Sessions</a></li>
-                                    <li class="breadcrumb-item active" aria-current="page">Krios 1</li>
-                                </ol>
-                            </nav>
-                        </div>
-                    </div>
+<div class="container-fluid dashboard-content ">
+    <!-- pageheader  -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="page-header">
+                <h2 class="pageheader-title">Session name...</h2>
+                <!-- <p class="pageheader-text">Nulla euismod urna eros, sit amet scelerisque torton lectus vel mauris facilisis faucibus at enim quis massa lobortis rutrum.</p> -->
+                <div class="page-breadcrumb">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="#" class="breadcrumb-link">Sessions</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Krios 1</li>
+                        </ol>
+                    </nav>
                 </div>
             </div>
-            <!-- ============================================================== -->
-            <!-- end pageheader  -->
-            <!-- ============================================================== -->
-            <div class="row">
-                <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
-                            <div class="tab-regular">
-                                <ul class="nav nav-tabs nav-fill" id="myTab7" role="tablist">
-                                    <li class="nav-item">
-                                        <a class="nav-link active" id="home-tab-justify" data-toggle="tab" href="#home-justify" role="tab" aria-controls="home" aria-selected="true">Live</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" id="profile-tab-justify" data-toggle="tab" href="#profile-justify" role="tab" aria-controls="profile" aria-selected="false">Summary</a>
-                                    </li>
-                                </ul>
-                                <div class="tab-content" id="myTabContent7">
-                                    <div class="tab-pane fade show active" id="home-justify" role="tabpanel" aria-labelledby="home-tab-justify">
-
-                                        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                                            <div class="row">
-                                                <p>Last processed item</p>
-                                            </div>
-                                            <div class="row">
-                        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
-                            <div class="card card-figure">
+        </div>
+    </div>
+    <!-- end pageheader  -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
+            <!-- tabs -->
+            <div class="tab-regular">
+                <ul class="nav nav-tabs nav-fill" id="myTab7" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="home-tab-justify" data-toggle="tab" href="#home-justify" role="tab" aria-controls="home" aria-selected="true">Live</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="profile-tab-justify" data-toggle="tab" href="#profile-justify" role="tab" aria-controls="profile" aria-selected="false">Summary</a>
+                    </li>
+                </ul>
+                <div class="tab-content" id="myTabContent7">
+                    <!-- tab "Live" -->
+                    <div class="tab-pane fade show active" id="home-justify" role="tabpanel" aria-labelledby="home-tab-justify">
+                        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                            <!-- title row -->
+                            <div class="row">
+                                <p>Last processed item</p>
+                            </div>
+                            <!-- thumbnails row -->
+                            <div class="row">
+                                <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
+                                    <div class="card card-figure">
                                         <!-- .card-figure -->
                                         <figure class="figure">
                                             <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
@@ -62,10 +54,10 @@
                                         </figure>
                                         <!-- /.card-figure -->
                                         <!-- /.card -->
-                            </div>
-                    </div>
-                        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
-                            <div class="card card-figure">
+                                    </div>
+                                </div>
+                                <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
+                                    <div class="card card-figure">
                                         <!-- .card-figure -->
                                         <figure class="figure">
                                             <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
@@ -78,10 +70,10 @@
                                         </figure>
                                         <!-- /.card-figure -->
                                         <!-- /.card -->
-                            </div>
-                    </div>
-                        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
-                            <div class="card card-figure">
+                                    </div>
+                                </div>
+                                <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
+                                    <div class="card card-figure">
                                         <!-- .card-figure -->
                                         <figure class="figure">
                                             <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
@@ -94,10 +86,10 @@
                                         </figure>
                                         <!-- /.card-figure -->
                                         <!-- /.card -->
-                            </div>
-                    </div>
-                        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
-                            <div class="card card-figure">
+                                    </div>
+                                </div>
+                                <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
+                                    <div class="card card-figure">
                                         <!-- .card-figure -->
                                         <figure class="figure">
                                             <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
@@ -110,31 +102,35 @@
                                         </figure>
                                         <!-- /.card-figure -->
                                         <!-- /.card -->
+                                    </div>
+                                </div>
                             </div>
-                    </div>
-                </div>
-                                            <div class="row">
-                <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                        <div class="card">
-                            <h5 class="card-header">Defocus</h5>
-                            <div class="card-body">
-                                <div id="c3chart_zoom"></div>
+                            <!-- end thumbnails row -->
+                            <!-- charts row -->
+                            <div class="row">
+                                <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                                    <div class="card">
+                                        <h5 class="card-header">Defocus</h5>
+                                        <div class="card-body">
+                                            <div id="c3chart_zoom"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+                            <!-- end charts row -->
                         </div>
                     </div>
-    </div>
-            </div>
-
-                                    </div>
-                                    <div class="tab-pane fade" id="profile-justify" role="tabpanel" aria-labelledby="profile-tab-justify">
-
-                                        <div class="row">
-                        <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
-                            <div class="card">
-                                <h5 class="card-header">Microscope parameters</h5>
-                                <div class="card-body">
-                                    <table class="table table-striped">
-                                        <tbody>
+                    <!-- end tab "Live" -->
+                    <!-- tab "Summary" -->
+                    <div class="tab-pane fade" id="profile-justify" role="tabpanel" aria-labelledby="profile-tab-justify">
+                        <!-- parameters row -->
+                        <div class="row">
+                            <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
+                                <div class="card">
+                                    <h5 class="card-header">Microscope parameters</h5>
+                                    <div class="card-body">
+                                        <table class="table table-striped">
+                                            <tbody>
                                             <tr>
                                                 <td>Voltage</td>
                                                 <td>300 keV</td>
@@ -176,17 +172,17 @@
                                                 <td>40</td>
                                             </tr>
 
-                                        </tbody>
-                                    </table>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
-                            <div class="card">
-                                <h5 class="card-header">Session parameters</h5>
-                                <div class="card-body">
-                                    <table class="table table-striped">
-                                        <tbody>
+                            <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
+                                <div class="card">
+                                    <h5 class="card-header">Session parameters</h5>
+                                    <div class="card-body">
+                                        <table class="table table-striped">
+                                            <tbody>
                                             <tr>
                                                 <td>User</td>
                                                 <td>Abcdefergerg</td>
@@ -208,169 +204,162 @@
                                                 <td>-</td>
                                             </tr>
 
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                                        <div class="row">
-                                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
-                        <div class="card">
-                            <h5 class="card-header">Average defocus</h5>
-                            <div class="card-body">
-                                <canvas id="chartjs_bar1"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
-                        <div class="card">
-                            <h5 class="card-header">Average CTF fit resolution</h5>
-                            <div class="card-body">
-                                <canvas id="chartjs_bar2"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                                        </div>
-                                        <div class="row">
-                                            <!-- data table  -->
-                    <!-- ============================================================== -->
-                    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0">Data Tables - Print, Excel, CSV, PDF Buttons</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table id="example" class="table table-striped table-bordered second" style="width:100%">
-                                        <thead>
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>Defocus</th>
-                                                <th>Resolution</th>
-                                                <th>CC value</th>
-                                                <th>Drift</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td>Tiger Nixon</td>
-                                                <td>System Architect</td>
-                                                <td>Edinburgh</td>
-                                                <td>61</td>
-                                                <td>2011/04/25</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Garrett Winters</td>
-                                                <td>Accountant</td>
-                                                <td>Tokyo</td>
-                                                <td>63</td>
-                                                <td>2011/07/25</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        <tr>
-                                                <td>Ashton Cox</td>
-                                                <td>Junior Technical Author</td>
-                                                <td>San Francisco</td>
-                                                <td>66</td>
-                                                <td>2009/01/12</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- ============================================================== -->
-                    <!-- end data table  -->
-                                        </div>
-
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-
-
-
-
+                        <!-- end parameters row -->
+                        <!-- histograms row -->
+                        <div class="row">
+                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
+                                <div class="card">
+                                    <h5 class="card-header">Average defocus</h5>
+                                    <div class="card-body">
+                                        <canvas id="chartjs_bar1"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
+                                <div class="card">
+                                    <h5 class="card-header">Average CTF fit resolution</h5>
+                                    <div class="card-body">
+                                        <canvas id="chartjs_bar2"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- end histograms row -->
+                        <!-- table row -->
+                        <div class="row">
+                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="mb-0">Data Tables - Print, Excel, CSV, PDF Buttons</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table id="example" class="table table-striped table-bordered second" style="width:100%">
+                                                <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Defocus</th>
+                                                    <th>Resolution</th>
+                                                    <th>CC value</th>
+                                                    <th>Drift</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody>
+                                                <tr>
+                                                    <td>Tiger Nixon</td>
+                                                    <td>System Architect</td>
+                                                    <td>Edinburgh</td>
+                                                    <td>61</td>
+                                                    <td>2011/04/25</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Garrett Winters</td>
+                                                    <td>Accountant</td>
+                                                    <td>Tokyo</td>
+                                                    <td>63</td>
+                                                    <td>2011/07/25</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Ashton Cox</td>
+                                                    <td>Junior Technical Author</td>
+                                                    <td>San Francisco</td>
+                                                    <td>66</td>
+                                                    <td>2009/01/12</td>
+                                                </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- end table row -->
+                    </div>
+                    <!-- end tab "Summary" -->
+                </div>
+            </div>
+            <!-- end tabs -->
         </div>
-
-<!-- ============================================================== -->
+    </div>
+</div>
 <!-- end wrapper  -->
-<!-- ============================================================== -->
-</div>
-        </div>
-</div>
+<!-- javascript  -->
 <script>
     (function(window, document, $, undefined) {
     "use strict";
@@ -517,21 +506,21 @@
 })(window, document, window.jQuery);
 </script>
 <script src="../static/vendor/jquery/jquery-3.3.1.min.js"></script>
-    <script src="../static/vendor/bootstrap/js/bootstrap.bundle.js"></script>
-    <script src="../static/vendor/slimscroll/jquery.slimscroll.js"></script>
-    <script src="../static/vendor/multi-select/js/jquery.multi-select.js"></script>
-    <script src="../static/libs/js/main-js.js"></script>
-    <script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
-    <script src="../static/vendor/datatables/js/dataTables.bootstrap4.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/1.5.2/js/dataTables.buttons.min.js"></script>
-    <script src="../static/vendor/datatables/js/buttons.bootstrap4.min.js"></script>
-    <script src="../static/vendor/datatables/js/data-table.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.print.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.colVis.min.js"></script>
-    <script src="https://cdn.datatables.net/rowgroup/1.0.4/js/dataTables.rowGroup.min.js"></script>
-    <script src="https://cdn.datatables.net/select/1.2.7/js/dataTables.select.min.js"></script>
-    <script src="https://cdn.datatables.net/fixedheader/3.1.5/js/dataTables.fixedHeader.min.js"></script>
+<script src="../static/vendor/bootstrap/js/bootstrap.bundle.js"></script>
+<script src="../static/vendor/slimscroll/jquery.slimscroll.js"></script>
+<script src="../static/vendor/multi-select/js/jquery.multi-select.js"></script>
+<script src="../static/libs/js/main-js.js"></script>
+<script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+<script src="../static/vendor/datatables/js/dataTables.bootstrap4.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/dataTables.buttons.min.js"></script>
+<script src="../static/vendor/datatables/js/buttons.bootstrap4.min.js"></script>
+<script src="../static/vendor/datatables/js/data-table.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.print.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.colVis.min.js"></script>
+<script src="https://cdn.datatables.net/rowgroup/1.0.4/js/dataTables.rowGroup.min.js"></script>
+<script src="https://cdn.datatables.net/select/1.2.7/js/dataTables.select.min.js"></script>
+<script src="https://cdn.datatables.net/fixedheader/3.1.5/js/dataTables.fixedHeader.min.js"></script>
