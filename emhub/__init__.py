@@ -128,17 +128,15 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
                                    200, 170, 240, 350, 150, 100, 400, 350, 220, 250,
                                    300, 270,
                                    140, 150, 90, 150, 50, 120, 70, 40]
+
+            from .models import User
+            data = User.query.all()
             bar1 = {'label': 'CTF Defocus',
-                    'data': [12, 19, 3, 17, 28, 24, 7],}
+                    'data': [item.defocus for item in data]}
 
             return {'sample': sample,
-                    'bar1': bar1}
-
-        @classmethod
-        def get_users(cls):
-            # FIXME: DB query is here
-            from .models import User
-            return {'users': User.query.all()}
+                    'bar1': bar1,
+                    'users': data}
 
     db.init_app(app)
 

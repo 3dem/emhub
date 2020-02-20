@@ -27,6 +27,10 @@ class User(db.Model):
                       index=False,
                       unique=False,
                       nullable=False)
+    defocus = db.Column(db.Integer,
+                        index=False,
+                        unique=False,
+                        nullable=False)
 
     def __repr__(self):
         return '<User {}>'.format(self.username)
