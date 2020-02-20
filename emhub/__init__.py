@@ -92,9 +92,14 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
         micThumbBase64 = fn_to_base64(micThumb)
         micPsd = get_micpsd_fn(micId)
         micPsdBase64 = fn_to_base64(micPsd)
-        return send_json_data({'thumb': micThumb, 'thumb-base64': micThumbBase64,
-                               'psd': micPsd, 'psd-base64': micPsdBase64
-                               })
+        micShifts = get_micshifts_fn(micId)
+        micShiftsBase64 = fn_to_base64(micShifts)
+
+        return send_json_data({
+            'thumb': micThumb, 'thumb-base64': micThumbBase64,
+            'psd': micPsd, 'psd-base64': micPsdBase64,
+            'shifts': micShifts, 'shifts-base64': micShiftsBase64,
+        })
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
@@ -187,5 +192,9 @@ def get_micpsd_fn(micId):
                   % get_mic_prefix(micId))
 
 
+def get_micshifts_fn(micId):
+    return get_fn('imgShift/%s_global_shifts.png'
+                  % get_mic_prefix(micId))
+
 def get_fn(basename):
-    return os.path.join(EMHUB_TESTDATA, "t20_pngs", basename)
+    return os.path.join(EMHUB_TESTDATA, "t20s_pngs", basename)
