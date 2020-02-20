@@ -1,0 +1,17 @@
+<!-- wrapper  -->
+<div class="container-fluid dashboard-content ">
+    <!-- pageheader  -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+<p>test db</p>
+  {% for user in users %}
+    <ul id="user.username">
+      <li>Username: {{ user.username }}</li>
+      <li>Email: {{ user.email }}</li>
+      <li>Created: {{ user.created }}</li>
+      <li>Bio: {{ user.bio }}</li>
+      <li>Admin: {{ user.admin }}</li>
+    </ul>
+  {% endfor %}
+
+        </div></div></div>

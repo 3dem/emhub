@@ -6,21 +6,28 @@ from io import BytesIO
 from PIL import Image
 
 from flask import Flask, render_template, request, make_response, send_file
+from flask_sqlalchemy import SQLAlchemy
 
 
 here = os.path.abspath(os.path.dirname(__file__))
 
 templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
 
+db = SQLAlchemy()
+
 
 def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
+
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config.from_mapping(
         SECRET_KEY='dev',
-        DATABASE=os.path.join(app.instance_path, 'emhub.sqlite'),
+        #DATABASE=os.path.join(app.instance_path, 'emhub.sqlite'),
     )
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'emhub.sqlite')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ECHO'] = True
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -86,11 +93,22 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
     @app.route('/get_content', methods=['POST'])
     def get_content():
         content_template = request.form['content_id'] + '.html'
+        from .models import User
+        users = User.query.all()
 
         if content_template in templates:
-            return render_template(content_template)
+            return render_template(content_template, users=users,
+                               title="Show Users")
 
         return "<h1>Template '%s' not found</h1>" % content_template
+
+    db.init_app(app)
+
+    with app.app_context():
+        if not os.path.exists(os.path.join(app.instance_path, 'emhub.sqlite')):
+            from .create_db import create_database
+            db.create_all()
+            create_database()
 
     return app
 
