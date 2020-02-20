@@ -198,7 +198,32 @@ John Abraham</h5>
 
                                 <li class="nav-item">
                                         <a class="nav-link nav-link-ajax" id="dashboard-finance" href="">Finance</a>
-                                    </li>
+                                </li>
+
+{#                            Charts Examples#}
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-3" aria-controls="submenu-3"><i class="fas fa-fw fa-chart-pie"></i>Chart</a>
+                                <div id="submenu-3" class="collapse submenu" style="">
+                                    <ul class="nav flex-column">
+                                        <li class="nav-item">
+                                            <a class="nav-link nav-link-ajax" id="chart-c3" href="">C3 Charts</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link nav-link-ajax" id="chart-chartist" href="">Chartist Charts</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link nav-link-ajax" id="chart-charts" href="">Chart</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link nav-link-ajax" id="chart-morris" href="">Morris</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link nav-link-ajax" id="chart-sparkline" href="">Sparkline</a>
+                                        </li>
+                                      </ul>
+                                </div>
+                            </li>
+
                         </ul>
                     </div>
                 </nav>
@@ -252,26 +277,19 @@ John Abraham</h5>
 
     <!-- chart chartist js -->
     <script src="{{ url_for('static', filename='vendor/charts/chartist-bundle/chartist.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/charts/chartist-bundle/Chartistjs.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/charts/chartist-bundle/chartist-plugin-threshold.js') }}"></script>
     <!-- chart C3 js -->
     <script src="{{ url_for('static', filename='vendor/charts/c3charts/c3.min.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/charts/c3charts/d3-5.4.0.min.js') }}"></script>
     <!-- chartjs js -->
     <script src="{{ url_for('static', filename='vendor/charts/charts-bundle/Chart.bundle.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/charts/charts-bundle/chartjs.js') }}"></script>
     <!-- sparkline js -->
     <script src="{{ url_for('static', filename='vendor/charts/sparkline/jquery.sparkline.js') }}"></script>
-    <!-- dashboard finance js -->
-    <script src="{{ url_for('static', filename='libs/js/dashboard-finance.js') }}"></script>
-    <!-- main js -->
-    <script src="{{ url_for('static', filename='libs/js/main-js.js') }}"></script>
     <!-- gauge js -->
     <script src="{{ url_for('static', filename='vendor/gauge/gauge.min.js') }}"></script>
     <!-- morris js -->
     <script src="{{ url_for('static', filename='vendor/charts/morris-bundle/raphael.min.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/charts/morris-bundle/morris.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/charts/morris-bundle/morrisjs.html') }}"></script>
 
 
 <script type="text/javascript">
