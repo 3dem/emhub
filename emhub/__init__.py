@@ -7,7 +7,7 @@ from PIL import Image
 
 from flask import Flask, render_template, request, make_response, send_file
 from flask_sqlalchemy import SQLAlchemy
-
+from .model import TestSessionData
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -46,6 +46,7 @@ def create_app(test_config=None):
 
     @app.route('/index')
     def index():
+        tsd = TestSessionData()
         return render_template('main.html')
 
     @app.route('/projects')
