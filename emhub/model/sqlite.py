@@ -3,34 +3,28 @@ from .. import db
 
 class User(db.Model):
     """Model for user accounts."""
-
     __tablename__ = 'users'
     id = db.Column(db.Integer,
                    primary_key=True)
     username = db.Column(db.String(64),
-                         index=False,
+                         index=True,
                          unique=True,
                          nullable=False)
     email = db.Column(db.String(80),
-                      index=True,
+                      index=False,
                       unique=True,
                       nullable=False)
     created = db.Column(db.DateTime,
                         index=False,
                         unique=False,
                         nullable=False)
-    bio = db.Column(db.Text,
-                    index=False,
-                    unique=False,
-                    nullable=True)
     admin = db.Column(db.Boolean,
                       index=False,
                       unique=False,
                       nullable=False)
-    defocus = db.Column(db.Integer,
-                        index=False,
-                        unique=False,
-                        nullable=False)
+
+    # one user to many sessions, bidirectional
+    sessions = db.relationship('Session', back_populates="users")
 
     def __repr__(self):
         return '<User {}>'.format(self.username)
@@ -41,15 +35,11 @@ class Session(db.Model):
     __tablename__ = 'sessions'
     id = db.Column(db.Integer,
                    primary_key=True)
-    username = db.Column(db.String(64),
-                         index=False,
-                         unique=False,
-                         nullable=False)
-    projectName = db.Column(db.String(80),
+    sessionName = db.Column(db.String(80),
                             index=True,
                             unique=False,
                             nullable=False)
-    dateCreated = db.Column(db.DateTime,
+    dateStarted = db.Column(db.DateTime,
                             index=False,
                             unique=False,
                             nullable=False)
@@ -57,7 +47,7 @@ class Session(db.Model):
                             index=False,
                             unique=False,
                             nullable=True)
-    status = db.Column(db.Boolean,
+    status = db.Column(db.String(20),
                        index=False,
                        unique=False,
                        nullable=False)
@@ -109,6 +99,14 @@ class Session(db.Model):
                             index=False,
                             unique=False,
                             nullable=False)
+    numOfMics = db.Column(db.Integer,
+                          index=False,
+                          unique=False,
+                          nullable=False)
+    numOfCtfs = db.Column(db.Integer,
+                          index=False,
+                          unique=False,
+                          nullable=False)
     numOfPtcls = db.Column(db.Integer,
                            index=False,
                            unique=False,
@@ -117,11 +115,19 @@ class Session(db.Model):
                            index=False,
                            unique=False,
                            nullable=False)
-    ptclsSizeMin = db.Column(db.Integer,
-                           index=False,
-                           unique=False,
-                           nullable=False)
-    ptclsSizeMax = db.Column(db.Integer,
-                             index=False,
-                             unique=False,
-                             nullable=False)
+    ptclSizeMin = db.Column(db.Integer,
+                            index=False,
+                            unique=False,
+                            nullable=False)
+    ptclSizeMax = db.Column(db.Integer,
+                            index=False,
+                            unique=False,
+                            nullable=False)
+
+    # one user to many sessions, bidirectional
+    userid = db.Column(db.Integer, db.ForeignKey('users.id'),
+                       nullable=False)
+    users = db.relationship("User", back_populates="sessions")
+
+    def __repr__(self):
+        return '<Session {}>'.format(self.sessionName)

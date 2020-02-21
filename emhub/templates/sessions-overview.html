@@ -24,10 +24,16 @@
         <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
             <div class="card">
                 <div class="card-body">
-                    <h3 class="card-title">{{ session.microscope }}<a href="#" class="btn btn-success active">Running</a></h3>
-                    <h6 class="card-subtitle text-muted mb-3">Session: {{ session.projectName }}</h6>
-                    <h6 class="card-subtitle text-muted mb-3">User: {{ session.username }}</h6>
-                    <h6 class="card-subtitle text-muted mb-3">Started: {{ session.dateCreated }}</h6>
+                    <h3 class="card-title">{{ session.microscope }}
+                        {% if session.status=='Running' %}
+                            <a href="javascript: load_content('session-live-id{{session.id}}');" class="btn btn-success active">Running</a>
+                        {% elif session.status=='Error' %}
+                            <a href="javascript: load_content('session-live-id{{session.id}}');" class="btn btn-danger active">Error</a>
+                        {% endif %}
+                    </h3>
+                    <h6 class="card-subtitle text-muted mb-3">Session: {{ session.sessionName }}</h6>
+                    <h6 class="card-subtitle text-muted mb-3">User: {{ session.users.username }}</h6>
+                    <h6 class="card-subtitle text-muted mb-3">Started: {{ session.dateStarted }}</h6>
                     <h6 class="card-subtitle text-muted mb-3">Session id: {{ session.id }}</h6>
 
                     <div class="row">

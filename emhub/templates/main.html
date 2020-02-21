@@ -265,7 +265,6 @@
     <!-- wrapper  -->
     <div class="dashboard-wrapper">
         <div class="container-fluid dashboard-content" id="main-content">
-            {% include "sessions-overview.html" %}
         </div>
         <!-- footer -->
         <div class="footer">
@@ -313,11 +312,11 @@
 
 <script type="text/javascript">
 
-    function load_content(e) {
+    function load_content(content_id) {
         var ajaxContent = $.ajax({
         url: "{{ url_for('get_content') }}",
         type: "POST",
-        data: {content_id: e.currentTarget.id},
+        data: {content_id: content_id},
         dataType: "html"
         });
 
@@ -328,14 +327,17 @@
         ajaxContent.fail(function(jqXHR, textStatus) {
           alert( "Request failed: " + textStatus );
         });
+    }
 
+    function load_content_fromlink(e) {
+        load_content(e.currentTarget.id)
         e.preventDefault();
     }
 
     $(document).ready(function(){
 
       $('.nav-link-ajax').each(function(){
-          $(this).click(load_content);
+          $(this).click(load_content_fromlink);
         });
 
     });

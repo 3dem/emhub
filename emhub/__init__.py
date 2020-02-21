@@ -45,7 +45,7 @@ def create_app(test_config=None):
     def index():
         from .model.sqlite import Session
         # get status=True sessions only
-        sessions = Session.query.filter_by(status=True).all()
+        sessions = Session.query.filter(Session.status!='Finished').all()
         running_sessions = []
         for session in sessions:
             # we need to pass scope name for the link name and the session id
@@ -113,8 +113,7 @@ def create_app(test_config=None):
         @classmethod
         def get_sessions_overview(cls, session_id=None):
             from .model.sqlite import Session
-            # get status=True sessions only
-            sessions = Session.query.filter_by(status=True).all()
+            sessions = Session.query.filter(Session.status!='Finished').all()
             return {'sessions': sessions}
 
         @classmethod
@@ -125,7 +124,6 @@ def create_app(test_config=None):
 
             from .model.sqlite import Session, User
             session = Session.query.filter_by(id=session_id).first()
-            data = User.query.all()
             bar1 = {'label': 'CTF Defocus',
                     'data': defocusList}
 
@@ -133,7 +131,6 @@ def create_app(test_config=None):
 
             return {'sample': sample,
                     'bar1': bar1,
-                    'users': data,
                     'micrographs': mics,
                     'session': session}
 
@@ -142,9 +139,8 @@ def create_app(test_config=None):
 
     with app.app_context():
         if not os.path.exists(os.path.join(app.instance_path, 'emhub.sqlite')):
-            from .model.create_db import create_db_test, create_db_sessions
+            from .model.create_db import create_tables
             db.create_all()
-            create_db_test()
-            create_db_sessions()
+            create_tables()
 
     return app

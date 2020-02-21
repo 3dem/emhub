@@ -4,7 +4,7 @@
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="page-header">
-                <h2 class="pageheader-title">{{ session.projectName }}</h2>
+                <h2 class="pageheader-title">{{ session.sessionName }}</h2>
                 <p class="pageheader-text">{{ session.description }} - this is session {{ session.id }}</p>
                 <div class="page-breadcrumb">
                     <nav aria-label="breadcrumb">
@@ -189,15 +189,15 @@
                                             <tbody>
                                             <tr>
                                                 <td>User</td>
-                                                <td>{{ session.username }}</td>
+                                                <td>{{ session.users.username }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Started</td>
-                                                <td>{{ session.dateCreated }}</td>
+                                                <td>{{ session.dateStarted }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Particle size</td>
-                                                <td>{{ session.ptclsSizeMin }}-{{ session.ptclsSizeMax }} A</td>
+                                                <td>{{ session.ptclSizeMin }}-{{ session.ptclSizeMax }} A</td>
                                             </tr>
                                             <tr>
                                                 <td>Num. of particles</td>
