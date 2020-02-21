@@ -1,5 +1,4 @@
 
-
 class SessionManager:
     pass
 
@@ -7,7 +6,7 @@ class SessionManager:
 class SessionData:
     """
     Class that will handle the underlying data associate with a given Session.
-    It will stores information of the acquisition as well as the pre-processing.
+    It will store information of the acquisition as well as the pre-processing.
     """
 
     def getMicrographSets(self, attrList=None, condition=None, setId=None):
@@ -75,6 +74,3 @@ class SessionData:
 
     def updateMicrograph(self, setId, micId, **attrsDict):
         pass
-
-
-

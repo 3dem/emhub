@@ -299,13 +299,13 @@
         var requestMicThumb = $.ajax({
             url: "{{ url_for('get_mic_thumb') }}",
             type: "POST",
-            data: {micId : micId}, // FIXME
+            data: {micId : micId},
             dataType: "json"
            // contentType: "img/png"
         });
 
         requestMicThumb.done(function(data) {
-                //alert("length: " + $("#img_micrograph").length);
+            //alert("length: " + $("#img_micrograph").length);
             $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
             $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
             $("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);
@@ -316,7 +316,7 @@
         });
     }
 
-    (function(window, document, $, undefined) {
+(function(window, document, $, undefined) {
     "use strict";
     $(function() {
 
@@ -326,7 +326,6 @@
                 data: {
                     columns: [ {{ sample|tojson }} ],
                     colors: {sample: '#5969ff'},
-                    // FIXME: mic should be now propagated to micId below
                     onclick: function (d) {
                         console.log("onclick on item#", d.index);
                         request_micrograph_images(d.index);
@@ -342,37 +341,29 @@
         }
 
         if ($('#chartjs_bar1').length) {
-                var ctx = document.getElementById("chartjs_bar1").getContext('2d');
-                var myChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: ["M", "T", "W", "R", "F", "S", "S"],
-                        datasets: [{
-                            label: {{ bar1['label']|tojson }},
-{#                            label: 'Almonds',#}
-                            data: {{ bar1['data']|tojson }},
-                           backgroundColor: "rgba(89, 105, 255,0.5)",
-                                    borderColor: "rgba(89, 105, 255,0.7)",
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            yAxes: [{
-
-                            }]
-                        },
-                             legend: {
+            var ctx = document.getElementById("chartjs_bar1").getContext('2d');
+            var myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ["M", "T", "W", "R", "F", "S", "S"],
+                    datasets: [{
+                        label: {{ bar1['label']|tojson }},
+                        data: {{ bar1['data']|tojson }},
+                        backgroundColor: "rgba(89, 105, 255,0.5)",
+                        borderColor: "rgba(89, 105, 255,0.7)",
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    legend: {
                         display: true,
                         position: 'bottom',
-
                         labels: {
                             fontColor: '#71748d',
                             fontFamily: 'Circular Std Book',
                             fontSize: 14,
                         }
                     },
-
                     scales: {
                         xAxes: [{
                             ticks: {
@@ -390,42 +381,33 @@
                         }]
                     }
                 }
-
-
-                });
+            });
         }
 
         if ($('#chartjs_bar2').length) {
-                var ctx = document.getElementById("chartjs_bar2").getContext('2d');
-                var myChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: ["M", "T", "W", "R", "F", "S", "S"],
-                        datasets: [{
-                            label: 'Cashew',
-                            data: [30, 29, 5, 5, 20, 3, 10],
-                           backgroundColor: "rgba(255, 64, 123,0.5)",
-                                    borderColor: "rgba(255, 64, 123,0.7)",
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        scales: {
-                            yAxes: [{
-
-                            }]
-                        },
-                             legend: {
+            var ctx = document.getElementById("chartjs_bar2").getContext('2d');
+            var myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ["M", "T", "W", "R", "F", "S", "S"],
+                    datasets: [{
+                        label: 'Cashew',
+                        data: [30, 29, 5, 5, 20, 3, 10],
+                        backgroundColor: "rgba(255, 64, 123,0.5)",
+                        borderColor: "rgba(255, 64, 123,0.7)",
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    legend: {
                         display: true,
                         position: 'bottom',
-
                         labels: {
                             fontColor: '#71748d',
                             fontFamily: 'Circular Std Book',
                             fontSize: 14,
                         }
                     },
-
                     scales: {
                         xAxes: [{
                             ticks: {
@@ -443,9 +425,7 @@
                         }]
                     }
                 }
-
-
-                });
+            });
         }
 
         request_micrograph_images(1);

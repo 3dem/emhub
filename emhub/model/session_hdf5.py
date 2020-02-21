@@ -1,11 +1,9 @@
 
-import os
 import base64
 import h5py
 from collections import namedtuple
 from io import BytesIO
 from PIL import Image
-import numpy as np
 
 
 MICROGRAPH_ATTRS = {
@@ -41,6 +39,10 @@ class H5SessionData:
 
     def createMicrographSet(self, setId, **attrs):
         self._file.create_group(self._getMicPath(setId))
+        #self._file.create_dataset(name='setId',
+        #                          data=str(self._getMicPath(setId)).encode('utf-8'),
+        #                          dtype=h5py.string_dtype(encoding='utf-8'),
+        #                          compression='gzip')
 
     def getMicrographs(self, setId, attrList=None, condition=None,
                        itemId=None):
@@ -136,10 +138,3 @@ if __name__ == '__main__':
     hsd = H5SessionData('/tmp/data.h5', 'r')
     for mic in hsd.getMicrographs(setId):
         print(mic)
-
-
-
-
-
-
-
