@@ -46,7 +46,7 @@ def create_app(test_config=None):
 
     @app.route('/index')
     def index():
-        from .models import Session
+        from .model.sqlite import Session
         # get status=True sessions only
         sessions = Session.query.filter_by(status=True).all()
         running_sessions = []
@@ -146,7 +146,7 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
                                    300, 270,
                                    140, 150, 90, 150, 50, 120, 70, 40]
 
-            from .models import User, Session
+            from .model.sqlite import User, Session
             session = Session.query.filter_by(id=session_id).first()
             data = User.query.all()
             bar1 = {'label': 'CTF Defocus',
@@ -161,7 +161,7 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
 
     with app.app_context():
         if not os.path.exists(os.path.join(app.instance_path, 'emhub.sqlite')):
-            from .create_db import create_db_test, create_db_sessions
+            from .model.create_db import create_db_test, create_db_sessions
             db.create_all()
             create_db_test()
             create_db_sessions()

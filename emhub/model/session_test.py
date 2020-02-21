@@ -38,7 +38,6 @@ class TestSessionData:
 
         self._rows = load_scipion_db(self.getFile('ctfs.sqlite'))
 
-
     def getFile(self, *paths):
         return os.path.join(self.dataDir, *paths)
 

@@ -1,6 +1,6 @@
 from datetime import datetime as dt
 from random import randint
-from .models import db, User, Session
+from .sqlite import db, User, Session
 
 
 def create_db_test():
