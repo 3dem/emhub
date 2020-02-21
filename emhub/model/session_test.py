@@ -1,15 +1,18 @@
 
 import os
 import sqlite3
+from collections import namedtuple
 
 
-def load_scipion_db(sqliteFn):
+def get_micrograph_rows(sqliteFn, micId=None):
     """ Load a sqlite file produced by Scipion. """
     rows = None
     try:
         conn = sqlite3.connect(sqliteFn)
+        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        cur.execute("SELECT * FROM Objects")
+        whereStr = '' if micId is None else ' WHERE id=%s' % micId
+        cur.execute("SELECT * FROM Objects" + whereStr)
         rows = cur.fetchall()
         conn.close()
     except Exception as e:
@@ -36,7 +39,7 @@ class TestSessionData:
             raise Exception("Missing %s, defined by EMHUB_TESTDATA"
                             % self.dataDir)
 
-        self._rows = load_scipion_db(self.getFile('ctfs.sqlite'))
+        self._rows = get_micrograph_rows(self.getFile('ctfs.sqlite'))
 
     def getFile(self, *paths):
         return os.path.join(self.dataDir, *paths)
@@ -67,13 +70,13 @@ class TestSessionData:
         """
         raise Exception("Not supported.")
 
-    def getMicrographs(self, setId, attrsList=None, condition=None,
+    def getMicrographs(self, setId, attrList=None, condition=None,
                        itemId=None):
         """ Return the list of all movies of the given set.
 
         Args:
             setId: The id of the set containing the movies
-            attrsList: An optional list of attributes, to avoid returning
+            attrList: An optional list of attributes, to avoid returning
                 all properties for each set. (e.g 'id')
             condition: An optional condition string to filter out
                 the result list of objects
@@ -83,7 +86,36 @@ class TestSessionData:
         Return:
             A list with micrographs objects.
         """
-        pass
+        MICROGRAPH_ATTRS = {'id': 'id',
+                            'location': 'c11',
+                            'ctfDefocus': 'c01',
+                            'ctfDefocusU': 'c01',
+                            'ctfDefocusV': 'c02',
+                            'ctfDefocusAngle': 'c03',
+                            'ctfResolution': 'c06',
+                            'ctfFit': 'c07'
+                            }
+
+        if attrList is None:
+            attrs = list(MICROGRAPH_ATTRS.keys())
+        elif 'id' not in attrList:
+            attrs = ['id'] + attrList
+        else:
+            attrs = attrList
+
+        # Check that all requested attributes in attrList are valid for Micrograph
+        if any(a not in MICROGRAPH_ATTRS for a in attrs):
+            raise Exception("Invalid attribute for micrograph")
+
+        Micrograph = namedtuple('Micrograph', attrs)
+        micList = []
+
+        for row in self._rows:
+            values = {a: row[MICROGRAPH_ATTRS[a]] for a in attrs}
+            micList.append(Micrograph(**values))
+
+        return micList
+
 
     def addMicrograph(self, setId, **attrsDict):
         pass
@@ -91,5 +123,23 @@ class TestSessionData:
     def updateMicrograph(self, setId, **attrsDict):
         pass
 
+    def _get_mic_prefix(self, micId):
+        micDict = {
+            1: '14sep05c_c_00003gr_00014sq_00010hl_00002es.frames',
+            2: '14sep05c_c_00003gr_00014sq_00011hl_00002es.frames',
+            3: '14sep05c_c_00003gr_00014sq_00011hl_00003es.frames',
+            4: '14sep05c_c_00003gr_00014sq_00011hl_00004es.frames'
+        }
+        return micDict.get(micId)
 
+    def _get_micthumb_fn(self, micId):
+        return self.getFile('imgMic/%s_thumbnail.png' % self._get_mic_prefix(micId))
+
+    def _get_micpsd_fn(self, micId):
+        return self.getFile('imgPsd/%s_aligned_mic_ctfEstimation.png'
+                            % self._get_mic_prefix(micId))
+
+    def _get_micshifts_fn(self, micId):
+        return self.getFile('imgShift/%s_global_shifts.png'
+                      % self._get_mic_prefix(micId))
 

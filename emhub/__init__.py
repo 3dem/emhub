@@ -72,37 +72,15 @@ def create_app(test_config=None):
         resp.headers['Access-Control-Allow-Origin'] = '*'
         return resp
 
-    @app.route('/get_mic', methods=['POST'])
-    def get_mic():
-        """
-t20-tutorial/imgMicThumbs/14sep05c_c_00003gr_00014sq_00010hl_00002es.frames_thumbnail.png
-t20-tutorial/imgMicThumbs/14sep05c_c_00003gr_00014sq_00011hl_00002es.frames_thumbnail.png
-t20-tutorial/imgMicThumbs/14sep05c_c_00003gr_00014sq_00011hl_00003es.frames_thumbnail.png
-t20-tutorial/imgMicThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_thumbnail.png
-
-t20-tutorial/imgPsdThumbs/14sep05c_c_00003gr_00014sq_00010hl_00002es.frames_aligned_mic_ctfEstimation.png
-t20-tutorial/imgPsdThumbs/14sep05c_c_00003gr_00014sq_00011hl_00002es.frames_aligned_mic_ctfEstimation.png
-t20-tutorial/imgPsdThumbs/14sep05c_c_00003gr_00014sq_00011hl_00003es.frames_aligned_mic_ctfEstimation.png
-t20-tutorial/imgPsdThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_aligned_mic_ctfEstimation.png
-
-t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00010hl_00002es.frames_global_shifts.png
-t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00002es.frames_global_shifts.png
-t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00003es.frames_global_shifts.png
-t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_global_shifts.png
-
-        :return:
-        """
-        micId = int(request.form['micId'])
-        return send_json_data(get_mic_prefix(micId))
-
     @app.route('/get_mic_thumb', methods=['POST'])
     def get_mic_thumb():
         micId = int(request.form['micId'])
-        micThumb = get_micthumb_fn(micId)
+        tsd = TestSessionData()
+        micThumb = tsd._get_micthumb_fn(micId)
         micThumbBase64 = fn_to_base64(micThumb)
-        micPsd = get_micpsd_fn(micId)
+        micPsd = tsd._get_micpsd_fn(micId)
         micPsdBase64 = fn_to_base64(micPsd)
-        micShifts = get_micshifts_fn(micId)
+        micShifts = tsd._get_micshifts_fn(micId)
         micShiftsBase64 = fn_to_base64(micShifts)
 
         return send_json_data({
@@ -125,6 +103,11 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
 
         return "<h1>Template '%s' not found</h1>" % content_template
 
+    @app.template_filter('basename')
+    def basename(filename):
+        """Convert a string to all caps."""
+        return os.path.basename(filename)
+
     class ContentData:
         # To have a quick way to retrieve data based on the content-id, we just
         # need to call the function get_$content-id_data and it will be
@@ -138,27 +121,26 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
 
         @classmethod
         def get_session_live(cls, session_id):
-            sample = ['Defocus'] + [30, 200, 100, 400, 150, 250, 150, 200, 170, 240,
-                                   350, 150, 100, 400, 150, 250, 150, 200, 170, 240,
-                                   100, 150,
-                                   250, 150, 200, 170, 240, 30, 200, 100, 400, 150,
-                                   250, 150,
-                                   200, 170, 240, 350, 150, 100, 400, 350, 220, 250,
-                                   300, 270,
-                                   140, 150, 90, 150, 50, 120, 70, 40]
+            mics = TestSessionData().getMicrographs(1, ['location', 'ctfDefocus'])
+            defocusList = [m.ctfDefocus for m in mics]
+            sample = ['Defocus'] + defocusList
 
             from .model.sqlite import Session, User
             session = Session.query.filter_by(id=session_id).first()
             data = User.query.all()
             bar1 = {'label': 'CTF Defocus',
-                    'data': [item.defocus for item in data]}
+                    'data': defocusList}
+
+            mics = TestSessionData().getMicrographs(setId=1)
 
             return {'sample': sample,
                     'bar1': bar1,
                     'users': data,
+                    'micrographs': mics,
                     'session': session}
 
     db.init_app(app)
+    app.jinja_env.filters['reverse'] = basename
 
     with app.app_context():
         if not os.path.exists(os.path.join(app.instance_path, 'emhub.sqlite')):
@@ -189,29 +171,4 @@ def pil_to_base64(pil_img):
     return base64.b64encode(img_io.getvalue()).decode("utf-8")
 
 
-def get_mic_prefix(micId):
-    micDict = {
-        1: '14sep05c_c_00003gr_00014sq_00010hl_00002es.frames',
-        2: '14sep05c_c_00003gr_00014sq_00011hl_00002es.frames',
-        3: '14sep05c_c_00003gr_00014sq_00011hl_00003es.frames',
-        4: '14sep05c_c_00003gr_00014sq_00011hl_00004es.frames'
-    }
-    return micDict.get(micId)
 
-
-def get_micthumb_fn(micId):
-    return get_fn('imgMic/%s_thumbnail.png' % get_mic_prefix(micId))
-
-
-def get_micpsd_fn(micId):
-    return get_fn('imgPsd/%s_aligned_mic_ctfEstimation.png'
-                  % get_mic_prefix(micId))
-
-
-def get_micshifts_fn(micId):
-    return get_fn('imgShift/%s_global_shifts.png'
-                  % get_mic_prefix(micId))
-
-
-def get_fn(basename):
-    return os.path.join(EMHUB_TESTDATA, "t20s_pngs", basename)
