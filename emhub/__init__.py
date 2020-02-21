@@ -52,7 +52,7 @@ def create_app(test_config=None):
             running_sessions.append({
                 'microscope': session.microscope,
                 'id': session.id})
-        tsd = TestSessionData()
+
         return render_template('main.html', sessions=running_sessions)
 
     @app.route('/projects')
@@ -111,6 +111,13 @@ def create_app(test_config=None):
             return {} if get_func is None else get_func(session_id)
 
         @classmethod
+        def get_sessions_overview(cls, session_id=None):
+            from .model.sqlite import Session
+            # get status=True sessions only
+            sessions = Session.query.filter_by(status=True).all()
+            return {'sessions': sessions}
+
+        @classmethod
         def get_session_live(cls, session_id):
             mics = TestSessionData().getMicrographs(1, ['location', 'ctfDefocus'])
             defocusList = [m.ctfDefocus for m in mics]
@@ -141,7 +148,3 @@ def create_app(test_config=None):
             create_db_sessions()
 
     return app
-
-
-
-
