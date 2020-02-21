@@ -113,7 +113,7 @@ def create_app(test_config=None):
         @classmethod
         def get_sessions_overview(cls, session_id=None):
             from .model.sqlite import Session
-            sessions = Session.query.filter(Session.status!='Finished').all()
+            sessions = Session.query.filter(Session.status!='Finished').order_by(Session.microscope).all()
             return {'sessions': sessions}
 
         @classmethod
@@ -133,6 +133,12 @@ def create_app(test_config=None):
                     'bar1': bar1,
                     'micrographs': mics,
                     'session': session}
+
+        @classmethod
+        def get_sessions_stats(cls, session_id=None):
+            from .model.sqlite import Session
+            sessions = Session.query.all()
+            return {'sessions': sessions}
 
     db.init_app(app)
     app.jinja_env.filters['reverse'] = basename
