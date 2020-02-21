@@ -115,7 +115,8 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
     def get_content():
         # content = session-live-id#id
         content = request.form['content_id']
-        content_id, session_id = content.split('-id')
+        content_id = content.split('-id')[0]
+        session_id = content.split('-id')[-1] or None
         content_template = content_id + '.html'
 
         if content_template in templates:
@@ -146,7 +147,7 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
                                    300, 270,
                                    140, 150, 90, 150, 50, 120, 70, 40]
 
-            from .model.sqlite import User, Session
+            from .model.sqlite import Session, User
             session = Session.query.filter_by(id=session_id).first()
             data = User.query.all()
             bar1 = {'label': 'CTF Defocus',
