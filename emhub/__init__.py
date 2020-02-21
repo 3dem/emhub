@@ -46,7 +46,16 @@ def create_app(test_config=None):
 
     @app.route('/index')
     def index():
-        return render_template('main.html')
+        from .models import Session
+        # get status=True sessions only
+        sessions = Session.query.filter_by(status=True).all()
+        running_sessions = []
+        for session in sessions:
+            # we need to pass scope name for the link name and the session id
+            running_sessions.append({
+                'microscope': session.microscope,
+                'id': session.id})
+        return render_template('main.html', sessions=running_sessions)
 
     @app.route('/projects')
     def projects():
@@ -103,12 +112,14 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
-        content_id = request.form['content_id']
+        # content = session-live-id#id
+        content = request.form['content_id']
+        content_id, session_id = content.split('-id')
         content_template = content_id + '.html'
 
         if content_template in templates:
             return render_template(content_template,
-                                   **ContentData.get(content_id))
+                                   **ContentData.get(content_id, session_id))
 
         return "<h1>Template '%s' not found</h1>" % content_template
 
@@ -118,13 +129,13 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
         # automatically retrieved. In the name, we need to replace the - in
         # the content id by _
         @classmethod
-        def get(cls, content_id):
+        def get(cls, content_id, session_id):
             get_func_name = 'get_%s' % content_id.replace('-', '_')
             get_func = getattr(cls, get_func_name, None)
-            return {} if get_func is None else get_func()
+            return {} if get_func is None else get_func(session_id)
 
         @classmethod
-        def get_session_live(cls):
+        def get_session_live(cls, session_id):
             sample = ['Defocus'] + [30, 200, 100, 400, 150, 250, 150, 200, 170, 240,
                                    350, 150, 100, 400, 150, 250, 150, 200, 170, 240,
                                    100, 150,
@@ -135,7 +146,7 @@ t20-tutorial/imgShiftThumbs/14sep05c_c_00003gr_00014sq_00011hl_00004es.frames_gl
                                    140, 150, 90, 150, 50, 120, 70, 40]
 
             from .models import User, Session
-            session = Session.query.get(1)  # put session id here
+            session = Session.query.filter_by(id=session_id).first()
             data = User.query.all()
             bar1 = {'label': 'CTF Defocus',
                     'data': [item.defocus for item in data]}

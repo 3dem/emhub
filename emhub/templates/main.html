@@ -201,9 +201,12 @@
                                 <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-10" aria-controls="submenu-10"><i class="fas fa-f fa-folder"></i>Sessions</a>
                                 <div id="submenu-10" class="collapse submenu" style="">
                                     <ul class="nav flex-column">
+                                        <!-- Display only live sessions -->
+                                        {% for session in sessions %}
                                         <li class="nav-item">
-                                            <a class="nav-link nav-link-ajax" id="session-live" href="">Krios 1</a>
+                                            <a class="nav-link nav-link-ajax" id="session-live-id{{session['id']}}" href="">{{ session['microscope'] }}</a>
                                         </li>
+                                        {% endfor %}
                                     </ul>
                                 </div>
                             </li>
