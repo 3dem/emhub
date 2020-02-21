@@ -63,30 +63,10 @@ class TestSessionData:
     def getFile(self, *paths):
         return os.path.join(self.dataDir, *paths)
 
-    def getMicrographSets(self, attrsList=None, condition=None, setId=None):
-        """ Get a list with all available micrograph sets.
-
-        Args:
-            attrsList: An optional list of attributes, to avoid returning
-                all properties for each set. (e.g 'id')
-            condition: An optional condition string to filter out
-                the result list of objects
-            setId: If not None, only the set with that id will be returned
-        """
+    def getMicrographSets(self, attrList=None, condition=None, setId=None):
         return [{'id': 1}]
 
     def createMicrographSet(self, setId, **attrs):
-        """ Create a new set of micrographs.
-
-        Args:
-            setId: The id of the new set that will be created.
-
-        Keyword Args:
-            Extra attributes that will be set to the set object.
-
-        Return:
-            True if the set was successfully created, False otherwise.
-        """
         raise Exception("Not supported.")
 
     def getMicrographs(self, setId, attrList=None, condition=None,
@@ -126,19 +106,7 @@ class TestSessionData:
         return micList
 
     def getMicrograph(self, setId, micId, dataAttrs=None):
-        """
-        Retrieve the information of a given Micrograph, optionally with
-        some images data.
 
-        Args:
-            setId: The id of the set where the requested micrograph belongs.
-            micId: The id of the micrograph to be retrieved.
-            dataAttrs: Optional list of image data attributes.
-
-        Returns:
-            A Micrograph (namedtuple) with the metadata and maybe some
-            data attributes (in base64 string format).
-        """
         dattrs = dataAttrs or []
 
         if any(da not in MICROGRAPH_DATA_ATTRS for da in dattrs):
@@ -158,10 +126,10 @@ class TestSessionData:
         return Micrograph(**values)
 
     def addMicrograph(self, setId, **attrsDict):
-        pass
+        raise Exception("Not supported.")
 
     def updateMicrograph(self, setId, **attrsDict):
-        pass
+        raise Exception("Not supported.")
 
     def compute_micThumbData(self, micPrefix):
         return fn_to_base64(self.getFile('imgMic/%s_thumbnail.png' % micPrefix))
@@ -177,9 +145,12 @@ def fn_to_base64(filename):
     """ Read the image filename as a PIL image
     and encode it as base64.
     """
-    img = Image.open(filename)
-    encoded = pil_to_base64(img)
-    img.close()
+    try:
+        img = Image.open(filename)
+        encoded = pil_to_base64(img)
+        img.close()
+    except:
+        encoded = ''
     return encoded
 
 

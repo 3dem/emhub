@@ -10,11 +10,11 @@ class SessionData:
     It will stores information of the acquisition as well as the pre-processing.
     """
 
-    def getMicrographSets(self, attrsList=None, condition=None, setId=None):
+    def getMicrographSets(self, attrList=None, condition=None, setId=None):
         """ Get a list with all available micrograph sets.
 
         Args:
-            attrsList: An optional list of attributes, to avoid returning
+            attrList: An optional list of attributes, to avoid returning
                 all properties for each set. (e.g 'id')
             condition: An optional condition string to filter out
                 the result list of objects
@@ -36,13 +36,13 @@ class SessionData:
         """
         pass
 
-    def getMicrographs(self, setId, attrsList=None, condition=None,
+    def getMicrographs(self, setId, attrList=None, condition=None,
                        itemId=None):
         """ Return the list of all movies of the given set.
 
         Args:
             setId: The id of the set containing the movies
-            attrsList: An optional list of attributes, to avoid returning
+            attrList: An optional list of attributes, to avoid returning
                 all properties for each set. (e.g 'id')
             condition: An optional condition string to filter out
                 the result list of objects
@@ -54,10 +54,26 @@ class SessionData:
         """
         pass
 
-    def addMicrograph(self, setId, **attrsDict):
+    def getMicrograph(self, setId, micId, dataAttrs=None):
+        """
+        Retrieve the information of a given Micrograph, optionally with
+        some images data.
+
+        Args:
+            setId: The id of the set where the requested micrograph belongs.
+            micId: The id of the micrograph to be retrieved.
+            dataAttrs: Optional list of image data attributes.
+
+        Returns:
+            A Micrograph (namedtuple) with the metadata and maybe some
+            data attributes (in base64 string format).
+        """
         pass
 
-    def updateMicrograph(self, setId, **attrsDict):
+    def addMicrograph(self, setId, micId, **attrsDict):
+        pass
+
+    def updateMicrograph(self, setId, micId, **attrsDict):
         pass
 
 

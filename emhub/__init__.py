@@ -4,7 +4,7 @@ from glob import glob
 
 from flask import Flask, render_template, request, make_response, send_file
 from flask_sqlalchemy import SQLAlchemy
-from .model import TestSessionData
+from .model import TestSessionData, H5SessionData
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -76,7 +76,10 @@ def create_app(test_config=None):
         micId = int(request.form['micId'])
 
         tsd = TestSessionData()
-        mic = tsd.getMicrograph(1, micId, ['micThumbData', 'psdData', 'shiftPlotData'])
+        #tsd = H5SessionData('/tmp/data.h5', 'r')
+        mic = tsd.getMicrograph(1, micId, dataAttrs=['micThumbData',
+                                                     'psdData',
+                                                     'shiftPlotData'])
 
         return send_json_data(mic._asdict())
 
