@@ -255,16 +255,6 @@
                                                 </tr>
                                                 </thead>
                                                 <tbody>
-{#                                                {% for user in users %}#}
-{#                                                <tr>#}
-{#                                                    <td>{{ user.username }}</td>#}
-{#                                                    <td>{{ user.defocus }}</td>#}
-{#                                                    <td>{{ user.email }}</td>#}
-{#                                                    <td>{{ user.created }}</td>#}
-{#                                                    <td>{{ user.bio }}</td>#}
-{#                                                </tr>#}
-{#                                                {% endfor %}#}
-
                                                 {% for mic in micrographs %}
                                                 <tr>
                                                     <td>{{ mic.id }}</td>
@@ -316,9 +306,9 @@
 
         requestMicThumb.done(function(data) {
                 //alert("length: " + $("#img_micrograph").length);
-            $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['thumb-base64']);
-            $("#img_psd").attr('src', 'data:image/png;base64,' + data['psd-base64']);
-            $("#img_shifts").attr('src', 'data:image/png;base64,' + data['shifts-base64']);
+            $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
+            $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
+            $("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);
         });
 
         requestMicThumb.fail(function(jqXHR, textStatus) {

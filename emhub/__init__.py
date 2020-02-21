@@ -1,9 +1,6 @@
 import os
 import json
-import base64
 from glob import glob
-from io import BytesIO
-from PIL import Image
 
 from flask import Flask, render_template, request, make_response, send_file
 from flask_sqlalchemy import SQLAlchemy
@@ -67,6 +64,8 @@ def create_app(test_config=None):
         return render_template('micrographs.html')
 
     def send_json_data(data):
+        with open('data.json', 'w') as f:
+            json.dump(data, f)
         resp = make_response(json.dumps(data))
         resp.status_code = 200
         resp.headers['Access-Control-Allow-Origin'] = '*'
@@ -75,19 +74,11 @@ def create_app(test_config=None):
     @app.route('/get_mic_thumb', methods=['POST'])
     def get_mic_thumb():
         micId = int(request.form['micId'])
-        tsd = TestSessionData()
-        micThumb = tsd._get_micthumb_fn(micId)
-        micThumbBase64 = fn_to_base64(micThumb)
-        micPsd = tsd._get_micpsd_fn(micId)
-        micPsdBase64 = fn_to_base64(micPsd)
-        micShifts = tsd._get_micshifts_fn(micId)
-        micShiftsBase64 = fn_to_base64(micShifts)
 
-        return send_json_data({
-            'thumb': micThumb, 'thumb-base64': micThumbBase64,
-            'psd': micPsd, 'psd-base64': micPsdBase64,
-            'shifts': micShifts, 'shifts-base64': micShiftsBase64,
-        })
+        tsd = TestSessionData()
+        mic = tsd.getMicrograph(1, micId, ['micThumbData', 'psdData', 'shiftPlotData'])
+
+        return send_json_data(mic._asdict())
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
@@ -151,24 +142,6 @@ def create_app(test_config=None):
 
     return app
 
-
-def fn_to_base64(filename):
-    """ Read the image filename as a PIL image
-    and encode it as base64.
-    """
-    img = Image.open(filename)
-    encoded = pil_to_base64(img)
-    img.close()
-    return encoded
-
-
-def pil_to_base64(pil_img):
-    """ Encode as base64 the PIL image to be
-    returned as an AJAX response.
-    """
-    img_io = BytesIO()
-    pil_img.save(img_io, format='PNG')
-    return base64.b64encode(img_io.getvalue()).decode("utf-8")
 
 
 

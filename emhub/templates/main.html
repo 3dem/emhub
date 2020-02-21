@@ -334,8 +334,6 @@
 
     $(document).ready(function(){
 
-      //$("#ecommerce_product").click(load_content);
-
       $('.nav-link-ajax').each(function(){
           $(this).click(load_content);
         });
@@ -343,43 +341,6 @@
     });
 
 
-
-    // $("#micTable tr").click(function(){
-    //    var micId=$(this).find('th:first').html();
-    //
-    //     <!--var request = $.ajax({-->
-    //         <!--url: "{{ url_for('get_mic') }}",-->
-    //         <!--type: "POST",-->
-    //         <!--data: {micId : micId},-->
-    //         <!--dataType: "json"-->
-    //     <!--});-->
-    //
-    //     <!--request.done(function(msg) {-->
-    //       <!--//alert("Received: " + msg);-->
-    //     <!--});-->
-    //
-    //     <!--request.fail(function(jqXHR, textStatus) {-->
-    //       <!--alert( "Request failed: " + textStatus );-->
-    //     <!--});-->
-    //
-    //     var requestMicThumb = $.ajax({
-    //         url: "{{ url_for('get_mic_thumb') }}",
-    //         type: "POST",
-    //         data: {micId : micId},
-    //         dataType: "json"
-    //        // contentType: "img/png"
-    //     });
-    //
-    //     requestMicThumb.done(function(data) {
-    //         //alert( "Received: " + data['thumbnail'] );
-    //         $("#micThumb").attr('src', 'data:image/png;base64,' + data['base64']);
-    //     });
-    //
-    //     requestMicThumb.fail(function(jqXHR, textStatus) {
-    //       alert( "Request failed: " + textStatus );
-    //     });
-    //
-    // });
 </script>
 <script src="{{ url_for('static', filename='vendor/jquery/jquery-3.3.1.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.js') }}"></script>

@@ -1,8 +1,26 @@
 
 import os
 import sqlite3
+import base64
 from collections import namedtuple
+from io import BytesIO
+from PIL import Image
 
+
+MICROGRAPH_ATTRS = {
+    'id': 'id',
+    'location': 'c11',
+    'ctfDefocus': 'c01',
+    'ctfDefocusU': 'c01',
+    'ctfDefocusV': 'c02',
+    'ctfDefocusAngle': 'c03',
+    'ctfResolution': 'c06',
+    'ctfFit': 'c07'
+}
+
+MICROGRAPH_DATA_ATTRS = [
+    'micThumbData', 'psdData', 'ctfFitData', 'shiftPlotData'
+]
 
 def get_micrograph_rows(sqliteFn, micId=None):
     """ Load a sqlite file produced by Scipion. """
@@ -40,6 +58,7 @@ class TestSessionData:
                             % self.dataDir)
 
         self._rows = get_micrograph_rows(self.getFile('ctfs.sqlite'))
+        self._rowsDict = {row['id']: row for row in self._rows}
 
     def getFile(self, *paths):
         return os.path.join(self.dataDir, *paths)
@@ -86,16 +105,6 @@ class TestSessionData:
         Return:
             A list with micrographs objects.
         """
-        MICROGRAPH_ATTRS = {'id': 'id',
-                            'location': 'c11',
-                            'ctfDefocus': 'c01',
-                            'ctfDefocusU': 'c01',
-                            'ctfDefocusV': 'c02',
-                            'ctfDefocusAngle': 'c03',
-                            'ctfResolution': 'c06',
-                            'ctfFit': 'c07'
-                            }
-
         if attrList is None:
             attrs = list(MICROGRAPH_ATTRS.keys())
         elif 'id' not in attrList:
@@ -116,6 +125,37 @@ class TestSessionData:
 
         return micList
 
+    def getMicrograph(self, setId, micId, dataAttrs=None):
+        """
+        Retrieve the information of a given Micrograph, optionally with
+        some images data.
+
+        Args:
+            setId: The id of the set where the requested micrograph belongs.
+            micId: The id of the micrograph to be retrieved.
+            dataAttrs: Optional list of image data attributes.
+
+        Returns:
+            A Micrograph (namedtuple) with the metadata and maybe some
+            data attributes (in base64 string format).
+        """
+        dattrs = dataAttrs or []
+
+        if any(da not in MICROGRAPH_DATA_ATTRS for da in dattrs):
+            raise Exception("Invalid data attribute for micrograph. ")
+
+        attrs = list(MICROGRAPH_ATTRS.keys())
+        row = self._rowsDict[micId]
+        values = {a: row[MICROGRAPH_ATTRS[a]] for a in attrs}
+
+        micPrefix = os.path.basename(values['location']).replace('_aligned_mic.mrc', '')
+        for da in dattrs:
+            computeFunc = getattr(self, 'compute_%s' % da)
+            values[da] = computeFunc(micPrefix)
+
+        attrs.extend(dattrs)
+        Micrograph = namedtuple('Micrograph', attrs)
+        return Micrograph(**values)
 
     def addMicrograph(self, setId, **attrsDict):
         pass
@@ -123,23 +163,30 @@ class TestSessionData:
     def updateMicrograph(self, setId, **attrsDict):
         pass
 
-    def _get_mic_prefix(self, micId):
-        micDict = {
-            1: '14sep05c_c_00003gr_00014sq_00010hl_00002es.frames',
-            2: '14sep05c_c_00003gr_00014sq_00011hl_00002es.frames',
-            3: '14sep05c_c_00003gr_00014sq_00011hl_00003es.frames',
-            4: '14sep05c_c_00003gr_00014sq_00011hl_00004es.frames'
-        }
-        return micDict.get(micId)
+    def compute_micThumbData(self, micPrefix):
+        return fn_to_base64(self.getFile('imgMic/%s_thumbnail.png' % micPrefix))
 
-    def _get_micthumb_fn(self, micId):
-        return self.getFile('imgMic/%s_thumbnail.png' % self._get_mic_prefix(micId))
+    def compute_psdData(self, micPrefix):
+        return fn_to_base64(self.getFile('imgPsd/%s_aligned_mic_ctfEstimation.png' % micPrefix))
 
-    def _get_micpsd_fn(self, micId):
-        return self.getFile('imgPsd/%s_aligned_mic_ctfEstimation.png'
-                            % self._get_mic_prefix(micId))
+    def compute_shiftPlotData(self, micPrefix):
+        return fn_to_base64(self.getFile('imgShift/%s_global_shifts.png' % micPrefix))
 
-    def _get_micshifts_fn(self, micId):
-        return self.getFile('imgShift/%s_global_shifts.png'
-                      % self._get_mic_prefix(micId))
 
+def fn_to_base64(filename):
+    """ Read the image filename as a PIL image
+    and encode it as base64.
+    """
+    img = Image.open(filename)
+    encoded = pil_to_base64(img)
+    img.close()
+    return encoded
+
+
+def pil_to_base64(pil_img):
+    """ Encode as base64 the PIL image to be
+    returned as an AJAX response.
+    """
+    img_io = BytesIO()
+    pil_img.save(img_io, format='PNG')
+    return base64.b64encode(img_io.getvalue()).decode("utf-8")
