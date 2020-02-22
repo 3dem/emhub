@@ -2,7 +2,7 @@ import os
 from datetime import datetime as dt
 
 from sqlalchemy import (create_engine, Column, Integer, String, DateTime,
-                        Boolean, Float, ForeignKey, Text)
+                        Boolean, Float, ForeignKey, Text, text)
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -12,7 +12,8 @@ class SessionManager:
     """
     def __init__(self, sqlitePath):
         engine = create_engine('sqlite:///' + sqlitePath,
-                               convert_unicode=True)
+                               convert_unicode=True,
+                               echo=True)
         self._db_session = scoped_session(sessionmaker(autocommit=False,
                                                        autoflush=False,
                                                        bind=engine))
@@ -28,20 +29,40 @@ class SessionManager:
             # populate db with test data
             self.__populateTestData()
 
-    def get_sessions(self, condition=None):
-        pass
+    def get_sessions(self, condition=None, orderBy=None):
+        """ Returns a list.
+        condition example: text("id<:value and name=:name")
+        """
+        if condition is not None and orderBy is None:
+            return self.Session.query.filter(text(condition)).all()
+        elif condition is not None and orderBy is not None:
+            return self.Session.query.filter(text(condition)).order_by(orderBy).all()
+        else:
+            return self.Session.query.all()
 
     def create_session(self, sessionId, **attrs):
-        pass
+        """ Add a new session row. """
+        new_session = self.Session(**attrs)
+        self._db_session.add(new_session)
+        self._db_session.commit()
 
     def update_session(self, sessionId, **attrs):
-        pass
+        """ Update session attrs. """
+        session = self.Session.query.get(sessionId)
+
+        for attr in attrs.items():
+            session.attr = attrs[attr]
+
+        self._db_session.commit()
 
     def delete_session(self, sessionId):
-        pass
+        """ Remove a session row. """
+        session = self.Session.query.get(sessionId)
+        self._db_session.delete(session)
+        self._db_session.commit()
 
     def load_session(self, sessionId):
-        pass
+        return self.Session.query.get(sessionId)
 
     def close(self):
         self._db_session.remove()
@@ -196,7 +217,7 @@ class SessionManager:
                             admin=False)
             self._db_session.add(new_user)
 
-        # Create sessions table with 3 rows."""
+        # Create sessions table.
         users = [1, 2, 2]
         session_names = ['supervisor_23423452_20201223_123445',
                          'epu-mysession_20122310_234542',

@@ -17,15 +17,8 @@ def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-    app.config.from_mapping(
-        SECRET_KEY='dev',
-        #DATABASE=os.path.join(app.instance_path, 'emhub.sqlite'),
-    )
-
+    app.config.from_mapping(SECRET_KEY='dev')
     dbPath = os.path.join(app.instance_path, 'emhub.sqlite')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + dbPath
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SQLALCHEMY_ECHO'] = True
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -42,9 +35,8 @@ def create_app(test_config=None):
 
     @app.route('/index')
     def index():
-        # get status=True sessions only
-        Session = app.sm.Session
-        sessions = Session.query.filter(Session.status != 'Finished').all()
+        # get status!=Finished sessions only
+        sessions = app.sm.get_sessions(condition='status!="Finished"')
         running_sessions = []
         for session in sessions:
             # we need to pass scope name for the link name and the session id
@@ -68,7 +60,7 @@ def create_app(test_config=None):
         sessionId = int(request.form['sessionId'])
 
         #tsd = TestSessionData()
-        session = app.sm.Session.query.get(sessionId)
+        session = app.sm.load_session(sessionId)
         tsd = H5SessionData(session.sessionData, 'r')
         setObj = tsd.get_sets()[0]
         mic = tsd.get_item(setObj['id'], micId,
@@ -108,8 +100,8 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_overview(cls, session_id=None):
-            Session = app.sm.Session
-            sessions = Session.query.filter(Session.status != 'Finished').order_by(Session.microscope).all()
+            sessions = app.sm.get_sessions(condition='status!="Finished"',
+                                           orderBy='microscope')
             return {'sessions': sessions}
 
         @classmethod
@@ -118,7 +110,7 @@ def create_app(test_config=None):
             defocusList = [m.ctfDefocus for m in mics]
             sample = ['Defocus'] + defocusList
 
-            session = app.sm.Session.query.get(session_id)
+            session = app.sm.load_session(session_id)
             bar1 = {'label': 'CTF Defocus',
                     'data': defocusList}
 
@@ -131,7 +123,7 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_stats(cls, session_id=None):
-            sessions = app.sm.Session.query.all()
+            sessions = app.sm.get_sessions()
             return {'sessions': sessions}
 
     app.jinja_env.filters['reverse'] = basename
