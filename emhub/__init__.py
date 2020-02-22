@@ -42,8 +42,8 @@ def create_app(test_config=None):
 
     @app.route('/index')
     def index():
-        from emhub.session.db_models import Session
         # get status=True sessions only
+        Session = app.sm.Session
         sessions = Session.query.filter(Session.status != 'Finished').all()
         running_sessions = []
         for session in sessions:
@@ -68,7 +68,6 @@ def create_app(test_config=None):
         sessionId = int(request.form['sessionId'])
 
         #tsd = TestSessionData()
-        #from emhub.session.db_models import Session
         session = app.sm.Session.query.get(sessionId)
         tsd = H5SessionData(session.sessionData, 'r')
         setObj = tsd.get_sets()[0]
@@ -119,7 +118,7 @@ def create_app(test_config=None):
             defocusList = [m.ctfDefocus for m in mics]
             sample = ['Defocus'] + defocusList
 
-            session = app.sm.Session.query.filter_by(id=session_id).first()
+            session = app.sm.Session.query.get(session_id)
             bar1 = {'label': 'CTF Defocus',
                     'data': defocusList}
 
@@ -132,8 +131,7 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_stats(cls, session_id=None):
-            from emhub.session.db_models import Session
-            sessions = Session.query.all()
+            sessions = app.sm.Session.query.all()
             return {'sessions': sessions}
 
     app.jinja_env.filters['reverse'] = basename
