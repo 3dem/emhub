@@ -4,6 +4,7 @@ from glob import glob
 
 from flask import Flask, render_template, request, make_response
 from .model import TestSessionData, H5SessionData
+from emhub.model.db_models import Session
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -40,7 +41,6 @@ def create_app(test_config=None):
 
     @app.route('/index')
     def index():
-        from emhub.model.db_models import Session
         # get status=True sessions only
         sessions = Session.query.filter(Session.status != 'Finished').all()
         running_sessions = []
@@ -66,7 +66,6 @@ def create_app(test_config=None):
         sessionId = int(request.form['sessionId'])
 
         #tsd = TestSessionData()
-        from emhub.model.db_models import Session
         session = Session.query.get(sessionId)
         tsd = H5SessionData(session.sessionData, 'r')
         setObj = tsd.get_sets()[0]
@@ -107,7 +106,6 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_overview(cls, session_id=None):
-            from emhub.model.db_models import Session
             sessions = Session.query.filter(Session.status != 'Finished').order_by(Session.microscope).all()
             return {'sessions': sessions}
 
@@ -117,7 +115,6 @@ def create_app(test_config=None):
             defocusList = [m.ctfDefocus for m in mics]
             sample = ['Defocus'] + defocusList
 
-            from emhub.model.db_models import Session
             session = Session.query.filter_by(id=session_id).first()
             bar1 = {'label': 'CTF Defocus',
                     'data': defocusList}
@@ -131,7 +128,6 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_stats(cls, session_id=None):
-            from emhub.model.db_models import Session
             sessions = Session.query.all()
             return {'sessions': sessions}
 
