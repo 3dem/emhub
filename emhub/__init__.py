@@ -68,10 +68,10 @@ def create_app(test_config=None):
         micId = int(request.form['micId'])
 
         #tsd = TestSessionData()
-        tsd = H5SessionData('/tmp/data.h5', 'r')
-        mic = tsd.getMicrograph(1, micId, dataAttrs=['micThumbData',
-                                                     'psdData',
-                                                     'shiftPlotData'])
+        tsd = H5SessionData('/tmp/20181108_relion30_tutorial.h5', 'r')
+        setObj = tsd.get_sets()[0]
+        mic = tsd.get_item(setObj['id'], micId,
+                           dataAttrs=['micThumbData', 'psdData', 'shiftPlotData'])
 
         return send_json_data(mic._asdict())
 
@@ -113,7 +113,7 @@ def create_app(test_config=None):
 
         @classmethod
         def get_session_live(cls, session_id):
-            mics = TestSessionData().getMicrographs(1, ['location', 'ctfDefocus'])
+            mics = TestSessionData().get_items(1, ['location', 'ctfDefocus'])
             defocusList = [m.ctfDefocus for m in mics]
             sample = ['Defocus'] + defocusList
 
@@ -122,7 +122,7 @@ def create_app(test_config=None):
             bar1 = {'label': 'CTF Defocus',
                     'data': defocusList}
 
-            mics = TestSessionData().getMicrographs(setId=1)
+            mics = TestSessionData().get_items(setId=1)
 
             return {'sample': sample,
                     'bar1': bar1,
