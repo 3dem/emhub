@@ -1,8 +1,8 @@
 import os
 from datetime import datetime as dt
 
-from emhub.model.database import db_session, init_db
-from emhub.model.db_models import User, Session
+from emhub.session.database import db_session, init_db
+from emhub.session.db_models import User, Session
 
 
 # run this file before starting flask:

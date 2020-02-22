@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, ForeignKey, Text
 from sqlalchemy.orm import relationship
-from emhub.model.database import Base
+from emhub.session.database import Base
 
 
 class User(Base):
