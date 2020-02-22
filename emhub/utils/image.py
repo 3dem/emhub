@@ -1,16 +1,19 @@
 
 import io
 import base64
-import PIL
+from PIL import Image
 
 
 def fn_to_base64(filename):
     """ Read the image filename as a PIL image
     and encode it as base64.
     """
-    img = PIL.Image.open(filename)
-    encoded = pil_to_base64(img)
-    img.close()
+    try:
+        img = Image.open(filename)
+        encoded = pil_to_base64(img)
+        img.close()
+    except:
+        encoded = ''
     return encoded
 
 def pil_to_base64(pil_img):
