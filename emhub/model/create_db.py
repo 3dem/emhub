@@ -1,8 +1,12 @@
 import os
 from datetime import datetime as dt
-from .sqlite import User, Session
-from .. import db
 
+from emhub.model.database import db_session, init_db
+from emhub.model.db_models import User, Session
+
+
+# run this file before starting flask:
+# export PYTHONPATH=`pwd`; python emhub/model/create_db.py
 
 def create_tables():
     # Create a test user database
@@ -14,7 +18,7 @@ def create_tables():
                         email=email,
                         created=dt.now(),
                         admin=False)
-        db.session.add(new_user)
+        db_session.add(new_user)
 
     # Create a test sessions table with 3 rows."""
     users = [1, 2, 2]
@@ -62,5 +66,11 @@ def create_tables():
             ptclSizeMin=140,
             ptclSizeMax=160,
         )
-        db.session.add(new_session)
-    db.session.commit()
+        db_session.add(new_session)
+    db_session.commit()
+
+
+db_file = os.path.join('/tmp/emhub.sqlite')
+if not os.path.exists(db_file):
+    init_db()
+    create_tables()
