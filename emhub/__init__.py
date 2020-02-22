@@ -3,8 +3,7 @@ import json
 from glob import glob
 
 from flask import Flask, render_template, request, make_response
-from .model import TestSessionData, H5SessionData
-from emhub.model.db_models import Session
+from .session import TestSessionData, H5SessionData
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -22,7 +21,9 @@ def create_app(test_config=None):
         SECRET_KEY='dev',
         #DATABASE=os.path.join(app.instance_path, 'emhub.sqlite'),
     )
-    #app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'emhub.sqlite')
+
+    dbPath = os.path.join(app.instance_path, 'emhub.sqlite')
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + dbPath
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ECHO'] = True
 
@@ -42,6 +43,7 @@ def create_app(test_config=None):
     @app.route('/index')
     def index():
         # get status=True sessions only
+        Session = app.sm.Session
         sessions = Session.query.filter(Session.status != 'Finished').all()
         running_sessions = []
         for session in sessions:
@@ -66,7 +68,7 @@ def create_app(test_config=None):
         sessionId = int(request.form['sessionId'])
 
         #tsd = TestSessionData()
-        session = Session.query.get(sessionId)
+        session = app.sm.Session.query.get(sessionId)
         tsd = H5SessionData(session.sessionData, 'r')
         setObj = tsd.get_sets()[0]
         mic = tsd.get_item(setObj['id'], micId,
@@ -106,6 +108,7 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_overview(cls, session_id=None):
+            Session = app.sm.Session
             sessions = Session.query.filter(Session.status != 'Finished').order_by(Session.microscope).all()
             return {'sessions': sessions}
 
@@ -115,7 +118,7 @@ def create_app(test_config=None):
             defocusList = [m.ctfDefocus for m in mics]
             sample = ['Defocus'] + defocusList
 
-            session = Session.query.filter_by(id=session_id).first()
+            session = app.sm.Session.query.get(session_id)
             bar1 = {'label': 'CTF Defocus',
                     'data': defocusList}
 
@@ -128,14 +131,15 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_stats(cls, session_id=None):
-            sessions = Session.query.all()
+            sessions = app.sm.Session.query.all()
             return {'sessions': sessions}
 
     app.jinja_env.filters['reverse'] = basename
-    from emhub.model.database import db_session
+    from emhub.session.sqlalchemy import SessionManager
+    app.sm = SessionManager(dbPath)
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):
-        db_session.remove()
+        app.sm.close()
 
     return app
