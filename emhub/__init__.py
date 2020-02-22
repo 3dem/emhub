@@ -3,13 +3,10 @@ import json
 from glob import glob
 
 from flask import Flask, render_template, request, make_response
-from .session import TestSessionData, H5SessionData
+
 
 here = os.path.abspath(os.path.dirname(__file__))
-
 templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
-
-EMHUB_TESTDATA = os.environ.get('EMHUB_TESTDATA', '')
 
 
 def create_app(test_config=None):
@@ -58,13 +55,11 @@ def create_app(test_config=None):
     def get_mic_thumb():
         micId = int(request.form['micId'])
         sessionId = int(request.form['sessionId'])
-
-        #tsd = TestSessionData()
         session = app.sm.load_session(sessionId)
-        tsd = H5SessionData(session.sessionData, 'r')
-        setObj = tsd.get_sets()[0]
-        mic = tsd.get_item(setObj['id'], micId,
-                           dataAttrs=['micThumbData', 'psdData', 'shiftPlotData'])
+        setObj = session.data.get_sets()[0]
+        mic = session.data.get_item(setObj['id'], micId,
+                                    dataAttrs=['micThumbData',
+                                               'psdData', 'shiftPlotData'])
 
         return send_json_data(mic._asdict())
 
@@ -106,15 +101,14 @@ def create_app(test_config=None):
 
         @classmethod
         def get_session_live(cls, session_id):
-            mics = TestSessionData().get_items(1, ['location', 'ctfDefocus'])
+            session = app.sm.load_session(session_id)
+            firstSetId = session.data.get_sets()[0]['id']
+            mics = session.data.get_items(firstSetId, ['location', 'ctfDefocus'])
             defocusList = [m.ctfDefocus for m in mics]
             sample = ['Defocus'] + defocusList
 
-            session = app.sm.load_session(session_id)
             bar1 = {'label': 'CTF Defocus',
                     'data': defocusList}
-
-            mics = TestSessionData().get_items(setId=1)
 
             return {'sample': sample,
                     'bar1': bar1,

@@ -25,6 +25,8 @@ class H5SessionData:
     """
     def __init__(self, h5File, mode='r'):
         #h5py.get_config().track_order = True
+        print("Loading files: ", h5File)
+
         self._file = h5py.File(h5File, mode)
 
     def get_sets(self, attrList=None, condition=None, setId=None):

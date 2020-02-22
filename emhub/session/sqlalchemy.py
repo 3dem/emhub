@@ -6,6 +6,8 @@ from sqlalchemy import (create_engine, Column, Integer, String, DateTime,
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
+from .session_hdf5 import H5SessionData
+
 
 class SessionManager:
     """ Main class that will manage the sessions and their information.
@@ -28,6 +30,9 @@ class SessionManager:
             Base.metadata.create_all(bind=engine)
             # populate db with test data
             self.__populateTestData()
+
+        self._lastSessionId = None
+        self._lastSession = None
 
     def get_sessions(self, condition=None, orderBy=None):
         """ Returns a list.
@@ -62,9 +67,20 @@ class SessionManager:
         self._db_session.commit()
 
     def load_session(self, sessionId):
-        return self.Session.query.get(sessionId)
+        if sessionId == self._lastSessionId:
+            session = self._lastSession
+        else:
+            session = self.Session.query.get(sessionId)
+            session.data = H5SessionData(session.sessionData, 'r')
+            self._lastSessionId = sessionId
+            self._lastSession = session
+
+        return session
 
     def close(self):
+        # if self._lastSession is not None:
+        #     self._lastSession.data.close()
+
         self._db_session.remove()
 
     def __createModels(self, Base):
