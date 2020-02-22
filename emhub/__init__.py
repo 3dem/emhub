@@ -66,9 +66,12 @@ def create_app(test_config=None):
     @app.route('/get_mic_thumb', methods=['POST'])
     def get_mic_thumb():
         micId = int(request.form['micId'])
+        sessionId = int(request.form['sessionId'])
 
         #tsd = TestSessionData()
-        tsd = H5SessionData('/tmp/20181108_relion30_tutorial.h5', 'r')
+        from .model.sqlite import Session
+        session = Session.query.get(sessionId)
+        tsd = H5SessionData(session.sessionData, 'r')
         setObj = tsd.get_sets()[0]
         mic = tsd.get_item(setObj['id'], micId,
                            dataAttrs=['micThumbData', 'psdData', 'shiftPlotData'])

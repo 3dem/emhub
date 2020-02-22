@@ -1,3 +1,4 @@
+import os
 from datetime import datetime as dt
 from .sqlite import User, Session
 from .. import db
@@ -20,6 +21,11 @@ def create_tables():
     session_names = ['supervisor_23423452_20201223_123445',
                      'epu-mysession_20122310_234542',
                      'mysession_very_long_name']
+
+    testData = os.environ.get('EMHUB_TESTDATA', None)
+    fns = [os.path.join(testData, 'hdf5/20181108_relion30_tutorial.h5'),
+           os.path.join(testData, 'hdf5/t20s_pngs.h5'), 'non-existing-file']
+
     scopes = ['Krios 1', 'Krios 2', 'Krios 3']
     numMovies = [423, 234, 2543]
     numMics = [0, 234, 2543]
@@ -27,10 +33,11 @@ def create_tables():
     numPtcls = [0, 0, 2352534]
     status = ['Running', 'Error', 'Finished']
 
-    for u, s, st, sc, movies, mics, ctfs, ptcls in zip(users, session_names,
-                                                       status, scopes, numMovies,
-                                                       numMics, numCtfs, numPtcls):
+    for f, u, s, st, sc, movies, mics, ctfs, ptcls in zip(fns, users, session_names,
+                                                          status, scopes, numMovies,
+                                                          numMics, numCtfs, numPtcls):
         new_session = Session(
+            sessionData=f,
             userid=u,
             sessionName=s,
             dateStarted=dt.now(),

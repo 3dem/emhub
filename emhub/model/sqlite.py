@@ -35,6 +35,10 @@ class Session(db.Model):
     __tablename__ = 'sessions'
     id = db.Column(db.Integer,
                    primary_key=True)
+    sessionData = db.Column(db.String(80),
+                            index=False,
+                            unique=True,
+                            nullable=False)
     sessionName = db.Column(db.String(80),
                             index=True,
                             unique=False,
