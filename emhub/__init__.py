@@ -2,7 +2,7 @@ import os
 import json
 from glob import glob
 
-from flask import Flask, render_template, request, make_response, send_file
+from flask import Flask, render_template, request, make_response
 from flask_sqlalchemy import SQLAlchemy
 from .model import TestSessionData, H5SessionData
 
@@ -45,7 +45,7 @@ def create_app(test_config=None):
     def index():
         from .model.sqlite import Session
         # get status=True sessions only
-        sessions = Session.query.filter(Session.status!='Finished').all()
+        sessions = Session.query.filter(Session.status != 'Finished').all()
         running_sessions = []
         for session in sessions:
             # we need to pass scope name for the link name and the session id
@@ -54,14 +54,6 @@ def create_app(test_config=None):
                 'id': session.id})
 
         return render_template('main.html', sessions=running_sessions)
-
-    @app.route('/projects')
-    def projects():
-        return render_template('projects.html')
-
-    @app.route('/micrographs')
-    def micrographs():
-        return render_template('micrographs.html')
 
     def send_json_data(data):
         with open('data.json', 'w') as f:
@@ -75,8 +67,8 @@ def create_app(test_config=None):
     def get_mic_thumb():
         micId = int(request.form['micId'])
 
-        tsd = TestSessionData()
-        #tsd = H5SessionData('/tmp/data.h5', 'r')
+        #tsd = TestSessionData()
+        tsd = H5SessionData('/tmp/data.h5', 'r')
         mic = tsd.getMicrograph(1, micId, dataAttrs=['micThumbData',
                                                      'psdData',
                                                      'shiftPlotData'])
@@ -116,7 +108,7 @@ def create_app(test_config=None):
         @classmethod
         def get_sessions_overview(cls, session_id=None):
             from .model.sqlite import Session
-            sessions = Session.query.filter(Session.status!='Finished').order_by(Session.microscope).all()
+            sessions = Session.query.filter(Session.status != 'Finished').order_by(Session.microscope).all()
             return {'sessions': sessions}
 
         @classmethod

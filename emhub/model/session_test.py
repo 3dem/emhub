@@ -22,6 +22,7 @@ MICROGRAPH_DATA_ATTRS = [
     'micThumbData', 'psdData', 'ctfFitData', 'shiftPlotData'
 ]
 
+
 def get_micrograph_rows(sqliteFn, micId=None):
     """ Load a sqlite file produced by Scipion. """
     rows = None
@@ -42,7 +43,7 @@ def get_micrograph_rows(sqliteFn, micId=None):
 class TestSessionData:
     """
     Very simple implementation of SessionData for testing purposes.
-    This class dependes on the definition of EMHUB_TESTDATA environment
+    This class depends on the definition of EMHUB_TESTDATA environment
     variable and the t20s_pngs folder inside it.
     """
     def __init__(self):
