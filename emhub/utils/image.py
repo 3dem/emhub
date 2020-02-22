@@ -16,6 +16,7 @@ def fn_to_base64(filename):
         encoded = ''
     return encoded
 
+
 def pil_to_base64(pil_img):
     """ Encode as base64 the PIL image to be
     returned as an AJAX response.

@@ -295,11 +295,11 @@
 } );
 </script>
 <script>
-    function request_micrograph_images(micId) {
+    function request_micrograph_images(sessionId, micId) {
         var requestMicThumb = $.ajax({
             url: "{{ url_for('get_mic_thumb') }}",
             type: "POST",
-            data: {micId : micId},
+            data: {micId : micId, sessionId: sessionId},
             dataType: "json"
            // contentType: "img/png"
         });
@@ -328,8 +328,8 @@
                     colors: {sample: '#5969ff'},
                     onclick: function (d) {
                         console.log("onclick on item#", d.index);
-                        request_micrograph_images(d.index);
-                        document.getElementById("itemId").innerHTML = "Results for item #" + d.index;
+                        request_micrograph_images({{ session.id }}, d.index);
+                        document.getElementById("itemId").innerHTML = "Results for session #{{session.id}}, item #" + d.index;
                     },
                 },
                 zoom: {enabled: true},
@@ -428,7 +428,7 @@
             });
         }
 
-        request_micrograph_images(1);
+        request_micrograph_images({{ session.id}}, 1);
 
     });
 

@@ -1,7 +1,12 @@
+import os
 from datetime import datetime as dt
-from .sqlite import User, Session
-from .. import db
 
+from emhub.model.database import db_session, init_db
+from emhub.model.db_models import User, Session
+
+
+# run this file before starting flask:
+# export PYTHONPATH=`pwd`; python emhub/model/create_db.py
 
 def create_tables():
     # Create a test user database
@@ -13,13 +18,18 @@ def create_tables():
                         email=email,
                         created=dt.now(),
                         admin=False)
-        db.session.add(new_user)
+        db_session.add(new_user)
 
     # Create a test sessions table with 3 rows."""
     users = [1, 2, 2]
     session_names = ['supervisor_23423452_20201223_123445',
                      'epu-mysession_20122310_234542',
                      'mysession_very_long_name']
+
+    testData = os.environ.get('EMHUB_TESTDATA', None)
+    fns = [os.path.join(testData, 'hdf5/20181108_relion30_tutorial.h5'),
+           os.path.join(testData, 'hdf5/t20s_pngs.h5'), 'non-existing-file']
+
     scopes = ['Krios 1', 'Krios 2', 'Krios 3']
     numMovies = [423, 234, 2543]
     numMics = [0, 234, 2543]
@@ -27,10 +37,11 @@ def create_tables():
     numPtcls = [0, 0, 2352534]
     status = ['Running', 'Error', 'Finished']
 
-    for u, s, st, sc, movies, mics, ctfs, ptcls in zip(users, session_names,
-                                                       status, scopes, numMovies,
-                                                       numMics, numCtfs, numPtcls):
+    for f, u, s, st, sc, movies, mics, ctfs, ptcls in zip(fns, users, session_names,
+                                                          status, scopes, numMovies,
+                                                          numMics, numCtfs, numPtcls):
         new_session = Session(
+            sessionData=f,
             userid=u,
             sessionName=s,
             dateStarted=dt.now(),
@@ -55,5 +66,11 @@ def create_tables():
             ptclSizeMin=140,
             ptclSizeMax=160,
         )
-        db.session.add(new_session)
-    db.session.commit()
+        db_session.add(new_session)
+    db_session.commit()
+
+
+db_file = os.path.join('/tmp/emhub.sqlite')
+if not os.path.exists(db_file):
+    init_db()
+    create_tables()

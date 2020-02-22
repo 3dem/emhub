@@ -3,7 +3,6 @@ import json
 from glob import glob
 
 from flask import Flask, render_template, request, make_response
-from flask_sqlalchemy import SQLAlchemy
 from .model import TestSessionData, H5SessionData
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -11,8 +10,6 @@ here = os.path.abspath(os.path.dirname(__file__))
 templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
 
 EMHUB_TESTDATA = os.environ.get('EMHUB_TESTDATA', '')
-
-db = SQLAlchemy()
 
 
 def create_app(test_config=None):
@@ -24,7 +21,7 @@ def create_app(test_config=None):
         SECRET_KEY='dev',
         #DATABASE=os.path.join(app.instance_path, 'emhub.sqlite'),
     )
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'emhub.sqlite')
+    #app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'emhub.sqlite')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ECHO'] = True
 
@@ -43,7 +40,7 @@ def create_app(test_config=None):
 
     @app.route('/index')
     def index():
-        from .model.sqlite import Session
+        from emhub.model.db_models import Session
         # get status=True sessions only
         sessions = Session.query.filter(Session.status != 'Finished').all()
         running_sessions = []
@@ -66,9 +63,12 @@ def create_app(test_config=None):
     @app.route('/get_mic_thumb', methods=['POST'])
     def get_mic_thumb():
         micId = int(request.form['micId'])
+        sessionId = int(request.form['sessionId'])
 
         #tsd = TestSessionData()
-        tsd = H5SessionData('/tmp/20181108_relion30_tutorial.h5', 'r')
+        from emhub.model.db_models import Session
+        session = Session.query.get(sessionId)
+        tsd = H5SessionData(session.sessionData, 'r')
         setObj = tsd.get_sets()[0]
         mic = tsd.get_item(setObj['id'], micId,
                            dataAttrs=['micThumbData', 'psdData', 'shiftPlotData'])
@@ -107,7 +107,7 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_overview(cls, session_id=None):
-            from .model.sqlite import Session
+            from emhub.model.db_models import Session
             sessions = Session.query.filter(Session.status != 'Finished').order_by(Session.microscope).all()
             return {'sessions': sessions}
 
@@ -117,7 +117,7 @@ def create_app(test_config=None):
             defocusList = [m.ctfDefocus for m in mics]
             sample = ['Defocus'] + defocusList
 
-            from .model.sqlite import Session, User
+            from emhub.model.db_models import Session
             session = Session.query.filter_by(id=session_id).first()
             bar1 = {'label': 'CTF Defocus',
                     'data': defocusList}
@@ -131,17 +131,15 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_stats(cls, session_id=None):
-            from .model.sqlite import Session
+            from emhub.model.db_models import Session
             sessions = Session.query.all()
             return {'sessions': sessions}
 
-    db.init_app(app)
     app.jinja_env.filters['reverse'] = basename
+    from emhub.model.database import db_session
 
-    with app.app_context():
-        if not os.path.exists(os.path.join(app.instance_path, 'emhub.sqlite')):
-            from .model.create_db import create_tables
-            db.create_all()
-            create_tables()
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db_session.remove()
 
     return app
