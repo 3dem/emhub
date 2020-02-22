@@ -1,10 +1,9 @@
 
 import os
-import sqlite3
-import base64
 from collections import namedtuple
-from io import BytesIO
-from PIL import Image
+import sqlite3
+
+from emhub.utils import image
 
 
 MICROGRAPH_ATTRS = {
@@ -64,13 +63,13 @@ class TestSessionData:
     def getFile(self, *paths):
         return os.path.join(self.dataDir, *paths)
 
-    def getMicrographSets(self, attrList=None, condition=None, setId=None):
+    def get_sets(self, attrList=None, condition=None, setId=None):
         return [{'id': 1}]
 
-    def createMicrographSet(self, setId, **attrs):
+    def create_set(self, setId, **attrs):
         raise Exception("Not supported.")
 
-    def getMicrographs(self, setId, attrList=None, condition=None,
+    def get_items(self, setId, attrList=None, condition=None,
                        itemId=None):
         """ Return the list of all movies of the given set.
 
@@ -106,7 +105,7 @@ class TestSessionData:
 
         return micList
 
-    def getMicrograph(self, setId, micId, dataAttrs=None):
+    def get_item(self, setId, itemId, dataAttrs=None):
 
         dattrs = dataAttrs or []
 
@@ -114,7 +113,7 @@ class TestSessionData:
             raise Exception("Invalid data attribute for micrograph. ")
 
         attrs = list(MICROGRAPH_ATTRS.keys())
-        row = self._rowsDict[micId]
+        row = self._rowsDict[itemId]
         values = {a: row[MICROGRAPH_ATTRS[a]] for a in attrs}
 
         micPrefix = os.path.basename(values['location']).replace('_aligned_mic.mrc', '')
@@ -126,39 +125,21 @@ class TestSessionData:
         Micrograph = namedtuple('Micrograph', attrs)
         return Micrograph(**values)
 
-    def addMicrograph(self, setId, **attrsDict):
+    def add_item(self, setId, **attrsDict):
         raise Exception("Not supported.")
 
-    def updateMicrograph(self, setId, **attrsDict):
+    def update_item(self, setId, **attrsDict):
         raise Exception("Not supported.")
 
     def compute_micThumbData(self, micPrefix):
-        return fn_to_base64(self.getFile('imgMic/%s_thumbnail.png' % micPrefix))
+        fn = self.getFile('imgMic/%s_thumbnail.png' % micPrefix)
+        return image.fn_to_base64(fn)
 
     def compute_psdData(self, micPrefix):
-        return fn_to_base64(self.getFile('imgPsd/%s_aligned_mic_ctfEstimation.png' % micPrefix))
+        fn = self.getFile('imgPsd/%s_aligned_mic_ctfEstimation.png'
+                          % micPrefix)
+        return image.fn_to_base64(fn)
 
     def compute_shiftPlotData(self, micPrefix):
-        return fn_to_base64(self.getFile('imgShift/%s_global_shifts.png' % micPrefix))
-
-
-def fn_to_base64(filename):
-    """ Read the image filename as a PIL image
-    and encode it as base64.
-    """
-    try:
-        img = Image.open(filename)
-        encoded = pil_to_base64(img)
-        img.close()
-    except:
-        encoded = ''
-    return encoded
-
-
-def pil_to_base64(pil_img):
-    """ Encode as base64 the PIL image to be
-    returned as an AJAX response.
-    """
-    img_io = BytesIO()
-    pil_img.save(img_io, format='PNG')
-    return base64.b64encode(img_io.getvalue()).decode("utf-8")
+        return image.fn_to_base64(self.getFile('imgShift/%s_global_shifts.png'
+                                               % micPrefix))

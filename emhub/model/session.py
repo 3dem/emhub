@@ -9,7 +9,7 @@ class SessionData:
     It will store information of the acquisition as well as the pre-processing.
     """
 
-    def getMicrographSets(self, attrList=None, condition=None, setId=None):
+    def get_sets(self, attrList=None, condition=None, setId=None):
         """ Get a list with all available micrograph sets.
 
         Args:
@@ -21,11 +21,12 @@ class SessionData:
         """
         pass
 
-    def createMicrographSet(self, setId, **attrs):
+    def create_set(self, setId, setType, **attrs):
         """ Create a new set of micrographs.
 
         Args:
             setId: The id of the new set that will be created.
+            setType: The type of the set (Either Movies, Micrographs or Ctfs
 
         Keyword Args:
             Extra attributes that will be set to the set object.
@@ -35,8 +36,7 @@ class SessionData:
         """
         pass
 
-    def getMicrographs(self, setId, attrList=None, condition=None,
-                       itemId=None):
+    def get_items(self, setId, attrList=None, condition=None, itemId=None):
         """ Return the list of all movies of the given set.
 
         Args:
@@ -53,14 +53,14 @@ class SessionData:
         """
         pass
 
-    def getMicrograph(self, setId, micId, dataAttrs=None):
+    def get_item(self, setId, itemId, dataAttrs=None):
         """
         Retrieve the information of a given Micrograph, optionally with
         some images data.
 
         Args:
             setId: The id of the set where the requested micrograph belongs.
-            micId: The id of the micrograph to be retrieved.
+            itemId: The id of the micrograph to be retrieved.
             dataAttrs: Optional list of image data attributes.
 
         Returns:
@@ -69,8 +69,8 @@ class SessionData:
         """
         pass
 
-    def addMicrograph(self, setId, micId, **attrsDict):
+    def add_item(self, setId, itemId, **attrsDict):
         pass
 
-    def updateMicrograph(self, setId, micId, **attrsDict):
+    def update_item(self, setId, itemId, **attrsDict):
         pass

@@ -1,9 +1,6 @@
 
-import base64
 import h5py
 from collections import namedtuple
-from io import BytesIO
-from PIL import Image
 
 
 MICROGRAPH_ATTRS = {
@@ -30,21 +27,24 @@ class H5SessionData:
         #h5py.get_config().track_order = True
         self._file = h5py.File(h5File, mode)
 
-    def getMicrographSets(self, attrList=None, condition=None, setId=None):
-        return [{'id': 1}]
+    def get_sets(self, attrList=None, condition=None, setId=None):
+        setList = []
+        for k, v in self._file['/Micrographs/'].items():
+            setList.append(dict(v.attrs))
+        return setList
 
-    def _getMicPath(self, setId, micId=None):
-        return ('/Micrographs/set%03d%s'
-                % (setId, '' if micId is None else '/item%05d' % micId))
+    def create_set(self, setId, **attrs):
+        group = self._file.create_group(self._getMicPath(setId))
+        attrs.update({'id': setId})
+        for k, v in attrs.items():
+            group.attrs[k] = v
 
-    def createMicrographSet(self, setId, **attrs):
-        self._file.create_group(self._getMicPath(setId))
         #self._file.create_dataset(name='setId',
         #                          data=str(self._getMicPath(setId)).encode('utf-8'),
         #                          dtype=h5py.string_dtype(encoding='utf-8'),
         #                          compression='gzip')
 
-    def getMicrographs(self, setId, attrList=None, condition=None,
+    def get_items(self, setId, attrList=None, condition=None,
                        itemId=None):
         if attrList is None:
             attrs = list(MICROGRAPH_ATTRS.keys())
@@ -70,8 +70,9 @@ class H5SessionData:
 
         return micList
 
-    def getMicrograph(self, setId, micId, dataAttrs=None):
-        micAttrs = self._file[self._getMicPath(setId, micId)].attrs
+    def get_item(self, setId, itemId, dataAttrs=None):
+        print("Requesting item: sessionId: %s, itemId: %s" % (setId, itemId))
+        micAttrs = self._file[self._getMicPath(setId, itemId)].attrs
         keys = list(micAttrs.keys())
         if dataAttrs is not None:
             for da in dataAttrs:
@@ -82,38 +83,23 @@ class H5SessionData:
         values['id'] = int(values['id'])
         return Micrograph(**values)
 
-    def addMicrograph(self, setId, micId, **attrsDict):
-        micAttrs = self._file.create_group(self._getMicPath(setId, micId)).attrs
+    def add_item(self, setId, itemId, **attrsDict):
+        micAttrs = self._file.create_group(self._getMicPath(setId, itemId)).attrs
 
-        micAttrs['id'] = micId
+        micAttrs['id'] = itemId
 
         for key, value in attrsDict.items():
             micAttrs[key] = value
 
-    def updateMicrograph(self, setId, **attrsDict):
+    def update_item(self, setId, **attrsDict):
         raise Exception("Not supported.")
 
     def close(self):
         self._file.close()
 
-
-def fn_to_base64(filename):
-    """ Read the image filename as a PIL image
-    and encode it as base64.
-    """
-    img = Image.open(filename)
-    encoded = pil_to_base64(img)
-    img.close()
-    return encoded
-
-
-def pil_to_base64(pil_img):
-    """ Encode as base64 the PIL image to be
-    returned as an AJAX response.
-    """
-    img_io = BytesIO()
-    pil_img.save(img_io, format='PNG')
-    return base64.b64encode(img_io.getvalue()).decode("utf-8")
+    def _getMicPath(self, setId, itemId=None):
+        return ('/Micrographs/set%03d%s'
+                % (setId, '' if itemId is None else '/item%05d' % itemId))
 
 
 if __name__ == '__main__':
@@ -121,20 +107,20 @@ if __name__ == '__main__':
 
     from session_test import TestSessionData
     tsd = TestSessionData()
-    mics = tsd.getMicrographs(setId)
+    mics = tsd.get_items(setId)
 
     hsd = H5SessionData('/tmp/data.h5', 'w')
-    hsd.createMicrographSet(setId, label='Test set')
+    hsd.create_set(setId, label='Test set')
 
     for mic in mics:
-        micData = tsd.getMicrograph(setId, mic.id,
+        micData = tsd.get_item(setId, mic.id,
                                     dataAttrs=['micThumbData',
                                                'psdData',
                                                'shiftPlotData'])
-        hsd.addMicrograph(setId, micId=mic.id, **micData._asdict())
+        hsd.add_item(setId, itemId=mic.id, **micData._asdict())
 
     hsd.close()
 
     hsd = H5SessionData('/tmp/data.h5', 'r')
-    for mic in hsd.getMicrographs(setId):
+    for mic in hsd.get_items(setId):
         print(mic)
