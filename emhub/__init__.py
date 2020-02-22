@@ -44,8 +44,6 @@ def create_app(test_config=None):
         return render_template('main.html', sessions=running_sessions)
 
     def send_json_data(data):
-        with open('data.json', 'w') as f:
-            json.dump(data, f)
         resp = make_response(json.dumps(data))
         resp.status_code = 200
         resp.headers['Access-Control-Allow-Origin'] = '*'
@@ -77,6 +75,23 @@ def create_app(test_config=None):
                                    **ContentData.get(content_id, session_id))
 
         return "<h1>Template '%s' not found</h1>" % content_template
+
+    @app.route('/get_sessions', methods=['POST'])
+    def get_sessions():
+        attrs = request.form.get('attrs', '').split()
+
+        sessions = app.sm.get_sessions(asJson=True)
+        if attrs:
+            def _filter(s):
+                return {k: v for k, v in s.items() if k in attrs}
+            sessions = [_filter(s) for s in sessions]
+
+        return send_json_data(sessions)
+
+    @app.route('/create_sessions', methods=['POST'])
+    def create_session():
+        pass
+
 
     @app.template_filter('basename')
     def basename(filename):

@@ -1,6 +1,7 @@
 import os
 from datetime import datetime as dt
 import decimal
+import datetime
 
 from sqlalchemy import (create_engine, Column, Integer, String, DateTime,
                         Boolean, Float, ForeignKey, Text, text)
@@ -34,18 +35,25 @@ class SessionManager:
         self._lastSessionId = None
         self._lastSession = None
 
-    def get_sessions(self, condition=None, orderBy=None):
+    def get_sessions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
         condition example: text("id<:value and name=:name")
         """
         query = self.Session.query
         if condition is not None:
             if orderBy is None:
-                return query.filter(text(condition)).all()
+                result = query.filter(text(condition)).all()
             else:
-                return query.filter(text(condition)).order_by(orderBy).all()
+                result = query.filter(text(condition)).order_by(orderBy).all()
         else:
-            return query.all()
+            result = query.all()
+
+        print("descriptions: ", query.column_descriptions)
+
+        if asJson:
+            return [s.json() for s in result]
+        else:
+            return result
 
     def create_session(self, **attrs):
         """ Add a new session row. """
@@ -219,6 +227,18 @@ class SessionManager:
 
             def __repr__(self):
                 return '<Session {}>'.format(self.sessionName)
+
+            def json(self):
+                """ Return row info as json dict. """
+                def jsonattr(k):
+                    v = getattr(self, k)
+                    if isinstance(v, datetime.date):
+                        return v.isoformat()
+                    elif isinstance(v, decimal.Decimal):
+                        return float(v)
+                    else:
+                        return v
+                return {c.key: jsonattr(c.key) for c in self.__table__.c}
 
         self.User = User
         self.Session = Session
