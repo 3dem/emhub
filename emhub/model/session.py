@@ -1,6 +1,22 @@
 
+
 class SessionManager:
-    pass
+    """ Main class that will manage the sessions and their information.
+    """
+    def get_sessions(self, condition=None):
+        pass
+
+    def create_session(self, sessionId, **attrs):
+        pass
+
+    def update_session(self, sessionId, **attrs):
+        pass
+
+    def delete_session(self, sessionId):
+        pass
+
+    def load_session(self, sessionId):
+        pass
 
 
 class SessionData:
