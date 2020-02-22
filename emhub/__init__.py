@@ -59,7 +59,8 @@ def create_app(test_config=None):
         setObj = session.data.get_sets()[0]
         mic = session.data.get_item(setObj['id'], micId,
                                     dataAttrs=['micThumbData',
-                                               'psdData', 'shiftPlotData'])
+                                               'psdData',
+                                               'shiftPlotData'])
 
         return send_json_data(mic._asdict())
 

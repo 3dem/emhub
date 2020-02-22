@@ -1,5 +1,6 @@
 import os
 from datetime import datetime as dt
+import decimal
 
 from sqlalchemy import (create_engine, Column, Integer, String, DateTime,
                         Boolean, Float, ForeignKey, Text, text)
@@ -22,7 +23,6 @@ class SessionManager:
         Base = declarative_base()
         Base.query = self._db_session.query_property()
 
-        # FIXME: models are redefined every time app is launched
         self.__createModels(Base)
 
         # Create the database if it does not exists
@@ -38,14 +38,16 @@ class SessionManager:
         """ Returns a list.
         condition example: text("id<:value and name=:name")
         """
-        if condition is not None and orderBy is None:
-            return self.Session.query.filter(text(condition)).all()
-        elif condition is not None and orderBy is not None:
-            return self.Session.query.filter(text(condition)).order_by(orderBy).all()
+        query = self.Session.query
+        if condition is not None:
+            if orderBy is None:
+                return query.filter(text(condition)).all()
+            else:
+                return query.filter(text(condition)).order_by(orderBy).all()
         else:
-            return self.Session.query.all()
+            return query.all()
 
-    def create_session(self, sessionId, **attrs):
+    def create_session(self, **attrs):
         """ Add a new session row. """
         new_session = self.Session(**attrs)
         self._db_session.add(new_session)
@@ -281,3 +283,28 @@ class SessionManager:
             )
             self._db_session.add(new_session)
         self._db_session.commit()
+
+        self.create_session(sessionData='dfhgrth',
+                userid=2,
+                sessionName='dfgerhsrth_NAME',
+                dateStarted=dt.now(),
+                description='Long description goes here.....',
+                status='Running',
+                microscope='KriosX',
+                voltage=300,
+                cs=2.7,
+                phasePlate=False,
+                detector='Falcon',
+                detectorMode='Linear',
+                pixelSize=1.1,
+                dosePerFrame=1.0,
+                totalDose=35.0,
+                exposureTime=1.2,
+                numOfFrames=48,
+                numOfMovies=0,
+                numOfMics=0,
+                numOfCtfs=0,
+                numOfPtcls=0,
+                numOfCls2D=0,
+                ptclSizeMin=140,
+                ptclSizeMax=160,)
