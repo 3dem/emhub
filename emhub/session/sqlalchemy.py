@@ -65,7 +65,7 @@ class SessionManager:
         """ Update session attrs. """
         session = self.Session.query.get(sessionId)
 
-        for attr in attrs.items():
+        for attr in attrs:
             session.attr = attrs[attr]
 
         self._db_session.commit()

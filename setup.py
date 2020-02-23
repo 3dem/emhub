@@ -202,5 +202,5 @@ setup(
     project_urls={  # Optional
         'Bug Reports': 'https://github.com/3dem/emhub/issues',
         'Source': 'https://github.com/3dem/emhub/',
-    },
+    }, install_requires=['flask', 'pillow', 'h5py', 'sqlalchemy']
 )

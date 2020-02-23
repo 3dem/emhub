@@ -70,7 +70,7 @@ class TestSessionData:
         raise Exception("Not supported.")
 
     def get_items(self, setId, attrList=None, condition=None,
-                       itemId=None):
+                  itemId=None):
         """ Return the list of all movies of the given set.
 
         Args:

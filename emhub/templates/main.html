@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/datatables/css/buttons.bootstrap4.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/datatables/css/select.bootstrap4.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/datatables/css/fixedHeader.bootstrap4.css') }}">
-     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='vendor/daterangepicker/daterangepicker.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='vendor/daterangepicker/daterangepicker.css') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='images/emhub.ico') }}">
 </head>
 
@@ -31,7 +31,7 @@
     <!-- navbar -->
     <div class="dashboard-header">
         <nav class="navbar navbar-expand-lg bg-white fixed-top">
-            <img src="{{ url_for('static', filename='images/emhub.jpg') }}" width="40px" />
+            <img src="{{ url_for('static', filename='images/emhub.jpg') }}" width="50px">
             <a class="navbar-brand" href="{{ url_for('index') }}">emhub</a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -55,44 +55,6 @@
                                                 <div class="notification-list-user-img"><img src="{{ url_for('static', filename='images/avatar-2.jpg') }}" alt="" class="user-avatar-md rounded-circle"></div>
                                                 <div class="notification-list-user-block"><span class="notification-list-user-name">Jeremy Rakestraw</span>accepted your invitation to join the team.
                                                     <div class="notification-date">2 min ago</div>
-
-</head>
-
-<body>
-    <!-- ============================================================== -->
-    <!-- main wrapper -->
-    <!-- ============================================================== -->
-    <div class="dashboard-main-wrapper">
-         <!-- ============================================================== -->
-        <!-- navbar -->
-        <!-- ============================================================== -->
-         <div class="dashboard-header">
-            <nav class="navbar navbar-expand-lg bg-white fixed-top">
-                <img src="{{ url_for('static', filename='images/emhub.jpg') }}" width="50px">
-                <a class="navbar-brand" href="{{ url_for('index') }}">emhub</a>
-                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse " id="navbarSupportedContent">
-                    <ul class="navbar-nav ml-auto navbar-right-top">
-                        <li class="nav-item">
-                            <div id="custom-search" class="top-search-bar">
-                                <input class="form-control" type="text" placeholder="Search..">
-                            </div>
-                        </li>
-                        <li class="nav-item dropdown notification">
-                            <a class="nav-link nav-icons" href="#" id="navbarDropdownMenuLink1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i class="fas fa-fw fa-bell"></i> <span class="indicator"></span></a>
-                            <ul class="dropdown-menu dropdown-menu-right notification-dropdown">
-                                <li>
-                                    <div class="notification-title"> Notification</div>
-                                    <div class="notification-list">
-                                        <div class="list-group">
-                                            <a href="#" class="list-group-item list-group-item-action active">
-                                                <div class="notification-info">
-                                                    <div class="notification-list-user-img"><img src="{{ url_for('static', filename='images/avatar-2.jpg') }}" alt="" class="user-avatar-md rounded-circle"></div>
-                                                    <div class="notification-list-user-block"><span class="notification-list-user-name">Jeremy Rakestraw</span>accepted your invitation to join the team.
-                                                        <div class="notification-date">2 min ago</div>
-                                                    </div>
                                                 </div>
                                             </div>
                                         </a>
@@ -314,10 +276,10 @@
 
     function load_content(content_id) {
         var ajaxContent = $.ajax({
-        url: "{{ url_for('get_content') }}",
-        type: "POST",
-        data: {content_id: content_id},
-        dataType: "html"
+            url: "{{ url_for('get_content') }}",
+            type: "POST",
+            data: {content_id: content_id},
+            dataType: "html"
         });
 
         ajaxContent.done(function(html) {
@@ -325,7 +287,7 @@
         });
 
         ajaxContent.fail(function(jqXHR, textStatus) {
-          alert( "Request failed: " + textStatus );
+            alert( "Request failed: " + textStatus );
         });
     }
 

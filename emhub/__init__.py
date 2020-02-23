@@ -88,10 +88,9 @@ def create_app(test_config=None):
 
         return send_json_data(sessions)
 
-    @app.route('/create_sessions', methods=['POST'])
+    @app.route('/create_session', methods=['POST'])
     def create_session():
         pass
-
 
     @app.template_filter('basename')
     def basename(filename):

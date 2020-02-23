@@ -9,7 +9,7 @@ Launching the development server
 
 .. code-block:: bash
 
-    conda create --name=emhub-flask-py37 python=3.7 flask flask-sqlalchemy pillow h5py
+    conda create --name=emhub-flask-py37 python=3.7 flask sqlalchemy pillow h5py
     conda activate emhub-flask-py37
 
     export FLASK_APP=emhub

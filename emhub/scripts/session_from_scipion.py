@@ -29,7 +29,8 @@
 This script will compute the statistics of the SetOfCTFs in a given project.
 """
 
-import sys, os
+import os
+import sys
 
 import pyworkflow as pw
 from pyworkflow.project import Manager

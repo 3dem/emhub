@@ -47,7 +47,7 @@ class H5SessionData:
         #                          compression='gzip')
 
     def get_items(self, setId, attrList=None, condition=None,
-                       itemId=None):
+                  itemId=None):
         if attrList is None:
             attrs = list(MICROGRAPH_ATTRS.keys())
         elif 'id' not in attrList:
@@ -116,9 +116,9 @@ if __name__ == '__main__':
 
     for mic in mics:
         micData = tsd.get_item(setId, mic.id,
-                                    dataAttrs=['micThumbData',
-                                               'psdData',
-                                               'shiftPlotData'])
+                               dataAttrs=['micThumbData',
+                                          'psdData',
+                                          'shiftPlotData'])
         hsd.add_item(setId, itemId=mic.id, **micData._asdict())
 
     hsd.close()
