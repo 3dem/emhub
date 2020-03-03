@@ -32,6 +32,8 @@ from glob import glob
 
 from flask import Flask, render_template, request, make_response
 
+from . import utils
+
 
 here = os.path.abspath(os.path.dirname(__file__))
 templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
@@ -103,6 +105,29 @@ def create_app(test_config=None):
                                    **ContentData.get(content_id, session_id))
 
         return "<h1>Template '%s' not found</h1>" % content_template
+
+    # ------------------- REST API -----------------------------------
+    @app.route('/create_user', methods=['POST'])
+    def create_user():
+        attrs = request.json
+        #utils.pretty_json(attrs)
+
+        app.sm.create_user(**attrs)
+
+        return send_json_data(-1)
+
+    @app.route('/get_users', methods=['POST'])
+    def get_users():
+        attrs = request.json
+
+        users = app.sm.get_users()
+        if attrs is not None:
+            def _filter(s):
+                return {k: v for k, v in s.items() if k in attrs}
+
+            users = [_filter(s) for s in users]
+
+        return send_json_data(users)
 
     @app.route('/get_sessions', methods=['POST'])
     def get_sessions():
