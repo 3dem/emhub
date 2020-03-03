@@ -29,6 +29,12 @@
 class SessionManager:
     """ Main class that will manage the sessions and their information.
     """
+    def get_users(self, condition=None, **attrs):
+        pass
+
+    def create_user(self, **attr):
+        pass
+
     def get_sessions(self, condition=None):
         pass
 

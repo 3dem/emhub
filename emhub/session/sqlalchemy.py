@@ -63,6 +63,24 @@ class SessionManager:
         self._lastSessionId = None
         self._lastSession = None
 
+    def create_user(self, **attrs):
+        """ Create a new user in the DB.
+        """
+        attrs['created'] = dt.now()
+        # FIXME, admin should be False by default
+        if 'admin' not in attrs:
+            attrs['admin'] = False
+
+        new_user = self.User(**attrs)
+        self._db_session.add(new_user)
+        self._db_session.commit()
+
+    def get_users(self, condition=None):
+        users = self.User.query.all()
+
+        return [u.json() for u in users]
+
+
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
         condition example: text("id<:value and name=:name")
@@ -75,8 +93,6 @@ class SessionManager:
                 result = query.filter(text(condition)).order_by(orderBy).all()
         else:
             result = query.all()
-
-        print("descriptions: ", query.column_descriptions)
 
         if asJson:
             return [s.json() for s in result]
@@ -122,9 +138,24 @@ class SessionManager:
         self._db_session.remove()
 
     def __createModels(self, Base):
+
+        def _json(obj):
+            """ Return row info as json dict. """
+            def jsonattr(k):
+                v = getattr(obj, k)
+                if isinstance(v, datetime.date):
+                    return v.isoformat()
+                elif isinstance(v, decimal.Decimal):
+                    return float(v)
+                else:
+                    return v
+
+            return {c.key: jsonattr(c.key) for c in obj.__table__.c}
+
         class User(Base):
             """Model for user accounts."""
             __tablename__ = 'users'
+
             id = Column(Integer,
                         primary_key=True)
             username = Column(String(64),
@@ -150,9 +181,13 @@ class SessionManager:
             def __repr__(self):
                 return '<User {}>'.format(self.username)
 
+            def json(self):
+                return _json(self)
+
         class Session(Base):
             """Model for sessions."""
             __tablename__ = 'sessions'
+
             id = Column(Integer,
                         primary_key=True)
             sessionData = Column(String(80),
@@ -257,16 +292,7 @@ class SessionManager:
                 return '<Session {}>'.format(self.sessionName)
 
             def json(self):
-                """ Return row info as json dict. """
-                def jsonattr(k):
-                    v = getattr(self, k)
-                    if isinstance(v, datetime.date):
-                        return v.isoformat()
-                    elif isinstance(v, decimal.Decimal):
-                        return float(v)
-                    else:
-                        return v
-                return {c.key: jsonattr(c.key) for c in self.__table__.c}
+                return _json(self)
 
         self.User = User
         self.Session = Session
