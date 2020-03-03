@@ -24,4 +24,10 @@
 # *
 # **************************************************************************
 
+import json
+
 from . import image
+
+
+def pretty_json(d):
+    print(json.dumps(d, indent=4))
