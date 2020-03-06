@@ -34,7 +34,7 @@ class SessionClient:
     """
     Simple client to communicate with the emhub REST API.
     """
-    def __init__(self, server_url='http://127.0.0.1:5000/'):
+    def __init__(self, server_url='http://127.0.0.1:5000'):
         self._server_url = server_url
         # Store the last request object
         self.r = None
@@ -42,7 +42,8 @@ class SessionClient:
     def request(self, method, json=None):
         """ Make a request to this method passing the json data.
         """
-        self.r = requests.post(self._server_url + method, json=json)
+        self.r = requests.post('%s/api/%s' % (self._server_url, method),
+                               json=json)
 
         return self.r
 
