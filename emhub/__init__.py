@@ -33,6 +33,7 @@ from glob import glob
 from flask import Flask, render_template, request, make_response
 
 from . import utils
+from .api import send_json_data, api_bp
 
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -42,6 +43,7 @@ templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '
 def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
+    app.register_blueprint(api_bp, url_prefix='/api')
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config.from_mapping(SECRET_KEY='dev')
@@ -73,12 +75,6 @@ def create_app(test_config=None):
 
         return render_template('main.html', sessions=running_sessions)
 
-    def send_json_data(data):
-        resp = make_response(json.dumps(data))
-        resp.status_code = 200
-        resp.headers['Access-Control-Allow-Origin'] = '*'
-        return resp
-
     @app.route('/get_mic_thumb', methods=['POST'])
     def get_mic_thumb():
         micId = int(request.form['micId'])
@@ -106,44 +102,6 @@ def create_app(test_config=None):
 
         return "<h1>Template '%s' not found</h1>" % content_template
 
-    # ------------------- REST API -----------------------------------
-    @app.route('/create_user', methods=['POST'])
-    def create_user():
-        attrs = request.json
-        #utils.pretty_json(attrs)
-
-        app.sm.create_user(**attrs)
-
-        return send_json_data(-1)
-
-    @app.route('/get_users', methods=['POST'])
-    def get_users():
-        attrs = request.json
-
-        users = app.sm.get_users()
-        if attrs is not None:
-            def _filter(s):
-                return {k: v for k, v in s.items() if k in attrs}
-
-            users = [_filter(s) for s in users]
-
-        return send_json_data(users)
-
-    @app.route('/get_sessions', methods=['POST'])
-    def get_sessions():
-        attrs = request.form.get('attrs', '').split()
-
-        sessions = app.sm.get_sessions(asJson=True)
-        if attrs:
-            def _filter(s):
-                return {k: v for k, v in s.items() if k in attrs}
-            sessions = [_filter(s) for s in sessions]
-
-        return send_json_data(sessions)
-
-    @app.route('/create_session', methods=['POST'])
-    def create_session():
-        pass
 
     @app.template_filter('basename')
     def basename(filename):
