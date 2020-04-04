@@ -26,6 +26,7 @@
 # *
 # **************************************************************************
 
+
 class SessionManager:
     """ Main class that will manage the sessions and their information.
     """

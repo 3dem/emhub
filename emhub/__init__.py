@@ -30,7 +30,8 @@ import os
 import json
 from glob import glob
 
-from flask import Flask, render_template, request, make_response
+import flask
+import flask_login
 
 from . import utils
 from .api import send_json_data, api_bp
@@ -42,7 +43,7 @@ templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '
 
 def create_app(test_config=None):
     # create and configure the app
-    app = Flask(__name__, instance_relative_config=True)
+    app = flask.Flask(__name__, instance_relative_config=True)
     app.register_blueprint(api_bp, url_prefix='/api')
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -62,23 +63,63 @@ def create_app(test_config=None):
     except OSError:
         pass
 
-    @app.route('/index')
+    @app.route('/', methods=['GET', 'POST'])
+    @app.route('/index', methods=['GET', 'POST'])
     def index():
-        # get status!=Finished sessions only
-        sessions = app.sm.get_sessions(condition='status!="Finished"')
-        running_sessions = []
-        for session in sessions:
-            # we need to pass scope name for the link name and the session id
-            running_sessions.append({
-                'microscope': session.microscope,
-                'id': session.id})
+        if flask.request.method == 'GET':
+            content_id = flask.request.args.get('content_id', 'empty')
+        else:
+            content_id = flask.request.form['content_id']
 
-        return render_template('main.html', sessions=running_sessions)
+
+        # # get status!=Finished sessions only
+        # sessions = app.sm.get_sessions(condition='status!="Finished"')
+        # running_sessions = []
+        # for session in sessions:
+        #     # we need to pass scope name for the link name and the session id
+        #     running_sessions.append({
+        #         'microscope': session.microscope,
+        #         'id': session.id})
+
+        return flask.render_template('main.html', content_id=content_id)
+
+    @app.route('/login', methods=['GET', 'POST'])
+    def login():
+        """ This view will called when the user lands in the login page (GET)
+        and also when login credentials are submitted (POST).
+        """
+        if flask.request.method == 'GET':
+            print("redirecting to get_content....")
+            return flask.redirect(flask.url_for('index',
+                                  content_id='user-login'))
+
+        username = flask.request.form['username']
+        password = flask.request.form['password']
+
+        print("Login \n username: ", flask.request.form['username'])
+        print(" password: ", flask.request.form['password'])
+
+        user = app.sm.get_user_by(username=username)
+        print("Found user: ", user)
+
+        if user is None or not user.check_password(password):
+            flask.flash('Invalid username or password')
+            nextPage = 'login'
+        else:
+            flask_login.login_user(user)
+            nextPage = 'index'  # fixme
+
+        return flask.redirect(flask.url_for(nextPage))
+
+    @app.route('/logout', methods=['GET', 'POST'])
+    def logout():
+        flask_login.logout_user()
+        return flask.redirect(flask.url_for('index'))
 
     @app.route('/get_mic_thumb', methods=['POST'])
     def get_mic_thumb():
-        micId = int(request.form['micId'])
-        sessionId = int(request.form['sessionId'])
+        micId = int(flask.request.form['micId'])
+        sessionId = int(flask.request.form['sessionId'])
         session = app.sm.load_session(sessionId)
         setObj = session.data.get_sets()[0]
         mic = session.data.get_item(setObj['id'], micId,
@@ -90,18 +131,18 @@ def create_app(test_config=None):
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
-        # content = session-live-id#id
-        content = request.form['content_id']
+        content = flask.request.form['content_id']
+        print("DEBUG: get_content: ", content)
+
         content_id = content.split('-id')[0]
         session_id = content.split('-id')[-1] or None
         content_template = content_id + '.html'
 
         if content_template in templates:
-            return render_template(content_template,
+            return flask.render_template(content_template,
                                    **ContentData.get(content_id, session_id))
 
         return "<h1>Template '%s' not found</h1>" % content_template
-
 
     @app.template_filter('basename')
     def basename(filename):
@@ -146,9 +187,22 @@ def create_app(test_config=None):
             sessions = app.sm.get_sessions()
             return {'sessions': sessions}
 
+        @classmethod
+        def get_users_list(cls, session_id):
+            print("DEBUG: get_users_list", app.sm.get_users())
+            return {'users': app.sm.get_users()}
+
     app.jinja_env.filters['reverse'] = basename
     from emhub.session.sqlalchemy import SessionManager
     app.sm = SessionManager(dbPath)
+
+    login_manager = flask_login.LoginManager()
+    login_manager.login_view = 'login'
+    login_manager.init_app(app)
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return app.sm.get_user_by(id=int(user_id))
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):

@@ -35,6 +35,9 @@ from sqlalchemy import (create_engine, Column, Integer, String, DateTime,
                         Boolean, Float, ForeignKey, Text, text)
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+
 
 from .session_hdf5 import H5SessionData
 
@@ -68,36 +71,52 @@ class SessionManager:
         """
         attrs['created'] = dt.now()
         # FIXME, admin should be False by default
-        if 'admin' not in attrs:
-            attrs['admin'] = False
+        if 'roles' not in attrs:
+            attrs['roles'] = 'user'
 
+        password = attrs['password']
+        del attrs['password']
         new_user = self.User(**attrs)
+        new_user.set_password(password)
+
         self._db_session.add(new_user)
         self._db_session.commit()
 
-    def get_users(self, condition=None):
-        users = self.User.query.all()
+    def __items_from_query(self, ModelClass,
+                           condition=None, orderBy=None, asJson=False):
+        query = self._db_session.query(ModelClass)
 
-        return [u.json() for u in users]
+        if condition is not None:
+            query = query.filter(text(condition))
 
+        if orderBy is not None:
+            query = query.order_by(orderBy)
+
+        result = query.all()
+        return [s.json() for s in result] if asJson else result
+
+    def __item_by(self, ModelClass, **kwargs):
+        query = self._db_session.query(ModelClass)
+        return query.filter_by(**kwargs).one_or_none()
+
+    def get_users(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.User,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def get_user_by(self, **kwargs):
+        """ This should return a single user or None. """
+        return self.__item_by(self.User, **kwargs)
 
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
         condition example: text("id<:value and name=:name")
         """
-        query = self.Session.query
-        if condition is not None:
-            if orderBy is None:
-                result = query.filter(text(condition)).all()
-            else:
-                result = query.filter(text(condition)).order_by(orderBy).all()
-        else:
-            result = query.all()
-
-        if asJson:
-            return [s.json() for s in result]
-        else:
-            return result
+        return self.__items_from_query(self.Session,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
 
     def create_session(self, **attrs):
         """ Add a new session row. """
@@ -152,7 +171,7 @@ class SessionManager:
 
             return {c.key: jsonattr(c.key) for c in obj.__table__.c}
 
-        class User(Base):
+        class User(UserMixin, Base):
             """Model for user accounts."""
             __tablename__ = 'users'
 
@@ -166,23 +185,44 @@ class SessionManager:
                            index=False,
                            unique=True,
                            nullable=False)
+
+            name = Column(String(256),
+                          nullable=False)
+
             created = Column(DateTime,
                              index=False,
                              unique=False,
                              nullable=False)
-            admin = Column(Boolean,
-                           index=False,
-                           unique=False,
+
+            # Default role should be: 'user'
+            # more roles can be comma separated: 'user,admin,manager'
+            roles = Column(String(128),
                            nullable=False)
+
+            password_hash = Column(String(256),
+                                   unique=True,
+                                   nullable=False)
 
             # one user to many sessions, bidirectional
             sessions = relationship('Session', back_populates="users")
+
+            def set_password(self, password):
+                """Create hashed password."""
+                self.password_hash = generate_password_hash(password,
+                                                            method='sha256')
+
+            def check_password(self, password):
+                """Check hashed password."""
+                return check_password_hash(self.password_hash, password)
 
             def __repr__(self):
                 return '<User {}>'.format(self.username)
 
             def json(self):
                 return _json(self)
+
+            # Following methods are required by flask-login
+            # TODO: Implement flask-login required methods
 
         class Session(Base):
             """Model for sessions."""
@@ -297,19 +337,44 @@ class SessionManager:
         self.User = User
         self.Session = Session
 
-    def __populateTestData(self):
+    def __populateUsers(self):
         # Create user table
         usernames = ['name1', 'name2', 'name3']
         emails = ['abc@def.com', 'fgh@ert.com', 'yu@dfh.com']
 
-        for user, email in zip(usernames, emails):
-            new_user = self.User(username=user,
-                            email=email,
-                            created=dt.now(),
-                            admin=False)
-            self._db_session.add(new_user)
+        """
+        Petey Cruiser
+        Paul Molive
+        Anna Mull
+        Barb Ackue
+        Greta Life
+        Walter Melon
+        Monty Carlo
+        """
 
+        usersData = [
+            ('Peter Cruiser', 'admin'),
+            ('Paul Molive', 'admin,manager'),
+            ('Anna Mull', 'manager'),
+            ('Barb Ackue', 'manager'),
+            ('Greta Life', 'user'),
+            ('Walter Melon', 'user'),
+            ('Monty Carlo', 'user,pi')
+        ]
+
+        for name, roles in usersData:
+            first, last = name.lower().split()
+            self.create_user(username=last,
+                             email='%s.%s@emhub.org' % (first, last),
+                             password=last,
+                             name=name,
+                             roles=roles)
+        self._db_session.commit()
+
+    def __populateTestData(self):
         # Create sessions table.
+        self.__populateUsers()
+
         users = [1, 2, 2]
         session_names = ['supervisor_23423452_20201223_123445',
                          'epu-mysession_20122310_234542',

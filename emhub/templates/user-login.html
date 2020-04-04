@@ -1,0 +1,67 @@
+
+<div class="container-fluid  dashboard-content">
+    <!-- ============================================================== -->
+    <!-- pageheader -->
+    <!-- ============================================================== -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="page-header">
+                <h2 class="pageheader-title">Login </h2>
+                <p class="pageheader-text">
+                </p>
+            </div>
+        </div>
+    </div>
+    <!-- ============================================================== -->
+    <!-- end pageheader -->
+    <!-- ============================================================== -->
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul class=flashes>
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <!-- ============================================================== -->
+    <!-- login form -->
+    <!-- ============================================================== -->
+    <div class="col-12 col-lg-8 col-xl-6">
+        <div class="card">
+            <h5 class="card-header">User login</h5>
+            <div class="card-body">
+
+                <form id="validationform" data-parsley-validate="" novalidate="" action="{{ url_for('login') }}" method="post">
+
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Username</label>
+                        <div class="col-8 col-sm-6">
+                            <input type="text"  name="username" required="" placeholder="Enter your username" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Password</label>
+                        <div class="col-8 col-sm-6">
+                            <input name="password" type="password" required="" placeholder="Password" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-group row text-right">
+                        <div class="col col-sm-10 col-lg-9 offset-sm-1 offset-lg-0">
+                            <button type="submit" class="btn btn-space btn-primary">Login</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- ============================================================== -->
+    <!-- end of login form -->
+    <!-- ============================================================== -->
+
+</div>
+

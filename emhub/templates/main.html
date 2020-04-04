@@ -123,24 +123,40 @@
                             </li>
                         </ul>
                     </li>
-                    <li class="nav-item dropdown nav-user">
-                        <a class="nav-link nav-user-img" href="#" id="navbarDropdownMenuLink2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><img src="{{ url_for('static', filename='images/avatar-1.jpg') }}" alt="" class="user-avatar-md rounded-circle"></a>
-                        <div class="dropdown-menu dropdown-menu-right nav-user-dropdown" aria-labelledby="navbarDropdownMenuLink2">
-                            <div class="nav-user-info">
-                                <h5 class="mb-0 text-white nav-user-name">
-                                    John Abraham</h5>
-                                <span class="status"></span><span class="ml-2">Available</span>
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown nav-user">
+                            <div class="row">
+                            <div class="col-sm-auto mr-0">
+                                <h5 class="mb-0 nav-user-name">{{ current_user.name }}</h5>
                             </div>
-                            <a class="dropdown-item" href="#"><i class="fas fa-user mr-2"></i>Account</a>
-                            <a class="dropdown-item" href="#"><i class="fas fa-cog mr-2"></i>Setting</a>
-                            <a class="dropdown-item" href="#"><i class="fas fa-power-off mr-2"></i>Logout</a>
+                            <div class="col-1 ml-0">
+                                <a class="nav-link nav-user-img" href="#" id="navbarDropdownMenuLink2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <img src="{{ url_for('static', filename='images/avatar-1.jpg') }}" alt="" class="user-avatar-md rounded-circle">
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-right nav-user-dropdown" aria-labelledby="navbarDropdownMenuLink2">
+                                    <div class="nav-user-info">
+                                        <h5 class="mb-0 text-white nav-user-name">
+                                            {{ current_user.name }}</h5>
+                                        <span class="status"></span><span class="ml-2">Available</span>
+                                    </div>
+                                    <a class="dropdown-item" href="#"><i class="fas fa-user mr-2"></i>Account</a>
+                                    <a class="dropdown-item" href="#"><i class="fas fa-cog mr-2"></i>Setting</a>
+                                    <a class="dropdown-item" href="{{ url_for('logout') }}"><i class="fas fa-power-off mr-2"></i>Logout</a>
+                                </div>
+                            </div>
                         </div>
                     </li>
+                    {% else %}
+                        <a href="{{ url_for('login') }}"><i class="fas fa-user mr-2"></i>Login</a>
+                    {% endif %}
+
+
                 </ul>
             </div>
         </nav>
     </div>
     <!-- end navbar -->
+
     <!-- left sidebar -->
     <div class="nav-left-sidebar sidebar-dark">
         <div class="menu-list">
@@ -187,13 +203,35 @@
                             </li>
                         </ul>
 
+
                         <li class="nav-divider">
-                            FOR TESTING
+                            TESTING
                         </li>
 
-                        <li class="nav-item">
-                            <a class="nav-link nav-link-ajax" id="dashboard-finance" href="">Finance</a>
-                        </li>
+                        <ul class="nav flex-column">
+
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" id="users-list" href="">Users List</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" id="user-login" href="">Login</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" id="empty" href="">Empty page</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" id="forms-validation" href="">Forms Validation</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" id="dashboard-finance" href="">Finance</a>
+                            </li>
+                        </ul>
+
+
 
                         {#Charts Examples#}
                         <li class="nav-item">
@@ -225,7 +263,9 @@
     </div>
     <!-- end left sidebar -->
     <!-- wrapper  -->
+
     <div class="dashboard-wrapper">
+
         <div class="container-fluid dashboard-content" id="main-content">
         </div>
         <!-- footer -->
@@ -272,6 +312,10 @@
 <script src="{{ url_for('static', filename='vendor/charts/morris-bundle/raphael.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/charts/morris-bundle/morris.js') }}"></script>
 
+<!-- parsley -->
+<script src="{{ url_for('static', filename='vendor/parsley/parsley.js') }}"></script>
+
+
 <script type="text/javascript">
 
     function load_content(content_id) {
@@ -300,6 +344,8 @@
         $('.nav-link-ajax').each(function(){
             $(this).click(load_content_fromlink);
         });
+
+        load_content("{{ content_id }}");
     });
 
 

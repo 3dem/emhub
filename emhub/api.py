@@ -47,13 +47,16 @@ def create_user():
 
     return send_json_data(-1)
 
+
 @api_bp.route('/get_users', methods=['POST'])
 def get_users():
     return filter_from_attrs(app.sm.get_users())
 
+
 @api_bp.route('/get_sessions', methods=['POST'])
 def get_sessions():
     return filter_from_attrs(app.sm.get_sessions(asJson=True))
+
 
 @api_bp.route('/create_session', methods=['POST'])
 def create_session():
