@@ -34,7 +34,7 @@
             <h5 class="card-header">User login</h5>
             <div class="card-body">
 
-                <form id="validationform" data-parsley-validate="" novalidate="" action="{{ url_for('login') }}" method="post">
+                <form id="validationform" data-parsley-validate="" novalidate="" action="{{ url_for('do_login') }}" method="post">
 
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Username</label>
@@ -49,6 +49,8 @@
                             <input name="password" type="password" required="" placeholder="Password" class="form-control">
                         </div>
                     </div>
+
+                    <input type="hidden" id="next_content" name="next_content" value="{{ next_content }}">
 
                     <div class="form-group row text-right">
                         <div class="col col-sm-10 col-lg-9 offset-sm-1 offset-lg-0">

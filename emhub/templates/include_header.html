@@ -1,0 +1,27 @@
+
+<!-- breadcrumb row -->
+<div class="row">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        <div class="page-header">
+            <h2 class="pageheader-title"> {{ title }} </h2>
+            {% if about is defined and about %}
+                <p class="pageheader-text"> {{ about }} </p>
+            {% endif %}
+
+            {% if navigation is defined and navigation %}
+                <div class="page-breadcrumb">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            {% for item_title, item_url in navigation[:-1] %}
+                                <li class="breadcrumb-item"><a href="#" class="breadcrumb-link"> {{ item_title }} </a></li>
+                            {% endfor %}
+                            <li class="breadcrumb-item active" aria-current="page"> {{ navigation[-1][0] }} </li>
+                        </ol>
+                    </nav>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<!-- end of breadcrumb row -->
+

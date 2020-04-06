@@ -1,0 +1,104 @@
+
+
+<div class="container-fluid  dashboard-content">
+    <!-- Header -->
+    {% set title = "Resource Management" %}
+    {% set about = "Here you can operate with resources. " %}
+    {% set navigation = [('Admin', ''), ('Resources', '')] %}
+    {% include 'include_header.html' %}
+
+    <!-- ============================================================== -->
+    <!-- pagehader  -->
+    <!-- ============================================================== -->
+
+    <div class="row">
+        <!-- ============================================================== -->
+        <!-- top selling products  -->
+        <!-- ============================================================== -->
+        <div class="col-xl-7 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+                <h5 class="card-header">Resources List</h5>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead class="bg-light">
+                                <tr class="border-0">
+                                    <th class="border-0">Id</th>
+                                    <th class="border-0">Image</th>
+                                    <th class="border-0">Resource Name</th>
+                                    <th class="border-0">Tags</th>
+                                    <th class="border-0">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for r in resources %}
+                                <tr>
+                                    <td>1</td>
+                                    <td>
+                                        <div class="m-r-10"><img src="{{ r['image'] }}" alt="user" class="rounded" width="75"></div>
+                                    </td>
+                                    <td> {{ r['name'] }} </td>
+                                    <td> {{ r['tags'] }} </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-copy"></i></button>
+                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-trash-alt"></i></button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+<!--                                <tr>-->
+<!--                                    <td>2</td>-->
+<!--                                    <td>-->
+<!--                                        <div class="m-r-10"><img src="{{ url_for('static', filename='images/product-pic-2.jpg') }}" alt="user" class="rounded" width="45"></div>-->
+<!--                                    </td>-->
+<!--                                    <td>Product #2 </td>-->
+<!--                                    <td>12</td>-->
+<!--                                    <td>$180.00</td>-->
+<!--                                    <td>25-08-2018 21:12:56</td>-->
+<!--                                    <td>Rachel J. Wicker </td>-->
+<!--                                    <td>-->
+<!--                                        <button class="btn btn-sm btn-outline-light">Edit</button>-->
+<!--                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-trash-alt"></i></button>-->
+<!--                                    </td>-->
+<!--                                </tr>-->
+<!--                                <tr>-->
+<!--                                    <td>3</td>-->
+<!--                                    <td>-->
+<!--                                        <div class="m-r-10"><img src="{{ url_for('static', filename='images/product-pic-3.jpg') }}" alt="user" class="rounded" width="45"></div>-->
+<!--                                    </td>-->
+<!--                                    <td>Product #3 </td>-->
+<!--                                    <td>23</td>-->
+<!--                                    <td>$820.00</td>-->
+<!--                                    <td>24-08-2018 14:12:77</td>-->
+<!--                                    <td>Michael K. Ledford </td>-->
+<!--                                    <td>-->
+<!--                                        <button class="btn btn-sm btn-outline-light">Edit</button>-->
+<!--                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-trash-alt"></i></button>-->
+<!--                                    </td>-->
+<!--                                </tr>-->
+<!--                                <tr>-->
+<!--                                    <td>4</td>-->
+<!--                                    <td>-->
+<!--                                        <div class="m-r-10"><img src="{{ url_for('static', filename='images/product-pic-4.jpg') }}" alt="user" class="rounded" width="45"></div>-->
+<!--                                    </td>-->
+<!--                                    <td>Product #4 </td>-->
+<!--                                    <td>34</td>-->
+<!--                                    <td>$340.00</td>-->
+<!--                                    <td>23-08-2018 09:12:35</td>-->
+<!--                                    <td>Michael K. Ledford </td>-->
+<!--                                </tr>-->
+<!--                                <tr>-->
+<!--                                    <td colspan="8"><a href="#" class="btn btn-outline-light float-right">View Details</a></td>-->
+<!--                                </tr>-->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ============================================================== -->
+        <!-- end top selling products  -->
+        <!-- ============================================================== -->
+    </div>
+            </div>
+
