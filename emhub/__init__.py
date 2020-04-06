@@ -63,56 +63,52 @@ def create_app(test_config=None):
     except OSError:
         pass
 
-    @app.route('/', methods=['GET', 'POST'])
-    @app.route('/index', methods=['GET', 'POST'])
-    def index():
+    @app.route('/main', methods=['GET', 'POST'])
+    def main():
         if flask.request.method == 'GET':
             content_id = flask.request.args.get('content_id', 'empty')
         else:
             content_id = flask.request.form['content_id']
 
+        if not flask_login.current_user.is_authenticated:
+            kwargs = {'content_id': 'user-login', 'next_content': content_id}
+        else:
+            kwargs = {'content_id': content_id}
 
-        # # get status!=Finished sessions only
-        # sessions = app.sm.get_sessions(condition='status!="Finished"')
-        # running_sessions = []
-        # for session in sessions:
-        #     # we need to pass scope name for the link name and the session id
-        #     running_sessions.append({
-        #         'microscope': session.microscope,
-        #         'id': session.id})
+        return flask.render_template('main.html', **kwargs)
 
-        return flask.render_template('main.html', content_id=content_id)
+    @app.route('/', methods=['GET', 'POST'])
+    @app.route('/index', methods=['GET', 'POST'])
+    def index():
+        return flask.redirect(flask.url_for('main', content_id='welcome'))
 
-    @app.route('/login', methods=['GET', 'POST'])
+    @app.route('/login', methods=['GET'])
     def login():
         """ This view will called when the user lands in the login page (GET)
         and also when login credentials are submitted (POST).
         """
-        if flask.request.method == 'GET':
-            print("redirecting to get_content....")
-            return flask.redirect(flask.url_for('index',
-                                  content_id='user-login'))
+        next_content = flask.request.args.get('next_content', 'empty')
+        return flask.redirect(flask.url_for('index',
+                                            content_id=next_content))
 
+    @app.route('/do_login', methods=['POST'])
+    def do_login():
+        """ This view will called as POST from the user login page. """
         username = flask.request.form['username']
         password = flask.request.form['password']
-
-        print("Login \n username: ", flask.request.form['username'])
-        print(" password: ", flask.request.form['password'])
+        next_content = flask.request.form.get('next_content', 'index')
 
         user = app.sm.get_user_by(username=username)
-        print("Found user: ", user)
 
         if user is None or not user.check_password(password):
             flask.flash('Invalid username or password')
-            nextPage = 'login'
-        else:
-            flask_login.login_user(user)
-            nextPage = 'index'  # fixme
+            return flask.redirect(flask.url_for('login'))
 
-        return flask.redirect(flask.url_for(nextPage))
+        flask_login.login_user(user)
+        return flask.redirect(flask.url_for('main', content_id=next_content))
 
     @app.route('/logout', methods=['GET', 'POST'])
-    def logout():
+    def do_logout():
         flask_login.logout_user()
         return flask.redirect(flask.url_for('index'))
 
@@ -132,15 +128,19 @@ def create_app(test_config=None):
     @app.route('/get_content', methods=['POST'])
     def get_content():
         content = flask.request.form['content_id']
-        print("DEBUG: get_content: ", content)
-
         content_id = content.split('-id')[0]
         session_id = content.split('-id')[-1] or None
+
+        if not flask_login.current_user.is_authenticated:
+            kwargs = {'next_content': content_id}
+            content_id = 'user-login'
+        else:
+            kwargs = ContentData.get(content_id, session_id)
+
         content_template = content_id + '.html'
 
         if content_template in templates:
-            return flask.render_template(content_template,
-                                   **ContentData.get(content_id, session_id))
+            return flask.render_template(content_template, **kwargs)
 
         return "<h1>Template '%s' not found</h1>" % content_template
 
@@ -189,8 +189,23 @@ def create_app(test_config=None):
 
         @classmethod
         def get_users_list(cls, session_id):
-            print("DEBUG: get_users_list", app.sm.get_users())
             return {'users': app.sm.get_users()}
+
+        @classmethod
+        def get_resources_list(cls, session_id):
+            resources = [
+                {'id': 1, 'name': 'Titan Krios 1', 'tags': 'microscope krios',
+                 'image': flask.url_for('static', filename='images/titan-krios.png')},
+                {'id': 2, 'name': 'Titan Krios 2', 'tags': 'microscope krios',
+                 'image': flask.url_for('static', filename='images/titan-krios.png')},
+                {'id': 3, 'name': 'Talos Artica', 'tags': 'microscope talos',
+                 'image': flask.url_for('static', filename='images/talos-artica.png')},
+                {'id': 4, 'name': 'Vitrobot', 'tags': '',
+                 'image': flask.url_for('static', filename='images/vitrobot.png')},
+            ]
+            return {'resources': resources}
+
+            #return {'users': app.sm.get_resources()}
 
     app.jinja_env.filters['reverse'] = basename
     from emhub.session.sqlalchemy import SessionManager
