@@ -1,4 +1,46 @@
 
+<!-- Modal -->
+<div class="modal" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="exampleModalLongTitle">Delete Resource</h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="exampleModalLongTitle">Delete Resource</h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
@@ -13,7 +55,7 @@
 
     <div class="row">
         <!-- ============================================================== -->
-        <!-- top selling products  -->
+        <!--  resources table  -->
         <!-- ============================================================== -->
         <div class="col-xl-7 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
@@ -25,6 +67,7 @@
                                 <tr class="border-0">
                                     <th class="border-0">Id</th>
                                     <th class="border-0">Image</th>
+                                    <th class="border-0">Color</th>
                                     <th class="border-0">Resource Name</th>
                                     <th class="border-0">Tags</th>
                                     <th class="border-0">Actions</th>
@@ -33,63 +76,22 @@
                             <tbody>
                             {% for r in resources %}
                                 <tr>
-                                    <td>1</td>
+                                    <td> {{ r['id'] }} </td>
                                     <td>
                                         <div class="m-r-10"><img src="{{ r['image'] }}" alt="user" class="rounded" width="75"></div>
                                     </td>
+                                    <td><div style="background-color: {{ r['color'] }}; width: 30px; height: 30px"> &nbsp;</div></td>
                                     <td> {{ r['name'] }} </td>
                                     <td> {{ r['tags'] }} </td>
                                     <td>
+
                                         <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
                                         <button class="btn btn-sm btn-outline-light"><i class="far fa-copy"></i></button>
-                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-trash-alt"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
+                                                data-id="{{ r['id'] }}" data-name="{{ r['name'] }}"><i class="far fa-trash-alt"></i></button>
                                     </td>
                                 </tr>
                             {% endfor %}
-<!--                                <tr>-->
-<!--                                    <td>2</td>-->
-<!--                                    <td>-->
-<!--                                        <div class="m-r-10"><img src="{{ url_for('static', filename='images/product-pic-2.jpg') }}" alt="user" class="rounded" width="45"></div>-->
-<!--                                    </td>-->
-<!--                                    <td>Product #2 </td>-->
-<!--                                    <td>12</td>-->
-<!--                                    <td>$180.00</td>-->
-<!--                                    <td>25-08-2018 21:12:56</td>-->
-<!--                                    <td>Rachel J. Wicker </td>-->
-<!--                                    <td>-->
-<!--                                        <button class="btn btn-sm btn-outline-light">Edit</button>-->
-<!--                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-trash-alt"></i></button>-->
-<!--                                    </td>-->
-<!--                                </tr>-->
-<!--                                <tr>-->
-<!--                                    <td>3</td>-->
-<!--                                    <td>-->
-<!--                                        <div class="m-r-10"><img src="{{ url_for('static', filename='images/product-pic-3.jpg') }}" alt="user" class="rounded" width="45"></div>-->
-<!--                                    </td>-->
-<!--                                    <td>Product #3 </td>-->
-<!--                                    <td>23</td>-->
-<!--                                    <td>$820.00</td>-->
-<!--                                    <td>24-08-2018 14:12:77</td>-->
-<!--                                    <td>Michael K. Ledford </td>-->
-<!--                                    <td>-->
-<!--                                        <button class="btn btn-sm btn-outline-light">Edit</button>-->
-<!--                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-trash-alt"></i></button>-->
-<!--                                    </td>-->
-<!--                                </tr>-->
-<!--                                <tr>-->
-<!--                                    <td>4</td>-->
-<!--                                    <td>-->
-<!--                                        <div class="m-r-10"><img src="{{ url_for('static', filename='images/product-pic-4.jpg') }}" alt="user" class="rounded" width="45"></div>-->
-<!--                                    </td>-->
-<!--                                    <td>Product #4 </td>-->
-<!--                                    <td>34</td>-->
-<!--                                    <td>$340.00</td>-->
-<!--                                    <td>23-08-2018 09:12:35</td>-->
-<!--                                    <td>Michael K. Ledford </td>-->
-<!--                                </tr>-->
-<!--                                <tr>-->
-<!--                                    <td colspan="8"><a href="#" class="btn btn-outline-light float-right">View Details</a></td>-->
-<!--                                </tr>-->
                             </tbody>
                         </table>
                     </div>
@@ -97,8 +99,23 @@
             </div>
         </div>
         <!-- ============================================================== -->
-        <!-- end top selling products  -->
+        <!-- end resources table  -->
         <!-- ============================================================== -->
     </div>
             </div>
 
+<script>
+  $('#deleteModal').on('show.bs.modal', function (event) {
+      var button = $(event.relatedTarget) // Button that triggered the modal
+
+      // Extract info from data-* attributes
+      var id = button.data('id')
+      var name = button.data('name')
+
+      // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
+      // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
+      var modal = $(this)
+      // modal.find('.modal-title').text('New message to ' + recipient)
+      modal.find('.modal-body').html('<p> Do you want to DELETE resource <b>' + name + '</b> (id = ' + id + ') ? </p>')
+    })
+</script>

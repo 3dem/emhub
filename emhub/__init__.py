@@ -195,17 +195,24 @@ def create_app(test_config=None):
         def get_resources_list(cls, session_id):
             resources = [
                 {'id': 1, 'name': 'Titan Krios 1', 'tags': 'microscope krios',
-                 'image': flask.url_for('static', filename='images/titan-krios.png')},
+                 'image': flask.url_for('static', filename='images/titan-krios.png'),
+                 'color': '#3abae8'},
                 {'id': 2, 'name': 'Titan Krios 2', 'tags': 'microscope krios',
-                 'image': flask.url_for('static', filename='images/titan-krios.png')},
+                 'image': flask.url_for('static', filename='images/titan-krios.png'),
+                 'color': '#213b94'},
                 {'id': 3, 'name': 'Talos Artica', 'tags': 'microscope talos',
-                 'image': flask.url_for('static', filename='images/talos-artica.png')},
+                 'image': flask.url_for('static', filename='images/talos-artica.png'),
+                 'color': '#619e3e'},
                 {'id': 4, 'name': 'Vitrobot', 'tags': '',
-                 'image': flask.url_for('static', filename='images/vitrobot.png')},
+                 'image': flask.url_for('static', filename='images/vitrobot.png'),
+                 'color': '#9e8e3e'},
             ]
             return {'resources': resources}
 
-            #return {'users': app.sm.get_resources()}
+        @classmethod
+        def get_calendar(cls, session_id):
+            return cls.get_resources_list(session_id)
+
 
     app.jinja_env.filters['reverse'] = basename
     from emhub.session.sqlalchemy import SessionManager

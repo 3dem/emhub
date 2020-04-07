@@ -5007,8 +5007,9 @@ Vertical Timeline - by CodyHouse.co
 }
 
 #external-events .fc-event {
-    margin: 10px 0;
+    margin: 5px ;
     cursor: pointer;
+    width: 200px;
 }
 
 #external-events p {
@@ -5022,9 +5023,10 @@ Vertical Timeline - by CodyHouse.co
     vertical-align: middle;
 }
 
-#calendar {
+#booking-calendar {
     float: right;
-    width: 1240px;
+    width: 75%;
+    /* 1240px; */
 }
 
 
