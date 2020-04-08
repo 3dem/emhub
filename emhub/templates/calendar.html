@@ -31,16 +31,22 @@
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <div class="card-body">
-                    <div id='wrap'>
-                        <div id='external-events'>
+                    <div class='row'>
+                       <div class="col-3">
+                        <div id="booking-type" style="border: 4px;">
                             {% for r in resources %}
-                                <h4> {{ r['name'] }} - {{ r['id']}}</h4>
+                                <h4> {{ r['name'] }}</h4>
                                 <div class="row">
+{#                                    <div class="btn-group btn-group-toggle" data-toggle="buttons">#}
+{#                                      <label class="btn btn-light">#}
+{#                                        <input type="radio" name="options" id="option1" autocomplete="off"> Booking#}
+{#                                      </label>#}
+{#                                      <label class="btn btn-light">#}
+{#                                        <input type="radio" name="options" id="option2" autocomplete="off"> Downtime#}
+{#                                      </label>#}
+{#                                    </div>#}
                                     <label class="custom-control custom-radio custom-control-inline">
                                         <input type="radio" name="radio-inline" checked="" class="custom-control-input"><span class="custom-control-label">Book</span>
-                                    </label>
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Slot</span>
                                     </label>
                                     <label class="custom-control custom-radio custom-control-inline is-invalid">
                                         <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Downtime</span>
@@ -50,7 +56,10 @@
                                 </div>
                             {% endfor %}
                         </div>
+                       </div>
+                        <div class="col-9">
                         <div id='booking-calendar'></div>
+                    </div>
                         <div style='clear:both'></div>
                     </div>
                 </div>
@@ -79,7 +88,7 @@
     var Calendar = FullCalendar.Calendar;
     var Draggable = FullCalendarInteraction.Draggable;
 
-    var containerEl = document.getElementById('external-events');
+    var containerEl = document.getElementById('booking-type');
     var calendarEl = document.getElementById('booking-calendar');
 
     // initialize the external events
