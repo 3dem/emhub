@@ -21,33 +21,53 @@
     <!-- main content  -->
     <div class="row">
         {% for session in sessions %}
-        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
+        <div class="col-xl-4 col-lg-6 col-md-12 col-sm-12 col-12">
             <div class="card">
-                <div class="card-body">
-                    <h3 class="card-title">{{ session.microscope }}
-                        {% if session.status=='Running' %}
-                            <a href="javascript: load_content('session-live-id{{session.id}}');" class="btn btn-success active">Running</a>
-                        {% elif session.status=='Error' %}
-                            <a href="javascript: load_content('session-live-id{{session.id}}');" class="btn btn-danger active">Error</a>
-                        {% endif %}
-                    </h3>
-                    <h6 class="card-subtitle text-muted mb-3">Session: {{ session.sessionName }}</h6>
-                    <h6 class="card-subtitle text-muted mb-3">User: {{ session.users.username }}</h6>
-                    <h6 class="card-subtitle text-muted mb-3">Started: {{ session.dateStarted }}</h6>
-                    <h6 class="card-subtitle text-muted mb-3">Session id: {{ session.id }}</h6>
 
-                    <div class="row">
-                        <div class="col-xl-9 col-lg-9 col-md-9 col-sm-9 col-9">
-                            <div id="morris_donut{{session.id}}"></div>
-                        </div>
-                        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
-                            <!-- The list below is still a TODO. Not in db yet-->
-                            <p>Acquiring speed: 120 / h</p>
-                            <p>Processed: 170 / 300</p>
-                            <a href="#" class="card-link">Errors: 0</a>
-                            <a href="#" class="card-link">Warnings: 0</a>
+                <div class="card-body">
+
+                    <!-- session card head  -->
+                    <div class="session-card-head">
+                        <div class="row">
+                            <div class="col col-auto">
+                            <h3 class="card-title">{{ session.microscope }}</h3>
+                            </div>
+                            <div class="col col-auto">
+                            {% if session.status=='Running' %}
+<!--                                <a href="javascript: load_content('session-live-id{{session.id}}');" class="btn btn-success active">Running</a>-->
+                                <span class="badge badge-success">Running</span>
+                            {% elif session.status=='Error' %}
+<!--                                <a href="javascript: load_content('session-live-id{{session.id}}');" class="btn btn-danger active">Error</a>-->
+                                <span class="badge badge-danger">Failed</span>
+                            {% endif %}
+                            </div>
                         </div>
                     </div>
+
+                    <!-- session card body  -->
+                    <div class="session-card-body">
+                        <h6 class="card-subtitle text-muted mb-3">Session: {{ session.sessionName }}</h6>
+                        <h6 class="card-subtitle text-muted mb-3">User: {{ session.users.username }}</h6>
+                        <h6 class="card-subtitle text-muted mb-3">Started: {{ session.dateStarted }}</h6>
+                        <h6 class="card-subtitle text-muted mb-3">Session id: {{ session.id }}</h6>
+
+                        <div class="row">
+                            <div class="col-xl-9 col-lg-9 col-md-9 col-sm-9 col-9">
+                                <div id="morris_donut{{session.id}}"></div>
+                            </div>
+                            <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
+                                <!-- The list below is still a TODO. Not in db yet-->
+                                <p>Acquiring speed: 120 / h</p>
+                                <p>Processed: 170 / 300</p>
+                                <a href="#" class="card-link">Errors: 0</a>
+                                <a href="#" class="card-link">Warnings: 0</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="float-right">
+                        <button type="button" class="btn btn-outline-dark btn-sm" onclick="javascript: load_content('session-live-id{{session.id}}');">View Details</button>
+                    </div>
+
                 </div>
             </div>
         </div>

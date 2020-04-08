@@ -33,7 +33,8 @@
 <body>
 <!-- main wrapper -->
 <div class="dashboard-main-wrapper">
-    <!-- navbar -->
+
+    <!-- Top Navigation Bar -->
     <div class="dashboard-header">
         <nav class="navbar navbar-expand-lg bg-white fixed-top">
             <img src="{{ url_for('static', filename='images/emhub.jpg') }}" width="50px">
@@ -159,7 +160,7 @@
             </div>
         </nav>
     </div>
-    <!-- end navbar -->
+    <!-- end of Top Navigation Bar -->
 
     <!-- left sidebar -->
     <div class="nav-left-sidebar sidebar-dark">
@@ -171,83 +172,87 @@
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav flex-column">
-                        <li class="nav-divider">
-                            LIVE
-                        </li>
-
-                        <ul class="nav flex-column">
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="sessions-overview" href="">Overview</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-10" aria-controls="submenu-10"><i class="fas fa-f fa-folder"></i>Sessions</a>
-                                <div id="submenu-10" class="collapse submenu" style="">
-                                    <ul class="nav flex-column">
-                                        <!-- Display only live sessions -->
-                                        {% for session in sessions %}
-                                        <li class="nav-item">
-                                            <a class="nav-link nav-link-ajax" id="session-live-id{{session['id']}}" href="">{{ session['microscope'] }}</a>
-                                        </li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                            </li>
-                        </ul>
 
                         <li class="nav-divider">
-                            Statistics
+                            SESSIONS
                         </li>
 
-                        <ul class="nav flex-column">
+<!--                        <ul class="nav flex-column">-->
+<!--                            <li class="nav-item">-->
+<!--                                <a class="nav-link nav-link-ajax" data-content-id="sessions-overview" href="">Overview</a>-->
+<!--                            </li>-->
+<!--                            <li class="nav-item">-->
+<!--                                <a class="nav-link nav-link-ajax" data-content-id="sessions-overview" href="" data-toggle="collapse" aria-expanded="true" data-target="#submenu-10" aria-controls="submenu-10">-->
+<!--                                    <i class="fas fa-f fa-folder"></i>Live</a>-->
+<!--                                <div id="submenu-10" class="collapse submenu" style="">-->
+<!--                                    <ul class="nav flex-column">-->
+<!--                                        &lt;!&ndash; Display only live sessions &ndash;&gt;-->
+<!--                                        {% for session in sessions %}-->
+<!--                                        <li class="nav-item">-->
+<!--                                            <a class="nav-link nav-link-ajax" data-content-id="session-live-id{{session['id']}}" href="">{{ session['microscope'] }}</a>-->
+<!--                                        </li>-->
+<!--                                        {% endfor %}-->
+<!--                                    </ul>-->
+<!--                                </div>-->
+<!--                            </li>-->
+<!--                        </ul>-->
+
+                        <ul class="nav flex-column submenu">
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="sessions-stats" href="">Overall</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="sessions-overview" href=""><i class="fas fa-tachometer-alt"></i>Live</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="Reports" href="">Reports</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="sessions-stats" href=""><i class="fas fa-chart-bar"></i>Statistics</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" data-content-id="Reports" href=""><i class="fas fa-clipboard-list"></i>Reports</a>
                             </li>
                         </ul>
 
 
                         <li class="nav-divider">
                             Admin
+
+
                         </li>
 
-                        <ul class="nav flex-column">
+                        <ul class="nav flex-column submenu">
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="calendar" href="">Booking Calendar</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="booking-calendar" href=""><i class="fas fa-calendar-alt"></i>Booking Calendar</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="users-list" href="">Users</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="users-list" href=""><i class="fas fa-users"></i>Users</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="resources-list" href="">Resources</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="resources-list" href=""><i class="fas fa-boxes"></i>Resources</a>
                             </li>
+                        </ul>
 
                         <li class="nav-divider">
                             TESTING
                         </li>
 
+                        <ul class="nav flex-column submenu">
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="user-login" href="">Login</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="user-login" href="">Login</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="empty" href="">Empty page</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="empty" href="">Empty page</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="forms-validation" href="">Forms Validation</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="forms-validation" href="">Forms Validation</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" id="dashboard-finance" href="">Finance</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="dashboard-finance" href="">Finance</a>
                             </li>
 
                         </ul>
-
 
                         {#Charts Examples#}
                         <li class="nav-item">
@@ -255,19 +260,19 @@
                             <div id="submenu-3" class="collapse submenu" style="">
                                 <ul class="nav flex-column">
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" id="chart-c3" href="">C3 Charts</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart-c3" href="">C3 Charts</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" id="chart-chartist" href="">Chartist Charts</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart-chartist" href="">Chartist Charts</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" id="chart-charts" href="">Chart</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart-charts" href="">Chart</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" id="chart-morris" href="">Morris</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart-morris" href="">Morris</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" id="chart-sparkline" href="">Sparkline</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart-sparkline" href="">Sparkline</a>
                                     </li>
                                 </ul>
                             </div>
@@ -343,6 +348,7 @@
 <script type="text/javascript">
 
     function load_content(content_id) {
+        console.log(">>>>load_content: content_id: " + content_id);
         var ajaxContent = $.ajax({
             url: "{{ url_for('get_content') }}",
             type: "POST",
@@ -360,12 +366,23 @@
     }
 
     function load_content_fromlink(e) {
-        load_content(e.currentTarget.id);
+        console.log(">>> load_content_fromlink")
+
+        // var propValue;
+        // var obj = e.currentTarget.dataset;
+        // for (var propName in obj) {
+        //     propValue = obj[propName]
+        //     console.log(propName, propValue);
+        // }
+
+        var content_id = e.currentTarget.dataset.contentId
+        load_content(content_id);
         e.preventDefault();
     }
 
     $(document).ready(function(){
         $('.nav-link-ajax').each(function(){
+            //console.log('data-content-id: ', $(this).data('content-id'));
             $(this).click(load_content_fromlink);
         });
 

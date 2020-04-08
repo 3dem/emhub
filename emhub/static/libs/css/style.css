@@ -1589,10 +1589,10 @@ Top Header
 }
 
 .navigation-horizontal .submenu {
-       background-color: #e2e2eb;
+    background-color: #e2e2eb;
     margin-top: -6px;
     margin-right: 1px;
-    margin-left: 1px;
+    margin-left: 5px;
 }
 
 .navigation-horizontal .submenu .nav .nav-item .nav-link {
@@ -2378,7 +2378,17 @@ clip-path: polygon(10% 25%, 10% 0, 35% 0%, 65% 0%, 90% 0, 90% 25%, 90% 50%, 91% 
 .custom-color-black.custom-radio .custom-control-input:checked~.custom-control-label::before{background-color: #111111; border-color: #111111;}
 
 
+.session-card-head {
+    position: relative;
+    margin-bottom: 10px;
+}
 
+.session-card-body {
+    position: relative;
+    margin-bottom: 25px;
+    border-top:1px solid #e6e6f2;
+    padding: 23px;
+}
 
 
 .product-slider{background-color: #fff;  border-top-left-radius: 4px; border-bottom-left-radius: 4px; padding: 110px;}
@@ -4990,6 +5000,20 @@ Vertical Timeline - by CodyHouse.co
     margin: 0 auto;
 }
 
+#booking-type {
+    border: 1px solid #e0e4ef;
+    background-color: #f9f9ff;
+    border-radius: 4px;
+    min-width: 150px;
+}
+
+#booking-type h4 {
+    font-size: 16px;
+    margin-top: 0px;
+    margin-left: 15px;
+    padding-top: 1em;
+}
+
 #external-events {
     float: left;
     width: 270px;
@@ -5000,11 +5024,7 @@ Vertical Timeline - by CodyHouse.co
     border-radius: 4px;
 }
 
-#external-events h4 {
-    font-size: 16px;
-    margin-top: 0;
-    padding-top: 1em;
-}
+
 
 #external-events .fc-event {
     margin: 5px ;
@@ -5023,11 +5043,11 @@ Vertical Timeline - by CodyHouse.co
     vertical-align: middle;
 }
 
-#booking-calendar {
-    float: right;
-    width: 75%;
-    /* 1240px; */
-}
+/*#booking-calendar {*/
+/*    float: right;*/
+/*    width: 75%;*/
+/*    !* 1240px; *!*/
+/*}*/
 
 
 /*-----------------------

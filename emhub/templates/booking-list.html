@@ -1,8 +1,8 @@
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
-    {% set title = "Users Management" %}
-    {% set navigation = [('Admin', ''), ('Users', '')] %}
+    {% set title = "Bookings List" %}
+    {% set navigation = [('Admin', ''), ('Bookings List', '')] %}
     {% include 'include_header.html' %}
 
     <!-- table row -->
@@ -18,27 +18,22 @@
                             <thead>
                             <tr>
                                 <th>id</th>
-                                <th>username</th>
-                                <th>email</th>
-                                <th>name</th>
-                                <th>roles</th>
-                                <th>actions</th>
+                                <th>resource</th>
+                                <th>start</th>
+                                <th>resource</th>
+                                <th>title</th>
+                                <th>creator</th>
+                                <th>owner</th>
                             </tr>
                             </thead>
                             <tbody>
-                            {% for user in users %}
+                            {% for b in bookings %}
                             <tr>
-                                <td>{{ user.id }}</td>
-                                <td>{{ user.username }}</td>
-                                <td>{{ user.email }}</td>
-                                <td>{{ user.name }}</td>
-                                <td>{{ user.roles }}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
-                                    <button class="btn btn-sm btn-outline-light"><i class="far fa-copy"></i></button>
-                                    <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
-                                            data-id="{{ user.id }}" data-name="{{ user.name }}"><i class="far fa-trash-alt"></i></button>
-                                </td>
+                                <td>{{ b.id }}</td>
+                                <td>{{ b.resource.name }}</td>
+                                <td>{{ b.title }}</td>
+                                <td>{{ b.creator.roles }}</td>
+                                <td>{{ b.owner.name }}</td>
                             </tr>
                             {% endfor %}
 

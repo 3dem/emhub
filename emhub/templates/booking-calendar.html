@@ -1,23 +1,4 @@
-<!-- Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title" id="exampleModalLongTitle">Delete Resource</h3>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
 
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary">Delete</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
@@ -39,25 +20,12 @@
                                 <h4> {{ r['name'] }}</h4>
 
                                 <div class="row align-top" style="margin: -15px 0 0 25px">
-
-<!--                                    <div class="btn-group btn-group-toggle" data-toggle="buttons">-->
-<!--                                      <label class="btn btn-light">-->
-<!--                                        <input type="radio" name="options" id="option1" autocomplete="off"> Book-->
-<!--                                      </label>-->
-<!--                                      <label class="btn btn-light">-->
-<!--                                        <input type="radio" name="options" id="option2" autocomplete="off"> Downtime-->
-<!--                                      </label>-->
-<!--                                    </div>-->
-
                                     <label class="custom-control custom-radio custom-control-inline">
                                         <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Book</span>
                                     </label>
                                     <label class="custom-control custom-radio custom-control-inline is-invalid">
                                         <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Downtime</span>
                                     </label>
-
-<!--                                <div class='fc-event' style="background-color: {{ r['color']}}" data-color=" {{ r['color']}}" data-rname="{{ r['name']}}" data-rid=" {{ r['id']}} ">Booking</div>-->
-<!--                                <div class='fc-event' style="background-color: #e8463a" data-color="#e8463a" data-rname=" {{ r['name']}} " data-rid=" {{ r['id']}} ">Downtime</div>-->
                                 </div>
                             {% endfor %}
                         </div>
@@ -76,6 +44,29 @@
     <!-- end events calendar -->
     <!-- ============================================================== -->
     </div>
+
+
+<!-- Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="exampleModalLongTitle">Delete Resource</h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- javascript  -->
 <script>
