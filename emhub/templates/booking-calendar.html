@@ -32,30 +32,36 @@
             <div class="card">
                 <div class="card-body">
                     <div class='row'>
-                       <div class="col-3">
-                        <div id="booking-type" style="border: 4px;">
+                       <div class="col-2">
+
+                           <div id="booking-type">
                             {% for r in resources %}
                                 <h4> {{ r['name'] }}</h4>
-                                <div class="row">
-{#                                    <div class="btn-group btn-group-toggle" data-toggle="buttons">#}
-{#                                      <label class="btn btn-light">#}
-{#                                        <input type="radio" name="options" id="option1" autocomplete="off"> Booking#}
-{#                                      </label>#}
-{#                                      <label class="btn btn-light">#}
-{#                                        <input type="radio" name="options" id="option2" autocomplete="off"> Downtime#}
-{#                                      </label>#}
-{#                                    </div>#}
+
+                                <div class="row align-top" style="margin: -15px 0 0 25px">
+
+<!--                                    <div class="btn-group btn-group-toggle" data-toggle="buttons">-->
+<!--                                      <label class="btn btn-light">-->
+<!--                                        <input type="radio" name="options" id="option1" autocomplete="off"> Book-->
+<!--                                      </label>-->
+<!--                                      <label class="btn btn-light">-->
+<!--                                        <input type="radio" name="options" id="option2" autocomplete="off"> Downtime-->
+<!--                                      </label>-->
+<!--                                    </div>-->
+
                                     <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="radio-inline" checked="" class="custom-control-input"><span class="custom-control-label">Book</span>
+                                        <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Book</span>
                                     </label>
                                     <label class="custom-control custom-radio custom-control-inline is-invalid">
                                         <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Downtime</span>
                                     </label>
+
 <!--                                <div class='fc-event' style="background-color: {{ r['color']}}" data-color=" {{ r['color']}}" data-rname="{{ r['name']}}" data-rid=" {{ r['id']}} ">Booking</div>-->
 <!--                                <div class='fc-event' style="background-color: #e8463a" data-color="#e8463a" data-rname=" {{ r['name']}} " data-rid=" {{ r['id']}} ">Downtime</div>-->
                                 </div>
                             {% endfor %}
                         </div>
+
                        </div>
                         <div class="col-9">
                         <div id='booking-calendar'></div>

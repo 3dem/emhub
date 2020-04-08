@@ -27,7 +27,7 @@
 # **************************************************************************
 
 import os
-from datetime import datetime as dt
+import datetime as dt
 import decimal
 import datetime
 
@@ -66,10 +66,11 @@ class SessionManager:
         self._lastSessionId = None
         self._lastSession = None
 
+    # ------------------------- USERS ----------------------------------
     def create_user(self, **attrs):
         """ Create a new user in the DB.
         """
-        attrs['created'] = dt.now()
+        attrs['created'] = dt.datetime.now()
         # FIXME, admin should be False by default
         if 'roles' not in attrs:
             attrs['roles'] = 'user'
@@ -82,23 +83,6 @@ class SessionManager:
         self._db_session.add(new_user)
         self._db_session.commit()
 
-    def __items_from_query(self, ModelClass,
-                           condition=None, orderBy=None, asJson=False):
-        query = self._db_session.query(ModelClass)
-
-        if condition is not None:
-            query = query.filter(text(condition))
-
-        if orderBy is not None:
-            query = query.order_by(orderBy)
-
-        result = query.all()
-        return [s.json() for s in result] if asJson else result
-
-    def __item_by(self, ModelClass, **kwargs):
-        query = self._db_session.query(ModelClass)
-        return query.filter_by(**kwargs).one_or_none()
-
     def get_users(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.User,
                                        condition=condition,
@@ -109,6 +93,31 @@ class SessionManager:
         """ This should return a single user or None. """
         return self.__item_by(self.User, **kwargs)
 
+    # ------------------------- RESOURCES ---------------------------------
+    def create_resource(self, **attrs):
+        new_resource = self.Resource(**attrs)
+        self._db_session.add(new_resource)
+        self._db_session.commit()
+
+    def get_resources(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Resource,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    # ------------------------- SESSIONS ----------------------------------
+    def create_booking(self, **attrs):
+        new_booking = self.Booking(**attrs)
+        self._db_session.add(new_booking)
+        self._db_session.commit()
+
+    def get_bookings(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Booking,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    # ------------------------- SESSIONS ----------------------------------
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
         condition example: text("id<:value and name=:name")
@@ -156,6 +165,24 @@ class SessionManager:
 
         self._db_session.remove()
 
+    # --------------- Internal implementation methods --------------------
+    def __items_from_query(self, ModelClass,
+                           condition=None, orderBy=None, asJson=False):
+        query = self._db_session.query(ModelClass)
+
+        if condition is not None:
+            query = query.filter(text(condition))
+
+        if orderBy is not None:
+            query = query.order_by(orderBy)
+
+        result = query.all()
+        return [s.json() for s in result] if asJson else result
+
+    def __item_by(self, ModelClass, **kwargs):
+        query = self._db_session.query(ModelClass)
+        return query.filter_by(**kwargs).one_or_none()
+
     def __createModels(self, Base):
 
         def _json(obj):
@@ -170,6 +197,28 @@ class SessionManager:
                     return v
 
             return {c.key: jsonattr(c.key) for c in obj.__table__.c}
+
+        class Resource(Base):
+            """ Representation of different type of Resources.
+            (e.g Micrographs, other instruments or services.
+            """
+            __tablename__ = 'resources'
+
+            id = Column(Integer,
+                        primary_key=True)
+            name = Column(String(64),
+                          index=True,
+                          unique=True,
+                          nullable=False)
+
+            tags = Column(String(256),
+                          nullable=False)
+
+            image = Column(String(64),
+                           nullable=False)
+
+            color = Column(String(16),
+                           nullable=False)
 
         class User(UserMixin, Base):
             """Model for user accounts."""
@@ -217,6 +266,49 @@ class SessionManager:
 
             def __repr__(self):
                 return '<User {}>'.format(self.username)
+
+            def json(self):
+                return _json(self)
+
+            # Following methods are required by flask-login
+            # TODO: Implement flask-login required methods
+
+        class Booking(Base):
+            """Model for user accounts."""
+            __tablename__ = 'bookings'
+
+            id = Column(Integer,
+                        primary_key=True)
+
+            title = Column(String(256),
+                           nullable=False)
+
+            start = Column(DateTime,
+                           nullable=False)
+
+            end = Column(DateTime,
+                         nullable=False)
+
+            # booking, slot or downtime
+            type = Column(String(16),
+                          nullable=False)
+
+            description = Column(Text,
+                                 nullable=True)
+
+            resource_id = Column(Integer, ForeignKey('resources.id'))
+            resource = relationship("Resource")
+
+            creator_id = Column(Integer, ForeignKey('users.id'),
+                                nullable=False)
+            creator = relationship("User", foreign_keys=[creator_id])
+
+            owner_id = Column(Integer, ForeignKey('users.id'),
+                              nullable=False)
+            owner = relationship("User", foreign_keys=[owner_id])
+
+            def __repr__(self):
+                return '<Booking {}>'.format(self.title)
 
             def json(self):
                 return _json(self)
@@ -335,7 +427,20 @@ class SessionManager:
                 return _json(self)
 
         self.User = User
+        self.Resource = Resource
+        self.Booking = Booking
         self.Session = Session
+
+    def __populateTestData(self):
+        # Create tables with test data for each database model
+        print("Populating users...")
+        self.__populateUsers()
+        print("Populating resources...")
+        self.__populateResources()
+        print("Populating sessions...")
+        self.__populateSessions()
+        print("Populating Bookings")
+        self.__populateBookings()
 
     def __populateUsers(self):
         # Create user table
@@ -371,10 +476,56 @@ class SessionManager:
                              roles=roles)
         self._db_session.commit()
 
-    def __populateTestData(self):
-        # Create sessions table.
-        self.__populateUsers()
+    def __populateResources(self):
+        resources = [
+            {'name': 'Titan Krios 1', 'tags': 'microscope krios',
+             'image': 'titan-krios.png', 'color': '#3abae8'},
+            {'name': 'Titan Krios 2', 'tags': 'microscope krios',
+             'image': 'titan-krios.png', 'color': '#213b94'},
+            {'name': 'Talos Artica', 'tags': 'microscope talos',
+             'image': 'talos-artica.png', 'color': '#619e3e'},
+            {'name': 'Vitrobot', 'tags': '',
+             'image': 'vitrobot.png', 'color': '#9e8e3e'},
+            {'name': 'Users Drop-in', 'tags': 'service',
+             'image': 'users-dropin.png', 'color': 'blue'}
+        ]
 
+        for rDict in resources:
+            self.create_resource(**rDict)
+
+    def __populateBookings(self):
+        now = dt.datetime.now()
+
+        # Create a downtime from today to one week later
+        self.create_booking(title='First Booking',
+                            start=now.replace(day=21),
+                            end=now.replace(day=28),
+                            type='downtime',
+                            resource_id=1,
+                            creator_id=1,  # first user for now
+                            owner_id=1,  # first user for now
+                            description="Some downtime for some problem")
+
+        # Create a booking at the downtime from today to one week later
+        self.create_booking(title='Booking Krios 1',
+                            start=now.replace(day=1, hour=9),
+                            end=now.replace(day=2, hour=23, minute=59),
+                            type='downtime',
+                            resource_id=1,
+                            creator_id=2,  # first user for now
+                            owner_id=2,  # first user for now
+                            description="Krios 1 for user 2")
+        # Create a booking at the downtime from today to one week later
+        self.create_booking(title='Booking Krios 2',
+                            start=now.replace(day=2, hour=9),
+                            end=now.replace(day=4, hour=23, minute=59),
+                            type='downtime',
+                            resource_id=1,
+                            creator_id=1,  # first user for now
+                            owner_id=3,  # first user for now
+                            description="Krios 2 for user 3")
+
+    def __populateSessions(self):
         users = [1, 2, 2]
         session_names = ['supervisor_23423452_20201223_123445',
                          'epu-mysession_20122310_234542',
@@ -398,7 +549,7 @@ class SessionManager:
                 sessionData=f,
                 userid=u,
                 sessionName=s,
-                dateStarted=dt.now(),
+                dateStarted=dt.datetime.now(),
                 description='Long description goes here.....',
                 status=st,
                 microscope=sc,
@@ -424,26 +575,28 @@ class SessionManager:
         self._db_session.commit()
 
         self.create_session(sessionData='dfhgrth',
-                userid=2,
-                sessionName='dfgerhsrth_NAME',
-                dateStarted=dt.now(),
-                description='Long description goes here.....',
-                status='Running',
-                microscope='KriosX',
-                voltage=300,
-                cs=2.7,
-                phasePlate=False,
-                detector='Falcon',
-                detectorMode='Linear',
-                pixelSize=1.1,
-                dosePerFrame=1.0,
-                totalDose=35.0,
-                exposureTime=1.2,
-                numOfFrames=48,
-                numOfMovies=0,
-                numOfMics=0,
-                numOfCtfs=0,
-                numOfPtcls=0,
-                numOfCls2D=0,
-                ptclSizeMin=140,
-                ptclSizeMax=160,)
+                            userid=2,
+                            sessionName='dfgerhsrth_NAME',
+                            dateStarted=dt.datetime.now(),
+                            description='Long description goes here.....',
+                            status='Running',
+                            microscope='KriosX',
+                            voltage=300,
+                            cs=2.7,
+                            phasePlate=False,
+                            detector='Falcon',
+                            detectorMode='Linear',
+                            pixelSize=1.1,
+                            dosePerFrame=1.0,
+                            totalDose=35.0,
+                            exposureTime=1.2,
+                            numOfFrames=48,
+                            numOfMovies=0,
+                            numOfMics=0,
+                            numOfCtfs=0,
+                            numOfPtcls=0,
+                            numOfCls2D=0,
+                            ptclSizeMin=140,
+                            ptclSizeMax=160, )
+
+

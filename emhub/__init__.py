@@ -127,7 +127,10 @@ def create_app(test_config=None):
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
+
         content = flask.request.form['content_id']
+        print(">>>>>>>>>>>>>>>> get_content: ", "content: ", content)
+
         content_id = content.split('-id')[0]
         session_id = content.split('-id')[-1] or None
 
@@ -162,8 +165,9 @@ def create_app(test_config=None):
 
         @classmethod
         def get_sessions_overview(cls, session_id=None):
-            sessions = app.sm.get_sessions(condition='status!="Finished"',
-                                           orderBy='microscope')
+            # sessions = app.sm.get_sessions(condition='status!="Finished"',
+            #                                orderBy='microscope')
+            sessions = app.sm.get_sessions()  # FIXME
             return {'sessions': sessions}
 
         @classmethod
@@ -193,29 +197,20 @@ def create_app(test_config=None):
 
         @classmethod
         def get_resources_list(cls, session_id):
-            resources = [
-                {'id': 1, 'name': 'Titan Krios 1', 'tags': 'microscope krios',
-                 'image': flask.url_for('static', filename='images/titan-krios.png'),
-                 'color': '#3abae8'},
-                {'id': 2, 'name': 'Titan Krios 2', 'tags': 'microscope krios',
-                 'image': flask.url_for('static', filename='images/titan-krios.png'),
-                 'color': '#213b94'},
-                {'id': 3, 'name': 'Talos Artica', 'tags': 'microscope talos',
-                 'image': flask.url_for('static', filename='images/talos-artica.png'),
-                 'color': '#619e3e'},
-                {'id': 4, 'name': 'Vitrobot', 'tags': '',
-                 'image': flask.url_for('static', filename='images/vitrobot.png'),
-                 'color': '#9e8e3e'},
+            resource_list = [
+                {'id': r.id, 'name': r.name, 'tags': r.tags, 'color': r.color,
+                 'image': flask.url_for('static', filename='images/%s' % r.image)}
+                for r in app.sm.get_resources()
             ]
-            return {'resources': resources}
+            return {'resources': resource_list}
 
         @classmethod
-        def get_calendar(cls, session_id):
+        def get_booking_calendar(cls, session_id):
             return cls.get_resources_list(session_id)
 
 
     app.jinja_env.filters['reverse'] = basename
-    from emhub.session.sqlalchemy import SessionManager
+    from emhub.session.data_manager import SessionManager
     app.sm = SessionManager(dbPath)
 
     login_manager = flask_login.LoginManager()
