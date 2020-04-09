@@ -510,7 +510,7 @@ class SessionManager:
         self.create_booking(title='Booking Krios 1',
                             start=now.replace(day=1, hour=9),
                             end=now.replace(day=2, hour=23, minute=59),
-                            type='downtime',
+                            type='booking',
                             resource_id=1,
                             creator_id=2,  # first user for now
                             owner_id=2,  # first user for now
@@ -519,8 +519,8 @@ class SessionManager:
         self.create_booking(title='Booking Krios 2',
                             start=now.replace(day=2, hour=9),
                             end=now.replace(day=4, hour=23, minute=59),
-                            type='downtime',
-                            resource_id=1,
+                            type='booking',
+                            resource_id=2,
                             creator_id=1,  # first user for now
                             owner_id=3,  # first user for now
                             description="Krios 2 for user 3")

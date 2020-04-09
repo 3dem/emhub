@@ -120,6 +120,9 @@
       }
     });
 
+    var bookings = {{ bookings|tojson }} ;
+
+
     var calendar = new Calendar(calendarEl, {
         plugins: [ 'interaction', 'dayGrid', 'timeGrid' ],
         header: {
@@ -137,6 +140,7 @@
         //     info.draggedEl.parentNode.removeChild(info.draggedEl);
         //   }
         // }
+        events: bookings,
         eventReceive: function(info) {
             //info.event.setProp('title', 'Booking of ' + userName)
        },

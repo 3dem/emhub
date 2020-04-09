@@ -128,11 +128,8 @@ def create_app(test_config=None):
     @app.route('/get_content', methods=['POST'])
     def get_content():
 
-        content = flask.request.form['content_id']
-        print(">>>>>>>>>>>>>>>> get_content: ", "content: ", content)
-
-        content_id = content.split('-id')[0]
-        session_id = content.split('-id')[-1] or None
+        content_id = flask.request.form['content_id']
+        session_id = flask.request.form.get('session_id', None)
 
         if not flask_login.current_user.is_authenticated:
             kwargs = {'next_content': content_id}
@@ -172,6 +169,9 @@ def create_app(test_config=None):
 
         @classmethod
         def get_session_live(cls, session_id):
+
+            print('session_id:', session_id)
+
             session = app.sm.load_session(session_id)
             firstSetId = session.data.get_sets()[0]['id']
             mics = session.data.get_items(firstSetId, ['location', 'ctfDefocus'])
@@ -206,8 +206,30 @@ def create_app(test_config=None):
 
         @classmethod
         def get_booking_calendar(cls, session_id):
-            return cls.get_resources_list(session_id)
 
+            def _color(b):
+                """ Get color from booking. """
+                return 'red' if b.type == 'downtime' else b.resource.color
+
+            dataDict = cls.get_resources_list(session_id)
+
+            dataDict['bookings'] = [
+                {'id': str(b.id),
+                 'title': str(b.title),
+                 'start': str(b.start),
+                 'end': str(b.end),
+                 'color': _color(b),
+                 'textColor': 'white'
+                 } for b in app.sm.get_bookings()
+            ]
+
+            return dataDict
+
+        @classmethod
+        def get_booking_list(cls, session_id):
+            return {
+                'bookings': app.sm.get_bookings()
+            }
 
     app.jinja_env.filters['reverse'] = basename
     from emhub.session.data_manager import SessionManager

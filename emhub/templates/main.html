@@ -211,15 +211,17 @@
 
 
                         <li class="nav-divider">
-                            Admin
-
-
+                            ADMIN
                         </li>
 
                         <ul class="nav flex-column submenu">
 
                             <li class="nav-item">
                                 <a class="nav-link nav-link-ajax" data-content-id="booking-calendar" href=""><i class="fas fa-calendar-alt"></i>Booking Calendar</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" data-content-id="booking-list" href=""><i class="fas fa-list-alt"></i>Booking List</a>
                             </li>
 
                             <li class="nav-item">
@@ -347,12 +349,12 @@
 
 <script type="text/javascript">
 
-    function load_content(content_id) {
+    function load_content(content_id, session_id) {
         console.log(">>>>load_content: content_id: " + content_id);
         var ajaxContent = $.ajax({
             url: "{{ url_for('get_content') }}",
             type: "POST",
-            data: {content_id: content_id},
+            data: {content_id: content_id, session_id: session_id},
             dataType: "html"
         });
 

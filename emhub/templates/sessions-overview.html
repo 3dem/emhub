@@ -34,10 +34,8 @@
                             </div>
                             <div class="col col-auto">
                             {% if session.status=='Running' %}
-<!--                                <a href="javascript: load_content('session-live-id{{session.id}}');" class="btn btn-success active">Running</a>-->
                                 <span class="badge badge-success">Running</span>
                             {% elif session.status=='Error' %}
-<!--                                <a href="javascript: load_content('session-live-id{{session.id}}');" class="btn btn-danger active">Error</a>-->
                                 <span class="badge badge-danger">Failed</span>
                             {% endif %}
                             </div>
@@ -65,7 +63,9 @@
                         </div>
                     </div>
                     <div class="float-right">
-                        <button type="button" class="btn btn-outline-dark btn-sm" onclick="javascript: load_content('session-live-id{{session.id}}');">View Details</button>
+                        <button type="button" class="btn btn-outline-dark btn-sm" onclick="javascript: load_content('session-live', '{{session.id}}');">
+                            View Details
+                        </button>
                     </div>
 
                 </div>
