@@ -17,15 +17,40 @@
 
                            <div id="booking-type">
                             {% for r in resources %}
-                                <h4> {{ r['name'] }}</h4>
+                               <div class="row justify-content-start" style="margin-top: 10px;">
+
+                                   <div class="col-auto text-left mr-0 pr-0">
+                                       <label class="custom-control custom-checkbox" style="margin-left: 5px;">
+                                            <input type="checkbox" checked="" class="custom-control-input"><span class="custom-control-label"></span>
+                                        </label>
+                                   </div>
+                                   <div class="col-auto text-left  ml-0 pl-0">
+                                       <h4 style="float: left"> {{ r['name'] }}</h4>
+                                   </div>
+
+                                   <div class="col text-right">
+                                       <div style="background-color: {{ r['color'] }}; width: 30px; height: 30px; float: right; margin-right: 10px"> &nbsp;</div>
+                                   </div>
+<!--                                   <div class="col-4 text-right"  style="margin: 2px">-->
+
+<!--                                       <div class="switch-button switch-button-xs" >-->
+<!--                                           <input type="checkbox" checked="" name="switch{{r['id']}}" id="switch{{r['id']}}">-->
+<!--                                           <span><label for="switch{{r['id']}}"></label></span>-->
+<!--                                        </div>-->
+
+
+<!--                                   </div>-->
+                               </div>
 
                                 <div class="row align-top" style="margin: -15px 0 0 25px">
                                     <label class="custom-control custom-radio custom-control-inline">
                                         <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Book</span>
                                     </label>
+                                    {% if current_user.is_manager %}
                                     <label class="custom-control custom-radio custom-control-inline is-invalid">
                                         <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Downtime</span>
                                     </label>
+                                    {% endif %}
                                 </div>
                             {% endfor %}
                         </div>

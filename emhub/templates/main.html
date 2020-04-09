@@ -350,7 +350,6 @@
 <script type="text/javascript">
 
     function load_content(content_id, session_id) {
-        console.log(">>>>load_content: content_id: " + content_id);
         var ajaxContent = $.ajax({
             url: "{{ url_for('get_content') }}",
             type: "POST",
@@ -368,8 +367,6 @@
     }
 
     function load_content_fromlink(e) {
-        console.log(">>> load_content_fromlink")
-
         // var propValue;
         // var obj = e.currentTarget.dataset;
         // for (var propName in obj) {

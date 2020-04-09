@@ -270,8 +270,21 @@ class SessionManager:
             def json(self):
                 return _json(self)
 
-            # Following methods are required by flask-login
-            # TODO: Implement flask-login required methods
+            @property
+            def is_developer(self):
+                return 'developer' in self.roles
+
+            @property
+            def is_admin(self):
+                return 'admin' in self.roles or self.is_developer
+
+            @property
+            def is_manager(self):
+                return 'manager' in self.roles or self.is_admin
+
+            @property
+            def is_pi(self):
+                return 'pi' in self.roles
 
         class Booking(Base):
             """Model for user accounts."""
