@@ -219,7 +219,8 @@ def create_app(test_config=None):
                  'start': str(b.start),
                  'end': str(b.end),
                  'color': _color(b),
-                 'textColor': 'white'
+                 'textColor': 'white',
+                 'resource_id': b.resource.id
                  } for b in app.sm.get_bookings()
             ]
 

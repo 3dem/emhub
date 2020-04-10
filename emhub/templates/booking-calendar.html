@@ -21,7 +21,7 @@
 
                                    <div class="col-auto text-left mr-0 pr-0">
                                        <label class="custom-control custom-checkbox" style="margin-left: 5px;">
-                                            <input type="checkbox" checked="" class="custom-control-input"><span class="custom-control-label"></span>
+                                            <input type="checkbox" checked="" class="custom-control-input"  data-resource-id="{{ r['id'] }}" onclick="filterBookingsByResource(this)"><span class="custom-control-label"></span>
                                         </label>
                                    </div>
                                    <div class="col-auto text-left  ml-0 pl-0">
@@ -95,6 +95,9 @@
 
 <!-- javascript  -->
 <script>
+    var events;
+    var calendar;
+
 (function(window, document, $, undefined) {
     "use strict";
 
@@ -148,7 +151,7 @@
     var bookings = {{ bookings|tojson }} ;
 
 
-    var calendar = new Calendar(calendarEl, {
+    calendar = new Calendar(calendarEl, {
         plugins: [ 'interaction', 'dayGrid', 'timeGrid' ],
         header: {
           left: 'prev,next today',
@@ -191,13 +194,28 @@
         }
   });
 
+  events = calendar.getEvents();
   calendar.render();
 
-
-
 })(window, document, window.jQuery);
-</script>
 
-<script>
+
+function filterBookingsByResource(input) {
+    inputId = input.dataset.resourceId;
+    // console.log("filtering by id: ", inputId);
+    // console.log("        checked: ", input.checked);
+
+    for (var event of events) {
+        // console.log("Event: ", event.title);
+        // console.log("   resource:", event.extendedProps.resource_id);
+
+        if (event.extendedProps.resource_id == inputId){
+            if (input.checked)
+                calendar.addEvent(event);
+            else
+                event.remove();
+        }
+    }
+}
 
 </script>
