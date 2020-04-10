@@ -19,17 +19,21 @@
                             {% for r in resources %}
                                <div class="row justify-content-start" style="margin-top: 10px;">
 
-                                   <div class="col-auto text-left mr-0 pr-0">
-                                       <label class="custom-control custom-checkbox" style="margin-left: 5px;">
-                                            <input type="checkbox" checked="" class="custom-control-input"  data-resource-id="{{ r['id'] }}" onclick="filterBookingsByResource(this)"><span class="custom-control-label"></span>
-                                        </label>
-                                   </div>
-                                   <div class="col-auto text-left  ml-0 pl-0">
-                                       <h4 style="float: left"> {{ r['name'] }}</h4>
+<!--                                   <div class="col-auto text-left mr-0 pr-0">-->
+<!--                                       <label class="custom-control custom-checkbox" style="margin-left: 5px;">-->
+<!--                                            <input type="checkbox" checked="" class="custom-control-input"  data-resource-id="{{ r['id'] }}" onclick="filterBookingsByResource(this)"><span class="custom-control-label"></span>-->
+<!--                                        </label>-->
+<!--                                   </div>-->
+                                   <div class="col-auto text-left">
+                                       <h4 style="margin-left: 10px"> {{ r['name'] }}</h4>
                                    </div>
 
                                    <div class="col text-right">
-                                       <div style="background-color: {{ r['color'] }}; width: 30px; height: 30px; float: right; margin-right: 10px"> &nbsp;</div>
+                                       <div style="background-color: {{ r['color'] }}; width: 30px; height: 30px; float: right; margin-right: 10px">
+                                        <label style="margin-top: 7px; margin-right: 7px">
+                                            <input type="checkbox" checked="" data-resource-id="{{ r['id'] }}" onclick="filterBookingsByResource(this)">
+                                        </label>
+                                       </div>
                                    </div>
 <!--                                   <div class="col-4 text-right"  style="margin: 2px">-->
 
