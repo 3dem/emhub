@@ -111,6 +111,7 @@ class SessionManager:
         new_booking = self.Booking(**attrs)
         self._db_session.add(new_booking)
         self._db_session.commit()
+        return new_booking
 
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,

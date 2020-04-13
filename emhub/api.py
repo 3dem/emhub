@@ -53,6 +53,14 @@ def get_users():
     return filter_from_attrs(app.sm.get_users())
 
 
+@api_bp.route('/create_booking', methods=['POST'])
+def create_booking():
+    attrs = request.json
+    booking = app.sm.create_booking(**attrs)
+
+    return send_json_data({'booking': {'id': booking.id}})
+
+
 @api_bp.route('/get_sessions', methods=['POST'])
 def get_sessions():
     return filter_from_attrs(app.sm.get_sessions(asJson=True))
