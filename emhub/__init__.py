@@ -223,6 +223,7 @@ def create_app(test_config=None):
                  'resource_id': b.resource.id
                  } for b in app.sm.get_bookings()
             ]
+            dataDict['current_user_json'] = flask_login.current_user.json()
 
             return dataDict
 

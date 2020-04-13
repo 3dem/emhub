@@ -48,11 +48,11 @@
 
                                 <div class="row align-top" style="margin: -15px 0 0 25px">
                                     <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Book</span>
+                                        <input type="radio" name="radio-inline" class="custom-control-input"  data-booking-type="booking" data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Book</span>
                                     </label>
                                     {% if current_user.is_manager %}
                                     <label class="custom-control custom-radio custom-control-inline is-invalid">
-                                        <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Downtime</span>
+                                        <input type="radio" name="radio-inline" class="custom-control-input"  data-booking-type="downtime"   data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Downtime</span>
                                     </label>
                                     {% endif %}
                                 </div>
@@ -74,23 +74,116 @@
     <!-- ============================================================== -->
     </div>
 
-
 <!-- Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+<div class="modal" id="message-modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="exampleModalLongTitle">Delete Resource</h3>
+        <h3 class="modal-title" id="message-title">Message Title  (REPLACE ME) </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="message-body"> Message Body (REPLACE ME) </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary"  data-dismiss="modal">Ok</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="booking-modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="booking-modal-title"> TITLE </h3>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
       <div class="modal-body">
+        <div class="row">
+            <!-- ============================================================== -->
+            <!-- Booking Form -->
+            <!-- ============================================================== -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="validationform" data-parsley-validate="" novalidate="">
 
+                    <!-- Title Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Owner" id="booking-owner" class="form-control">
+                        </div>
+                    </div>
+
+                    <!-- Title Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Type something" id="booking-title" class="form-control">
+                        </div>
+                    </div>
+
+                    <!-- Date Start Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Start</label>
+                        <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
+                            <input class="form-control" type="text" id="booking-start-date" value="" />
+                        </div>
+                        <div class="col-sm-4 col-lg-3">
+                            <input class="form-control" type="text" id="booking-start-time" value="09:00" />
+                        </div>
+
+                    </div>
+
+                    <!-- Date End Form -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">End</label>
+                        <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
+                            <input class="form-control" type="text" id="booking-end-date" value="" />
+                        </div>
+                        <div class="col-sm-4 col-lg-3">
+                            <input class="form-control" type="text" id="booking-end-time" value="23:59" />
+                        </div>
+
+                    </div>
+
+                    <!-- Booking Type Row -->
+                   <div class="form-group row">
+                        <label class="col-sm-3 col-form-label text-sm-right">Booking Type</label>
+                        <div class="col-sm-6">
+                            <div class="custom-controls-stacked">
+                                <label class="custom-control custom-radio custom-control-inline">
+                                    <input type="radio" name="radio-inline" checked="" class="custom-control-input"><span class="custom-control-label">Booking </span>
+                                </label>
+                                <label class="custom-control custom-radio custom-control-inline">
+                                    <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Slot</span>
+                                </label>
+                                <label class="custom-control custom-radio custom-control-inline">
+                                    <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Downtime</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Description (Optional)</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <textarea required="" class="form-control" id="booking-description"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <!-- ============================================================== -->
+            <!-- end Booking Form -->
+            <!-- ============================================================== -->
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary">Delete</button>
+        <button type="button" class="btn btn-primary">Submit</button>
       </div>
     </div>
   </div>
@@ -101,15 +194,14 @@
 <script>
     var events;
     var calendar;
+    var bookings;
+    var resources;
+    var selected_resource = null;
+    var current_user_json = null;
+    var created_event = null;
 
 (function(window, document, $, undefined) {
     "use strict";
-
-    /* Function to show the modal */
-    function showBooking(startStr, endStr) {
-      $('#deleteModal').find('.modal-body').html('<p> Do you want add Booking from ' + startStr + ' to ' + endStr + '</p>')
-      $('#deleteModal').modal('show')
-    }
 
    /* initialize the external events
   -----------------------------------------------------------------*/
@@ -152,8 +244,9 @@
       }
     });
 
-    var bookings = {{ bookings|tojson }} ;
-
+    resources = {{ resources|tojson }};
+    bookings = {{ bookings|tojson }} ;
+    current_user_json = {{ current_user_json|tojson }}
 
     calendar = new Calendar(calendarEl, {
         plugins: [ 'interaction', 'dayGrid', 'timeGrid' ],
@@ -194,7 +287,7 @@
         //     alert('clicked ' + info.dateStr);
         // },
         select: function(info) {
-            showBooking(info.startStr, info.endStr);
+            showBooking(info.start, info.end);
         }
   });
 
@@ -204,8 +297,54 @@
 })(window, document, window.jQuery);
 
 
+/* Helper function to pad dates */
+function pad(n) {
+    return n < 10 ? '0' + n : n;
+}
+
+/* Get date string in YYYY-MM-DD format */
+function dateStr(date) {
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+}
+
+/* Function to show the modal */
+function showMessage(title, msg) {
+    $('#message-title').html(title);
+    $('#message-body').html(msg);
+    $('#message-modal').modal('show')
+}
+
+/* Function to show the modal */
+function showBooking(startDate, endDate) {
+    if (selected_resource == null) {
+        showMessage("ERROR: Select Resource for Booking",
+                    "Please select the result (and booking type) from the " +
+                    "left panel before selecting dates. ")
+    }
+    else {
+        //console.log("A new date selection was made: " + start.format('YYYY-MM-DD') + ' to ' + end.format('YYYY-MM-DD'));
+        var startStr = dateStr(startDate);
+        // Remove one day since endDate is exclusive in FullCalendar
+        endDate.setDate(endDate.getDate() - 1);
+        var endStr = dateStr(endDate);
+
+        $('#booking-modal-title').html('Create Booking - ' + selected_resource.name);
+        $('#booking-title').focus();
+
+        $('#booking-owner').val(current_user_json.name);
+        $('#booking-owner').prop('readonly', true);
+
+        $('#booking-start-date').val(startStr);
+        $('#booking-start-time').val('09:00');
+        $('#booking-end-date').val(endStr);
+        $('#booking-end-time').val('23:59');
+
+        $('#booking-modal').modal('show');
+    }
+}
+
 function filterBookingsByResource(input) {
-    inputId = input.dataset.resourceId;
+    const inputId = input.dataset.resourceId;
     // console.log("filtering by id: ", inputId);
     // console.log("        checked: ", input.checked);
 
@@ -220,6 +359,36 @@ function filterBookingsByResource(input) {
                 event.remove();
         }
     }
+}
+
+/** This function is called when a different resource is changed. */
+function selectResource(radio) {
+    const resourceId = radio.dataset.resourceId;
+    selected_resource = null;
+    for (var r of resources) {
+        if (r.id == resourceId) {
+            selected_resource = r;
+            break;
+        }
+    }
+}
+
+function create_booking() {
+
+    var ajaxContent = $.ajax({
+        url: "{{ url_for('create_booking') }}",
+        type: "POST",
+        data: {content_id: content_id, session_id: session_id},
+        dataType: "html"
+    });
+
+    ajaxContent.done(function(html) {
+        $("#main-content").html(html);
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
 }
 
 </script>
