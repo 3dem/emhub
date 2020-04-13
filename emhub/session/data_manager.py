@@ -31,10 +31,12 @@ import datetime as dt
 import decimal
 import datetime
 
+
 from sqlalchemy import (create_engine, Column, Integer, String, DateTime,
                         Boolean, Float, ForeignKey, Text, text)
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy_utc import UtcDateTime, utcnow
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -71,7 +73,6 @@ class SessionManager:
     def create_user(self, **attrs):
         """ Create a new user in the DB.
         """
-        attrs['created'] = dt.datetime.now()
         # FIXME, admin should be False by default
         if 'roles' not in attrs:
             attrs['roles'] = 'user'
@@ -240,10 +241,11 @@ class SessionManager:
             name = Column(String(256),
                           nullable=False)
 
-            created = Column(DateTime,
+            created = Column(UtcDateTime,
                              index=False,
                              unique=False,
-                             nullable=False)
+                             nullable=False,
+                             default=utcnow())
 
             # Default role should be: 'user'
             # more roles can be comma separated: 'user,admin,manager'
@@ -298,10 +300,10 @@ class SessionManager:
             title = Column(String(256),
                            nullable=False)
 
-            start = Column(DateTime,
+            start = Column(UtcDateTime,
                            nullable=False)
 
-            end = Column(DateTime,
+            end = Column(UtcDateTime,
                          nullable=False)
 
             # booking, slot or downtime
@@ -345,7 +347,7 @@ class SessionManager:
                                  index=True,
                                  unique=False,
                                  nullable=False)
-            dateStarted = Column(DateTime,
+            dateStarted = Column(UtcDateTime,
                                  index=False,
                                  unique=False,
                                  nullable=False)

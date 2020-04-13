@@ -103,8 +103,17 @@ class TestData:
         for rDict in resources:
             dm.create_resource(**rDict)
 
+    def _localnow(self):
+        import pytz  # $ pip install pytz
+        from tzlocal import get_localzone  # $ pip install tzlocal
+
+        # get local timezone
+        local_tz = get_localzone()
+
+        return dt.datetime.now(local_tz)
+
     def __populateBookings(self, dm):
-        now = dt.datetime.now()
+        now = self._localnow().replace(minute=0, second=0)
 
         # Create a downtime from today to one week later
         dm.create_booking(title='First Booking',
@@ -159,7 +168,7 @@ class TestData:
                 sessionData=f,
                 userid=u,
                 sessionName=s,
-                dateStarted=dt.datetime.now(),
+                dateStarted=self._localnow(),
                 description='Long description goes here.....',
                 status=st,
                 microscope=sc,
@@ -185,7 +194,7 @@ class TestData:
         dm.create_session(sessionData='dfhgrth',
                           userid=2,
                           sessionName='dfgerhsrth_NAME',
-                          dateStarted=dt.datetime.now(),
+                          dateStarted=self._localnow(),
                           description='Long description goes here.....',
                           status='Running',
                           microscope='KriosX',
