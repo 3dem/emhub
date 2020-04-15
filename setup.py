@@ -44,9 +44,13 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
+# Read requirements.txt
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
+
+
 # Arguments marked as "Required" below must be included for upload to PyPI.
 # Fields marked as "Optional" may be commented out.
-
 setup(
     # This is the name of your project. The first time you publish this
     # package, this name will be registered for you. It will determine how
@@ -203,5 +207,5 @@ setup(
         'Bug Reports': 'https://github.com/3dem/emhub/issues',
         'Source': 'https://github.com/3dem/emhub/',
     },
-    install_requires=['flask', 'pillow', 'h5py', 'sqlalchemy', 'flask-login']
+    install_requires=requirements
 )

@@ -1,0 +1,8 @@
+flask
+pillow
+h5py
+sqlalchemy
+flask-login
+tzlocal
+pytz
+SQLAlchemy-Utc
