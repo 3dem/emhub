@@ -46,7 +46,7 @@ from .data_test import TestData
 from emhub.utils import datetime_to_isoformat, datetime_from_isoformat
 
 
-class SessionManager:
+class DataManager:
     """ Main class that will manage the sessions and their information.
     """
     def __init__(self, sqlitePath):
@@ -72,9 +72,8 @@ class SessionManager:
 
     # ------------------------- USERS ----------------------------------
     def create_user(self, **attrs):
-        """ Create a new user in the DB.
-        """
-        attrs['password_hash'] = self.User.password_hash(attrs['password'])
+        """ Create a new user in the DB. """
+        attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
         del attrs['password']
         return self.__create_item(self.User, **attrs)
 
@@ -268,12 +267,12 @@ class SessionManager:
             sessions = relationship('Session', back_populates="users")
 
             @staticmethod
-            def password_hash(password):
+            def create_password_hash(password):
                 return generate_password_hash(password, method='sha256')
 
             def set_password(self, password):
                 """Create hashed password."""
-                self.password_hash = self.password_hash(password)
+                self.password_hash = self.create_password_hash(password)
 
             def check_password(self, password):
                 """Check hashed password."""
@@ -300,6 +299,11 @@ class SessionManager:
             @property
             def is_pi(self):
                 return 'pi' in self.roles
+
+            def same_pi(self, other):
+                """ Return if the same pi. """
+                pi_id = self.id if self.is_pi else self.pi_id
+                return pi_id == other.pi_id
 
         class Booking(Base):
             """Model for user accounts."""
@@ -340,29 +344,6 @@ class SessionManager:
 
             def json(self):
                 return _json(self)
-
-            def to_event(self):
-                """ Return a dict that can be used as calendar Event object. """
-                resource = self.resource
-                color = 'red' if self.type == 'downtime' else resource.color
-
-                return {
-                    'id': self.id,
-                    'title': self.title,
-                    'description': self.description,
-                    'start': datetime_to_isoformat(self.start),
-                    'end': datetime_to_isoformat(self.end),
-                    'color': color,
-                    'textColor': 'white',
-                    'resource': {'id': resource.id,
-                                 'name': resource.name},
-                    'owner': {'id': self.owner.id,
-                              'name': self.owner.name},
-                    'type': self.type,
-                }
-
-            # Following methods are required by flask-login
-            # TODO: Implement flask-login required methods
 
         class Project(Base):
             """

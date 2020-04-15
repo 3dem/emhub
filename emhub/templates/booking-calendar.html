@@ -263,6 +263,18 @@
             }
         },
         selectAllow: function(info) {
+            if (selected_resource == null)
+                return false;
+
+            printObject(selected_resource, "selected_resource");
+
+            let booking = bookingFromSelection(info.start, info.end);
+
+            for (const e of events) {
+                if ((selected_resource.id == e.extendedProps.resource.id) &&
+                    rangesOverlap(booking, e))
+                    return false;
+            }
             return true;
         },
         // dateClick: function(info) {
@@ -322,6 +334,22 @@ function timeStr(date) {
     return pad(date.getHours()) + ":" + pad(date.getMinutes());
 }
 
+/* Date in range */
+function dateInRange(date, range) {
+    return (date >= range.start && date <= range.end);
+}
+
+/* Check if two events overlap (if have same resource) */
+function rangesOverlap(event1, event2) {
+    console.log(">>> rangeOverlap");
+    console.log("          event1:", {start: dateStr(event1.start), end: dateStr(event1.end)});
+    console.log("            resource:", selected_resource.id)
+    console.log("          event2:", {start: dateStr(event2.start), end: dateStr(event2.end)});
+    console.log("            resource:", event2.extendedProps.resource.id);
+    console.log("          result: ", (dateInRange(event1.start, event2) || dateInRange(event1.end, event2)))
+    return (dateInRange(event1.start, event2) || dateInRange(event1.end, event2));
+}
+
 /* Function to show the modal */
 function showMessage(title, msg) {
     $('#message-title').html(title);
@@ -341,8 +369,6 @@ function showBooking(booking) {
         $('#booking-btn-delete').show();
     }
 
-    printObject(booking, "booking");
-
     $('#booking-modal-title').html(titlePrefix + ' Booking - ' + booking.resource.name);
     $('#booking-btn-ok').html(titlePrefix);
 
@@ -360,6 +386,29 @@ function showBooking(booking) {
     $('#booking-modal').modal('show');
 }
 
+/** Create a booking dict, taking into account that FullCalendar add
+ * an extra day at the end of the selection. */
+function bookingFromSelection(start, end) {
+    start.setHours(9);
+    start.setMinutes(0);
+    // Remove one day since endDate is exclusive in FullCalendar
+    end.setDate(end.getDate() - 1);
+    end.setHours(23);
+    end.setMinutes(59);
+
+    return {
+        id: null,
+        title: '',
+        start: start,
+        end: end,
+        resource: selected_resource,
+        type: 'booking',
+        description: '',
+        creator: current_user_json,
+        owner: current_user_json
+    }
+}
+
 function createBooking(start, end) {
     if (selected_resource == null) {
         showMessage("ERROR: Select Resource for Booking",
@@ -367,26 +416,7 @@ function createBooking(start, end) {
                     "left panel before selecting dates. ")
     }
     else {
-        start.setHours(9);
-        start.setMinutes(0);
-        // Remove one day since endDate is exclusive in FullCalendar
-        end.setDate(end.getDate() - 1);
-        end.setHours(23);
-        end.setMinutes(59);
-
-        let booking = {
-            id: null,
-            title: '',
-            start: start,
-            end: end,
-            resource: selected_resource,
-            type: 'booking',
-            description: '',
-            creator: current_user_json,
-            owner: current_user_json
-        }
-
-        showBooking(booking);
+        showBooking(bookingFromSelection(start, end));
     }
 }
 
@@ -465,12 +495,10 @@ function create_booking() {
             showMessage("Response Error", "ERROR: " + jsonResponse.error)
         }
         else {
-            printObject(jsonResponse, 'response');
             event = calendar.addEvent(jsonResponse.booking)
             events.push(event);
             calendar.render();
         }
-
     });
 
     ajaxContent.fail(function(jqXHR, textStatus) {

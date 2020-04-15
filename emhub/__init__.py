@@ -36,6 +36,7 @@ import flask_login
 from . import utils
 from .api import send_json_data, api_bp
 from .utils import datetime_to_isoformat
+from .session.data_content import DataContent
 
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -99,7 +100,7 @@ def create_app(test_config=None):
         password = flask.request.form['password']
         next_content = flask.request.form.get('next_content', 'index')
 
-        user = app.sm.get_user_by(username=username)
+        user = app.dm.get_user_by(username=username)
 
         if user is None or not user.check_password(password):
             flask.flash('Invalid username or password')
@@ -117,7 +118,7 @@ def create_app(test_config=None):
     def get_mic_thumb():
         micId = int(flask.request.form['micId'])
         sessionId = int(flask.request.form['sessionId'])
-        session = app.sm.load_session(sessionId)
+        session = app.dm.load_session(sessionId)
         setObj = session.data.get_sets()[0]
         mic = session.data.get_item(setObj['id'], micId,
                                     dataAttrs=['micThumbData',
@@ -136,7 +137,7 @@ def create_app(test_config=None):
             kwargs = {'next_content': content_id}
             content_id = 'user-login'
         else:
-            kwargs = ContentData.get(content_id, session_id)
+            kwargs = app.dc.get(content_id, session_id)
 
         content_template = content_id + '.html'
 
@@ -150,84 +151,10 @@ def create_app(test_config=None):
         """Convert a string to all caps."""
         return os.path.basename(filename)
 
-    class ContentData:
-        # To have a quick way to retrieve data based on the content-id, we just
-        # need to call the function get_$content-id_data and it will be
-        # automatically retrieved. In the name, we need to replace the - in
-        # the content id by _
-        @classmethod
-        def get(cls, content_id, session_id):
-            get_func_name = 'get_%s' % content_id.replace('-', '_')
-            get_func = getattr(cls, get_func_name, None)
-            return {} if get_func is None else get_func(session_id)
-
-        @classmethod
-        def get_sessions_overview(cls, session_id=None):
-            # sessions = app.sm.get_sessions(condition='status!="Finished"',
-            #                                orderBy='microscope')
-            sessions = app.sm.get_sessions()  # FIXME
-            return {'sessions': sessions}
-
-        @classmethod
-        def get_session_live(cls, session_id):
-
-            print('session_id:', session_id)
-
-            session = app.sm.load_session(session_id)
-            firstSetId = session.data.get_sets()[0]['id']
-            mics = session.data.get_items(firstSetId, ['location', 'ctfDefocus'])
-            defocusList = [m.ctfDefocus for m in mics]
-            sample = ['Defocus'] + defocusList
-
-            bar1 = {'label': 'CTF Defocus',
-                    'data': defocusList}
-
-            return {'sample': sample,
-                    'bar1': bar1,
-                    'micrographs': mics,
-                    'session': session}
-
-        @classmethod
-        def get_sessions_stats(cls, session_id=None):
-            sessions = app.sm.get_sessions()
-            return {'sessions': sessions}
-
-        @classmethod
-        def get_users_list(cls, session_id):
-            return {'users': app.sm.get_users()}
-
-        @classmethod
-        def get_resources_list(cls, session_id):
-            resource_list = [
-                {'id': r.id, 'name': r.name, 'tags': r.tags, 'color': r.color,
-                 'image': flask.url_for('static', filename='images/%s' % r.image)}
-                for r in app.sm.get_resources()
-            ]
-            return {'resources': resource_list}
-
-        @classmethod
-        def get_booking_calendar(cls, session_id):
-            dataDict = cls.get_resources_list(session_id)
-            dataDict['bookings'] = [b.to_event() for b in app.sm.get_bookings()]
-            dataDict['current_user_json'] = flask_login.current_user.json()
-
-            return dataDict
-
-        @classmethod
-        def get_booking_list(cls, session_id):
-            return {
-                'bookings': app.sm.get_bookings()
-            }
-
-        @classmethod
-        def get_projects_list(cls, session_id):
-            return {
-                'projects': app.sm.get_projects()
-            }
-
     app.jinja_env.filters['reverse'] = basename
-    from emhub.session.data_manager import SessionManager
-    app.sm = SessionManager(dbPath)
+    from emhub.session.data_manager import DataManager
+    app.dm = DataManager(dbPath)
+    app.dc = DataContent(app)
 
     login_manager = flask_login.LoginManager()
     login_manager.login_view = 'login'
@@ -235,10 +162,10 @@ def create_app(test_config=None):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return app.sm.get_user_by(id=int(user_id))
+        return app.dm.get_user_by(id=int(user_id))
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):
-        app.sm.close()
+        app.dm.close()
 
     return app

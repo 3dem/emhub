@@ -44,16 +44,14 @@ api_bp = Blueprint('api', __name__)
 @api_bp.route('/create_user', methods=['POST'])
 def create_user():
     attrs = request.json
-    #utils.pretty_json(attrs)
-
-    app.sm.create_user(**attrs)
+    app.dm.create_user(**attrs)
 
     return send_json_data(-1)
 
 
 @api_bp.route('/get_users', methods=['POST'])
 def get_users():
-    return filter_from_attrs(app.sm.get_users())
+    return filter_from_attrs(app.dm.get_users())
 
 
 @api_bp.route('/create_booking', methods=['POST'])
@@ -65,8 +63,8 @@ def create_booking():
         attrs = request.json['attrs']
         attrs['start'] = datetime_from_isoformat(attrs['start'])
         attrs['end'] = datetime_from_isoformat(attrs['end'])
-        booking = app.sm.create_booking(**attrs)
-        return send_json_data({'booking': booking.to_event()})
+        booking = app.dm.create_booking(**attrs)
+        return send_json_data({'booking': app.dc.booking_to_event(booking)})
     except Exception as e:
         print(e)
         return send_json_data({'error': 'Raised exception: %s' % e})
@@ -74,7 +72,7 @@ def create_booking():
 
 @api_bp.route('/get_sessions', methods=['POST'])
 def get_sessions():
-    return filter_from_attrs(app.sm.get_sessions(asJson=True))
+    return filter_from_attrs(app.dm.get_sessions(asJson=True))
 
 
 @api_bp.route('/create_session', methods=['POST'])

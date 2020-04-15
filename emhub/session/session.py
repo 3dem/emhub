@@ -27,7 +27,7 @@
 # **************************************************************************
 
 
-class SessionManager:
+class DataManager:
     """ Main class that will manage the sessions and their information.
     """
     def get_users(self, condition=None, **attrs):

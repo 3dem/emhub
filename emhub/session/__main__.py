@@ -1,7 +1,7 @@
 
 import os
 
-from .data_manager import SessionManager
+from .data_manager import DataManager
 
 
 if __name__ == '__main__':
@@ -16,4 +16,4 @@ if __name__ == '__main__':
         print("Deleting existing file: ", dbPath)
         os.remove(dbPath)
 
-    SessionManager(sqlitePath=dbPath)
+    DataManager(sqlitePath=dbPath)
