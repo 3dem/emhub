@@ -43,6 +43,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from .session_hdf5 import H5SessionData
 from .data_test import TestData
+from emhub.utils import datetime_to_isoformat, datetime_from_isoformat
 
 
 class SessionManager:
@@ -73,17 +74,9 @@ class SessionManager:
     def create_user(self, **attrs):
         """ Create a new user in the DB.
         """
-        # FIXME, admin should be False by default
-        if 'roles' not in attrs:
-            attrs['roles'] = 'user'
-
-        password = attrs['password']
+        attrs['password_hash'] = self.User.password_hash(attrs['password'])
         del attrs['password']
-        new_user = self.User(**attrs)
-        new_user.set_password(password)
-
-        self._db_session.add(new_user)
-        self._db_session.commit()
+        return self.__create_item(self.User, **attrs)
 
     def get_users(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.User,
@@ -95,11 +88,9 @@ class SessionManager:
         """ This should return a single user or None. """
         return self.__item_by(self.User, **kwargs)
 
-    # ------------------------- RESOURCES ---------------------------------
+    # ---------------------------- RESOURCES ---------------------------------
     def create_resource(self, **attrs):
-        new_resource = self.Resource(**attrs)
-        self._db_session.add(new_resource)
-        self._db_session.commit()
+        return self.__create_item(self.Resource, **attrs)
 
     def get_resources(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Resource,
@@ -107,12 +98,19 @@ class SessionManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
-    # ------------------------- SESSIONS ----------------------------------
+    # ---------------------------- PROJECTS -----------------------------------
+    def create_project(self, **attrs):
+        return self.__create_item(self.Project, **attrs)
+
+    def get_projects(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Project,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self, **attrs):
-        new_booking = self.Booking(**attrs)
-        self._db_session.add(new_booking)
-        self._db_session.commit()
-        return new_booking
+        return self.__create_item(self.Booking, **attrs)
 
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,
@@ -120,7 +118,7 @@ class SessionManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
-    # ------------------------- SESSIONS ----------------------------------
+    # ---------------------------- SESSIONS -----------------------------------
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
         condition example: text("id<:value and name=:name")
@@ -132,16 +130,15 @@ class SessionManager:
 
     def create_session(self, **attrs):
         """ Add a new session row. """
-        new_session = self.Session(**attrs)
-        self._db_session.add(new_session)
-        self._db_session.commit()
+        return self.__create_item(self.Session, **attrs)
 
     def update_session(self, sessionId, **attrs):
         """ Update session attrs. """
         session = self.Session.query.get(sessionId)
 
-        for attr in attrs:
-            session.attr = attrs[attr]
+        # TODO: Check the following lines
+        # for attr in attrs:
+        #     session.attr = attrs[attr]
 
         self._db_session.commit()
 
@@ -169,6 +166,12 @@ class SessionManager:
         self._db_session.remove()
 
     # --------------- Internal implementation methods --------------------
+    def __create_item(self, ModelClass, **attrs):
+        new_item = ModelClass(**attrs)
+        self._db_session.add(new_item)
+        self._db_session.commit()
+        return new_item
+
     def __items_from_query(self, ModelClass,
                            condition=None, orderBy=None, asJson=False):
         query = self._db_session.query(ModelClass)
@@ -247,10 +250,15 @@ class SessionManager:
                              nullable=False,
                              default=utcnow())
 
+            pi_id = Column(Integer, ForeignKey('users.id'),
+                           nullable=True)
+            pi = relationship("User", foreign_keys=[pi_id])
+
             # Default role should be: 'user'
             # more roles can be comma separated: 'user,admin,manager'
             roles = Column(String(128),
-                           nullable=False)
+                           nullable=False,
+                           default='user')
 
             password_hash = Column(String(256),
                                    unique=True,
@@ -259,10 +267,13 @@ class SessionManager:
             # one user to many sessions, bidirectional
             sessions = relationship('Session', back_populates="users")
 
+            @staticmethod
+            def password_hash(password):
+                return generate_password_hash(password, method='sha256')
+
             def set_password(self, password):
                 """Create hashed password."""
-                self.password_hash = generate_password_hash(password,
-                                                            method='sha256')
+                self.password_hash = self.password_hash(password)
 
             def check_password(self, password):
                 """Check hashed password."""
@@ -330,8 +341,66 @@ class SessionManager:
             def json(self):
                 return _json(self)
 
+            def to_event(self):
+                """ Return a dict that can be used as calendar Event object. """
+                resource = self.resource
+                color = 'red' if self.type == 'downtime' else resource.color
+
+                return {
+                    'id': self.id,
+                    'title': self.title,
+                    'description': self.description,
+                    'start': datetime_to_isoformat(self.start),
+                    'end': datetime_to_isoformat(self.end),
+                    'color': color,
+                    'textColor': 'white',
+                    'resource': {'id': resource.id,
+                                 'name': resource.name},
+                    'owner': {'id': self.owner.id,
+                              'name': self.owner.name},
+                    'type': self.type,
+                }
+
             # Following methods are required by flask-login
             # TODO: Implement flask-login required methods
+
+        class Project(Base):
+            """
+            Project that applies for access to the facility.
+            Usually many principal investigators are associated to a project.
+            """
+            __tablename__ = 'projects'
+
+            id = Column(Integer,
+                        primary_key=True)
+
+            code = Column(String(32),
+                          nullable=False,
+                          unique=True)
+
+            alias = Column(String(32))
+
+            title = Column(String(256),
+                           nullable=False)
+
+            description = Column(Text,
+                                 nullable=True)
+
+            invoice_reference = Column(String(256),
+                                       nullable=False)
+
+            invoice_address = Column(Text,
+                                     nullable=True)
+
+            pi_id = Column(Integer, ForeignKey('users.id'),
+                           nullable=False)
+            pi = relationship("User", foreign_keys=[pi_id])
+
+            def __repr__(self):
+                return '<Project code=%s, alias=%s>' % (self.code, self.alias)
+
+            def json(self):
+                return _json(self)
 
         class Session(Base):
             """Model for sessions."""
@@ -447,4 +516,5 @@ class SessionManager:
         self.Resource = Resource
         self.Booking = Booking
         self.Session = Session
+        self.Project = Project
 

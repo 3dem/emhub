@@ -35,6 +35,7 @@ import flask_login
 
 from . import utils
 from .api import send_json_data, api_bp
+from .utils import datetime_to_isoformat
 
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -206,23 +207,8 @@ def create_app(test_config=None):
 
         @classmethod
         def get_booking_calendar(cls, session_id):
-
-            def _color(b):
-                """ Get color from booking. """
-                return 'red' if b.type == 'downtime' else b.resource.color
-
             dataDict = cls.get_resources_list(session_id)
-
-            dataDict['bookings'] = [
-                {'id': str(b.id),
-                 'title': str(b.title),
-                 'start': str(b.start),
-                 'end': str(b.end),
-                 'color': _color(b),
-                 'textColor': 'white',
-                 'resource_id': b.resource.id
-                 } for b in app.sm.get_bookings()
-            ]
+            dataDict['bookings'] = [b.to_event() for b in app.sm.get_bookings()]
             dataDict['current_user_json'] = flask_login.current_user.json()
 
             return dataDict
@@ -231,6 +217,12 @@ def create_app(test_config=None):
         def get_booking_list(cls, session_id):
             return {
                 'bookings': app.sm.get_bookings()
+            }
+
+        @classmethod
+        def get_projects_list(cls, session_id):
+            return {
+                'projects': app.sm.get_projects()
             }
 
     app.jinja_env.filters['reverse'] = basename

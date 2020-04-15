@@ -29,9 +29,12 @@
 import os
 import json
 from glob import glob
+import datetime as dt
 
 from flask import Blueprint, request, make_response
 from flask import current_app as app
+
+from emhub.utils import pretty_json, datetime_from_isoformat
 
 
 api_bp = Blueprint('api', __name__)
@@ -55,10 +58,18 @@ def get_users():
 
 @api_bp.route('/create_booking', methods=['POST'])
 def create_booking():
-    attrs = request.json
-    booking = app.sm.create_booking(**attrs)
-
-    return send_json_data({'booking': {'id': booking.id}})
+    try:
+        if not request.json:
+            raise Exception("Expecting JSON request.")
+        pretty_json(request.json)
+        attrs = request.json['attrs']
+        attrs['start'] = datetime_from_isoformat(attrs['start'])
+        attrs['end'] = datetime_from_isoformat(attrs['end'])
+        booking = app.sm.create_booking(**attrs)
+        return send_json_data({'booking': booking.to_event()})
+    except Exception as e:
+        print(e)
+        return send_json_data({'error': 'Raised exception: %s' % e})
 
 
 @api_bp.route('/get_sessions', methods=['POST'])

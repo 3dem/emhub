@@ -60,7 +60,7 @@
     </div>
 
 <!-- Modal -->
-<div class="modal" id="message-modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+<div class="modal" id="message-modal" tabindex="-1" role="dialog" aria-labelledby="messageModal" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
       <div class="modal-header">
@@ -78,7 +78,7 @@
 </div>
 
 <!-- Modal -->
-<div class="modal fade" id="booking-modal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+<div class="modal fade" id="booking-modal" tabindex="-1" role="dialog" aria-labelledby="bookingModal" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
@@ -167,8 +167,9 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="create_booking()">Submit</button>
+        <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+          <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" data-dismiss="modal">Delete</button>
+        <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="javascript: create_booking()">Submit</button>
       </div>
     </div>
   </div>
@@ -183,7 +184,7 @@
     var resources;
     var selected_resource = null;
     var current_user_json = null;
-    var created_event = null;
+    var last_event = null;
 
 (function(window, document, $, undefined) {
     "use strict";
@@ -227,6 +228,8 @@
     bookings = {{ bookings|tojson }} ;
     current_user_json = {{ current_user_json|tojson }}
 
+    // printList(bookings, "Bookings");
+
     calendar = new Calendar(calendarEl, {
         plugins: [ 'interaction', 'dayGrid', 'timeGrid' ],
         header: {
@@ -266,7 +269,16 @@
         //     alert('clicked ' + info.dateStr);
         // },
         select: function(info) {
-            showBooking(info.start, info.end);
+            createBooking(info.start, info.end);
+        },
+        eventClick: function(info) {
+            updateBooking(info.event);
+            // alert('Event: ' + info.event.title);
+            // alert('Coordinates: ' + info.jsEvent.pageX + ',' + info.jsEvent.pageY);
+            // alert('View: ' + info.view.type);
+            //
+            // // change the border color just for fun
+            // info.el.style.borderColor = 'red';
         }
   });
 
@@ -275,6 +287,25 @@
 
 })(window, document, window.jQuery);
 
+
+/* Helper function to print object properties */
+function printObject(obj, label) {
+    var propValue;
+    console.log("object: ", label);
+    for (var propName in obj) {
+        propValue = obj[propName]
+        console.log('   ', propName, ': ', propValue);
+    }
+}
+
+function printList(objList, label) {
+    console.log("List: ", label);
+    var i = 0;
+    for (var obj of objList) {
+        i = i + 1;
+        printObject(obj, "item " + i);
+    }
+}
 
 /* Helper function to pad dates */
 function pad(n) {
@@ -286,6 +317,11 @@ function dateStr(date) {
     return date.getFullYear() + '-' + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
 }
 
+/* Get hour:minutes string HH:00 format */
+function timeStr(date) {
+    return pad(date.getHours()) + ":" + pad(date.getMinutes());
+}
+
 /* Function to show the modal */
 function showMessage(title, msg) {
     $('#message-title').html(title);
@@ -294,32 +330,80 @@ function showMessage(title, msg) {
 }
 
 /* Function to show the modal */
-function showBooking(startDate, endDate) {
+function showBooking(booking) {
+    var titlePrefix = null;
+    if (booking.id == null) {  // New booking
+        titlePrefix = 'Create ';
+        $('#booking-btn-delete').hide();
+    }
+    else {
+        titlePrefix = 'Update ';
+        $('#booking-btn-delete').show();
+    }
+
+    printObject(booking, "booking");
+
+    $('#booking-modal-title').html(titlePrefix + ' Booking - ' + booking.resource.name);
+    $('#booking-btn-ok').html(titlePrefix);
+
+    $('#booking-owner').val(booking.owner.name);
+    $('#booking-owner').prop('readonly', true);
+
+    $('#booking-start-date').val(dateStr(booking.start));
+    $('#booking-start-time').val(timeStr(booking.start));
+    $('#booking-end-date').val(dateStr(booking.end));
+    $('#booking-end-time').val(timeStr(booking.end));
+
+    $('#booking-title').val(booking.title);
+    $('#booking-description').val(booking.description);
+    $('#booking-title').focus();
+    $('#booking-modal').modal('show');
+}
+
+function createBooking(start, end) {
     if (selected_resource == null) {
         showMessage("ERROR: Select Resource for Booking",
                     "Please select the result (and booking type) from the " +
                     "left panel before selecting dates. ")
     }
     else {
-        //console.log("A new date selection was made: " + start.format('YYYY-MM-DD') + ' to ' + end.format('YYYY-MM-DD'));
-        var startStr = dateStr(startDate);
+        start.setHours(9);
+        start.setMinutes(0);
         // Remove one day since endDate is exclusive in FullCalendar
-        endDate.setDate(endDate.getDate() - 1);
-        var endStr = dateStr(endDate);
+        end.setDate(end.getDate() - 1);
+        end.setHours(23);
+        end.setMinutes(59);
 
-        $('#booking-modal-title').html('Create Booking - ' + selected_resource.name);
+        let booking = {
+            id: null,
+            title: '',
+            start: start,
+            end: end,
+            resource: selected_resource,
+            type: 'booking',
+            description: '',
+            creator: current_user_json,
+            owner: current_user_json
+        }
 
-        $('#booking-owner').val(current_user_json.name);
-        $('#booking-owner').prop('readonly', true);
-
-        $('#booking-start-date').val(startStr);
-        $('#booking-start-time').val('09:00');
-        $('#booking-end-date').val(endStr);
-        $('#booking-end-time').val('23:59');
-
-        $('#booking-title').focus();
-        $('#booking-modal').modal('show');
+        showBooking(booking);
     }
+}
+
+function updateBooking(event) {
+    let booking = {
+        id: event.id,
+        start: event.start,
+        end: event.end,
+        resource: event.extendedProps.resource,
+        type: event.extendedProps.type,
+        title: event.title,
+        description: event.extendedProps.description,
+        creator: event.extendedProps.creator,
+        owner: event.extendedProps.owner
+    }
+    //printObject(event, "updateBooking");
+    showBooking(booking);
 }
 
 function filterBookingsByResource(input) {
@@ -331,7 +415,7 @@ function filterBookingsByResource(input) {
         // console.log("Event: ", event.title);
         // console.log("   resource:", event.extendedProps.resource_id);
 
-        if (event.extendedProps.resource_id == inputId){
+        if (event.extendedProps.resource.id == inputId){
             if (input.checked)
                 calendar.addEvent(event);
             else
@@ -354,15 +438,39 @@ function selectResource(radio) {
 
 function create_booking() {
     // Create Event object info from
+    last_event = {
+        title: $('#booking-title').val(),
+        start: new Date($('#booking-start-date').val() + 'T' + $('#booking-start-time').val()).toISOString(),
+        end: new Date($('#booking-end-date').val() + 'T' + $('#booking-end-time').val()).toISOString(),
+        resource_id: selected_resource.id,
+        type: 'booking',
+        description: $('#booking-description').val(),
+        creator_id: current_user_json.id,
+        owner_id: current_user_json.id
+    }
+
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.create_booking') }}",
         type: "POST",
-        data: {content_id: content_id, session_id: session_id},
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: last_event}),
         dataType: "json"
     });
 
-    ajaxContent.done(function(booking) {
-        console.log("Received: ", booking);
+    ajaxContent.done(function(jsonResponse) {
+        // TODO: Check how to open an error modal on top if failure
+        $('#booking-modal').modal('hide');
+
+        if ('error' in jsonResponse) {
+            showMessage("Response Error", "ERROR: " + jsonResponse.error)
+        }
+        else {
+            printObject(jsonResponse, 'response');
+            event = calendar.addEvent(jsonResponse.booking)
+            events.push(event);
+            calendar.render();
+        }
+
     });
 
     ajaxContent.fail(function(jqXHR, textStatus) {

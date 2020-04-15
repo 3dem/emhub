@@ -46,6 +46,8 @@ class TestData:
         self.__populateUsers(dm)
         print("Populating resources...")
         self.__populateResources(dm)
+        print("Populating projects...")
+        self.__populateProjects(dm)
         print("Populating sessions...")
         self.__populateSessions(dm)
         print("Populating Bookings")
@@ -53,36 +55,46 @@ class TestData:
 
     def __populateUsers(self, dm):
         # Create user table
-        usernames = ['name1', 'name2', 'name3']
-        emails = ['abc@def.com', 'fgh@ert.com', 'yu@dfh.com']
-
-        """
-        Petey Cruiser
-        Paul Molive
-        Anna Mull
-        Barb Ackue
-        Greta Life
-        Walter Melon
-        Monty Carlo
-        """
-
         usersData = [
-            ('Peter Cruiser', 'admin'),
-            ('Paul Molive', 'admin,manager'),
-            ('Anna Mull', 'manager'),
-            ('Barb Ackue', 'manager'),
-            ('Greta Life', 'user'),
-            ('Walter Melon', 'user'),
-            ('Monty Carlo', 'user,pi')
+            # dev (D)
+            ('Don Stairs', 'dev', None),  # 1
+
+            # admin (A)
+            ('Anna Mull', 'admin,manager', None),   # 2
+            ('Arty Ficial', 'admin', None),  # 3
+
+            # managers (M)
+            ('Monty Carlo', 'manager', None),  # 4
+            ('Moe Fugga', 'manager', None),  # 5
+
+            # pi (P)
+            ('Polly Tech', 'pi', None),  # 6
+            ('Peter Cruiser', 'pi', None),  # 7
+            ('Pat Agonia', 'pi', None),  # 8
+            ('Paul Molive', 'pi', None),  # 9
+
+            # users (R, S)
+            ('Ray Cyst', 'user', 6),  # 10
+            ('Rick Shaw', 'user', 6),  # 11
+            ('Rachel Slurs', 'user', 6),  # 12
+            ('Reggie Stration', 'user', 7),  # 13
+            ('Reuben Sandwich', 'user', 7),  # 14
+            ('Sara Bellum', 'user', 7),  # 15
+            ('Sam Owen', 'user', 7),  # 16
+            ('Sam Buca', 'user', 8),  # 17
+            ('Sarah Yevo', 'user', 8),  # 18
+            ('Sven Gineer', 'user', 8),  # 19
+            ('Sharon Needles', 'user', 8)  # 20
         ]
 
-        for name, roles in usersData:
+        for name, roles, pi in usersData:
             first, last = name.lower().split()
             dm.create_user(username=last,
                            email='%s.%s@emhub.org' % (first, last),
                            password=last,
                            name=name,
-                           roles=roles)
+                           roles=roles,
+                           pi_id=pi)
 
     def __populateResources(self, dm):
         resources = [
@@ -102,6 +114,37 @@ class TestData:
 
         for rDict in resources:
             dm.create_resource(**rDict)
+
+    def __populateProjects(self, dm):
+        projects = [
+            {'code': 'CEM00297',
+             'alias': 'BAG Lund',
+             'title': 'Bag Project for Lund University 2019/20',
+             'description': '',
+             'pi_id': 6,
+             'invoice_reference': 'AAA',
+             'invoice_address': ''
+             },
+            {'code': 'CEM00315',
+             'alias': 'BAG SU',
+             'title': 'Bag Project for Stockholm University',
+             'description': '',
+             'pi_id': 7,
+             'invoice_reference': 'BBB',
+             'invoice_address': ''
+             },
+            {'code': 'CEM00332',
+             'alias': 'RAA Andersson',
+             'title': 'Rapid Access application',
+             'description': '',
+             'pi_id': 8,
+             'invoice_reference': 'ZZZ',
+             'invoice_address': ''
+             },
+        ]
+
+        for pDict in projects:
+            dm.create_project(**pDict)
 
     def _localnow(self):
         import pytz  # $ pip install pytz
@@ -150,7 +193,7 @@ class TestData:
                          'epu-mysession_20122310_234542',
                          'mysession_very_long_name']
 
-        testData = os.environ.get('EMHUB_TESTDATA', None)
+        testData = os.environ.get('EMHUB_TESTDATA')
         fns = [os.path.join(testData, 'hdf5/20181108_relion30_tutorial.h5'),
                os.path.join(testData, 'hdf5/t20s_pngs.h5'), 'non-existing-file']
 

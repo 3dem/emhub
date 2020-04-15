@@ -25,9 +25,20 @@
 # **************************************************************************
 
 import json
+import datetime as dt
 
 from . import image
 
 
 def pretty_json(d):
     print(json.dumps(d, indent=4))
+
+
+def datetime_from_isoformat(iso_string):
+    """ Parse the input string and handle ending Z and assume UTC. """
+    dt_string = iso_string.replace('Z', '+00:00')
+    return dt.datetime.fromisoformat(dt_string).replace(tzinfo=dt.timezone.utc)
+
+
+def datetime_to_isoformat(input_dt):
+    return input_dt.isoformat().replace('+00:00', 'Z')
