@@ -117,6 +117,9 @@ class DataContent:
         if booking.type == 'downtime':
             color = 'red'
             title = "%s (DOWNTIME): %s" % (resource.name, b_title)
+        elif booking.type == 'slot':
+            color = '#619e3e'
+            title = "%s (SLOT): %s" % (resource.name, b_title)
         else:
             color = resource.color
             # Show all booking information in title in some cases only

@@ -103,7 +103,7 @@ class TestData:
             {'name': 'Titan Krios 2', 'tags': 'microscope krios',
              'image': 'titan-krios.png', 'color': '#213b94'},
             {'name': 'Talos Artica', 'tags': 'microscope talos',
-             'image': 'talos-artica.png', 'color': '#619e3e'},
+             'image': 'talos-artica.png', 'color': '#2b5424'},
             {'name': 'Vitrobot', 'tags': 'instrument',
              'image': 'vitrobot.png', 'color': '#9e8e3e'},
             {'name': 'Carbon Coater', 'tags': 'instrument',

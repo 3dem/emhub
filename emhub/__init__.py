@@ -65,6 +65,9 @@ def create_app(test_config=None):
     except OSError:
         pass
 
+    # Define some content_id list that does not requires login
+    NO_LOGIN_CONTENT = ['users-list']
+
     @app.route('/main', methods=['GET', 'POST'])
     def main():
         if flask.request.method == 'GET':
@@ -72,7 +75,7 @@ def create_app(test_config=None):
         else:
             content_id = flask.request.form['content_id']
 
-        if not flask_login.current_user.is_authenticated:
+        if not app.user.is_authenticated:
             kwargs = {'content_id': 'user-login', 'next_content': content_id}
         else:
             kwargs = {'content_id': content_id}
@@ -129,15 +132,15 @@ def create_app(test_config=None):
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
-
         content_id = flask.request.form['content_id']
         session_id = flask.request.form.get('session_id', None)
+        print("get_content: ", "content_id=", content_id)
 
-        if not flask_login.current_user.is_authenticated:
+        if (content_id in NO_LOGIN_CONTENT or app.user.is_authenticated):
+            kwargs = app.dc.get(content_id, session_id)
+        else:
             kwargs = {'next_content': content_id}
             content_id = 'user-login'
-        else:
-            kwargs = app.dc.get(content_id, session_id)
 
         content_template = content_id + '.html'
 
@@ -155,6 +158,7 @@ def create_app(test_config=None):
     from emhub.session.data_manager import DataManager
     app.dm = DataManager(dbPath)
     app.dc = DataContent(app)
+    app.user = flask_login.current_user
 
     login_manager = flask_login.LoginManager()
     login_manager.login_view = 'login'

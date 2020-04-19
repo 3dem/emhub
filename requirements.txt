@@ -6,3 +6,5 @@ flask-login
 tzlocal
 pytz
 SQLAlchemy-Utc
+gunicorn
+

@@ -33,11 +33,11 @@
 
                                 <div class="row align-top" style="margin: -15px 0 0 25px">
                                     <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="radio-inline" class="custom-control-input"  data-booking-type="booking" data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Book</span>
+                                        <input type="radio" name="resource-radio" class="custom-control-input"  value="booking" data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Book</span>
                                     </label>
                                     {% if current_user.is_manager %}
                                     <label class="custom-control custom-radio custom-control-inline is-invalid">
-                                        <input type="radio" name="radio-inline" class="custom-control-input"  data-booking-type="downtime"   data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Downtime</span>
+                                        <input type="radio" name="resource-radio" class="custom-control-input"  value="downtime"   data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Downtime</span>
                                     </label>
                                     {% endif %}
                                 </div>
@@ -141,15 +141,23 @@
                         <div class="col-sm-6">
                             <div class="custom-controls-stacked">
                                 <label class="custom-control custom-radio custom-control-inline">
-                                    <input type="radio" name="radio-inline" checked="" class="custom-control-input"><span class="custom-control-label">Booking </span>
+                                    <input type="radio" name="booking-type-radio" checked="" class="custom-control-input" value="booking"><span class="custom-control-label">Booking </span>
                                 </label>
                                 <label class="custom-control custom-radio custom-control-inline">
-                                    <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Slot</span>
+                                    <input type="radio" name="booking-type-radio" class="custom-control-input" value="slot"><span class="custom-control-label">Slot</span>
                                 </label>
                                 <label class="custom-control custom-radio custom-control-inline">
-                                    <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Downtime</span>
+                                    <input type="radio" name="booking-type-radio" class="custom-control-input" value="downtime"><span class="custom-control-label">Downtime</span>
                                 </label>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Slot Auth Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Sloth Authorization</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Owner" id="booking-slot-auth" class="form-control">
                         </div>
                     </div>
 
@@ -183,11 +191,18 @@
     var bookings;
     var resources;
     var selected_resource = null;
+    var booking_type = null;
     var current_user_json = null;
     var last_event = null;
 
 (function(window, document, $, undefined) {
     "use strict";
+
+    /* Register when the Booking type change */
+    $('input[type=radio][name=booking-type-radio]').change(function() {
+        booking_type = this.value;
+        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+    });
 
    /* initialize the external events
   -----------------------------------------------------------------*/
@@ -382,6 +397,7 @@ function showBooking(booking) {
 
     $('#booking-title').val(booking.title);
     $('#booking-description').val(booking.description);
+    $("input[name=booking-type-radio][value=" + booking.type + "]").prop('checked', true);
     $('#booking-title').focus();
     $('#booking-modal').modal('show');
 }
@@ -396,13 +412,16 @@ function bookingFromSelection(start, end) {
     end.setHours(23);
     end.setMinutes(59);
 
+    console.log("bookingFromSelection: ");
+    console.log("   booking-type: ", booking_type);
+
     return {
         id: null,
         title: '',
         start: start,
         end: end,
         resource: selected_resource,
-        type: 'booking',
+        type: booking_type,
         description: '',
         creator: current_user_json,
         owner: current_user_json
@@ -458,6 +477,7 @@ function filterBookingsByResource(input) {
 function selectResource(radio) {
     const resourceId = radio.dataset.resourceId;
     selected_resource = null;
+    booking_type = radio.value;
     for (var r of resources) {
         if (r.id == resourceId) {
             selected_resource = r;
@@ -468,12 +488,14 @@ function selectResource(radio) {
 
 function create_booking() {
     // Create Event object info from
+    console.log('create_booking: type=' + booking_type);
+
     last_event = {
         title: $('#booking-title').val(),
         start: new Date($('#booking-start-date').val() + 'T' + $('#booking-start-time').val()).toISOString(),
         end: new Date($('#booking-end-date').val() + 'T' + $('#booking-end-time').val()).toISOString(),
         resource_id: selected_resource.id,
-        type: 'booking',
+        type: booking_type,
         description: $('#booking-description').val(),
         creator_id: current_user_json.id,
         owner_id: current_user_json.id
