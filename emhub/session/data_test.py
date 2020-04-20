@@ -81,10 +81,10 @@ class TestData:
             ('Reuben Sandwich', 'user', 7),  # 14
             ('Sara Bellum', 'user', 7),  # 15
             ('Sam Owen', 'user', 7),  # 16
-            ('Sam Buca', 'user', 8),  # 17
-            ('Sarah Yevo', 'user', 8),  # 18
-            ('Sven Gineer', 'user', 8),  # 19
-            ('Sharon Needles', 'user', 8)  # 20
+            ('Sam Buca', 'user', 9),  # 17
+            ('Sarah Yevo', 'user', 9),  # 18
+            ('Sven Gineer', 'user', 9),  # 19
+            ('Sharon Needles', 'user', 9)  # 20
         ]
 
         for name, roles, pi in usersData:
@@ -141,6 +141,14 @@ class TestData:
              'invoice_reference': 'ZZZ',
              'invoice_address': ''
              },
+            {'code': 'DBB00001',
+             'alias': 'SU-DBB',
+             'title': 'Internal DBB project',
+             'description': '',
+             'pi_id': 9,
+             'invoice_reference': 'DDD',
+             'invoice_address': ''
+             },
         ]
 
         for pDict in projects:
@@ -160,32 +168,53 @@ class TestData:
 
         # Create a downtime from today to one week later
         dm.create_booking(title='First Booking',
-                            start=now.replace(day=21),
-                            end=now.replace(day=28),
-                            type='downtime',
-                            resource_id=1,
-                            creator_id=1,  # first user for now
-                            owner_id=1,  # first user for now
-                            description="Some downtime for some problem")
+                          start=now.replace(day=21),
+                          end=now.replace(day=28),
+                          type='downtime',
+                          resource_id=1,
+                          creator_id=1,  # first user for now
+                          owner_id=1,  # first user for now
+                          description="Some downtime for some problem")
 
         # Create a booking at the downtime from today to one week later
         dm.create_booking(title='Booking Krios 1',
-                            start=now.replace(day=1, hour=9),
-                            end=now.replace(day=2, hour=23, minute=59),
-                            type='booking',
-                            resource_id=1,
-                            creator_id=2,  # first user for now
-                            owner_id=2,  # first user for now
-                            description="Krios 1 for user 2")
+                          start=now.replace(day=1, hour=9),
+                          end=now.replace(day=2, hour=23, minute=59),
+                          type='booking',
+                          resource_id=1,
+                          creator_id=2,  # first user for now
+                          owner_id=2,  # first user for now
+                          description="Krios 1 for user 2")
         # Create a booking at the downtime from today to one week later
         dm.create_booking(title='Booking Krios 2',
-                            start=now.replace(day=2, hour=9),
-                            end=now.replace(day=4, hour=23, minute=59),
-                            type='booking',
-                            resource_id=2,
-                            creator_id=1,  # first user for now
-                            owner_id=3,  # first user for now
-                            description="Krios 2 for user 3")
+                          start=now.replace(day=2, hour=9),
+                          end=now.replace(day=4, hour=23, minute=59),
+                          type='booking',
+                          resource_id=2,
+                          creator_id=1,  # first user for now
+                          owner_id=3,  # first user for now
+                          description="Krios 2 for user 3")
+
+        # Create a booking at the downtime from today to one week later
+        dm.create_booking(title='Slot 1: BAGs',
+                          start=now.replace(day=6, hour=9),
+                          end=now.replace(day=10, hour=23, minute=59),
+                          type='slot',
+                          slot_auth={'projects': ['CEM00297', 'CEM00315']},
+                          resource_id=3,
+                          creator_id=1,  # first user for now
+                          owner_id=1,  # first user for now
+                          description="Talos slot for National BAGs")
+
+        dm.create_booking(title='Slot 2: RAPID',
+                          start=now.replace(day=20, hour=9),
+                          end=now.replace(day=24, hour=23, minute=59),
+                          type='slot',
+                          slot_auth={'projects': ['CEM00332']},
+                          resource_id=3,
+                          creator_id=1,  # first user for now
+                          owner_id=1,  # first user for now
+                          description="Talos slot for RAPID projects")
 
     def __populateSessions(self, dm):
         users = [1, 2, 2]

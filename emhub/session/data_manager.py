@@ -32,7 +32,7 @@ import decimal
 import datetime
 
 
-from sqlalchemy import (create_engine, Column, Integer, String, DateTime,
+from sqlalchemy import (create_engine, Column, Integer, String, JSON,
                         Boolean, Float, ForeignKey, Text, text)
 from sqlalchemy.orm import scoped_session, sessionmaker, relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -225,6 +225,9 @@ class DataManager:
             color = Column(String(16),
                            nullable=False)
 
+            # Booking authorization, who can book within this slot
+            booking_auth = Column(JSON)
+
         class User(UserMixin, Base):
             """Model for user accounts."""
             __tablename__ = 'users'
@@ -251,7 +254,9 @@ class DataManager:
 
             pi_id = Column(Integer, ForeignKey('users.id'),
                            nullable=True)
-            pi = relationship("User", foreign_keys=[pi_id])
+            pi = relationship("User", foreign_keys=[pi_id], back_populates="lab_members")
+
+            lab_members = relationship("User")
 
             # Default role should be: 'user'
             # more roles can be comma separated: 'user,admin,manager'
@@ -325,6 +330,9 @@ class DataManager:
             type = Column(String(16),
                           nullable=False)
 
+            # slot authorization, who can book within this slot
+            slot_auth = Column(JSON)
+
             description = Column(Text,
                                  nullable=True)
 
@@ -375,7 +383,7 @@ class DataManager:
 
             pi_id = Column(Integer, ForeignKey('users.id'),
                            nullable=False)
-            pi = relationship("User", foreign_keys=[pi_id])
+            pi = relationship("User", foreign_keys=[pi_id], backref="projects")
 
             def __repr__(self):
                 return '<Project code=%s, alias=%s>' % (self.code, self.alias)
