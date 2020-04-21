@@ -82,9 +82,16 @@ class DataContent:
         return {'users': self.app.dm.get_users()}
 
     def get_resources_list(self, session_id):
+
         resource_list = [
-            {'id': r.id, 'name': r.name, 'tags': r.tags, 'color': r.color,
-             'image': flask.url_for('static', filename='images/%s' % r.image)}
+            {'id': r.id,
+             'name': r.name,
+             'tags': r.tags,
+             'booking_auth': r.booking_auth,
+             'color': r.color,
+             'image': flask.url_for('static', filename='images/%s' % r.image),
+             'is_user_auth': self.app.dm.is_user_auth(self.app.user, r.booking_auth)
+             }
             for r in self.app.dm.get_resources()
         ]
         return {'resources': resource_list}
@@ -98,9 +105,13 @@ class DataContent:
         return dataDict
 
     def get_booking_list(self, session_id):
-        return {
-            'bookings': self.app.dm.get_bookings()
-        }
+        bookings = self.app.dm.get_bookings()
+        dm = self.app.dm
+
+        for b in bookings:
+            b.is_user_auth = dm.is_user_auth(self.app.user, b.slot_auth)
+
+        return {'bookings': bookings}
 
     def get_projects_list(self, session_id):
         return {
@@ -111,8 +122,9 @@ class DataContent:
         """ Return a dict that can be used as calendar Event object. """
         resource = booking.resource
         owner = booking.owner
-        user = flask_login.current_user
+        user = self.app.user
         b_title = booking.title
+        is_user_auth = False
 
         if booking.type == 'downtime':
             color = 'red'
@@ -120,6 +132,7 @@ class DataContent:
         elif booking.type == 'slot':
             color = '#619e3e'
             title = "%s (SLOT): %s" % (resource.name, b_title)
+            is_user_auth = self.app.dm.is_user_auth(user, booking.slot_auth)
         else:
             color = resource.color
             # Show all booking information in title in some cases only
@@ -140,5 +153,6 @@ class DataContent:
                          'name': resource.name},
             'owner': {'id': owner.id, 'name': owner.name},
             'type': booking.type,
-            'booking_title': b_title
+            'booking_title': b_title,
+            'is_user_auth': is_user_auth
         }

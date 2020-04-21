@@ -51,6 +51,8 @@
                                     <th class="border-0">Color</th>
                                     <th class="border-0">Resource Name</th>
                                     <th class="border-0">Tags</th>
+                                    <th class="border-0">Booking auth</th>
+                                    <th class="border-0">IS_USER_AUTH</th>
                                     <th class="border-0">Actions</th>
                                 </tr>
                             </thead>
@@ -63,7 +65,9 @@
                                     </td>
                                     <td><div style="background-color: {{ r['color'] }}; width: 30px; height: 30px"> &nbsp;</div></td>
                                     <td> {{ r['name'] }} </td>
-                                    <td> {{ r['tags'] }} </td>
+                                    <td> {{ r['tags'] }}
+                                    <td> {{ r['booking_auth'] }}
+                                    <td> {{ r['is_user_auth'] }}</td>
                                     <td>
 
                                         <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>

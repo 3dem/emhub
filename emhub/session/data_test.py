@@ -99,17 +99,25 @@ class TestData:
     def __populateResources(self, dm):
         resources = [
             {'name': 'Titan Krios 1', 'tags': 'microscope krios',
-             'image': 'titan-krios.png', 'color': '#3abae8'},
+             'image': 'titan-krios.png', 'color': '#3abae8',
+             # Allow DBB00001 users to book without slot
+             'booking_auth': {'projects': ['DBB00001']}},
             {'name': 'Titan Krios 2', 'tags': 'microscope krios',
-             'image': 'titan-krios.png', 'color': '#213b94'},
+             'image': 'titan-krios.png', 'color': '#213b94',
+             'booking_auth': {'projects': ['DBB00001']}},
             {'name': 'Talos Artica', 'tags': 'microscope talos',
-             'image': 'talos-artica.png', 'color': '#2b5424'},
+             'image': 'talos-artica.png', 'color': '#2b5424',
+             'booking_auth': {'projects': ['DBB00001']}},
             {'name': 'Vitrobot', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': '#9e8e3e'},
+             'image': 'vitrobot.png', 'color': '#9e8e3e',
+             # Allow 'any' user to book without slot
+             'booking_auth': {'users': ['any']}},
             {'name': 'Carbon Coater', 'tags': 'instrument',
-             'image': 'carbon-coater.png', 'color': '#453e19'},
+             'image': 'carbon-coater.png', 'color': '#453e19',
+             'booking_auth': {'users': ['any']}},
             {'name': 'Users Drop-in', 'tags': 'service',
-             'image': 'users-dropin.png', 'color': 'blue'}
+             'image': 'users-dropin.png', 'color': 'blue',
+             'booking_auth': {'users': ['any']}}
         ]
 
         for rDict in resources:

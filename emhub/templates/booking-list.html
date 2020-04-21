@@ -26,6 +26,7 @@
                                 <th>start</th>
                                 <th>end</th>
                                 <th>slot_auth</th>
+                                <th>IS_USER_AUTH</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -39,7 +40,8 @@
                                 <td>{{ b.owner.name }}</td>
                                 <td>{{ b.start }}</td>
                                 <td>{{ b.end }}</td>
-                                <td>{{ b.slot_auth['projects'] }}</td>
+                                <td>{{ b.slot_auth }}</td>
+                                <td>{{ b.is_user_auth}}</td>
                             </tr>
                             {% endfor %}
 
