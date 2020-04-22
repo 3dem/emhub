@@ -115,8 +115,6 @@ class DataManager:
     def create_booking(self, **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
-        print(">>>> create_booking: repeat_value=", repeat_value)
-
         bookings = []
 
         if repeat_value == 'no':
@@ -129,11 +127,10 @@ class DataManager:
 
             delta = dt.timedelta(days=days[repeat_value])
 
+            uid = str(uuid.uuid4())
             # FIXME: Now only creating 10 events
             for i in range(10):
                 start, end = attrs['start'], attrs['end']
-                uid = str(uuid.uuid4())
-                print("Creating booking: ", "from:", attrs['start'], "to", attrs['end'], 'uid', uid)
                 attrs['repeat_id'] = uid
                 bookings.append(self.__create_item(self.Booking, **attrs))
                 attrs['start'] = start + delta
@@ -148,9 +145,22 @@ class DataManager:
                                        asJson=asJson)
 
     def delete_booking(self, booking_id):
-        booking = self.get_bookings(condition='id=%s' % booking_id)[0]
-        self._db_session.delete(booking)
+        booking = self.get_bookings(condition='id="%s"' % booking_id)[0]
+        rid = booking.repeat_id
+        print("Deleting booking, repeat_id: ", rid)
+        if rid is not None:
+            deleted = []
+            bookings = self.get_bookings(condition='repeat_id="%s"' % rid)
+            for b in bookings:
+                deleted.append(b.id)
+                self._db_session.delete(b)
+        else:
+            deleted = [booking_id]
+            self._db_session.delete(booking)
+
         self._db_session.commit()
+
+        return deleted
 
     # ---------------------------- SESSIONS -----------------------------------
     def get_sessions(self, condition=None, orderBy=None, asJson=False):

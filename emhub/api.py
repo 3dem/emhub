@@ -76,8 +76,8 @@ def delete_booking():
         if not request.json:
             raise Exception("Expecting JSON request.")
         booking_id = int(request.json)
-        app.dm.delete_booking(booking_id)
-        return send_json_data({'result': 1})
+        deleted = app.dm.delete_booking(booking_id)
+        return send_json_data({'deleted': deleted})
     except Exception as e:
         print(e)
         return send_json_data({'error': 'Raised exception: %s' % e})

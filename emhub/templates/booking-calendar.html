@@ -455,7 +455,7 @@ function showBooking(booking) {
         $('#booking-btn-delete').show();
     }
 
-    $('#booking-modal-title').html(titlePrefix + ' Booking - ' + booking.resource.name);
+    $('#booking-modal-title').html(titlePrefix + ' Booking - ' + booking.resource.name + ' (id=' + booking.id + ')');
     $('#booking-btn-ok').html(titlePrefix);
 
     $('#booking-owner').val(booking.owner.name);
@@ -610,6 +610,8 @@ function create_booking() {
 function delete_booking() {
     let booking_id = last_event.id;
 
+    console.log("deleting, booking_id:", booking_id);
+
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.delete_booking') }}",
         type: "POST",
@@ -624,11 +626,12 @@ function delete_booking() {
 
         if ('error' in jsonResponse) {
             showMessage("Response Error", "ERROR: " + jsonResponse.error)
-        }
-        else {
-            event = calendar.getEventById(booking_id);
-            events = removeObjectFromList(event, events);
-            event.remove();
+        } else {
+
+            for (var booking_id of jsonResponse.deleted) {
+                calendar.getEventById(booking_id).remove();
+            }
+            events = calendar.getEvents();
             calendar.render();
         }
     });
