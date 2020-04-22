@@ -57,7 +57,7 @@ class TestData:
         # Create user table
         usersData = [
             # dev (D)
-            ('Don Stairs', 'dev', None),  # 1
+            ('Don Stairs', 'developer', None),  # 1
 
             # admin (A)
             ('Anna Mull', 'admin,manager', None),   # 2

@@ -158,5 +158,6 @@ class DataContent:
             'owner': {'id': owner.id, 'name': owner.name},
             'type': booking.type,
             'booking_title': b_title,
-            'is_user_auth': is_user_auth
+            'is_user_auth': is_user_auth,
+            'slot_auth': booking.slot_auth
         }

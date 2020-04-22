@@ -79,7 +79,7 @@ def create_data_models(dm, Base):
                        nullable=False)
 
         # Booking authorization, who can book within this slot
-        booking_auth = Column(JSON)
+        booking_auth = Column(JSON, default={'projects': [], 'users': []})
 
     class User(UserMixin, Base):
         """Model for user accounts."""
@@ -191,7 +191,7 @@ def create_data_models(dm, Base):
                       nullable=False)
 
         # slot authorization, who can book within this slot
-        slot_auth = Column(JSON)
+        slot_auth = Column(JSON, default={'projects': [], 'users': []})
 
         description = Column(Text,
                              nullable=True)
@@ -206,6 +206,10 @@ def create_data_models(dm, Base):
         owner_id = Column(Integer, ForeignKey('users.id'),
                           nullable=False)
         owner = relationship("User", foreign_keys=[owner_id])
+
+        repeat_id = Column(String(256), nullable=True)
+
+        repeat_value = Column(String(32), nullable=False, default='no')
 
         def __repr__(self):
             return '<Booking {}>'.format(self.title)

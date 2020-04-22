@@ -135,32 +135,6 @@
 
                     </div>
 
-                    <!-- Booking Type Row -->
-                   <div class="form-group row">
-                        <label class="col-sm-3 col-form-label text-sm-right">Booking Type</label>
-                        <div class="col-sm-6">
-                            <div class="custom-controls-stacked">
-                                <label class="custom-control custom-radio custom-control-inline">
-                                    <input type="radio" name="booking-type-radio" checked="" class="custom-control-input" value="booking"><span class="custom-control-label">Booking </span>
-                                </label>
-                                <label class="custom-control custom-radio custom-control-inline">
-                                    <input type="radio" name="booking-type-radio" class="custom-control-input" value="slot"><span class="custom-control-label">Slot</span>
-                                </label>
-                                <label class="custom-control custom-radio custom-control-inline">
-                                    <input type="radio" name="booking-type-radio" class="custom-control-input" value="downtime"><span class="custom-control-label">Downtime</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Slot Auth Row -->
-                    <div class="form-group row">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Sloth Authorization</label>
-                        <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Owner" id="booking-slot-auth" class="form-control">
-                        </div>
-                    </div>
-
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Description (Optional)</label>
                         <div class="col-12 col-sm-8 col-lg-6">
@@ -174,9 +148,63 @@
             <!-- ============================================================== -->
         </div>
       </div>
+
+        <!-- Manager Section  -->
+        {% if current_user.is_manager %}
+        <div class="modal-body">
+
+            <!-- Booking type -->
+           <div class="form-group row">
+                <label class="col-sm-3 col-form-label text-sm-right">Booking Type</label>
+                <div class="col-sm-6">
+                    <div class="custom-controls-stacked">
+                        <label class="custom-control custom-radio custom-control-inline">
+                            <input type="radio" name="booking-type-radio" checked="" class="custom-control-input" value="booking"><span class="custom-control-label">Booking </span>
+                        </label>
+                        <label class="custom-control custom-radio custom-control-inline">
+                            <input type="radio" name="booking-type-radio" class="custom-control-input" value="slot"><span class="custom-control-label">Slot</span>
+                        </label>
+                        <label class="custom-control custom-radio custom-control-inline">
+                            <input type="radio" name="booking-type-radio" class="custom-control-input" value="downtime"><span class="custom-control-label">Downtime</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slot Auth Row -->
+            <div class="form-group row">
+                <label class="col-12 col-sm-3 col-form-label text-sm-right">Sloth Authorization</label>
+                <div class="col-12 col-sm-8 col-lg-6">
+                    <input type="text" required="" placeholder="Slot authorization" id="booking-slot-auth" class="form-control">
+                </div>
+            </div>
+
+            <!-- Recurring -->
+            <div class="form-group row">
+                <label class="col-sm-3 col-form-label text-sm-right">Repeat</label>
+                <div class="col-sm-6">
+                    <div class="custom-controls-stacked">
+                        <label class="custom-control custom-radio custom-control-inline">
+                            <input type="radio" name="booking-repeat-radio" checked="" class="custom-control-input" value="no"><span class="custom-control-label">No</span>
+                        </label>
+                        <label class="custom-control custom-radio custom-control-inline">
+                            <input type="radio" name="booking-repeat-radio" class="custom-control-input" value="weekly"><span class="custom-control-label">Weekly</span>
+                        </label>
+                        <label class="custom-control custom-radio custom-control-inline">
+                            <input type="radio" name="booking-repeat-radio" class="custom-control-input" value="bi-weekly"><span class="custom-control-label">Bi-weekly</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+      </div>
+    {% endif %}
+
       <div class="modal-footer">
         <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
-          <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" data-dismiss="modal">Delete</button>
+          {% if current_user.is_manager %}
+            <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" data-dismiss="modal"  onclick="javascript: delete_booking()">Delete</button>
+          {% endif %}
         <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="javascript: create_booking()">Submit</button>
       </div>
     </div>
@@ -192,6 +220,7 @@
     var resources;
     var selected_resource = null;
     var booking_type = null;
+    var repeat_value = null;
     var current_user_json = null;
     var last_event = null;
 
@@ -202,6 +231,11 @@
     $('input[type=radio][name=booking-type-radio]').change(function() {
         booking_type = this.value;
         $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+    });
+
+    $('input[type=radio][name=booking-repeat-radio]').change(function() {
+        repeat_value = this.value;
+        console.log("new repeat value: ", repeat_value);
     });
 
    /* initialize the external events
@@ -353,6 +387,14 @@ function printList(objList, label) {
     }
 }
 
+function removeObjectFromList(obj, objList) {
+    var newList = [];
+    for (var o of objList)
+        if (o.id != obj.id)
+            newList.push(o);
+    return newList;
+}
+
 /* Helper function to pad dates */
 function pad(n) {
     return n < 10 ? '0' + n : n;
@@ -423,10 +465,12 @@ function showBooking(booking) {
     $('#booking-start-time').val(timeStr(booking.start));
     $('#booking-end-date').val(dateStr(booking.end));
     $('#booking-end-time').val(timeStr(booking.end));
+    $('#booking-slot-auth').val(booking.slot_auth);
 
     $('#booking-title').val(booking.title);
     $('#booking-description').val(booking.description);
     $("input[name=booking-type-radio][value=" + booking.type + "]").prop('checked', true);
+    $("input[name=booking-repeat-radio][value=" + booking.repeat_value + "]").prop('checked', true);
     $('#booking-title').focus();
     $('#booking-modal').modal('show');
 }
@@ -444,6 +488,8 @@ function bookingFromSelection(start, end) {
     console.log("bookingFromSelection: ");
     console.log("   booking-type: ", booking_type);
 
+    repeat_value = 'no';
+
     return {
         id: null,
         title: '',
@@ -453,7 +499,8 @@ function bookingFromSelection(start, end) {
         type: booking_type,
         description: '',
         creator: current_user_json,
-        owner: current_user_json
+        owner: current_user_json,
+        repeat_value: repeat_value,
     }
 }
 
@@ -469,16 +516,21 @@ function createBooking(start, end) {
 }
 
 function updateBooking(event) {
+    last_event = event;
+    let props = event.extendedProps;
+
     let booking = {
         id: event.id,
         start: event.start,
         end: event.end,
-        resource: event.extendedProps.resource,
-        type: event.extendedProps.type,
-        title: event.title,
-        description: event.extendedProps.description,
-        creator: event.extendedProps.creator,
-        owner: event.extendedProps.owner
+        resource: props.resource,
+        type: props.type,
+        title: props.booking_title,
+        description: props.description,
+        repeat_value: props.repeat_value,
+        creator: props.creator,
+        owner: props.owner,
+        slot_auth: props.slot_auth['projects'].join(' ')
     }
     //printObject(event, "updateBooking");
     showBooking(booking);
@@ -512,8 +564,6 @@ function selectResource(radio) {
 
 function create_booking() {
     // Create Event object info from
-    console.log('create_booking: type=' + booking_type);
-
     last_event = {
         title: $('#booking-title').val(),
         start: new Date($('#booking-start-date').val() + 'T' + $('#booking-start-time').val()).toISOString(),
@@ -521,9 +571,12 @@ function create_booking() {
         resource_id: selected_resource.id,
         type: booking_type,
         description: $('#booking-description').val(),
+        repeat_value: repeat_value,
         creator_id: current_user_json.id,
         owner_id: current_user_json.id
     }
+
+    printObject(last_event, "create_booking");
 
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.create_booking') }}",
@@ -541,8 +594,41 @@ function create_booking() {
             showMessage("Response Error", "ERROR: " + jsonResponse.error)
         }
         else {
-            event = calendar.addEvent(jsonResponse.booking)
-            events.push(event);
+            for (var booking of jsonResponse.bookings) {
+                event = calendar.addEvent(booking)
+                events.push(event);
+            }
+            calendar.render();
+        }
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+}
+
+function delete_booking() {
+    let booking_id = last_event.id;
+
+    var ajaxContent = $.ajax({
+        url: "{{ url_for('api.delete_booking') }}",
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify(booking_id),
+        dataType: "json"
+    });
+
+    ajaxContent.done(function(jsonResponse) {
+        // TODO: Check how to open an error modal on top if failure
+        $('#booking-modal').modal('hide');
+
+        if ('error' in jsonResponse) {
+            showMessage("Response Error", "ERROR: " + jsonResponse.error)
+        }
+        else {
+            event = calendar.getEventById(booking_id);
+            events = removeObjectFromList(event, events);
+            event.remove();
             calendar.render();
         }
     });

@@ -59,12 +59,25 @@ def create_booking():
     try:
         if not request.json:
             raise Exception("Expecting JSON request.")
-        pretty_json(request.json)
         attrs = request.json['attrs']
         attrs['start'] = datetime_from_isoformat(attrs['start'])
         attrs['end'] = datetime_from_isoformat(attrs['end'])
-        booking = app.dm.create_booking(**attrs)
-        return send_json_data({'booking': app.dc.booking_to_event(booking)})
+        bookings = app.dm.create_booking(**attrs)
+        return send_json_data({'bookings': [app.dc.booking_to_event(b)
+                                            for b in bookings]})
+    except Exception as e:
+        print(e)
+        return send_json_data({'error': 'Raised exception: %s' % e})
+
+
+@api_bp.route('/delete_booking', methods=['POST'])
+def delete_booking():
+    try:
+        if not request.json:
+            raise Exception("Expecting JSON request.")
+        booking_id = int(request.json)
+        app.dm.delete_booking(booking_id)
+        return send_json_data({'result': 1})
     except Exception as e:
         print(e)
         return send_json_data({'error': 'Raised exception: %s' % e})

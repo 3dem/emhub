@@ -30,6 +30,8 @@ import os
 import datetime as dt
 import decimal
 import datetime
+from pprint import pprint
+import uuid
 
 
 from sqlalchemy import (create_engine, Column, Integer, String, JSON,
@@ -111,13 +113,44 @@ class DataManager:
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self, **attrs):
-        return self.__create_item(self.Booking, **attrs)
+        # We might create many bookings if repeat != 'no'
+        repeat_value = attrs.get('repeat_value', 'no')
+        print(">>>> create_booking: repeat_value=", repeat_value)
+
+        bookings = []
+
+        if repeat_value == 'no':
+            bookings.append(self.__create_item(self.Booking, **attrs))
+        else:
+            days = {'weekly': 7, 'bi-weekly': 14}
+
+            if repeat_value not in days:
+                raise Exception('Unexpected repeat value of "%s"' % repeat_value)
+
+            delta = dt.timedelta(days=days[repeat_value])
+
+            # FIXME: Now only creating 10 events
+            for i in range(10):
+                start, end = attrs['start'], attrs['end']
+                uid = str(uuid.uuid4())
+                print("Creating booking: ", "from:", attrs['start'], "to", attrs['end'], 'uid', uid)
+                attrs['repeat_id'] = uid
+                bookings.append(self.__create_item(self.Booking, **attrs))
+                attrs['start'] = start + delta
+                attrs['end'] = end + delta
+
+        return bookings
 
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,
                                        condition=condition,
                                        orderBy=orderBy,
                                        asJson=asJson)
+
+    def delete_booking(self, booking_id):
+        booking = self.get_bookings(condition='id=%s' % booking_id)[0]
+        self._db_session.delete(booking)
+        self._db_session.commit()
 
     # ---------------------------- SESSIONS -----------------------------------
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
