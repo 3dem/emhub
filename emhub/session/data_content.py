@@ -79,7 +79,11 @@ class DataContent:
         return {'sessions': sessions}
 
     def get_users_list(self, session_id):
-        return {'users': self.app.dm.get_users()}
+        users = self.app.dm.get_users()
+        for u in users:
+            u.project_codes = [p.code for p in self.app.dm.get_user_projects(u)]
+
+        return {'users': users}
 
     def get_resources_list(self, session_id):
 

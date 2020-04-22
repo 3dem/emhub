@@ -209,12 +209,15 @@ class DataManager:
         if user.is_manager or 'any' in auth_json.get('users', []):
             return True
 
-        pi = self.get_user_pi(user)
-
-        return self.__matching_project(pi.projects, auth_json)
+        return self.__matching_project(self.get_user_projects(user), auth_json)
 
     def get_user_pi(self, user):
         # FIXME There is a problem with User.pi relation...
         return user if user.is_pi else self.get_user_by(id=user.pi_id)
 
+    def get_user_projects(self, user):
+        # FIXME There is a problem with User.pi relation...
+        pi = self.get_user_pi(user)
+
+        return [] if pi is None else pi.projects
 

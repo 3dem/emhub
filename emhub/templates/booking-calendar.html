@@ -281,16 +281,41 @@
             if (selected_resource == null)
                 return false;
 
-            printObject(selected_resource, "selected_resource");
-
             let booking = bookingFromSelection(info.start, info.end);
+            var inside_slot = false;
 
             for (const e of events) {
-                if ((selected_resource.id == e.extendedProps.resource.id) &&
-                    rangesOverlap(booking, e))
-                    return false;
+                let props = e.extendedProps
+                let is_user_auth = props.is_user_auth
+
+
+                // Consider only events (bookings) for this resource
+                if (selected_resource.id == props.resource.id) {
+                    if (props.type == "slot") {
+                        // For slots, check that the user have permission
+                        // in this slot if overlap, and if so, that the date
+                        // range selection is completely contained in the slot
+                        if (rangesOverlap(booking, e)) {
+                            // Return false if user can not book in this slot
+                            if (!is_user_auth)
+                                {console.log("selectAllow: user not auth in slot"); return false;}
+                            // Or if the range is not contained entirely in the slot
+                            else {
+                                if (rangeInside(booking, e))
+                                    inside_slot = true;
+                            }
+                        }
+                        else {
+
+                        }
+                    }
+                    else {
+                        if (rangesOverlap(booking, e))
+                        {console.log("selectAllow: overlap with no slot"); return false;}
+                    }
+                }
             }
-            return true;
+            return (inside_slot || selected_resource.is_user_auth) ;
         },
         // dateClick: function(info) {
         //     alert('clicked ' + info.dateStr);
@@ -300,12 +325,6 @@
         },
         eventClick: function(info) {
             updateBooking(info.event);
-            // alert('Event: ' + info.event.title);
-            // alert('Coordinates: ' + info.jsEvent.pageX + ',' + info.jsEvent.pageY);
-            // alert('View: ' + info.view.type);
-            //
-            // // change the border color just for fun
-            // info.el.style.borderColor = 'red';
         }
   });
 
@@ -349,6 +368,11 @@ function timeStr(date) {
     return pad(date.getHours()) + ":" + pad(date.getMinutes());
 }
 
+function datetimeStr(date) {
+    //return dateStr(date) + ' - ' + timeStr(date);
+    return date.toUTCString();
+}
+
 /* Date in range */
 function dateInRange(date, range) {
     return (date >= range.start && date <= range.end);
@@ -356,13 +380,18 @@ function dateInRange(date, range) {
 
 /* Check if two events overlap (if have same resource) */
 function rangesOverlap(event1, event2) {
-    console.log(">>> rangeOverlap");
-    console.log("          event1:", {start: dateStr(event1.start), end: dateStr(event1.end)});
-    console.log("            resource:", selected_resource.id)
-    console.log("          event2:", {start: dateStr(event2.start), end: dateStr(event2.end)});
-    console.log("            resource:", event2.extendedProps.resource.id);
-    console.log("          result: ", (dateInRange(event1.start, event2) || dateInRange(event1.end, event2)))
+    // console.log(">>> rangeOverlap");
+    // console.log("          event1:", {start: dateStr(event1.start), end: dateStr(event1.end)});
+    // console.log("            resource:", selected_resource.id)
+    // console.log("          event2:", {start: dateStr(event2.start), end: dateStr(event2.end)});
+    // console.log("            resource:", event2.extendedProps.resource.id);
+    // console.log("          result: ", (dateInRange(event1.start, event2) || dateInRange(event1.end, event2)))
     return (dateInRange(event1.start, event2) || dateInRange(event1.end, event2));
+}
+
+/* Return True if event1 is contained in event2 */
+function rangeInside(event1, event2) {
+    return (event1.start >= event2.start && event1.end <= event2.end);
 }
 
 /* Function to show the modal */
@@ -457,13 +486,8 @@ function updateBooking(event) {
 
 function filterBookingsByResource(input) {
     const inputId = input.dataset.resourceId;
-    // console.log("filtering by id: ", inputId);
-    // console.log("        checked: ", input.checked);
 
     for (var event of events) {
-        // console.log("Event: ", event.title);
-        // console.log("   resource:", event.extendedProps.resource_id);
-
         if (event.extendedProps.resource.id == inputId){
             if (input.checked)
                 calendar.addEvent(event);
