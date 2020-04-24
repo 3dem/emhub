@@ -31,7 +31,7 @@
                             <h5> Display </h5>
                         </div>
                         <div class="col col-auto nopadding">
-                            <select class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to book..."  onchange="selectResource(this)">
+                            <select class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to book..."  onchange="filterBookingsByResources(this)">
                             {% for r in resources %}#}
                               <option value="{{r['id']}}" class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
                             {% endfor %}
@@ -218,7 +218,6 @@
 
 <!-- javascript  -->
 <script>
-    var events;
     var calendar;
     var bookings;
     var resources;
@@ -295,6 +294,7 @@
 
             let booking = bookingFromSelection(info.start, info.end);
             var inside_slot = false;
+            let events = calendar.getEvents();
 
             for (const e of events) {
                 let props = e.extendedProps;
@@ -339,7 +339,6 @@
         }
   });
 
-  events = calendar.getEvents();
   calendar.render();
 
 })(window, document, window.jQuery);
@@ -527,17 +526,25 @@ function updateBooking(event) {
     showBooking(booking);
 }
 
-function filterBookingsByResource(input) {
-    const inputId = input.dataset.resourceId;
+function filterBookingsByResources(sel){
+    var visibleResourcesId = getSelectedValues(sel);
+    // Always show the selected resource
+    visibleResourcesId.push(selected_resource.id);
 
-    for (var event of events) {
-        if (event.extendedProps.resource.id == inputId){
-            if (input.checked)
-                calendar.addEvent(event);
-            else
-                event.remove();
-        }
-    }
+    printList(visibleResourcesId, "visible_ids:");
+
+    visible_bookings = bookings.filter(function (b) {
+        for (const rid of visibleResourcesId)
+            if (b.resource.id == rid)
+                return true;
+        return false;
+    });
+
+    calendar.removeAllEvents();
+    for (const b of visible_bookings)
+        calendar.addEvent(b);
+
+    calendar.render();
 }
 
 /** This function is called when a different resource is changed. */
@@ -550,6 +557,7 @@ function selectResource(sel) {
             break;
         }
     }
+    filterBookingsByResources(sel);
 }
 
 function create_booking() {
@@ -583,8 +591,8 @@ function create_booking() {
         }
         else {
             for (var booking of jsonResponse.bookings) {
-                event = calendar.addEvent(booking)
-                events.push(event);
+                event = calendar.addEvent(booking);
+                bookings.push(booking);
             }
             calendar.render();
         }
@@ -617,7 +625,13 @@ function delete_booking() {
             for (var booking_id of jsonResponse.deleted) {
                 calendar.getEventById(booking_id).remove();
             }
-            events = calendar.getEvents();
+            // Remove deleted bookings
+            bookings = bookings.filter(function (b) {
+                for (var booking_id of jsonResponse.deleted)
+                    if (b.id == booking_id)
+                        return false;
+                return true;
+            })
             calendar.render();
         }
     });
