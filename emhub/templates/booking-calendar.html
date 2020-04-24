@@ -21,9 +21,9 @@
                             <h3> Book Resource </h3>
                         </div>
                         <div class="col nopadding">
-                            <select class="selectpicker show-tick" data-width="auto" title="Select Resource to book...">
+                            <select class="selectpicker show-tick" data-width="auto" title="Select Resource to book..." onchange="selectResource(this)">
                             {% for r in resources %}#}
-                              <option data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                              <option value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
                             {% endfor %}
                             </select>
                         </div>
@@ -31,9 +31,9 @@
                             <h5> Display </h5>
                         </div>
                         <div class="col col-auto nopadding">
-                            <select class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to book...">
+                            <select class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to book..."  onchange="selectResource(this)">
                             {% for r in resources %}#}
-                              <option class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
+                              <option value="{{r['id']}}" class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
                             {% endfor %}
                             </select>
                         </div>
@@ -223,7 +223,7 @@
     var bookings;
     var resources;
     var selected_resource = null;
-    var booking_type = null;
+    var booking_type = 'booking';
     var repeat_value = null;
     var current_user_json = null;
     var last_event = null;
@@ -241,49 +241,21 @@
 
     $('input[type=radio][name=booking-repeat-radio]').change(function() {
         repeat_value = this.value;
-        console.log("new repeat value: ", repeat_value);
     });
 
    /* initialize the external events
   -----------------------------------------------------------------*/
 
     var Calendar = FullCalendar.Calendar;
-    var Draggable = FullCalendarInteraction.Draggable;
-
-{#    var containerEl = document.getElementById('booking-type');#}
     var calendarEl = document.getElementById('booking-calendar');
 
     // initialize the external events
     // -----------------------------------------------------------------
 
     var userName = "{{current_user.name}}";
-
-{#    new Draggable(containerEl, {#}
-{#      itemSelector: '.fc-event',#}
-{#      eventData: function(eventEl) {#}
-{#          var suffix;#}
-{#          if (eventEl.innerText == 'Downtime')#}
-{#              suffix = 'Downtime';#}
-{#          else#}
-{#              suffix = userName;#}
-{##}
-{#          console.log('id: ', eventEl.dataset['rid'])#}
-{##}
-{#        return {#}
-{#          title: eventEl.dataset['rname'] + '(' + suffix + ')',#}
-{#          textColor: 'white',#}
-{#          color: eventEl.dataset["color"],#}
-{#          extendedProps: {resource_id: eventEl.dataset['rid']}#}
-{#            //duration: {days: 2}#}
-{#        };#}
-{#      }#}
-{#    });#}
-
     resources = {{ resources|tojson }};
     bookings = {{ bookings|tojson }} ;
     current_user_json = {{ current_user_json|tojson }}
-
-    // printList(bookings, "Bookings");
 
     calendar = new Calendar(calendarEl, {
         plugins: [ 'interaction', 'dayGrid', 'timeGrid' ],
@@ -325,9 +297,8 @@
             var inside_slot = false;
 
             for (const e of events) {
-                let props = e.extendedProps
-                let is_user_auth = props.is_user_auth
-
+                let props = e.extendedProps;
+                let is_user_auth = props.is_user_auth;
 
                 // Consider only events (bookings) for this resource
                 if (selected_resource.id == props.resource.id) {
@@ -440,6 +411,20 @@ function rangesOverlap(event1, event2) {
 /* Return True if event1 is contained in event2 */
 function rangeInside(event1, event2) {
     return (event1.start >= event2.start && event1.end <= event2.end);
+}
+
+/* Get all selected values from a 'select' */
+function getSelectedValues(sel) {
+    var opt;
+    var values = new Array();
+
+    for ( var i = 0, len = sel.options.length; i < len; i++ ) {
+        opt = sel.options[i];
+        if ( opt.selected === true ) {
+            values.push(opt.value);
+        }
+    }
+    return values;
 }
 
 /* Function to show the modal */
@@ -556,10 +541,9 @@ function filterBookingsByResource(input) {
 }
 
 /** This function is called when a different resource is changed. */
-function selectResource(radio) {
-    const resourceId = radio.dataset.resourceId;
-    selected_resource = null;
-    booking_type = radio.value;
+function selectResource(sel) {
+    let resourceId = getSelectedValues(sel)[0];
+
     for (var r of resources) {
         if (r.id == resourceId) {
             selected_resource = r;
@@ -581,8 +565,6 @@ function create_booking() {
         creator_id: current_user_json.id,
         owner_id: current_user_json.id
     }
-
-    printObject(last_event, "create_booking");
 
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.create_booking') }}",
@@ -615,8 +597,6 @@ function create_booking() {
 
 function delete_booking() {
     let booking_id = last_event.id;
-
-    console.log("deleting, booking_id:", booking_id);
 
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.delete_booking') }}",
