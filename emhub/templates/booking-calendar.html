@@ -8,46 +8,55 @@
     <!-- ============================================================== -->
     <!-- events calendar -->
     <!-- ============================================================== -->
+
+
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <div class="card-body">
-                    <div class='row'>
-                       <div class="col-2">
+                    <div class="row">
 
-                           <div id="booking-type">
-                            {% for r in resources %}
-                               <div class="row justify-content-start" style="margin-top: 10px;">
-                                   <div class="col-auto text-left">
-                                       <h4 style="margin-left: 10px"> {{ r['name'] }}</h4>
-                                   </div>
 
-                                   <div class="col text-right">
-                                       <div style="background-color: {{ r['color'] }}; width: 30px; height: 30px; float: right; margin-right: 10px">
-                                        <label style="margin-top: 7px; margin-right: 7px">
-                                            <input type="checkbox" checked="" data-resource-id="{{ r['id'] }}" onclick="filterBookingsByResource(this)">
-                                        </label>
-                                       </div>
-                                   </div>
-                               </div>
-
-                                <div class="row align-top" style="margin: -15px 0 0 25px">
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="resource-radio" class="custom-control-input"  value="booking" data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Book</span>
-                                    </label>
-                                    {% if current_user.is_manager %}
-                                    <label class="custom-control custom-radio custom-control-inline is-invalid">
-                                        <input type="radio" name="resource-radio" class="custom-control-input"  value="downtime"   data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Downtime</span>
-                                    </label>
-                                    {% endif %}
-                                </div>
-                            {% endfor %}
-                        </div>
-
-                       </div>
-                        <div class="col-9">
-                        <div id='booking-calendar'></div>
                     </div>
+
+                    <div class='row'>
+
+{#                           <div class="col-2">#}
+{##}
+{#                               <div id="booking-type">#}
+{#                                {% for r in resources %}#}
+{#                                   <div class="row justify-content-start" style="margin-top: 10px;">#}
+{#                                       <div class="col-auto text-left">#}
+{#                                           <h4 style="margin-left: 10px"> {{ r['name'] }}</h4>#}
+{#                                       </div>#}
+{##}
+{#                                       <div class="col text-right">#}
+{#                                           <div style="background-color: {{ r['color'] }}; width: 30px; height: 30px; float: right; margin-right: 10px">#}
+{#                                            <label style="margin-top: 7px; margin-right: 7px">#}
+{#                                                <input type="checkbox" checked="" data-resource-id="{{ r['id'] }}" onclick="filterBookingsByResource(this)">#}
+{#                                            </label>#}
+{#                                           </div>#}
+{#                                       </div>#}
+{#                                   </div>#}
+{##}
+{#                                    <div class="row align-top" style="margin: -15px 0 0 25px">#}
+{#                                        <label class="custom-control custom-radio custom-control-inline">#}
+{#                                            <input type="radio" name="resource-radio" class="custom-control-input"  value="booking" data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Book</span>#}
+{#                                        </label>#}
+{#                                        {% if current_user.is_manager %}#}
+{#                                        <label class="custom-control custom-radio custom-control-inline is-invalid">#}
+{#                                            <input type="radio" name="resource-radio" class="custom-control-input"  value="downtime"   data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Downtime</span>#}
+{#                                        </label>#}
+{#                                        {% endif %}#}
+{#                                    </div>#}
+{#                                {% endfor %}#}
+{#                            </div>#}
+{##}
+{#                       </div>#}
+
+                        <div class="col-12">
+                            <div id='booking-calendar'></div>
+                        </div>
                         <div style='clear:both'></div>
                     </div>
                 </div>
@@ -244,7 +253,7 @@
     var Calendar = FullCalendar.Calendar;
     var Draggable = FullCalendarInteraction.Draggable;
 
-    var containerEl = document.getElementById('booking-type');
+{#    var containerEl = document.getElementById('booking-type');#}
     var calendarEl = document.getElementById('booking-calendar');
 
     // initialize the external events
@@ -252,26 +261,26 @@
 
     var userName = "{{current_user.name}}";
 
-    new Draggable(containerEl, {
-      itemSelector: '.fc-event',
-      eventData: function(eventEl) {
-          var suffix;
-          if (eventEl.innerText == 'Downtime')
-              suffix = 'Downtime';
-          else
-              suffix = userName;
-
-          console.log('id: ', eventEl.dataset['rid'])
-
-        return {
-          title: eventEl.dataset['rname'] + '(' + suffix + ')',
-          textColor: 'white',
-          color: eventEl.dataset["color"],
-          extendedProps: {resource_id: eventEl.dataset['rid']}
-            //duration: {days: 2}
-        };
-      }
-    });
+{#    new Draggable(containerEl, {#}
+{#      itemSelector: '.fc-event',#}
+{#      eventData: function(eventEl) {#}
+{#          var suffix;#}
+{#          if (eventEl.innerText == 'Downtime')#}
+{#              suffix = 'Downtime';#}
+{#          else#}
+{#              suffix = userName;#}
+{##}
+{#          console.log('id: ', eventEl.dataset['rid'])#}
+{##}
+{#        return {#}
+{#          title: eventEl.dataset['rname'] + '(' + suffix + ')',#}
+{#          textColor: 'white',#}
+{#          color: eventEl.dataset["color"],#}
+{#          extendedProps: {resource_id: eventEl.dataset['rid']}#}
+{#            //duration: {days: 2}#}
+{#        };#}
+{#      }#}
+{#    });#}
 
     resources = {{ resources|tojson }};
     bookings = {{ bookings|tojson }} ;
