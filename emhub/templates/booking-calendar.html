@@ -531,8 +531,6 @@ function filterBookingsByResources(sel){
     // Always show the selected resource
     visibleResourcesId.push(selected_resource.id);
 
-    printList(visibleResourcesId, "visible_ids:");
-
     visible_bookings = bookings.filter(function (b) {
         for (const rid of visibleResourcesId)
             if (b.resource.id == rid)
