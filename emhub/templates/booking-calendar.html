@@ -14,46 +14,41 @@
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <div class="card-body">
-                    <div class="row">
 
-
+                    <!-- Calendar selection header row -->
+                    <div class="row" style="margin-bottom: 20px;">
+                        <div class="col col-auto" style="margin-top: 7px;">
+                            <h3> Book Resource </h3>
+                        </div>
+                        <div class="col nopadding">
+                            <select class="selectpicker show-tick" data-width="auto" title="Select Resource to book...">
+                            {% for r in resources %}#}
+                              <option data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                            {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col text-right" style="margin-top: 7px;">
+                            <h5> Display </h5>
+                        </div>
+                        <div class="col col-auto nopadding">
+                            <select class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to book...">
+                            {% for r in resources %}#}
+                              <option class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
+                            {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col col-auto text-right" style="margin-top: 7px;">
+                            <h5> Filter</h5>
+                        </div>
+                        <div class="col col-auto nopadding">
+                            <select class="selectpicker show-tick" data-width="auto" title="Select Resource to book...">
+                              <option>Only mine</option>
+                              <option>CEMxxx</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class='row'>
-
-{#                           <div class="col-2">#}
-{##}
-{#                               <div id="booking-type">#}
-{#                                {% for r in resources %}#}
-{#                                   <div class="row justify-content-start" style="margin-top: 10px;">#}
-{#                                       <div class="col-auto text-left">#}
-{#                                           <h4 style="margin-left: 10px"> {{ r['name'] }}</h4>#}
-{#                                       </div>#}
-{##}
-{#                                       <div class="col text-right">#}
-{#                                           <div style="background-color: {{ r['color'] }}; width: 30px; height: 30px; float: right; margin-right: 10px">#}
-{#                                            <label style="margin-top: 7px; margin-right: 7px">#}
-{#                                                <input type="checkbox" checked="" data-resource-id="{{ r['id'] }}" onclick="filterBookingsByResource(this)">#}
-{#                                            </label>#}
-{#                                           </div>#}
-{#                                       </div>#}
-{#                                   </div>#}
-{##}
-{#                                    <div class="row align-top" style="margin: -15px 0 0 25px">#}
-{#                                        <label class="custom-control custom-radio custom-control-inline">#}
-{#                                            <input type="radio" name="resource-radio" class="custom-control-input"  value="booking" data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Book</span>#}
-{#                                        </label>#}
-{#                                        {% if current_user.is_manager %}#}
-{#                                        <label class="custom-control custom-radio custom-control-inline is-invalid">#}
-{#                                            <input type="radio" name="resource-radio" class="custom-control-input"  value="downtime"   data-resource-id="{{ r['id'] }}" onclick="selectResource(this)"><span class="custom-control-label">Downtime</span>#}
-{#                                        </label>#}
-{#                                        {% endif %}#}
-{#                                    </div>#}
-{#                                {% endfor %}#}
-{#                            </div>#}
-{##}
-{#                       </div>#}
-
                         <div class="col-12">
                             <div id='booking-calendar'></div>
                         </div>
@@ -235,6 +230,8 @@
 
 (function(window, document, $, undefined) {
     "use strict";
+
+    $('select').selectpicker();
 
     /* Register when the Booking type change */
     $('input[type=radio][name=booking-type-radio]').change(function() {
