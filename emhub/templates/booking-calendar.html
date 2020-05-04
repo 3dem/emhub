@@ -63,23 +63,7 @@
     <!-- ============================================================== -->
     </div>
 
-<!-- Modal -->
-<div class="modal" id="message-modal" tabindex="-1" role="dialog" aria-labelledby="messageModal" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title" id="message-title">Message Title  (REPLACE ME) </h3>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body" id="message-body"> Message Body (REPLACE ME) </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary"  data-dismiss="modal">Ok</button>
-      </div>
-    </div>
-  </div>
-</div>
+
 
 <!-- Modal -->
 <div class="modal fade" id="booking-modal" tabindex="-1" role="dialog" aria-labelledby="bookingModal" aria-hidden="true">
@@ -214,6 +198,26 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Message -->
+<div class="modal" id="message-modal" tabindex="-1" role="dialog" aria-labelledby="messageModal" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="message-title">Message Title  (REPLACE ME) </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body" id="message-body"> Message Body (REPLACE ME) </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary"  data-dismiss="modal">Ok</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 
 
 <!-- javascript  -->
@@ -433,6 +437,37 @@ function showMessage(title, msg) {
     $('#message-modal').modal('show')
 }
 
+/* Generic Confirm func */
+function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
+    var confirmModal =
+        $('<div class="modal" id="yesno-modal" tabindex="-1" role="dialog" aria-labelledby="yesnoModal" aria-hidden="true">\n' +
+          '  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">\n' +
+          '    <div class="modal-content" style="background-color: #f5f5f5">\n' +
+          '      <div class="modal-header">\n' +
+          '           <h4 class="modal-title" id="message-title">' + heading + '</h4>\n' +
+          '      </div>' +
+          '      <div class="modal-body" id="yesno-body">' + question +
+          '      </div>\n' +
+          '      <div class="modal-footer">\n' +
+          '        <button type="button" class="btn"  data-dismiss="modal">' + cancelButtonTxt + '</button>\n' +
+          '        <button type="button" class="btn btn-primary" id="okButton" data-dismiss="modal">' + okButtonTxt + '</button>\n' +
+          '      </div>\n' +
+          '    </div>\n' +
+          '  </div>\n' +
+          '</div>')
+
+    confirmModal.find('#okButton').click(function(event) {
+      callback();
+      confirmModal.modal('hide');
+    });
+
+    confirmModal.modal('show');
+  };
+/* END Generic Confirm func */
+
+/* Ask yes no question and setup Yes callback. */
+
+
 /* Function to show the modal */
 function showBooking(booking) {
     var titlePrefix = null;
@@ -560,6 +595,12 @@ function selectResource(sel) {
 
 function create_booking() {
     // Create Event object info from
+    confirm("Create Booking", "do you really want to create the booking?",
+            "No", "Yes", function () { alert('clicked yes')})
+    //showMessage("Testing", "Testing");
+    return;
+
+
     last_event = {
         title: $('#booking-title').val(),
         start: new Date($('#booking-start-date').val() + 'T' + $('#booking-start-time').val()).toISOString(),
