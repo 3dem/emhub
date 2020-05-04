@@ -115,11 +115,15 @@ class DataManager:
     def create_booking(self, **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
+
         bookings = []
 
         if repeat_value == 'no':
             bookings.append(self.__create_item(self.Booking, **attrs))
         else:
+            repeat_stop = attrs.get('repeat_stop')
+            del attrs['repeat_stop']
+
             days = {'weekly': 7, 'bi-weekly': 14}
 
             if repeat_value not in days:
@@ -128,13 +132,13 @@ class DataManager:
             delta = dt.timedelta(days=days[repeat_value])
 
             uid = str(uuid.uuid4())
-            # FIXME: Now only creating 10 events
-            for i in range(10):
-                start, end = attrs['start'], attrs['end']
+            start, end = attrs['start'], attrs['end']
+            while end < repeat_stop:
                 attrs['repeat_id'] = uid
                 bookings.append(self.__create_item(self.Booking, **attrs))
-                attrs['start'] = start + delta
-                attrs['end'] = end + delta
+                start += delta
+                end += delta
+                attrs['start'], attrs['end'] = start, end
 
         return bookings
 

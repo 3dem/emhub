@@ -176,6 +176,7 @@ class TestData:
 
     def __populateBookings(self, dm):
         now = self._localnow().replace(minute=0, second=0)
+        month = now.month
 
         # Create a downtime from today to one week later
         dm.create_booking(title='First Booking',
@@ -196,6 +197,17 @@ class TestData:
                           creator_id=2,  # first user for now
                           owner_id=2,  # first user for now
                           description="Krios 1 for user 2")
+
+        # Create booking for normal user
+        dm.create_booking(title='Booking Krios 1',
+                          start=now.replace(day=4, hour=9),
+                          end=now.replace(day=6, hour=23, minute=59),
+                          type='booking',
+                          resource_id=1,
+                          creator_id=10,  # first user for now
+                          owner_id=10,  # first user for now
+                          description="Krios 1 for user 10")
+
         # Create a booking at the downtime from today to one week later
         dm.create_booking(title='Booking Krios 2',
                           start=now.replace(day=2, hour=9),
@@ -226,6 +238,18 @@ class TestData:
                           creator_id=1,  # first user for now
                           owner_id=1,  # first user for now
                           description="Talos slot for RAPID projects")
+
+        # create a repeating event
+        dm.create_booking(title='Dropin',
+                          start=now.replace(day=6, hour=9),
+                          end=now.replace(day=6, hour=13),
+                          type='slot',
+                          repeat_value='bi-weekly',
+                          repeat_stop=now.replace(month=month+2),
+                          resource_id=7,
+                          creator_id=1,  # first user for now
+                          owner_id=1,  # first user for now
+                          description="Recurrent bi-weekly DROPIN slot. ")
 
     def __populateSessions(self, dm):
         users = [1, 2, 2]
