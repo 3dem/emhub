@@ -5,4 +5,30 @@
     {% include 'include_header.html' %}
 
     <h1>Example of an almost Empty Page</h1>
+
+    <div class="card-body border-top">
+        <h5>Date Only</h5>
+        <div class="form-group">
+            <div class="input-group date" id="datetimepicker4" data-target-input="nearest">
+                <input type="text" class="form-control datetimepicker-input" data-target="#datetimepicker4" id="datetimepicker5" data-toggle="datetimepicker"/>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- javascript  -->
+<script>
+
+(function(window, document, $, undefined) {
+    "use strict";
+
+    // Since we load this template content via AJAX we need to initialize
+    // javascript components here
+    $('#datetimepicker4').datetimepicker({
+        format: 'L'
+    });
+}
+
+)(window, document, window.jQuery);
+
+</script>
