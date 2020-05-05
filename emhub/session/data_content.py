@@ -103,7 +103,7 @@ class DataContent:
     def get_booking_calendar(self, session_id):
         dataDict = self.get_resources_list(session_id)
         dataDict['bookings'] = [self.booking_to_event(b)
-                                for b in self.app.dm.get_bookings()]
+                                for b in self.app.dm.get_bookings() if b.resource is not None]
         dataDict['current_user_json'] = flask_login.current_user.json()
 
         return dataDict

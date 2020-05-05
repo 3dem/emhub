@@ -57,16 +57,25 @@ def get_users():
 @api_bp.route('/create_booking', methods=['POST'])
 def create_booking():
     try:
-        if not request.json:
-            raise Exception("Expecting JSON request.")
-        attrs = request.json['attrs']
-        attrs['start'] = datetime_from_isoformat(attrs['start'])
-        attrs['end'] = datetime_from_isoformat(attrs['end'])
-        if 'repeat_stop' in attrs:
-            attrs['repeat_stop'] = datetime_from_isoformat(attrs['repeat_stop'])
+        # raise Exception(json.dumps(request.json['attrs']))
+        attrs = attrs_from_request()
         bookings = app.dm.create_booking(**attrs)
-        return send_json_data({'bookings': [app.dc.booking_to_event(b)
-                                            for b in bookings]})
+        return send_json_data({
+            'bookings_created': [app.dc.booking_to_event(b) for b in bookings]})
+    except Exception as e:
+        print(e)
+        return send_json_data({'error': 'Raised exception: %s' % e})
+
+
+@api_bp.route('/update_booking', methods=['POST'])
+def update_booking():
+    try:
+        raise Exception(json.dumps(request.json['attrs']))
+
+        attrs = attrs_from_request()
+        bookings = app.dm.update_booking(**attrs)
+        return send_json_data({
+            'bookings_updated': [app.dc.booking_to_event(b) for b in bookings]})
     except Exception as e:
         print(e)
         return send_json_data({'error': 'Raised exception: %s' % e})
@@ -79,7 +88,7 @@ def delete_booking():
             raise Exception("Expecting JSON request.")
         booking_id = int(request.json)
         deleted = app.dm.delete_booking(booking_id)
-        return send_json_data({'deleted': deleted})
+        return send_json_data({'bookings_deleted': deleted})
     except Exception as e:
         print(e)
         return send_json_data({'error': 'Raised exception: %s' % e})
@@ -116,3 +125,18 @@ def filter_from_attrs(items):
         sessions = [_filter(s) for s in items]
 
     return send_json_data(sessions)
+
+
+def attrs_from_request():
+    """ Helper function to update attributes values from JSON request. """
+    if not request.json:
+        raise Exception("Expecting JSON request.")
+    attrs = request.json['attrs']
+    attrs['start'] = datetime_from_isoformat(attrs['start'])
+    attrs['end'] = datetime_from_isoformat(attrs['end'])
+
+    if attrs['repeat_value'] != 'no' and 'repeat_stop' in attrs:
+        attrs['repeat_stop'] = datetime_from_isoformat(attrs['repeat_stop'])
+
+    return attrs
+

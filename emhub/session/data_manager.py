@@ -52,11 +52,11 @@ class DataManager:
     """ Main class that will manage the sessions and their information.
     """
     def __init__(self, sqlitePath):
-        is_dev = os.environ.get('FLASK_ENV', None) == 'development'
+        do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
 
         engine = create_engine('sqlite:///' + sqlitePath,
                                convert_unicode=True,
-                               echo=is_dev)
+                               echo=do_echo)
         self._db_session = scoped_session(sessionmaker(autocommit=False,
                                                        autoflush=False,
                                                        bind=engine))
@@ -119,6 +119,8 @@ class DataManager:
         bookings = []
 
         if repeat_value == 'no':
+            from pprint import pprint
+            pprint(attrs)
             bookings.append(self.__create_item(self.Booking, **attrs))
         else:
             repeat_stop = attrs.get('repeat_stop')
@@ -141,6 +143,8 @@ class DataManager:
                 attrs['start'], attrs['end'] = start, end
 
         return bookings
+
+
 
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,

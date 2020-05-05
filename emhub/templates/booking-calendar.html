@@ -195,9 +195,9 @@
       <div class="modal-footer">
         <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
           {% if current_user.is_manager %}
-            <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" data-dismiss="modal"  onclick="javascript: delete_booking()">Delete</button>
+            <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" data-dismiss="modal"  onclick="javascript: onDeleteButtonClick()">Delete</button>
           {% endif %}
-        <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="javascript: create_booking()">Submit</button>
+        <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="javascript: onOkButtonClick()">Submit</button>
       </div>
     </div>
   </div>
@@ -231,7 +231,7 @@
     var booking_type = 'booking';
     var repeat_value = null;
     var current_user_json = null;
-    var last_event = null;
+    var last_booking = null;
 
 (function(window, document, $, undefined) {
     "use strict";
@@ -342,10 +342,10 @@
         //     alert('clicked ' + info.dateStr);
         // },
         select: function(info) {
-            createBooking(info.start, info.end);
+            onDateSelection(info.start, info.end);
         },
         eventClick: function(info) {
-            updateBooking(info.event);
+            onBookingSelected(info.event);
         }
   });
 
@@ -464,12 +464,7 @@ function showMessage(title, msg) {
       '      </div>\n' +
       '    </div>\n' +
       '  </div>\n' +
-      '</div>')
-
-    confirmModal.find('#okButton').click(function(event) {
-      callback();
-      confirmModal.modal('hide');
-    });
+      '</div>');
 
     confirmModal.modal('show');
 }
@@ -491,7 +486,7 @@ function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
           '      </div>\n' +
           '    </div>\n' +
           '  </div>\n' +
-          '</div>')
+          '</div>');
 
     confirmModal.find('#okButton').click(function(event) {
       callback();
@@ -505,8 +500,8 @@ function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
 /* Ask yes no question and setup Yes callback. */
 
 
-/* Function to show the modal */
-function showBooking(booking) {
+/* Show the Booking Form, either for a new booking or an existing one */
+function showBookingForm(booking) {
     var titlePrefix = null;
     if (booking.id == null) {  // New booking
         titlePrefix = 'Create ';
@@ -517,7 +512,8 @@ function showBooking(booking) {
         $('#booking-btn-delete').show();
     }
 
-    $('#booking-modal-title').html(titlePrefix + ' Booking - ' + booking.resource.name + ' (id=' + booking.id + ')');
+    let htmlStr = titlePrefix + ' Booking - ' + booking.resource.name + ' (id=' + booking.id + ')';
+    $('#booking-modal-title').html(htmlStr);
     $('#booking-btn-ok').html(titlePrefix);
 
     $('#booking-owner').val(booking.owner.name);
@@ -537,8 +533,8 @@ function showBooking(booking) {
     $('#booking-modal').modal('show');
 }
 
-/** Create a booking dict, taking into account that FullCalendar add
- * an extra day at the end of the selection. */
+/** Function called when new dates are selected for a given Resource.
+ * It creates a new booking and shows the Booking Form. **/
 function bookingFromSelection(start, end) {
     start.setHours(9);
     start.setMinutes(0);
@@ -563,25 +559,21 @@ function bookingFromSelection(start, end) {
         creator: current_user_json,
         owner: current_user_json,
         repeat_value: repeat_value,
-    }
+    };
 }
 
-function createBooking(start, end) {
-    if (selected_resource == null) {
-        showMessage("ERROR: Select Resource for Booking",
-                    "Please select the result (and booking type) from the " +
-                    "left panel before selecting dates. ")
-    }
-    else {
-        showBooking(bookingFromSelection(start, end));
-    }
+/** Function called when new dates are selected for a given Resource.
+ * It creates a new booking and shows the Booking Form. **/
+function onDateSelection(start, end) {
+    last_booking = bookingFromSelection(start, end);
+    showBookingForm(last_booking);
 }
 
-function updateBooking(event) {
-    last_event = event;
+/* This function is called when an existing Booking event is clicked */
+function onBookingSelected(event) {
     let props = event.extendedProps;
 
-    let booking = {
+    last_booking = {
         id: event.id,
         start: event.start,
         end: event.end,
@@ -594,14 +586,15 @@ function updateBooking(event) {
         owner: props.owner,
         slot_auth: props.slot_auth['projects'].join(' ')
     }
-    //printObject(event, "updateBooking");
-    showBooking(booking);
+    //printObject(event, "onBookingSelected");
+    showBookingForm(last_booking);
 }
 
 function filterBookingsByResources(sel){
     var visibleResourcesId = getSelectedValues(sel);
     // Always show the selected resource
-    visibleResourcesId.push(selected_resource.id);
+    if (selected_resource)
+        visibleResourcesId.push(selected_resource.id);
 
     visible_bookings = bookings.filter(function (b) {
         for (const rid of visibleResourcesId)
@@ -630,103 +623,128 @@ function selectResource(sel) {
     filterBookingsByResources(sel);
 }
 
+
+/** Remove bookings events from calendar and from booking list */
+function remove_bookings(deleted) {
+    // Remove events from Calendar
+    for (var booking of deleted) {
+       calendar.getEventById(booking.id).remove();
+    }
+
+    // Remove deleted bookings from list
+    bookings = bookings.filter(function (b) {
+        for (var booking of deleted)
+            if (b.id == booking.id)
+                return false;
+        return true;
+    })
+}
+
+/** Add new bookings to the calendar and to the list */
+function add_bookings(added) {
+    for (var booking of added) {
+        event = calendar.addEvent(booking);
+        bookings.push(booking);
+    }
+}
+
+/** Helper functions to handle AJAX response or failure */
+function handleAjaxDone(jsonResponse) {
+    let error = null;
+
+    if ('bookings_created' in jsonResponse) {
+        add_bookings(jsonResponse.bookings_created);
+    }
+    else if ('bookings_updated' in jsonResponse) {
+        remove_bookings(jsonResponse.bookings_updated);
+        add_bookings(jsonResponse.bookings_updated);
+    }
+    else if ('bookings_deleted' in jsonResponse) {
+        remove_bookings(jsonResponse.bookings_deleted);
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showMessage('ERROR', error);
+    else {
+        $('#booking-modal').modal('hide');
+        calendar.render();
+    }
+}
+
+function handleAjaxFail(jqXHR, textStatus) {
+    showMessage("ERROR", "Request failed: " + textStatus );
+}
+
 /** This function will be called when the OK button in the Booking form
  * is clicked. It can be either Create or Update action.
  */
 function onOkButtonClick() {
-
-}
-
-function create_booking() {
     // Create Event object info from
     // confirm("Create Booking", "do you really want to create the booking?",
     //         "No", "Yes", function () { alert('clicked yes')})
     // //showMessage("Testing", "Testing");
     // return;
 
-
-    last_event = {
+    var booking = {
         title: $('#booking-title').val(),
         start: dateIsoFromValue('#booking-start-date', '#booking-start-time'),
         end: dateIsoFromValue('#booking-end-date', '#booking-end-time'),
-        resource_id: selected_resource.id,
         type: booking_type,
         description: $('#booking-description').val(),
         repeat_value: repeat_value,
-        creator_id: current_user_json.id,
-        owner_id: current_user_json.id
-    }
+        owner_id: last_booking.owner.id,
+        creator_id: last_booking.creator.id,
+        resource_id: last_booking.resource.id
+    };
+
+    // Remove unnecessary information
+    delete booking.owner;
+    delete booking.creator;
+    delete booking.resource;
 
     if (repeat_value != 'no') {
-        last_event.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
+        booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
+    }
+
+    let endpoint = null;
+
+    if (booking.id) {
+        endpoint = "{{ url_for('api.update_booking') }}"
+    }
+    else {
+        endpoint = "{{ url_for('api.create_booking') }}"
     }
 
     var ajaxContent = $.ajax({
-        url: "{{ url_for('api.create_booking') }}",
+        url: endpoint,
         type: "POST",
         contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify({attrs: last_event}),
+        data: JSON.stringify({attrs: booking}),
         dataType: "json"
     });
 
-    ajaxContent.done(function(jsonResponse) {
-        // TODO: Check how to open an error modal on top if failure
-        if ('error' in jsonResponse) {
-            //alert("Response Error:" + " ERROR: " + jsonResponse.error);
-            showMessage("Response Error",  " ERROR: " + jsonResponse.error);
-            //confirm("Error", "ERROR " + jsonResponse.error, "NO", "YES");
-        }
-        else {
-            $('#booking-modal').modal('hide');
-            for (var booking of jsonResponse.bookings) {
-                event = calendar.addEvent(booking);
-                bookings.push(booking);
-            }
-            calendar.render();
-        }
-    });
+    ajaxContent.done(handleAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
+}  // function onOkButtonClick
 
-    ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
-    });
-}
 
-function delete_booking() {
-    let booking_id = last_event.id;
-
+function onDeleteButtonClick() {
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.delete_booking') }}",
         type: "POST",
         contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify(booking_id),
+        data: JSON.stringify(last_booking.id),
         dataType: "json"
     });
 
-    ajaxContent.done(function(jsonResponse) {
-        // TODO: Check how to open an error modal on top if failure
-        $('#booking-modal').modal('hide');
-
-        if ('error' in jsonResponse) {
-            showMessage("Response Error", "ERROR: " + jsonResponse.error)
-        } else {
-
-            for (var booking_id of jsonResponse.deleted) {
-                calendar.getEventById(booking_id).remove();
-            }
-            // Remove deleted bookings
-            bookings = bookings.filter(function (b) {
-                for (var booking_id of jsonResponse.deleted)
-                    if (b.id == booking_id)
-                        return false;
-                return true;
-            })
-            calendar.render();
-        }
-    });
-
-    ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
-    });
+    ajaxContent.done(handleAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
 }
 
 </script>
