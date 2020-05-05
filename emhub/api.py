@@ -62,6 +62,8 @@ def create_booking():
         attrs = request.json['attrs']
         attrs['start'] = datetime_from_isoformat(attrs['start'])
         attrs['end'] = datetime_from_isoformat(attrs['end'])
+        if 'repeat_stop' in attrs:
+            attrs['repeat_stop'] = datetime_from_isoformat(attrs['repeat_stop'])
         bookings = app.dm.create_booking(**attrs)
         return send_json_data({'bookings': [app.dc.booking_to_event(b)
                                             for b in bookings]})

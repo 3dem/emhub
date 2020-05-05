@@ -181,13 +181,14 @@
                         <label class="custom-control custom-radio custom-control-inline">
                             <input type="radio" name="booking-repeat-radio" class="custom-control-input" value="bi-weekly"><span class="custom-control-label">Bi-weekly</span>
                         </label>
+                        <label> Stop Date </label>
+                        <label>
+                            <div class="input-group date" data-target-input="nearest">
+                                <input type="text" class="form-control datetimepicker-input" data-target="#booking-repeat-stopdate" id="booking-repeat-stopdate" data-toggle="datetimepicker"/>
+                            </div>
+                        </label>
                     </div>
                 </div>
-                <div class="col-sm-6">
-
-                </div>
-            </div>
-
       </div>
     {% endif %}
 
@@ -221,8 +222,6 @@
 </div>
 
 
-
-
 <!-- javascript  -->
 <script>
     var calendar;
@@ -238,6 +237,10 @@
     "use strict";
 
     $('select').selectpicker();
+
+    $('#booking-repeat-stopdate').datetimepicker({
+        format: 'YYYY-MM-DD'
+    });
 
     /* Register when the Booking type change */
     $('input[type=radio][name=booking-type-radio]').change(function() {
@@ -388,6 +391,13 @@ function dateStr(date) {
     return date.getFullYear() + '-' + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
 }
 
+function dateIsoFromValue(dateId, timeId) {
+    var dateVal = $(dateId).val();
+    if (timeId)
+        dateVal += 'T' + $(timeId).val();
+    return new Date(dateVal).toISOString();
+}
+
 /* Get hour:minutes string HH:00 format */
 function timeStr(date) {
     return pad(date.getHours()) + ":" + pad(date.getMinutes());
@@ -435,9 +445,33 @@ function getSelectedValues(sel) {
 
 /* Function to show the modal */
 function showMessage(title, msg) {
-    $('#message-title').html(title);
-    $('#message-body').html(msg);
-    $('#message-modal').modal('show')
+    // $('#booking-modal').modal('hide');
+    // $('#message-title').html(title);
+    // $('#message-body').html(msg);
+    // $('#message-modal').modal('show')
+
+    var confirmModal =
+    $('<div class="modal" id="msg-modal" tabindex="-1" role="dialog" aria-labelledby="msgModal" aria-hidden="true">\n' +
+      '  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">\n' +
+      '    <div class="modal-content" style="background-color: #f5f5f5">\n' +
+      '      <div class="modal-header">\n' +
+      '           <h4 class="modal-title" id="message-title">' + title + '</h4>\n' +
+      '      </div>' +
+      '      <div class="modal-body" id="yesno-body">' + msg +
+      '      </div>\n' +
+      '      <div class="modal-footer">\n' +
+      '        <button type="button" class="btn btn-primary" id="okButton" data-dismiss="modal">Ok</button>\n' +
+      '      </div>\n' +
+      '    </div>\n' +
+      '  </div>\n' +
+      '</div>')
+
+    confirmModal.find('#okButton').click(function(event) {
+      callback();
+      confirmModal.modal('hide');
+    });
+
+    confirmModal.modal('show');
 }
 
 /* Generic Confirm func */
@@ -465,7 +499,7 @@ function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
     });
 
     confirmModal.modal('show');
-  };
+};
 /* END Generic Confirm func */
 
 /* Ask yes no question and setup Yes callback. */
@@ -596,24 +630,35 @@ function selectResource(sel) {
     filterBookingsByResources(sel);
 }
 
+/** This function will be called when the OK button in the Booking form
+ * is clicked. It can be either Create or Update action.
+ */
+function onOkButtonClick() {
+
+}
+
 function create_booking() {
     // Create Event object info from
-    confirm("Create Booking", "do you really want to create the booking?",
-            "No", "Yes", function () { alert('clicked yes')})
-    //showMessage("Testing", "Testing");
-    return;
+    // confirm("Create Booking", "do you really want to create the booking?",
+    //         "No", "Yes", function () { alert('clicked yes')})
+    // //showMessage("Testing", "Testing");
+    // return;
 
 
     last_event = {
         title: $('#booking-title').val(),
-        start: new Date($('#booking-start-date').val() + 'T' + $('#booking-start-time').val()).toISOString(),
-        end: new Date($('#booking-end-date').val() + 'T' + $('#booking-end-time').val()).toISOString(),
+        start: dateIsoFromValue('#booking-start-date', '#booking-start-time'),
+        end: dateIsoFromValue('#booking-end-date', '#booking-end-time'),
         resource_id: selected_resource.id,
         type: booking_type,
         description: $('#booking-description').val(),
         repeat_value: repeat_value,
         creator_id: current_user_json.id,
         owner_id: current_user_json.id
+    }
+
+    if (repeat_value != 'no') {
+        last_event.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
     }
 
     var ajaxContent = $.ajax({
@@ -626,12 +671,13 @@ function create_booking() {
 
     ajaxContent.done(function(jsonResponse) {
         // TODO: Check how to open an error modal on top if failure
-        $('#booking-modal').modal('hide');
-
         if ('error' in jsonResponse) {
-            showMessage("Response Error", "ERROR: " + jsonResponse.error)
+            //alert("Response Error:" + " ERROR: " + jsonResponse.error);
+            showMessage("Response Error",  " ERROR: " + jsonResponse.error);
+            //confirm("Error", "ERROR " + jsonResponse.error, "NO", "YES");
         }
         else {
+            $('#booking-modal').modal('hide');
             for (var booking of jsonResponse.bookings) {
                 event = calendar.addEvent(booking);
                 bookings.push(booking);
