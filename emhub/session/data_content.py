@@ -94,7 +94,7 @@ class DataContent:
              'booking_auth': r.booking_auth,
              'color': r.color,
              'image': flask.url_for('static', filename='images/%s' % r.image),
-             'is_user_auth': self.app.dm.is_user_auth(self.app.user, r.booking_auth)
+             'user_can_book': self.app.dm.user_can_book(self.app.user, r.booking_auth)
              }
             for r in self.app.dm.get_resources()
         ]
@@ -110,12 +110,7 @@ class DataContent:
 
     def get_booking_list(self, session_id):
         bookings = self.app.dm.get_bookings()
-        dm = self.app.dm
-
-        for b in bookings:
-            b.is_user_auth = dm.is_user_auth(self.app.user, b.slot_auth)
-
-        return {'bookings': bookings}
+        return {'bookings': [self.booking_to_event(b) for b in bookings]}
 
     def get_projects_list(self, session_id):
         return {
@@ -125,10 +120,18 @@ class DataContent:
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
         resource = booking.resource
+        # Bookings should have resources, just in case an erroneous one
+        if resource is None:
+            resource_info = {'id': None, 'name': ''}
+        else:
+            resource_info = {'id': resource.id, 'name': resource.name}
         owner = booking.owner
+        creator = booking.creator
         user = self.app.user
         b_title = booking.title
-        is_user_auth = False
+        user_can_book = False
+        user_can_view = user.is_manager or user.same_pi(owner)
+        user_can_modify = user.is_manager or user.id == owner.id
 
         if booking.type == 'downtime':
             color = 'red'
@@ -136,12 +139,12 @@ class DataContent:
         elif booking.type == 'slot':
             color = '#619e3e'
             title = "%s (SLOT): %s" % (resource.name, b_title)
-            is_user_auth = self.app.dm.is_user_auth(user, booking.slot_auth)
+            user_can_book = self.app.dm.user_can_book(user, booking.slot_auth)
         else:
-            color = resource.color
+            color = resource.color if resource else 'grey'
             # Show all booking information in title in some cases only
-            if user.is_manager or user.same_pi(owner):
-                title = "%s (%s) %s" % (resource.name, owner.name, b_title)
+            if user_can_view:
+                title = "%s (%s) %s" % (resource_info['name'], owner.name, b_title)
             else:
                 title = "Booking"
 
@@ -153,12 +156,14 @@ class DataContent:
             'end': datetime_to_isoformat(booking.end),
             'color': color,
             'textColor': 'white',
-            'resource': {'id': resource.id,
-                         'name': resource.name},
+            'resource': resource_info,
+            'creator': {'id': creator.id, 'name': creator.name},
             'owner': {'id': owner.id, 'name': owner.name},
             'type': booking.type,
             'booking_title': b_title,
-            'is_user_auth': is_user_auth,
+            'user_can_book': user_can_book,
+            'user_can_view': user_can_view,
+            'user_can_modify': user_can_modify,
             'slot_auth': booking.slot_auth,
             'repeat_id': booking.repeat_id,
             'repeat_value': booking.repeat_value

@@ -208,9 +208,7 @@
 
       <div class="modal-footer">
         <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
-          {% if current_user.is_manager %}
-            <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" onclick="javascript: onDeleteButtonClick()">Delete</button>
-          {% endif %}
+        <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" onclick="javascript: onDeleteButtonClick()">Delete</button>
         <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="javascript: onOkButtonClick()">Submit</button>
       </div>
     </div>
@@ -328,7 +326,7 @@
 
             for (const e of events) {
                 let props = e.extendedProps;
-                let is_user_auth = props.is_user_auth;
+                let user_can_book = props.user_can_book;
 
                 // Consider only events (bookings) for this resource
                 if (selected_resource.id == props.resource.id) {
@@ -338,7 +336,7 @@
                         // range selection is completely contained in the slot
                         if (rangesOverlap(booking, e)) {
                             // Return false if user can not book in this slot
-                            if (!is_user_auth)
+                            if (!user_can_book)
                                 {console.log("selectAllow: user not auth in slot"); return false;}
                             // Or if the range is not contained entirely in the slot
                             else {
@@ -356,7 +354,7 @@
                     }
                 }
             }
-            return (inside_slot || selected_resource.is_user_auth) ;
+            return (inside_slot || selected_resource.user_can_book) ;
         },
         // dateClick: function(info) {
         //     alert('clicked ' + info.dateStr);
@@ -525,11 +523,19 @@ function showBookingForm(booking) {
     var titlePrefix = null;
     if (booking.id == null) {  // New booking
         titlePrefix = 'Create ';
+        $('#booking-btn-ok').show();
         $('#booking-btn-delete').hide();
     }
     else {
         titlePrefix = 'Update ';
-        $('#booking-btn-delete').show();
+        if (booking.user_can_modify) {
+            $('#booking-btn-delete').show();
+            $('#booking-btn-ok').show();
+        }
+        else {
+            $('#booking-btn-delete').hide();
+            $('#booking-btn-ok').hide();
+        }
     }
 
     let htmlStr = titlePrefix + ' Booking - ' + booking.resource.name + ' (id=' + booking.id + ')';
@@ -607,6 +613,7 @@ function onBookingSelected(event) {
         repeat_value: props.repeat_value,
         owner: props.owner,
         slot_auth: props.slot_auth['projects'].join(' '),
+        user_can_modify: props.user_can_modify,
     };
     showBookingForm(last_booking);
 }
@@ -731,7 +738,7 @@ function onOkButtonClick() {
 
     if (booking.id) {
         endpoint = "{{ url_for('api.update_booking') }}"
-        if (modify_all === null) {
+        if (booking.repeat_value != 'no' && modify_all === null) {
             showMessage("ERROR", "<p>Please select a value for input <b>Modify repeating</b>: " +
                         "<i>Only this</i> or <i>All upcoming</i>.")
             return
@@ -760,7 +767,7 @@ function onOkButtonClick() {
 
 
 function onDeleteButtonClick() {
-    if (modify_all === null) {
+    if (last_booking.repeat_id && modify_all === null) {
             showMessage("ERROR", "<p>Please select a value for input <b>Modify repeating</b>: " +
                         "<i>Only this</i> or <i>All upcoming</i>.")
             return

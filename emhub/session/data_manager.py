@@ -115,7 +115,7 @@ class DataManager:
     def create_booking(self, **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
-
+        del attrs['modify_all']
         bookings = []
 
         if repeat_value == 'no':
@@ -123,8 +123,6 @@ class DataManager:
         else:
             repeat_stop = attrs.get('repeat_stop')
             del attrs['repeat_stop']
-            del attrs['modify_all']
-
             repeater = RepeatRanges(repeat_value, attrs)
             uid = str(uuid.uuid4())
 
@@ -254,7 +252,7 @@ class DataManager:
 
         return any(p.code in json_codes for p in projects)
 
-    def is_user_auth(self, user, auth_json):
+    def user_can_book(self, user, auth_json):
         """ Return True if the user is authorized (i.e any of the project
         codes appears in auth_json['projects'].
         """

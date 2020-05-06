@@ -34,18 +34,18 @@
                             <tbody>
                             {% for b in bookings %}
                             <tr>
-                                <td>{{ b.id }}</td>
-                                <td>{{ b.resource.name }}</td>
-                                <td>{{ b.type }}</td>
-                                <td>{{ b.title }}</td>
-                                <td>{{ b.creator.name }}</td>
-                                <td>{{ b.owner.name }}</td>
-                                <td>{{ b.start }}</td>
-                                <td>{{ b.end }}</td>
-                                <td>{{ b.slot_auth }}</td>
-                                <td>{{ b.is_user_auth}}</td>
-                                <td>{{ b.repeat_id }}</td>
-                                <td>{{ b.repeat_value}}</td>
+                                <td>{{ b['id'] }}</td>
+                                <td>{{ b['resource']['name'] }}</td>
+                                <td>{{ b['type'] }}</td>
+                                <td>{{ b['title'] }}</td>
+                                <td>{{ b['creator']['name'] }}</td>
+                                <td>{{ b['owner']['name'] }}</td>
+                                <td>{{ b['start'] }}</td>
+                                <td>{{ b['end'] }}</td>
+                                <td>{{ b['slot_auth'] }}</td>
+                                <td>book={{b['user_can_book']}}, view={{b['user_can_view']}}, modify={{b['user_can_modify']}}</td>
+                                <td>{{ b['repeat_id'] }}</td>
+                                <td>{{ b['repeat_value'] }}</td>
                             </tr>
                             {% endfor %}
 
