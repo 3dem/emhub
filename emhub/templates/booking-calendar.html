@@ -244,9 +244,10 @@
     var selected_resource = null;
     var booking_type = 'booking';
     var repeat_value = null;
-    var modify_value = false;
     var current_user_json = null;
     var last_booking = null;
+    var modify_all = false;
+
 
 (function(window, document, $, undefined) {
     "use strict";
@@ -268,7 +269,7 @@
     });
 
     $('input[type=radio][name=booking-modify-radio]').change(function() {
-        modify_value = this.value;
+        modify_all = this.value == 'yes';
     });
 
    /* initialize the external events
@@ -548,8 +549,9 @@ function showBookingForm(booking) {
     $('#booking-description').val(booking.description);
     $("input[name=booking-type-radio][value=" + booking.type + "]").prop('checked', true);
     $("input[name=booking-repeat-radio][value=" + booking.repeat_value + "]").prop('checked', true);
-    modify_value = false;
-    $("input[name=booking-repeat-radio][value=no]").prop('checked', true);
+    modify_all = null;
+    $('input[type=radio][name=booking-modify-radio]').val([]);
+    //$("input[name=booking-repeat-radio][value='no']").prop('checked', true);
     $('#booking-title').focus();
     $('#booking-modal').modal('show');
 }
@@ -592,6 +594,7 @@ function onDateSelection(start, end) {
 /* This function is called when an existing Booking event is clicked */
 function onBookingSelected(event) {
     let props = event.extendedProps;
+    repeat_value = props.repeat_value;
 
     last_booking = {
         id: event.id,
@@ -603,9 +606,8 @@ function onBookingSelected(event) {
         description: props.description,
         repeat_value: props.repeat_value,
         owner: props.owner,
-        slot_auth: props.slot_auth['projects'].join(' ')
-    }
-    //printObject(last_booking, "onBookingSelected");
+        slot_auth: props.slot_auth['projects'].join(' '),
+    };
     showBookingForm(last_booking);
 }
 
@@ -696,9 +698,11 @@ function handleAjaxDone(jsonResponse) {
     }
 }
 
+
 function handleAjaxFail(jqXHR, textStatus) {
     showMessage("ERROR", "Request failed: " + textStatus );
 }
+
 
 /** This function will be called when the OK button in the Booking form
  * is clicked. It can be either Create or Update action.
@@ -718,17 +722,24 @@ function onOkButtonClick() {
         type: booking_type,
         description: $('#booking-description').val(),
         owner_id: last_booking.owner.id,
-        resource_id: last_booking.resource.id
+        resource_id: last_booking.resource.id,
+        modify_all: modify_all,
+        repeat_value: repeat_value
     };
 
     let endpoint = null;
 
     if (booking.id) {
         endpoint = "{{ url_for('api.update_booking') }}"
+        if (modify_all === null) {
+            showMessage("ERROR", "<p>Please select a value for input <b>Modify repeating</b>: " +
+                        "<i>Only this</i> or <i>All upcoming</i>.")
+            return
+        }
     }
     else {
         // Only take into account repeat value when creating a new booking
-        booking.repeat_value = repeat_value;
+
         if (repeat_value != 'no')
             booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
         booking.creator_id = booking.owner_id
@@ -751,8 +762,10 @@ function onOkButtonClick() {
 function onDeleteButtonClick() {
     let deleteInfo = {
         id: last_booking.id,
-        modify_all: modify_value
+        modify_all: modify_all,
     };
+
+    printObject(deleteInfo, "deleteInfo");
 
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.delete_booking') }}",

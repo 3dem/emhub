@@ -119,28 +119,19 @@ class DataManager:
         bookings = []
 
         if repeat_value == 'no':
-            from pprint import pprint
-            pprint(attrs)
             bookings.append(self.__create_item(self.Booking, **attrs))
         else:
             repeat_stop = attrs.get('repeat_stop')
             del attrs['repeat_stop']
+            del attrs['modify_all']
 
-            days = {'weekly': 7, 'bi-weekly': 14}
-
-            if repeat_value not in days:
-                raise Exception('Unexpected repeat value of "%s"' % repeat_value)
-
-            delta = dt.timedelta(days=days[repeat_value])
-
+            repeater = RepeatRanges(repeat_value, attrs)
             uid = str(uuid.uuid4())
-            start, end = attrs['start'], attrs['end']
-            while end < repeat_stop:
+
+            while attrs['end'] < repeat_stop:
                 attrs['repeat_id'] = uid
                 bookings.append(self.__create_item(self.Booking, **attrs))
-                start += delta
-                end += delta
-                attrs['start'], attrs['end'] = start, end
+                repeater.move()  # will move next start,end in attrs
 
         return bookings
 
@@ -152,9 +143,15 @@ class DataManager:
             modify_all: Boolean flag in case the booking is a repeating event.
                 If True, all bookings from this one, will be also updated.
         """
+        repeat = attrs.get('repeat_value', 'no')
+        repeater = RepeatRanges(repeat, attrs) if repeat != 'no' else None
+
         def update(b):
             for attr, value in attrs.items():
-                setattr(b, attr, value)
+                if attr != 'id':
+                    setattr(b, attr, value)
+            if repeater:
+                repeater.move()  # move start, end for repeating bookings
 
         return self._modify_bookings(attrs, update)
 
@@ -288,6 +285,7 @@ class DataManager:
         """
         booking_id = attrs['id']
         modify_all = attrs.get('modify_all', False)
+        del attrs['modify_all']
 
         # Get the booking with the given id
         bookings = self.get_bookings(condition='id="%s"' % booking_id)
@@ -323,3 +321,23 @@ class DataManager:
         self._db_session.commit()
 
         return result
+
+
+class RepeatRanges:
+    """ Helper class to generate a series of events with start, end. """
+    OPTIONS = {'weekly': 7, 'bi-weekly': 14}
+
+    def __init__(self, frequency, attrs):
+        days = self.OPTIONS.get(frequency, None)
+
+        if days is None:
+            raise Exception("Invalid repeat value '%s'" % frequency)
+
+        self._delta = dt.timedelta(days=days)
+        self._attrs = attrs
+
+    def move(self):
+        """ Increase the start, end range by the interal delta. """
+        self._attrs['start'] += self._delta
+        self._attrs['end'] += self._delta
+
