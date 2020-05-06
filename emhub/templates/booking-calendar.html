@@ -209,7 +209,7 @@
       <div class="modal-footer">
         <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
           {% if current_user.is_manager %}
-            <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" data-dismiss="modal"  onclick="javascript: onDeleteButtonClick()">Delete</button>
+            <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" onclick="javascript: onDeleteButtonClick()">Delete</button>
           {% endif %}
         <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="javascript: onOkButtonClick()">Submit</button>
       </div>
@@ -760,12 +760,16 @@ function onOkButtonClick() {
 
 
 function onDeleteButtonClick() {
+    if (modify_all === null) {
+            showMessage("ERROR", "<p>Please select a value for input <b>Modify repeating</b>: " +
+                        "<i>Only this</i> or <i>All upcoming</i>.")
+            return
+    }
+
     let deleteInfo = {
         id: last_booking.id,
         modify_all: modify_all,
     };
-
-    printObject(deleteInfo, "deleteInfo");
 
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.delete_booking') }}",
