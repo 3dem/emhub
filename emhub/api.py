@@ -30,6 +30,7 @@ import os
 import json
 from glob import glob
 import datetime as dt
+import traceback
 
 from flask import Blueprint, request, make_response
 from flask import current_app as app
@@ -56,42 +57,22 @@ def get_users():
 
 @api_bp.route('/create_booking', methods=['POST'])
 def create_booking():
-    try:
-        # raise Exception(json.dumps(request.json['attrs']))
-        attrs = attrs_from_request()
-        bookings = app.dm.create_booking(**attrs)
-        return send_json_data({
-            'bookings_created': [app.dc.booking_to_event(b) for b in bookings]})
-    except Exception as e:
-        print(e)
-        return send_json_data({'error': 'Raised exception: %s' % e})
+    return handle_booking('bookings_created', app.dm.create_booking)
 
 
 @api_bp.route('/update_booking', methods=['POST'])
 def update_booking():
-    try:
-        raise Exception(json.dumps(request.json['attrs']))
-
-        attrs = attrs_from_request()
-        bookings = app.dm.update_booking(**attrs)
-        return send_json_data({
-            'bookings_updated': [app.dc.booking_to_event(b) for b in bookings]})
-    except Exception as e:
-        print(e)
-        return send_json_data({'error': 'Raised exception: %s' % e})
+    return handle_booking('bookings_updated', app.dm.update_booking)
 
 
 @api_bp.route('/delete_booking', methods=['POST'])
 def delete_booking():
-    try:
-        if not request.json:
-            raise Exception("Expecting JSON request.")
-        booking_id = int(request.json)
-        deleted = app.dm.delete_booking(booking_id)
-        return send_json_data({'bookings_deleted': deleted})
-    except Exception as e:
-        print(e)
-        return send_json_data({'error': 'Raised exception: %s' % e})
+    # When deleting we don't need to send all info back, just ID
+    def _transform(b):
+        return {'id': b.id}
+
+    return handle_booking('bookings_deleted', app.dm.delete_booking,
+                          booking_transform=_transform)
 
 
 @api_bp.route('/get_sessions', methods=['POST'])
@@ -127,16 +108,25 @@ def filter_from_attrs(items):
     return send_json_data(sessions)
 
 
-def attrs_from_request():
-    """ Helper function to update attributes values from JSON request. """
-    if not request.json:
-        raise Exception("Expecting JSON request.")
-    attrs = request.json['attrs']
-    attrs['start'] = datetime_from_isoformat(attrs['start'])
-    attrs['end'] = datetime_from_isoformat(attrs['end'])
+def handle_booking(result_key, booking_func, booking_transform=None):
+    try:
+        if not request.json:
+            raise Exception("Expecting JSON request.")
+        attrs = request.json['attrs']
 
-    if attrs['repeat_value'] != 'no' and 'repeat_stop' in attrs:
-        attrs['repeat_stop'] = datetime_from_isoformat(attrs['repeat_stop'])
+        def _fix_date(date_key):
+            if date_key in attrs:
+                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
 
-    return attrs
+        _fix_date('start')
+        _fix_date('end')
 
+        if attrs.get('repeat_value', 'no') != 'no':
+            _fix_date('repeat_stop')
+
+        result = booking_func(**attrs)
+        bt = booking_transform or app.dc.booking_to_event
+        return send_json_data({result_key: [bt(b) for b in result]})
+    except Exception as e:
+        print(e)
+        return send_json_data({'error': 'Raised exception: %s' % e})

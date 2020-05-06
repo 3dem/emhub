@@ -189,7 +189,21 @@
                         </label>
                     </div>
                 </div>
-      </div>
+            </div>
+
+            <div class="form-group row">
+                <label class="col-sm-3 col-form-label text-sm-right">Modify repeating</label>
+                <div class="col-sm-6">
+                    <div class="custom-controls-stacked">
+                        <label class="custom-control custom-radio custom-control-inline">
+                            <input type="radio" name="booking-modify-radio" checked="" class="custom-control-input" value="no"><span class="custom-control-label">Only this</span>
+                        </label>
+                        <label class="custom-control custom-radio custom-control-inline">
+                            <input type="radio" name="booking-modify-radio" class="custom-control-input" value="yes"><span class="custom-control-label">All upcoming</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
     {% endif %}
 
       <div class="modal-footer">
@@ -230,6 +244,7 @@
     var selected_resource = null;
     var booking_type = 'booking';
     var repeat_value = null;
+    var modify_value = false;
     var current_user_json = null;
     var last_booking = null;
 
@@ -250,6 +265,10 @@
 
     $('input[type=radio][name=booking-repeat-radio]').change(function() {
         repeat_value = this.value;
+    });
+
+    $('input[type=radio][name=booking-modify-radio]').change(function() {
+        modify_value = this.value;
     });
 
    /* initialize the external events
@@ -529,6 +548,8 @@ function showBookingForm(booking) {
     $('#booking-description').val(booking.description);
     $("input[name=booking-type-radio][value=" + booking.type + "]").prop('checked', true);
     $("input[name=booking-repeat-radio][value=" + booking.repeat_value + "]").prop('checked', true);
+    modify_value = false;
+    $("input[name=booking-repeat-radio][value=no]").prop('checked', true);
     $('#booking-title').focus();
     $('#booking-modal').modal('show');
 }
@@ -556,7 +577,6 @@ function bookingFromSelection(start, end) {
         resource: selected_resource,
         type: booking_type,
         description: '',
-        creator: current_user_json,
         owner: current_user_json,
         repeat_value: repeat_value,
     };
@@ -582,11 +602,10 @@ function onBookingSelected(event) {
         title: props.booking_title,
         description: props.description,
         repeat_value: props.repeat_value,
-        creator: props.creator,
         owner: props.owner,
         slot_auth: props.slot_auth['projects'].join(' ')
     }
-    //printObject(event, "onBookingSelected");
+    //printObject(last_booking, "onBookingSelected");
     showBookingForm(last_booking);
 }
 
@@ -692,25 +711,15 @@ function onOkButtonClick() {
     // return;
 
     var booking = {
+        id: last_booking.id,
         title: $('#booking-title').val(),
         start: dateIsoFromValue('#booking-start-date', '#booking-start-time'),
         end: dateIsoFromValue('#booking-end-date', '#booking-end-time'),
         type: booking_type,
         description: $('#booking-description').val(),
-        repeat_value: repeat_value,
         owner_id: last_booking.owner.id,
-        creator_id: last_booking.creator.id,
         resource_id: last_booking.resource.id
     };
-
-    // Remove unnecessary information
-    delete booking.owner;
-    delete booking.creator;
-    delete booking.resource;
-
-    if (repeat_value != 'no') {
-        booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
-    }
 
     let endpoint = null;
 
@@ -718,6 +727,11 @@ function onOkButtonClick() {
         endpoint = "{{ url_for('api.update_booking') }}"
     }
     else {
+        // Only take into account repeat value when creating a new booking
+        booking.repeat_value = repeat_value;
+        if (repeat_value != 'no')
+            booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
+        booking.creator_id = booking.owner_id
         endpoint = "{{ url_for('api.create_booking') }}"
     }
 
@@ -735,11 +749,16 @@ function onOkButtonClick() {
 
 
 function onDeleteButtonClick() {
+    let deleteInfo = {
+        id: last_booking.id,
+        modify_all: modify_value
+    };
+
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.delete_booking') }}",
         type: "POST",
         contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify(last_booking.id),
+        data: JSON.stringify({attrs: deleteInfo}),
         dataType: "json"
     });
 

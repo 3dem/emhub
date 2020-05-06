@@ -144,7 +144,19 @@ class DataManager:
 
         return bookings
 
+    def update_booking(self, **attrs):
+        """ Update one or many bookings (in case of repeating events)
 
+        Keyword Args:
+            id: the of the booking to be updated
+            modify_all: Boolean flag in case the booking is a repeating event.
+                If True, all bookings from this one, will be also updated.
+        """
+        def update(b):
+            for attr, value in attrs.items():
+                setattr(b, attr, value)
+
+        return self._modify_bookings(attrs, update)
 
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,
@@ -152,23 +164,18 @@ class DataManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
-    def delete_booking(self, booking_id):
-        booking = self.get_bookings(condition='id="%s"' % booking_id)[0]
-        rid = booking.repeat_id
-        print("Deleting booking, repeat_id: ", rid)
-        if rid is not None:
-            deleted = []
-            bookings = self.get_bookings(condition='repeat_id="%s"' % rid)
-            for b in bookings:
-                deleted.append(b.id)
-                self._db_session.delete(b)
-        else:
-            deleted = [booking_id]
-            self._db_session.delete(booking)
+    def delete_booking(self, **attrs):
+        """ Delete one or many bookings (in case of repeating events)
 
-        self._db_session.commit()
+        Keyword Args:
+            id: the of the booking to be deleted
+            modify_all: Boolean flag in case the booking is a repeating event.
+                If True, all bookings from this one, will be also deleted.
+        """
+        def delete(b):
+            self._db_session.delete(b)
 
-        return deleted
+        return self._modify_bookings(attrs, delete)
 
     # ---------------------------- SESSIONS -----------------------------------
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
@@ -272,3 +279,47 @@ class DataManager:
 
         return [] if pi is None else pi.projects
 
+    def _modify_bookings(self, attrs, modifyFunc):
+        """ Return one or many bookings if repeating event.
+        Keyword Args:
+            id: Id of the main booking
+            modify_all: If True, all repeating bookings from this one will be
+                returned
+        """
+        booking_id = attrs['id']
+        modify_all = attrs.get('modify_all', False)
+
+        # Get the booking with the given id
+        bookings = self.get_bookings(condition='id="%s"' % booking_id)
+
+        if not bookings:
+            raise Exception("There is no booking with ID=%s" % booking_id)
+
+        booking = bookings[0]
+        rid = booking.repeat_id
+
+        result = [booking]
+
+        if rid is not None:
+            repeats = [
+                b for b in self.get_bookings(condition='repeat_id="%s"' % rid)
+                if b.start > booking.start
+            ]
+            if modify_all:
+                result.extend(repeats)
+            else:
+                # If not modify_all, we should detach this booking from the
+                # repeating series by setting its repeat_id to None
+                # and generating a new repeat_id for the future events of the
+                # series
+                booking.repeat_id = None
+                uid = str(uuid.uuid4())
+                for b in repeats:
+                    b.repeat_id = uid
+
+        for b in result:
+            modifyFunc(b)
+
+        self._db_session.commit()
+
+        return result

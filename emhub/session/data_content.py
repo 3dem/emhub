@@ -159,5 +159,7 @@ class DataContent:
             'type': booking.type,
             'booking_title': b_title,
             'is_user_auth': is_user_auth,
-            'slot_auth': booking.slot_auth
+            'slot_auth': booking.slot_auth,
+            'repeat_id': booking.repeat_id,
+            'repeat_value': booking.repeat_value
         }
