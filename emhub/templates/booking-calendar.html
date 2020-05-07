@@ -163,7 +163,11 @@
             <div class="form-group row">
                 <label class="col-12 col-sm-3 col-form-label text-sm-right">Sloth Authorization</label>
                 <div class="col-12 col-sm-8 col-lg-6">
-                    <input type="text" required="" placeholder="Slot authorization" id="booking-slot-auth" class="form-control">
+                <select id="booking-slot-auth" class="selectpicker show-tick" multiple data-width="100%" data-selected-text-format="count > 5" title="Select authorization...">
+                    {% for p in projects %}#}
+                      <option value="{{p['code']}}" data-content="<span class='badge badge-light'>{{p['code']}}</span>">{{p['code']}}</option>
+                    {% endfor %}
+                </select>
                 </div>
             </div>
 
@@ -549,7 +553,7 @@ function showBookingForm(booking) {
     $('#booking-start-time').val(timeStr(booking.start));
     $('#booking-end-date').val(dateStr(booking.end));
     $('#booking-end-time').val(timeStr(booking.end));
-    $('#booking-slot-auth').val(booking.slot_auth);
+    $('#booking-slot-auth').selectpicker('val', booking.slot_auth.projects);
 
     $('#booking-title').val(booking.title);
     $('#booking-description').val(booking.description);
@@ -587,6 +591,7 @@ function bookingFromSelection(start, end) {
         description: '',
         owner: current_user_json,
         repeat_value: repeat_value,
+        slot_auth: {projects: [], users: []}
     };
 }
 
@@ -601,19 +606,20 @@ function onDateSelection(start, end) {
 function onBookingSelected(event) {
     let props = event.extendedProps;
     repeat_value = props.repeat_value;
+    booking_type = props.type;
 
     last_booking = {
         id: event.id,
         start: event.start,
         end: event.end,
         resource: props.resource,
-        type: props.type,
+        type: booking_type,
         title: props.booking_title,
         description: props.description,
         repeat_value: props.repeat_value,
         owner: props.owner,
-        slot_auth: props.slot_auth['projects'].join(' '),
-        user_can_modify: props.user_can_modify,
+        slot_auth: props.slot_auth,
+        user_can_modify: props.user_can_modify
     };
     showBookingForm(last_booking);
 }
@@ -731,8 +737,14 @@ function onOkButtonClick() {
         owner_id: last_booking.owner.id,
         resource_id: last_booking.resource.id,
         modify_all: modify_all,
-        repeat_value: repeat_value
+        repeat_value: repeat_value,
     };
+
+    alert("booking_type: " + booking_type);
+
+    if (booking_type == 'slot') {
+        booking.slot_auth = {projects: $('#booking-slot-auth').selectpicker('val'), users: []}
+    }
 
     let endpoint = null;
 
