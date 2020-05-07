@@ -78,6 +78,8 @@ def create_app(test_config=None):
         if not app.user.is_authenticated:
             kwargs = {'content_id': 'user-login', 'next_content': content_id}
         else:
+            if content_id == 'user-login':
+                content_id = 'booking-calendar'
             kwargs = {'content_id': content_id}
 
         return flask.render_template('main.html', **kwargs)
@@ -93,7 +95,7 @@ def create_app(test_config=None):
         and also when login credentials are submitted (POST).
         """
         next_content = flask.request.args.get('next_content', 'empty')
-        return flask.redirect(flask.url_for('index',
+        return flask.redirect(flask.url_for('main',
                                             content_id=next_content))
 
     @app.route('/do_login', methods=['POST'])
@@ -110,6 +112,10 @@ def create_app(test_config=None):
             return flask.redirect(flask.url_for('login'))
 
         flask_login.login_user(user)
+
+        if next_content == 'user-login':
+            next_content = 'booking-calendar'
+        print("logged user: %s, next_content: %s" % (username, next_content))
         return flask.redirect(flask.url_for('main', content_id=next_content))
 
     @app.route('/logout', methods=['GET', 'POST'])
