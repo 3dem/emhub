@@ -115,7 +115,8 @@ class DataManager:
     def create_booking(self, **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
-        del attrs['modify_all']
+        if 'modify_all' in attrs:
+            del attrs['modify_all']
         bookings = []
 
         if repeat_value == 'no':
