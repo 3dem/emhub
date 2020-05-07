@@ -99,27 +99,27 @@ class TestData:
     def __populateResources(self, dm):
         resources = [
             {'name': 'Krios 1', 'tags': 'microscope krios',
-             'image': 'titan-krios.png', 'color': '#3abae8',
+             'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
              # Allow DBB00001 users to book without slot
              'booking_auth': {'projects': ['DBB00001']}},
             {'name': 'Krios 2', 'tags': 'microscope krios',
-             'image': 'titan-krios.png', 'color': '#213b94',
+             'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
              'booking_auth': {'projects': ['DBB00001']}},
             {'name': 'Talos', 'tags': 'microscope talos',
-             'image': 'talos-artica.png', 'color': '#2b5424',
+             'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
              'booking_auth': {'projects': ['DBB00001']}},
             {'name': 'Vitrobot 1', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': '#9e8e3e',
+             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)',
              'booking_auth': {'users': ['any']}},
             {'name': 'Vitrobot 2', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': '#453e19',
+             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)',
              # Allow 'any' user to book without slot
              'booking_auth': {'users': ['any']}},
             {'name': 'Carbon Coater', 'tags': 'instrument',
-             'image': 'carbon-coater.png', 'color': '#302928',
+             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)',
              'booking_auth': {'users': ['any']}},
             {'name': 'Users Drop-in', 'tags': 'service',
-             'image': 'users-dropin.png', 'color': '#441069',
+             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
              'booking_auth': {'users': ['any']}}
         ]
 

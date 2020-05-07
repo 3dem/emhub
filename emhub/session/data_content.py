@@ -126,27 +126,31 @@ class DataContent:
         else:
             resource_info = {'id': resource.id, 'name': resource.name}
         owner = booking.owner
+        owner_name = owner.name
         creator = booking.creator
         user = self.app.user
         b_title = booking.title
         user_can_book = False
-        user_can_view = user.is_manager or user.same_pi(owner)
         user_can_modify = user.is_manager or user.id == owner.id
+        user_can_view = user_can_modify or user.same_pi(owner)
+        color = resource.color if resource else 'grey'
 
         if booking.type == 'downtime':
             color = 'red'
             title = "%s (DOWNTIME): %s" % (resource.name, b_title)
         elif booking.type == 'slot':
-            color = '#619e3e'
-            title = "%s (SLOT): %s" % (resource.name, b_title)
+            color = color.replace('1.0', '0.5')  # transparency for slots
+            title = "%s (SLOT): %s" % (resource.name,
+                                       booking.slot_auth['projects'])
             user_can_book = self.app.dm.user_can_book(user, booking.slot_auth)
         else:
-            color = resource.color if resource else 'grey'
+
             # Show all booking information in title in some cases only
             if user_can_view:
                 title = "%s (%s) %s" % (resource_info['name'], owner.name, b_title)
             else:
                 title = "Booking"
+                owner_name = "Hidden"
 
         return {
             'id': booking.id,
@@ -158,7 +162,7 @@ class DataContent:
             'textColor': 'white',
             'resource': resource_info,
             'creator': {'id': creator.id, 'name': creator.name},
-            'owner': {'id': owner.id, 'name': owner.name},
+            'owner': {'id': owner.id, 'name': owner_name},
             'type': booking.type,
             'booking_title': b_title,
             'user_can_book': user_can_book,
