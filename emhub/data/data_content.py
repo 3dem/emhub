@@ -101,16 +101,20 @@ class DataContent:
         return {'resources': resource_list}
 
     def get_booking_calendar(self, session_id):
+        dm = self.app.dm  # shortcut
         dataDict = self.get_resources_list(session_id)
         dataDict['bookings'] = [self.booking_to_event(b)
-                                for b in self.app.dm.get_bookings() if b.resource is not None]
+                                for b in dm.get_bookings()
+                                if b.resource is not None]
         dataDict['current_user_json'] = flask_login.current_user.json()
+        dataDict['projects'] = [{'id': p.id, 'code': p.code}
+                                for p in dm.get_projects()]
 
         return dataDict
 
     def get_booking_list(self, session_id):
         bookings = self.app.dm.get_bookings()
-        return {'bookings': [self.booking_to_event(b) for b in bookings]}
+        return {'bookings': [self.booking_to_event(b) for b in bookings ]}
 
     def get_applications_list(self, session_id):
         return {
