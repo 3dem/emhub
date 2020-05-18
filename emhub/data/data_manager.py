@@ -92,8 +92,8 @@ class DataManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
-    # ---------------------------- PROJECTS -----------------------------------
-    def create_project(self, **attrs):
+    # ---------------------------- APPLICATIONS -----------------------------------
+    def create_application(self, **attrs):
         return self.__create_item(self.Application, **attrs)
 
     def get_applications(self, condition=None, orderBy=None, asJson=False):
@@ -254,17 +254,7 @@ class DataManager:
         if user.is_manager or 'any' in auth_json.get('users', []):
             return True
 
-        return self.__matching_project(self.get_user_applications(user), auth_json)
-
-    def get_user_pi(self, user):
-        # FIXME There is a problem with User.pi relation...
-        return user if user.is_pi else self.get_user_by(id=user.pi_id)
-
-    def get_user_applications(self, user):
-        # FIXME There is a problem with User.pi relation...
-        pi = self.get_user_pi(user)
-
-        return [] if pi is None else pi.applications
+        return self.__matching_project(user.get_applications(), auth_json)
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.

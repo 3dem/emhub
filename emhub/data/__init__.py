@@ -26,4 +26,5 @@
 # *
 # **************************************************************************
 
-from .base import DataManager, SessionData
+from .base import SessionData
+from .data_manager import DataManager

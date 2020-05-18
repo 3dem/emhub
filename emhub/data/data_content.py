@@ -81,7 +81,7 @@ class DataContent:
     def get_users_list(self, session_id):
         users = self.app.dm.get_users()
         for u in users:
-            u.project_codes = [p.code for p in self.app.dm.get_user_applications(u)]
+            u.project_codes = [p.code for p in u.get_applications()]
 
         return {'users': users}
 

@@ -27,31 +27,6 @@
 # **************************************************************************
 
 
-class DataManager:
-    """ Main class that will manage the sessions and their information.
-    """
-    def get_users(self, condition=None, **attrs):
-        pass
-
-    def create_user(self, **attr):
-        pass
-
-    def get_sessions(self, condition=None):
-        pass
-
-    def create_session(self, sessionId, **attrs):
-        pass
-
-    def update_session(self, sessionId, **attrs):
-        pass
-
-    def delete_session(self, sessionId):
-        pass
-
-    def load_session(self, sessionId):
-        pass
-
-
 class SessionData:
     """
     Class that will handle the underlying data associate with a given Session.

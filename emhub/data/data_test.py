@@ -132,7 +132,7 @@ class TestData:
              'alias': 'BAG Lund',
              'title': 'Bag Application for Lund University 2019/20',
              'description': '',
-             'pi_id': 6,
+             'creator_id': 6,
              'invoice_reference': 'AAA',
              'invoice_address': ''
              },
@@ -140,7 +140,7 @@ class TestData:
              'alias': 'BAG SU',
              'title': 'Bag Application for Stockholm University',
              'description': '',
-             'pi_id': 7,
+             'creator_id': 7,
              'invoice_reference': 'BBB',
              'invoice_address': ''
              },
@@ -148,7 +148,7 @@ class TestData:
              'alias': 'RAA Andersson',
              'title': 'Rapid Access application',
              'description': '',
-             'pi_id': 8,
+             'creator_id': 8,
              'invoice_reference': 'ZZZ',
              'invoice_address': ''
              },
@@ -156,14 +156,17 @@ class TestData:
              'alias': 'SU-DBB',
              'title': 'Internal DBB project',
              'description': '',
-             'pi_id': 9,
+             'creator_id': 9,
              'invoice_reference': 'DDD',
              'invoice_address': ''
              },
         ]
 
         for pDict in applications:
-            dm.create_project(**pDict)
+            dm.create_application(**pDict)
+
+        a1 = dm.get_applications(condition="code=DBB00001")[0]
+        
 
     def _localnow(self):
         import pytz  # $ pip install pytz

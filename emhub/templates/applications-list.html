@@ -20,7 +20,7 @@
                                 <th>code</th>
                                 <th>alias</th>
                                 <th>title</th>
-                                <th>pi</th>
+                                <th>creator</th>
                                 <th>invoice reference</th>
                                 <th>invoice address</th>
                                 <th>actions</th>
@@ -28,19 +28,19 @@
                             </tr>
                             </thead>
                             <tbody>
-                            {% for p in applications %}
+                            {% for a in applications %}
                             <tr>
-                                <td>{{ p.code }}</td>
-                                <td>{{ p.alias }}</td>
-                                <td>{{ p.title }}</td>
-                                <td>{{ p.pi.name }}</td>
-                                <td>{{ p.invoice_reference }}</td>
-                                <td>{{ p.invoice_address }}</td>
+                                <td>{{ a.code }}</td>
+                                <td>{{ a.alias }}</td>
+                                <td>{{ a.title }}</td>
+                                <td>{{ a.creator.name }}</td>
+                                <td>{{ a.invoice_reference }}</td>
+                                <td>{{ a.invoice_address }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
                                     <button class="btn btn-sm btn-outline-light"><i class="far fa-copy"></i></button>
                                     <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
-                                            data-id="{{ p.id }}" data-alias="{{ p.alias }}"><i class="far fa-trash-alt"></i></button>
+                                            data-id="{{ a.id }}" data-alias="{{ a.alias }}"><i class="far fa-trash-alt"></i></button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -80,7 +80,7 @@
 
 <script>
   $('#deleteModal').on('show.bs.modal', function (event) {
-      var button = $(event.relatedTarget) // Button that triggered the modal
+      var button = $(event.relatedTarget); // Button that triggered the modal
 
       // Extract info from data-* attributes
       var id = button.data('id')

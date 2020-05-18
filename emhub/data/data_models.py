@@ -105,12 +105,16 @@ def create_data_models(dm, Base):
                          nullable=False,
                          default=utcnow())
 
+        lab_members = relationship("User", back_populates='pi')
+
         pi_id = Column(Integer, ForeignKey('users.id'),
                        nullable=True)
-        pi = relationship("User", foreign_keys=[pi_id],
+        pi = relationship("User",
+                          foreign_keys=[pi_id],
+                          remote_side=[id],
                           back_populates="lab_members")
 
-        lab_members = relationship("User")
+
 
         # Default role should be: 'user'
         # more roles can be comma separated: 'user,admin,manager'
@@ -124,6 +128,9 @@ def create_data_models(dm, Base):
 
         # one user to many sessions, bidirectional
         sessions = relationship('Session', back_populates="users")
+
+        created_applications = relationship("Application",
+                                            back_populates="creator")
 
         @staticmethod
         def create_password_hash(password):
@@ -159,16 +166,21 @@ def create_data_models(dm, Base):
         def is_pi(self):
             return 'pi' in self.roles
 
+        def get_pi(self):
+            """ Return the PI of this users. PI are consider PI of themselves.
+            """
+            return self if self.is_pi else self.pi
+
         def same_pi(self, other):
             """ Return if the same pi. """
-            pi_id = self.id if self.is_pi else self.pi_id
-            return pi_id == other.pi_id
+            return self.get_pi() == other.get_pi()
 
         def get_applications(self):
             """ Return the applications that this users is involved,
             via its PI.
             """
-            return self.applications if self.is_pi else self.pi[0].applications
+            pi = self.get_pi()
+            return [] if pi is None else pi.created_applications
 
     class Booking(Base):
         """Model for user accounts."""
@@ -233,6 +245,8 @@ def create_data_models(dm, Base):
 
         alias = Column(String(32))
 
+        status = Column(String(32))
+
         title = Column(String(256),
                        nullable=False)
 
@@ -245,9 +259,10 @@ def create_data_models(dm, Base):
         invoice_address = Column(Text,
                                  nullable=True)
 
-        pi_id = Column(Integer, ForeignKey('users.id'),
-                       nullable=False)
-        pi = relationship("User", foreign_keys=[pi_id], backref="applications")
+        # ID of the user that created the Application, it should be a PI
+        creator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+        creator = relationship("User", foreign_keys=[creator_id],
+                               back_populates="created_applications")
 
         def __repr__(self):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
