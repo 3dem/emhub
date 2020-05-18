@@ -46,8 +46,8 @@ class TestData:
         self.__populateUsers(dm)
         print("Populating resources...")
         self.__populateResources(dm)
-        print("Populating projects...")
-        self.__populateProjects(dm)
+        print("Populating applications...")
+        self.__populateApplications(dm)
         print("Populating sessions...")
         self.__populateSessions(dm)
         print("Populating Bookings")
@@ -101,13 +101,13 @@ class TestData:
             {'name': 'Krios 1', 'tags': 'microscope krios',
              'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
              # Allow DBB00001 users to book without slot
-             'booking_auth': {'projects': ['DBB00001']}},
+             'booking_auth': {'applications': ['DBB00001']}},
             {'name': 'Krios 2', 'tags': 'microscope krios',
              'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
-             'booking_auth': {'projects': ['DBB00001']}},
+             'booking_auth': {'applications': ['DBB00001']}},
             {'name': 'Talos', 'tags': 'microscope talos',
              'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
-             'booking_auth': {'projects': ['DBB00001']}},
+             'booking_auth': {'applications': ['DBB00001']}},
             {'name': 'Vitrobot 1', 'tags': 'instrument',
              'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)',
              'booking_auth': {'users': ['any']}},
@@ -126,11 +126,11 @@ class TestData:
         for rDict in resources:
             dm.create_resource(**rDict)
 
-    def __populateProjects(self, dm):
-        projects = [
+    def __populateApplications(self, dm):
+        applications = [
             {'code': 'CEM00297',
              'alias': 'BAG Lund',
-             'title': 'Bag Project for Lund University 2019/20',
+             'title': 'Bag Application for Lund University 2019/20',
              'description': '',
              'pi_id': 6,
              'invoice_reference': 'AAA',
@@ -138,7 +138,7 @@ class TestData:
              },
             {'code': 'CEM00315',
              'alias': 'BAG SU',
-             'title': 'Bag Project for Stockholm University',
+             'title': 'Bag Application for Stockholm University',
              'description': '',
              'pi_id': 7,
              'invoice_reference': 'BBB',
@@ -162,7 +162,7 @@ class TestData:
              },
         ]
 
-        for pDict in projects:
+        for pDict in applications:
             dm.create_project(**pDict)
 
     def _localnow(self):
@@ -223,7 +223,7 @@ class TestData:
                           start=now.replace(day=6, hour=9),
                           end=now.replace(day=10, hour=23, minute=59),
                           type='slot',
-                          slot_auth={'projects': ['CEM00297', 'CEM00315']},
+                          slot_auth={'applications': ['CEM00297', 'CEM00315']},
                           resource_id=3,
                           creator_id=1,  # first user for now
                           owner_id=1,  # first user for now
@@ -233,11 +233,11 @@ class TestData:
                           start=now.replace(day=20, hour=9),
                           end=now.replace(day=24, hour=23, minute=59),
                           type='slot',
-                          slot_auth={'projects': ['CEM00332']},
+                          slot_auth={'applications': ['CEM00332']},
                           resource_id=3,
                           creator_id=1,  # first user for now
                           owner_id=1,  # first user for now
-                          description="Talos slot for RAPID projects")
+                          description="Talos slot for RAPID applications")
 
         # create a repeating event
         dm.create_booking(title='Dropin',

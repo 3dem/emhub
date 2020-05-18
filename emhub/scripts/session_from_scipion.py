@@ -93,10 +93,10 @@ if __name__ == '__main__':
     pw.Config.setDomain(pwem)
     manager = Manager()
 
-    if not manager.hasProject(projName):
+    if not manager.hasApplication(projName):
         usage("Unexistent project: %s" % pwutils.red(projName))
 
-    project = manager.loadProject(projName)
+    project = manager.loadApplication(projName)
     ctfProt = project.getProtocol(protId)
 
     outputCtf = ctfProt.outputCTF

@@ -36,7 +36,7 @@ import flask_login
 from . import utils
 from .api import send_json_data, api_bp
 from .utils import datetime_to_isoformat
-from .session.data_content import DataContent
+from .data.data_content import DataContent
 
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -161,7 +161,7 @@ def create_app(test_config=None):
         return os.path.basename(filename)
 
     app.jinja_env.filters['reverse'] = basename
-    from emhub.session.data_manager import DataManager
+    from emhub.data.data_manager import DataManager
     app.dm = DataManager(dbPath)
     app.dc = DataContent(app)
     app.user = flask_login.current_user

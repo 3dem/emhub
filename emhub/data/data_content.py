@@ -81,7 +81,7 @@ class DataContent:
     def get_users_list(self, session_id):
         users = self.app.dm.get_users()
         for u in users:
-            u.project_codes = [p.code for p in self.app.dm.get_user_projects(u)]
+            u.project_codes = [p.code for p in self.app.dm.get_user_applications(u)]
 
         return {'users': users}
 
@@ -112,9 +112,9 @@ class DataContent:
         bookings = self.app.dm.get_bookings()
         return {'bookings': [self.booking_to_event(b) for b in bookings]}
 
-    def get_projects_list(self, session_id):
+    def get_applications_list(self, session_id):
         return {
-            'projects': self.app.dm.get_projects()
+            'applications': self.app.dm.get_applications()
         }
 
     def booking_to_event(self, booking):
@@ -141,7 +141,7 @@ class DataContent:
         elif booking.type == 'slot':
             color = color.replace('1.0', '0.5')  # transparency for slots
             title = "%s (SLOT): %s" % (resource.name,
-                                       booking.slot_auth['projects'])
+                                       booking.slot_auth['applications'])
             user_can_book = self.app.dm.user_can_book(user, booking.slot_auth)
         else:
 

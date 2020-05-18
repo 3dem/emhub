@@ -612,7 +612,7 @@ function onBookingSelected(event) {
         description: props.description,
         repeat_value: props.repeat_value,
         owner: props.owner,
-        slot_auth: props.slot_auth['projects'].join(' '),
+        slot_auth: props.slot_auth['applications'].join(' '),
         user_can_modify: props.user_can_modify,
     };
     showBookingForm(last_booking);

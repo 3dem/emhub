@@ -18,10 +18,10 @@ class TestDataManager(unittest.TestCase):
             pi_str = pi.name if pi else 'None'
             print("User: %s, PI: %s" % (u.name, pi_str))
 
-    def test_projects(self):
-        projects = self.ds.get_projects()
+    def test_applications(self):
+        applications = self.ds.get_applications()
 
-        codes = [p.code for p in projects]
+        codes = [p.code for p in applications]
 
         self.assertEqual(codes, ['CEM00297', 'CEM00315', 'CEM00332', 'DBB00001'])
 
@@ -36,7 +36,7 @@ class TestDataManager(unittest.TestCase):
                 else:
                     piDict[u.id].append(u)
 
-                uList.append("PI: %s, projects: %s" % (u.name, u.projects))
+                uList.append("PI: %s, applications: %s" % (u.name, u.applications))
                 uList.append("   Lab members:")
                 for u2 in u.lab_members:
                     uList.append("     - %s" % u2.name)
@@ -44,12 +44,12 @@ class TestDataManager(unittest.TestCase):
         for l in uList:
             print(l)
 
-        # Check that all users in the same lab, have the same projects
+        # Check that all users in the same lab, have the same applications
         for pi_id, members in piDict.items():
-            pRef = members[0].get_projects()
-            print("projects: ", pRef)
+            pRef = members[0].get_applications()
+            print("applications: ", pRef)
             for u in members[1:]:
-                self.assertEqual(pRef, u.get_projects())
+                self.assertEqual(pRef, u.get_applications())
 
 
 class TestDataManager(unittest.TestCase):

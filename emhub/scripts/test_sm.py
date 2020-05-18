@@ -1,4 +1,4 @@
-from emhub.session.sqlalchemy import DataManager
+from emhub.data.sqlalchemy import DataManager
 
 sm = DataManager('instance/emhub.sqlite')
 

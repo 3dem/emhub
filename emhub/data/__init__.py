@@ -26,4 +26,4 @@
 # *
 # **************************************************************************
 
-from .session import DataManager, SessionData
+from .base import DataManager, SessionData

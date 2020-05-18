@@ -145,7 +145,7 @@ setup(
     packages=find_packages(),
     # This field lists other packages that your project depends on to run.
     # Any package you put here will be installed by pip when your project is
-    # installed, so they must be valid existing projects.
+    # installed, so they must be valid existing applications.
     #
     # For an analysis of "install_requires" vs pip's requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
@@ -158,7 +158,7 @@ setup(
     #   $ pip install sampleproject[dev]
     #
     # Similar to `install_requires` above, these must be valid existing
-    # projects.
+    # applications.
     #extras_require={  # Optional
     #    'dev': ['check-manifest'],
     #    'test': ['coverage'],
@@ -196,7 +196,7 @@ setup(
 
     # List additional URLs that are relevant to your project as a dict.
     #
-    # This field corresponds to the "Project-URL" metadata fields:
+    # This field corresponds to the "Application-URL" metadata fields:
     # https://packaging.python.org/specifications/core-metadata/#project-url-multiple-use
     #
     # Examples listed include a pattern for specifying where the package tracks

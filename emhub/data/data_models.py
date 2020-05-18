@@ -79,7 +79,7 @@ def create_data_models(dm, Base):
                        nullable=False)
 
         # Booking authorization, who can book within this slot
-        booking_auth = Column(JSON, default={'projects': [], 'users': []})
+        booking_auth = Column(JSON, default={'applications': [], 'users': []})
 
     class User(UserMixin, Base):
         """Model for user accounts."""
@@ -164,11 +164,11 @@ def create_data_models(dm, Base):
             pi_id = self.id if self.is_pi else self.pi_id
             return pi_id == other.pi_id
 
-        def get_projects(self):
-            """ Return the projects that this users is involved,
+        def get_applications(self):
+            """ Return the applications that this users is involved,
             via its PI.
             """
-            return self.projects if self.is_pi else self.pi[0].projects
+            return self.applications if self.is_pi else self.pi[0].applications
 
     class Booking(Base):
         """Model for user accounts."""
@@ -191,7 +191,7 @@ def create_data_models(dm, Base):
                       nullable=False)
 
         # slot authorization, who can book within this slot
-        slot_auth = Column(JSON, default={'projects': [], 'users': []})
+        slot_auth = Column(JSON, default={'applications': [], 'users': []})
 
         description = Column(Text,
                              nullable=True)
@@ -217,12 +217,12 @@ def create_data_models(dm, Base):
         def json(self):
             return _json(self)
 
-    class Project(Base):
+    class Application(Base):
         """
-        Project that applies for access to the facility.
+        Application that applies for access to the facility.
         Usually many principal investigators are associated to a project.
         """
-        __tablename__ = 'projects'
+        __tablename__ = 'applications'
 
         id = Column(Integer,
                     primary_key=True)
@@ -247,10 +247,10 @@ def create_data_models(dm, Base):
 
         pi_id = Column(Integer, ForeignKey('users.id'),
                        nullable=False)
-        pi = relationship("User", foreign_keys=[pi_id], backref="projects")
+        pi = relationship("User", foreign_keys=[pi_id], backref="applications")
 
         def __repr__(self):
-            return '<Project code=%s, alias=%s>' % (self.code, self.alias)
+            return '<Application code=%s, alias=%s>' % (self.code, self.alias)
 
         def json(self):
             return _json(self)
@@ -360,7 +360,7 @@ def create_data_models(dm, Base):
         users = relationship("User", back_populates="sessions")
 
         def __repr__(self):
-            return '<Session {}>'.format(self.sessionName)
+            return '<Session {}>'.format(self.dataName)
 
         def json(self):
             return _json(self)
@@ -369,5 +369,5 @@ def create_data_models(dm, Base):
     dm.Resource = Resource
     dm.Booking = Booking
     dm.Session = Session
-    dm.Project = Project
+    dm.Application = Application
 

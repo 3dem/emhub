@@ -26,4 +26,4 @@
 # *
 # **************************************************************************
 
-from .session_client import SessionClient
+from .data_client import SessionClient

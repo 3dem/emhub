@@ -28,22 +28,13 @@
 
 import os
 import datetime as dt
-import decimal
-import datetime
-from pprint import pprint
 import uuid
 
-
-from sqlalchemy import (create_engine, Column, Integer, String, JSON,
-                        Boolean, Float, ForeignKey, Text, text)
-from sqlalchemy.orm import scoped_session, sessionmaker, relationship
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy_utc import UtcDateTime, utcnow
-from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
 
-
-from .session_hdf5 import H5SessionData
+from .data_hdf5 import H5SessionData
 from .data_test import TestData
 from .data_models import create_data_models
 
@@ -103,10 +94,10 @@ class DataManager:
 
     # ---------------------------- PROJECTS -----------------------------------
     def create_project(self, **attrs):
-        return self.__create_item(self.Project, **attrs)
+        return self.__create_item(self.Application, **attrs)
 
-    def get_projects(self, condition=None, orderBy=None, asJson=False):
-        return self.__items_from_query(self.Project,
+    def get_applications(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Application,
                                        condition=condition,
                                        orderBy=orderBy,
                                        asJson=asJson)
@@ -208,7 +199,7 @@ class DataManager:
             session = self._lastSession
         else:
             session = self.Session.query.get(sessionId)
-            session.data = H5SessionData(session.sessionData, 'r')
+            session.data = H5SessionData(session.dataData, 'r')
             self._lastSessionId = sessionId
             self._lastSession = session
 
@@ -244,18 +235,18 @@ class DataManager:
         query = self._db_session.query(ModelClass)
         return query.filter_by(**kwargs).one_or_none()
 
-    def __matching_project(self, projects, auth_json):
+    def __matching_project(self, applications, auth_json):
         """ Return True if there is a project code in auth_json. """
-        if not auth_json or 'projects' not in auth_json:
+        if not auth_json or 'applications' not in auth_json:
             return False
 
-        json_codes = auth_json['projects']
+        json_codes = auth_json['applications']
 
-        return any(p.code in json_codes for p in projects)
+        return any(p.code in json_codes for p in applications)
 
     def user_can_book(self, user, auth_json):
         """ Return True if the user is authorized (i.e any of the project
-        codes appears in auth_json['projects'].
+        codes appears in auth_json['applications'].
         """
         if user is None or not auth_json:
             return False
@@ -263,17 +254,17 @@ class DataManager:
         if user.is_manager or 'any' in auth_json.get('users', []):
             return True
 
-        return self.__matching_project(self.get_user_projects(user), auth_json)
+        return self.__matching_project(self.get_user_applications(user), auth_json)
 
     def get_user_pi(self, user):
         # FIXME There is a problem with User.pi relation...
         return user if user.is_pi else self.get_user_by(id=user.pi_id)
 
-    def get_user_projects(self, user):
+    def get_user_applications(self, user):
         # FIXME There is a problem with User.pi relation...
         pi = self.get_user_pi(user)
 
-        return [] if pi is None else pi.projects
+        return [] if pi is None else pi.applications
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
