@@ -33,7 +33,7 @@ import datetime
 
 
 from sqlalchemy import (Column, Integer, String, JSON, Boolean, Float,
-                        ForeignKey, Text)
+                        ForeignKey, Text, Table)
 from sqlalchemy.orm import relationship
 from sqlalchemy_utc import UtcDateTime, utcnow
 from flask_login import UserMixin
@@ -81,6 +81,12 @@ def create_data_models(dm, Base):
         # Booking authorization, who can book within this slot
         booking_auth = Column(JSON, default={'applications': [], 'users': []})
 
+    ApplicationUser = Table('application_user', Base.metadata,
+                            Column('application_id', Integer,
+                                   ForeignKey('applications.id')),
+                            Column('user_id', Integer,
+                                   ForeignKey('users.id')))
+
     class User(UserMixin, Base):
         """Model for user accounts."""
         __tablename__ = 'users'
@@ -105,17 +111,6 @@ def create_data_models(dm, Base):
                          nullable=False,
                          default=utcnow())
 
-        lab_members = relationship("User", back_populates='pi')
-
-        pi_id = Column(Integer, ForeignKey('users.id'),
-                       nullable=True)
-        pi = relationship("User",
-                          foreign_keys=[pi_id],
-                          remote_side=[id],
-                          back_populates="lab_members")
-
-
-
         # Default role should be: 'user'
         # more roles can be comma separated: 'user,admin,manager'
         roles = Column(String(128),
@@ -126,11 +121,28 @@ def create_data_models(dm, Base):
                                unique=True,
                                nullable=False)
 
+        # ---------------- RELATIONS ----------------------------
+
+        # Pi and Lab_members relation
+        lab_members = relationship("User", back_populates='pi')
+
+        pi_id = Column(Integer, ForeignKey('users.id'),
+                       nullable=True)
+        pi = relationship("User",
+                          foreign_keys=[pi_id],
+                          remote_side=[id],
+                          back_populates="lab_members")
+
         # one user to many sessions, bidirectional
         sessions = relationship('Session', back_populates="users")
 
         created_applications = relationship("Application",
                                             back_populates="creator")
+
+        # many to many relation with Application
+        applications = relationship("Application",
+                                    secondary=ApplicationUser,
+                                    back_populates="users")
 
         @staticmethod
         def create_password_hash(password):
@@ -180,7 +192,12 @@ def create_data_models(dm, Base):
             via its PI.
             """
             pi = self.get_pi()
-            return [] if pi is None else pi.created_applications
+            if pi is None:
+                return []
+            else:
+                applications = list(pi.created_applications)
+                applications.extend(pi.applications)
+                return applications
 
     class Booking(Base):
         """Model for user accounts."""
@@ -229,6 +246,32 @@ def create_data_models(dm, Base):
         def json(self):
             return _json(self)
 
+    class Template(Base):
+        """ Classes used as template to create Applications.
+        Template instances that are 'active' will allow to
+        create new applications from it. Otherwise, templates can be
+        closed and will not be visible when creating a new application. """
+        __tablename__ = 'templates'
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        # Possible statuses of a Template:
+        #   - preparation: when it has been created and it under preparation
+        #   - active: it has been activated for operation
+        #   - closed: it has been closed and it becomes inactive
+        status = Column(String(32), default='preparation')
+
+        title = Column(String(256),
+                       nullable=False)
+
+        description = Column(Text,
+                             nullable=True)
+
+        # This will be data in json form to describe extra parameters defined
+        # in this template for all the Applications created from this.
+        form_schema = Column(JSON)
+
     class Application(Base):
         """
         Application that applies for access to the facility.
@@ -245,7 +288,14 @@ def create_data_models(dm, Base):
 
         alias = Column(String(32))
 
-        status = Column(String(32))
+        # Possible statuses of an Application:
+        #   - preparation: when it has been created and it under preparation
+        #   - submitted: the application has been submitted for review
+        #   - rejected: if for some reason the application is rejected
+        #   - accepted: the application has been accepted after evaluation
+        #   - active: it has been activated for operation
+        #   - closed: it has been closed and it becomes inactive
+        status = Column(String(32), default='preparation')
 
         title = Column(String(256),
                        nullable=False)
@@ -263,6 +313,10 @@ def create_data_models(dm, Base):
         creator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
         creator = relationship("User", foreign_keys=[creator_id],
                                back_populates="created_applications")
+
+        users = relationship("User",
+                             secondary=ApplicationUser,
+                             back_populates="applications")
 
         def __repr__(self):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
@@ -384,5 +438,6 @@ def create_data_models(dm, Base):
     dm.Resource = Resource
     dm.Booking = Booking
     dm.Session = Session
+    dm.Template = Template
     dm.Application = Application
 

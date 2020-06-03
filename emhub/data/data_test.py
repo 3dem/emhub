@@ -127,6 +127,31 @@ class TestData:
             dm.create_resource(**rDict)
 
     def __populateApplications(self, dm):
+        templateInfo = [
+            {'title': 'BAG Application Form - 2019/2020',
+             'description': 'Information required in order to submit a request '
+                            'for group allocation time for one year.',
+             'status': 'active',
+             },
+            {'title': 'Rapid Access for SPA and Tomography',
+             'description': 'Application Form required to apply for time on a '
+                            'project for either screening or data-collection. '
+                            'Machine time will be allocate on 24 or 48 hours '
+                            'slots. ',
+             'status': 'active',
+             },
+            {'title': 'BAG Application Form - 2020/2021',
+             'description': 'Information required in order to submit a request '
+                            'for group allocation time for one year.',
+             },
+            {'title': 'Single Particle Application 161026',
+             'description': 'Information required to request time for one year.',
+             'status': 'closed',
+             },
+        ]
+
+        templates = [dm.create_template(**ti) for ti in templateInfo]
+
         applications = [
             {'code': 'CEM00297',
              'alias': 'BAG Lund',
@@ -165,8 +190,11 @@ class TestData:
         for pDict in applications:
             dm.create_application(**pDict)
 
-        a1 = dm.get_applications(condition="code=DBB00001")[0]
-        
+        a1 = dm.get_applications(condition="code='DBB00001'")[0]
+        u1 = dm.get_users(condition="username='agonia'")[0]
+
+        a1.users.append(u1)
+        dm.commit()
 
     def _localnow(self):
         import pytz  # $ pip install pytz

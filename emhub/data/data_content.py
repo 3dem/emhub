@@ -108,13 +108,19 @@ class DataContent:
                                 if b.resource is not None]
         dataDict['current_user_json'] = flask_login.current_user.json()
         dataDict['projects'] = [{'id': p.id, 'code': p.code}
-                                for p in dm.get_projects()]
+                                for p in dm.get_applications()]
 
         return dataDict
 
     def get_booking_list(self, session_id):
         bookings = self.app.dm.get_bookings()
         return {'bookings': [self.booking_to_event(b) for b in bookings ]}
+
+    def get_applications(self, session_id):
+        dataDict = self.get_applications_list(session_id)
+        dataDict['templates'] = self.app.dm.get_templates()
+
+        return dataDict
 
     def get_applications_list(self, session_id):
         return {

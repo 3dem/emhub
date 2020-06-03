@@ -65,6 +65,15 @@ class DataManager:
         self._lastSessionId = None
         self._lastSession = None
 
+    def commit(self):
+        self._db_session.commit()
+
+    def close(self):
+        # if self._lastSession is not None:
+        #     self._lastSession.data.close()
+
+        self._db_session.remove()
+
     # ------------------------- USERS ----------------------------------
     def create_user(self, **attrs):
         """ Create a new user in the DB. """
@@ -92,7 +101,16 @@ class DataManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
-    # ---------------------------- APPLICATIONS -----------------------------------
+    # ---------------------------- APPLICATIONS --------------------------------
+    def create_template(self, **attrs):
+        return self.__create_item(self.Template, **attrs)
+
+    def get_templates(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Template,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
     def create_application(self, **attrs):
         return self.__create_item(self.Application, **attrs)
 
@@ -204,12 +222,6 @@ class DataManager:
             self._lastSession = session
 
         return session
-
-    def close(self):
-        # if self._lastSession is not None:
-        #     self._lastSession.data.close()
-
-        self._db_session.remove()
 
     # --------------- Internal implementation methods --------------------
     def __create_item(self, ModelClass, **attrs):
