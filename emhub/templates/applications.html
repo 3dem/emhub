@@ -6,11 +6,49 @@
     {% include 'include_header.html' %}
 
     <div class="row">
+    <!-- ============================================================== -->
+        <!-- Create new Applications  -->
+        <!-- ============================================================== -->
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
+            <div class="tab-regular">
+                <div class="row">
+                    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                        <div class="section-block" id="cards">
+                            <h3 class="section-title">Create a New Application</h3>
+                        </div>
+                    </div>
+                    {% for t in templates %}
+                        {% if t.status == 'active' %}
+                         <div class="col-xl-3 col-lg-3 col-md-3 col-sm-6 col-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h4 class="card-title border-bottom pb-2">{{ t.title }}</h4>
+                                    <p class="card-text"> {{ t.description }}</p>
+                                    <a href="#" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Application</a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <!-- ============================================================== -->
+        <!-- end - Create New Applications  -->
+        <!-- ============================================================== -->
+
         <!-- ============================================================== -->
         <!-- Application Tabs  -->
         <!-- ============================================================== -->
-        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12 mb-5">
-            <div class="tab-regular">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
+            <div class="row">
+                <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
+                    <div class="section-block" id="applications">
+                        <h3 class="section-title">Applications</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-vertical">
                 <ul class="nav nav-tabs " id="applicationTabsNav" role="tablist">
                     <li class="nav-item">
                         <a class="nav-link" id="preparation-tab" data-toggle="tab" href="#preparation" role="tab" aria-controls="preparation" aria-selected="false">Preparation</a>
@@ -72,36 +110,7 @@
         <!-- end - Application Tabs  -->
         <!-- ============================================================== -->
 
-        <!-- ============================================================== -->
-        <!-- Create new Applications  -->
-        <!-- ============================================================== -->
-        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12 mb-5">
-            <div class="tab-regular">
-                <div class="row">
-                    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                        <div class="section-block" id="cards">
-                            <h3 class="section-title">New Applications</h3>
-                        </div>
-                    </div>
-                    {% for t in templates %}
-                        {% if t.status == 'active' %}
-                         <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h4 class="card-title border-bottom pb-2">{{ t.title }}</h4>
-                                    <p class="card-text"> {{ t.description }}</p>
-                                    <a href="#" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Application</a>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        <!-- ============================================================== -->
-        <!-- end - Create New Applications  -->
-        <!-- ============================================================== -->
+
     </div>  <!-- row -->
 
     <div>
@@ -114,12 +123,12 @@
                     <h3 class="section-title">Templates</h3>
                 </div>
             </div>
-            <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3  text-sm-right">
-                <a href="#" class="btn btn-primary"><i class="fas fa-plus-circle"></i>  Create Template</a>
+            <div class="col-xl-9 col-lg-9 col-md-9 col-sm-9 col-9  text-sm-right">
+                <a href="javascript:showTemplate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i>  Create Template</a>
             </div>
         </div>
         <div class="row">
-            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12 mb-5">
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
                 <div class="tab-vertical">
                     <ul class="nav nav-tabs " id="templateTabsNav" role="tablist">
                         <li class="nav-item">
@@ -171,7 +180,7 @@
       <div class="modal-body">
         <div class="row">
             <!-- ============================================================== -->
-            <!-- Booking Form -->
+            <!-- Template Form -->
             <!-- ============================================================== -->
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                 <form id="validationform" data-parsley-validate="" novalidate="">
@@ -191,7 +200,7 @@
                         </div>
                     </div>
 
-                    <!-- Application type -->
+                    <!-- Template Status -->
                    <div class="form-group row">
                         <label class="col-sm-3 col-form-label text-sm-right">Template Status</label>
                         <div class="col-sm-6">
@@ -200,24 +209,13 @@
                               <option value="active">Active</option>
                               <option value="closed">Closed</option>
                             </select>
-{#                            <div class="custom-controls-stacked">#}
-{#                                <label class="custom-control custom-radio custom-control-inline">#}
-{#                                    <input type="radio" name="template-status-radio" checked="" class="custom-control-input" value="preparation"><span class="custom-control-label">Preparation </span>#}
-{#                                </label>#}
-{#                                <label class="custom-control custom-radio custom-control-inline">#}
-{#                                    <input type="radio" name="template-status-radio" class="custom-control-input" value="active"><span class="custom-control-label">Active</span>#}
-{#                                </label>#}
-{#                                <label class="custom-control custom-radio custom-control-inline">#}
-{#                                    <input type="radio" name="template-status-radio" class="custom-control-input" value="closed"><span class="custom-control-label">Closed</span>#}
-{#                                </label>#}
-{#                            </div>#}
                         </div>
                     </div>
 
                 </form>
             </div>
             <!-- ============================================================== -->
-            <!-- end Booking Form -->
+            <!-- end Template Form -->
             <!-- ============================================================== -->
         </div>
       </div>
@@ -268,8 +266,19 @@
 
 /* Show the Booking Form, either for a new booking or an existing one */
 function showTemplate(templateId) {
-    // Get the template with that id
-    template = templateDict[templateId];
+    if (templateId == null)
+        template = {
+            id: null,
+            status: 'preparation'
+        };
+    else
+        // Get the template with that id
+        template = templateDict[templateId];
+
+    if (template == null) {
+        showMessage("ERROR", "Invalid Template id: " + templateId);
+        return
+    }
 
     // Setup fields with template values
     $('#template-title').val(template.title);
@@ -307,8 +316,7 @@ function handleAjaxDone(jsonResponse) {
     if (error)
         showMessage('ERROR', error);
     else {
-        $('#template-modal').on('hidden', function () {
-            alert("after hide");
+        $('#template-modal').on('hidden.bs.modal', function () {
             load_content("applications");
         });
         $('#template-modal').modal('hide');
@@ -329,6 +337,7 @@ function onOkButtonClick() {
     // Update template values
     template.title = $('#template-title').val();
     template.description = $('#template-description').val();
+    template.status = $('#template-status-select').selectpicker('val');
 
     if (template.id) {
         endpoint = "{{ url_for('api.update_template') }}";
