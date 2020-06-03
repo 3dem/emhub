@@ -31,7 +31,7 @@
                             <h5> Display </h5>
                         </div>
                         <div class="col col-auto nopadding">
-                            <select class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to book..."  onchange="filterBookingsByResources(this)">
+                            <select class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to display..."  onchange="filterBookingsByResources(this)">
                             {% for r in resources %}#}
                               <option value="{{r['id']}}" class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
                             {% endfor %}
@@ -240,7 +240,7 @@
 <script>
     var calendar;
     var bookings;
-    var resources;
+    var templates;
     var selected_resource = null;
     var booking_type = 'booking';
     var repeat_value = null;
@@ -282,7 +282,7 @@
     // -----------------------------------------------------------------
 
     var userName = "{{current_user.name}}";
-    resources = {{ resources|tojson }};
+    templates = {{ resources|tojson }};
     bookings = {{ bookings|tojson }} ;
     current_user_json = {{ current_user_json|tojson }}
 
@@ -372,96 +372,6 @@
   calendar.render();
 
 })(window, document, window.jQuery);
-
-
-/* Helper function to print object properties */
-function printObject(obj, label) {
-    var propValue;
-    console.log("object: ", label);
-    for (var propName in obj) {
-        propValue = obj[propName]
-        console.log('   ', propName, ': ', propValue);
-    }
-}
-
-function printList(objList, label) {
-    console.log("List: ", label);
-    var i = 0;
-    for (var obj of objList) {
-        i = i + 1;
-        printObject(obj, "item " + i);
-    }
-}
-
-function removeObjectFromList(obj, objList) {
-    var newList = [];
-    for (var o of objList)
-        if (o.id != obj.id)
-            newList.push(o);
-    return newList;
-}
-
-/* Helper function to pad dates */
-function pad(n) {
-    return n < 10 ? '0' + n : n;
-}
-
-/* Get date string in YYYY-MM-DD format */
-function dateStr(date) {
-    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
-}
-
-function dateIsoFromValue(dateId, timeId) {
-    var dateVal = $(dateId).val();
-    if (timeId)
-        dateVal += 'T' + $(timeId).val();
-    return new Date(dateVal).toISOString();
-}
-
-/* Get hour:minutes string HH:00 format */
-function timeStr(date) {
-    return pad(date.getHours()) + ":" + pad(date.getMinutes());
-}
-
-function datetimeStr(date) {
-    //return dateStr(date) + ' - ' + timeStr(date);
-    return date.toUTCString();
-}
-
-/* Date in range */
-function dateInRange(date, range) {
-    return (date >= range.start && date <= range.end);
-}
-
-/* Check if two events overlap (if have same resource) */
-function rangesOverlap(event1, event2) {
-    // console.log(">>> rangeOverlap");
-    // console.log("          event1:", {start: dateStr(event1.start), end: dateStr(event1.end)});
-    // console.log("            resource:", selected_resource.id)
-    // console.log("          event2:", {start: dateStr(event2.start), end: dateStr(event2.end)});
-    // console.log("            resource:", event2.extendedProps.resource.id);
-    // console.log("          result: ", (dateInRange(event1.start, event2) || dateInRange(event1.end, event2)))
-    return (dateInRange(event1.start, event2) || dateInRange(event1.end, event2));
-}
-
-/* Return True if event1 is contained in event2 */
-function rangeInside(event1, event2) {
-    return (event1.start >= event2.start && event1.end <= event2.end);
-}
-
-/* Get all selected values from a 'select' */
-function getSelectedValues(sel) {
-    var opt;
-    var values = new Array();
-
-    for ( var i = 0, len = sel.options.length; i < len; i++ ) {
-        opt = sel.options[i];
-        if ( opt.selected === true ) {
-            values.push(opt.value);
-        }
-    }
-    return values;
-}
 
 /* Function to show the modal */
 function showMessage(title, msg) {
@@ -646,7 +556,7 @@ function filterBookingsByResources(sel){
 function selectResource(sel) {
     let resourceId = getSelectedValues(sel)[0];
 
-    for (var r of resources) {
+    for (var r of templates) {
         if (r.id == resourceId) {
             selected_resource = r;
             break;

@@ -8,14 +8,13 @@
     </thead>
     <tbody>
     {% for t in templates %}
-        {% if t.status == status %}
+        {% if t['status'] == status %}
         <tr>
-            <td><a href="javascript:alert({{ t.id }})">{{ t.title }}</a></td>
+            <td><a href="javascript:showTemplate({{ t['id'] }})">{{ t['title'] }}</a></td>
             <td>{{ t.description }}</td>
             <td style="width: 105px;">
-                <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
-                <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
-                        data-id="{{ t.id }}"><i class="far fa-trash-alt"></i></button>
+                <button class="btn btn-sm btn-outline-light" onclick="javascript:showTemplate({{ t['id'] }})"><i class="far fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-light"><i class="far fa-trash-alt"></i></button>
             </td>
         </tr>
         {% endif %}

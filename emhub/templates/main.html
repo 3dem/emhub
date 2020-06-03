@@ -343,12 +343,15 @@
 <script src="{{ url_for('static', filename='vendor/datepicker/moment.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/datepicker/tempusdominus-bootstrap-4.js') }}"></script>
 
-
+<!-- emhub -->
+<script src="{{ url_for('static', filename='libs/js/emhub.js') }}"></script>
 
 
 <script type="text/javascript">
 
     function load_content(content_id, session_id) {
+        console.log("requesting content: " + content_id);
+
         var ajaxContent = $.ajax({
             url: "{{ url_for('get_content') }}",
             type: "POST",
