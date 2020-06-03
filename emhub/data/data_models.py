@@ -270,7 +270,10 @@ def create_data_models(dm, Base):
 
         # This will be data in json form to describe extra parameters defined
         # in this template for all the Applications created from this.
-        form_schema = Column(JSON)
+        form_schema = Column(JSON, nullable=True)
+
+        def json(self):
+            return _json(self)
 
     class Application(Base):
         """

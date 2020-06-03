@@ -118,7 +118,12 @@ class DataContent:
 
     def get_applications(self, session_id):
         dataDict = self.get_applications_list(session_id)
-        dataDict['templates'] = self.app.dm.get_templates()
+        dataDict['templates'] = [{'id': t.id,
+                                  'title': t.title,
+                                  'description': t.description,
+                                  'status': t.status
+                                 }
+                                 for t in self.app.dm.get_templates()]
 
         return dataDict
 

@@ -111,6 +111,9 @@ class DataManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def update_template(self, **attrs):
+        return self.__update_item(self.Template, **attrs)
+
     def create_application(self, **attrs):
         return self.__create_item(self.Application, **attrs)
 
@@ -204,13 +207,13 @@ class DataManager:
         # for attr in attrs:
         #     session.attr = attrs[attr]
 
-        self._db_session.commit()
+        self.commit()
 
     def delete_session(self, sessionId):
         """ Remove a session row. """
         session = self.Session.query.get(sessionId)
         self._db_session.delete(session)
-        self._db_session.commit()
+        self.commit()
 
     def load_session(self, sessionId):
         if sessionId == self._lastSessionId:
@@ -227,7 +230,7 @@ class DataManager:
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)
         self._db_session.add(new_item)
-        self._db_session.commit()
+        self.commit()
         return new_item
 
     def __items_from_query(self, ModelClass,
@@ -246,6 +249,17 @@ class DataManager:
     def __item_by(self, ModelClass, **kwargs):
         query = self._db_session.query(ModelClass)
         return query.filter_by(**kwargs).one_or_none()
+
+    def __update_item(self, ModelClass, **kwargs):
+        item = self.__item_by(ModelClass, id=kwargs['id'])
+        print("Updating %s" % item)
+        for attr, value in kwargs.items():
+            if attr != 'id':
+                setattr(item, attr, value)
+                print("   setting: %s = %s" % (attr, value))
+        self.commit()
+
+        return item
 
     def __matching_project(self, applications, auth_json):
         """ Return True if there is a project code in auth_json. """
@@ -310,7 +324,7 @@ class DataManager:
         for b in result:
             modifyFunc(b)
 
-        self._db_session.commit()
+        self.commit()
 
         return result
 
