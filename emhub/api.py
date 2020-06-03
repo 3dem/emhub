@@ -41,7 +41,9 @@ from emhub.utils import pretty_json, datetime_from_isoformat
 api_bp = Blueprint('api', __name__)
 
 
-# ------------------- REST API -----------------------------------
+# =============================== REST API ====================================
+
+# ---------------------------- USERS ------------------------------------------
 @api_bp.route('/create_user', methods=['POST'])
 def create_user():
     attrs = request.json
@@ -55,6 +57,35 @@ def get_users():
     return filter_from_attrs(app.dm.get_users())
 
 
+# ---------------------------- APPLICATIONS -----------------------------------
+@api_bp.route('/create_template', methods=['POST'])
+def create_template():
+    pass
+
+@api_bp.route('/get_templates', methods=['POST'])
+def get_templates():
+    return send_json_data({'error': 'Not implemented'})
+
+@api_bp.route('/update_template', methods=['POST'])
+def update_template():
+    try:
+        if not request.json:
+            raise Exception("Expecting JSON request.")
+        template = app.dm.update_template(**request.json['attrs'])
+        return send_json_data({'template': template.json()})
+    except Exception as e:
+        print(e)
+        return send_json_data({'error': 'Raised exception: %s' % e})
+
+@api_bp.route('/create_application', methods=['POST'])
+def create_application():
+    pass
+
+@api_bp.route('/get_applications', methods=['POST'])
+def get_applications():
+    pass
+
+# ---------------------------- BOOKINGS ---------------------------------------
 @api_bp.route('/create_booking', methods=['POST'])
 def create_booking():
     return handle_booking('bookings_created', app.dm.create_booking)
