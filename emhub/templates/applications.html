@@ -142,18 +142,12 @@
                         </li>
                     </ul>
                     <div class="tab-content" id="templateTabsContent">
-                        <div class="tab-pane fade" id="preparation-t" role="tabpanel" aria-labelledby="preparation-t-tab">
-                            {% set status = "preparation" %}
+                    {%  for status in template_statuses %}
+                        {% set active_str = "show active" if status == template_selected_status else "" %}
+                        <div class="tab-pane fade {{ active_str }}" id="{{ status }}-t" role="tabpanel" aria-labelledby="{{ status }}-t-tab">
                             {% include 'include_templates_table.html' %}
                         </div>
-                        <div class="tab-pane fade show active" id="active-t" role="tabpanel" aria-labelledby="active-t-tab">
-                            {% set status = "active" %}
-                            {% include 'include_templates_table.html' %}
-                        </div>
-                        <div class="tab-pane fade" id="closed-t" role="tabpanel" aria-labelledby="closed-t-tab">
-                            {% set status = "closed" %}
-                            {% include 'include_templates_table.html' %}
-                        </div>
+                    {%  endfor %}
                     </div>
                 </div>
             </div>
@@ -317,10 +311,10 @@ function handleAjaxDone(jsonResponse) {
         showMessage('ERROR', error);
     else {
         $('#template-modal').on('hidden.bs.modal', function () {
-            load_content("applications");
+            var params = {template_selected_status: template.status}
+            load_content("applications", params);
         });
         $('#template-modal').modal('hide');
-        //FIXME: load_content("applications");
     }
 }
 
