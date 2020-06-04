@@ -131,15 +131,13 @@
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
                 <div class="tab-vertical">
                     <ul class="nav nav-tabs " id="templateTabsNav" role="tablist">
+                    {%  for status in template_statuses %}
+                        {% set active_str = "active" if status == template_selected_status else "" %}
+                        {% set active_selected = "true" if status == template_selected_status else "false" %}
                         <li class="nav-item">
-                            <a class="nav-link" id="preparation-t-tab" data-toggle="tab" href="#preparation-t" role="tab" aria-controls="preparation-t" aria-selected="false">Preparation</a>
+                            <a class="nav-link {{ active_str }}" id="{{ status }}-t-tab" data-toggle="tab" href="#{{ status }}-t" role="tab" aria-controls="{{ status }}-t" aria-selected="{{ active_selected }}">{{ status }}</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link active" id="active-t-tab" data-toggle="tab" href="#active-t" role="tab" aria-controls="active-t" aria-selected="true">Active</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" id="closed-t-tab" data-toggle="tab" href="#closed-t" role="tab" aria-controls="closed-t" aria-selected="false">Closed</a>
-                        </li>
+                    {%  endfor %}
                     </ul>
                     <div class="tab-content" id="templateTabsContent">
                     {%  for status in template_statuses %}
