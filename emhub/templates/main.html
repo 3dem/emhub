@@ -349,13 +349,18 @@
 
 <script type="text/javascript">
 
-    function load_content(content_id, session_id) {
+    function load_content(content_id, params) {
         console.log("requesting content: " + content_id);
+
+        if (params == null)
+            params = {content_id: content_id}
+        else
+            params.content_id = content_id;
 
         var ajaxContent = $.ajax({
             url: "{{ url_for('get_content') }}",
             type: "POST",
-            data: {content_id: content_id, session_id: session_id},
+            data: params,
             dataType: "html"
         });
 

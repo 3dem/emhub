@@ -138,12 +138,14 @@ def create_app(test_config=None):
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
-        content_id = flask.request.form['content_id']
-        session_id = flask.request.form.get('session_id', None)
-        print("get_content: ", "content_id=", content_id)
+        content_kwargs = flask.request.form.to_dict()
+        content_id = content_kwargs['content_id']
+        print("get_content params: ")
+        for k, v in content_kwargs.items():
+            print("  %s = %s" % (k, v))
 
-        if (content_id in NO_LOGIN_CONTENT or app.user.is_authenticated):
-            kwargs = app.dc.get(content_id, session_id)
+        if content_id in NO_LOGIN_CONTENT or app.user.is_authenticated:
+            kwargs = app.dc.get(**content_kwargs)
         else:
             kwargs = {'next_content': content_id}
             content_id = 'user-login'

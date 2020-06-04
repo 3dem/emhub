@@ -48,18 +48,20 @@ class DataContent:
         """ Create a new content for the given Flask application. """
         self.app = app
 
-    def get(self, content_id, session_id):
-        get_func_name = 'get_%s' % content_id.replace('-', '_')
+    def get(self, **kwargs):
+        content_id = kwargs['content_id']
+        get_func_name = 'get_%s' % content_id.replace('-', '_')  # FIXME
         get_func = getattr(self, get_func_name, None)
-        return {} if get_func is None else get_func(session_id)
+        return {} if get_func is None else get_func(**kwargs)
 
-    def get_sessions_overview(self, session_id=None):
+    def get_sessions_overview(self):
         # sessions = self.app.dm.get_sessions(condition='status!="Finished"',
         #                                orderBy='microscope')
         sessions = self.app.dm.get_sessions()  # FIXME
         return {'sessions': sessions}
 
-    def get_session_live(self, session_id):
+    def get_session_live(self, **kwargs):
+        session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
         firstSetId = session.data.get_sets()[0]['id']
         mics = session.data.get_items(firstSetId, ['location', 'ctfDefocus'])
@@ -74,18 +76,18 @@ class DataContent:
                 'micrographs': mics,
                 'session': session}
 
-    def get_sessions_stats(self, session_id=None):
+    def get_sessions_stats(self, **kwargs):
         sessions = self.app.dm.get_sessions()
         return {'sessions': sessions}
 
-    def get_users_list(self, session_id):
+    def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()
         for u in users:
             u.project_codes = [p.code for p in u.get_applications()]
 
         return {'users': users}
 
-    def get_resources_list(self, session_id):
+    def get_resources_list(self, **kwargs):
 
         resource_list = [
             {'id': r.id,
@@ -100,9 +102,9 @@ class DataContent:
         ]
         return {'resources': resource_list}
 
-    def get_booking_calendar(self, session_id):
+    def get_booking_calendar(self, **kwargs):
         dm = self.app.dm  # shortcut
-        dataDict = self.get_resources_list(session_id)
+        dataDict = self.get_resources_list()
         dataDict['bookings'] = [self.booking_to_event(b)
                                 for b in dm.get_bookings()
                                 if b.resource is not None]
@@ -112,12 +114,18 @@ class DataContent:
 
         return dataDict
 
-    def get_booking_list(self, session_id):
+    def get_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
         return {'bookings': [self.booking_to_event(b) for b in bookings ]}
 
-    def get_applications(self, session_id):
-        dataDict = self.get_applications_list(session_id)
+    def get_applications(self, **kwargs):
+        print("get_applications, kwargs")
+        for k, v in kwargs.items():
+            print("  %s: %s" % (k, v))
+
+        dataDict = self.get_applications_list()
+        dataDict['template_statuses'] = ['preparation', 'active', 'closed']
+        dataDict['template_selected_status'] = kwargs.get('template_selected_status', 'active')
         dataDict['templates'] = [{'id': t.id,
                                   'title': t.title,
                                   'description': t.description,
@@ -127,9 +135,9 @@ class DataContent:
 
         return dataDict
 
-    def get_applications_list(self, session_id):
+    def get_applications_list(self, **kwargs):
         return {
-            'applications': self.app.dm.get_applications()
+            'applications': self.app.dm.get_applications(**kwargs)
         }
 
     def booking_to_event(self, booking):
