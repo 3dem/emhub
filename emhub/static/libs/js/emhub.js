@@ -97,3 +97,53 @@ function getSelectedValues(sel) {
     }
     return values;
 }
+
+
+/* Function to show the modal */
+function showMessage(title, msg) {
+    var confirmModal =
+    $('<div class="modal" id="msg-modal" tabindex="-1" role="dialog" aria-labelledby="msgModal" aria-hidden="true">\n' +
+      '  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">\n' +
+      '    <div class="modal-content" style="background-color: #f5f5f5">\n' +
+      '      <div class="modal-header">\n' +
+      '           <h4 class="modal-title" id="message-title">' + title + '</h4>\n' +
+      '      </div>' +
+      '      <div class="modal-body" id="yesno-body">' + msg +
+      '      </div>\n' +
+      '      <div class="modal-footer">\n' +
+      '        <button type="button" class="btn btn-primary" id="okButton" data-dismiss="modal">Ok</button>\n' +
+      '      </div>\n' +
+      '    </div>\n' +
+      '  </div>\n' +
+      '</div>');
+
+    confirmModal.modal('show');
+}
+
+/* Generic Confirm func */
+function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
+    var confirmModal =
+        $('<div class="modal" id="yesno-modal" tabindex="-1" role="dialog" aria-labelledby="yesnoModal" aria-hidden="true">\n' +
+          '  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">\n' +
+          '    <div class="modal-content" style="background-color: #f5f5f5">\n' +
+          '      <div class="modal-header">\n' +
+          '           <h4 class="modal-title" id="message-title">' + heading + '</h4>\n' +
+          '      </div>' +
+          '      <div class="modal-body" id="yesno-body">' + question +
+          '      </div>\n' +
+          '      <div class="modal-footer">\n' +
+          '        <button type="button" class="btn"  data-dismiss="modal">' + cancelButtonTxt + '</button>\n' +
+          '        <button type="button" class="btn btn-primary" id="okButton" data-dismiss="modal">' + okButtonTxt + '</button>\n' +
+          '      </div>\n' +
+          '    </div>\n' +
+          '  </div>\n' +
+          '</div>');
+
+    confirmModal.find('#okButton').click(function(event) {
+      callback();
+      confirmModal.modal('hide');
+    });
+
+    confirmModal.modal('show');
+};
+/* END Generic Confirm func */
