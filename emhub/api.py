@@ -72,6 +72,11 @@ def update_template():
     return handle_template(app.dm.update_template)
 
 
+@api_bp.route('/delete_template', methods=['POST'])
+def delete_template():
+    return handle_template(app.dm.delete_template)
+
+
 @api_bp.route('/create_application', methods=['POST'])
 def create_application():
     pass

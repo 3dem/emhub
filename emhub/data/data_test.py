@@ -148,6 +148,10 @@ class TestData:
              'description': 'Information required to request time for one year.',
              'status': 'closed',
              },
+            {'title': 'Internal Users Template',
+             'description': 'This is a special template used for internal users. ',
+             'status': 'closed',
+             },
         ]
 
         templates = [dm.create_template(**ti) for ti in templateInfo]
@@ -158,6 +162,7 @@ class TestData:
              'title': 'Bag Application for Lund University 2019/20',
              'description': '',
              'creator_id': 6,
+             'template_id': templates[0].id,
              'invoice_reference': 'AAA',
              'invoice_address': ''
              },
@@ -166,6 +171,7 @@ class TestData:
              'title': 'Bag Application for Stockholm University',
              'description': '',
              'creator_id': 7,
+             'template_id': templates[0].id,
              'invoice_reference': 'BBB',
              'invoice_address': ''
              },
@@ -174,6 +180,7 @@ class TestData:
              'title': 'Rapid Access application',
              'description': '',
              'creator_id': 8,
+             'template_id': templates[1].id,
              'invoice_reference': 'ZZZ',
              'invoice_address': ''
              },
@@ -182,6 +189,7 @@ class TestData:
              'title': 'Internal DBB project',
              'description': '',
              'creator_id': 9,
+             'template_id': templates[-1].id,
              'invoice_reference': 'DDD',
              'invoice_address': ''
              },

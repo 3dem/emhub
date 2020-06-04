@@ -137,7 +137,7 @@ class DataContent:
 
     def get_applications_list(self, **kwargs):
         return {
-            'applications': self.app.dm.get_applications(**kwargs)
+            'applications': self.app.dm.get_applications()
         }
 
     def booking_to_event(self, booking):

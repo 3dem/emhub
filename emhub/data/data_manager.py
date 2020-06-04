@@ -68,6 +68,11 @@ class DataManager:
     def commit(self):
         self._db_session.commit()
 
+    def delete(self, item, commit=True):
+        self._db_session.delete(item)
+        if commit:
+            self.commit()
+
     def close(self):
         # if self._lastSession is not None:
         #     self._lastSession.data.close()
@@ -113,6 +118,11 @@ class DataManager:
 
     def update_template(self, **attrs):
         return self.__update_item(self.Template, **attrs)
+
+    def delete_template(self, **attrs):
+        template = self.__item_by(self.Template, id=attrs['id'])
+        self.delete(template)
+        return template
 
     def create_application(self, **attrs):
         return self.__create_item(self.Application, **attrs)
@@ -181,7 +191,7 @@ class DataManager:
                 If True, all bookings from this one, will be also deleted.
         """
         def delete(b):
-            self._db_session.delete(b)
+            self.delete(b, commit=False)
 
         return self._modify_bookings(attrs, delete)
 
@@ -212,8 +222,7 @@ class DataManager:
     def delete_session(self, sessionId):
         """ Remove a session row. """
         session = self.Session.query.get(sessionId)
-        self._db_session.delete(session)
-        self.commit()
+        self.delete(session)
 
     def load_session(self, sessionId):
         if sessionId == self._lastSessionId:

@@ -262,15 +262,15 @@ def create_data_models(dm, Base):
         #   - closed: it has been closed and it becomes inactive
         status = Column(String(32), default='preparation')
 
-        title = Column(String(256),
-                       nullable=False)
+        title = Column(String(256), nullable=False)
 
-        description = Column(Text,
-                             nullable=True)
+        description = Column(Text, nullable=True)
 
         # This will be data in json form to describe extra parameters defined
         # in this template for all the Applications created from this.
         form_schema = Column(JSON, nullable=True)
+
+        applications = relationship("Application", back_populates='template')
 
         def json(self):
             return _json(self)
@@ -320,6 +320,11 @@ def create_data_models(dm, Base):
         users = relationship("User",
                              secondary=ApplicationUser,
                              back_populates="applications")
+
+        # Link to the template used to create the form
+        template_id = Column(Integer, ForeignKey('templates.id'), nullable=False)
+        template = relationship("Template", foreign_keys=[template_id],
+                                back_populates="applications")
 
         def __repr__(self):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
