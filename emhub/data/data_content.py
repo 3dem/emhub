@@ -164,7 +164,7 @@ class DataContent:
         elif booking.type == 'slot':
             color = color.replace('1.0', '0.5')  # transparency for slots
             title = "%s (SLOT): %s" % (resource.name,
-                                       booking.slot_auth['applications'])
+                                       booking.slot_auth.get('applications', ''))
             user_can_book = self.app.dm.user_can_book(user, booking.slot_auth)
         else:
 

@@ -64,12 +64,12 @@
     </div>
 
 <!-- Modal -->
-<div class="modal fade" id="booking-modal" tabindex="-1" role="dialog" aria-labelledby="bookingModal" aria-hidden="true">
+<div class="modal fade" id="booking-modal" tabindex="-1" role="dialog" aria-labelledby="bookingModal" aria-hidden="true" data-backdrop="static" data-keyboard="false">
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h3 class="modal-title" id="booking-modal-title"> TITLE </h3>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="onCancelButtonClick()">
           <span aria-hidden="true">&times;</span>
         </button>
       </div>
@@ -209,12 +209,13 @@
     {% endif %}
 
       <div class="modal-footer">
-        <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
-        <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" onclick="javascript: onDeleteButtonClick()">Delete</button>
-        <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="javascript: onOkButtonClick()">Submit</button>
+        <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal" onclick="onCancelButtonClick()">Cancel</button>
+        <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" onclick="onDeleteButtonClick()">Delete</button>
+        <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="onOkButtonClick()">Submit</button>
       </div>
     </div>
   </div>
+</div>
 </div>
 
 <!-- Modal Message -->
@@ -247,6 +248,7 @@
     var current_user_json = null;
     var last_booking = null;
     var modify_all = false;
+    var original_range = null;
 
 
 (function(window, document, $, undefined) {
@@ -309,6 +311,7 @@
        },
         eventAllow: function(info, draggedEvent) {
             let resource = getResource(draggedEvent.extendedProps.resource.id);
+            original_range = {start: draggedEvent.start, end: draggedEvent.end};
             let booking = bookingFromSelection(info.start, info.end, resource);
             booking.id = draggedEvent.id;
             return validateBooking(booking);
@@ -331,8 +334,8 @@
             onBookingSelected(info.event);
         },
         eventDrop: function(info) {
-            onBookingSelected(info.event);
-        },
+            onBookingSelected(info.event, original_range);
+        }
   });
 
   calendar.render();
@@ -462,7 +465,7 @@ function onDateSelection(start, end) {
 }
 
 /* This function is called when an existing Booking event is clicked */
-function onBookingSelected(event) {
+function onBookingSelected(event, original_range) {
     let props = event.extendedProps;
     repeat_value = props.repeat_value;
     booking_type = props.type;
@@ -478,7 +481,8 @@ function onBookingSelected(event) {
         repeat_value: props.repeat_value,
         owner: props.owner,
         slot_auth: props.slot_auth,
-        user_can_modify: props.user_can_modify
+        user_can_modify: props.user_can_modify,
+        original_range: original_range
     };
     showBookingForm(last_booking);
 }
@@ -601,8 +605,6 @@ function onOkButtonClick() {
         repeat_value: repeat_value,
     };
 
-    alert("booking_type: " + booking_type);
-
     if (booking_type == 'slot') {
         booking.slot_auth = {projects: $('#booking-slot-auth').selectpicker('val'), users: []}
     }
@@ -638,8 +640,11 @@ function onOkButtonClick() {
     ajaxContent.fail(handleAjaxFail);
 }  // function onOkButtonClick
 
-
+/** This function will be called when the Delete button in the Booking form
+ * is clicked. It can be either Create or Update action.
+ */
 function onDeleteButtonClick() {
+
     if (last_booking.repeat_id && modify_all === null) {
             showMessage("ERROR", "<p>Please select a value for input <b>Modify repeating</b>: " +
                         "<i>Only this</i> or <i>All upcoming</i>.")
@@ -661,6 +666,19 @@ function onDeleteButtonClick() {
 
     ajaxContent.done(handleAjaxDone);
     ajaxContent.fail(handleAjaxFail);
+}
+
+/** This function will be called when the Delete button in the Booking form
+ * is clicked. It can be either Create or Update action.
+ */
+function onCancelButtonClick() {
+    let range = last_booking.original_range;
+
+    if (range != null) {
+        var event = calendar.getEventById( last_booking.id );
+        event.setDates(range.start, range.end);
+        calendar.render();
+    }
 }
 
 </script>
