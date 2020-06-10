@@ -240,7 +240,7 @@
 <script>
     var calendar;
     var bookings;
-    var templates;
+    var resources;
     var selected_resource = null;
     var booking_type = 'booking';
     var repeat_value = null;
@@ -282,7 +282,7 @@
     // -----------------------------------------------------------------
 
     var userName = "{{current_user.name}}";
-    templates = {{ resources|tojson }};
+    resources = {{ resources|tojson }};
     bookings = {{ bookings|tojson }} ;
     current_user_json = {{ current_user_json|tojson }}
 
@@ -307,56 +307,19 @@
         eventReceive: function(info) {
             //info.event.setProp('title', 'Booking of ' + userName)
        },
-        eventAllow: function(dropInfo, draggedEvent) {
-            var resource_id = draggedEvent.extendedProps['resource_id'];
-
-            if (resource_id == 1) {
-            //return dropInfo.start < new Date(2016, 0, 1); // a boolean
-              return false;
-            }
-            else {
-               return true;
-            }
+        eventAllow: function(info, draggedEvent) {
+            let resource = getResource(draggedEvent.extendedProps.resource.id);
+            let booking = bookingFromSelection(info.start, info.end, resource);
+            booking.id = draggedEvent.id;
+            return validateBooking(booking);
         },
         selectAllow: function(info) {
             if (selected_resource == null)
                 return false;
-
-            let booking = bookingFromSelection(info.start, info.end);
-            var inside_slot = false;
-            let events = calendar.getEvents();
-
-            for (const e of events) {
-                let props = e.extendedProps;
-                let user_can_book = props.user_can_book;
-
-                // Consider only events (bookings) for this resource
-                if (selected_resource.id == props.resource.id) {
-                    if (props.type == "slot") {
-                        // For slots, check that the user have permission
-                        // in this slot if overlap, and if so, that the date
-                        // range selection is completely contained in the slot
-                        if (rangesOverlap(booking, e)) {
-                            // Return false if user can not book in this slot
-                            if (!user_can_book)
-                                {console.log("selectAllow: user not auth in slot"); return false;}
-                            // Or if the range is not contained entirely in the slot
-                            else {
-                                if (rangeInside(booking, e))
-                                    inside_slot = true;
-                            }
-                        }
-                        else {
-
-                        }
-                    }
-                    else {
-                        if (rangesOverlap(booking, e))
-                        {console.log("selectAllow: overlap with no slot"); return false;}
-                    }
-                }
-            }
-            return (inside_slot || selected_resource.user_can_book) ;
+            // Take one day before to compensate for selection that give one more day
+            info.end.setDate(info.end.getDate() - 1);
+            let booking = bookingFromSelection(info.start, info.end, selected_resource)
+            return validateBooking(booking);
         },
         // dateClick: function(info) {
         //     alert('clicked ' + info.dateStr);
@@ -366,12 +329,58 @@
         },
         eventClick: function(info) {
             onBookingSelected(info.event);
-        }
+        },
+        eventDrop: function(info) {
+            onBookingSelected(info.event);
+        },
   });
 
   calendar.render();
 
 })(window, document, window.jQuery);
+
+/* Validate a Booking when it is created or updated (e.g dragged) */
+function validateBooking(booking) {
+    var inside_slot = false;
+    let events = calendar.getEvents();
+
+    for (const e of events) {
+        let props = e.extendedProps;
+        let user_can_book = props.user_can_book;
+
+        // Consider only events (bookings) for this resource
+        if (booking.resource.id == props.resource.id) {
+            if (props.type == "slot") {
+                // For slots, check that the user have permission
+                // in this slot if overlap, and if so, that the date
+                // range selection is completely contained in the slot
+                if (rangesOverlap(booking, e)) {
+                    // Return false if user can not book in this slot
+                    if (!user_can_book)
+                        {console.log("selectAllow: user not auth in slot"); return false;}
+                    // Or if the range is not contained entirely in the slot
+                    else {
+                        if (rangeInside(booking, e))
+                            inside_slot = true;
+                    }
+                }
+            }
+            else {
+                if (e.id != booking.id && rangesOverlap(booking, e))
+                {
+                    // console.log("selectAllow: overlap with no slot");
+                    // console.log("    overlap with event:");
+                    // console.log("     title: ", e.title);
+                    // console.log("     start: ", datetimeStr(e.start));
+                    // console.log("       end:", datetimeStr(e.end));
+                    return false;
+                }
+            }
+        }
+    }
+    return (inside_slot || booking.resource.user_can_book) ;
+}
+
 
 /* Show the Booking Form, either for a new booking or an existing one */
 function showBookingForm(booking) {
@@ -419,16 +428,13 @@ function showBookingForm(booking) {
 
 /** Function called when new dates are selected for a given Resource.
  * It creates a new booking and shows the Booking Form. **/
-function bookingFromSelection(start, end) {
+function bookingFromSelection(start, end, resource) {
     start.setHours(9);
     start.setMinutes(0);
     // Remove one day since endDate is exclusive in FullCalendar
-    end.setDate(end.getDate() - 1);
+    //end.setDate(end.getDate() - 1);
     end.setHours(23);
     end.setMinutes(59);
-
-    console.log("bookingFromSelection: ");
-    console.log("   booking-type: ", booking_type);
 
     repeat_value = 'no';
 
@@ -437,7 +443,7 @@ function bookingFromSelection(start, end) {
         title: '',
         start: start,
         end: end,
-        resource: selected_resource,
+        resource: resource,
         type: booking_type,
         description: '',
         owner: current_user_json,
@@ -449,7 +455,9 @@ function bookingFromSelection(start, end) {
 /** Function called when new dates are selected for a given Resource.
  * It creates a new booking and shows the Booking Form. **/
 function onDateSelection(start, end) {
-    last_booking = bookingFromSelection(start, end);
+    // Take one day before to compensate for selection that give one more day
+    end.setDate(end.getDate() - 1);
+    last_booking = bookingFromSelection(start, end, selected_resource);
     showBookingForm(last_booking);
 }
 
@@ -495,16 +503,18 @@ function filterBookingsByResources(sel){
     calendar.render();
 }
 
+/** Get the resource object from its id */
+function getResource(resourceId) {
+    for (var r of resources)
+        if (r.id == resourceId)
+            return r;
+    return null;
+}
+
 /** This function is called when a different resource is changed. */
 function selectResource(sel) {
     let resourceId = getSelectedValues(sel)[0];
-
-    for (var r of templates) {
-        if (r.id == resourceId) {
-            selected_resource = r;
-            break;
-        }
-    }
+    selected_resource = getResource(resourceId);
     filterBookingsByResources(sel);
 }
 
