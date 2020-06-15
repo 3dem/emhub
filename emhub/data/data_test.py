@@ -99,13 +99,16 @@ class TestData:
     def __populateResources(self, dm):
         resources = [
             {'name': 'Krios 1', 'tags': 'microscope krios',
+             'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
              # Allow DBB00001 users to book without slot
              'booking_auth': {'applications': ['DBB00001']}},
             {'name': 'Krios 2', 'tags': 'microscope krios',
+             'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
              'booking_auth': {'applications': ['DBB00001']}},
             {'name': 'Talos', 'tags': 'microscope talos',
+             'latest_cancellation': 48,
              'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
              'booking_auth': {'applications': ['DBB00001']}},
             {'name': 'Vitrobot 1', 'tags': 'instrument',
@@ -178,7 +181,7 @@ class TestData:
             {'code': 'CEM00332',
              'alias': 'RAA Andersson',
              'title': 'Rapid Access application',
-             'description': '',
+                 'description': '',
              'creator_id': 8,
              'template_id': templates[1].id,
              'invoice_reference': 'ZZZ',
@@ -205,17 +208,8 @@ class TestData:
         a1.users.append(u1)
         dm.commit()
 
-    def _localnow(self):
-        import pytz  # $ pip install pytz
-        from tzlocal import get_localzone  # $ pip install tzlocal
-
-        # get local timezone
-        local_tz = get_localzone()
-
-        return dt.datetime.now(local_tz)
-
     def __populateBookings(self, dm):
-        now = self._localnow().replace(minute=0, second=0)
+        now = dm.now().replace(minute=0, second=0)
         month = now.month
 
         # Create a downtime from today to one week later
@@ -315,7 +309,7 @@ class TestData:
                 sessionData=f,
                 userid=u,
                 sessionName=s,
-                dateStarted=self._localnow(),
+                dateStarted=dm.now(),
                 description='Long description goes here.....',
                 status=st,
                 microscope=sc,
@@ -341,7 +335,7 @@ class TestData:
         dm.create_session(sessionData='dfhgrth',
                           userid=2,
                           sessionName='dfgerhsrth_NAME',
-                          dateStarted=self._localnow(),
+                          dateStarted=dm.now(),
                           description='Long description goes here.....',
                           status='Running',
                           microscope='KriosX',

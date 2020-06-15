@@ -38,7 +38,7 @@
         <!-- ============================================================== -->
         <!--  resources table  -->
         <!-- ============================================================== -->
-        <div class="col-xl-7 col-lg-12 col-md-12 col-sm-12 col-12">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <h5 class="card-header">Resources List</h5>
                 <div class="card-body p-0">
@@ -52,6 +52,7 @@
                                     <th class="border-0">Resource Name</th>
                                     <th class="border-0">Tags</th>
                                     <th class="border-0">Booking auth</th>
+                                    <th class="border-0">Latest cancellation</th>
                                     <th class="border-0">IS_USER_AUTH</th>
                                     <th class="border-0">Actions</th>
                                 </tr>
@@ -65,11 +66,11 @@
                                     </td>
                                     <td><div style="background-color: {{ r['color'] }}; width: 30px; height: 30px"> &nbsp;</div></td>
                                     <td> {{ r['name'] }} </td>
-                                    <td> {{ r['tags'] }}
-                                    <td> {{ r['booking_auth'] }}
+                                    <td> {{ r['tags'] }}</td>
+                                    <td> {{ r['booking_auth'] }}</td>
+                                    <td> {{ r['latest_cancellation'] }}</td>
                                     <td> {{ r['user_can_book'] }}</td>
                                     <td>
-
                                         <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
                                         <button class="btn btn-sm btn-outline-light"><i class="far fa-copy"></i></button>
                                         <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"

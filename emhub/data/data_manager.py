@@ -235,7 +235,26 @@ class DataManager:
 
         return session
 
-    # --------------- Internal implementation methods --------------------
+    # ------------------- Some utility methods --------------------------------
+    def now(self):
+        from tzlocal import get_localzone  # $ pip install tzlocal
+        # get local timezone
+        local_tz = get_localzone()
+        return dt.datetime.now(local_tz)
+
+    def user_can_book(self, user, auth_json):
+        """ Return True if the user is authorized (i.e any of the project
+        codes appears in auth_json['applications'].
+        """
+        if user is None or not auth_json:
+            return False
+
+        if user.is_manager or 'any' in auth_json.get('users', []):
+            return True
+
+        return self.__matching_project(user.get_applications(), auth_json)
+
+    # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)
         self._db_session.add(new_item)
@@ -278,18 +297,6 @@ class DataManager:
         json_codes = auth_json['applications']
 
         return any(p.code in json_codes for p in applications)
-
-    def user_can_book(self, user, auth_json):
-        """ Return True if the user is authorized (i.e any of the project
-        codes appears in auth_json['applications'].
-        """
-        if user is None or not auth_json:
-            return False
-
-        if user.is_manager or 'any' in auth_json.get('users', []):
-            return True
-
-        return self.__matching_project(user.get_applications(), auth_json)
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
@@ -336,6 +343,21 @@ class DataManager:
         self.commit()
 
         return result
+
+    def __check_cancellation(self, booking):
+        """ Check if this booking can be updated or deleted.
+        Normal users can only delete or modify the booking up to X hours
+        before the starting time. The amount of hours is defined by the
+        booking latest_cancellation property.
+        Managers can change bookings even the same day and only
+        Administrators can change past events.
+        This function will raise an exception if a condition is not meet.
+        """
+        user =
+        latest = b.resource.latest_cancellation
+        if b.start - dt.timedelta(hours=latest) < self.now():
+            raise Exception('This booking can not be deleted. \n'
+                            'Should be %d hours in advance. ' % latest)
 
 
 class RepeatRanges:

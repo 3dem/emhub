@@ -81,6 +81,12 @@ def create_data_models(dm, Base):
         # Booking authorization, who can book within this slot
         booking_auth = Column(JSON, default={'applications': [], 'users': []})
 
+        # Latest number of hours that a booking can be canceled
+        # for this resource (e.g until 48h for a booking in Krios)
+        # If 0, means that the booking can be cancelled at any time
+        latest_cancellation = Column(Integer, default=0)
+
+
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
                                    ForeignKey('applications.id')),

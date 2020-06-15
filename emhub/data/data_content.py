@@ -94,6 +94,7 @@ class DataContent:
              'name': r.name,
              'tags': r.tags,
              'booking_auth': r.booking_auth,
+             'latest_cancellation': r.latest_cancellation,
              'color': r.color,
              'image': flask.url_for('static', filename='images/%s' % r.image),
              'user_can_book': self.app.dm.user_can_book(self.app.user, r.booking_auth)
