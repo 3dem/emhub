@@ -178,6 +178,10 @@ def create_data_models(dm, Base):
         def is_pi(self):
             return 'pi' in self.roles
 
+        @property
+        def is_application_manager(self):
+            return len(self.created_applications) > 0
+
         def get_pi(self):
             """ Return the PI of this users. PI are consider PI of themselves.
             """

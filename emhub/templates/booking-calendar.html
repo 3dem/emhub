@@ -85,7 +85,18 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Owner" id="booking-owner" class="form-control">
+                            {% if possible_owners %}
+                                <select id="booking-owner-select" class="selectpicker show-tick" data-width="100%">
+                                {% for lab in possible_owners %}
+                                    <option value="{{lab[0]['id']}}">{{lab[0]['name']}} (PI)</option>
+                                    {% for u in lab[1:] %}
+                                        <option value="{{u['id']}}">{{u['name']}}</option>
+                                    {% endfor %}}
+                                {% endfor %}
+                                </select>
+                            {% else %}
+                                <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control">
+                            {% endif %}
                         </div>
                     </div>
 
@@ -240,15 +251,17 @@
 <!-- javascript  -->
 <script>
     var calendar;
-    var bookings;
-    var resources;
     var selected_resource = null;
     var booking_type = 'booking';
     var repeat_value = null;
-    var current_user_json = null;
     var last_booking = null;
     var modify_all = false;
     var original_range = null;
+
+    var resources = {{ resources|tojson }};
+    var bookings = {{ bookings|tojson }} ;
+    var current_user_json = {{ current_user_json|tojson }};
+    var possible_owners = {{ possible_owners|tojson }};
 
 
 (function(window, document, $, undefined) {
@@ -284,9 +297,6 @@
     // -----------------------------------------------------------------
 
     var userName = "{{current_user.name}}";
-    resources = {{ resources|tojson }};
-    bookings = {{ bookings|tojson }} ;
-    current_user_json = {{ current_user_json|tojson }}
 
     calendar = new Calendar(calendarEl, {
         plugins: [ 'interaction', 'dayGrid', 'timeGrid' ],
@@ -409,8 +419,16 @@ function showBookingForm(booking) {
     $('#booking-modal-title').html(htmlStr);
     $('#booking-btn-ok').html(titlePrefix);
 
-    $('#booking-owner').val(booking.owner.name);
-    $('#booking-owner').prop('readonly', true);
+    if (possible_owners) {
+        printObject(booking, "booking");
+        $('#booking-owner-select').selectpicker('val', booking.owner.id);
+    }
+    else {
+        console.log("no owers");
+        $('#booking-owner-text').val(booking.owner.name);
+        $('#booking-owner-text').prop('readonly', true);
+    }
+
 
     $('#booking-start-date').val(dateStr(booking.start));
     $('#booking-start-time').val(timeStr(booking.start));
@@ -591,6 +609,10 @@ function onOkButtonClick() {
     //         "No", "Yes", function () { alert('clicked yes')})
     // //showMessage("Testing", "Testing");
     // return;
+    var owner_id = last_booking.owner.id;
+
+    if (possible_owners)
+        owner_id = $('#booking-owner-select').selectpicker('val');
 
     var booking = {
         id: last_booking.id,
@@ -599,7 +621,7 @@ function onOkButtonClick() {
         end: dateIsoFromValue('#booking-end-date', '#booking-end-time'),
         type: booking_type,
         description: $('#booking-description').val(),
-        owner_id: last_booking.owner.id,
+        owner_id: owner_id,
         resource_id: last_booking.resource.id,
         modify_all: modify_all,
         repeat_value: repeat_value,

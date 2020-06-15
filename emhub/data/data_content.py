@@ -112,11 +112,37 @@ class DataContent:
         dataDict['projects'] = [{'id': p.id, 'code': p.code}
                                 for p in dm.get_applications()]
 
+        # Send a list of possible owners of bookings
+        # 1) Managers or admins can change the ownership to any user
+        # 2) Application managers can change the ownership to any user in their
+        #    application
+        # 3) Other users can not change the ownership
+        if self.app.user.is_manager:
+            users = dm.get_users()
+        elif self.app.user.is_application_manager:
+            users = None
+        else:
+            users = None
+
+        def _userjson(u):
+            return {'id': u.id, 'name': u.name}
+
+        # Group users by PI
+        labs = []
+        for u in users:
+            if u.is_pi:
+                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.lab_members]
+                labs.append(lab)
+
+        dataDict['possible_owners'] = labs
+        from pprint import pprint
+        pprint(labs)
+
         return dataDict
 
     def get_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
-        return {'bookings': [self.booking_to_event(b) for b in bookings ]}
+        return {'bookings': [self.booking_to_event(b) for b in bookings]}
 
     def get_applications(self, **kwargs):
         print("get_applications, kwargs")
