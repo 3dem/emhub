@@ -336,6 +336,10 @@ def create_data_models(dm, Base):
         def json(self):
             return _json(self)
 
+        @property
+        def is_active(self):
+            return self.status == 'active'
+
     class Session(Base):
         """Model for sessions."""
         __tablename__ = 'sessions'

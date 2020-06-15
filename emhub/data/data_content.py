@@ -117,27 +117,33 @@ class DataContent:
         # 2) Application managers can change the ownership to any user in their
         #    application
         # 3) Other users can not change the ownership
-        if self.app.user.is_manager:
-            users = dm.get_users()
-        elif self.app.user.is_application_manager:
-            users = None
+        user = self.app.user  # shortcut
+        if user.is_manager:
+            piList = [u for u in dm.get_users() if u.is_pi]
+        elif user.is_application_manager:
+            apps = [a for a in user.created_applications if a.is_active]
+            piSet = set([user.get_id()])
+            piList = [user]
+            for a in apps:
+                for pi in a.users:
+                    if pi.get_id() not in piSet:
+                        piList.append(pi)
+        elif user.is_pi:
+            piList = [user]
         else:
-            users = None
+            piList = []
 
         def _userjson(u):
             return {'id': u.id, 'name': u.name}
 
         # Group users by PI
         labs = []
-        for u in users:
+        for u in piList:
             if u.is_pi:
                 lab = [_userjson(u)] + [_userjson(u2) for u2 in u.lab_members]
                 labs.append(lab)
 
         dataDict['possible_owners'] = labs
-        from pprint import pprint
-        pprint(labs)
-
         return dataDict
 
     def get_booking_list(self, **kwargs):

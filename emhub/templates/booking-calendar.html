@@ -88,7 +88,8 @@
                             {% if possible_owners %}
                                 <select id="booking-owner-select" class="selectpicker show-tick" data-width="100%">
                                 {% for lab in possible_owners %}
-                                    <option value="{{lab[0]['id']}}">{{lab[0]['name']}} (PI)</option>
+                                    <option data-divider="true"></option>
+                                    <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
                                     {% for u in lab[1:] %}
                                         <option value="{{u['id']}}">{{u['name']}}</option>
                                     {% endfor %}}

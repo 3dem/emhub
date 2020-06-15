@@ -186,6 +186,7 @@ class TestData:
              },
             {'code': 'DBB00001',
              'alias': 'SU-DBB',
+             'status': 'active',
              'title': 'Internal DBB project',
              'description': '',
              'creator_id': 9,
