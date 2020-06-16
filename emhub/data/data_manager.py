@@ -42,7 +42,7 @@ from .data_models import create_data_models
 class DataManager:
     """ Main class that will manage the sessions and their information.
     """
-    def __init__(self, sqlitePath):
+    def __init__(self, sqlitePath, user=None):
         do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
 
         engine = create_engine('sqlite:///' + sqlitePath,
@@ -56,14 +56,15 @@ class DataManager:
 
         create_data_models(self, Base)
 
+        self._lastSessionId = None
+        self._lastSession = None
+        self._user = user  # Logged user
+
         # Create the database if it does not exists
         if not os.path.exists(sqlitePath):
             Base.metadata.create_all(bind=engine)
             # populate db with test data
             TestData(self)
-
-        self._lastSessionId = None
-        self._lastSession = None
 
     def commit(self):
         self._db_session.commit()
@@ -80,6 +81,17 @@ class DataManager:
         self._db_session.remove()
 
     # ------------------------- USERS ----------------------------------
+    def create_admin(self, password='admin'):
+        """ Create special user 'admin'. """
+        admin = self.create_user(username='admin',
+                                 email='admin@emhub.org',
+                                 password=password,
+                                 name='admin',
+                                 roles='dev, admin',
+                                 pi_id=None)
+        if self._user is None:
+            self._user = admin
+
     def create_user(self, **attrs):
         """ Create a new user in the DB. """
         attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
@@ -168,6 +180,8 @@ class DataManager:
         repeater = RepeatRanges(repeat, attrs) if repeat != 'no' else None
 
         def update(b):
+            self.__check_cancellation(b)
+
             for attr, value in attrs.items():
                 if attr != 'id':
                     setattr(b, attr, value)
@@ -191,6 +205,7 @@ class DataManager:
                 If True, all bookings from this one, will be also deleted.
         """
         def delete(b):
+            self.__check_cancellation(b)
             self.delete(b, commit=False)
 
         return self._modify_bookings(attrs, delete)
@@ -353,10 +368,21 @@ class DataManager:
         Administrators can change past events.
         This function will raise an exception if a condition is not meet.
         """
-        user =
-        latest = b.resource.latest_cancellation
-        if b.start - dt.timedelta(hours=latest) < self.now():
-            raise Exception('This booking can not be deleted. \n'
+        user = self._user
+        if user.is_admin:
+            return  # admin can cancel/modify at any time
+
+        now = self.now()
+        latest = booking.resource.latest_cancellation
+
+        if user.is_manager:
+            if booking.start.date() <= now.date():
+                raise Exception('This booking can not be updated/deleted. \n'
+                                'Even as Manager, it should be done at least '
+                                'one day before. Contact an Administrator if '
+                                'there is any problem with this booking. ')
+        if booking.start - dt.timedelta(hours=latest) < now:
+            raise Exception('This booking can not be updated/deleted. \n'
                             'Should be %d hours in advance. ' % latest)
 
 
