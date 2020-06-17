@@ -136,6 +136,7 @@ class DataContent:
         return dataDict
 
     def get_applications_list(self, **kwargs):
+        del kwargs['content_id']
         return {
             'applications': self.app.dm.get_applications(**kwargs)
         }
@@ -193,5 +194,6 @@ class DataContent:
             'user_can_modify': user_can_modify,
             'slot_auth': booking.slot_auth,
             'repeat_id': booking.repeat_id,
-            'repeat_value': booking.repeat_value
+            'repeat_value': booking.repeat_value,
+            'days': booking.days
         }

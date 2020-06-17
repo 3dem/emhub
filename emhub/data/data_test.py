@@ -159,7 +159,8 @@ class TestData:
              'description': '',
              'creator_id': 6,
              'invoice_reference': 'AAA',
-             'invoice_address': ''
+             'invoice_address': '',
+             'resource_allocation': {'talos': 10, 'krios': 5}
              },
             {'code': 'CEM00315',
              'alias': 'BAG SU',
@@ -167,7 +168,8 @@ class TestData:
              'description': '',
              'creator_id': 7,
              'invoice_reference': 'BBB',
-             'invoice_address': ''
+             'invoice_address': '',
+             'resource_allocation': {'talos': 10, 'krios': 5}
              },
             {'code': 'CEM00332',
              'alias': 'RAA Andersson',
@@ -175,7 +177,8 @@ class TestData:
              'description': '',
              'creator_id': 8,
              'invoice_reference': 'ZZZ',
-             'invoice_address': ''
+             'invoice_address': '',
+             'resource_allocation': {'talos': 2, 'krios': 1}
              },
             {'code': 'DBB00001',
              'alias': 'SU-DBB',

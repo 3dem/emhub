@@ -240,6 +240,14 @@ def create_data_models(dm, Base):
 
         repeat_value = Column(String(32), nullable=False, default='no')
 
+        @property
+        def days(self):
+            """ Count how many days these bookings spans.
+            (It is not strictly necessary the total amount of time in in
+            units of 24h.
+            """
+            return (self.end.date() - self.start.date()).days
+
         def __repr__(self):
             return '<Booking {}>'.format(self.title)
 
@@ -311,6 +319,11 @@ def create_data_models(dm, Base):
 
         invoice_address = Column(Text,
                                  nullable=True)
+
+        # This is the maximum amount of days allocated per type of resource
+        # {'krios': 20} means that this application can book max to 20 days
+        # for any resource with tag 'krios' (i.e Titan Krios scopes)
+        resource_allocation = Column(JSON, default={})
 
         # ID of the user that created the Application, it should be a PI
         creator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
