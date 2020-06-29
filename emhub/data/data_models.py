@@ -81,6 +81,12 @@ def create_data_models(dm, Base):
         # Booking authorization, who can book within this slot
         booking_auth = Column(JSON, default={'applications': [], 'users': []})
 
+        # Latest number of hours that a booking can be canceled
+        # for this resource (e.g until 48h for a booking in Krios)
+        # If 0, means that the booking can be cancelled at any time
+        latest_cancellation = Column(Integer, default=0)
+
+
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
                                    ForeignKey('applications.id')),
@@ -178,6 +184,10 @@ def create_data_models(dm, Base):
         def is_pi(self):
             return 'pi' in self.roles
 
+        @property
+        def is_application_manager(self):
+            return len(self.created_applications) > 0
+
         def get_pi(self):
             """ Return the PI of this users. PI are consider PI of themselves.
             """
@@ -248,6 +258,12 @@ def create_data_models(dm, Base):
             """
             return (self.end.date() - self.start.date()).days
 
+        @property
+        def application(self):
+            applications = self.owner.get_applications()
+
+            return applications[0] if len(applications) else None
+
         def __repr__(self):
             return '<Booking {}>'.format(self.title)
 
@@ -270,15 +286,15 @@ def create_data_models(dm, Base):
         #   - closed: it has been closed and it becomes inactive
         status = Column(String(32), default='preparation')
 
-        title = Column(String(256),
-                       nullable=False)
+        title = Column(String(256), nullable=False)
 
-        description = Column(Text,
-                             nullable=True)
+        description = Column(Text, nullable=True)
 
         # This will be data in json form to describe extra parameters defined
         # in this template for all the Applications created from this.
         form_schema = Column(JSON, nullable=True)
+
+        applications = relationship("Application", back_populates='template')
 
         def json(self):
             return _json(self)
@@ -334,11 +350,20 @@ def create_data_models(dm, Base):
                              secondary=ApplicationUser,
                              back_populates="applications")
 
+        # Link to the template used to create the form
+        template_id = Column(Integer, ForeignKey('templates.id'), nullable=False)
+        template = relationship("Template", foreign_keys=[template_id],
+                                back_populates="applications")
+
         def __repr__(self):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
 
         def json(self):
             return _json(self)
+
+        @property
+        def is_active(self):
+            return self.status == 'active'
 
     class Session(Base):
         """Model for sessions."""

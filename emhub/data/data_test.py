@@ -99,13 +99,16 @@ class TestData:
     def __populateResources(self, dm):
         resources = [
             {'name': 'Krios 1', 'tags': 'microscope krios',
+             'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
              # Allow DBB00001 users to book without slot
              'booking_auth': {'applications': ['DBB00001']}},
             {'name': 'Krios 2', 'tags': 'microscope krios',
+             'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
              'booking_auth': {'applications': ['DBB00001']}},
             {'name': 'Talos', 'tags': 'microscope talos',
+             'latest_cancellation': 48,
              'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
              'booking_auth': {'applications': ['DBB00001']}},
             {'name': 'Vitrobot 1', 'tags': 'instrument',
@@ -148,6 +151,10 @@ class TestData:
              'description': 'Information required to request time for one year.',
              'status': 'closed',
              },
+            {'title': 'Internal Users Template',
+             'description': 'This is a special template used for internal users. ',
+             'status': 'closed',
+             },
         ]
 
         templates = [dm.create_template(**ti) for ti in templateInfo]
@@ -158,6 +165,7 @@ class TestData:
              'title': 'Bag Application for Lund University 2019/20',
              'description': '',
              'creator_id': 6,
+             'template_id': templates[0].id,
              'invoice_reference': 'AAA',
              'invoice_address': '',
              'resource_allocation': {'talos': 10, 'krios': 5}
@@ -167,6 +175,7 @@ class TestData:
              'title': 'Bag Application for Stockholm University',
              'description': '',
              'creator_id': 7,
+             'template_id': templates[0].id,
              'invoice_reference': 'BBB',
              'invoice_address': '',
              'resource_allocation': {'talos': 10, 'krios': 5}
@@ -174,17 +183,20 @@ class TestData:
             {'code': 'CEM00332',
              'alias': 'RAA Andersson',
              'title': 'Rapid Access application',
-             'description': '',
+                 'description': '',
              'creator_id': 8,
+             'template_id': templates[1].id,
              'invoice_reference': 'ZZZ',
              'invoice_address': '',
              'resource_allocation': {'talos': 2, 'krios': 1}
              },
             {'code': 'DBB00001',
              'alias': 'SU-DBB',
+             'status': 'active',
              'title': 'Internal DBB project',
              'description': '',
              'creator_id': 9,
+             'template_id': templates[-1].id,
              'invoice_reference': 'DDD',
              'invoice_address': ''
              },
@@ -199,17 +211,8 @@ class TestData:
         a1.users.append(u1)
         dm.commit()
 
-    def _localnow(self):
-        import pytz  # $ pip install pytz
-        from tzlocal import get_localzone  # $ pip install tzlocal
-
-        # get local timezone
-        local_tz = get_localzone()
-
-        return dt.datetime.now(local_tz)
-
     def __populateBookings(self, dm):
-        now = self._localnow().replace(minute=0, second=0)
+        now = dm.now().replace(minute=0, second=0)
         month = now.month
 
         # Create a downtime from today to one week later
@@ -309,7 +312,7 @@ class TestData:
                 sessionData=f,
                 userid=u,
                 sessionName=s,
-                dateStarted=self._localnow(),
+                dateStarted=dm.now(),
                 description='Long description goes here.....',
                 status=st,
                 microscope=sc,
@@ -335,7 +338,7 @@ class TestData:
         dm.create_session(sessionData='dfhgrth',
                           userid=2,
                           sessionName='dfgerhsrth_NAME',
-                          dateStarted=self._localnow(),
+                          dateStarted=dm.now(),
                           description='Long description goes here.....',
                           status='Running',
                           microscope='KriosX',

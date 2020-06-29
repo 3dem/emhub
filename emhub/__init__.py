@@ -164,9 +164,9 @@ def create_app(test_config=None):
 
     app.jinja_env.filters['reverse'] = basename
     from emhub.data.data_manager import DataManager
-    app.dm = DataManager(dbPath)
-    app.dc = DataContent(app)
     app.user = flask_login.current_user
+    app.dm = DataManager(dbPath, user=app.user)
+    app.dc = DataContent(app)
 
     login_manager = flask_login.LoginManager()
     login_manager.login_view = 'login'

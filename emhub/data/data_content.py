@@ -94,6 +94,7 @@ class DataContent:
              'name': r.name,
              'tags': r.tags,
              'booking_auth': r.booking_auth,
+             'latest_cancellation': r.latest_cancellation,
              'color': r.color,
              'image': flask.url_for('static', filename='images/%s' % r.image),
              'user_can_book': self.app.dm.user_can_book(self.app.user, r.booking_auth)
@@ -112,11 +113,43 @@ class DataContent:
         dataDict['projects'] = [{'id': p.id, 'code': p.code}
                                 for p in dm.get_applications()]
 
+        # Send a list of possible owners of bookings
+        # 1) Managers or admins can change the ownership to any user
+        # 2) Application managers can change the ownership to any user in their
+        #    application
+        # 3) Other users can not change the ownership
+        user = self.app.user  # shortcut
+        if user.is_manager:
+            piList = [u for u in dm.get_users() if u.is_pi]
+        elif user.is_application_manager:
+            apps = [a for a in user.created_applications if a.is_active]
+            piSet = set([user.get_id()])
+            piList = [user]
+            for a in apps:
+                for pi in a.users:
+                    if pi.get_id() not in piSet:
+                        piList.append(pi)
+        elif user.is_pi:
+            piList = [user]
+        else:
+            piList = []
+
+        def _userjson(u):
+            return {'id': u.id, 'name': u.name}
+
+        # Group users by PI
+        labs = []
+        for u in piList:
+            if u.is_pi:
+                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.lab_members]
+                labs.append(lab)
+
+        dataDict['possible_owners'] = labs
         return dataDict
 
     def get_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
-        return {'bookings': [self.booking_to_event(b) for b in bookings ]}
+        return {'bookings': [self.booking_to_event(b) for b in bookings]}
 
     def get_applications(self, **kwargs):
         print("get_applications, kwargs")
@@ -136,10 +169,15 @@ class DataContent:
         return dataDict
 
     def get_applications_list(self, **kwargs):
-        del kwargs['content_id']
-        return {
-            'applications': self.app.dm.get_applications(**kwargs)
-        }
+        if 'content_id' in kwargs:
+            del kwargs['content_id']
+
+        applications = self.app.dm.get_applications()
+        count = self.app.dm.count_booking_resources(applications)
+        from pprint import pprint
+        pprint(count)
+
+        return {'applications': applications}
 
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
@@ -165,7 +203,7 @@ class DataContent:
         elif booking.type == 'slot':
             color = color.replace('1.0', '0.5')  # transparency for slots
             title = "%s (SLOT): %s" % (resource.name,
-                                       booking.slot_auth['applications'])
+                                       booking.slot_auth.get('applications', ''))
             user_can_book = self.app.dm.user_can_book(user, booking.slot_auth)
         else:
 

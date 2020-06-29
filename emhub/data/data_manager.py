@@ -29,6 +29,7 @@
 import os
 import datetime as dt
 import uuid
+from collections import defaultdict
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -42,7 +43,7 @@ from .data_models import create_data_models
 class DataManager:
     """ Main class that will manage the sessions and their information.
     """
-    def __init__(self, sqlitePath):
+    def __init__(self, sqlitePath, user=None):
         do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
 
         engine = create_engine('sqlite:///' + sqlitePath,
@@ -56,17 +57,23 @@ class DataManager:
 
         create_data_models(self, Base)
 
+        self._lastSessionId = None
+        self._lastSession = None
+        self._user = user  # Logged user
+
         # Create the database if it does not exists
         if not os.path.exists(sqlitePath):
             Base.metadata.create_all(bind=engine)
             # populate db with test data
             TestData(self)
 
-        self._lastSessionId = None
-        self._lastSession = None
-
     def commit(self):
         self._db_session.commit()
+
+    def delete(self, item, commit=True):
+        self._db_session.delete(item)
+        if commit:
+            self.commit()
 
     def close(self):
         # if self._lastSession is not None:
@@ -75,6 +82,17 @@ class DataManager:
         self._db_session.remove()
 
     # ------------------------- USERS ----------------------------------
+    def create_admin(self, password='admin'):
+        """ Create special user 'admin'. """
+        admin = self.create_user(username='admin',
+                                 email='admin@emhub.org',
+                                 password=password,
+                                 name='admin',
+                                 roles='dev, admin',
+                                 pi_id=None)
+        if self._user is None:
+            self._user = admin
+
     def create_user(self, **attrs):
         """ Create a new user in the DB. """
         attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
@@ -113,6 +131,11 @@ class DataManager:
 
     def update_template(self, **attrs):
         return self.__update_item(self.Template, **attrs)
+
+    def delete_template(self, **attrs):
+        template = self.__item_by(self.Template, id=attrs['id'])
+        self.delete(template)
+        return template
 
     def create_application(self, **attrs):
         return self.__create_item(self.Application, **attrs)
@@ -158,6 +181,8 @@ class DataManager:
         repeater = RepeatRanges(repeat, attrs) if repeat != 'no' else None
 
         def update(b):
+            self.__check_cancellation(b)
+
             for attr, value in attrs.items():
                 if attr != 'id':
                     setattr(b, attr, value)
@@ -181,9 +206,34 @@ class DataManager:
                 If True, all bookings from this one, will be also deleted.
         """
         def delete(b):
-            self._db_session.delete(b)
+            self.__check_cancellation(b)
+            self.delete(b, commit=False)
 
         return self._modify_bookings(attrs, delete)
+
+    def count_booking_resources(self, applications,
+                                resource_ids=None, resource_tags=None):
+        """ Count how many days has been used by applications from the
+        current bookings. The count can be done by resources or by tags.
+        """
+        application_ids = set(a.id for a in applications)
+        count_dict = defaultdict(lambda: defaultdict(lambda: 0))
+
+        for b in self.get_bookings():
+            if b.application is None:
+                print("Skipping Booking. Application is None")
+                print("   title: ", b.title)
+                print("   user: ", b.owner.name, "applications: ", b.owner.get_applications())
+
+                continue
+
+            baid = b.application.id
+            if baid in application_ids:
+                rid = b.resource.id
+                if resource_ids and rid in resource_ids:
+                    count_dict[baid][rid] += b.days
+
+        return count_dict
 
     # ---------------------------- SESSIONS -----------------------------------
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
@@ -212,8 +262,7 @@ class DataManager:
     def delete_session(self, sessionId):
         """ Remove a session row. """
         session = self.Session.query.get(sessionId)
-        self._db_session.delete(session)
-        self.commit()
+        self.delete(session)
 
     def load_session(self, sessionId):
         if sessionId == self._lastSessionId:
@@ -226,7 +275,26 @@ class DataManager:
 
         return session
 
-    # --------------- Internal implementation methods --------------------
+    # ------------------- Some utility methods --------------------------------
+    def now(self):
+        from tzlocal import get_localzone  # $ pip install tzlocal
+        # get local timezone
+        local_tz = get_localzone()
+        return dt.datetime.now(local_tz)
+
+    def user_can_book(self, user, auth_json):
+        """ Return True if the user is authorized (i.e any of the project
+        codes appears in auth_json['applications'].
+        """
+        if user is None or not auth_json:
+            return False
+
+        if user.is_manager or 'any' in auth_json.get('users', []):
+            return True
+
+        return self.__matching_project(user.get_applications(), auth_json)
+
+    # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)
         self._db_session.add(new_item)
@@ -269,18 +337,6 @@ class DataManager:
         json_codes = auth_json['applications']
 
         return any(p.code in json_codes for p in applications)
-
-    def user_can_book(self, user, auth_json):
-        """ Return True if the user is authorized (i.e any of the project
-        codes appears in auth_json['applications'].
-        """
-        if user is None or not auth_json:
-            return False
-
-        if user.is_manager or 'any' in auth_json.get('users', []):
-            return True
-
-        return self.__matching_project(user.get_applications(), auth_json)
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
@@ -327,6 +383,32 @@ class DataManager:
         self.commit()
 
         return result
+
+    def __check_cancellation(self, booking):
+        """ Check if this booking can be updated or deleted.
+        Normal users can only delete or modify the booking up to X hours
+        before the starting time. The amount of hours is defined by the
+        booking latest_cancellation property.
+        Managers can change bookings even the same day and only
+        Administrators can change past events.
+        This function will raise an exception if a condition is not meet.
+        """
+        user = self._user
+        if user.is_admin:
+            return  # admin can cancel/modify at any time
+
+        now = self.now()
+        latest = booking.resource.latest_cancellation
+
+        if user.is_manager:
+            if booking.start.date() <= now.date():
+                raise Exception('This booking can not be updated/deleted. \n'
+                                'Even as Manager, it should be done at least '
+                                'one day before. Contact an Administrator if '
+                                'there is any problem with this booking. ')
+        if booking.start - dt.timedelta(hours=latest) < now:
+            raise Exception('This booking can not be updated/deleted. \n'
+                            'Should be %d hours in advance. ' % latest)
 
 
 class RepeatRanges:
