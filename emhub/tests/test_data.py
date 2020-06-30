@@ -65,8 +65,16 @@ class TestDataManager(unittest.TestCase):
                 self.assertEqual(pRef, u.get_applications())
 
     def test_count_booking_resources(self):
+        def print_count(count):
+            for a, count_dict in count.items():
+                print("Application ID: ", a)
+                for k, c in count_dict.items():
+                    print("   %s: %s" % (k, c))
+
         applications = self.dm.get_applications()
-        count = self.dm.count_booking_resources(applications)
+        count_resources = self.dm.count_booking_resources(applications)
+        print_count(count_resources)
+        self.assertTrue(len(count_resources))
 
-        self.assertTrue(len(count))
-
+        # count_tags = self.dm.count_booking_resources(applications, resource_tags=['krios'])
+        # self.assertTrue(len(count_tags))

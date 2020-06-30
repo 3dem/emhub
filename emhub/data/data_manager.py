@@ -150,15 +150,13 @@ class DataManager:
     def create_booking(self, **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
-        if 'modify_all' in attrs:
-            del attrs['modify_all']
+        attrs.pop('modify_all', None)
         bookings = []
 
         if repeat_value == 'no':
             bookings.append(self.__create_item(self.Booking, **attrs))
         else:
-            repeat_stop = attrs.get('repeat_stop')
-            del attrs['repeat_stop']
+            repeat_stop = attrs.pop('repeat_stop')
             repeater = RepeatRanges(repeat_value, attrs)
             uid = str(uuid.uuid4())
 
@@ -211,6 +209,11 @@ class DataManager:
 
         return self._modify_bookings(attrs, delete)
 
+
+    def get_application_bookings(self, applications,
+                                resource_ids=None, resource_tags=None):
+        pass
+
     def count_booking_resources(self, applications,
                                 resource_ids=None, resource_tags=None):
         """ Count how many days has been used by applications from the
@@ -220,13 +223,19 @@ class DataManager:
         count_dict = defaultdict(lambda: defaultdict(lambda: 0))
 
         for b in self.get_bookings():
+            print("Booking: ", b.title)
             if b.application is None:
                 continue
 
             baid = b.application.id
+            print("Application Id: ", baid)
             if baid in application_ids:
                 rid = b.resource.id
-                if not resource_ids or rid in resource_ids:
+                if resource_tags is not None:
+                    for tag in resource_tags:
+                        if tag in b.resource.tags:
+                            count_dict[baid][tag] += b.days
+                elif not resource_ids or rid in resource_ids:
                     count_dict[baid][rid] += b.days
 
         return count_dict

@@ -232,7 +232,7 @@ class TestData:
                           type='booking',
                           resource_id=1,
                           creator_id=2,  # first user for now
-                          owner_id=2,  # first user for now
+                          owner_id=11,  # first user for now
                           description="Krios 1 for user 2")
 
         # Create booking for normal user
