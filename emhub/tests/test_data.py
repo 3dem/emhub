@@ -8,10 +8,10 @@ from emhub.data import DataManager
 class TestDataManager(unittest.TestCase):
 
     def setUp(cls):
-        cls.ds = DataManager('/tmp/emhub.sqlite')
+        cls.dm = DataManager('/tmp/emhub.sqlite')
 
     def test_users(self):
-        users = self.ds.get_users()
+        users = self.dm.get_users()
 
         for u in users:
             pi = u.get_pi()
@@ -21,13 +21,13 @@ class TestDataManager(unittest.TestCase):
             pi_str = pi.name if pi else 'None'
 
     def test_applications(self):
-        applications = self.ds.get_applications()
+        applications = self.dm.get_applications()
 
         codes = [p.code for p in applications]
 
         self.assertEqual(codes, ['CEM00297', 'CEM00315', 'CEM00332', 'DBB00001'])
 
-        users = self.ds.get_users()
+        users = self.dm.get_users()
         uList = []
         piDict = {}
 
@@ -64,7 +64,9 @@ class TestDataManager(unittest.TestCase):
             for u in members[1:]:
                 self.assertEqual(pRef, u.get_applications())
 
+    def test_count_booking_resources(self):
+        applications = self.dm.get_applications()
+        count = self.dm.count_booking_resources(applications)
 
-if __name__ == '__main__':
-    print("Running tests main....")
-    unittest.main()
+        self.assertTrue(len(count))
+

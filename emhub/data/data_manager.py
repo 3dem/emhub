@@ -221,16 +221,12 @@ class DataManager:
 
         for b in self.get_bookings():
             if b.application is None:
-                print("Skipping Booking. Application is None")
-                print("   title: ", b.title)
-                print("   user: ", b.owner.name, "applications: ", b.owner.get_applications())
-
                 continue
 
             baid = b.application.id
             if baid in application_ids:
                 rid = b.resource.id
-                if resource_ids and rid in resource_ids:
+                if not resource_ids or rid in resource_ids:
                     count_dict[baid][rid] += b.days
 
         return count_dict

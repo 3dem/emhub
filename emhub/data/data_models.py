@@ -256,7 +256,8 @@ def create_data_models(dm, Base):
             (It is not strictly necessary the total amount of time in in
             units of 24h.
             """
-            return (self.end.date() - self.start.date()).days
+            td = self.end.date() - self.start.date() + dt.timedelta(days=1)
+            return td.days
 
         @property
         def application(self):
