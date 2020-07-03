@@ -238,13 +238,21 @@ def create_data_models(dm, Base):
         resource_id = Column(Integer, ForeignKey('resources.id'))
         resource = relationship("Resource")
 
+        # This is reference to the user that created the Booking
         creator_id = Column(Integer, ForeignKey('users.id'),
                             nullable=False)
         creator = relationship("User", foreign_keys=[creator_id])
 
+        # And this is the user that "owns" the Booking
         owner_id = Column(Integer, ForeignKey('users.id'),
                           nullable=False)
         owner = relationship("User", foreign_keys=[owner_id])
+
+        # Related to the Owner, we also keep the Application to which
+        # this booking is associated
+        application_id = Column(Integer, ForeignKey('applications.id'),
+                                nullable=True)
+        application = relationship("Application")
 
         repeat_id = Column(String(256), nullable=True)
 
@@ -258,12 +266,6 @@ def create_data_models(dm, Base):
             """
             td = self.end.date() - self.start.date() + dt.timedelta(days=1)
             return td.days
-
-        @property
-        def application(self):
-            applications = self.owner.get_applications()
-
-            return applications[0] if len(applications) else None
 
         def __repr__(self):
             return '<Booking {}>'.format(self.title)

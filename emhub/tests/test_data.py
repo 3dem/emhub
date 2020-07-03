@@ -8,7 +8,12 @@ from emhub.data import DataManager
 class TestDataManager(unittest.TestCase):
 
     def setUp(cls):
-        cls.dm = DataManager('/tmp/emhub.sqlite')
+        sqlitePath = '/tmp/emhub.sqlite'
+
+        if os.path.exists(sqlitePath):
+            os.remove(sqlitePath)
+
+        cls.dm = DataManager(sqlitePath)
 
     def test_users(self):
         users = self.dm.get_users()
