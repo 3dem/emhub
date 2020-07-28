@@ -8,7 +8,10 @@ from emhub.data import DataManager
 class TestDataManager(unittest.TestCase):
 
     def setUp(cls):
-        cls.dm = DataManager('/tmp/emhub.sqlite')
+        tmpSqlite = '/tmp/emhub.sqlite'
+        if os.path.exists(tmpSqlite):
+            os.remove(tmpSqlite)
+        cls.dm = DataManager(tmpSqlite)
 
     def test_users(self):
         users = self.dm.get_users()
@@ -76,5 +79,7 @@ class TestDataManager(unittest.TestCase):
         print_count(count_resources)
         self.assertTrue(len(count_resources))
 
-        # count_tags = self.dm.count_booking_resources(applications, resource_tags=['krios'])
-        # self.assertTrue(len(count_tags))
+        count_tags = self.dm.count_booking_resources(applications, resource_tags=['krios'])
+        self.assertTrue(len(count_tags))
+        print_count(count_tags)
+

@@ -223,7 +223,7 @@ class DataManager:
         count_dict = defaultdict(lambda: defaultdict(lambda: 0))
 
         for b in self.get_bookings():
-            print("Booking: ", b.title)
+            print("Booking: ", b.title, "(%s)" % b.owner.name)
             if b.application is None:
                 continue
 
