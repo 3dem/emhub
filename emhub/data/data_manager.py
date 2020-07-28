@@ -154,7 +154,7 @@ class DataManager:
         bookings = []
 
         if repeat_value == 'no':
-            bookings.append(self.__create_item(self.Booking, **attrs))
+            bookings.append(self.__create_booking(attrs))
         else:
             repeat_stop = attrs.pop('repeat_stop')
             repeater = RepeatRanges(repeat_value, attrs)
@@ -162,8 +162,13 @@ class DataManager:
 
             while attrs['end'] < repeat_stop:
                 attrs['repeat_id'] = uid
-                bookings.append(self.__create_item(self.Booking, **attrs))
+                bookings.append(self.__create_booking(attrs))
                 repeater.move()  # will move next start,end in attrs
+
+        # Validate and insert all created bookings
+        for b in bookings:
+            self._db_session.add(b)
+        self.commit()
 
         return bookings
 
@@ -209,7 +214,6 @@ class DataManager:
 
         return self._modify_bookings(attrs, delete)
 
-
     def get_application_bookings(self, applications,
                                 resource_ids=None, resource_tags=None):
         pass
@@ -223,12 +227,10 @@ class DataManager:
         count_dict = defaultdict(lambda: defaultdict(lambda: 0))
 
         for b in self.get_bookings():
-            print("Booking: ", b.title, "(%s)" % b.owner.name)
             if b.application is None:
                 continue
 
             baid = b.application.id
-            print("Application Id: ", baid)
             if baid in application_ids:
                 rid = b.resource.id
                 if resource_tags is not None:
@@ -343,6 +345,41 @@ class DataManager:
 
         return any(p.code in json_codes for p in applications)
 
+    # ------------------- BOOKING helper functions -----------------------------
+    def __create_booking(self, attrs):
+        b = self.Booking(**attrs)
+        self.__validate_booking(b)
+        return b
+
+    def __validate_booking(self, booking):
+        pass
+
+    def __check_cancellation(self, booking):
+        """ Check if this booking can be updated or deleted.
+        Normal users can only delete or modify the booking up to X hours
+        before the starting time. The amount of hours is defined by the
+        booking latest_cancellation property.
+        Managers can change bookings even the same day and only
+        Administrators can change past events.
+        This function will raise an exception if a condition is not meet.
+        """
+        user = self._user
+        if user.is_admin:
+            return  # admin can cancel/modify at any time
+
+        now = self.now()
+        latest = booking.resource.latest_cancellation
+
+        if user.is_manager:
+            if booking.start.date() <= now.date():
+                raise Exception('This booking can not be updated/deleted. \n'
+                                'Even as Manager, it should be done at least '
+                                'one day before. Contact an Administrator if '
+                                'there is any problem with this booking. ')
+        if booking.start - dt.timedelta(hours=latest) < now:
+            raise Exception('This booking can not be updated/deleted. \n'
+                            'Should be %d hours in advance. ' % latest)
+
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
         Keyword Args:
@@ -351,8 +388,7 @@ class DataManager:
                 returned
         """
         booking_id = attrs['id']
-        modify_all = attrs.get('modify_all', False)
-        del attrs['modify_all']
+        modify_all = attrs.pop('modify_all', False)
 
         # Get the booking with the given id
         bookings = self.get_bookings(condition='id="%s"' % booking_id)
@@ -388,32 +424,6 @@ class DataManager:
         self.commit()
 
         return result
-
-    def __check_cancellation(self, booking):
-        """ Check if this booking can be updated or deleted.
-        Normal users can only delete or modify the booking up to X hours
-        before the starting time. The amount of hours is defined by the
-        booking latest_cancellation property.
-        Managers can change bookings even the same day and only
-        Administrators can change past events.
-        This function will raise an exception if a condition is not meet.
-        """
-        user = self._user
-        if user.is_admin:
-            return  # admin can cancel/modify at any time
-
-        now = self.now()
-        latest = booking.resource.latest_cancellation
-
-        if user.is_manager:
-            if booking.start.date() <= now.date():
-                raise Exception('This booking can not be updated/deleted. \n'
-                                'Even as Manager, it should be done at least '
-                                'one day before. Contact an Administrator if '
-                                'there is any problem with this booking. ')
-        if booking.start - dt.timedelta(hours=latest) < now:
-            raise Exception('This booking can not be updated/deleted. \n'
-                            'Should be %d hours in advance. ' % latest)
 
 
 class RepeatRanges:
