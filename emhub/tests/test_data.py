@@ -79,7 +79,7 @@ class TestDataManager(unittest.TestCase):
         applications = self.dm.get_applications()
         count_resources = self.dm.count_booking_resources(applications)
         print_count(count_resources)
-        self.assertTrue(len(count_resources))
+        self.assertTrue(len(count_resources) > 0)
 
         count_tags = self.dm.count_booking_resources(applications, resource_tags=['krios'])
         self.assertTrue(len(count_tags))

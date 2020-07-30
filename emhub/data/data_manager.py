@@ -227,6 +227,8 @@ class DataManager:
         count_dict = defaultdict(lambda: defaultdict(lambda: 0))
 
         for b in self.get_bookings():
+            #print("Booking: ", b, "\n   - Application: ", b.application)
+
             if b.application is None:
                 continue
 
@@ -347,6 +349,15 @@ class DataManager:
 
     # ------------------- BOOKING helper functions -----------------------------
     def __create_booking(self, attrs):
+        if 'application_id' not in attrs:
+            owner = self.get_user_by(id=attrs['owner_id'])
+            apps = owner.get_applications()
+            n = len(apps)
+            if n > 1:
+                raise Exception("User %s has m")
+            elif n == 1:
+                attrs['application_id'] = apps[0].id
+
         b = self.Booking(**attrs)
         self.__validate_booking(b)
         return b

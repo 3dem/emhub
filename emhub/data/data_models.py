@@ -268,7 +268,12 @@ def create_data_models(dm, Base):
             return td.days
 
         def __repr__(self):
-            return '<Booking {}>'.format(self.title)
+            def _timestr(dt):
+                return dt.strftime('%Y/%m/%d')
+
+            return ('<Booking: %s, owner=%s, dates: %s - %s>'
+                    % (self.title, self.owner.name,
+                       _timestr(self.start), _timestr(self.end)))
 
         def json(self):
             return _json(self)

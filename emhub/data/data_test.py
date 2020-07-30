@@ -183,7 +183,7 @@ class TestData:
             {'code': 'CEM00332',
              'alias': 'RAA Andersson',
              'title': 'Rapid Access application',
-                 'description': '',
+             'description': '',
              'creator_id': 8,
              'template_id': templates[1].id,
              'invoice_reference': 'ZZZ',
@@ -236,23 +236,23 @@ class TestData:
                           description="Krios 1 for user 2")
 
         # Create booking for normal user
-        dm.create_booking(title='Booking Krios 1',
+        dm.create_booking(title='Booking Krios 2',
                           start=now.replace(day=4, hour=9),
                           end=now.replace(day=6, hour=23, minute=59),
                           type='booking',
-                          resource_id=1,
+                          resource_id=2,
                           creator_id=10,  # first user for now
                           owner_id=10,  # first user for now
                           description="Krios 1 for user 10")
 
         # Create a booking at the downtime from today to one week later
-        dm.create_booking(title='Booking Krios 2',
+        dm.create_booking(title='Booking Krios 1',
                           start=now.replace(day=2, hour=9),
                           end=now.replace(day=4, hour=23, minute=59),
                           type='booking',
                           resource_id=2,
                           creator_id=1,  # first user for now
-                          owner_id=3,  # first user for now
+                          owner_id=15,  # Sara Belum
                           description="Krios 2 for user 3")
 
         # Create a booking at the downtime from today to one week later
