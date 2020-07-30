@@ -119,6 +119,10 @@ class DataManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_resource_by(self, **kwargs):
+        """ This should return a single Resource or None. """
+        return self.__item_by(self.Resource, **kwargs)
+
     # ---------------------------- APPLICATIONS --------------------------------
     def create_template(self, **attrs):
         return self.__create_item(self.Template, **attrs)
@@ -146,12 +150,17 @@ class DataManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_application_by(self, **kwargs):
+        """ This should return a single user or None. """
+        return self.__item_by(self.Application, **kwargs)
+
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self, **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         attrs.pop('modify_all', None)
         bookings = []
+
 
         if repeat_value == 'no':
             bookings.append(self.__create_booking(attrs))
@@ -223,7 +232,7 @@ class DataManager:
         """ Count how many days has been used by applications from the
         current bookings. The count can be done by resources or by tags.
         """
-        application_ids = set(a.id for a in applications)
+        application_ids = set(a for a in applications)
         count_dict = defaultdict(lambda: defaultdict(lambda: 0))
 
         for b in self.get_bookings():
@@ -363,7 +372,20 @@ class DataManager:
         return b
 
     def __validate_booking(self, booking):
-        pass
+        app_id = booking.application_id
+        if app_id is not None:
+            a = self.get_application_by(id=app_id)
+            r = self.get_resource_by(id=booking.resource_id)
+            count = self.count_booking_resources([app_id],
+                                                 resource_tags=r.tags.split())
+            for tagKey, tagCount in count[app_id]   .items():
+                alloc = a.resource_allocation.get(tagKey, None)
+                if alloc is not None:
+                    if  tagCount + booking.days > alloc:
+                        raise Exception("Exceeded number of allocated days "
+                                        "for application %s on resource tag '%s'"
+                                        % (a.code, tagKey))
+        #raise Exception("No more bookings allowed now. ")
 
     def __check_cancellation(self, booking):
         """ Check if this booking can be updated or deleted.

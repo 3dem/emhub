@@ -76,12 +76,13 @@ class TestDataManager(unittest.TestCase):
                 for k, c in count_dict.items():
                     print("   %s: %s" % (k, c))
 
-        applications = self.dm.get_applications()
+        applications = [a.id for a in self.dm.get_applications()]
         count_resources = self.dm.count_booking_resources(applications)
         print_count(count_resources)
         self.assertTrue(len(count_resources) > 0)
 
-        count_tags = self.dm.count_booking_resources(applications, resource_tags=['krios'])
+        count_tags = self.dm.count_booking_resources(applications,
+                                                     resource_tags=['krios'])
         self.assertTrue(len(count_tags))
         print_count(count_tags)
 
