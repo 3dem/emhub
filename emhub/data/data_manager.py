@@ -119,6 +119,10 @@ class DataManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_resource_by(self, **kwargs):
+        """ This should return a single Resource or None. """
+        return self.__item_by(self.Resource, **kwargs)
+
     # ---------------------------- APPLICATIONS --------------------------------
     def create_template(self, **attrs):
         return self.__create_item(self.Template, **attrs)
@@ -146,26 +150,34 @@ class DataManager:
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_application_by(self, **kwargs):
+        """ This should return a single user or None. """
+        return self.__item_by(self.Application, **kwargs)
+
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self, **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
-        if 'modify_all' in attrs:
-            del attrs['modify_all']
+        attrs.pop('modify_all', None)
         bookings = []
 
+
         if repeat_value == 'no':
-            bookings.append(self.__create_item(self.Booking, **attrs))
+            bookings.append(self.__create_booking(attrs))
         else:
-            repeat_stop = attrs.get('repeat_stop')
-            del attrs['repeat_stop']
+            repeat_stop = attrs.pop('repeat_stop')
             repeater = RepeatRanges(repeat_value, attrs)
             uid = str(uuid.uuid4())
 
             while attrs['end'] < repeat_stop:
                 attrs['repeat_id'] = uid
-                bookings.append(self.__create_item(self.Booking, **attrs))
+                bookings.append(self.__create_booking(attrs))
                 repeater.move()  # will move next start,end in attrs
+
+        # Validate and insert all created bookings
+        for b in bookings:
+            self._db_session.add(b)
+        self.commit()
 
         return bookings
 
@@ -211,22 +223,32 @@ class DataManager:
 
         return self._modify_bookings(attrs, delete)
 
+    def get_application_bookings(self, applications,
+                                resource_ids=None, resource_tags=None):
+        pass
+
     def count_booking_resources(self, applications,
                                 resource_ids=None, resource_tags=None):
         """ Count how many days has been used by applications from the
         current bookings. The count can be done by resources or by tags.
         """
-        application_ids = set(a.id for a in applications)
+        application_ids = set(a for a in applications)
         count_dict = defaultdict(lambda: defaultdict(lambda: 0))
 
         for b in self.get_bookings():
+            #print("Booking: ", b, "\n   - Application: ", b.application)
+
             if b.application is None:
                 continue
 
             baid = b.application.id
             if baid in application_ids:
                 rid = b.resource.id
-                if not resource_ids or rid in resource_ids:
+                if resource_tags is not None:
+                    for tag in resource_tags:
+                        if tag in b.resource.tags:
+                            count_dict[baid][tag] += b.days
+                elif not resource_ids or rid in resource_ids:
                     count_dict[baid][rid] += b.days
 
         return count_dict
@@ -334,6 +356,63 @@ class DataManager:
 
         return any(p.code in json_codes for p in applications)
 
+    # ------------------- BOOKING helper functions -----------------------------
+    def __create_booking(self, attrs):
+        if 'application_id' not in attrs:
+            owner = self.get_user_by(id=attrs['owner_id'])
+            apps = owner.get_applications()
+            n = len(apps)
+            if n > 1:
+                raise Exception("User %s has m")
+            elif n == 1:
+                attrs['application_id'] = apps[0].id
+
+        b = self.Booking(**attrs)
+        self.__validate_booking(b)
+        return b
+
+    def __validate_booking(self, booking):
+        app_id = booking.application_id
+        if app_id is not None:
+            a = self.get_application_by(id=app_id)
+            r = self.get_resource_by(id=booking.resource_id)
+            count = self.count_booking_resources([app_id],
+                                                 resource_tags=r.tags.split())
+            for tagKey, tagCount in count[app_id]   .items():
+                alloc = a.resource_allocation.get(tagKey, None)
+                if alloc is not None:
+                    if  tagCount + booking.days > alloc:
+                        raise Exception("Exceeded number of allocated days "
+                                        "for application %s on resource tag '%s'"
+                                        % (a.code, tagKey))
+        #raise Exception("No more bookings allowed now. ")
+
+    def __check_cancellation(self, booking):
+        """ Check if this booking can be updated or deleted.
+        Normal users can only delete or modify the booking up to X hours
+        before the starting time. The amount of hours is defined by the
+        booking latest_cancellation property.
+        Managers can change bookings even the same day and only
+        Administrators can change past events.
+        This function will raise an exception if a condition is not meet.
+        """
+        user = self._user
+        if user.is_admin:
+            return  # admin can cancel/modify at any time
+
+        now = self.now()
+        latest = booking.resource.latest_cancellation
+
+        if user.is_manager:
+            if booking.start.date() <= now.date():
+                raise Exception('This booking can not be updated/deleted. \n'
+                                'Even as Manager, it should be done at least '
+                                'one day before. Contact an Administrator if '
+                                'there is any problem with this booking. ')
+        if booking.start - dt.timedelta(hours=latest) < now:
+            raise Exception('This booking can not be updated/deleted. \n'
+                            'Should be %d hours in advance. ' % latest)
+
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
         Keyword Args:
@@ -342,8 +421,7 @@ class DataManager:
                 returned
         """
         booking_id = attrs['id']
-        modify_all = attrs.get('modify_all', False)
-        del attrs['modify_all']
+        modify_all = attrs.pop('modify_all', False)
 
         # Get the booking with the given id
         bookings = self.get_bookings(condition='id="%s"' % booking_id)
@@ -379,32 +457,6 @@ class DataManager:
         self.commit()
 
         return result
-
-    def __check_cancellation(self, booking):
-        """ Check if this booking can be updated or deleted.
-        Normal users can only delete or modify the booking up to X hours
-        before the starting time. The amount of hours is defined by the
-        booking latest_cancellation property.
-        Managers can change bookings even the same day and only
-        Administrators can change past events.
-        This function will raise an exception if a condition is not meet.
-        """
-        user = self._user
-        if user.is_admin:
-            return  # admin can cancel/modify at any time
-
-        now = self.now()
-        latest = booking.resource.latest_cancellation
-
-        if user.is_manager:
-            if booking.start.date() <= now.date():
-                raise Exception('This booking can not be updated/deleted. \n'
-                                'Even as Manager, it should be done at least '
-                                'one day before. Contact an Administrator if '
-                                'there is any problem with this booking. ')
-        if booking.start - dt.timedelta(hours=latest) < now:
-            raise Exception('This booking can not be updated/deleted. \n'
-                            'Should be %d hours in advance. ' % latest)
 
 
 class RepeatRanges:

@@ -209,7 +209,8 @@ class DataContent:
 
             # Show all booking information in title in some cases only
             if user_can_view:
-                title = "%s (%s) %s" % (resource_info['name'], owner.name, b_title)
+                extra = "%s, %s" % (owner.name, booking.application.code)
+                title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
             else:
                 title = "Booking"
                 owner_name = "Hidden"

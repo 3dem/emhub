@@ -148,6 +148,8 @@ def _handle_item(handle_func, result_key):
         return send_json_data({result_key: result})
     except Exception as e:
         print(e)
+        import traceback
+        traceback.print_exc()
         return send_json_data({'error': 'Raised exception: %s' % e})
 
 

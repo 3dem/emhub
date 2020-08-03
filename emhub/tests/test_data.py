@@ -8,7 +8,12 @@ from emhub.data import DataManager
 class TestDataManager(unittest.TestCase):
 
     def setUp(cls):
-        cls.dm = DataManager('/tmp/emhub.sqlite')
+        sqlitePath = '/tmp/emhub.sqlite'
+
+        if os.path.exists(sqlitePath):
+            os.remove(sqlitePath)
+
+        cls.dm = DataManager(sqlitePath)
 
     def test_users(self):
         users = self.dm.get_users()
@@ -65,8 +70,19 @@ class TestDataManager(unittest.TestCase):
                 self.assertEqual(pRef, u.get_applications())
 
     def test_count_booking_resources(self):
-        applications = self.dm.get_applications()
-        count = self.dm.count_booking_resources(applications)
+        def print_count(count):
+            for a, count_dict in count.items():
+                print("Application ID: ", a)
+                for k, c in count_dict.items():
+                    print("   %s: %s" % (k, c))
 
-        self.assertTrue(len(count))
+        applications = [a.id for a in self.dm.get_applications()]
+        count_resources = self.dm.count_booking_resources(applications)
+        print_count(count_resources)
+        self.assertTrue(len(count_resources) > 0)
+
+        count_tags = self.dm.count_booking_resources(applications,
+                                                     resource_tags=['krios'])
+        self.assertTrue(len(count_tags))
+        print_count(count_tags)
 
