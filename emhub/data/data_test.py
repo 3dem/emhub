@@ -168,7 +168,8 @@ class TestData:
              'template_id': templates[0].id,
              'invoice_reference': 'AAA',
              'invoice_address': '',
-             'resource_allocation': {'talos': 10, 'krios': 5}
+             'resource_allocation': {'talos': 10, 'krios': 5},
+             'description': "Current application BAG for Lund University."
              },
             {'code': 'CEM00315',
              'alias': 'BAG SU',

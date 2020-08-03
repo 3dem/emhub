@@ -152,10 +152,6 @@ class DataContent:
         return {'bookings': [self.booking_to_event(b) for b in bookings]}
 
     def get_applications(self, **kwargs):
-        print("get_applications, kwargs")
-        for k, v in kwargs.items():
-            print("  %s: %s" % (k, v))
-
         dataDict = self.get_applications_list()
         dataDict['template_statuses'] = ['preparation', 'active', 'closed']
         dataDict['template_selected_status'] = kwargs.get('template_selected_status', 'active')
@@ -172,12 +168,10 @@ class DataContent:
         if 'content_id' in kwargs:
             del kwargs['content_id']
 
-        applications = self.app.dm.get_applications()
-        count = self.app.dm.count_booking_resources(applications)
-        from pprint import pprint
-        pprint(count)
+        return {'applications': self.app.dm.get_applications()}
 
-        return {'applications': applications}
+    def get_application_form(self, **kwargs):
+        return {'application': self.app.dm.get_application_by(id=kwargs['application_id'])}
 
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """

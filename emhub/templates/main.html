@@ -348,8 +348,13 @@
 
 
 <script type="text/javascript">
-
-    function load_content(content_id, params) {
+    /**
+     * Make an AJAX request to the server and render the html result in a container.
+     * @param container_id The HTML container id where the result content will be placed.
+     * @param content_id contend id that will be requested to the server
+     * @param params dictionary with extra parameters to retrieve the content.
+     */
+    function get_ajax_content(content_id, params) {
         console.log("requesting content: " + content_id);
 
         if (params == null)
@@ -364,6 +369,12 @@
             dataType: "html"
         });
 
+        return ajaxContent;
+    }
+
+    function load_main_content(content_id, params) {
+        ajaxContent = get_ajax_content(content_id, params);
+
         ajaxContent.done(function(html) {
             $("#main-content").html(html);
         });
@@ -375,7 +386,7 @@
 
     function load_content_fromlink(e) {
         var content_id = e.currentTarget.dataset.contentId
-        load_content(content_id);
+        load_main_content(content_id);
         e.preventDefault();
     }
 
@@ -385,7 +396,7 @@
             $(this).click(load_content_fromlink);
         });
 
-        load_content("{{ content_id }}");
+        load_main_content("{{ content_id }}");
     });
 
 
