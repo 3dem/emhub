@@ -102,28 +102,26 @@ class TestData:
              'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
              # Allow DBB00001 users to book without slot
-             'booking_auth': {'applications': ['DBB00001']}},
+             #'booking_auth': {'applications': ['DBB00001']}},
+             'requires_slot': True},
             {'name': 'Krios 2', 'tags': 'microscope krios',
              'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
-             'booking_auth': {'applications': ['DBB00001']}},
+             #'booking_auth': {'applications': ['DBB00001']}},
+             'requires_slot': True},
             {'name': 'Talos', 'tags': 'microscope talos',
              'latest_cancellation': 48,
              'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
-             'booking_auth': {'applications': ['DBB00001']}},
+             # 'booking_auth': {'applications': ['DBB00001']}},
+             'requires_slot': True},
             {'name': 'Vitrobot 1', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)',
-             'booking_auth': {'users': ['any']}},
+             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
             {'name': 'Vitrobot 2', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)',
-             # Allow 'any' user to book without slot
-             'booking_auth': {'users': ['any']}},
+             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
             {'name': 'Carbon Coater', 'tags': 'instrument',
-             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)',
-             'booking_auth': {'users': ['any']}},
+             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
             {'name': 'Users Drop-in', 'tags': 'service',
-             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
-             'booking_auth': {'users': ['any']}}
+             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)'}
         ]
 
         for rDict in resources:
@@ -168,7 +166,8 @@ class TestData:
              'template_id': templates[0].id,
              'invoice_reference': 'AAA',
              'invoice_address': '',
-             'resource_allocation': {'talos': 10, 'krios': 5},
+             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
+                                     'noslot': []},
              'description': "Current application BAG for Lund University."
              },
             {'code': 'CEM00315',
@@ -179,7 +178,8 @@ class TestData:
              'template_id': templates[0].id,
              'invoice_reference': 'BBB',
              'invoice_address': '',
-             'resource_allocation': {'talos': 10, 'krios': 5}
+             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
+                                     'noslot': []}
              },
             {'code': 'CEM00332',
              'alias': 'RAA Andersson',
@@ -189,7 +189,8 @@ class TestData:
              'template_id': templates[1].id,
              'invoice_reference': 'ZZZ',
              'invoice_address': '',
-             'resource_allocation': {'talos': 2, 'krios': 1}
+             'resource_allocation': {'quota': {'talos': 2, 'krios': 1},
+                                     'noslot': []}
              },
             {'code': 'DBB00001',
              'alias': 'SU-DBB',
@@ -199,7 +200,9 @@ class TestData:
              'creator_id': 9,
              'template_id': templates[-1].id,
              'invoice_reference': 'DDD',
-             'invoice_address': ''
+             'invoice_address': '',
+             'resource_allocation': {'quota': {},
+                                     'noslot': [1, 2]}
              },
         ]
 
@@ -249,7 +252,7 @@ class TestData:
         # Create a booking at the downtime from today to one week later
         dm.create_booking(title='Booking Krios 1',
                           start=now.replace(day=2, hour=9),
-                          end=now.replace(day=4, hour=23, minute=59),
+                          end=now.replace(day=3, hour=23, minute=59),
                           type='booking',
                           resource_id=2,
                           creator_id=1,  # first user for now

@@ -93,11 +93,11 @@ class DataContent:
             {'id': r.id,
              'name': r.name,
              'tags': r.tags,
-             'booking_auth': r.booking_auth,
+             'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
              'image': flask.url_for('static', filename='images/%s' % r.image),
-             'user_can_book': self.app.dm.user_can_book(self.app.user, r.booking_auth)
+             'user_can_book': self.app.dm.user_can_book(self.app.user, r)
              }
             for r in self.app.dm.get_resources()
         ]

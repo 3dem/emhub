@@ -79,7 +79,8 @@ def create_data_models(dm, Base):
                        nullable=False)
 
         # Booking authorization, who can book within this slot
-        booking_auth = Column(JSON, default={'applications': [], 'users': []})
+        #booking_auth = Column(JSON, default={'applications': [], 'users': []})
+        requires_slot = Column(Boolean, default=False)
 
         # Latest number of hours that a booking can be canceled
         # for this resource (e.g until 48h for a booking in Krios)
@@ -347,7 +348,7 @@ def create_data_models(dm, Base):
         # This is the maximum amount of days allocated per type of resource
         # {'krios': 20} means that this application can book max to 20 days
         # for any resource with tag 'krios' (i.e Titan Krios scopes)
-        resource_allocation = Column(JSON, default={})
+        resource_allocation = Column(JSON, default={'quota': {}, 'noslot': []})
 
         # ID of the user that created the Application, it should be a PI
         creator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
@@ -372,6 +373,25 @@ def create_data_models(dm, Base):
         @property
         def is_active(self):
             return self.status == 'active'
+
+        def get_quota(self, key):
+            """ Return the quota (in days) for this application.
+            Args:
+                key: the key representing either a resource id or a tag (e.g 1 or 'krios')
+            Return:
+                the number of days that this application can use a resource or a groups
+                resources with the same tag. It will return None if there is no quota for
+                such resource.
+            """
+            return self.resource_allocation['quota'].get(key, None)
+
+        def no_slot(self, resourceKey):
+            """ Return True if this application is not force to create bookings within
+            a given slot for certain resource.
+             For example, some applications might be required to book Krios1 only on specific
+             slots, while others will be able to book in free days.
+            """
+            return resourceKey in self.resource_allocation['noslot']
 
     class Session(Base):
         """Model for sessions."""

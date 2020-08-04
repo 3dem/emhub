@@ -300,17 +300,18 @@ class DataManager:
         local_tz = get_localzone()
         return dt.datetime.now(local_tz)
 
-    def user_can_book(self, user, auth_json):
+    def user_can_book(self, user, resource):
         """ Return True if the user is authorized (i.e any of the project
         codes appears in auth_json['applications'].
         """
-        if user is None or not auth_json:
+        if user is None:
             return False
 
-        if user.is_manager or 'any' in auth_json.get('users', []):
+        if user.is_manager or not resource.requires_slot:
             return True
 
-        return self.__matching_project(user.get_applications(), auth_json)
+        app = user.get_applications()[0]
+        return app.no_slot(resource.id)
 
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
@@ -379,7 +380,7 @@ class DataManager:
             count = self.count_booking_resources([app_id],
                                                  resource_tags=r.tags.split())
             for tagKey, tagCount in count[app_id]   .items():
-                alloc = a.resource_allocation.get(tagKey, None)
+                alloc = a.get_quota(tagKey)
                 if alloc is not None:
                     if  tagCount + booking.days > alloc:
                         raise Exception("Exceeded number of allocated days "
