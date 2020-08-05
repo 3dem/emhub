@@ -54,7 +54,7 @@ class DataContent:
         get_func = getattr(self, get_func_name, None)
         return {} if get_func is None else get_func(**kwargs)
 
-    def get_sessions_overview(self):
+    def get_sessions_overview(self, **kwargs):
         # sessions = self.app.dm.get_sessions(condition='status!="Finished"',
         #                                orderBy='microscope')
         sessions = self.app.dm.get_sessions()  # FIXME
