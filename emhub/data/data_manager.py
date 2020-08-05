@@ -156,6 +156,8 @@ class DataManager:
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self, **attrs):
+        print("Creating booking: ",  attrs)
+
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         attrs.pop('modify_all', None)

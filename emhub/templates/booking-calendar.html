@@ -420,12 +420,10 @@ function showBookingForm(booking) {
     $('#booking-modal-title').html(htmlStr);
     $('#booking-btn-ok').html(titlePrefix);
 
-    if (possible_owners) {
-        printObject(booking, "booking");
+    if (possible_owners.length) {
         $('#booking-owner-select').selectpicker('val', booking.owner.id);
     }
     else {
-        console.log("no owers");
         $('#booking-owner-text').val(booking.owner.name);
         $('#booking-owner-text').prop('readonly', true);
     }
@@ -612,7 +610,7 @@ function onOkButtonClick() {
     // return;
     var owner_id = last_booking.owner.id;
 
-    if (possible_owners)
+    if (possible_owners.length)
         owner_id = $('#booking-owner-select').selectpicker('val');
 
     var booking = {
@@ -646,7 +644,7 @@ function onOkButtonClick() {
         // Only take into account repeat value when creating a new booking
 
         if (repeat_value != 'no')
-            booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
+              booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
         booking.creator_id = booking.owner_id
         endpoint = "{{ url_for('api.create_booking') }}"
     }

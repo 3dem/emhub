@@ -198,7 +198,7 @@ class DataContent:
             color = color.replace('1.0', '0.5')  # transparency for slots
             title = "%s (SLOT): %s" % (resource.name,
                                        booking.slot_auth.get('applications', ''))
-            user_can_book = self.app.dm.user_can_book(user, booking.slot_auth)
+            user_can_book = self.app.dm.user_can_book(user, booking.resource)
         else:
 
             # Show all booking information in title in some cases only
