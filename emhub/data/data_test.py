@@ -57,7 +57,7 @@ class TestData:
         # Create user table
         usersData = [
             # dev (D)
-            ('Don Stairs', 'developer', None),  # 1
+            ('Don Stairs', 'admin', None),  # 1
 
             # admin (A)
             ('Anna Mull', 'admin,manager', None),   # 2
@@ -89,8 +89,10 @@ class TestData:
 
         for name, roles, pi in usersData:
             first, last = name.lower().split()
+            roles = roles.split(',')
             dm.create_user(username=last,
                            email='%s.%s@emhub.org' % (first, last),
+                           phone='%d-%d%d' %  (len(roles), len(first), len(last)),
                            password=last,
                            name=name,
                            roles=roles,

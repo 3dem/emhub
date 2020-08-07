@@ -29,6 +29,7 @@
 import os
 import json
 from glob import glob
+import datetime as dt
 
 
 import flask
@@ -53,6 +54,47 @@ class DataContent:
         get_func_name = 'get_%s' % content_id.replace('-', '_')  # FIXME
         get_func = getattr(self, get_func_name, None)
         return {} if get_func is None else get_func(**kwargs)
+
+    def get_dashboard(self, **kwargs):
+        dataDict = self.get_resources_list()
+        user = self.app.user  # shortcut
+
+        # Provide upcoming bookings sorted by proximity
+        bookings = [('Today', []),
+                    ('Next 7 days', []),
+                    ('Next 30 days', [])]
+
+        now  = self.app.dm.now()
+        next7 = now + dt.timedelta(days=7)
+        next30 = now + dt.timedelta(days=30)
+
+        for b in self.app.dm.get_bookings():
+            bDict = {'owner': b.owner.name,
+                     'resource': b.resource.name,
+                     'start': b.start.strftime("%d/%m/%Y %I:%M %p"),
+                     'end': b.end.strftime("%d/%m/%Y %I:%M %p"),
+                     }
+            if b.start <= now <= b.end:
+                i = 0
+            elif b.start <= now and b.end <= next7:
+                i = 1
+            elif b.start <= now and b.end <= next30:
+                i = 2
+            else:
+                i = -1
+
+            if i >= 0:
+                bookings[i][1].append(bDict)
+
+        dataDict['bookings'] = bookings
+
+        if user.is_manager:
+            dataDict['lab_members'] = [u.json() for u in self.app.dm.get_users()
+                                       if u.is_manager]
+        else:
+            dataDict['lab_members'] = [u.json() for u in user.get_pi().lab_members]
+
+        return dataDict
 
     def get_sessions_overview(self, **kwargs):
         # sessions = self.app.dm.get_sessions(condition='status!="Finished"',
@@ -97,7 +139,8 @@ class DataContent:
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
              'image': flask.url_for('static', filename='images/%s' % r.image),
-             'user_can_book': self.app.dm.user_can_book(self.app.user, r)
+             'user_can_book': self.app.dm.user_can_book(self.app.user, r),
+             'microscope': 'microscope' in r.tags
              }
             for r in self.app.dm.get_resources()
         ]
