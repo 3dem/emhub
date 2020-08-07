@@ -109,6 +109,8 @@ def create_data_models(dm, Base):
                        unique=True,
                        nullable=False)
 
+        phone = Column(String(80))
+
         name = Column(String(256),
                       nullable=False)
 
@@ -119,10 +121,8 @@ def create_data_models(dm, Base):
                          default=utcnow())
 
         # Default role should be: 'user'
-        # more roles can be comma separated: 'user,admin,manager'
-        roles = Column(String(128),
-                       nullable=False,
-                       default='user')
+        # more roles can defined in a json list: ['user', 'admin', 'manager']
+        roles = Column(JSON, nullable=False, default=['user'])
 
         password_hash = Column(String(256),
                                unique=True,
