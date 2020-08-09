@@ -36,7 +36,6 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 from .data_hdf5 import H5SessionData
-from .data_test import TestData
 from .data_models import create_data_models
 
 
@@ -64,8 +63,7 @@ class DataManager:
         # Create the database if it does not exists
         if not os.path.exists(sqlitePath):
             Base.metadata.create_all(bind=engine)
-            # populate db with test data
-            TestData(self)
+
 
     def commit(self):
         self._db_session.commit()

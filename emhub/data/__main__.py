@@ -2,6 +2,7 @@
 import os
 
 from .data_manager import DataManager
+from .data_test import TestData
 
 
 if __name__ == '__main__':
@@ -16,4 +17,6 @@ if __name__ == '__main__':
         print("Deleting existing file: ", dbPath)
         os.remove(dbPath)
 
-    DataManager(sqlitePath=dbPath)
+    dm = DataManager(sqlitePath=dbPath)
+    # populate db with test data
+    TestData(dm)

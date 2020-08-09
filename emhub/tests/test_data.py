@@ -2,7 +2,7 @@
 import os
 import unittest
 
-from emhub.data import DataManager
+from emhub.data import DataManager, TestData
 
 
 class TestDataManager(unittest.TestCase):
@@ -14,6 +14,8 @@ class TestDataManager(unittest.TestCase):
             os.remove(sqlitePath)
 
         cls.dm = DataManager(sqlitePath)
+        # populate db with test data
+        TestData(cls.dm)
 
     def test_users(self):
         users = self.dm.get_users()
