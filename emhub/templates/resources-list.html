@@ -21,8 +21,6 @@
 </div>
 
 
-
-
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
     {% set title = "Resource Management" %}
@@ -67,7 +65,7 @@
                                     <td><div style="background-color: {{ r['color'] }}; width: 30px; height: 30px"> &nbsp;</div></td>
                                     <td> {{ r['name'] }} </td>
                                     <td> {{ r['tags'] }}</td>
-                                    <td> {{ r['booking_auth'] }}</td>
+                                    <td> {{ r['requires_slot'] }}</td>
                                     <td> {{ r['latest_cancellation'] }}</td>
                                     <td> {{ r['user_can_book'] }}</td>
                                     <td>

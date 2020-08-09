@@ -1,0 +1,185 @@
+
+<div class="container-fluid dashboard-content ">
+    <!-- Header -->
+{#        {% set title = "Dashboard" %}#}
+{#        {% include 'include_header.html' %}#}
+    <!-- end Header -->
+
+    <!-- ============================================================== -->
+    <!-- content -->
+    <!-- ============================================================== -->
+    <div class="row">
+        <!-- ============================================================== -->
+        <!-- profile -->
+        <!-- ============================================================== -->
+        <div class="col-xl-3 col-lg-3 col-md-5 col-sm-12 col-12">
+            <!-- ============================================================== -->
+            <!-- card profile -->
+            <!-- ============================================================== -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="text-center">
+                        <h2 class="font-24 mb-0">{{ current_user.name }}</h2>
+                        <div>
+                            <p></br>Roles:
+                                {% for r in current_user.roles %}
+                                <a href="#" class="badge badge-light mr-1">{{ r }}</a>
+                                {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body border-top">
+                    <h3 class="font-16">Contact Information</h3>
+                    <div class="">
+                        <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><i class="fas fa-fw fa-envelope mr-2"></i>{{ current_user.email }}</li>
+                        <li class="mb-0"><i class="fas fa-fw fa-phone mr-2"></i>{{ current_user.phone }}</li>
+                    </ul>
+                    </div>
+                </div>
+                <div class="card-body border-top">
+                    <h3 class="font-16">Lab Members</h3>
+                    <div class="">
+                    <ul class="mb-0 list-unstyled">
+                        {% for u in lab_members %}
+
+                        <li class="mb-1"><a href="#">{{ u['name'] }}</a></li>
+
+                        {% endfor %}
+                    </ul>
+                    </div>
+                </div>
+                <div class="card-body border-top">
+                    <h3 class="font-16">Applications</h3>
+                    <div>
+                        {% for a in current_user.get_applications() %}
+                            <a href="#" class="badge badge-light mr-1">{{ a.code     }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <!-- ============================================================== -->
+            <!-- end card profile -->
+            <!-- ============================================================== -->
+        </div>
+        <!-- ============================================================== -->
+        <!-- end profile -->
+        <!-- ============================================================== -->
+
+        <!-- ============================================================== -->
+        <!-- campaign data -->
+        <!-- ============================================================== -->
+        <div class="col-xl-9 col-lg-9 col-md-7 col-sm-12 col-12">
+            <!-- ============================================================== -->
+            <!-- campaign tab one -->
+            <!-- ============================================================== -->
+            <div class="influence-profile-content pills-regular">
+                <ul class="nav nav-pills mb-3 nav-justified" id="pills-tab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="pills-campaign-tab" data-toggle="pill" href="#pills-campaign" role="tab" aria-controls="pills-campaign" aria-selected="true">Instruments</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="pills-packages-tab" data-toggle="pill" href="#pills-packages" role="tab" aria-controls="pills-packages" aria-selected="false">Applications</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="pills-review-tab" data-toggle="pill" href="#pills-review" role="tab" aria-controls="pills-review" aria-selected="false">Invoices</a>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="pills-tabContent">
+                    <div class="tab-pane fade show active" id="pills-campaign" role="tabpanel" aria-labelledby="pills-campaign-tab">
+
+                        <div class="row">
+                            {% for r in resources %}
+
+                                <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <div class="row align-items-center justify-content-start">
+                                            <div class="col-2" style="padding-left: 0">
+                                                <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
+                                            </div>
+                                            <div class="col-9" style="padding-left: 7px;">
+                                                <h5>{{ r['name'] }}</h5>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-10">
+                                                {% if r['microscope'] %}
+                                                    <a href="#"><i class="fas fa-external-link-alt"></i> Session</a>
+
+                                            {%  endif %}
+                                            </div>
+                                            <div class="col-2">
+                                                 <a href="#"> <i class="fas fa-calendar-alt"></i>   </a>
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+                                </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="section-block">
+                            <h3 class="section-title">Upcoming Bookings</h3>
+                        </div>
+
+                    <div class="card">
+                            <div class="card-body">
+                    <table class="table">
+                        <tbody>
+
+                        {% for bTitle, bList in bookings %}
+                            <tr class="table-primary">
+                                <td colspan="4" >{{ bTitle }}</td>
+                            </tr>
+
+                            {% if bList|length > 0 %}
+                                {%  for b in bList %}
+                                <tr>
+                                    <td>{{ b['owner'] }}</td>
+                                    <td> {{ b['resource'] }}</td>
+                                    <td> {{ b['start'] }}</td>
+                                    <td> {{ b['end'] }}</td>
+                                    </tr>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                <td colspan="3" >None</td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                        </tbody>
+                    </table>
+
+                    </div>
+
+                    </div>
+                </div>
+                    <div class="tab-pane fade" id="pills-packages" role="tabpanel" aria-labelledby="pills-packages-tab">
+
+                    </div>
+
+                    <div class="tab-pane fade" id="pills-review" role="tabpanel" aria-labelledby="pills-review-tab">
+                    </div>
+
+                    <div class="tab-pane fade" id="pills-msg" role="tabpanel" aria-labelledby="pills-msg-tab">
+                    </div>
+                </div>
+                </div>
+
+            <!-- ============================================================== -->
+            <!-- end campaign tab one -->
+            <!-- ============================================================== -->
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- end campaign data -->
+        <!-- ============================================================== -->
+    </div>
+</div>

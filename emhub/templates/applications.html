@@ -84,7 +84,7 @@
                             <tbody>
                             {% for a in applications %}
                             <tr>
-                                <td>{{ a.code }}</td>
+                                <td><a href="javascript:showApplication({{ a.id }})">{{ a.code }}</a></td>
                                 <td>{{ a.alias }}</td>
                                 <td>{{ a.title }}</td>
                                 <td>{{ a.creator.name }}</td>
@@ -159,7 +159,9 @@
 
 </div>
 
-<!-- Modal -->
+<!-- ============================================================== -->
+<!-- Template Modal -->
+<!-- ============================================================== -->
 <div class="modal fade" id="template-modal" tabindex="-1" role="dialog" aria-labelledby="templateModal" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
@@ -171,9 +173,8 @@
       </div>
       <div class="modal-body">
         <div class="row">
-            <!-- ============================================================== -->
+
             <!-- Template Form -->
-            <!-- ============================================================== -->
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                 <form id="validationform" data-parsley-validate="" novalidate="">
 
@@ -206,9 +207,7 @@
 
                 </form>
             </div>
-            <!-- ============================================================== -->
             <!-- end Template Form -->
-            <!-- ============================================================== -->
         </div>
       </div>
 
@@ -219,6 +218,19 @@
     </div>
   </div>
 </div>
+<!-- ============================================================== -->
+<!-- End of Template Modal -->
+<!-- ============================================================== -->
+
+
+<!-- ============================================================== -->
+<!-- Application Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="application-modal" tabindex="-1" role="dialog" aria-labelledby="applicationModal" aria-hidden="true">
+</div>
+<!-- ============================================================== -->
+<!-- End of Application Modal -->
+<!-- ============================================================== -->
 
 
 <script>
@@ -239,6 +251,8 @@
 
 
 <script>
+    var applications;
+    var applicationDict = {};
     var templates;
     var templateDict = {};
     var template = null;
@@ -256,7 +270,7 @@
 })(window, document, window.jQuery);
 
 
-/* Show the Booking Form, either for a new booking or an existing one */
+/* Show the Template Form, either for a new booking or an existing one */
 function showTemplate(templateId) {
     if (templateId == null)
         template = {
@@ -292,9 +306,26 @@ function showTemplate(templateId) {
     $('#template-modal').modal('show');
 }  // function showTemplate
 
-    /** Helper functions to handle AJAX response or failure */
+
+/* Show the Application Form, either for a new booking or an existing one */
+function showApplication(applicationId) {
+    ajaxContent = get_ajax_content("application_form", {application_id: applicationId});
+
+    ajaxContent.done(function(html) {
+        $("#application-modal").html(html);
+        // Show the form after setting html content
+        $('#application-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+
+}  // function showApplication
+
+/** Helper functions to handle AJAX response or failure */
 function handleAjaxDone(jsonResponse) {
-    let error = null;
+    var error = null;
 
     if ('template' in jsonResponse) {
     }
@@ -310,7 +341,7 @@ function handleAjaxDone(jsonResponse) {
     else {
         $('#template-modal').on('hidden.bs.modal', function () {
             var params = {template_selected_status: template.status}
-            load_content("applications", params);
+            load_main_content("applications", params);
         });
         $('#template-modal').modal('hide');
     }
@@ -322,7 +353,7 @@ function handleAjaxFail(jqXHR, textStatus) {
 }
 
 
-/** This function will be called when the OK button in the Booking form
+/** This function will be called when the OK button in the Template form
  * is clicked. It can be either Create or Update action.
  */
 function onOkButtonClick() {
