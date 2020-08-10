@@ -1,0 +1,400 @@
+# **************************************************************************
+# *
+# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *
+# * [1] SciLifeLab, Stockholm University
+# *
+# * This program is free software; you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation; either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+# *
+# * You should have received a copy of the GNU General Public License
+# * along with this program; if not, write to the Free Software
+# * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+# * 02111-1307  USA
+# *
+# *  All comments concerning this program package may be sent to the
+# *  e-mail address 'delarosatrevin@scilifelab.se'
+# *
+# **************************************************************************
+
+import os
+import json
+import datetime as dt
+
+from emhub.utils import datetime_from_isoformat
+
+
+class PortalData:
+    """ Class to import data (users, templates, applications) from the
+     Application Portal at SciLifeLab.
+    """
+    def __init__(self, dm, dataJsonPath, bookingsJsonPath):
+        """
+        Args:
+            dm: DataManager with db to create test data
+            dataJsonPath: file path to the JSON file with the data from the Portal.
+                It is expected as a Dict with the following entries:
+                * users
+                * forms (Templates here)
+                * orders (Applications here)
+        """
+        self.__importData(dm,  dataJsonPath, bookingsJsonPath)
+
+    def __importData(self, dm, dataJsonPath, bookingsJsonPath):
+        # Create tables with test data for each database model
+        print("Importing users...")
+
+        with open(dataJsonPath) as jsonFile:
+            jsonData = json.load(jsonFile)
+            self._jsonUsers = jsonData['users']['items']
+            self._dictUsers = {}
+            self.__importUsers(dm)
+
+        print("Populating resources...")
+        self.__populateResources(dm)
+
+        print("Importing applications...")
+        self.__importApplications(dm, jsonData)
+
+        with open(bookingsJsonPath) as bookingsFile:
+            bookingsData = json.load(bookingsFile)
+
+            # print("Populating sessions...")
+            # self.__populateSessions(dm)
+            print("Populating Bookings")
+            self.__importBookings(dm,  bookingsData)
+
+
+    def __importUsers(self, dm):
+        # Create user table
+        def createUser(u, **kwargs):
+            roles = kwargs.get('roles', ['user'])
+            pi = None
+            if u['pi']:
+                roles.append('pi')
+            else:
+                pi = kwargs.get('pi', None)
+
+            user = dm.create_user(
+                username=u['email'],
+                email=u['email'],
+                phone='',
+                password=u['email'],
+                name="%(first_name)s %(last_name)s" % u,
+                roles=roles,
+                pi_id=pi)
+
+            u['emhub_item'] = user
+            self._dictUsers[user.email] = user
+
+        staff = {
+            'marta.carroni@scilifelab.se': ['manager'],
+            'julian.conrad@scilifelab.se': ['manager'],
+            'karin.walden@scilifelab.se': ['manager'],
+            'mathieu.coincon@scilifelab.se': ['manager'],
+            'dustin.morado@scilifelab.se': ['admin', 'manager'],
+            'stefan.fleischmann@scilifelab.se': ['admin'],
+            'delarosatrevin@scilifelab.se': ['admin'],
+        }
+
+        #  Create first facility staff
+        for u  in  self._jsonUsers:
+            if u['email'] in staff:
+                createUser(u, roles=staff[u['email']])
+
+        # Insert first PI users, so we store their Ids for other users
+        piDict = {}
+        for u in self._jsonUsers:
+            if u['pi']:
+                createUser(u)
+                piDict[u['email']] = u
+
+        for u in self._jsonUsers:
+            if not u['pi'] and not u['email'] in staff  :
+                piEmail = u['invoice_ref']
+                if piEmail in piDict:
+                    createUser(u, pi=piDict[piEmail]['emhub_item'].id)
+                else:
+                    print("Skipping user (Missing PI): ", u['email'])
+
+
+    def __populateResources(self, dm):
+        resources = [
+            {'name': 'Krios 1', 'tags': 'microscope krios',
+             'latest_cancellation': 48,
+             'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
+             # Allow DBB00001 users to book without slot
+             #'booking_auth': {'applications': ['DBB00001']}},
+             'requires_slot': True},
+            {'name': 'Krios 2', 'tags': 'microscope krios',
+             'latest_cancellation': 48,
+             'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
+             #'booking_auth': {'applications': ['DBB00001']}},
+             'requires_slot': True},
+            {'name': 'Talos', 'tags': 'microscope talos',
+             'latest_cancellation': 48,
+             'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
+             # 'booking_auth': {'applications': ['DBB00001']}},
+             'requires_slot': True},
+            {'name': 'Vitrobot 1', 'tags': 'instrument',
+             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
+            {'name': 'Vitrobot 2', 'tags': 'instrument',
+             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
+            {'name': 'Carbon Coater', 'tags': 'instrument',
+             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
+            {'name': 'Users Drop-in', 'tags': 'service',
+             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)'}
+        ]
+
+        for rDict in resources:
+            dm.create_resource(**rDict)
+
+    def __importApplications(self, dm, jsonData):
+        statuses  = {'enabled': 'active',
+                     'disabled': 'closed'
+                     }
+
+        def createTemplate(f):
+            f['emhub_item'] = dm.create_template(
+                title=f['title'],
+                description=f['description'],
+                status=statuses[f['status']]
+            )
+
+
+        formsDict = {}
+
+        for f in jsonData['forms'].values():
+            createTemplate(f)
+            formsDict[f['iuid']] = f
+
+        for o in jsonData['orders']:
+            piEmail = o['owner']['email']
+            orderId = o['identifier']
+
+            pi = self._dictUsers.get(piEmail, None)
+
+            if pi is None:
+                print("Ignoring ORDER '%s', owner email (%s) not found as PI"
+                      % (orderId, piEmail))
+                continue
+
+            fields = o['fields']
+            description = fields.get('project_des', None)
+            invoiceRef = fields.get('project_invoice_addess', None)
+
+            app = dm.create_application(
+                code=orderId,
+                title=o['title'],
+                description=description,
+                creator_id=pi.id,
+                template_id=formsDict[o['form']['iuid']]['emhub_item'].id,
+                invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
+            )
+
+            #  TODO: Add other PIs
+
+
+        dm.commit()
+
+    def __importBookings(self, dm, bookingsJson):
+        now = dm.now().replace(minute=0, second=0)
+        month = now.month
+
+        usersDict = {
+            'Marta Carroni': 'marta.carroni@scilifelab.se',
+            'Julian Conrad': 'julian.conrad@scilifelab.se'
+         }
+
+        resourcesDict = {
+            'Titan Krios': 1,
+            'Talos Arctica': 3,
+        }
+
+        for b in bookingsJson['reservations']:
+            name = '%s %s'  % (b['firstName'], b['lastName'])
+            resource = b['resourceName']
+
+            if name not in usersDict or resource not  in resourcesDict:
+                print(b['startDate'], b['endDate'],
+                      '%s (%s)' % (b['resourceName'],  b['resourceId']),
+                      b['title'],
+                      '%s %s (%s) '  % (b['firstName'], b['lastName'], b['userId']))
+                continue
+
+            title = b['title']
+            titleLow = title.lower()
+
+            type = 'booking'
+            if 'downtime' in titleLow:
+                type = 'downtime'
+
+            user = self._dictUsers[usersDict[name]]
+            # Create a downtime from today to one week later
+            dm.create_booking(title=b['title'],
+                              start=datetime_from_isoformat(b['startDate']),
+                              end=datetime_from_isoformat(b['endDate']),
+                              type=type,
+                              resource_id=resourcesDict[resource],
+                              creator_id=user.id,  # first user for now
+                              owner_id=user.id,  # first user for now
+                              description="")
+
+        return
+
+        now = dm.now().replace(minute=0, second=0)
+        month = now.month
+
+        # Create a downtime from today to one week later
+        dm.create_booking(title='First Booking',
+                          start=now.replace(day=21),
+                          end=now.replace(day=28),
+                          type='downtime',
+                          resource_id=1,
+                          creator_id=1,  # first user for now
+                          owner_id=1,  # first user for now
+                          description="Some downtime for some problem")
+
+        # Create a booking at the downtime from today to one week later
+        dm.create_booking(title='Booking Krios 1',
+                          start=now.replace(day=1, hour=9),
+                          end=now.replace(day=2, hour=23, minute=59),
+                          type='booking',
+                          resource_id=1,
+                          creator_id=2,  # first user for now
+                          owner_id=11,  # first user for now
+                          description="Krios 1 for user 2")
+
+        # Create booking for normal user
+        dm.create_booking(title='Booking Krios 2',
+                          start=now.replace(day=4, hour=9),
+                          end=now.replace(day=6, hour=23, minute=59),
+                          type='booking',
+                          resource_id=2,
+                          creator_id=10,  # first user for now
+                          owner_id=10,  # first user for now
+                          description="Krios 1 for user 10")
+
+        # Create a booking at the downtime from today to one week later
+        dm.create_booking(title='Booking Krios 1',
+                          start=now.replace(day=2, hour=9),
+                          end=now.replace(day=3, hour=23, minute=59),
+                          type='booking',
+                          resource_id=2,
+                          creator_id=1,  # first user for now
+                          owner_id=15,  # Sara Belum
+                          description="Krios 2 for user 3")
+
+        # Create a booking at the downtime from today to one week later
+        dm.create_booking(title='Slot 1: BAGs',
+                          start=now.replace(day=6, hour=9),
+                          end=now.replace(day=10, hour=23, minute=59),
+                          type='slot',
+                          slot_auth={'applications': ['CEM00297', 'CEM00315']},
+                          resource_id=3,
+                          creator_id=1,  # first user for now
+                          owner_id=1,  # first user for now
+                          description="Talos slot for National BAGs")
+
+        dm.create_booking(title='Slot 2: RAPID',
+                          start=now.replace(day=20, hour=9),
+                          end=now.replace(day=24, hour=23, minute=59),
+                          type='slot',
+                          slot_auth={'applications': ['CEM00332']},
+                          resource_id=3,
+                          creator_id=1,  # first user for now
+                          owner_id=1,  # first user for now
+                          description="Talos slot for RAPID applications")
+
+        # create a repeating event
+        dm.create_booking(title='Dropin',
+                          start=now.replace(day=6, hour=9),
+                          end=now.replace(day=6, hour=13),
+                          type='slot',
+                          repeat_value='bi-weekly',
+                          repeat_stop=now.replace(month=month+2),
+                          resource_id=7,
+                          creator_id=1,  # first user for now
+                          owner_id=1,  # first user for now
+                          description="Recurrent bi-weekly DROPIN slot. ")
+
+    def __populateSessions(self, dm):
+        users = [1, 2, 2]
+        session_names = ['supervisor_23423452_20201223_123445',
+                         'epu-mysession_20122310_234542',
+                         'mysession_very_long_name']
+
+        testData = os.environ.get('EMHUB_TESTDATA')
+        fns = [os.path.join(testData, 'hdf5/20181108_relion30_tutorial.h5'),
+               os.path.join(testData, 'hdf5/t20s_pngs.h5'), 'non-existing-file']
+
+        scopes = ['Krios 1', 'Krios 2', 'Krios 3']
+        numMovies = [423, 234, 2543]
+        numMics = [0, 234, 2543]
+        numCtfs = [0, 234, 2543]
+        numPtcls = [0, 2, 2352534]
+        status = ['Running', 'Error', 'Finished']
+
+        for f, u, s, st, sc, movies, mics, ctfs, ptcls in zip(fns, users, session_names,
+                                                              status, scopes, numMovies,
+                                                              numMics, numCtfs, numPtcls):
+            dm.create_session(
+                sessionData=f,
+                userid=u,
+                sessionName=s,
+                dateStarted=dm.now(),
+                description='Long description goes here.....',
+                status=st,
+                microscope=sc,
+                voltage=300,
+                cs=2.7,
+                phasePlate=False,
+                detector='Falcon',
+                detectorMode='Linear',
+                pixelSize=1.1,
+                dosePerFrame=1.0,
+                totalDose=35.0,
+                exposureTime=1.2,
+                numOfFrames=48,
+                numOfMovies=movies,
+                numOfMics=mics,
+                numOfCtfs=ctfs,
+                numOfPtcls=ptcls,
+                numOfCls2D=0,
+                ptclSizeMin=140,
+                ptclSizeMax=160,
+            )
+
+        dm.create_session(sessionData='dfhgrth',
+                          userid=2,
+                          sessionName='dfgerhsrth_NAME',
+                          dateStarted=dm.now(),
+                          description='Long description goes here.....',
+                          status='Running',
+                          microscope='KriosX',
+                          voltage=300,
+                          cs=2.7,
+                          phasePlate=False,
+                          detector='Falcon',
+                          detectorMode='Linear',
+                          pixelSize=1.1,
+                          dosePerFrame=1.0,
+                          totalDose=35.0,
+                          exposureTime=1.2,
+                          numOfFrames=48,
+                          numOfMovies=0,
+                          numOfMics=0,
+                          numOfCtfs=0,
+                          numOfPtcls=0,
+                          numOfCls2D=0,
+                          ptclSizeMin=140,
+                          ptclSizeMax=160, )
+
+

@@ -36,7 +36,8 @@ def pretty_json(d):
 
 def datetime_from_isoformat(iso_string):
     """ Parse the input string and handle ending Z and assume UTC. """
-    dt_string = iso_string.replace('Z', '+00:00')
+    dt_string = iso_string.replace('Z', '+00:00').replace('+0000', '+00:00')
+
     return dt.datetime.fromisoformat(dt_string).replace(tzinfo=dt.timezone.utc)
 
 

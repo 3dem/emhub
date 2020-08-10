@@ -227,6 +227,7 @@ class DataContent:
         owner = booking.owner
         owner_name = owner.name
         creator = booking.creator
+        application = booking.application
         user = self.app.user
         b_title = booking.title
         user_can_book = False
@@ -246,7 +247,8 @@ class DataContent:
 
             # Show all booking information in title in some cases only
             if user_can_view:
-                extra = "%s, %s" % (owner.name, booking.application.code)
+                appStr = '' if application is None else ', %s' %  application.code
+                extra = "%s%s" % (owner.name, appStr)
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
             else:
                 title = "Booking"
