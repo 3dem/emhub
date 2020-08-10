@@ -1,0 +1,54 @@
+{#<table id="templates-table-{{ status }}" class="table table-striped table-bordered" style="width:100%">#}
+{#    <thead>#}
+{#    <tr>#}
+{#        <th>title</th>#}
+{#        <th>status</th>#}
+{#        <th>actions</th>#}
+{#    </tr>#}
+{#    </thead>#}
+{#    <tbody>#}
+{#    {% for t in templates %}#}
+{#        {% if t['status'] == status %}#}
+{#        <tr>#}
+{#            <td><a href="javascript:showTemplate({{ t['id'] }})">{{ t['title'] }}</a></td>#}
+{#            <td>{{ t.description }}</td>#}
+{#            <td style="width: 105px;">#}
+{#                <button class="btn btn-sm btn-outline-light" onclick="javascript:showTemplate({{ t['id'] }})"><i class="far fa-edit"></i></button>#}
+{#                <button class="btn btn-sm btn-outline-light"><i class="far fa-trash-alt"></i></button>#}
+{#            </td>#}
+{#        </tr>#}
+{#        {% endif %}#}
+{#    {% endfor %}#}
+{##}
+{#    </tbody>#}
+{#</table>#}
+
+<table id="applications-table-{{ status }}" class="table table-striped table-bordered" style="width:100%">
+    <thead>
+    <tr>
+        <th>code</th>
+        <th>alias</th>
+        <th>title</th>
+        <th>creator</th>
+        <th>actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for a in applications %}
+        {% if a.status == status %}
+        <tr>
+            <td><a href="javascript:showApplication({{ a.id }})">{{ a.code }}</a></td>
+            <td>{{ a.alias }}</td>
+            <td>{{ a.title }}</td>
+            <td>{{ a.creator.name }}</td>
+            <td style="width: 105px;">
+                <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
+                        data-id="{{ a.id }}" data-alias="{{ a.alias }}"><i class="far fa-trash-alt"></i></button>
+            </td>
+        </tr>
+        {% endif %}
+    {% endfor %}
+
+    </tbody>
+</table>

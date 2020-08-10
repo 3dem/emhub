@@ -54,7 +54,7 @@
                         <a class="nav-link" id="preparation-tab" data-toggle="tab" href="#preparation" role="tab" aria-controls="preparation" aria-selected="false">Preparation</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" id="submitted-tab" data-toggle="tab" href="#submitted" role="tab" aria-controls="submitted" aria-selected="false">Submitted</a>
+                        <a class="nav-link" id="submitted-tab" data-toggle="tab" href="#submitted" role="tab" aria-controls="submitted" aria-selected="false">Review</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" id="accepted-tab" data-toggle="tab" href="#accepted" role="tab" aria-controls="accepted" aria-selected="true">Accepted</a>
@@ -65,39 +65,16 @@
                 </ul>
                 <div class="tab-content" id="applicationTabsContent">
                     <div class="tab-pane fade" id="preparation" role="tabpanel" aria-labelledby="preparation-tab">
+                        {% set status = "preparation" %}
+                        {%  include "include_applications_table.html" %}
                     </div>
                     <div class="tab-pane fade" id="submitted" role="tabpanel" aria-labelledby="submitted-tab">
-                        <h3>Tab Content Heading</h3>
-                        <p>Nullam et tellus ac ligula condimentum sodales. Aenean tincidunt viverra suscipit. Maecenas id molestie est, a commodo nisi. Quisque fringilla turpis nec elit eleifend vestibulum. Aliquam sed purus in odio ullamcorper congue consectetur in neque. Aenean sem ex, tempor et auctor sed, congue id neque. </p>
+                        {% set status = "review" %}
+                        {%  include "include_applications_table.html" %}
                     </div>
                     <div class="tab-pane fade show active" id="accepted" role="tabpanel" aria-labelledby="accepted-tab">
-                        <table id="example" class="table table-striped table-bordered" style="width:100%">
-                            <thead>
-                            <tr>
-                                <th>code</th>
-                                <th>alias</th>
-                                <th>title</th>
-                                <th>creator</th>
-                                <th>actions</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {% for a in applications %}
-                            <tr>
-                                <td><a href="javascript:showApplication({{ a.id }})">{{ a.code }}</a></td>
-                                <td>{{ a.alias }}</td>
-                                <td>{{ a.title }}</td>
-                                <td>{{ a.creator.name }}</td>
-                                <td style="width: 105px;">
-                                    <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
-                                    <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
-                                            data-id="{{ a.id }}" data-alias="{{ a.alias }}"><i class="far fa-trash-alt"></i></button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-
-                            </tbody>
-                        </table>
+                        {% set status = "accepted" %}
+                        {%  include "include_applications_table.html" %}
                     </div>
                     <div class="tab-pane fade" id="others" role="tabpanel" aria-labelledby="others-tab">
                         <h3>Tab Content Heading</h3>

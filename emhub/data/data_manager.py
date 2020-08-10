@@ -64,7 +64,6 @@ class DataManager:
         if not os.path.exists(sqlitePath):
             Base.metadata.create_all(bind=engine)
 
-
     def commit(self):
         self._db_session.commit()
 
@@ -361,11 +360,20 @@ class DataManager:
     def __create_booking(self, attrs):
         if 'application_id' not in attrs:
             owner = self.get_user_by(id=attrs['owner_id'])
-            apps = owner.get_applications()
+            apps = [a for a in owner.get_applications() if a.status == "accepted"]
             n = len(apps)
-            if n > 1:
-                raise Exception("User %s has m")
-            elif n == 1:
+
+            if n == 0 and not owner.is_manager:
+                raise Exception("User %s has no active application"
+                                % owner.name)
+
+            # FIXME: Validate one application is selected when many are active
+            # if n > 1:
+            #     raise Exception("User %s has more than one active application"
+            #                     % owner.name)
+            # elif n == 1:
+            #     attrs['application_id'] = apps[0].id
+            if apps:
                 attrs['application_id'] = apps[0].id
 
         b = self.Booking(**attrs)

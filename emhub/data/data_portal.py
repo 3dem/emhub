@@ -190,16 +190,22 @@ class PortalData:
             description = fields.get('project_des', None)
             invoiceRef = fields.get('project_invoice_addess', None)
 
-            app = dm.create_application(
-                code=orderId,
-                title=o['title'],
-                description=description,
-                creator_id=pi.id,
-                template_id=formsDict[o['form']['iuid']]['emhub_item'].id,
-                invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
-            )
+            try:
+                app = dm.create_application(
+                    code=orderId,
+                    title=o['title'],
+                    alias=o['status'],
+                    status=o['status'],
+                    description=description,
+                    creator_id=pi.id,
+                    template_id=formsDict[o['form']['iuid']]['emhub_item'].id,
+                    invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
+                )
 
-            #  TODO: Add other PIs
+                #  TODO: Add other PIs
+            except Exception as e:
+                print("Exception when creating Application: %s. IGNORING..." %  e)
+
 
 
         dm.commit()
@@ -208,25 +214,21 @@ class PortalData:
         now = dm.now().replace(minute=0, second=0)
         month = now.month
 
-        usersDict = {
-            'Marta Carroni': 'marta.carroni@scilifelab.se',
-            'Julian Conrad': 'julian.conrad@scilifelab.se'
-         }
-
         resourcesDict = {
             'Titan Krios': 1,
             'Talos Arctica': 3,
+            'Vitrobot': 4,
+            'Carbon Coater': 6
         }
 
-        for b in bookingsJson['reservations']:
-            name = '%s %s'  % (b['firstName'], b['lastName'])
+        for b in bookingsJson:
+            name = b['user']['name']
+            email = b['user']['email']
             resource = b['resourceName']
 
-            if name not in usersDict or resource not  in resourcesDict:
-                print(b['startDate'], b['endDate'],
-                      '%s (%s)' % (b['resourceName'],  b['resourceId']),
-                      b['title'],
-                      '%s %s (%s) '  % (b['firstName'], b['lastName'], b['userId']))
+            if email not in self._dictUsers or resource not  in resourcesDict:
+                print(b['startDate'], b['endDate'], b['resourceName'],
+                      b['title'], name)
                 continue
 
             title = b['title']
@@ -236,82 +238,19 @@ class PortalData:
             if 'downtime' in titleLow:
                 type = 'downtime'
 
-            user = self._dictUsers[usersDict[name]]
-            # Create a downtime from today to one week later
-            dm.create_booking(title=b['title'],
-                              start=datetime_from_isoformat(b['startDate']),
-                              end=datetime_from_isoformat(b['endDate']),
-                              type=type,
-                              resource_id=resourcesDict[resource],
-                              creator_id=user.id,  # first user for now
-                              owner_id=user.id,  # first user for now
-                              description="")
+            user = self._dictUsers[email]
 
-        return
-
-        now = dm.now().replace(minute=0, second=0)
-        month = now.month
-
-        # Create a downtime from today to one week later
-        dm.create_booking(title='First Booking',
-                          start=now.replace(day=21),
-                          end=now.replace(day=28),
-                          type='downtime',
-                          resource_id=1,
-                          creator_id=1,  # first user for now
-                          owner_id=1,  # first user for now
-                          description="Some downtime for some problem")
-
-        # Create a booking at the downtime from today to one week later
-        dm.create_booking(title='Booking Krios 1',
-                          start=now.replace(day=1, hour=9),
-                          end=now.replace(day=2, hour=23, minute=59),
-                          type='booking',
-                          resource_id=1,
-                          creator_id=2,  # first user for now
-                          owner_id=11,  # first user for now
-                          description="Krios 1 for user 2")
-
-        # Create booking for normal user
-        dm.create_booking(title='Booking Krios 2',
-                          start=now.replace(day=4, hour=9),
-                          end=now.replace(day=6, hour=23, minute=59),
-                          type='booking',
-                          resource_id=2,
-                          creator_id=10,  # first user for now
-                          owner_id=10,  # first user for now
-                          description="Krios 1 for user 10")
-
-        # Create a booking at the downtime from today to one week later
-        dm.create_booking(title='Booking Krios 1',
-                          start=now.replace(day=2, hour=9),
-                          end=now.replace(day=3, hour=23, minute=59),
-                          type='booking',
-                          resource_id=2,
-                          creator_id=1,  # first user for now
-                          owner_id=15,  # Sara Belum
-                          description="Krios 2 for user 3")
-
-        # Create a booking at the downtime from today to one week later
-        dm.create_booking(title='Slot 1: BAGs',
-                          start=now.replace(day=6, hour=9),
-                          end=now.replace(day=10, hour=23, minute=59),
-                          type='slot',
-                          slot_auth={'applications': ['CEM00297', 'CEM00315']},
-                          resource_id=3,
-                          creator_id=1,  # first user for now
-                          owner_id=1,  # first user for now
-                          description="Talos slot for National BAGs")
-
-        dm.create_booking(title='Slot 2: RAPID',
-                          start=now.replace(day=20, hour=9),
-                          end=now.replace(day=24, hour=23, minute=59),
-                          type='slot',
-                          slot_auth={'applications': ['CEM00332']},
-                          resource_id=3,
-                          creator_id=1,  # first user for now
-                          owner_id=1,  # first user for now
-                          description="Talos slot for RAPID applications")
+            try:
+                dm.create_booking(title=b['title'],
+                                  start=datetime_from_isoformat(b['startDate']),
+                                  end=datetime_from_isoformat(b['endDate']),
+                                  type=type,
+                                  resource_id=resourcesDict[resource],
+                                  creator_id=user.id,  # first user for now
+                                  owner_id=user.id,  # first user for now
+                                  description="")
+            except Exception as e:
+                print("Exception when creating Booking: %s. IGNORING..." % e)
 
         # create a repeating event
         dm.create_booking(title='Dropin',
