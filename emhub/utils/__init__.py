@@ -34,6 +34,10 @@ def pretty_json(d):
     print(json.dumps(d, indent=4))
 
 
+def pretty_datetime(input_dt):
+    return input_dt.strftime("%d/%m/%Y %I:%M %p")
+
+
 def datetime_from_isoformat(iso_string):
     """ Parse the input string and handle ending Z and assume UTC. """
     dt_string = iso_string.replace('Z', '+00:00').replace('+0000', '+00:00')

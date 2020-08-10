@@ -35,7 +35,7 @@ import datetime as dt
 import flask
 import flask_login
 
-from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
+from emhub.utils import pretty_datetime, datetime_to_isoformat
 
 
 class DataContent:
@@ -48,6 +48,9 @@ class DataContent:
     def __init__(self, app):
         """ Create a new content for the given Flask application. """
         self.app = app
+
+    def _dateStr(self, datetime):
+        return
 
     def get(self, **kwargs):
         content_id = kwargs['content_id']
@@ -73,8 +76,8 @@ class DataContent:
                 continue
             bDict = {'owner': b.owner.name,
                      'resource': b.resource.name,
-                     'start': b.start.strftime("%d/%m/%Y %I:%M %p"),
-                     'end': b.end.strftime("%d/%m/%Y %I:%M %p"),
+                     'start': pretty_datetime(b.start),
+                     'end': pretty_datetime(b.end),
                      }
             if b.start <= now <= b.end:
                 i = 0

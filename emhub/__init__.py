@@ -35,7 +35,7 @@ import flask_login
 
 from . import utils
 from .api import send_json_data, api_bp
-from .utils import datetime_to_isoformat
+from .utils import datetime_to_isoformat, pretty_datetime
 from .data.data_content import DataContent
 
 
@@ -163,6 +163,8 @@ def create_app(test_config=None):
         return os.path.basename(filename)
 
     app.jinja_env.filters['reverse'] = basename
+    app.jinja_env.filters['pretty_datetime'] = pretty_datetime
+
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user
     app.dm = DataManager(dbPath, user=app.user)

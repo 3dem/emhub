@@ -15,6 +15,12 @@
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                 <form id="validationform" data-parsley-validate="" novalidate="">
 
+                    <!-- Created Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Created</label>
+                        <label class="col-12 col-sm-8 col-form-label text-sm-left">{{ application.created|pretty_datetime }}</label>
+                    </div>
+
                     <!-- Title Row -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
