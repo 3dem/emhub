@@ -322,6 +322,12 @@ def create_data_models(dm, Base):
                       nullable=False,
                       unique=True)
 
+        created = Column(UtcDateTime,
+                         index=False,
+                         unique=False,
+                         nullable=False,
+                         default=utcnow())
+
         alias = Column(String(32))
 
         # Possible statuses of an Application:
@@ -392,6 +398,18 @@ def create_data_models(dm, Base):
              slots, while others will be able to book in free days.
             """
             return resourceKey in self.resource_allocation['noslot']
+
+        @property
+        def pi_list(self):
+            """ Return the list of PI. """
+            # Since we are importing data now from the Portal, some application
+            # have the creator of the application as one of the users, so we want
+            # to avoid duplicated entries
+            pi_list = [self.creator]
+            for u in self.users:
+                if u.id != self.creator.id:
+                    pi_list.append(u)
+            return pi_list
 
     class Session(Base):
         """Model for sessions."""

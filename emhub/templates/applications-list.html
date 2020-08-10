@@ -18,11 +18,13 @@
                             <thead>
                             <tr>
                                 <th>code</th>
+                                <th>created</th>
                                 <th>alias</th>
                                 <th>title</th>
                                 <th>creator</th>
                                 <th>template</th>
                                 <th>invoice reference</th>
+                                <th>pi-list</th>
                                 <th>resource_allocation</th>
                                 <th>actions</th>
                             </tr>
@@ -31,11 +33,13 @@
                             {% for a in applications %}
                             <tr>
                                 <td>{{ a.code }}</td>
+                                <td>{{ a.created }}</td>
                                 <td>{{ a.alias }}</td>
                                 <td>{{ a.title }}</td>
                                 <td>{{ a.creator.name }}</td>
                                 <td>{{ a.template.id }}</td>
                                 <td>{{ a.invoice_reference }}</td>
+                                <td>{{ a.users }}</td>
                                 <td>{{ a.resource_allocation }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>

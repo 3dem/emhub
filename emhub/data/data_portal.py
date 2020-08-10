@@ -194,6 +194,7 @@ class PortalData:
                 app = dm.create_application(
                     code=orderId,
                     title=o['title'],
+                    created=datetime_from_isoformat(o['created']),
                     alias=o['status'],
                     status=o['status'],
                     description=description,
@@ -201,6 +202,12 @@ class PortalData:
                     template_id=formsDict[o['form']['iuid']]['emhub_item'].id,
                     invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
                 )
+
+                for piTuple in fields.get('pi_list', []):
+                    piEmail = piTuple[1]
+                    pi = self._dictUsers.get(piEmail, None)
+                    if pi is not None:
+                        app.users.append(pi)
 
                 #  TODO: Add other PIs
             except Exception as e:

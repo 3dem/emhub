@@ -42,6 +42,27 @@
                         </div>
                     </div>
 
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label text-sm-right">PI List</label>
+                        <table class="table col-sm-9">
+
+                        <tbody>
+                            <tr class="table-primary">
+                                <td>{{ application.creator.name }}</td>
+                                <td>{{ application.creator.email }}</td>
+                            </tr>
+                            </tr>
+                            {% for u in application.pi_list[1:] %}
+                                <tr>
+                                    <td>{{ u.name }}</td>
+                                    <td> {{ u.email }}</td>
+                                    </tr>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        </table>
+                    </div>
+
                 </form>
             </div>
             <!-- end Application Form -->
