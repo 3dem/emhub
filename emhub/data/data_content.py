@@ -69,6 +69,8 @@ class DataContent:
         next30 = now + dt.timedelta(days=30)
 
         for b in self.app.dm.get_bookings():
+            if not user.is_manager and not user.same_pi(b.owner):
+                continue
             bDict = {'owner': b.owner.name,
                      'resource': b.resource.name,
                      'start': b.start.strftime("%d/%m/%Y %I:%M %p"),
@@ -76,9 +78,9 @@ class DataContent:
                      }
             if b.start <= now <= b.end:
                 i = 0
-            elif b.start <= now and b.end <= next7:
+            elif now <= b.start and b.start <= next7:
                 i = 1
-            elif b.start <= now and b.end <= next30:
+            elif now <= b.start and b.start <= next30:
                 i = 2
             else:
                 i = -1
@@ -230,6 +232,8 @@ class DataContent:
         application = booking.application
         user = self.app.user
         b_title = booking.title
+        b_description = booking.description
+
         user_can_book = False
         user_can_modify = user.is_manager or user.id == owner.id
         user_can_view = user_can_modify or user.same_pi(owner)
@@ -251,13 +255,14 @@ class DataContent:
                 extra = "%s%s" % (owner.name, appStr)
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
             else:
-                title = "Booking"
-                owner_name = "Hidden"
+                title = "%s Booking" % resource.name
+                owner_name = "Hidden owner"
+                b_description = "Hidden description"
 
         return {
             'id': booking.id,
             'title': title,
-            'description': booking.description,
+            'description': b_description,
             'start': datetime_to_isoformat(booking.start),
             'end': datetime_to_isoformat(booking.end),
             'color': color,
