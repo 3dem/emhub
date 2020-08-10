@@ -113,7 +113,7 @@
                                             {%  endif %}
                                             </div>
                                             <div class="col-2">
-                                                 <a href="#"> <i class="fas fa-calendar-alt"></i>   </a>
+                                                 <a href="javascript: load_calendar('{{r['id']}}');"> <i class="fas fa-calendar-alt"></i>   </a>
                                             </div>
                                         </div>
                                     </div>
@@ -183,3 +183,10 @@
         <!-- ============================================================== -->
     </div>
 </div>
+
+<!-- javascript  -->
+<script>
+    function load_calendar(resource_id) {
+        return load_main_content('booking-calendar', {resource_id:resource_id});
+    }
+</script>

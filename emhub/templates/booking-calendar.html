@@ -9,7 +9,6 @@
     <!-- events calendar -->
     <!-- ============================================================== -->
 
-
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
@@ -21,7 +20,7 @@
                             <h3> Book Resource </h3>
                         </div>
                         <div class="col nopadding">
-                            <select class="selectpicker show-tick" data-width="auto" title="Select Resource to book..." onchange="selectResource(this)">
+                            <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" title="Select Resource to book..." onchange="selectResource(this)">
                             {% for r in resources %}#}
                               <option value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
                             {% endfor %}
@@ -253,6 +252,7 @@
 <script>
     var calendar;
     var selected_resource = null;
+    var selected_resource_id = {{ resource_id|tojson }};
     var booking_type = 'booking';
     var repeat_value = null;
     var last_booking = null;
@@ -350,6 +350,11 @@
   });
 
   calendar.render();
+
+  if (selected_resource_id != null) {
+      $('#selectpicker-resource').selectpicker('val', selected_resource_id);
+      selectResource($('#selectpicker-resource')[0]);
+  }
 
 })(window, document, window.jQuery);
 

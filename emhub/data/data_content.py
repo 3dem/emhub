@@ -190,6 +190,7 @@ class DataContent:
                 labs.append(lab)
 
         dataDict['possible_owners'] = labs
+        dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
 
     def get_booking_list(self, **kwargs):
