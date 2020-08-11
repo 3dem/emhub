@@ -151,6 +151,9 @@ class DataManager:
         """ This should return a single user or None. """
         return self.__item_by(self.Application, **kwargs)
 
+    def update_application(self, **attrs):
+        return self.__update_item(self.Application, **attrs)
+
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self, **attrs):
         print("Creating booking: ",  attrs)

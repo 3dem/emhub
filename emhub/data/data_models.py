@@ -87,6 +87,10 @@ def create_data_models(dm, Base):
         # If 0, means that the booking can be cancelled at any time
         latest_cancellation = Column(Integer, default=0)
 
+        @property
+        def is_microscope(self):
+            return 'microscope' in self.tags
+
 
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
@@ -351,10 +355,12 @@ def create_data_models(dm, Base):
         invoice_address = Column(Text,
                                  nullable=True)
 
+        DEFAULT_ALLOCATION = {'quota': {'krios': 0, 'talos': 0},
+                              'noslot': []}
         # This is the maximum amount of days allocated per type of resource
         # {'krios': 20} means that this application can book max to 20 days
         # for any resource with tag 'krios' (i.e Titan Krios scopes)
-        resource_allocation = Column(JSON, default={'quota': {}, 'noslot': []})
+        resource_allocation = Column(JSON, default=DEFAULT_ALLOCATION)
 
         # ID of the user that created the Application, it should be a PI
         creator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
