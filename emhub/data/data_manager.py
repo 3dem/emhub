@@ -289,7 +289,7 @@ class DataManager:
             session = self._lastSession
         else:
             session = self.Session.query.get(sessionId)
-            session.data = H5SessionData(session.dataData, 'r')
+            session.data = H5SessionData(session.data_path, 'r')
             self._lastSessionId = sessionId
             self._lastSession = session
 
