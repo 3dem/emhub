@@ -490,6 +490,18 @@ def create_data_models(dm, Base):
         operator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
         operator = relationship("User", back_populates="sessions")
 
+        class Cost:
+            def __init__(self, id, date, comment, amount):
+                self.id = id
+                self.date = date
+                self.comment = comment
+                self.amount = amount
+
+        @property
+        def costs(self):
+            return [self.Cost(i, dt.datetime.utcnow(), "Cost number %d" % i, i * 100)
+                    for i in range(1, 4)]
+
         def __repr__(self):
             return '<Session {}>'.format(self.dataName)
 

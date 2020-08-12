@@ -24,15 +24,19 @@
             <div class="tab-regular">
                 <ul class="nav nav-tabs nav-fill" id="myTab7" role="tablist">
                     <li class="nav-item">
-                        <a class="nav-link active" id="home-tab-justify" data-toggle="tab" href="#home-justify" role="tab" aria-controls="home" aria-selected="true">Live</a>
+                        <a class="nav-link active" id="session-tab-summary" data-toggle="tab" href="#session-content-summary" role="tab" aria-controls="live" aria-selected="true">Live</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" id="profile-tab-justify" data-toggle="tab" href="#profile-justify" role="tab" aria-controls="profile" aria-selected="false">Summary</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="session-tab-costs" data-toggle="tab" href="#session-content-costs" role="tab" aria-controls="costs" aria-selected="false">Costs</a>
+                    </li>
                 </ul>
                 <div class="tab-content" id="myTabContent7">
+
                     <!-- tab "Live" -->
-                    <div class="tab-pane fade show active" id="home-justify" role="tabpanel" aria-labelledby="home-tab-justify">
+                    <div class="tab-pane fade show active" id="session-content-summary" role="tabpanel" aria-labelledby="session-tab-summary">
                         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                             <!-- title row -->
                             <div class="row">
@@ -121,6 +125,7 @@
                         </div>
                     </div>
                     <!-- end tab "Live" -->
+
                     <!-- tab "Summary" -->
                     <div class="tab-pane fade" id="profile-justify" role="tabpanel" aria-labelledby="profile-tab-justify">
                         <!-- parameters row -->
@@ -277,6 +282,56 @@
 
                     </div>
                     <!-- end tab "Summary" -->
+
+                    <!-- tab "Costs" -->
+                    <div class="tab-pane fade" id="session-content-costs" role="tabpanel" aria-labelledby="session-tab-costs">
+
+                        <!-- table row -->
+                        <div class="row">
+                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <div class="row" style="align-items: center">
+                                            <h5 class="mb-0 float-left col-3" style="">Session Costs</h5>
+                                            <div class="col-9" style="text-align: right;">
+                                                <a href="#" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Cost</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table">
+                                                <thead class="bg-light">
+                                                    <tr class="border-0">
+                                                        <th class="border-0">Date</th>
+                                                        <th class="border-0">Comment</th>
+                                                        <th class="border-0">Amount</th>
+                                                        <th class="border-0">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                {% for c in session.costs %}
+                                                    <tr>
+                                                        <td> {{ c.date|pretty_datetime }}</td>
+                                                        <td> {{ c.comment }}</td>
+                                                        <td> {{ c.amount }}</td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal">
+                                                                <i class="far fa-trash-alt"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                                </tbody>
+                                            </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- end table row -->
+
+                    </div>
+                    <!-- end tab "Costs" -->
                 </div>
             </div>
             <!-- end tabs -->
