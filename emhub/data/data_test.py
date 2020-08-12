@@ -27,7 +27,6 @@
 # **************************************************************************
 
 import os
-import datetime as dt
 
 
 class TestData:
@@ -48,10 +47,10 @@ class TestData:
         self.__populateResources(dm)
         print("Populating applications...")
         self.__populateApplications(dm)
-        print("Populating sessions...")
-        self.__populateSessions(dm)
         print("Populating Bookings")
         self.__populateBookings(dm)
+        print("Populating sessions...")
+        self.__populateSessions(dm)
 
     def __populateUsers(self, dm):
         # Create user table
@@ -162,6 +161,7 @@ class TestData:
         applications = [
             {'code': 'CEM00297',
              'alias': 'BAG Lund',
+             'status': 'accepted',
              'title': 'Bag Application for Lund University 2019/20',
              'description': '',
              'creator_id': 6,
@@ -174,6 +174,7 @@ class TestData:
              },
             {'code': 'CEM00315',
              'alias': 'BAG SU',
+             'status': 'accepted',
              'title': 'Bag Application for Stockholm University',
              'description': '',
              'creator_id': 7,
@@ -185,6 +186,7 @@ class TestData:
              },
             {'code': 'CEM00332',
              'alias': 'RAA Andersson',
+             'status': 'accepted',
              'title': 'Rapid Access application',
              'description': '',
              'creator_id': 8,
@@ -196,7 +198,7 @@ class TestData:
              },
             {'code': 'DBB00001',
              'alias': 'SU-DBB',
-             'status': 'active',
+             'status': 'accepted',
              'title': 'Internal DBB project',
              'description': '',
              'creator_id': 9,
@@ -295,75 +297,85 @@ class TestData:
                           description="Recurrent bi-weekly DROPIN slot. ")
 
     def __populateSessions(self, dm):
-        users = [1, 2, 2]
-        session_names = ['supervisor_23423452_20201223_123445',
-                         'epu-mysession_20122310_234542',
-                         'mysession_very_long_name']
+        td = os.environ.get('EMHUB_TESTDATA')
 
-        testData = os.environ.get('EMHUB_TESTDATA')
-        fns = [os.path.join(testData, 'hdf5/20181108_relion30_tutorial.h5'),
-               os.path.join(testData, 'hdf5/t20s_pngs.h5'), 'non-existing-file']
+        dm.create_session(
+            name='supervisor_23423452_20201223_123445',
+            start=None,
+            end=None,
+            status='running',
+            data_path=os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
+            acquisition={'voltage': 300,
+                         'cs': 2.7,
+                         'phasePlate': False,
+                         'detector': 'Falcon2',
+                         'detectorMode': 'Linear',
+                         'pixelSize': 1.1,
+                         'dosePerFrame': 1.0,
+                         'totalDose': 35,
+                         'exposureTime': 1.2,
+                         'numOfFrames': 48,
+                         },
+            stats={'numMovies': 423,
+                   'numMics': 0,
+                   'numCtf': 0,
+                   'numPtcls': 0,
+                   },
+            resource_id=1,  # Krios 1
+            booking_id=None,
+            operator_id=1,  # User  X
+        )
 
-        scopes = ['Krios 1', 'Krios 2', 'Krios 3']
-        numMovies = [423, 234, 2543]
-        numMics = [0, 234, 2543]
-        numCtfs = [0, 234, 2543]
-        numPtcls = [0, 2, 2352534]
-        status = ['Running', 'Error', 'Finished']
+        dm.create_session(
+            name='epu-mysession_20122310_234542',
+            start=dm.now(),
+            end=None,
+            status='error',
+            data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
+            acquisition={'voltage': 300,
+                         'cs': 2.7,
+                         'phasePlate': False,
+                         'detector': 'Falcon2',
+                         'detectorMode': 'Linear',
+                         'pixelSize': 1.1,
+                         'dosePerFrame': 1.0,
+                         'totalDose': 35,
+                         'exposureTime': 1.2,
+                         'numOfFrames': 48,
+                         },
+            stats={'numMovies': 234,
+                   'numMics': 234,
+                   'numCtf': 234,
+                   'numPtcls': 2,
+                   },
+            resource_id=2,  # Krios 2
+            booking_id=None,
+            operator_id=1,  # User  X
+        )
 
-        for f, u, s, st, sc, movies, mics, ctfs, ptcls in zip(fns, users, session_names,
-                                                              status, scopes, numMovies,
-                                                              numMics, numCtfs, numPtcls):
-            dm.create_session(
-                sessionData=f,
-                userid=u,
-                sessionName=s,
-                dateStarted=dm.now(),
-                description='Long description goes here.....',
-                status=st,
-                microscope=sc,
-                voltage=300,
-                cs=2.7,
-                phasePlate=False,
-                detector='Falcon',
-                detectorMode='Linear',
-                pixelSize=1.1,
-                dosePerFrame=1.0,
-                totalDose=35.0,
-                exposureTime=1.2,
-                numOfFrames=48,
-                numOfMovies=movies,
-                numOfMics=mics,
-                numOfCtfs=ctfs,
-                numOfPtcls=ptcls,
-                numOfCls2D=0,
-                ptclSizeMin=140,
-                ptclSizeMax=160,
-            )
-
-        dm.create_session(sessionData='dfhgrth',
-                          userid=2,
-                          sessionName='dfgerhsrth_NAME',
-                          dateStarted=dm.now(),
-                          description='Long description goes here.....',
-                          status='Running',
-                          microscope='KriosX',
-                          voltage=300,
-                          cs=2.7,
-                          phasePlate=False,
-                          detector='Falcon',
-                          detectorMode='Linear',
-                          pixelSize=1.1,
-                          dosePerFrame=1.0,
-                          totalDose=35.0,
-                          exposureTime=1.2,
-                          numOfFrames=48,
-                          numOfMovies=0,
-                          numOfMics=0,
-                          numOfCtfs=0,
-                          numOfPtcls=0,
-                          numOfCls2D=0,
-                          ptclSizeMin=140,
-                          ptclSizeMax=160, )
-
-
+        dm.create_session(
+            name='session_very_long_name',
+            start=dm.now(),
+            end=None,
+            status='finished',
+            data_path=os.path.join(td, 'non-existing-file'),
+            acquisition={'voltage': 300,
+                         'cs': 2.7,
+                         'phasePlate': False,
+                         'detector': 'Falcon2',
+                         'detectorMode': 'Linear',
+                         'pixelSize': 1.1,
+                         'dosePerFrame': 1.0,
+                         'totalDose': 35,
+                         'exposureTime': 1.2,
+                         'numOfFrames': 48,
+                         },
+            stats={'numMovies': 2543,
+                   'numMics': 2543,
+                   'numCtf': 2543,
+                   'numPtcls': 2352534,
+                   },
+            resource_id=3,  # Talos
+            booking_id=None,
+            operator_id=1,  # User  X
+        )

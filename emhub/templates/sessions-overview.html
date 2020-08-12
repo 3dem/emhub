@@ -30,12 +30,12 @@
                     <div class="session-card-head">
                         <div class="row">
                             <div class="col col-auto">
-                            <h3 class="card-title">{{ session.microscope }}</h3>
+                            <h3 class="card-title">{{ session.resource.name }}</h3>
                             </div>
                             <div class="col col-auto">
-                            {% if session.status=='Running' %}
+                            {% if session.status=='running' %}
                                 <span class="badge badge-success">Running</span>
-                            {% elif session.status=='Error' %}
+                            {% elif session.status=='error' %}
                                 <span class="badge badge-danger">Failed</span>
                             {% endif %}
                             </div>
@@ -44,9 +44,9 @@
 
                     <!-- session card body  -->
                     <div class="session-card-body">
-                        <h6 class="card-subtitle text-muted mb-3">Session: {{ session.sessionName }}</h6>
-                        <h6 class="card-subtitle text-muted mb-3">User: {{ session.users.username }}</h6>
-                        <h6 class="card-subtitle text-muted mb-3">Started: {{ session.dateStarted }}</h6>
+                        <h6 class="card-subtitle text-muted mb-3">Session: {{ session.name }}</h6>
+                        <h6 class="card-subtitle text-muted mb-3">User: {{ session.operator.name }}</h6>
+                        <h6 class="card-subtitle text-muted mb-3">Started: {{ session.start|pretty_datetime }}</h6>
                         <h6 class="card-subtitle text-muted mb-3">Session id: {{ session.id }}</h6>
 
                         <div class="row">
