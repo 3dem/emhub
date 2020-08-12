@@ -4,13 +4,13 @@
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="page-header">
-                <h2 class="pageheader-title">{{ session.sessionName }}</h2>
+                <h2 class="pageheader-title">{{ session.name }}</h2>
                 <p class="pageheader-text">{{ session.description }} - this is session {{ session.id }}</p>
                 <div class="page-breadcrumb">
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb">
                             <li class="breadcrumb-item"><a href="#" class="breadcrumb-link">Sessions</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">{{ session.microscope }}</li>
+                            <li class="breadcrumb-item active" aria-current="page">{{ session.resource.name }}</li>
                         </ol>
                     </nav>
                 </div>
@@ -133,47 +133,47 @@
                                             <tbody>
                                             <tr>
                                                 <td>Voltage</td>
-                                                <td>{{ session.voltage }} keV</td>
+                                                <td>{{ session.acquisition['voltage'] }} keV</td>
                                             </tr>
                                             <tr>
                                                 <td>Cs</td>
-                                                <td>{{ session.cs }} mm</td>
+                                                <td>{{ session.acquisition['cs']  }} mm</td>
                                             </tr>
                                             <tr>
                                                 <td>VPP</td>
-                                                {% if session.phasePlate %}
-                                                <td>Yes</td>
+                                                {% if session.acquisition['phasePlate']  %}
+                                                    <td>Yes</td>
                                                 {% else %}
-                                                <td>No</td>
+                                                    <td>No</td>
                                                 {% endif %}
                                             </tr>
                                             <tr>
                                                 <td>Detector</td>
-                                                <td>{{ session.detector }}</td>
+                                                <td>{{ session.acquisition['detector'] }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Mode</td>
-                                                <td>{{ session.detectorMode }}</td>
+                                                <td>{{ session.acquisition['detectorMode'] }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Pixel size</td>
-                                                <td>{{ session.pixelSize }} A</td>
+                                                <td>{{ session.acquisition['pixelSize'] }} A</td>
                                             </tr>
                                             <tr>
                                                 <td>Dose per frame</td>
-                                                <td>{{ session.dosePerFrame }} e/A2</td>
+                                                <td>{{ session.acquisition['dosePerFrame'] }} e/A2</td>
                                             </tr>
                                             <tr>
                                                 <td>Total dose</td>
-                                                <td>{{ session.totalDose }} e/A2</td>
+                                                <td>{{ session.acquisition['totalDose']}} e/A2</td>
                                             </tr>
                                             <tr>
                                                 <td>Exp. time</td>
-                                                <td>{{ session.exposureTime }} s</td>
+                                                <td>{{ session.acquisition['exposureTime'] }} s</td>
                                             </tr>
                                             <tr>
                                                 <td>Num. of frames</td>
-                                                <td>{{ session.numOfFrames }}</td>
+                                                <td>{{ session.acquisition['numOfFrames'] }}</td>
                                             </tr>
 
                                             </tbody>
@@ -189,23 +189,23 @@
                                             <tbody>
                                             <tr>
                                                 <td>User</td>
-                                                <td>{{ session.users.username }}</td>
+                                                <td>{{ session.operator.name }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Started</td>
-                                                <td>{{ session.dateStarted }}</td>
+                                                <td>{{ session.start|pretty_datetime }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Particle size</td>
-                                                <td>{{ session.ptclSizeMin }}-{{ session.ptclSizeMax }} A</td>
+                                                <td>{{ session.ptclSizeMin }}-{{ session.stats['ptclSizeMax'] }} A</td>
                                             </tr>
                                             <tr>
                                                 <td>Num. of particles</td>
-                                                <td>{{ session.numOfPtcls }}</td>
+                                                <td>{{ session.stats['numOfPtcls'] }}</td>
                                             </tr>
                                             <tr>
                                                 <td>2D classes</td>
-                                                <td>{{ session.numOfCls2D }}</td>
+                                                <td>{{ session.stats['numOfCls2D'] }}</td>
                                             </tr>
 
                                             </tbody>

@@ -79,12 +79,17 @@ def delete_template():
 
 @api_bp.route('/create_application', methods=['POST'])
 def create_application():
-    pass
+    return send_json_data({'error': 'create_application NOT IMPLEMENTED'})
 
 
 @api_bp.route('/get_applications', methods=['POST'])
 def get_applications():
     pass
+
+
+@api_bp.route('/update_application', methods=['POST'])
+def update_application():
+    return  handle_application(app.dm.update_application)
 
 # ---------------------------- BOOKINGS ---------------------------------------
 @api_bp.route('/create_booking', methods=['POST'])
@@ -176,3 +181,10 @@ def handle_template(template_func):
         return template_func(**attrs).json()
 
     return _handle_item(handle, 'template')
+
+
+def handle_application(application_func):
+    def handle(**attrs):
+        return application_func(**attrs).json()
+
+    return _handle_item(handle, 'application')

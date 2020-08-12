@@ -87,6 +87,10 @@ def create_data_models(dm, Base):
         # If 0, means that the booking can be cancelled at any time
         latest_cancellation = Column(Integer, default=0)
 
+        @property
+        def is_microscope(self):
+            return 'microscope' in self.tags
+
 
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
@@ -141,7 +145,7 @@ def create_data_models(dm, Base):
                           back_populates="lab_members")
 
         # one user to many sessions, bidirectional
-        sessions = relationship('Session', back_populates="users")
+        sessions = relationship('Session', back_populates="operator")
 
         created_applications = relationship("Application",
                                             back_populates="creator")
@@ -209,75 +213,6 @@ def create_data_models(dm, Base):
                 applications = list(pi.created_applications)
                 applications.extend(pi.applications)
                 return applications
-
-    class Booking(Base):
-        """Model for user accounts."""
-        __tablename__ = 'bookings'
-
-        id = Column(Integer,
-                    primary_key=True)
-
-        title = Column(String(256),
-                       nullable=False)
-
-        start = Column(UtcDateTime,
-                       nullable=False)
-
-        end = Column(UtcDateTime,
-                     nullable=False)
-
-        # booking, slot or downtime
-        type = Column(String(16),
-                      nullable=False)
-
-        # slot authorization, who can book within this slot
-        slot_auth = Column(JSON, default={'applications': [], 'users': []})
-
-        description = Column(Text,
-                             nullable=True)
-
-        resource_id = Column(Integer, ForeignKey('resources.id'))
-        resource = relationship("Resource")
-
-        # This is reference to the user that created the Booking
-        creator_id = Column(Integer, ForeignKey('users.id'),
-                            nullable=False)
-        creator = relationship("User", foreign_keys=[creator_id])
-
-        # And this is the user that "owns" the Booking
-        owner_id = Column(Integer, ForeignKey('users.id'),
-                          nullable=False)
-        owner = relationship("User", foreign_keys=[owner_id])
-
-        # Related to the Owner, we also keep the Application to which
-        # this booking is associated
-        application_id = Column(Integer, ForeignKey('applications.id'),
-                                nullable=True)
-        application = relationship("Application")
-
-        repeat_id = Column(String(256), nullable=True)
-
-        repeat_value = Column(String(32), nullable=False, default='no')
-
-        @property
-        def days(self):
-            """ Count how many days these bookings spans.
-            (It is not strictly necessary the total amount of time in in
-            units of 24h.
-            """
-            td = self.end.date() - self.start.date() + dt.timedelta(days=1)
-            return td.days
-
-        def __repr__(self):
-            def _timestr(dt):
-                return dt.strftime('%Y/%m/%d')
-
-            return ('<Booking: %s, owner=%s, dates: %s - %s>'
-                    % (self.title, self.owner.name,
-                       _timestr(self.start), _timestr(self.end)))
-
-        def json(self):
-            return _json(self)
 
     class Template(Base):
         """ Classes used as template to create Applications.
@@ -351,10 +286,12 @@ def create_data_models(dm, Base):
         invoice_address = Column(Text,
                                  nullable=True)
 
+        DEFAULT_ALLOCATION = {'quota': {'krios': 0, 'talos': 0},
+                              'noslot': []}
         # This is the maximum amount of days allocated per type of resource
         # {'krios': 20} means that this application can book max to 20 days
         # for any resource with tag 'krios' (i.e Titan Krios scopes)
-        resource_allocation = Column(JSON, default={'quota': {}, 'noslot': []})
+        resource_allocation = Column(JSON, default=DEFAULT_ALLOCATION)
 
         # ID of the user that created the Application, it should be a PI
         creator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
@@ -364,6 +301,9 @@ def create_data_models(dm, Base):
         users = relationship("User",
                              secondary=ApplicationUser,
                              back_populates="applications")
+
+        bookings = relationship("Booking",
+                                back_populates="application")
 
         # Link to the template used to create the form
         template_id = Column(Integer, ForeignKey('templates.id'), nullable=False)
@@ -411,109 +351,144 @@ def create_data_models(dm, Base):
                     pi_list.append(u)
             return pi_list
 
+    class Booking(Base):
+        """Model for user accounts."""
+        __tablename__ = 'bookings'
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        title = Column(String(256),
+                       nullable=False)
+
+        start = Column(UtcDateTime,
+                       nullable=False)
+
+        end = Column(UtcDateTime,
+                     nullable=False)
+
+        # booking, slot or downtime
+        type = Column(String(16),
+                      nullable=False)
+
+        # slot authorization, who can book within this slot
+        slot_auth = Column(JSON, default={'applications': [], 'users': []})
+
+        description = Column(Text,
+                             nullable=True)
+
+        repeat_id = Column(String(256), nullable=True)
+
+        repeat_value = Column(String(32), nullable=False, default='no')
+
+        resource_id = Column(Integer, ForeignKey('resources.id'))
+        resource = relationship("Resource")
+
+        # This is reference to the user that created the Booking
+        creator_id = Column(Integer, ForeignKey('users.id'),
+                            nullable=False)
+        creator = relationship("User", foreign_keys=[creator_id])
+
+        # And this is the user that "owns" the Booking
+        owner_id = Column(Integer, ForeignKey('users.id'),
+                          nullable=False)
+        owner = relationship("User", foreign_keys=[owner_id])
+
+        # Related to the Owner, we also keep the Application to which
+        # this booking is associated
+        application_id = Column(Integer, ForeignKey('applications.id'),
+                                nullable=True)
+        application = relationship("Application",
+                                   back_populates="bookings")
+
+        session = relationship("Session", back_populates="booking")
+
+        @property
+        def days(self):
+            """ Count how many days these bookings spans.
+            (It is not strictly necessary the total amount of time in in
+            units of 24h.
+            """
+            td = self.end.date() - self.start.date() + dt.timedelta(days=1)
+            return td.days
+
+        def __repr__(self):
+            def _timestr(dt):
+                return dt.strftime('%Y/%m/%d')
+
+            return ('<Booking: %s, owner=%s, dates: %s - %s>'
+                    % (self.title, self.owner.name,
+                       _timestr(self.start), _timestr(self.end)))
+
+        def json(self):
+            return _json(self)
+
     class Session(Base):
         """Model for sessions."""
         __tablename__ = 'sessions'
 
         id = Column(Integer,
                     primary_key=True)
-        sessionData = Column(String(80),
-                             index=False,
-                             unique=True,
-                             nullable=False)
-        sessionName = Column(String(80),
-                             index=True,
-                             unique=False,
-                             nullable=False)
-        dateStarted = Column(UtcDateTime,
-                             index=False,
-                             unique=False,
-                             nullable=False)
-        description = Column(Text,
-                             index=False,
-                             unique=False,
-                             nullable=True)
-        status = Column(String(20),
-                        index=False,
-                        unique=False,
-                        nullable=False)
-        microscope = Column(String(64),
-                            index=False,
-                            unique=False,
-                            nullable=False)
-        voltage = Column(Integer,
-                         index=False,
-                         unique=False,
-                         nullable=False)
-        cs = Column(Float,
-                    index=False,
-                    unique=False,
-                    nullable=False)
-        phasePlate = Column(Boolean,
-                            index=False,
-                            unique=False,
-                            nullable=False)
-        detector = Column(String(64),
-                          index=False,
-                          unique=False,
-                          nullable=False)
-        detectorMode = Column(String(64),
-                              index=False,
-                              unique=False,
-                              nullable=False)
-        pixelSize = Column(Float,
-                           index=False,
-                           unique=False,
-                           nullable=False)
-        dosePerFrame = Column(Float,
-                              index=False,
-                              unique=False,
-                              nullable=False)
-        totalDose = Column(Float,
-                           index=False,
-                           unique=False,
-                           nullable=False)
-        exposureTime = Column(Float,
-                              index=False,
-                              unique=False,
-                              nullable=False)
-        numOfFrames = Column(Integer,
-                             index=False,
-                             unique=False,
-                             nullable=False)
-        numOfMovies = Column(Integer,
-                             index=False,
-                             unique=False,
-                             nullable=False)
-        numOfMics = Column(Integer,
-                           index=False,
-                           unique=False,
-                           nullable=False)
-        numOfCtfs = Column(Integer,
-                           index=False,
-                           unique=False,
-                           nullable=False)
-        numOfPtcls = Column(Integer,
-                            index=False,
-                            unique=False,
-                            nullable=False)
-        numOfCls2D = Column(Integer,
-                            index=False,
-                            unique=False,
-                            nullable=False)
-        ptclSizeMin = Column(Integer,
-                             index=False,
-                             unique=False,
-                             nullable=False)
-        ptclSizeMax = Column(Integer,
-                             index=False,
-                             unique=False,
-                             nullable=False)
 
-        # one user to many sessions, bidirectional
-        userid = Column(Integer, ForeignKey('users.id'),
-                        nullable=False)
-        users = relationship("User", back_populates="sessions")
+        name = Column(String(256),
+                       nullable=False)
+
+        start = Column(UtcDateTime)
+
+        end = Column(UtcDateTime)
+
+        # Possible statuses of a Session:
+        #   - x: when it has been created and it under preparation
+        #   - y: the application has been submitted for review
+        #   - z: if for some reason the application is rejected
+        status = Column(String(32), default='x')
+
+        data_path = Column(String(256),
+                             index=False,
+                             nullable=True)
+
+        DEFAULT_ACQUISITION = {
+            'voltage': None,
+            'cs': None,
+            'phasePlate': False,
+            'detector': None,
+            'detectorMode': None,
+            'pixelSize': None,
+            'dosePerFrame': None,
+            'totalDose': None,
+            'exposureTime': None,
+            'numOfFrames': None,
+        }
+        # Acquisition info parameters are store as a JSON string
+        acquisition = Column(JSON, default=DEFAULT_ACQUISITION)
+
+
+        DEFAULT_STATS = {
+            'numOfMovies': 0,
+            'numOfMics': 0,
+            'numOfCtfs': 0,
+            'numOfPtcls': 0,
+            'numOfCls2D': 0,
+            'ptclSizeMin': 0,
+            'ptclSizeMax': 0,
+        }
+
+        # Acquisition info parameters are store as a JSON string
+        stats = Column(JSON, default=DEFAULT_STATS)
+
+        # Resource (usually microscope) that was used in this session
+        # This should be the same resource as the booking, when  it is not None
+        resource_id = Column(Integer, ForeignKey('resources.id'))
+        resource = relationship("Resource")
+
+        # Booking that this Session is related (optional)
+        booking_id = Column(Integer, ForeignKey('bookings.id'))
+        booking = relationship("Booking", back_populates="session")
+
+        # User that was or is in charge of the session
+        # It might be one of the facility staff or an independent user
+        operator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+        operator = relationship("User", back_populates="sessions")
 
         def __repr__(self):
             return '<Session {}>'.format(self.dataName)
@@ -523,8 +498,8 @@ def create_data_models(dm, Base):
 
     dm.User = User
     dm.Resource = Resource
-    dm.Booking = Booking
-    dm.Session = Session
     dm.Template = Template
     dm.Application = Application
+    dm.Booking = Booking
+    dm.Session = Session
 

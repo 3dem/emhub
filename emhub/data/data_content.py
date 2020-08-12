@@ -220,7 +220,13 @@ class DataContent:
         return {'applications': self.app.dm.get_applications()}
 
     def get_application_form(self, **kwargs):
-        return {'application': self.app.dm.get_application_by(id=kwargs['application_id'])}
+        app = self.app.dm.get_application_by(id=kwargs['application_id'])
+        mics = [{'id': r.id,
+                 'name': r.name,
+                 'noslot': app.no_slot(r.id),
+                 } for r in self.app.dm.get_resources() if r.is_microscope]
+        return {'application': app,
+                'microscopes': mics}
 
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """

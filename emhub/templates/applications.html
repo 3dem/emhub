@@ -190,7 +190,7 @@
 
       <div class="modal-footer">
         <button type="button" id="template-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
-        <button type="button" id="template-btn-ok" class="btn btn-outline-dark" onclick="javascript: onOkButtonClick()">Update</button>
+        <button type="button" id="template-btn-ok" class="btn btn-outline-dark" onclick="javascript: onTemplateOkButtonClick()">Update</button>
       </div>
     </div>
   </div>
@@ -300,7 +300,7 @@ function showApplication(applicationId) {
 
 }  // function showApplication
 
-/** Helper functions to handle AJAX response or failure */
+/** Helper functions to handle Template AJAX response or failure */
 function handleAjaxDone(jsonResponse) {
     var error = null;
 
@@ -333,7 +333,7 @@ function handleAjaxFail(jqXHR, textStatus) {
 /** This function will be called when the OK button in the Template form
  * is clicked. It can be either Create or Update action.
  */
-function onOkButtonClick() {
+function onTemplateOkButtonClick() {
     // Update template values
     template.title = $('#template-title').val();
     template.description = $('#template-description').val();
@@ -356,5 +356,76 @@ function onOkButtonClick() {
 
     ajaxContent.done(handleAjaxDone);
     ajaxContent.fail(handleAjaxFail);
-}  // function onOkButtonClick
+}  // function onTemplateOkButtonClick
+
+/** Helper functions to handle Application AJAX response or failure */
+function handleApplicationAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('application' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showMessage('ERROR', error);
+    else {
+        $('#application-modal').on('hidden.bs.modal', function () {
+            var params = {}
+            load_main_content("applications", params);
+        });
+        $('#application-modal').modal('hide');
+    }
+}
+
+/** This function will be called when the OK button in the Application form
+ * is clicked. It can be either Create or Update action.
+ */
+function onApplicationOkButtonClick() {
+    // Update template values
+    var application = {
+        id: parseInt($('#application-id').val()),
+        title: $('#application-title').val(),
+        description: $('#application-description').val(),
+        resource_allocation: {
+            quota: {
+                krios: parseInt($('#quota-krios').val()),
+                talos: parseInt($('#quota-talos').val())
+            },
+            noslot: []  // FIXME: Create the proper list
+        }
+    };
+
+    $( ".noslot" ).each( function( i, el ) {
+        var elem = $( el );
+        if (elem.prop("checked"))
+            application.resource_allocation.noslot.push(parseInt(elem.val()));
+        //alert("checked: " + elem.prop('checked') + " value: " + elem.val());
+    });
+
+    var endpoint = null;
+
+    if (application.id != null) {
+        endpoint = "{{ url_for('api.update_application') }}";
+    }
+    else {
+        endpoint = "{{ url_for('api.create_application') }}";
+    }
+
+    var ajaxContent = $.ajax({
+        url: endpoint,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: application}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleApplicationAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
+}  // function onTemplateOkButtonClick
+
 </script>
