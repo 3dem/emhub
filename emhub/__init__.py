@@ -79,7 +79,7 @@ def create_app(test_config=None):
             kwargs = {'content_id': 'user-login', 'next_content': content_id}
         else:
             if content_id == 'user-login':
-                content_id = 'booking-calendar'
+                content_id = 'dashboard'
             kwargs = {'content_id': content_id}
 
         return flask.render_template('main.html', **kwargs)
@@ -87,7 +87,7 @@ def create_app(test_config=None):
     @app.route('/', methods=['GET', 'POST'])
     @app.route('/index', methods=['GET', 'POST'])
     def index():
-        return flask.redirect(flask.url_for('main', content_id='welcome'))
+        return flask.redirect(flask.url_for('main', content_id='dashboard'))
 
     @app.route('/login', methods=['GET'])
     def login():
@@ -114,7 +114,7 @@ def create_app(test_config=None):
         flask_login.login_user(user)
 
         if next_content == 'user-login':
-            next_content = 'booking-calendar'
+            next_content = 'dashboard'
         print("logged user: %s, next_content: %s" % (username, next_content))
         return flask.redirect(flask.url_for('main', content_id=next_content))
 
