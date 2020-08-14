@@ -3,6 +3,7 @@
     <thead>
     <tr>
         <th>code</th>
+        <th>status</th>
         <th>created</th>
         <th>title</th>
         <th>creator</th>
@@ -11,9 +12,10 @@
     </thead>
     <tbody>
     {% for a in applications %}
-        {% if a.status == status %}
+        {% if a.status in status %}
         <tr>
             <td><a href="javascript:showApplication({{ a.id }})">{{ a.code }}</a></td>
+            <td>{{ a.status }}</td>
             <td>{{ a.created|pretty_datetime }}</td>
             <td>{{ a.title }}</td>
             <td>{{ a.creator.name }}</td>

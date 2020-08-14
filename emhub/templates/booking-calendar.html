@@ -85,13 +85,13 @@
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
                         <div class="col-12 col-sm-8 col-lg-6">
                             {% if possible_owners %}
-                                <select id="booking-owner-select" class="selectpicker show-tick" data-width="100%">
+                                <select id="booking-owner-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
                                 {% for lab in possible_owners %}
                                     <option data-divider="true"></option>
                                     <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
                                     {% for u in lab[1:] %}
                                         <option value="{{u['id']}}">{{u['name']}}</option>
-                                    {% endfor %}}
+                                    {% endfor %}
                                 {% endfor %}
                                 </select>
                             {% else %}
@@ -112,7 +112,8 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Start</label>
                         <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
-                            <input class="form-control" type="text" id="booking-start-date" value="" />
+                            <input type="text" class="form-control datetimepicker-input" data-target="#booking-start-date" id="booking-start-date" data-toggle="datetimepicker"/>
+
                         </div>
                         <div class="col-sm-4 col-lg-3">
                             <input class="form-control" type="text" id="booking-start-time" value="09:00" />
@@ -124,7 +125,8 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">End</label>
                         <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
-                            <input class="form-control" type="text" id="booking-end-date" value="" />
+                             <input type="text" class="form-control datetimepicker-input" data-target="#booking-end-date" id="booking-end-date" data-toggle="datetimepicker"/>
+
                         </div>
                         <div class="col-sm-4 col-lg-3">
                             <input class="form-control" type="text" id="booking-end-time" value="23:59" />
@@ -173,8 +175,8 @@
                 <label class="col-12 col-sm-3 col-form-label text-sm-right">Sloth Authorization</label>
                 <div class="col-12 col-sm-8 col-lg-6">
                 <select id="booking-slot-auth" class="selectpicker show-tick" multiple data-width="100%" data-selected-text-format="count > 5" title="Select authorization...">
-                    {% for p in projects %}#}
-                      <option value="{{p['code']}}" data-content="<span class='badge badge-light'>{{p['code']}}</span>">{{p['code']}}</option>
+                    {% for a in applications %}#}
+                      <option value="{{a['code']}}" data-content="<span class='badge badge-light'>{{a['code']}}</span>">{{a['code']}}</option>
                     {% endfor %}
                 </select>
                 </div>
@@ -270,8 +272,8 @@
 
     $('select').selectpicker();
 
-    $('#booking-repeat-stopdate').datetimepicker({
-        format: 'YYYY-MM-DD'
+    $('.datetimepicker-input').datetimepicker({
+        format: 'DD/MM/YYYY'
     });
 
     /* Register when the Booking type change */
@@ -363,6 +365,9 @@ function validateBooking(booking) {
     var inside_slot = false;
     let events = calendar.getEvents();
 
+    console.log("DEBUG: validateBooking");
+    //printObject(booking, "booking");
+
     for (const e of events) {
         let props = e.extendedProps;
         let user_can_book = props.user_can_book;
@@ -387,16 +392,19 @@ function validateBooking(booking) {
             else {
                 if (e.id != booking.id && rangesOverlap(booking, e))
                 {
-                    // console.log("selectAllow: overlap with no slot");
-                    // console.log("    overlap with event:");
-                    // console.log("     title: ", e.title);
-                    // console.log("     start: ", datetimeStr(e.start));
-                    // console.log("       end:", datetimeStr(e.end));
+                    console.log("selectAllow: overlap with no slot");
+                    console.log("    overlap with event:");
+                    console.log("     title: ", e.title);
+                    console.log("     start: ", datetimeStr(e.start));
+                    console.log("       end:", datetimeStr(e.end));
                     return false;
                 }
             }
         }
     }
+    console.log("inside_slot: ", inside_slot);
+    console.log("booking.resource.user_can_book: ", booking.resource.user_can_book);
+
     return (inside_slot || booking.resource.user_can_book) ;
 }
 
@@ -438,7 +446,7 @@ function showBookingForm(booking) {
     $('#booking-start-time').val(timeStr(booking.start));
     $('#booking-end-date').val(dateStr(booking.end));
     $('#booking-end-time').val(timeStr(booking.end));
-    $('#booking-slot-auth').selectpicker('val', booking.slot_auth.projects);
+    $('#booking-slot-auth').selectpicker('val', booking.slot_auth.applications);
 
     $('#booking-title').val(booking.title);
     $('#booking-description').val(booking.description);
@@ -473,7 +481,7 @@ function bookingFromSelection(start, end, resource) {
         description: '',
         owner: current_user_json,
         repeat_value: repeat_value,
-        slot_auth: {projects: [], users: []}
+        slot_auth: {applications: [], users: []}
     };
 }
 
@@ -632,7 +640,7 @@ function onOkButtonClick() {
     };
 
     if (booking_type == 'slot') {
-        booking.slot_auth = {projects: $('#booking-slot-auth').selectpicker('val'), users: []}
+        booking.slot_auth = {applications: $('#booking-slot-auth').selectpicker('val'), users: []}
     }
 
     let endpoint = null;

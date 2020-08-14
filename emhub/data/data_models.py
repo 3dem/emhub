@@ -202,17 +202,42 @@ def create_data_models(dm, Base):
             """ Return if the same pi. """
             return self.get_pi() == other.get_pi()
 
-        def get_applications(self):
-            """ Return the applications that this users is involved,
-            via its PI.
+        def get_applications(self, status='active'):
+            """ Return the applications of this user.
             """
+            applications = []
             pi = self.get_pi()
-            if pi is None:
-                return []
-            else:
+            if pi is not None:
                 applications = list(pi.created_applications)
                 applications.extend(pi.applications)
-                return applications
+
+            def _filter(a):
+                return  status == 'all' or  a.status == status
+
+            return [a for a in applications if _filter(a)]
+
+        def can_book_resource(self, resource):
+            """ Return  True if the user can book a given resource without
+            an  explicit SLOT for it. """
+            if self.is_manager or not resource.requires_slot:
+                return True
+
+            apps =  self.get_applications()
+
+            print("DEBUG: user.can_book_resource: ", resource.name)
+            for a in apps:
+                print(a)
+                print("  noslot: ", a.no_slot(resource.id))
+
+            # If the user is not manager and the resource requires slot,
+            # let's check if there is any application that allows the user
+            # to book without a given SLOT
+            return any(a.no_slot(resource.id) for a in apps)
+
+        def can_book_slot(self, booking_slot):
+            """ Return True if the user can book in the given SLOT. """
+            return booking_slot.allows_user_in_slot(self)
+
 
     class Template(Base):
         """ Classes used as template to create Applications.
@@ -267,7 +292,7 @@ def create_data_models(dm, Base):
 
         # Possible statuses of an Application:
         #   - preparation: when it has been created and it under preparation
-        #   - submitted: the application has been submitted for review
+        #   - review: the application has been submitted for review
         #   - rejected: if for some reason the application is rejected
         #   - accepted: the application has been accepted after evaluation
         #   - active: it has been activated for operation
@@ -422,6 +447,21 @@ def create_data_models(dm, Base):
 
         def json(self):
             return _json(self)
+
+        def allows_user_in_slot(self, user):
+            """ Return True if a given user is allowed to book in this Slot.
+            """
+            if self.type !=  'slot':
+                return False
+
+            if user.is_manager:
+                return True
+
+            allowedUsers = self.slot_auth.get('users', [])
+            allowedApps = self.slot_auth.get('applications', [])
+
+            return  (user.id in allowedUsers or
+                     any(a.code in allowedApps for a in user.get_applications()))
 
     class Session(Base):
         """Model for sessions."""

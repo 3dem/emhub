@@ -59,7 +59,7 @@ class TestData:
             ('Don Stairs', 'admin', None),  # 1
 
             # admin (A)
-            ('Anna Mull', 'admin,manager', None),   # 2
+            ('Anna Mull', 'admin,manager,head', None),   # 2
             ('Arty Ficial', 'admin', None),  # 3
 
             # managers (M)
@@ -145,14 +145,15 @@ class TestData:
             {'title': 'BAG Application Form - 2020/2021',
              'description': 'Information required in order to submit a request '
                             'for group allocation time for one year.',
+             'status': 'closed'
              },
             {'title': 'Single Particle Application 161026',
              'description': 'Information required to request time for one year.',
-             'status': 'closed',
+             'status': 'rejected',
              },
             {'title': 'Internal Users Template',
              'description': 'This is a special template used for internal users. ',
-             'status': 'closed',
+             'status': 'rejected',
              },
         ]
 
@@ -161,7 +162,7 @@ class TestData:
         applications = [
             {'code': 'CEM00297',
              'alias': 'BAG Lund',
-             'status': 'accepted',
+             'status': 'active',
              'title': 'Bag Application for Lund University 2019/20',
              'description': '',
              'creator_id': 6,
@@ -174,7 +175,7 @@ class TestData:
              },
             {'code': 'CEM00315',
              'alias': 'BAG SU',
-             'status': 'accepted',
+             'status': 'active',
              'title': 'Bag Application for Stockholm University',
              'description': '',
              'creator_id': 7,
@@ -186,7 +187,7 @@ class TestData:
              },
             {'code': 'CEM00332',
              'alias': 'RAA Andersson',
-             'status': 'accepted',
+             'status': 'active',
              'title': 'Rapid Access application',
              'description': '',
              'creator_id': 8,
@@ -198,7 +199,7 @@ class TestData:
              },
             {'code': 'DBB00001',
              'alias': 'SU-DBB',
-             'status': 'accepted',
+             'status': 'active',
              'title': 'Internal DBB project',
              'description': '',
              'creator_id': 9,
@@ -207,6 +208,30 @@ class TestData:
              'invoice_address': '',
              'resource_allocation': {'quota': {},
                                      'noslot': [1, 2]}
+             },
+            {'code': 'CEM00345',
+             'alias': 'BAG GU',
+             'status': 'review',
+             'title': 'Bag Application for Gothenberg University',
+             'description': '',
+             'creator_id': 7,
+             'template_id': templates[0].id,
+             'invoice_reference': 'BBB',
+             'invoice_address': '',
+             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
+                                     'noslot': []}
+             },
+            {'code': 'CEM00346',
+             'alias': 'BAG SU 2021',
+             'status': 'review',
+             'title': 'Bag Application for Stockholm University 2021',
+             'description': '',
+             'creator_id': 7,
+             'template_id': templates[0].id,
+             'invoice_reference': 'BBB',
+             'invoice_address': '',
+             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
+                                     'noslot': []}
              },
         ]
 

@@ -94,8 +94,7 @@ class DataContent:
         dataDict['bookings'] = bookings
 
         if user.is_manager:
-            dataDict['lab_members'] = [u.json() for u in self.app.dm.get_users()
-                                       if u.is_manager]
+            dataDict['lab_members'] = [u.json() for u in self.get_facility_staff()]
         else:
             dataDict['lab_members'] = [u.json() for u in user.get_pi().lab_members]
 
@@ -144,7 +143,7 @@ class DataContent:
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
              'image': flask.url_for('static', filename='images/%s' % r.image),
-             'user_can_book': self.app.dm.user_can_book(self.app.user, r),
+             'user_can_book': self.app.user.can_book_resource(r),
              'microscope': 'microscope' in r.tags
              }
             for r in self.app.dm.get_resources()
@@ -158,8 +157,8 @@ class DataContent:
                                 for b in dm.get_bookings()
                                 if b.resource is not None]
         dataDict['current_user_json'] = flask_login.current_user.json()
-        dataDict['projects'] = [{'id': p.id, 'code': p.code}
-                                for p in dm.get_applications()]
+        dataDict['applications'] = [{'id': a.id, 'code': a.code}
+                                for a in dm.get_applications()]
 
         # Send a list of possible owners of bookings
         # 1) Managers or admins can change the ownership to any user
@@ -191,6 +190,9 @@ class DataContent:
             if u.is_pi:
                 lab = [_userjson(u)] + [_userjson(u2) for u2 in u.lab_members]
                 labs.append(lab)
+
+        if user.is_manager:
+            labs.append([_userjson(u) for u in self.get_facility_staff()])
 
         dataDict['possible_owners'] = labs
         dataDict['resource_id'] = kwargs.get('resource_id', None)
@@ -256,7 +258,7 @@ class DataContent:
             color = color.replace('1.0', '0.5')  # transparency for slots
             title = "%s (SLOT): %s" % (resource.name,
                                        booking.slot_auth.get('applications', ''))
-            user_can_book = self.app.dm.user_can_book(user, booking.resource)
+            user_can_book = user.can_book_slot(booking)
         else:
 
             # Show all booking information in title in some cases only
@@ -290,3 +292,18 @@ class DataContent:
             'repeat_value': booking.repeat_value,
             'days': booking.days
         }
+
+    def get_facility_staff(self):
+        """ Return the list of facility personnel.
+        First users in the list should  be the facility Head.
+        """
+        staff = []
+
+        for u in self.app.dm.get_users():
+            if u.is_manager:
+                if 'head' in u.roles:
+                    staff.insert(0, u)
+                else:
+                    staff.append(u)
+
+        return  staff

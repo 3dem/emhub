@@ -57,7 +57,7 @@
                         <a class="nav-link" id="submitted-tab" data-toggle="tab" href="#submitted" role="tab" aria-controls="submitted" aria-selected="false">Review</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" id="accepted-tab" data-toggle="tab" href="#accepted" role="tab" aria-controls="accepted" aria-selected="true">Accepted</a>
+                        <a class="nav-link active" id="active-tab" data-toggle="tab" href="#active" role="tab" aria-controls="active" aria-selected="true">Active</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" id="others-tab" data-toggle="tab" href="#others" role="tab" aria-controls="others" aria-selected="false">Others</a>
@@ -65,19 +65,19 @@
                 </ul>
                 <div class="tab-content" id="applicationTabsContent">
                     <div class="tab-pane fade" id="preparation" role="tabpanel" aria-labelledby="preparation-tab">
-                        {% set status = "preparation" %}
+                        {% set status = ["preparation"] %}
                         {%  include "include_applications_table.html" %}
                     </div>
                     <div class="tab-pane fade" id="submitted" role="tabpanel" aria-labelledby="submitted-tab">
-                        {% set status = "review" %}
+                        {% set status = ["review", "accepted", "rejected"] %}
                         {%  include "include_applications_table.html" %}
                     </div>
-                    <div class="tab-pane fade show active" id="accepted" role="tabpanel" aria-labelledby="accepted-tab">
-                        {% set status = "accepted" %}
+                    <div class="tab-pane fade show active" id="active" role="tabpanel" aria-labelledby="active-tab">
+                        {% set status = ["active"] %}
                         {%  include "include_applications_table.html" %}
                     </div>
                     <div class="tab-pane fade" id="others" role="tabpanel" aria-labelledby="others-tab">
-                        <h3>Tab Content Heading</h3>
+                        <h3>Other</h3>
                         <p>Nullam et tellus ac ligula condimentum sodales. Aenean tincidunt viverra suscipit. Maecenas id molestie est, a commodo nisi. Quisque fringilla turpis nec elit eleifend vestibulum. Aliquam sed purus in odio ullamcorper congue consectetur in neque. Aenean sem ex, tempor et auctor sed, congue id neque. </p>
                     </div>
                 </div>

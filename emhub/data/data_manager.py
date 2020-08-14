@@ -302,19 +302,6 @@ class DataManager:
         local_tz = get_localzone()
         return dt.datetime.now(local_tz)
 
-    def user_can_book(self, user, resource):
-        """ Return True if the user is authorized (i.e any of the project
-        codes appears in auth_json['applications'].
-        """
-        if user is None:
-            return False
-
-        if user.is_manager or not resource.requires_slot:
-            return True
-
-        app = user.get_applications()[0]
-        return app.no_slot(resource.id)
-
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)
@@ -363,7 +350,7 @@ class DataManager:
     def __create_booking(self, attrs):
         if 'application_id' not in attrs:
             owner = self.get_user_by(id=attrs['owner_id'])
-            apps = [a for a in owner.get_applications() if a.status == "accepted"]
+            apps = owner.get_applications()
             n = len(apps)
 
             if n == 0 and not owner.is_manager:
