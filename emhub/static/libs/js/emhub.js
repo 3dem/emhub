@@ -83,6 +83,10 @@ function rangesOverlap(event1, event2) {
 
 /* Return True if event1 is contained in event2 */
 function rangeInside(event1, event2) {
+    // console.log(">>> rangeInside");
+    // console.log("          event1:", {start: dateStr(event1.start), end: dateStr(event1.end)});
+    // console.log("          event2:", {start: dateStr(event2.start), end: dateStr(event2.end)});
+    // console.log("          result: ", (event1.start >= event2.start && event1.end <= event2.end));
     return (event1.start >= event2.start && event1.end <= event2.end);
 }
 

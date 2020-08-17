@@ -325,23 +325,22 @@
         eventAllow: function(info, draggedEvent) {
             let resource = getResource(draggedEvent.extendedProps.resource.id);
             original_range = {start: draggedEvent.start, end: draggedEvent.end};
-            let booking = bookingFromSelection(info.start, info.end, resource);
+            let booking = bookingFromSelection(info, resource);
             booking.id = draggedEvent.id;
             return validateBooking(booking);
         },
         selectAllow: function(info) {
             if (selected_resource == null)
                 return false;
-            // Take one day before to compensate for selection that give one more day
-            info.end.setDate(info.end.getDate() - 1);
-            let booking = bookingFromSelection(info.start, info.end, selected_resource)
+            let booking = bookingFromSelection(info, selected_resource)
             return validateBooking(booking);
         },
         // dateClick: function(info) {
         //     alert('clicked ' + info.dateStr);
         // },
         select: function(info) {
-            onDateSelection(info.start, info.end);
+            last_booking = bookingFromSelection(info, selected_resource);
+            showBookingForm(last_booking);
         },
         eventClick: function(info) {
             onBookingSelected(info.event);
@@ -365,9 +364,6 @@ function validateBooking(booking) {
     var inside_slot = false;
     let events = calendar.getEvents();
 
-    console.log("DEBUG: validateBooking");
-    //printObject(booking, "booking");
-
     for (const e of events) {
         let props = e.extendedProps;
         let user_can_book = props.user_can_book;
@@ -380,8 +376,10 @@ function validateBooking(booking) {
                 // range selection is completely contained in the slot
                 if (rangesOverlap(booking, e)) {
                     // Return false if user can not book in this slot
-                    if (!user_can_book)
-                        {console.log("selectAllow: user not auth in slot"); return false;}
+                    if (!user_can_book) {
+                        // console.log("selectAllow: user not auth in slot");
+                        return false;
+                    }
                     // Or if the range is not contained entirely in the slot
                     else {
                         if (rangeInside(booking, e))
@@ -392,18 +390,18 @@ function validateBooking(booking) {
             else {
                 if (e.id != booking.id && rangesOverlap(booking, e))
                 {
-                    console.log("selectAllow: overlap with no slot");
-                    console.log("    overlap with event:");
-                    console.log("     title: ", e.title);
-                    console.log("     start: ", datetimeStr(e.start));
-                    console.log("       end:", datetimeStr(e.end));
+{#                    console.log("selectAllow: overlap with no slot");#}
+{#                    console.log("    overlap with event:");#}
+{#                    console.log("     title: ", e.title);#}
+{#                    console.log("     start: ", datetimeStr(e.start));#}
+{#                    console.log("       end:", datetimeStr(e.end));#}
                     return false;
                 }
             }
         }
     }
-    console.log("inside_slot: ", inside_slot);
-    console.log("booking.resource.user_can_book: ", booking.resource.user_can_book);
+{#    console.log("inside_slot: ", inside_slot);#}
+{#    console.log("booking.resource.user_can_book: ", booking.resource.user_can_book);#}
 
     return (inside_slot || booking.resource.user_can_book) ;
 }
@@ -461,21 +459,22 @@ function showBookingForm(booking) {
 
 /** Function called when new dates are selected for a given Resource.
  * It creates a new booking and shows the Booking Form. **/
-function bookingFromSelection(start, end, resource) {
-    start.setHours(9);
-    start.setMinutes(0);
-    // Remove one day since endDate is exclusive in FullCalendar
-    //end.setDate(end.getDate() - 1);
-    end.setHours(23);
-    end.setMinutes(59);
+function bookingFromSelection(info, resource) {
+    if (info.view == null  || info.view.type == 'dayGridMonth') {
+        info.end.setDate(info.end.getDate() - 1);
+        info.start.setHours(9);
+        info.start.setMinutes(0);
+        info.end.setHours(23);
+        info.end.setMinutes(59);
+    }
 
     repeat_value = 'no';
 
     return {
         id: null,
         title: '',
-        start: start,
-        end: end,
+        start: info.start,
+        end: info.end,
         resource: resource,
         type: booking_type,
         description: '',
@@ -488,10 +487,7 @@ function bookingFromSelection(start, end, resource) {
 /** Function called when new dates are selected for a given Resource.
  * It creates a new booking and shows the Booking Form. **/
 function onDateSelection(start, end) {
-    // Take one day before to compensate for selection that give one more day
-    end.setDate(end.getDate() - 1);
-    last_booking = bookingFromSelection(start, end, selected_resource);
-    showBookingForm(last_booking);
+
 }
 
 /* This function is called when an existing Booking event is clicked */
