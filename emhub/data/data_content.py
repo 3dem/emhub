@@ -247,7 +247,18 @@ class DataContent:
         b_description = booking.description
 
         user_can_book = False
-        user_can_modify = user.is_manager or user.id == owner.id
+        # Define which users are allowed to modify the booking
+        # - managers
+        # - application creators
+        # - the owner and pi of the owner
+        can_modify_list = [owner.id]
+        if application is not None:
+            can_modify_list.append(application.creator.id)
+        if owner.pi is not None:
+            can_modify_list.append(owner.pi.id)
+
+        print("can_modify_list", can_modify_list)
+        user_can_modify = user.is_manager or user.id in can_modify_list
         user_can_view = user_can_modify or user.same_pi(owner)
         color = resource.color if resource else 'grey'
 
@@ -269,6 +280,7 @@ class DataContent:
             else:
                 title = "%s Booking" % resource.name
                 owner_name = "Hidden owner"
+                b_title = "Hidden title"
                 b_description = "Hidden description"
 
         return {

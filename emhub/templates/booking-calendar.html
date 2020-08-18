@@ -357,12 +357,23 @@
       selectResource($('#selectpicker-resource')[0]);
   }
 
+    // Hack to enable multiple modals by making sure the .modal-open class
+    // is set to the <body> when there is at least one modal open left
+    $('body').on('hidden.bs.modal', function () {
+
+        if ($('.modal.show').length > 0)
+        {
+            $('body').addClass('modal-open');
+        }
+    });
+
 })(window, document, window.jQuery);
 
 /* Validate a Booking when it is created or updated (e.g dragged) */
 function validateBooking(booking, useTime) {
     var inside_slot = false;
     let events = calendar.getEvents();
+    printObject(booking.resource, "resource");
 
     for (const e of events) {
         let props = e.extendedProps;
@@ -401,8 +412,8 @@ function validateBooking(booking, useTime) {
     if (inside_slot || booking.resource.user_can_book)
         return '';  // Success, no errors
     else
-        return "It seems that no SLOT was found for this booking and you " +
-               "do not have permission to book outside a SLOT."
+        return "It seems that this booking is outside a valid SLOT " +
+               "and you do not have permissions for it."
 }
 
 
@@ -634,7 +645,7 @@ function onOkButtonClick() {
         resource_id: last_booking.resource.id,
         modify_all: modify_all,
         repeat_value: repeat_value,
-        resource: last_booking.resource
+        resource: getResource(last_booking.resource.id)
     };
 
     if (booking_type == 'slot') {
