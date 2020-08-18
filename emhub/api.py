@@ -147,8 +147,6 @@ def filter_from_attrs(items):
 
 def _handle_item(handle_func, result_key):
     try:
-        raise Exception("Always raising errors. ")
-
         if not request.json:
             raise Exception("Expecting JSON request.")
         result = handle_func(**request.json['attrs'])
