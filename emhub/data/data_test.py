@@ -68,22 +68,25 @@ class TestData:
 
             # pi (P)
             ('Polly Tech', 'pi', None),  # 6
-            ('Peter Cruiser', 'pi', None),  # 7
+            ('Petey Cruiser', 'pi', None),  # 7
             ('Pat Agonia', 'pi', None),  # 8
             ('Paul Molive', 'pi', None),  # 9
+            ('Pat Ernity', 'pi', None), # 10
 
             # users (R, S)
-            ('Ray Cyst', 'user', 6),  # 10
-            ('Rick Shaw', 'user', 6),  # 11
-            ('Rachel Slurs', 'user', 6),  # 12
-            ('Reggie Stration', 'user', 7),  # 13
-            ('Reuben Sandwich', 'user', 7),  # 14
-            ('Sara Bellum', 'user', 7),  # 15
-            ('Sam Owen', 'user', 7),  # 16
-            ('Sam Buca', 'user', 9),  # 17
-            ('Sarah Yevo', 'user', 9),  # 18
-            ('Sven Gineer', 'user', 9),  # 19
-            ('Sharon Needles', 'user', 9)  # 20
+            ('Ray Cyst', 'user', 6),  # 11
+            ('Rick Shaw', 'user', 6),  # 12
+            ('Rachel Slurs', 'user', 6),  # 13
+            ('Reggie Stration', 'user', 7),  # 14
+            ('Reuben Sandwich', 'user', 7),  # 15
+            ('Sara Bellum', 'user', 7),  # 16
+            ('Sam Owen', 'user', 7),  # 17
+            ('Sam Buca', 'user', 9),  # 18
+            ('Sarah Yevo', 'user', 9),  # 19
+            ('Sven Gineer', 'user', 9),  # 20
+            ('Sharon Needles', 'user', 9),  # 21
+            ('Ray Diation', 'user', 10),  # 22
+            ('Sal Ami', 'user', 10)   # 23
         ]
 
         for name, roles, pi in usersData:
@@ -122,7 +125,8 @@ class TestData:
             {'name': 'Carbon Coater', 'tags': 'instrument',
              'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
             {'name': 'Users Drop-in', 'tags': 'service',
-             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)'}
+             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
+             'requires_slot': True}
         ]
 
         for rDict in resources:
@@ -238,10 +242,14 @@ class TestData:
         for pDict in applications:
             dm.create_application(**pDict)
 
-        a1 = dm.get_applications(condition="code='DBB00001'")[0]
-        u1 = dm.get_users(condition="username='agonia'")[0]
+        def __addPi(appCode, piUser):
+            a1 = dm.get_application_by(code=appCode)
+            u1 = dm.get_user_by(username=piUser)
+            a1.users.append(u1)
 
-        a1.users.append(u1)
+        __addPi('DBB00001', 'agonia')
+        __addPi('CEM00315', 'ernity')
+
         dm.commit()
 
     def __populateBookings(self, dm):

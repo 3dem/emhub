@@ -46,13 +46,17 @@ function dateStr(date) {
     return pad(date.getDate()) + '/' + pad(date.getMonth() + 1) + '/' +  pad(date.getFullYear());
 }
 
-function dateIsoFromValue(dateId, timeId) {
+function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val();
     var dateParts = dateVal.split('/');
     var dateIsoVal = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0];
     if (timeId)
         dateIsoVal += 'T' + $(timeId).val();
-    return new Date(dateIsoVal).toISOString();
+    return new Date(dateIsoVal);
+}
+
+function dateIsoFromValue(dateId, timeId) {
+    return dateFromValue(dateId).toISOString();
 }
 
 /* Get hour:minutes string HH:00 format */
@@ -61,33 +65,41 @@ function timeStr(date) {
 }
 
 function datetimeStr(date) {
-    //return dateStr(date) + ' - ' + timeStr(date);
-    return date.toUTCString();
+    return dateStr(date) + ' - ' + timeStr(date);
+    //return date.toUTCString();
+}
+
+/** Return the part of the date without any time */
+function dateNoTime(date) {
+    var d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+    return  d;
 }
 
 /* Date in range */
-function dateInRange(date, range) {
-    return (date >= range.start && date <= range.end);
+function dateInRange(date, range, useTime) {
+    var d = date;
+    var start = range.start;
+    var end = range.end;
+
+    if (!useTime) {
+        d = dateNoTime(d);
+        start = dateNoTime(start);
+        end = dateNoTime(end);
+    }
+
+    return (d >= start && d <= end);
 }
 
 /* Check if two events overlap (if have same resource) */
-function rangesOverlap(event1, event2) {
-    // console.log(">>> rangeOverlap");
-    // console.log("          event1:", {start: dateStr(event1.start), end: dateStr(event1.end)});
-    // console.log("            resource:", selected_resource.id)
-    // console.log("          event2:", {start: dateStr(event2.start), end: dateStr(event2.end)});
-    // console.log("            resource:", event2.extendedProps.resource.id);
-    // console.log("          result: ", (dateInRange(event1.start, event2) || dateInRange(event1.end, event2)))
-    return (dateInRange(event1.start, event2) || dateInRange(event1.end, event2));
+function rangesOverlap(event1, event2, useTime) {
+    return (dateInRange(event1.start, event2, useTime) ||
+            dateInRange(event1.end, event2, useTime));
 }
 
 /* Return True if event1 is contained in event2 */
-function rangeInside(event1, event2) {
-    // console.log(">>> rangeInside");
-    // console.log("          event1:", {start: dateStr(event1.start), end: dateStr(event1.end)});
-    // console.log("          event2:", {start: dateStr(event2.start), end: dateStr(event2.end)});
-    // console.log("          result: ", (event1.start >= event2.start && event1.end <= event2.end));
-    return (event1.start >= event2.start && event1.end <= event2.end);
+function rangeInside(event1, event2, useTime) {
+    return (dateInRange(event1.start, event2, useTime) &&
+            dateInRange(event1.end, event2, useTime));
 }
 
 /* Get all selected values from a 'select' */
@@ -103,7 +115,6 @@ function getSelectedValues(sel) {
     }
     return values;
 }
-
 
 /* Function to show the modal */
 function showMessage(title, msg) {

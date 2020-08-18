@@ -327,13 +327,13 @@
             original_range = {start: draggedEvent.start, end: draggedEvent.end};
             let booking = bookingFromSelection(info, resource);
             booking.id = draggedEvent.id;
-            return validateBooking(booking);
+            return validateBooking(booking, true) == '';
         },
         selectAllow: function(info) {
             if (selected_resource == null)
                 return false;
             let booking = bookingFromSelection(info, selected_resource)
-            return validateBooking(booking);
+            return validateBooking(booking, false) ==  '';
         },
         // dateClick: function(info) {
         //     alert('clicked ' + info.dateStr);
@@ -360,7 +360,7 @@
 })(window, document, window.jQuery);
 
 /* Validate a Booking when it is created or updated (e.g dragged) */
-function validateBooking(booking) {
+function validateBooking(booking, useTime) {
     var inside_slot = false;
     let events = calendar.getEvents();
 
@@ -374,36 +374,35 @@ function validateBooking(booking) {
                 // For slots, check that the user have permission
                 // in this slot if overlap, and if so, that the date
                 // range selection is completely contained in the slot
-                if (rangesOverlap(booking, e)) {
+                if (rangesOverlap(booking, e, useTime)) {
                     // Return false if user can not book in this slot
                     if (!user_can_book) {
-                        // console.log("selectAllow: user not auth in slot");
-                        return false;
+                        return "The selected dates overlap with an existing " +
+                               "SLOT but you do not have permissions to book " +
+                               "on it.";
                     }
                     // Or if the range is not contained entirely in the slot
                     else {
-                        if (rangeInside(booking, e))
+                        if (rangeInside(booking, e, useTime))
                             inside_slot = true;
                     }
                 }
             }
             else {
-                if (e.id != booking.id && rangesOverlap(booking, e))
+                // Only check other events overlapping when  using time.
+                if (useTime && e.id != booking.id && rangesOverlap(booking, e, useTime))
                 {
-{#                    console.log("selectAllow: overlap with no slot");#}
-{#                    console.log("    overlap with event:");#}
-{#                    console.log("     title: ", e.title);#}
-{#                    console.log("     start: ", datetimeStr(e.start));#}
-{#                    console.log("       end:", datetimeStr(e.end));#}
-                    return false;
+                    return "Selected dates/time overlaps with another existing " +
+                           "booking. ";
                 }
             }
         }
     }
-{#    console.log("inside_slot: ", inside_slot);#}
-{#    console.log("booking.resource.user_can_book: ", booking.resource.user_can_book);#}
-
-    return (inside_slot || booking.resource.user_can_book) ;
+    if (inside_slot || booking.resource.user_can_book)
+        return '';  // Success, no errors
+    else
+        return "It seems that no SLOT was found for this booking and you " +
+               "do not have permission to book outside a SLOT."
 }
 
 
@@ -439,7 +438,6 @@ function showBookingForm(booking) {
         $('#booking-owner-text').prop('readonly', true);
     }
 
-
     $('#booking-start-date').val(dateStr(booking.start));
     $('#booking-start-time').val(timeStr(booking.start));
     $('#booking-end-date').val(dateStr(booking.end));
@@ -460,7 +458,7 @@ function showBookingForm(booking) {
 /** Function called when new dates are selected for a given Resource.
  * It creates a new booking and shows the Booking Form. **/
 function bookingFromSelection(info, resource) {
-    if (info.view == null  || info.view.type == 'dayGridMonth') {
+    if (info.allDay) {
         info.end.setDate(info.end.getDate() - 1);
         info.start.setHours(9);
         info.start.setMinutes(0);
@@ -622,17 +620,21 @@ function onOkButtonClick() {
     if (possible_owners.length)
         owner_id = $('#booking-owner-select').selectpicker('val');
 
+    var start = dateFromValue('#booking-start-date', '#booking-start-time');
+    var end = dateFromValue('#booking-end-date', '#booking-end-time');
+
     var booking = {
         id: last_booking.id,
         title: $('#booking-title').val(),
-        start: dateIsoFromValue('#booking-start-date', '#booking-start-time'),
-        end: dateIsoFromValue('#booking-end-date', '#booking-end-time'),
+        start: start,
+        end: end,
         type: booking_type,
         description: $('#booking-description').val(),
         owner_id: owner_id,
         resource_id: last_booking.resource.id,
         modify_all: modify_all,
         repeat_value: repeat_value,
+        resource: last_booking.resource
     };
 
     if (booking_type == 'slot') {
@@ -657,6 +659,18 @@ function onOkButtonClick() {
         booking.creator_id = booking.owner_id
         endpoint = "{{ url_for('api.create_booking') }}"
     }
+
+    var error = validateBooking(booking, true);
+
+    if (error != '') {
+        showMessage("ERROR", error);
+        return;
+    }
+
+    delete booking.resource;  // resource_id is enough
+    // Set dates to ISO string
+    booking.start = start.toISOString();
+    booking.end = end.toISOString();
 
     var ajaxContent = $.ajax({
         url: endpoint,
