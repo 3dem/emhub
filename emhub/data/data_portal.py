@@ -150,15 +150,19 @@ class PortalData:
             {'name': 'Carbon Coater', 'tags': 'instrument',
              'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
             {'name': 'Users Drop-in', 'tags': 'service',
-             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)'}
+             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
+             'requires_slot': True}
         ]
 
         for rDict in resources:
             dm.create_resource(**rDict)
 
     def __importApplications(self, dm, jsonData):
-        statuses  = {'enabled': 'active',
-                     'disabled': 'closed'
+        statuses  = {'disabled': 'closed',
+                     'review': 'review',
+                     'preparation': 'preparation',
+                     'enabled': 'active',
+                     'rejected': 'rejected'
                      }
 
         def createTemplate(f):
@@ -175,6 +179,8 @@ class PortalData:
             createTemplate(f)
             formsDict[f['iuid']] = f
 
+        now = dt.datetime.now()
+
         for o in jsonData['orders']:
             piEmail = o['owner']['email']
             orderId = o['identifier']
@@ -186,6 +192,19 @@ class PortalData:
                       % (orderId, piEmail))
                 continue
 
+            status = o['status']
+            # Set some accepted as 'active' and other as 'closed'
+            #created = dt.datetime.strptime(o['created'], '%Y-%m-%d')
+            created = datetime_from_isoformat(o['created'])
+
+            if status == 'accepted' or status == 'enabled':
+                if created.year == now.year or created.year == now.year - 1:
+                    status = 'active'
+                else:
+                    status = 'closed'
+            else:
+                status = statuses[status]
+
             fields = o['fields']
             description = fields.get('project_des', None)
             invoiceRef = fields.get('project_invoice_addess', None)
@@ -194,9 +213,9 @@ class PortalData:
                 app = dm.create_application(
                     code=orderId,
                     title=o['title'],
-                    created=datetime_from_isoformat(o['created']),
-                    alias=o['status'],
-                    status=o['status'],
+                    created=created, #datetime_from_isoformat(o['created']),
+                    alias=status,
+                    status=status,
                     description=description,
                     creator_id=pi.id,
                     template_id=formsDict[o['form']['iuid']]['emhub_item'].id,
@@ -209,7 +228,7 @@ class PortalData:
                     if pi is not None:
                         app.users.append(pi)
 
-                #  TODO: Add other PIs
+                        #  TODO: Add other PIs
             except Exception as e:
                 print("Exception when creating Application: %s. IGNORING..." %  e)
 

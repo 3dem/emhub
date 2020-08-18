@@ -224,11 +224,6 @@ def create_data_models(dm, Base):
 
             apps =  self.get_applications()
 
-            print("DEBUG: user.can_book_resource: ", resource.name)
-            for a in apps:
-                print(a)
-                print("  noslot: ", a.no_slot(resource.id))
-
             # If the user is not manager and the resource requires slot,
             # let's check if there is any application that allows the user
             # to book without a given SLOT
