@@ -95,7 +95,7 @@ class PortalData:
             self._dictUsers[user.email] = user
 
         staff = {
-            'marta.carroni@scilifelab.se': ['manager'],
+            'marta.carroni@scilifelab.se': ['manager', 'head'],
             'julian.conrad@scilifelab.se': ['manager'],
             'karin.walden@scilifelab.se': ['manager'],
             'mathieu.coincon@scilifelab.se': ['manager'],
@@ -166,20 +166,52 @@ class PortalData:
                      }
 
         def createTemplate(f):
-            f['emhub_item'] = dm.create_template(
+            return dm.create_template(
                 title=f['title'],
                 description=f['description'],
                 status=statuses[f['status']]
             )
 
-
         formsDict = {}
 
+        internalTemplate = dm.create_template(
+            title='Template for internal application at DBB',
+            description='Special template for intenal applciation',
+            status='active')
+
         for f in jsonData['forms'].values():
-            createTemplate(f)
+            f['emhub_item'] = createTemplate(f)
             formsDict[f['iuid']] = f
 
-        now = dt.datetime.now()
+        now = dm.now()
+
+        def _internalPi(u):
+            return (u['pi'] and 'emhub_item' in  u and
+                    (u['email'].endswith('dbb.su.se')
+                     or u['email'].endswith('scilifelab.se')))
+
+        # Insert first PI users, so we store their Ids for other users
+        dbbPis = [u['emhub_item'] for u in self._jsonUsers if _internalPi(u)]
+
+        gunnar = self._dictUsers['gunnar@dbb.su.se']
+
+        # Create special bag for internal DBB PIs
+        internalApp = dm.create_application(
+            code='DBB',
+            title='Internal DBB Bag',
+            created=now,  # datetime_from_isoformat(o['created']),
+            alias='DBB',
+            status='active',
+            description='Internal application for DBB users',
+            creator_id=gunnar.id,
+            template_id=internalTemplate.id,
+            invoice_reference='DBB invoice',
+            resource_allocation={'quota': {'krios': 0, 'talos': 0},
+                                 'noslot': [1, 2, 3]}  # allow to book scopes
+        )
+
+        for pi in dbbPis:
+            internalApp.users.append(pi)
 
         for o in jsonData['orders']:
             piEmail = o['owner']['email']
