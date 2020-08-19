@@ -257,7 +257,6 @@ class DataContent:
         if owner.pi is not None:
             can_modify_list.append(owner.pi.id)
 
-        print("can_modify_list", can_modify_list)
         user_can_modify = user.is_manager or user.id in can_modify_list
         user_can_view = user_can_modify or user.same_pi(owner)
         color = resource.color if resource else 'grey'
