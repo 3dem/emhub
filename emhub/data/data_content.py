@@ -157,7 +157,9 @@ class DataContent:
                                 for b in dm.get_bookings()
                                 if b.resource is not None]
         dataDict['current_user_json'] = flask_login.current_user.json()
-        dataDict['applications'] = [{'id': a.id, 'code': a.code}
+        dataDict['applications'] = [{'id': a.id,
+                                     'code': a.code,
+                                     'alias': a.alias}
                                     for a in dm.get_applications()
                                     if a.is_active]
 

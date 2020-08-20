@@ -21,14 +21,23 @@
                         <label class="col-12 col-sm-8 col-form-label text-sm-left">{{ application.created|pretty_datetime }}</label>
                     </div>
 
+                    <!-- Alias Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Alias</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Enter Alias" id="application-alias" class="form-control" value="{{ application.alias }}">
+                        </div>
+                    </div>
+
                     <!-- Title Row -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Type something" id="application-title" class="form-control" value="{{ application.title }}">
+                            <input type="text" required="" placeholder="Enter Title" id="application-title" class="form-control" value="{{ application.title }}">
                         </div>
                     </div>
 
+                    <!-- Description Row -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
                         <div class="col-12 col-sm-8 col-lg-6">
@@ -45,8 +54,6 @@
                                 <input type="text" required="" id="quota-krios" class="form-control col-3" value="{{ application.resource_allocation['quota']['krios'] }}">
                             <label class="col-1" style="margin-right: 15px;">Talos</label>
                                 <input type="text" required="" id="quota-talos" class="form-control col-3" value="{{ application.resource_allocation['quota']['talos'] }}">
-
-
                             </div>
                         </div>
                     </div>
@@ -93,8 +100,12 @@
       </div>
 
       <div class="modal-footer">
-        <button type="button" id="application-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
-        <button type="button" id="application-btn-ok" class="btn btn-outline-dark" onclick="javascript: onApplicationOkButtonClick()">Update</button>
+          {% if current_user.is_manager %}
+            <button type="button" id="application-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+            <button type="button" id="application-btn-ok" class="btn btn-outline-dark" onclick="javascript: onApplicationOkButtonClick()">Update</button>
+          {% else %}
+              <button type="button" id="application-btn-ok"  class="btn btn-outline-secondary" data-dismiss="modal">OK</button>
+          {% endif %}
       </div>
     </div>
   </div>
