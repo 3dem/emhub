@@ -158,7 +158,8 @@ class DataContent:
                                 if b.resource is not None]
         dataDict['current_user_json'] = flask_login.current_user.json()
         dataDict['applications'] = [{'id': a.id, 'code': a.code}
-                                for a in dm.get_applications()]
+                                    for a in dm.get_applications()
+                                    if a.is_active]
 
         # Send a list of possible owners of bookings
         # 1) Managers or admins can change the ownership to any user
