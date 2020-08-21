@@ -20,9 +20,7 @@
             <td>{{ a.title }}</td>
             <td>{{ a.creator.name }}</td>
             <td style="width: 105px;">
-                <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
-                <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
-                        data-id="{{ a.id }}" data-alias="{{ a.alias }}"><i class="far fa-trash-alt"></i></button>
+                <button class="btn btn-sm btn-outline-light" onclick="javascript:showApplication({{ a.id }})"><i class="far fa-edit"></i></button>
             </td>
         </tr>
         {% endif %}

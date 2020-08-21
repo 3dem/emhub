@@ -82,6 +82,8 @@ def create_app(test_config=None):
                 content_id = 'dashboard'
             kwargs = {'content_id': content_id}
 
+        kwargs['is_devel'] = app.is_devel
+
         return flask.render_template('main.html', **kwargs)
 
     @app.route('/', methods=['GET', 'POST'])
@@ -153,6 +155,7 @@ def create_app(test_config=None):
         content_template = content_id + '.html'
 
         if content_template in templates:
+            kwargs['is_devel'] = app.is_devel
             return flask.render_template(content_template, **kwargs)
 
         return "<h1>Template '%s' not found</h1>" % content_template
@@ -169,6 +172,7 @@ def create_app(test_config=None):
     app.user = flask_login.current_user
     app.dm = DataManager(dbPath, user=app.user)
     app.dc = DataContent(app)
+    app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
 
     login_manager = flask_login.LoginManager()
     login_manager.login_view = 'login'

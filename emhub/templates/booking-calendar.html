@@ -99,6 +99,7 @@
     var bookings = {{ bookings|tojson }} ;
     var current_user_json = {{ current_user_json|tojson }};
     var possible_owners = {{ possible_owners|tojson }};
+    var is_devel = {{ is_devel|tojson }};
 
 
 (function(window, document, $, undefined) {
@@ -271,7 +272,10 @@ function showBookingForm(booking) {
         }
     }
 
-    let htmlStr = titlePrefix + ' Booking - ' + booking.resource.name + ' (id=' + booking.id + ')';
+    let htmlStr = titlePrefix + ' Booking - ' + booking.resource.name;
+    if (is_devel)
+        htmlStr += ' (id=' + booking.id + ')';
+
     $('#booking-modal-title').html(htmlStr);
     $('#booking-btn-ok').html(titlePrefix);
 
