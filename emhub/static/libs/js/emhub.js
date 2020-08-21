@@ -164,3 +164,7 @@ function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
     confirmModal.modal('show');
 };
 /* END Generic Confirm func */
+
+function notImplemented(msg) {
+    showMessage("NOT IMPLEMENTED", msg);
+}

@@ -52,7 +52,9 @@
                                     <th class="border-0">Requeries Slot</th>
                                     <th class="border-0">Latest cancellation</th>
                                     <th class="border-0">User can book (without  slot)</th>
+                                    {% if current_user.is_manager %}
                                     <th class="border-0">Actions</th>
+                                    {% endif %}
                                 </tr>
                             </thead>
                             <tbody>
@@ -68,12 +70,13 @@
                                     <td> {{ r['requires_slot'] }}</td>
                                     <td> {{ r['latest_cancellation'] }}</td>
                                     <td> {{ r['user_can_book'] }}</td>
+                                    {% if current_user.is_manager %}
                                     <td>
-                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
-                                        <button class="btn btn-sm btn-outline-light"><i class="far fa-copy"></i></button>
-                                        <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:notImplemented('Can not EDIT Resource. ')"><i class="far fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:notImplemented('Can not DELETE Resource. ')"
                                                 data-id="{{ r['id'] }}" data-name="{{ r['name'] }}"><i class="far fa-trash-alt"></i></button>
                                     </td>
+                                    {% endif %}
                                 </tr>
                             {% endfor %}
                             </tbody>
@@ -89,17 +92,5 @@
             </div>
 
 <script>
-  $('#deleteModal').on('show.bs.modal', function (event) {
-      var button = $(event.relatedTarget) // Button that triggered the modal
 
-      // Extract info from data-* attributes
-      var id = button.data('id')
-      var name = button.data('name')
-
-      // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
-      // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
-      var modal = $(this)
-      // modal.find('.modal-title').text('New message to ' + recipient)
-      modal.find('.modal-body').html('<p> Do you want to DELETE resource <b>' + name + '</b> (id = ' + id + ') ? </p>')
-    })
 </script>
