@@ -128,7 +128,7 @@ def create_data_models(dm, Base):
                          default=utcnow())
 
         # Default role should be: 'user'
-        # more roles can defined in a json list: ['user', 'admin', 'manager']
+        # more roles can defined in a json list: ['user', 'admin', 'manager', 'pi']
         roles = Column(JSON, nullable=False, default=['user'])
 
         password_hash = Column(String(256),

@@ -1,0 +1,110 @@
+<!-- ============================================================== -->
+<!-- User Modal Content -->
+<!-- ============================================================== -->
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="user-modal-title"> User (id = {{ user.id }}) </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+            <!-- User Form -->
+            <div class="col-xl-2 col-lg-2 col-md-2 col-sm-2 col-2">
+                <div id="profile-container">
+                   <image id="profileImage" src="http://lorempixel.com/100/100" />
+                </div>
+                <input id="imageUpload" type="file"
+                       name="profile_photo" placeholder="Photo" required="" capture>
+            </div>
+
+            <div class="col-xl-10 col-lg-10 col-md-10 col-sm-10 col-10">
+                <form id="validationform" data-parsley-validate="" novalidate="">
+                    <input type="hidden" id="user-id" name="user-id" value="{{ user.id }}">
+
+                    <!-- Created Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Created</label>
+                        <label class="col-12 col-sm-8 col-form-label text-sm-left">{{ user.created|pretty_datetime }}</label>
+                    </div>
+
+                    <!-- Username Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Username</label>
+                        <label class="col-12 col-sm-8 col-form-label text-sm-left">{{ user.username }}</label>
+                    </div>
+
+                    <!-- Email Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Email</label>
+                        <label class="col-12 col-sm-8 col-form-label text-sm-left">{{ user.email }}</label>
+                    </div>
+
+                    <!-- Name Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Enter username" id="user-username" class="form-control" value="{{ user.name }}">
+                        </div>
+                    </div>
+
+                    <!-- Phone Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Phone</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Enter phone" id="user-phone" class="form-control" value="{{ user.phone }}">
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <!-- end User Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+          {% if current_user.is_manager %}
+            <button type="button" id="user-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+            <button type="button" id="user-btn-ok" class="btn btn-outline-dark" onclick="javascript: onUserOkButtonClick()">Update</button>
+          {% else %}
+              <button type="button" id="user-btn-ok"  class="btn btn-outline-secondary" data-dismiss="modal">OK</button>
+          {% endif %}
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of User Modal Content -->
+<!-- ============================================================== -->
+
+<script>
+
+(function(window, document, $, undefined) {
+"use strict";
+
+    $("#profileImage").click(function(e) {
+        $("#imageUpload").click();
+    });
+
+    function fasterPreview( uploader ) {
+        if ( uploader.files && uploader.files[0] ){
+              $('#profileImage').attr('src',
+                 window.URL.createObjectURL(uploader.files[0]) );
+        }
+    }
+
+    $("#imageUpload").change(function(){
+        fasterPreview( this );
+    });
+
+})(window, document, window.jQuery);
+
+/** This function will be called when the OK button in the User form
+ * is clicked. It can be either Create or Update action.
+ */
+function onUserOkButtonClick() {
+    notImplemented("Not yet");
+}  // function onUserOkButtonClick
+</script>
+

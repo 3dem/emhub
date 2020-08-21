@@ -43,7 +43,7 @@
                     <ul class="mb-0 list-unstyled">
                         {% for u in lab_members %}
 
-                        <li class="mb-1"><a href="#">{{ u['name'] }}</a></li>
+                        <li class="mb-1"><a href="javascript:showUser({{ u['id'] }})">{{ u['name'] }}</a></li>
 
                         {% endfor %}
                     </ul>

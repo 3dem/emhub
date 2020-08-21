@@ -133,6 +133,10 @@ class DataContent:
 
         return {'users': users}
 
+    def get_user_form(self, **kwargs):
+        user = self.app.dm.get_user_by(id=kwargs['user_id'])
+        return {'user': user}
+
     def get_resources_list(self, **kwargs):
 
         resource_list = [

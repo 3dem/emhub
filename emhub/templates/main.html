@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/circular-std/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='libs/css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='libs/css/emhub.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/fontawesome/css/fontawesome-all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/vector-map/jqvmap.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/jvectormap/jquery-jvectormap-2.0.2.css') }}">
@@ -65,6 +66,13 @@
         </div>
         <!-- end footer -->
     </div>
+
+    <!-- ============================================================== -->
+    <!-- Application Modal -->
+    <!-- ============================================================== -->
+    <div class="modal fade" id="user-modal" tabindex="-1" role="dialog" aria-labelledby="userModal" aria-hidden="true">
+    </div>
+
 </div>
 <!-- end main wrapper -->
 
@@ -161,6 +169,21 @@
 
         load_main_content("{{ content_id }}");
     });
+
+    /* Show the User Form */
+    function showUser(userId) {
+        ajaxContent = get_ajax_content("user_form", {user_id: userId});
+
+        ajaxContent.done(function(html) {
+            $("#user-modal").html(html);
+            // Show the form after setting html content
+            $('#user-modal').modal('show');
+        });
+
+        ajaxContent.fail(function(jqXHR, textStatus) {
+            alert( "Request failed: " + textStatus );
+        });
+    }  // function showUser
 
 
 </script>
