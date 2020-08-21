@@ -371,10 +371,20 @@ class DataManager:
         return b
 
     def __validate_booking(self, booking):
+        # Check the booking time is bigger than the minimum booking time
+        # specified in the resource settings
+        r = self.get_resource_by(id=booking.resource_id)
+
+        if r.min_booking > 0:
+            mm = dt.timedelta(minutes=int(r.min_booking * 60))
+            if booking.duration < mm:
+                raise Exception("The duration of the booking is less that "
+                                "the minimum specified for the resource. ")
+
         app_id = booking.application_id
         if app_id is not None:
             a = self.get_application_by(id=app_id)
-            r = self.get_resource_by(id=booking.resource_id)
+
             count = self.count_booking_resources([app_id],
                                                  resource_tags=r.tags.split())
             for tagKey, tagCount in count[app_id]   .items():

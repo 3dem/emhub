@@ -79,13 +79,16 @@ def create_data_models(dm, Base):
                        nullable=False)
 
         # Booking authorization, who can book within this slot
-        #booking_auth = Column(JSON, default={'applications': [], 'users': []})
         requires_slot = Column(Boolean, default=False)
 
         # Latest number of hours that a booking can be canceled
         # for this resource (e.g until 48h for a booking in Krios)
         # If 0, means that the booking can be cancelled at any time
         latest_cancellation = Column(Integer, default=0)
+
+        # Minimum amount of hours for a booking in this resource
+        # fractions of an hour can also  be used
+        min_booking = Column(Float, default=0)
 
         @property
         def is_microscope(self):
@@ -422,6 +425,10 @@ def create_data_models(dm, Base):
                                    back_populates="bookings")
 
         session = relationship("Session", back_populates="booking")
+
+        @property
+        def duration(self):
+            return  self.end - self.start
 
         @property
         def days(self):

@@ -50,8 +50,8 @@
                                     <th class="border-0">Resource Name</th>
                                     <th class="border-0">Tags</th>
                                     <th class="border-0">Requeries Slot</th>
-                                    <th class="border-0">Latest cancellation</th>
-                                    <th class="border-0">User can book (without  slot)</th>
+                                    <th class="border-0">Latest cancellation (h)</th>
+                                    <th class="border-0">Minimum  booking (h)</th>
                                     {% if current_user.is_manager %}
                                     <th class="border-0">Actions</th>
                                     {% endif %}
@@ -69,7 +69,7 @@
                                     <td> {{ r['tags'] }}</td>
                                     <td> {{ r['requires_slot'] }}</td>
                                     <td> {{ r['latest_cancellation'] }}</td>
-                                    <td> {{ r['user_can_book'] }}</td>
+                                    <td> {{ r['min_booking'] }}</td>
                                     {% if current_user.is_manager %}
                                     <td>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:notImplemented('Can not EDIT Resource. ')"><i class="far fa-edit"></i></button>
