@@ -96,6 +96,15 @@ class DataManager:
         del attrs['password']
         return self.__create_item(self.User, **attrs)
 
+    def update_user(self, **attrs):
+        """ Update an existing user. """
+        # attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
+        # del attrs['password']
+        print("DEBUG: update_user: ")
+        from pprint import pprint
+        pprint(attrs)
+        return self.__update_item(self.User, **attrs)
+
     def get_users(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.User,
                                        condition=condition,

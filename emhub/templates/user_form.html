@@ -10,18 +10,20 @@
         </button>
       </div>
       <div class="modal-body">
-        <div class="row">
+
             <!-- User Form -->
+            <form id="user-form" data-parsley-validate="" novalidate="">
+            <div class="row">
             <div class="col-xl-2 col-lg-2 col-md-2 col-sm-2 col-2">
                 <div id="profile-container">
-                   <image id="profileImage" src="http://lorempixel.com/100/100" />
+                   <image id="user-profile-image" name="user-profile-image" src="{{ user.image }}" />
                 </div>
                 <input id="imageUpload" type="file"
                        name="profile_photo" placeholder="Photo" required="" capture>
             </div>
 
             <div class="col-xl-10 col-lg-10 col-md-10 col-sm-10 col-10">
-                <form id="validationform" data-parsley-validate="" novalidate="">
+
                     <input type="hidden" id="user-id" name="user-id" value="{{ user.id }}">
 
                     <!-- Created Row -->
@@ -46,7 +48,7 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Enter username" id="user-username" class="form-control" value="{{ user.name }}">
+                            <input type="text" required="" placeholder="Enter username" id="user-username" name="user-username" class="form-control" value="{{ user.name }}">
                         </div>
                     </div>
 
@@ -54,18 +56,19 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Phone</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Enter phone" id="user-phone" class="form-control" value="{{ user.phone }}">
+                            <input type="text" required="" placeholder="Enter phone" id="user-phone" name="user-phone" class="form-control" value="{{ user.phone }}">
                         </div>
                     </div>
 
-                </form>
-            </div>
-            <!-- end User Form -->
-        </div>
+      </div>
+                </div>
+            </form>
+
+        <!-- end User Form -->
       </div>
 
       <div class="modal-footer">
-          {% if current_user.is_manager %}
+          {% if current_user.is_manager or current_user.id == user.id %}
             <button type="button" id="user-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
             <button type="button" id="user-btn-ok" class="btn btn-outline-dark" onclick="javascript: onUserOkButtonClick()">Update</button>
           {% else %}
@@ -83,13 +86,13 @@
 (function(window, document, $, undefined) {
 "use strict";
 
-    $("#profileImage").click(function(e) {
+    $("#user-profile-image").click(function(e) {
         $("#imageUpload").click();
     });
 
     function fasterPreview( uploader ) {
         if ( uploader.files && uploader.files[0] ){
-              $('#profileImage').attr('src',
+              $('#user-profile-image').attr('src',
                  window.URL.createObjectURL(uploader.files[0]) );
         }
     }
@@ -100,11 +103,54 @@
 
 })(window, document, window.jQuery);
 
+
+/** Helper functions to handle User AJAX response or failure */
+function handleUserAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('user' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showMessage('ERROR', error);
+    else {
+        showMessage('SUCCESS', 'User updated sucessfully.');
+        $('#user-modal').modal('hide');
+    }
+}
+
+
+function handleAjaxFail(jqXHR, textStatus) {
+    showMessage("ERROR", "Request failed: " + textStatus );
+}
+
+
 /** This function will be called when the OK button in the User form
  * is clicked. It can be either Create or Update action.
  */
 function onUserOkButtonClick() {
-    notImplemented("Not yet");
+    var frm = $('#user-form');
+    var formData = new FormData(frm[0]);
+    var uploader = $('input[type=file]')[0];
+    if ( uploader.files && uploader.files[0] ){
+        formData.append('user-profile-image', uploader.files[0]);
+    }
+
+    var ajaxContent = $.ajax({
+        url: "{{ url_for('api.update_user') }}",
+        type: "POST",
+        data: formData,
+        processData: false,
+        contentType: false
+    });
+    ajaxContent.done(handleUserAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
 }  // function onUserOkButtonClick
 </script>
 

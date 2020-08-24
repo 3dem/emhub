@@ -135,6 +135,8 @@ def create_data_models(dm, Base):
                                unique=True,
                                nullable=False)
 
+        profile_image = Column(String(256), unique=True, nullable=True)
+
         # ---------------- RELATIONS ----------------------------
 
         # Pi and Lab_members relation

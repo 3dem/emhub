@@ -51,6 +51,33 @@ def create_user():
 
     return send_json_data(-1)
 
+@api_bp.route('/update_user', methods=['POST'])
+def update_user():
+    try:
+        f = request.form
+        attrs = {'id': f['user-id'],
+                 'username': f['user-username'],
+                 'phone': f['user-phone'],
+                 }
+
+        if 'user-profile-image' in request.files:
+            profile_image = request.files['user-profile-image']
+
+            if profile_image.filename:
+                _, ext = os.path.splitext(profile_image.filename)
+                image_name = 'user-profile-image-%06d%s' % (int(f['user-id']), ext)
+                image_path = os.path.join('emhub/static/images', image_name)
+                profile_image.save(image_path)
+                attrs['profile_image'] = image_name
+
+        app.dm.update_user(**attrs)
+
+        return send_json_data({'user': attrs})
+
+    except Exception as e:
+        print(e)
+        return send_json_data({'error': 'ERROR from Server: %s' % e})
+
 
 @api_bp.route('/get_users', methods=['POST'])
 def get_users():
