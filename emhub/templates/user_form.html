@@ -105,7 +105,10 @@
 
 
 /** Helper functions to handle User AJAX response or failure */
-function handleUserAjaxDone(jsonResponse) {
+function handleUserAjaxDone(jsonResponseStr) {
+    // I don't know why the response from the server is string here instead of JSON
+    // maybe because the request is a bit special without contentType?
+    jsonResponse = JSON.parse(jsonResponseStr)
     var error = null;
 
     if ('user' in jsonResponse) {
@@ -120,7 +123,7 @@ function handleUserAjaxDone(jsonResponse) {
     if (error)
         showMessage('ERROR', error);
     else {
-        showMessage('SUCCESS', 'User updated sucessfully.');
+        showMessage('SUCCESS', 'User updated successfully.');
         $('#user-modal').modal('hide');
     }
 }
