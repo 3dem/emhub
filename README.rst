@@ -10,7 +10,7 @@ Launching the development server
 
     conda create --name=emhub-flask-py37 python=3.7 flask sqlalchemy pillow h5py flask-login
     conda activate emhub-flask-py37
-    pip install sqlalchemy-utc requests
+    pip install sqlalchemy-utc requests tzlocal
 
     export FLASK_APP=emhub
     export FLASK_ENV=development
@@ -20,5 +20,6 @@ Launching the development server
     git clone git@github.com:3dem/emhub-testdata.git
 
     export EMHUB_TESTDATA=~/work/development/emhub-testdata
-
     flask run
+
+To initialize the db: python -m emhub.data
