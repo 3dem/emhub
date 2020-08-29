@@ -132,7 +132,7 @@ class H5SessionData:
 if __name__ == '__main__':
     setId = 1
 
-    from session_test import TestSessionData
+    from .session_test import TestSessionData
     tsd = TestSessionData()
     mics = tsd.get_items(setId)
 

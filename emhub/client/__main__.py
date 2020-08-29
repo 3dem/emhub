@@ -1,6 +1,6 @@
 
 import sys
-from .data_client import SessionClient
+from .session_client import SessionClient
 
 sc = SessionClient()
 

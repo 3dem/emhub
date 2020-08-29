@@ -71,7 +71,7 @@ class TestData:
             ('Petey Cruiser', 'pi', None),  # 7
             ('Pat Agonia', 'pi', None),  # 8
             ('Paul Molive', 'pi', None),  # 9
-            ('Pat Ernity', 'pi', None), # 10
+            ('Pat Ernity', 'pi', None),  # 10
 
             # users (R, S)
             ('Ray Cyst', 'user', 6),  # 11
@@ -94,7 +94,7 @@ class TestData:
             roles = roles.split(',')
             dm.create_user(username=last,
                            email='%s.%s@emhub.org' % (first, last),
-                           phone='%d-%d%d' %  (len(roles), len(first), len(last)),
+                           phone='%d-%d%d' % (len(roles), len(first), len(last)),
                            password=last,
                            name=name,
                            roles=roles,
@@ -168,7 +168,6 @@ class TestData:
              'alias': 'BAG Lund',
              'status': 'active',
              'title': 'Bag Application for Lund University 2019/20',
-             'description': '',
              'creator_id': 6,
              'template_id': templates[0].id,
              'invoice_reference': 'AAA',

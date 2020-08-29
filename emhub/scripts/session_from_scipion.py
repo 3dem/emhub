@@ -40,8 +40,8 @@ import pwem
 from pwem.objects import SetOfCTF
 
 from emhub.utils import image
-from session_test import TestSessionData
-from session_hdf5 import H5SessionData
+from emhub.data.session_test import TestSessionData
+from emhub.data.data_hdf5 import H5SessionData
 
 
 def usage(error):

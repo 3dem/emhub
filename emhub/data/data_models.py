@@ -31,7 +31,6 @@ import datetime as dt
 import decimal
 import datetime
 
-
 from sqlalchemy import (Column, Integer, String, JSON, Boolean, Float,
                         ForeignKey, Text, Table)
 from sqlalchemy.orm import relationship
@@ -45,6 +44,7 @@ def create_data_models(dm, Base):
 
     def _json(obj):
         """ Return row info as json dict. """
+
         def jsonattr(k):
             v = getattr(obj, k)
             if isinstance(v, datetime.date):
@@ -93,7 +93,6 @@ def create_data_models(dm, Base):
         @property
         def is_microscope(self):
             return 'microscope' in self.tags
-
 
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
@@ -217,7 +216,7 @@ def create_data_models(dm, Base):
                 applications.extend(pi.applications)
 
             def _filter(a):
-                return  status == 'all' or  a.status == status
+                return status == 'all' or a.status == status
 
             return [a for a in applications if _filter(a)]
 
@@ -227,7 +226,7 @@ def create_data_models(dm, Base):
             if self.is_manager or not resource.requires_slot:
                 return True
 
-            apps =  self.get_applications()
+            apps = self.get_applications()
 
             # If the user is not manager and the resource requires slot,
             # let's check if there is any application that allows the user
@@ -237,7 +236,6 @@ def create_data_models(dm, Base):
         def can_book_slot(self, booking_slot):
             """ Return True if the user can book in the given SLOT. """
             return booking_slot.allows_user_in_slot(self)
-
 
     class Template(Base):
         """ Classes used as template to create Applications.
@@ -430,7 +428,7 @@ def create_data_models(dm, Base):
 
         @property
         def duration(self):
-            return  self.end - self.start
+            return self.end - self.start
 
         @property
         def days(self):
@@ -455,7 +453,7 @@ def create_data_models(dm, Base):
         def allows_user_in_slot(self, user):
             """ Return True if a given user is allowed to book in this Slot.
             """
-            if self.type !=  'slot':
+            if self.type != 'slot':
                 return False
 
             if user.is_manager:
@@ -464,8 +462,8 @@ def create_data_models(dm, Base):
             allowedUsers = self.slot_auth.get('users', [])
             allowedApps = self.slot_auth.get('applications', [])
 
-            return  (user.id in allowedUsers or
-                     any(a.code in allowedApps for a in user.get_applications()))
+            return (user.id in allowedUsers or
+                    any(a.code in allowedApps for a in user.get_applications()))
 
     class Session(Base):
         """Model for sessions."""
@@ -475,7 +473,7 @@ def create_data_models(dm, Base):
                     primary_key=True)
 
         name = Column(String(256),
-                       nullable=False)
+                      nullable=False)
 
         start = Column(UtcDateTime)
 
@@ -488,8 +486,8 @@ def create_data_models(dm, Base):
         status = Column(String(32), default='x')
 
         data_path = Column(String(256),
-                             index=False,
-                             nullable=True)
+                           index=False,
+                           nullable=True)
 
         DEFAULT_ACQUISITION = {
             'voltage': None,
@@ -505,7 +503,6 @@ def create_data_models(dm, Base):
         }
         # Acquisition info parameters are store as a JSON string
         acquisition = Column(JSON, default=DEFAULT_ACQUISITION)
-
 
         DEFAULT_STATS = {
             'numOfMovies': 0,
@@ -558,4 +555,3 @@ def create_data_models(dm, Base):
     dm.Application = Application
     dm.Booking = Booking
     dm.Session = Session
-

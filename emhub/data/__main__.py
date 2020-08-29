@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     if len(sys.argv) > 1:
         portalDataJson = sys.argv[1]
-        bookingsJson =  sys.argv[2]
+        bookingsJson = sys.argv[2]
 
         if not os.path.exists(portalDataJson):
             print("JSON data file '%s' does not exists. " % portalDataJson)
