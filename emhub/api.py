@@ -51,6 +51,7 @@ def create_user():
 
     return send_json_data(-1)
 
+
 @api_bp.route('/update_user', methods=['POST'])
 def update_user():
     try:
@@ -89,6 +90,7 @@ def get_users():
 def create_template():
     return handle_template(app.dm.create_template)
 
+
 @api_bp.route('/get_templates', methods=['POST'])
 def get_templates():
     return send_json_data({'error': 'Not implemented'})
@@ -116,9 +118,10 @@ def get_applications():
 
 @api_bp.route('/update_application', methods=['POST'])
 def update_application():
-    return  handle_application(app.dm.update_application)
+    return handle_application(app.dm.update_application)
 
 # ---------------------------- BOOKINGS ---------------------------------------
+
 @api_bp.route('/create_booking', methods=['POST'])
 def create_booking():
     return handle_booking('bookings_created', app.dm.create_booking)

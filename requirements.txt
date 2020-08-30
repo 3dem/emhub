@@ -7,4 +7,4 @@ tzlocal
 pytz
 SQLAlchemy-Utc
 gunicorn
-
+requests

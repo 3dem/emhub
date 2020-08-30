@@ -399,7 +399,7 @@ class DataManager:
             for tagKey, tagCount in count[app_id]   .items():
                 alloc = a.get_quota(tagKey)
                 if alloc:  # if different from None or 0, then check
-                    if  tagCount + booking.days > alloc:
+                    if tagCount + booking.days > alloc:
                         raise Exception("Exceeded number of allocated days "
                                         "for application %s on resource tag '%s'"
                                         % (a.code, tagKey))

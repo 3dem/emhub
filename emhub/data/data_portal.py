@@ -35,6 +35,7 @@ class PortalData:
     """ Class to import data (users, templates, applications) from the
      Application Portal at SciLifeLab.
     """
+
     def __init__(self, dm, dataJsonPath, bookingsJsonPath):
         """
         Args:
@@ -45,7 +46,7 @@ class PortalData:
                 * forms (Templates here)
                 * orders (Applications here)
         """
-        self.__importData(dm,  dataJsonPath, bookingsJsonPath)
+        self.__importData(dm, dataJsonPath, bookingsJsonPath)
 
     def __importData(self, dm, dataJsonPath, bookingsJsonPath):
         # Create tables with test data for each database model
@@ -69,8 +70,7 @@ class PortalData:
             # print("Populating sessions...")
             # self.__populateSessions(dm)
             print("Populating Bookings")
-            self.__importBookings(dm,  bookingsData)
-
+            self.__importBookings(dm, bookingsData)
 
     def __importUsers(self, dm):
         # Create user table
@@ -105,7 +105,7 @@ class PortalData:
         }
 
         #  Create first facility staff
-        for u  in  self._jsonUsers:
+        for u in self._jsonUsers:
             if u['email'] in staff:
                 createUser(u, roles=staff[u['email']])
 
@@ -117,13 +117,12 @@ class PortalData:
                 piDict[u['email']] = u
 
         for u in self._jsonUsers:
-            if not u['pi'] and not u['email'] in staff  :
+            if not u['pi'] and not u['email'] in staff:
                 piEmail = u['invoice_ref']
                 if piEmail in piDict:
                     createUser(u, pi=piDict[piEmail]['emhub_item'].id)
                 else:
                     print("Skipping user (Missing PI): ", u['email'])
-
 
     def __populateResources(self, dm):
         resources = [
@@ -157,12 +156,12 @@ class PortalData:
             dm.create_resource(**rDict)
 
     def __importApplications(self, dm, jsonData):
-        statuses  = {'disabled': 'closed',
-                     'review': 'review',
-                     'preparation': 'preparation',
-                     'enabled': 'active',
-                     'rejected': 'rejected'
-                     }
+        statuses = {'disabled': 'closed',
+                    'review': 'review',
+                    'preparation': 'preparation',
+                    'enabled': 'active',
+                    'rejected': 'rejected'
+                    }
 
         def createTemplate(f):
             return dm.create_template(
@@ -185,7 +184,7 @@ class PortalData:
         now = dm.now()
 
         def _internalPi(u):
-            return (u['pi'] and 'emhub_item' in  u and
+            return (u['pi'] and 'emhub_item' in u and
                     (u['email'].endswith('dbb.su.se')
                      or u['email'].endswith('scilifelab.se')))
 
@@ -225,7 +224,7 @@ class PortalData:
 
             status = o['status']
             # Set some accepted as 'active' and other as 'closed'
-            #created = dt.datetime.strptime(o['created'], '%Y-%m-%d')
+            # created = dt.datetime.strptime(o['created'], '%Y-%m-%d')
             created = datetime_from_isoformat(o['created'])
 
             if status == 'accepted' or status == 'enabled':
@@ -244,7 +243,7 @@ class PortalData:
                 app = dm.create_application(
                     code=orderId,
                     title=o['title'],
-                    created=created, #datetime_from_isoformat(o['created']),
+                    created=created,  # datetime_from_isoformat(o['created']),
                     alias=status,
                     status=status,
                     description=description,
@@ -261,9 +260,7 @@ class PortalData:
 
                         #  TODO: Add other PIs
             except Exception as e:
-                print("Exception when creating Application: %s. IGNORING..." %  e)
-
-
+                print("Exception when creating Application: %s. IGNORING..." % e)
 
         dm.commit()
 
@@ -283,7 +280,7 @@ class PortalData:
             email = b['user']['email']
             resource = b['resourceName']
 
-            if email not in self._dictUsers or resource not  in resourcesDict:
+            if email not in self._dictUsers or resource not in resourcesDict:
                 print(b['startDate'], b['endDate'], b['resourceName'],
                       b['title'], name)
                 continue
@@ -315,7 +312,7 @@ class PortalData:
                           end=now.replace(day=6, hour=13),
                           type='slot',
                           repeat_value='bi-weekly',
-                          repeat_stop=now.replace(month=month+2),
+                          repeat_stop=now.replace(month=month + 2),
                           resource_id=7,
                           creator_id=1,  # first user for now
                           owner_id=1,  # first user for now
@@ -392,5 +389,3 @@ class PortalData:
                           numOfCls2D=0,
                           ptclSizeMin=140,
                           ptclSizeMax=160, )
-
-

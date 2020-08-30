@@ -81,9 +81,9 @@ class DataContent:
                      }
             if b.start <= now <= b.end:
                 i = 0
-            elif now <= b.start and b.start <= next7:
+            elif now <= b.start <= next7:
                 i = 1
-            elif now <= b.start and b.start <= next30:
+            elif now <= b.start <= next30:
                 i = 2
             else:
                 i = -1
@@ -182,7 +182,7 @@ class DataContent:
             piList = [u for u in dm.get_users() if u.is_pi]
         elif user.is_application_manager:
             apps = [a for a in user.created_applications if a.is_active]
-            piSet = set([user.get_id()])
+            piSet = {user.get_id()}
             piList = [user]
             for a in apps:
                 for pi in a.users:
@@ -222,7 +222,7 @@ class DataContent:
                                   'title': t.title,
                                   'description': t.description,
                                   'status': t.status
-                                 }
+                                  }
                                  for t in self.app.dm.get_templates()]
 
         return dataDict
@@ -285,7 +285,7 @@ class DataContent:
 
             # Show all booking information in title in some cases only
             if user_can_view:
-                appStr = '' if application is None else ', %s' %  application.code
+                appStr = '' if application is None else ', %s' % application.code
                 extra = "%s%s" % (owner.name, appStr)
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
             else:
@@ -329,4 +329,4 @@ class DataContent:
                 else:
                     staff.append(u)
 
-        return  staff
+        return staff

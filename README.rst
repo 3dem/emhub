@@ -10,7 +10,7 @@ Launching the development server
 
     conda create --name=emhub-flask-py37 python=3.7 flask sqlalchemy pillow h5py flask-login
     conda activate emhub-flask-py37
-    pip install sqlalchemy-utc tzlocal
+    pip install sqlalchemy-utc requests tzlocal
 
     export FLASK_APP=emhub
     export FLASK_ENV=development

@@ -37,25 +37,20 @@
                         <tbody>
                         <tr>
                             <td>User</td>
-                            <td>{{ session.users.username }}</td>
+                            <td>{{ session.operator_id }}</td>
                         </tr>
                         <tr>
                             <td>Started</td>
-                            <td>{{ session.dateStarted }}</td>
+                            <td>{{ session.start }}</td>
                         </tr>
                         <tr>
-                            <td>Particle size</td>
-                            <td>{{ session.ptclSizeMin }}-{{ session.ptclSizeMax }} A</td>
+                            <td>Num. of movies</td>
+                            <td>{{ session.stats.numMovies }}</td>
                         </tr>
                         <tr>
                             <td>Num. of particles</td>
-                            <td>{{ session.numOfPtcls }}</td>
+                            <td>{{ session.stats.numPtcls }}</td>
                         </tr>
-                        <tr>
-                            <td>2D classes</td>
-                            <td>{{ session.numOfCls2D }}</td>
-                        </tr>
-
                         </tbody>
                     </table>
                 </div>
