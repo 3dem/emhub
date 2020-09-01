@@ -341,7 +341,7 @@ class DataContent:
         if user.is_admin or user.is_manager:
             condition = None
         elif user.is_pi:
-            members = user.get_lab_members()
+            members = self.get_lab_members()
             if members is not None:
                 condition = "operator_id IN (%s)" % members
             else:  # PI with no lab members
