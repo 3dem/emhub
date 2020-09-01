@@ -2,7 +2,7 @@
 import os
 import unittest
 
-from emhub.data import DataManager, TestData
+from emhub.data import DataManager, TestData, ImageSessionData, H5SessionData
 
 
 class TestDataManager(unittest.TestCase):
@@ -88,3 +88,25 @@ class TestDataManager(unittest.TestCase):
         self.assertTrue(len(count_tags))
         print_count(count_tags)
 
+
+class TestSessionData:
+    def test_basic(self):
+        setId = 1
+        tsd = ImageSessionData()
+        mics = tsd.get_items(setId)
+
+        hsd = H5SessionData('/tmp/data.h5', 'w')
+        hsd.create_set(setId, label='Test set')
+
+        for mic in mics:
+            micData = tsd.get_item(setId, mic.id,
+                                   dataAttrs=['micThumbData',
+                                              'psdData',
+                                              'shiftPlotData'])
+            hsd.add_item(setId, itemId=mic.id, **micData._asdict())
+
+        hsd.close()
+
+        hsd = H5SessionData('/tmp/data.h5', 'r')
+        for mic in hsd.get_items(setId):
+            print(mic)
