@@ -89,8 +89,12 @@ class TestDataManager(unittest.TestCase):
         self.assertTrue(len(count_tags))
         print_count(count_tags)
 
+    def test_sessions(self):
+        sm = DataManager('instance/emhub.sqlite')
+        print(sm.get_sessions(asJson=True))
 
-class TestSessionData:
+
+class TestSessionData(unittest.TestCase):
     def test_basic(self):
         setId = 1
         tsd = ImageSessionData()
