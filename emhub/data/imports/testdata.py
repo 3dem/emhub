@@ -382,7 +382,7 @@ class TestData:
                    },
             resource_id=2,  # Krios 2
             booking_id=None,
-            operator_id=1,  # User  X
+            operator_id=2,  # User  X
         )
 
         dm.create_session(

@@ -97,9 +97,21 @@ class DataContent:
         return dataDict
 
     def get_sessions_overview(self, **kwargs):
-        # sessions = self.app.dm.get_sessions(condition='status!="Finished"',
-        #                                orderBy='microscope')
-        sessions = self.app.dm.get_sessions()  # FIXME
+        user = self.app.user
+        if user.is_admin or user.is_manager:
+            condition = None
+        elif user.is_pi:
+            members = user.get_lab_members()
+            if members is not None:
+                condition = "operator_id IN (%s)" % members
+            else:  # PI with no lab members
+                condition = 'operator_id == %s' % user.get_id()
+        else:
+            condition = 'operator_id == %s' % user.get_id()
+
+        print("get_sessions_overview:condition=", condition)
+
+        sessions = self.app.dm.get_sessions(condition=condition, orderBy='resource_id')
         return {'sessions': sessions}
 
     def get_session_live(self, **kwargs):
