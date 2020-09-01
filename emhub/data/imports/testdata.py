@@ -367,7 +367,7 @@ class TestData:
             name='epu-mysession_20122310_234542',
             start=datetime(2020, 4, 5, 12, 30, 10, tzinfo=tzinfo),
             end=None,
-            status='error',
+            status='failed',
             data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
             acquisition={'voltage': 300,
                          'cs': 2.7,
@@ -387,7 +387,7 @@ class TestData:
                    },
             resource_id=2,  # Krios 2
             booking_id=None,
-            operator_id=2,  # User  X
+            operator_id=6,  # User  6
         )
 
         dm.create_session(
@@ -414,5 +414,5 @@ class TestData:
                    },
             resource_id=3,  # Talos
             booking_id=None,
-            operator_id=1,  # User  X
+            operator_id=12,  # User  12
         )

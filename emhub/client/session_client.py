@@ -48,4 +48,7 @@ class SessionClient:
         return self.r
 
     def json(self):
-        return json.dumps(self.r.json(), indent=4)
+        if self.r.status_code == 200:
+            return json.dumps(self.r.json(), indent=4)
+        else:
+            return "Request failed with status code: %s" % self.r.status_code

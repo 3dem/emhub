@@ -38,15 +38,13 @@ from emhub.utils import pretty_json, datetime_from_isoformat
 api_bp = Blueprint('api', __name__)
 
 
-# =============================== REST API ====================================
-
 # ---------------------------- USERS ------------------------------------------
 @api_bp.route('/create_user', methods=['POST'])
 def create_user():
     attrs = request.json
     app.dm.create_user(**attrs)
 
-    return send_json_data(-1)
+    return send_json_data("OK")
 
 
 @api_bp.route('/update_user', methods=['POST'])
@@ -79,7 +77,7 @@ def update_user():
 
 @api_bp.route('/get_users', methods=['POST'])
 def get_users():
-    return filter_from_attrs(app.dm.get_users())
+    return filter_request(app.dm.get_users)
 
 
 # ---------------------------- APPLICATIONS -----------------------------------
@@ -144,12 +142,15 @@ def delete_booking():
 
 @api_bp.route('/get_sessions', methods=['POST'])
 def get_sessions():
-    return filter_from_attrs(app.dm.get_sessions(asJson=True))
+    return filter_request(app.dm.get_sessions)
 
 
 @api_bp.route('/create_session', methods=['POST'])
 def create_session():
-    pass
+    attrs = request.json
+    app.dm.create_session(**attrs)
+
+    return send_json_data("OK")
 
 
 # -------------------- UTILS functions --------------------------
@@ -161,16 +162,25 @@ def send_json_data(data):
     return resp
 
 
-def filter_from_attrs(items):
-    attrs = None
-    if request.json and 'attrs' in request.json:
-        attrs = request.json['attrs'].split(',')
+def filter_request(func):
+    conditions, orderBy = None, None
+    if 'condition' in request.json:
+        conditions = request.json['condition']
+    if 'orderBy' in request.json:
+        orderBy = request.json['orderBy']
 
-    if attrs:
+    items = func(condition=conditions, orderBy=orderBy,
+                 asJson=True)
+
+    if 'attrs' in request.json:
+        attrs = request.json['attrs']
+
         def _filter(s):
             return {k: v for k, v in s.items()
                     if not attrs or k in attrs}
         sessions = [_filter(s) for s in items]
+    else:
+        sessions = items
 
     return send_json_data(sessions)
 
