@@ -205,12 +205,6 @@ def create_data_models(dm, Base):
             """ Return if the same pi. """
             return self.get_pi() == other.get_pi()
 
-        def get_lab_members(self):
-            if self.is_pi:
-                return ",".join(u.get_id() for u in self.lab_members)
-            else:
-                return None
-
         def get_applications(self, status='active'):
             """ Return the applications of this user.
             """
