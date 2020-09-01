@@ -2,7 +2,8 @@
 import os
 import unittest
 
-from emhub.data import DataManager, TestData, ImageSessionData, H5SessionData
+from emhub.data import DataManager, ImageSessionData, H5SessionData
+from emhub.data.imports.testdata import TestData
 
 
 class TestDataManager(unittest.TestCase):

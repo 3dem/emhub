@@ -28,9 +28,6 @@
 
 import os
 import json
-from glob import glob
-import datetime as dt
-import traceback
 
 from flask import Blueprint, request, make_response
 from flask import current_app as app
@@ -120,6 +117,7 @@ def get_applications():
 def update_application():
     return handle_application(app.dm.update_application)
 
+
 # ---------------------------- BOOKINGS ---------------------------------------
 
 @api_bp.route('/create_booking', methods=['POST'])
@@ -141,6 +139,8 @@ def delete_booking():
     return handle_booking('bookings_deleted', app.dm.delete_booking,
                           booking_transform=_transform)
 
+
+# ---------------------------- SESSIONS ---------------------------------------
 
 @api_bp.route('/get_sessions', methods=['POST'])
 def get_sessions():

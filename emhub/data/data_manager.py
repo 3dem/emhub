@@ -35,7 +35,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-from .data_hdf5 import H5SessionData
+from .data_session import H5SessionData
 from .data_models import create_data_models
 
 

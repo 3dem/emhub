@@ -26,7 +26,6 @@
 
 import os
 import json
-import datetime as dt
 
 from emhub.utils import datetime_from_isoformat
 

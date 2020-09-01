@@ -122,7 +122,6 @@ class SessionData:
         pass
 
 
-
 class H5SessionData(SessionData):
     """
     Container of Session Data based on HDF5 file.
@@ -208,7 +207,7 @@ class H5SessionData(SessionData):
                 % (setId, '' if itemId is None else '/item%05d' % itemId))
 
 
-class ImageSessionData:
+class ImageSessionData(SessionData):
     """
     Very simple implementation of SessionData for testing purposes.
     This class depends on the definition of EMHUB_TESTDATA environment

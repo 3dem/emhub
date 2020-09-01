@@ -1,4 +1,4 @@
-from emhub.data.data_manager import DataManager
+from emhub.data import DataManager
 
 sm = DataManager('instance/emhub.sqlite')
 

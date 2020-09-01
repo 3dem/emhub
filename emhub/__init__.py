@@ -27,7 +27,6 @@
 # **************************************************************************
 
 import os
-import json
 from glob import glob
 
 import flask

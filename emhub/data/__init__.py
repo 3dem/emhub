@@ -26,6 +26,5 @@
 # *
 # **************************************************************************
 
-from .data_session import SessionData, H5SessionData, ImageSessionData
+from .data_session import H5SessionData, ImageSessionData
 from .data_manager import DataManager
-from .data_test import TestData

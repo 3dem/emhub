@@ -29,19 +29,16 @@
 This script will compute the statistics of the SetOfCTFs in a given project.
 """
 
-import os
 import sys
 
 import pyworkflow as pw
 from pyworkflow.project import Manager
 import pyworkflow.utils as pwutils
-
 import pwem
 from pwem.objects import SetOfCTF
 
 from emhub.utils import image
-from emhub.data.session_test import TestSessionData
-from emhub.data.data_hdf5 import H5SessionData
+from emhub.data import ImageSessionData, H5SessionData
 
 
 def usage(error):

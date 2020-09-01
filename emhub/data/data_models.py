@@ -26,7 +26,6 @@
 # *
 # **************************************************************************
 
-import os
 import datetime as dt
 import decimal
 import datetime
@@ -58,7 +57,7 @@ def create_data_models(dm, Base):
 
     class Resource(Base):
         """ Representation of different type of Resources.
-        (e.g Micrographs, other instruments or services.
+        (e.g Microscopes, other instruments or services.
         """
         __tablename__ = 'resources'
 
@@ -82,7 +81,7 @@ def create_data_models(dm, Base):
         requires_slot = Column(Boolean, default=False)
 
         # Latest number of hours that a booking can be canceled
-        # for this resource (e.g until 48h for a booking in Krios)
+        # for this resource (e.g until 48h for a booking on Krios)
         # If 0, means that the booking can be cancelled at any time
         latest_cancellation = Column(Integer, default=0)
 
@@ -518,7 +517,7 @@ def create_data_models(dm, Base):
         stats = Column(JSON, default=DEFAULT_STATS)
 
         # Resource (usually microscope) that was used in this session
-        # This should be the same resource as the booking, when  it is not None
+        # This should be the same resource as the booking, when it is not None
         resource_id = Column(Integer, ForeignKey('resources.id'))
         resource = relationship("Resource")
 

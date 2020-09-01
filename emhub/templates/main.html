@@ -129,7 +129,7 @@
         console.log("requesting content: " + content_id);
 
         if (params == null)
-            params = {content_id: content_id}
+            params = {content_id: content_id};
         else
             params.content_id = content_id;
 
@@ -156,14 +156,14 @@
     }
 
     function load_content_fromlink(e) {
-        var content_id = e.currentTarget.dataset.contentId
+        var content_id = e.currentTarget.dataset.contentId;
         load_main_content(content_id);
         e.preventDefault();
     }
 
     $(document).ready(function(){
         $('.nav-link-ajax').each(function(){
-            //console.log('data-content-id: ', $(this).data('content-id'));
+            console.log('data-content-id: ', $(this).data('content-id'));
             $(this).click(load_content_fromlink);
         });
 
