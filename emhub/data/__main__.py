@@ -3,7 +3,7 @@ import os
 import sys
 
 from .data_manager import DataManager
-from .imports.testdata import  TestData
+from .imports.testdata import TestData
 from .imports.scilifelab_portal import PortalData
 
 

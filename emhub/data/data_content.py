@@ -131,8 +131,8 @@ class DataContent:
                 'session': session}
 
     def get_sessions_stats(self, **kwargs):
-        sessions = self.app.dm.get_sessions()
-        return {'sessions': sessions}
+        # FIXME: do we need a different implementation?
+        return self.get_sessions_overview(**kwargs)
 
     def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()
