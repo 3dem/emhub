@@ -41,10 +41,7 @@ api_bp = Blueprint('api', __name__)
 # ---------------------------- USERS ------------------------------------------
 @api_bp.route('/create_user', methods=['POST'])
 def create_user():
-    attrs = request.json
-    app.dm.create_user(**attrs)
-
-    return send_json_data("OK")
+    return  create_item('user')
 
 
 @api_bp.route('/update_user', methods=['POST'])
@@ -72,7 +69,7 @@ def update_user():
 
     except Exception as e:
         print(e)
-        return send_json_data({'error': 'ERROR from Server: %s' % e})
+        return send_error('ERROR from Server: %s' % e)
 
 
 @api_bp.route('/get_users', methods=['POST'])
@@ -88,7 +85,7 @@ def create_template():
 
 @api_bp.route('/get_templates', methods=['POST'])
 def get_templates():
-    return send_json_data({'error': 'Not implemented'})
+    return send_error('Not implemented')
 
 
 @api_bp.route('/update_template', methods=['POST'])
@@ -103,7 +100,7 @@ def delete_template():
 
 @api_bp.route('/create_application', methods=['POST'])
 def create_application():
-    return send_json_data({'error': 'create_application NOT IMPLEMENTED'})
+    return send_error('create_application NOT IMPLEMENTED')
 
 
 @api_bp.route('/get_applications', methods=['POST'])
@@ -147,10 +144,7 @@ def get_sessions():
 
 @api_bp.route('/create_session', methods=['POST'])
 def create_session():
-    attrs = request.json
-    app.dm.create_session(**attrs)
-
-    return send_json_data("OK")
+    return create_item('session')
 
 
 # -------------------- UTILS functions --------------------------
@@ -160,6 +154,10 @@ def send_json_data(data):
     resp.status_code = 200
     resp.headers['Access-Control-Allow-Origin'] = '*'
     return resp
+
+
+def send_error(msg):
+    return  send_json_data({'error': msg})
 
 
 def filter_request(func):
@@ -190,7 +188,7 @@ def _handle_item(handle_func, result_key):
         print(e)
         import traceback
         traceback.print_exc()
-        return send_json_data({'error': 'ERROR from Server: %s' % e})
+        return send_error('ERROR from Server: %s' % e)
 
 
 def handle_booking(result_key, booking_func, booking_transform=None):
@@ -223,3 +221,13 @@ def handle_application(application_func):
         return application_func(**attrs).json()
 
     return _handle_item(handle, 'application')
+
+
+def create_item(name):
+    def handle(**attrs):
+        create_func = getattr(app.dm, 'create_%s' % name)
+        item = create_func(attrs)
+        # For created items let's just return back the id
+        return {'id': item.id}
+
+    return _handle_item(handle, name)
