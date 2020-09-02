@@ -147,6 +147,11 @@ def create_session():
     return create_item('session')
 
 
+@api_bp.route('/update_session', methods=['POST'])
+def update_session():
+    return handle_session(app.dm.update_session)
+
+
 # -------------------- UTILS functions --------------------------
 
 def send_json_data(data):
@@ -221,6 +226,13 @@ def handle_application(application_func):
         return application_func(**attrs).json()
 
     return _handle_item(handle, 'application')
+
+
+def handle_session(session_func):
+    def handle(**attrs):
+        return session_func(**attrs).json()
+
+    return _handle_item(handle, 'session')
 
 
 def create_item(name):

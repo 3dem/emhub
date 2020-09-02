@@ -278,15 +278,12 @@ class DataManager:
         """ Add a new session row. """
         return self.__create_item(self.Session, **attrs)
 
-    def update_session(self, sessionId, **attrs):
+    def update_session(self, **attrs):
         """ Update session attrs. """
-        session = self.Session.query.get(sessionId)
-
-        # TODO: Check the following lines
-        # for attr in attrs:
-        #     session.attr = attrs[attr]
-
-        self.commit()
+        print("DEBUG: update_session: ")
+        from pprint import pprint
+        pprint(attrs)
+        return self.__update_item(self.Session, **attrs)
 
     def delete_session(self, sessionId):
         """ Remove a session row. """
