@@ -197,7 +197,7 @@ def create_data_models(dm, Base):
             return len(self.created_applications) > 0
 
         def get_pi(self):
-            """ Return the PI of this users. PI are consider PI of themselves.
+            """ Return the PI of this user. PI are consider PI of themselves.
             """
             return self if self.is_pi else self.pi
 
@@ -479,10 +479,11 @@ def create_data_models(dm, Base):
         end = Column(UtcDateTime)
 
         # Possible statuses of a Session:
-        #   - x: when it has been created and it under preparation
-        #   - y: the application has been submitted for review
-        #   - z: if for some reason the application is rejected
-        status = Column(String(32), default='x')
+        #   - created (not started)
+        #   - running
+        #   - failed
+        #   - finished
+        status = Column(String(32), default='created')
 
         data_path = Column(String(256),
                            index=False,

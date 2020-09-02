@@ -90,16 +90,15 @@ class DataContent:
         dataDict['bookings'] = bookings
 
         if user.is_manager:
-            dataDict['lab_members'] = [u.json() for u in self.get_facility_staff()]
+            dataDict['lab_members'] = [u.json() for u in self._get_facility_staff()]
         else:
             dataDict['lab_members'] = [u.json() for u in user.get_pi().lab_members]
 
         return dataDict
 
     def get_sessions_overview(self, **kwargs):
-        # sessions = self.app.dm.get_sessions(condition='status!="Finished"',
-        #                                orderBy='microscope')
-        sessions = self.app.dm.get_sessions()  # FIXME
+        sessions = self.app.dm.get_sessions(condition=self._get_display_condition(),
+                                            orderBy='resource_id')
         return {'sessions': sessions}
 
     def get_session_live(self, **kwargs):
@@ -119,8 +118,8 @@ class DataContent:
                 'session': session}
 
     def get_sessions_stats(self, **kwargs):
-        sessions = self.app.dm.get_sessions()
-        return {'sessions': sessions}
+        # FIXME: do we need a different implementation?
+        return self.get_sessions_overview(**kwargs)
 
     def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()
@@ -200,7 +199,7 @@ class DataContent:
                 labs.append(lab)
 
         if user.is_manager:
-            labs.append([_userjson(u) for u in self.get_facility_staff()])
+            labs.append([_userjson(u) for u in self._get_facility_staff()])
 
         dataDict['possible_owners'] = labs
         dataDict['resource_id'] = kwargs.get('resource_id', None)
@@ -238,6 +237,7 @@ class DataContent:
         return {'application': app,
                 'microscopes': mics}
 
+    # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
         resource = booking.resource
@@ -312,7 +312,7 @@ class DataContent:
             'days': booking.days
         }
 
-    def get_facility_staff(self):
+    def _get_facility_staff(self):
         """ Return the list of facility personnel.
         First users in the list should  be the facility Head.
         """
@@ -326,3 +326,20 @@ class DataContent:
                     staff.append(u)
 
         return staff
+
+    def _get_display_condition(self):
+        """ Compose condition str for the get_sessions query.
+        Depending on the user role we show specific sessions only.
+        """
+        user = self.app.user
+
+        if user.is_manager:
+            return None
+
+        condition = 'operator_id == %s' % user.get_id()
+
+        if user.is_pi and len(user.lab_members):
+            membersId = ",".join(u.get_id() for u in user.lab_members)
+            condition = "operator_id IN (%s)" % membersId
+
+        return condition

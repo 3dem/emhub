@@ -27,6 +27,11 @@
 # **************************************************************************
 
 import os
+from datetime import datetime, timezone, timedelta
+
+
+TZ_DELTA = 0  # Define timezone, UTC '0'
+tzinfo = timezone(timedelta(hours=TZ_DELTA))
 
 
 class TestData:
@@ -333,7 +338,7 @@ class TestData:
 
         dm.create_session(
             name='supervisor_23423452_20201223_123445',
-            start=None,
+            start=datetime(2020, 3, 5, 12, 30, 10, tzinfo=tzinfo),
             end=None,
             status='running',
             data_path=os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
@@ -360,7 +365,7 @@ class TestData:
 
         dm.create_session(
             name='epu-mysession_20122310_234542',
-            start=dm.now(),
+            start=datetime(2020, 4, 5, 12, 30, 10, tzinfo=tzinfo),
             end=None,
             status='error',
             data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
@@ -382,13 +387,13 @@ class TestData:
                    },
             resource_id=2,  # Krios 2
             booking_id=None,
-            operator_id=1,  # User  X
+            operator_id=2,  # User  X
         )
 
         dm.create_session(
             name='session_very_long_name',
-            start=dm.now(),
-            end=None,
+            start=datetime(2020, 5, 7, 12, 30, 10, tzinfo=tzinfo),
+            end=datetime(2020, 5, 8, 9, 30, 10, tzinfo=tzinfo),
             status='finished',
             data_path=os.path.join(td, 'non-existing-file'),
             acquisition={'voltage': 300,
