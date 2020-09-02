@@ -27,13 +27,12 @@
 # **************************************************************************
 
 import os
-import json
 
 import flask
 from flask import request
 from flask import current_app as app
 
-from emhub.utils import pretty_json, datetime_from_isoformat
+from emhub.utils import datetime_from_isoformat, send_json_data, send_error
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -167,17 +166,6 @@ def create_session():
 
 
 # -------------------- UTILS functions --------------------------
-
-def send_json_data(data):
-    resp = flask.make_response(json.dumps(data))
-    resp.status_code = 200
-    resp.headers['Access-Control-Allow-Origin'] = '*'
-    return resp
-
-
-def send_error(msg):
-    return send_json_data({'error': msg})
-
 
 def filter_request(func):
     condition = request.json.get('condition', None)

@@ -33,8 +33,8 @@ import flask
 import flask_login
 
 from . import utils
-from .api import send_json_data, api_bp
-from .utils import datetime_to_isoformat, pretty_datetime
+from .blueprints import api_bp
+from .utils import datetime_to_isoformat, pretty_datetime, send_json_data
 from .data.data_content import DataContent
 
 
