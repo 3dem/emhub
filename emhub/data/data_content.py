@@ -90,14 +90,14 @@ class DataContent:
         dataDict['bookings'] = bookings
 
         if user.is_manager:
-            dataDict['lab_members'] = [u.json() for u in self.get_facility_staff()]
+            dataDict['lab_members'] = [u.json() for u in self._get_facility_staff()]
         else:
             dataDict['lab_members'] = [u.json() for u in user.get_pi().lab_members]
 
         return dataDict
 
     def get_sessions_overview(self, **kwargs):
-        sessions = self.app.dm.get_sessions(condition=self.get_display_conditions(),
+        sessions = self.app.dm.get_sessions(condition=self._get_display_condition(),
                                             orderBy='resource_id')
         return {'sessions': sessions}
 
@@ -199,7 +199,7 @@ class DataContent:
                 labs.append(lab)
 
         if user.is_manager:
-            labs.append([_userjson(u) for u in self.get_facility_staff()])
+            labs.append([_userjson(u) for u in self._get_facility_staff()])
 
         dataDict['possible_owners'] = labs
         dataDict['resource_id'] = kwargs.get('resource_id', None)
@@ -237,6 +237,7 @@ class DataContent:
         return {'application': app,
                 'microscopes': mics}
 
+    # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
         resource = booking.resource
@@ -311,7 +312,7 @@ class DataContent:
             'days': booking.days
         }
 
-    def get_facility_staff(self):
+    def _get_facility_staff(self):
         """ Return the list of facility personnel.
         First users in the list should  be the facility Head.
         """
@@ -326,28 +327,19 @@ class DataContent:
 
         return staff
 
-    def get_lab_members(self):
-        """ Return the list of user ids for a PI. """
-        if self.app.user.is_pi:
-            return ",".join(u.get_id() for u in self.app.user.lab_members)
-        else:
-            return None
-
-    def get_display_conditions(self):
-        """Compose condition str for the get_sessions query.
+    def _get_display_condition(self):
+        """ Compose condition str for the get_sessions query.
         Depending on the user role we show specific sessions only.
         """
         user = self.app.user
-        if user.is_admin or user.is_manager:
-            condition = None
-        elif user.is_pi:
-            members = self.get_lab_members()
-            if members is not None:
-                condition = "operator_id IN (%s)" % members
-            else:  # PI with no lab members
-                condition = 'operator_id == %s' % user.get_id()
-        else:
-            condition = 'operator_id == %s' % user.get_id()
 
-        print("get_sessions_overview: condition=", condition)
+        if user.is_manager:
+            return None
+
+        condition = 'operator_id == %s' % user.get_id()
+
+        if user.is_pi and len(user.lab_members):
+            membersId = ",".join(u.get_id() for u in user.lab_members)
+            condition = "operator_id IN (%s)" % membersId
+
         return condition
