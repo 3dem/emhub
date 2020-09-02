@@ -128,7 +128,10 @@ class H5SessionData(SessionData):
     """
     def __init__(self, h5File, mode='r'):
         #h5py.get_config().track_order = True
-        print("Loading files: ", h5File)
+        if mode == 'r':
+            print("Reading file: ", h5File)
+        elif mode == 'w':
+            print("Writing file: ", h5File)
 
         self._file = h5py.File(h5File, mode)
 

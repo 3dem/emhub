@@ -1,3 +1,31 @@
+# **************************************************************************
+# *
+# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [2]
+# *
+# * [1] SciLifeLab, Stockholm University
+# * [2] MRC Laboratory of Molecular Biology (MRC-LMB)
+# *
+# * This program is free software; you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation; either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# * This program is distributed in the hope that it will be useful,
+# * but WITHOUT ANY WARRANTY; without even the implied warranty of
+# * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# * GNU General Public License for more details.
+# *
+# * You should have received a copy of the GNU General Public License
+# * along with this program; if not, write to the Free Software
+# * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+# * 02111-1307  USA
+# *
+# *  All comments concerning this program package may be sent to the
+# *  e-mail address 'delarosatrevin@scilifelab.se'
+# *
+# **************************************************************************
+
 import json
 import unittest
 import random
@@ -18,16 +46,16 @@ class TestClientApi(unittest.TestCase):
                              "roles":"user",
                              "phone":"343-332-4525"}}
 
-        print("Creating user: %s" % jsonData)
+        print("="*80, "\nCreating user: %s" % jsonData)
         sc.request(method, jsonData)
-        print(sc.json())
         result_id = json.loads(sc.json())['user']['id']
+        print("Created new user with id: %s" % result_id)
 
         sc.request(method="get_users",
                    json={"condition":"id=%s" % result_id})
         check = json.loads(sc.json())[0]['id']
 
-        self.assertEqual(result_id, check)
+        self.assertEqual(result_id, check, msg="Creating test user failed!")
 
     def test_create_session(self):
         """ Create a session and check the result. """
@@ -38,13 +66,13 @@ class TestClientApi(unittest.TestCase):
                               "resource_id":"2",
                               "operator_id":"23"}}
 
-        print("Creating session: %s" % jsonData)
+        print("="*80, "\nCreating session: %s" % jsonData)
         sc.request(method, jsonData)
-        print(sc.json())
         result_id = json.loads(sc.json())['session']['id']
+        print("Created new session with id: %s" % result_id)
 
         sc.request(method="get_sessions",
                    json={"condition":"id=%s" % result_id})
         check = json.loads(sc.json())[0]['id']
 
-        self.assertEqual(result_id, check)
+        self.assertEqual(result_id, check, msg="Creating test session failed!")

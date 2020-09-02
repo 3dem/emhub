@@ -52,7 +52,7 @@ class TestData:
         self.__populateResources(dm)
         print("Populating applications...")
         self.__populateApplications(dm)
-        print("Populating Bookings...")
+        print("Populating bookings...")
         self.__populateBookings(dm)
         print("Populating sessions...")
         self.__populateSessions(dm)
