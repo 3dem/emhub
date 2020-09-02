@@ -26,5 +26,37 @@
 # *
 # **************************************************************************
 
-from .api import api_bp
-from .images import images_bp
+import os
+
+import flask
+from flask import request
+from flask import current_app as app
+
+from emhub.utils import datetime_from_isoformat, send_json_data, send_error
+
+
+images_bp = flask.Blueprint('images', __name__)
+
+
+@images_bp.route("/static", methods=['GET', 'POST'])
+def static():
+    try:
+        fn = request.args['filename']
+        return app.send_static_file(os.path.join('images', fn))
+    except FileNotFoundError:
+        flask.abort(404)
+
+
+@images_bp.route("/user_profile", methods=['GET', 'POST'])
+def user_profile():
+    try:
+        user_id = request.args['user_id']
+        user = app.dm.get_user_by(id=user_id)
+
+        if user.profile_image is None:
+            return app.send_static_file(os.path.join('images', 'user-icon.png'))
+
+        return flask.send_from_directory(app.config["USER_IMAGES"],
+                                         filename=user.profile_image)
+    except FileNotFoundError:
+        flask.abort(404)

@@ -33,7 +33,7 @@ import flask
 import flask_login
 
 from . import utils
-from .blueprints import api_bp
+from .blueprints import api_bp, images_bp
 from .utils import datetime_to_isoformat, pretty_datetime, send_json_data
 from .data.data_content import DataContent
 
@@ -51,6 +51,7 @@ def create_app(test_config=None):
                       instance_relative_config=True)
 
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(images_bp, url_prefix='/images')
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config.from_mapping(SECRET_KEY='dev')
@@ -129,6 +130,7 @@ def create_app(test_config=None):
         flask_login.logout_user()
         return flask.redirect(flask.url_for('index'))
 
+    # TODO: Move to images blueprint
     @app.route('/get_mic_thumb', methods=['POST'])
     def get_mic_thumb():
         micId = int(flask.request.form['micId'])

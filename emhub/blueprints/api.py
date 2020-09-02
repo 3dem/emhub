@@ -76,25 +76,6 @@ def update_user():
 def get_users():
     return filter_request(app.dm.get_users)
 
-
-@api_bp.route("/user_profile_image", methods=['GET', 'POST'])
-def user_profile_image():
-    try:
-        user_id = request.args['user_id']
-        user = app.dm.get_user_by(id=user_id)
-
-        if user.profile_image is None:
-            return app.send_static_file(os.path.join('images', 'user-icon.png'))
-
-        print("Sending file: %s/%s"
-              % (app.config["USER_IMAGES"], user.profile_image))
-
-        return flask.send_from_directory(app.config["USER_IMAGES"],
-                                   filename=user.profile_image)
-    except FileNotFoundError:
-        flask.abort(404)
-
-
 # ---------------------------- APPLICATIONS -----------------------------------
 @api_bp.route('/create_template', methods=['POST'])
 def create_template():
