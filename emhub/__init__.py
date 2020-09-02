@@ -44,12 +44,20 @@ templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '
 
 def create_app(test_config=None):
     # create and configure the app
-    app = flask.Flask(__name__, instance_relative_config=True)
+    emhub_instance_path = os.environ.get('EMHUB_INSTANCE', None)
+
+    app = flask.Flask(__name__,
+                      instance_path=emhub_instance_path,
+                      instance_relative_config=True)
+
     app.register_blueprint(api_bp, url_prefix='/api')
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config.from_mapping(SECRET_KEY='dev')
     dbPath = os.path.join(app.instance_path, 'emhub.sqlite')
+
+    app.config["IMAGES"] = os.path.join(app.instance_path, 'images')
+    app.config["USER_IMAGES"] = os.path.join(app.config["IMAGES"], 'user')
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -59,10 +67,7 @@ def create_app(test_config=None):
         app.config.from_mapping(test_config)
 
     # ensure the instance folder exists
-    try:
-        os.makedirs(app.instance_path)
-    except OSError:
-        pass
+    os.makedirs(app.config['USER_IMAGES'], exist_ok=True)
 
     # Define some content_id list that does not requires login
     NO_LOGIN_CONTENT = ['users-list']

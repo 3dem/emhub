@@ -130,9 +130,11 @@ class DataContent:
 
     def get_user_form(self, **kwargs):
         user = self.app.dm.get_user_by(id=kwargs['user_id'])
-        image_name = user.profile_image or 'user-icon.png'
 
-        user.image = flask.url_for('static', filename='images/%s' % image_name)
+        if user.profile_image:
+            user.image = flask.url_for('api.user_profile_image', user_id=user.id)
+        else:
+            user.image = flask.url_for('static', filename='images/user-icon.png')
 
         return {'user': user}
 

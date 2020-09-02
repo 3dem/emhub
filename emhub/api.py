@@ -29,13 +29,14 @@
 import os
 import json
 
-from flask import Blueprint, request, make_response
+import flask
+from flask import request
 from flask import current_app as app
 
 from emhub.utils import pretty_json, datetime_from_isoformat
 
 
-api_bp = Blueprint('api', __name__)
+api_bp = flask.Blueprint('api', __name__)
 
 
 # ---------------------------- USERS ------------------------------------------
@@ -58,8 +59,8 @@ def update_user():
 
             if profile_image.filename:
                 _, ext = os.path.splitext(profile_image.filename)
-                image_name = 'user-profile-image-%06d%s' % (int(f['user-id']), ext)
-                image_path = os.path.join('emhub/static/images', image_name)
+                image_name = 'profile-image-%06d%s' % (int(f['user-id']), ext)
+                image_path = os.path.join(app.config['USER_IMAGES'], image_name)
                 profile_image.save(image_path)
                 attrs['profile_image'] = image_name
 
@@ -75,6 +76,24 @@ def update_user():
 @api_bp.route('/get_users', methods=['POST'])
 def get_users():
     return filter_request(app.dm.get_users)
+
+
+@api_bp.route("/user_profile_image", methods=['GET', 'POST'])
+def user_profile_image():
+    try:
+        user_id = request.args['user_id']
+        user = app.dm.get_user_by(id=user_id)
+
+        if user.profile_image is None:
+            return app.send_static_file(os.path.join('images', 'user-icon.png'))
+
+        print("Sending file: %s/%s"
+              % (app.config["USER_IMAGES"], user.profile_image))
+
+        return flask.send_from_directory(app.config["USER_IMAGES"],
+                                   filename=user.profile_image)
+    except FileNotFoundError:
+        flask.abort(404)
 
 
 # ---------------------------- APPLICATIONS -----------------------------------
@@ -150,7 +169,7 @@ def create_session():
 # -------------------- UTILS functions --------------------------
 
 def send_json_data(data):
-    resp = make_response(json.dumps(data))
+    resp = flask.make_response(json.dumps(data))
     resp.status_code = 200
     resp.headers['Access-Control-Allow-Origin'] = '*'
     return resp
