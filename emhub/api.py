@@ -41,8 +41,9 @@ api_bp = Blueprint('api', __name__)
 # ---------------------------- USERS ------------------------------------------
 @api_bp.route('/create_user', methods=['POST'])
 def create_user():
-    attrs = request.json
-    app.dm.create_user(**attrs)
+    attrs = request.json['attrs']
+    if attrs:
+        app.dm.create_user(**attrs)
 
     return send_json_data("OK")
 
@@ -147,8 +148,9 @@ def get_sessions():
 
 @api_bp.route('/create_session', methods=['POST'])
 def create_session():
-    attrs = request.json
-    app.dm.create_session(**attrs)
+    attrs = request.json['attrs']
+    if attrs:
+        app.dm.create_session(**attrs)
 
     return send_json_data("OK")
 
