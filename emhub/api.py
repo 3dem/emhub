@@ -38,15 +38,10 @@ from emhub.utils import pretty_json, datetime_from_isoformat
 api_bp = Blueprint('api', __name__)
 
 
-# =============================== REST API ====================================
-
 # ---------------------------- USERS ------------------------------------------
 @api_bp.route('/create_user', methods=['POST'])
 def create_user():
-    attrs = request.json
-    app.dm.create_user(**attrs)
-
-    return send_json_data(-1)
+    return create_item('user')
 
 
 @api_bp.route('/update_user', methods=['POST'])
@@ -74,12 +69,12 @@ def update_user():
 
     except Exception as e:
         print(e)
-        return send_json_data({'error': 'ERROR from Server: %s' % e})
+        return send_error('ERROR from Server: %s' % e)
 
 
 @api_bp.route('/get_users', methods=['POST'])
 def get_users():
-    return filter_from_attrs(app.dm.get_users())
+    return filter_request(app.dm.get_users)
 
 
 # ---------------------------- APPLICATIONS -----------------------------------
@@ -90,7 +85,7 @@ def create_template():
 
 @api_bp.route('/get_templates', methods=['POST'])
 def get_templates():
-    return send_json_data({'error': 'Not implemented'})
+    return send_error('Not implemented')
 
 
 @api_bp.route('/update_template', methods=['POST'])
@@ -105,7 +100,7 @@ def delete_template():
 
 @api_bp.route('/create_application', methods=['POST'])
 def create_application():
-    return send_json_data({'error': 'create_application NOT IMPLEMENTED'})
+    return send_error('create_application NOT IMPLEMENTED')
 
 
 @api_bp.route('/get_applications', methods=['POST'])
@@ -144,12 +139,12 @@ def delete_booking():
 
 @api_bp.route('/get_sessions', methods=['POST'])
 def get_sessions():
-    return filter_from_attrs(app.dm.get_sessions(asJson=True))
+    return filter_request(app.dm.get_sessions)
 
 
 @api_bp.route('/create_session', methods=['POST'])
 def create_session():
-    pass
+    return create_item('session')
 
 
 # -------------------- UTILS functions --------------------------
@@ -161,18 +156,26 @@ def send_json_data(data):
     return resp
 
 
-def filter_from_attrs(items):
-    attrs = None
-    if request.json and 'attrs' in request.json:
-        attrs = request.json['attrs'].split(',')
+def send_error(msg):
+    return send_json_data({'error': msg})
 
-    if attrs:
+
+def filter_request(func):
+    condition = request.json.get('condition', None)
+    orderBy = request.json.get('orderBy', None)
+
+    items = func(condition=condition, orderBy=orderBy,
+                 asJson=True)
+
+    if 'attrs' in request.json:
+        attrs = request.json['attrs']
+
         def _filter(s):
             return {k: v for k, v in s.items()
                     if not attrs or k in attrs}
-        sessions = [_filter(s) for s in items]
+        items = [_filter(s) for s in items]
 
-    return send_json_data(sessions)
+    return send_json_data(items)
 
 
 def _handle_item(handle_func, result_key):
@@ -185,7 +188,7 @@ def _handle_item(handle_func, result_key):
         print(e)
         import traceback
         traceback.print_exc()
-        return send_json_data({'error': 'ERROR from Server: %s' % e})
+        return send_error('ERROR from Server: %s' % e)
 
 
 def handle_booking(result_key, booking_func, booking_transform=None):
@@ -218,3 +221,13 @@ def handle_application(application_func):
         return application_func(**attrs).json()
 
     return _handle_item(handle, 'application')
+
+
+def create_item(name):
+    def handle(**attrs):
+        create_func = getattr(app.dm, 'create_%s' % name)
+        item = create_func(**attrs)
+        # For created items let's just return back the id
+        return {'id': item.id}
+
+    return _handle_item(handle, name)

@@ -16,7 +16,7 @@
             <div class="row">
             <div class="col-xl-2 col-lg-2 col-md-2 col-sm-2 col-2">
                 <div id="profile-container">
-                   <image id="user-profile-image" name="user-profile-image" src="{{ user.image }}" />
+                   <img id="user-profile-image" name="user-profile-image" src="{{ user.image }}" />
                 </div>
                 <input id="imageUpload" type="file"
                        name="profile_photo" placeholder="Photo" required="" capture>
@@ -108,7 +108,7 @@
 function handleUserAjaxDone(jsonResponseStr) {
     // I don't know why the response from the server is string here instead of JSON
     // maybe because the request is a bit special without contentType?
-    jsonResponse = JSON.parse(jsonResponseStr)
+    jsonResponse = JSON.parse(jsonResponseStr);
     var error = null;
 
     if ('user' in jsonResponse) {
@@ -156,4 +156,3 @@ function onUserOkButtonClick() {
     ajaxContent.fail(handleAjaxFail);
 }  // function onUserOkButtonClick
 </script>
-

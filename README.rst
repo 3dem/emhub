@@ -22,4 +22,9 @@ Launching the development server
     export EMHUB_TESTDATA=~/work/development/emhub-testdata
     flask run
 
-To initialize the db: python -m emhub.data
+To initialize the db: `python -m emhub.data`
+
+Running tests
+-------------
+
+`python -m unittest emhub.tests`
