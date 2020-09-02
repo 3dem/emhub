@@ -163,13 +163,10 @@ def send_json_data(data):
 
 
 def filter_request(func):
-    conditions, orderBy = None, None
-    if 'condition' in request.json:
-        conditions = request.json['condition']
-    if 'orderBy' in request.json:
-        orderBy = request.json['orderBy']
+    condition = request.json.get('condition', None)
+    orderBy = request.json.get('orderBy', None)
 
-    items = func(condition=conditions, orderBy=orderBy,
+    items = func(condition=condition, orderBy=orderBy,
                  asJson=True)
 
     if 'attrs' in request.json:
@@ -178,11 +175,9 @@ def filter_request(func):
         def _filter(s):
             return {k: v for k, v in s.items()
                     if not attrs or k in attrs}
-        sessions = [_filter(s) for s in items]
-    else:
-        sessions = items
+        items = [_filter(s) for s in items]
 
-    return send_json_data(sessions)
+    return send_json_data(items)
 
 
 def _handle_item(handle_func, result_key):
