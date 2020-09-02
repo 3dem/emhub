@@ -107,13 +107,18 @@ class DataContent:
         firstSetId = session.data.get_sets()[0]['id']
         mics = session.data.get_items(firstSetId, ['location', 'ctfDefocus'])
         defocusList = [m.ctfDefocus for m in mics]
+        resolutionList = []# m.ctfResolution for m in mics]
         sample = ['Defocus'] + defocusList
 
         bar1 = {'label': 'CTF Defocus',
                 'data': defocusList}
 
+        bar2 = {'label': 'CTF Resolution',
+                'data': resolutionList}
+
         return {'sample': sample,
                 'bar1': bar1,
+                'bar2': bar2,
                 'micrographs': mics,
                 'session': session}
 

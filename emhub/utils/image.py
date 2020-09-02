@@ -26,6 +26,7 @@
 
 import io
 import base64
+import mrcfile
 from PIL import Image
 
 
@@ -49,3 +50,21 @@ def pil_to_base64(pil_img):
     img_io = io.BytesIO()
     pil_img.save(img_io, format='PNG')
     return base64.b64encode(img_io.getvalue()).decode("utf-8")
+
+
+def mrc_to_base64(filename, MAX_SIZE):
+    #FIXME: this is not working..
+    mrc_img = mrcfile.open(filename)
+    pil_img = Image.fromarray(mrc_img.data)
+    mrc_img.close()
+    pil_img.thumbnail(MAX_SIZE)
+
+    img_io = io.BytesIO()
+    pil_img.save(img_io, format='TIFF')  # apparently, only TIF supports 32-bit
+    pil_img.close()
+    return base64.b64encode(img_io.getvalue()).decode("utf-8")
+
+
+if __name__ == '__main__':
+    fn = "/home/azazello/test/relion31_tutorial/MotionCorr/job002/Movies/20170629_00028_frameImage.mrc"
+    mrc_to_base64(fn, (200, 200))
