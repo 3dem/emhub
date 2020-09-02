@@ -33,7 +33,8 @@ class TestDataManager(unittest.TestCase):
 
         codes = [p.code for p in applications]
 
-        self.assertEqual(codes, ['CEM00297', 'CEM00315', 'CEM00332', 'DBB00001'])
+        self.assertEqual(codes, ['CEM00297', 'CEM00315', 'CEM00332', 'DBB00001',
+                                 'CEM00345', 'CEM00346'])
 
         users = self.dm.get_users()
         uList = []

@@ -41,7 +41,7 @@ api_bp = Blueprint('api', __name__)
 # ---------------------------- USERS ------------------------------------------
 @api_bp.route('/create_user', methods=['POST'])
 def create_user():
-    return  create_item('user')
+    return create_item('user')
 
 
 @api_bp.route('/update_user', methods=['POST'])
@@ -157,7 +157,7 @@ def send_json_data(data):
 
 
 def send_error(msg):
-    return  send_json_data({'error': msg})
+    return send_json_data({'error': msg})
 
 
 def filter_request(func):
@@ -226,7 +226,7 @@ def handle_application(application_func):
 def create_item(name):
     def handle(**attrs):
         create_func = getattr(app.dm, 'create_%s' % name)
-        item = create_func(attrs)
+        item = create_func(**attrs)
         # For created items let's just return back the id
         return {'id': item.id}
 
