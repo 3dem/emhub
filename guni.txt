@@ -1,0 +1,39 @@
+ 2039  gunicorn --workers=2 'emhub:create_app()'
+ 2040  gunicorn --workers=2 'emhub:create_app()' --bind 0.0.0.0:8000
+ 2042  gunicorn --workers=2 'emhub:create_app()' --bind 0.0.0.0:8000
+ 2043  gunicorn --workers=2 'emhub:create_app()' --bind 0.0.0.0:8080
+ 2045  hgrep gunicorn
+ 2062  hgrep gunicorn
+ 2145  hgrep gun
+ 2146  hgrep gun &> guni.txt
+ 2066  pip install twine
+ 2078  twine upload dist/emhub-0.0.1a1.tar.gz 
+ 2095  twine upload dist/emhub-0.0.1a1.post1.tar.gz
+ 2104  twine upload dist/emhub-0.0.1a2.tar.gz
+ 2118  hgrep twine
+ 2119  twine upload dist/scipion-ed-0.0.1a2.tar.gz 
+ 2130  twine upload dist/emhub-0.0.1a3.tar.gz 
+ 2148  hgrep twi
+ 2149  hgrep twi &>> guni.txt 
+ 2063  alias docker='sudo docker'
+ 2064  docker image ls
+ 2065  docker build . -t emhub
+ 2081  hgrep dock
+ 2082  docker build . -t emhub
+ 2096  docker build . -t emhub
+ 2105  docker build . -t emhub
+ 2122  docker build . -t emhub
+ 2123  docker run --rm -p 8080:8080 --name=emhub -v $PWD/instance:/instance
+ 2124  docker run --rm -p 8080:8080 --name=emhub -v $PWD/instance:/instance emhub
+ 2125  docker ps
+ 2131  hgrep docker
+ 2132  hgrep doc
+ 2133  docker run --rm -p 8080:8080 --name=emhub -v $PWD/instance:/instance emhub
+ 2134  hgrep doc
+ 2135  docker build . -t emhub
+ 2136  docker run --rm -p 8080:8080 --name=emhub -v $PWD/instance:/instance emhub
+ 2137  docker build . -t emhub --no-cache
+ 2138  docker run --rm -p 8080:8080 --name=emhub -v $PWD/instance:/instance emhub
+ 2142  hgrep docker
+ 2151  hgrep doc &>> guni.txt 
+restructuredtext-lint 1.3.1               
