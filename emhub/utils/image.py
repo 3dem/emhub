@@ -54,6 +54,9 @@ def pil_to_base64(pil_img):
 
 
 def mrc_to_base64(filename, MAX_SIZE=(512,512)):
+    """ Convert real float32 mrc to base64.
+    Convert to int8 first, then scale with Pillow.
+    """
     mrc_img = mrcfile.open(filename)
     imfloat = mrc_img.data
     imean = imfloat.mean()
@@ -70,9 +73,3 @@ def mrc_to_base64(filename, MAX_SIZE=(512,512)):
     img_io = io.BytesIO()
     pil_img.save(img_io, format='PNG')
     return base64.b64encode(img_io.getvalue()).decode("utf-8")
-
-
-if __name__ == '__main__':
-    fn = "/home/azazello/test/relion31_tutorial/MotionCorr/job002/Movies/20170629_00028_frameImage.mrc"
-    fn2 = "/home/azazello/test/relion31_tutorial/CtfFind/job003/Movies/20170629_00028_frameImage.ctf"
-    mrc_to_base64(fn)

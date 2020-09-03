@@ -116,8 +116,8 @@ class ImportRelionSession:
                            for k in MICROGRAPH_ATTRS.keys()})
             values['micThumbData'] = image.mrc_to_base64(
                 self._getRelionMicPath(item.rlnMicrographName))
-            values['psdData'] = "" #image.mrc_to_base64(
-                #self._getRelionMicPath(item.rlnCtfImage))
+            values['psdData'] = ""  # image.mrc_to_base64(
+            #self._getRelionMicPath(item.rlnCtfImage))
             values['shiftPlotData'] = image.fn_to_base64(
                 self._getRelionEpsPath(item.rlnMicrographName))
 

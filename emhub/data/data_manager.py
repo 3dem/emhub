@@ -100,7 +100,6 @@ class DataManager:
         """ Update an existing user. """
         # attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
         # del attrs['password']
-        print("DEBUG: update_user: ")
         from pprint import pprint
         pprint(attrs)
         return self.__update_item(self.User, **attrs)
@@ -280,7 +279,6 @@ class DataManager:
 
     def update_session(self, **attrs):
         """ Update session attrs. """
-        print("DEBUG: update_session: ")
         from pprint import pprint
         pprint(attrs)
         return self.__update_item(self.Session, **attrs)
