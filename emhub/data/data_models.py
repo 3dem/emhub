@@ -168,6 +168,10 @@ def create_data_models(dm, Base):
 
         def check_password(self, password):
             """Check hashed password."""
+            print("Checking password, user: ", self.name)
+            print("   password: ", password)
+            print("        old: ", self.password_hash)
+            print("check: ", check_password_hash(self.password_hash, password))
             return check_password_hash(self.password_hash, password)
 
         def __repr__(self):

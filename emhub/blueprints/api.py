@@ -49,9 +49,14 @@ def update_user():
     try:
         f = request.form
         attrs = {'id': f['user-id'],
-                 'username': f['user-username'],
+                 #'username': f['user-username'],
+                 'name': f['user-name'],
                  'phone': f['user-phone'],
                  }
+
+        password = f['user-password'].strip()
+        if password:
+            attrs['password'] = password
 
         if 'user-profile-image' in request.files:
             profile_image = request.files['user-profile-image']

@@ -98,11 +98,8 @@ class DataManager:
 
     def update_user(self, **attrs):
         """ Update an existing user. """
-        # attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
-        # del attrs['password']
-        print("DEBUG: update_user: ")
-        from pprint import pprint
-        pprint(attrs)
+        attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
+        del attrs['password']
         return self.__update_item(self.User, **attrs)
 
     def get_users(self, condition=None, orderBy=None, asJson=False):
@@ -165,8 +162,6 @@ class DataManager:
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self, **attrs):
-        print("Creating booking: ",  attrs)
-
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         attrs.pop('modify_all', None)

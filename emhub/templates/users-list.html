@@ -18,6 +18,7 @@
                             <thead>
                             <tr>
                                 <th>id</th>
+                                <th>image</th>
                                 <th>username</th>
                                 <th>email</th>
                                 <th>name</th>
@@ -31,6 +32,7 @@
                             {% for user in users %}
                             <tr>
                                 <td>{{ user.id }}</td>
+                                <td><a href="javascript:showUser({{ user.id }})"><img width="50px" src="{{ user.image }}"></a></td>
                                 <td>{{ user.username }}</td>
                                 <td>{{ user.email }}</td>
                                 <td>{{ user.name }}</td>
@@ -38,10 +40,7 @@
                                 <td>{{ user.pi_id}}</td>
                                 <td>{{ user.project_codes}}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
-                                    <button class="btn btn-sm btn-outline-light"><i class="far fa-copy"></i></button>
-                                    <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
-                                            data-id="{{ user.id }}" data-name="{{ user.name }}"><i class="far fa-trash-alt"></i></button>
+                                    <button class="btn btn-sm btn-outline-light" onclick="showUser({{ user.id }})"><i class="far fa-edit"></i></button>
                                 </td>
                             </tr>
                             {% endfor %}

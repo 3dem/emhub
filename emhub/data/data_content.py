@@ -124,17 +124,14 @@ class DataContent:
     def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()
         for u in users:
+            u.image = self.user_profile_image(u)
             u.project_codes = [p.code for p in u.get_applications()]
 
         return {'users': users}
 
     def get_user_form(self, **kwargs):
         user = self.app.dm.get_user_by(id=kwargs['user_id'])
-
-        if user.profile_image:
-            user.image = flask.url_for('images.user_profile', user_id=user.id)
-        else:
-            user.image = flask.url_for('images.static', filename='user-icon.png')
+        user.image = self.user_profile_image(user)
 
         return {'user': user}
 
@@ -313,6 +310,12 @@ class DataContent:
             'repeat_value': booking.repeat_value,
             'days': booking.days
         }
+
+    def user_profile_image(self, user):
+        if getattr(user, 'profile_image', None):
+            return flask.url_for('images.user_profile', user_id=user.id)
+        else:
+            return flask.url_for('images.static', filename='user-icon.png')
 
     def _get_facility_staff(self):
         """ Return the list of facility personnel.

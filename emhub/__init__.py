@@ -88,6 +88,7 @@ def create_app(test_config=None):
             kwargs = {'content_id': content_id}
 
         kwargs['is_devel'] = app.is_devel
+        app.user.image = app.dc.user_profile_image(app.user)
 
         return flask.render_template('main.html', **kwargs)
 
@@ -113,7 +114,6 @@ def create_app(test_config=None):
         next_content = flask.request.form.get('next_content', 'index')
 
         user = app.dm.get_user_by(username=username)
-
         if user is None or not user.check_password(password):
             flask.flash('Invalid username or password')
             return flask.redirect(flask.url_for('login'))
@@ -122,7 +122,6 @@ def create_app(test_config=None):
 
         if next_content == 'user-login':
             next_content = 'dashboard'
-        print("logged user: %s, next_content: %s" % (username, next_content))
         return flask.redirect(flask.url_for('main', content_id=next_content))
 
     @app.route('/logout', methods=['GET', 'POST'])
