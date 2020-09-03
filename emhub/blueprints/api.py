@@ -151,7 +151,7 @@ def update_session():
     return handle_session(app.dm.update_session)
 
 
-# -------------------- UTILS functions --------------------------
+# -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
     condition = request.json.get('condition', None)

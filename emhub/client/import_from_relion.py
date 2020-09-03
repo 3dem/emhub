@@ -30,6 +30,7 @@ import sys
 import json
 from glob import glob
 import shutil
+from datetime import datetime, timezone, timedelta
 from emtable import Table
 
 
@@ -46,6 +47,9 @@ def usage(error):
         RELION_PROJECT_PATH: provide the full path to Relion project folder.
     """ % (sys.argv[0], error))
     sys.exit(1)
+
+TZ_DELTA = 0  # Define timezone, UTC '0'
+tzinfo = timezone(timedelta(hours=TZ_DELTA))
 
 MICROGRAPH_ATTRS = {
     'ctfDefocus': 'rlnDefocusU',
@@ -93,17 +97,17 @@ class ImportRelionSession:
                 # update STAR_DICT
                 print("Found star file: ", fnStar[0])
                 STAR_DICT[job][0] = fnStar[0]
-                # parse Table
+                # parse Tables
                 self.results[job] = Table(fileName=fnStar[0], tableName=params[1])
 
     def create_hdf5(self):
-        """ Create set of mics only (for now). """
+        """ Create a new set of Micrographs. """
         hsd = H5SessionData(self.h5fn, 'w')
-        setId = 100
+        setId = 1
         hsd.create_set(setId)
 
-        for id, item in enumerate(self.results['CtfFind']):
-            itemId = id
+        for itemId, item in enumerate(self.results['CtfFind']):
+            itemId += 1
             values = {
                 'id': itemId,
                 'location': item.rlnMicrographName
@@ -111,38 +115,48 @@ class ImportRelionSession:
             values.update({k: item.get(MICROGRAPH_ATTRS[k], '')
                            for k in MICROGRAPH_ATTRS.keys()})
             values['micThumbData'] = image.mrc_to_base64(
-                self._getRlnPath(item.rlnMicrographName), (200,200))
-            #values['psdData'] = image.mrc_to_base64(
-            #    self._getRlnPath(item.rlnCtfImage), (200,200))
-            #values['shiftPlotData'] = image.fn_to_base64(mic.plotGlobal.getFileName())
-            hsd.add_item(setId, itemId=id, **values)
-            print("Added item %d: " % id, values)
+                self._getRelionMicPath(item.rlnMicrographName))
+            values['psdData'] = "" #image.mrc_to_base64(
+                #self._getRelionMicPath(item.rlnCtfImage))
+            values['shiftPlotData'] = image.fn_to_base64(
+                self._getRelionEpsPath(item.rlnMicrographName))
+
+            hsd.add_item(setId, itemId, **values)
+            print("Added item %d: " % itemId, values)
 
         hsd.close()
 
     def create_session(self):
-        """ Create session with acquisition and stats attrs. """
+        """ Create a session with acquisition and stats attrs. """
         fn = os.path.join(self.path, STAR_DICT['CtfFind'][0])
         optics = Table(fileName=fn, tableName='optics')[0]
+        numFrames, dosePerFrame = self._getMovieMetadata()
         acquisition = {'voltage': optics.rlnVoltage,
                        'cs': optics.rlnSphericalAberration,
                        'phasePlate': False,
                        'detector': 'Falcon2',
                        'detectorMode': 'Linear',
                        'pixelSize': optics.rlnMicrographOriginalPixelSize,
-                       'dosePerFrame': 1.0,
+                       'dosePerFrame': dosePerFrame,
                        'totalDose': 35,
                        'exposureTime': 1.2,
-                       'numOfFrames': 48,
+                       'numOfFrames': numFrames,
                        }
+        stats = {'numMovies': len(self.results['Import']),
+                 'numMics': len(self.results['MotionCorr']),
+                 'numCtf': len(self.results['CtfFind']),
+                 'numPtcls': len(self.results['Extract']),
+                 }
 
         method = "create_session"
         jsonData = {"attrs": {"name": "%s" % self.session_name,
+                              #"start": self._getStartDate(),
                               "status": "finished",
                               "resource_id": "2",
                               "operator_id": "23",
                               "data_path": self.h5fn,
                               "acquisition": acquisition,
+                              "stats": stats,
                               }}
 
         print("=" * 80, "\nCreating session: %s" % jsonData)
@@ -151,32 +165,48 @@ class ImportRelionSession:
         result_id = json.loads(sc.json())['session']['id']
         print("Created new session with id: %s" % result_id)
 
+        # Check the results
         sc.request(method="get_sessions",
                    json={"condition": "id=%s" % result_id})
         print(sc.json())
 
 
     def run(self):
-        """ Main func. """
+        """ Main function. """
         self.parse_jobs()
         self.create_hdf5()
         self.create_session()
 
-##### Util funcs ##############################################################
+# -------------------- UTILS functions ----------------------------------------
 
-    def _getMovieShifts(self, micFn):
-        """ Return eps image with shifts. """
-        pass
-
-    def _getRlnPath(self, fn):
+    def _getRelionMicPath(self, fn):
         if fn.endswith(".ctf:mrc"):
             fn = fn.rstrip(":mrc")
-        print(os.path.join(self.path, fn))
         return os.path.join(self.path, fn)
+
+    def _getRelionEpsPath(self, fn):
+        if fn.endswith(".mrc"):
+            fn = fn.replace(".mrc", "_shifts.eps")
+        return os.path.join(self.path, fn)
+
+    def _getMovieMetadata(self):
+        fn = self.results['MotionCorr'][0].rlnMicrographMetadata
+        fn = self._getRelionMicPath(fn)
+        md = Table(fileName=fn, tableName='general')[0]
+        numFrames = md.rlnImageSizeZ
+        dosePerFrame = md.rlnMicrographDoseRate
+        return numFrames, dosePerFrame
+
+    def _getStartDate(self):
+        fn = STAR_DICT['Import'][0].replace("movies.star", "note.txt")
+        fn = self._getRelionMicPath(fn)
+        mtime = os.path.getmtime(fn)
+        return datetime.fromtimestamp(mtime, tz=tzinfo)
 
 
 if __name__ == '__main__':
-    #if len(sys.argv) != 2:
-    #    usage("Incorrect number of input parameters")
-    s = ImportRelionSession('/home/azazello/test/relion31_tutorial')
-    s.run()
+    if len(sys.argv) != 2:
+        usage("Incorrect number of input parameters")
+    else:
+        job = ImportRelionSession(path=sys.argv[1])
+        job.run()

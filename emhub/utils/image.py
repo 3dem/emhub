@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import io
+import numpy as np
 import base64
 import mrcfile
 from PIL import Image
@@ -52,19 +53,26 @@ def pil_to_base64(pil_img):
     return base64.b64encode(img_io.getvalue()).decode("utf-8")
 
 
-def mrc_to_base64(filename, MAX_SIZE):
-    #FIXME: this is not working..
+def mrc_to_base64(filename, MAX_SIZE=(512,512)):
     mrc_img = mrcfile.open(filename)
-    pil_img = Image.fromarray(mrc_img.data)
+    imfloat = mrc_img.data
+    imean = imfloat.mean()
+    isd = imfloat.std()
+
+    iMax = min(imean + 3 * isd, imfloat.max())
+    iMin = max(imean - 3 * isd, imfloat.min())
+    im255 = ((imfloat - iMin) / (iMax - iMin) * 255).astype(np.uint8)
     mrc_img.close()
+
+    pil_img = Image.fromarray(im255)
     pil_img.thumbnail(MAX_SIZE)
 
     img_io = io.BytesIO()
-    pil_img.save(img_io, format='TIFF')  # apparently, only TIF supports 32-bit
-    pil_img.close()
+    pil_img.save(img_io, format='PNG')
     return base64.b64encode(img_io.getvalue()).decode("utf-8")
 
 
 if __name__ == '__main__':
     fn = "/home/azazello/test/relion31_tutorial/MotionCorr/job002/Movies/20170629_00028_frameImage.mrc"
-    mrc_to_base64(fn, (200, 200))
+    fn2 = "/home/azazello/test/relion31_tutorial/CtfFind/job003/Movies/20170629_00028_frameImage.ctf"
+    mrc_to_base64(fn)

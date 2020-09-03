@@ -137,8 +137,11 @@ class H5SessionData(SessionData):
 
     def get_sets(self, attrList=None, condition=None, setId=None):
         setList = []
-        for k, v in self._file['/Micrographs/'].items():
-            setList.append(dict(v.attrs))
+        if setId is not None:
+            setList.append(self._file[self._getMicPath(setId)].attrs)
+        else:
+            for k, v in self._file['/Micrographs/'].items():
+                setList.append(dict(v.attrs))
         return setList
 
     def create_set(self, setId, **attrs):
@@ -179,7 +182,7 @@ class H5SessionData(SessionData):
         return micList
 
     def get_item(self, setId, itemId, dataAttrs=None):
-        print("Requesting item: sessionId: %s, itemId: %s" % (setId, itemId))
+        print("Requesting item: setId: %s, itemId: %s" % (setId, itemId))
         micAttrs = self._file[self._getMicPath(setId, itemId)].attrs
         keys = list(micAttrs.keys())
         if dataAttrs is not None:
@@ -199,8 +202,9 @@ class H5SessionData(SessionData):
         for key, value in attrsDict.items():
             micAttrs[key] = value
 
-    def update_item(self, setId, **attrsDict):
-        raise Exception("Not supported.")
+    def update_item(self, setId, itemId, **attrsDict):
+        micAttrs = self._file[self._getMicPath(setId, itemId)].attrs
+        micAttrs.update(**attrsDict)
 
     def close(self):
         self._file.close()
