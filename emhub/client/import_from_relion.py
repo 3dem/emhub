@@ -29,10 +29,8 @@ import os
 import sys
 import json
 from glob import glob
-import shutil
 from datetime import datetime, timezone, timedelta
 from emtable import Table
-
 
 from emhub.client import SessionClient
 from emhub.utils import image
@@ -77,13 +75,10 @@ class ImportRelionSession:
     def __init__(self, path):
         self.path = path
         self.session_name = os.path.basename(self.path)
-        self.tmpdir = '/tmp/%s' % self.session_name
-
-        if os.path.isdir(self.tmpdir):
-            shutil.rmtree(self.tmpdir)
-        os.mkdir(self.tmpdir)
-
-        self.h5fn = '%s/%s.h5' % (self.tmpdir, self.session_name)
+        self.sessions_dir = os.path.join(app.config['SESSIONS'],
+                                         self.session_name)
+        os.makedirs(self.sessions_dir, exist_ok=True)
+        self.h5fn = '%s/%s.h5' % (self.sessions_dir, self.session_name)
         self.results = dict()
 
     def parse_jobs(self):

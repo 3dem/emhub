@@ -59,6 +59,7 @@ def create_app(test_config=None):
 
     app.config["IMAGES"] = os.path.join(app.instance_path, 'images')
     app.config["USER_IMAGES"] = os.path.join(app.config["IMAGES"], 'user')
+    app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -69,6 +70,7 @@ def create_app(test_config=None):
 
     # ensure the instance folder exists
     os.makedirs(app.config['USER_IMAGES'], exist_ok=True)
+    os.makedirs(app.config['SESSIONS'], exist_ok=True)
 
     # Define some content_id list that does not requires login
     NO_LOGIN_CONTENT = ['users-list']
