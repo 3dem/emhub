@@ -135,9 +135,11 @@ class DataContent:
 
     def get_user_form(self, **kwargs):
         user = self.app.dm.get_user_by(id=kwargs['user_id'])
-        image_name = user.profile_image or 'user-icon.png'
 
-        user.image = flask.url_for('static', filename='images/%s' % image_name)
+        if user.profile_image:
+            user.image = flask.url_for('images.user_profile', user_id=user.id)
+        else:
+            user.image = flask.url_for('images.static', filename='user-icon.png')
 
         return {'user': user}
 
@@ -150,7 +152,7 @@ class DataContent:
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
-             'image': flask.url_for('static', filename='images/%s' % r.image),
+             'image': flask.url_for('images.static', filename=r.image),
              'user_can_book': self.app.user.can_book_resource(r),
              'microscope': 'microscope' in r.tags,
              'min_booking': r.min_booking

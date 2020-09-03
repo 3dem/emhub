@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
+# * [2] MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -24,41 +26,5 @@
 # *
 # **************************************************************************
 
-import json
-import datetime as dt
-import flask
-
-from . import image
-
-
-def pretty_json(d):
-    print(json.dumps(d, indent=4))
-
-
-def pretty_datetime(input_dt):
-    if input_dt is None:
-        return 'None'
-
-    return input_dt.strftime("%d/%m/%Y %I:%M %p")
-
-
-def datetime_from_isoformat(iso_string):
-    """ Parse the input string and handle ending Z and assume UTC. """
-    dt_string = iso_string.replace('Z', '+00:00').replace('+0000', '+00:00')
-
-    return dt.datetime.fromisoformat(dt_string).replace(tzinfo=dt.timezone.utc)
-
-
-def datetime_to_isoformat(input_dt):
-    return input_dt.isoformat().replace('+00:00', 'Z')
-
-
-def send_json_data(data):
-    resp = flask.make_response(json.dumps(data))
-    resp.status_code = 200
-    resp.headers['Access-Control-Allow-Origin'] = '*'
-    return resp
-
-
-def send_error(msg):
-    return send_json_data({'error': msg})
+from .api import api_bp
+from .images import images_bp

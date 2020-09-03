@@ -27,15 +27,15 @@
 # **************************************************************************
 
 import os
-import json
 
-from flask import Blueprint, request, make_response
+import flask
+from flask import request
 from flask import current_app as app
 
-from emhub.utils import pretty_json, datetime_from_isoformat
+from emhub.utils import datetime_from_isoformat, send_json_data, send_error
 
 
-api_bp = Blueprint('api', __name__)
+api_bp = flask.Blueprint('api', __name__)
 
 
 # ---------------------------- USERS ------------------------------------------
@@ -58,8 +58,8 @@ def update_user():
 
             if profile_image.filename:
                 _, ext = os.path.splitext(profile_image.filename)
-                image_name = 'user-profile-image-%06d%s' % (int(f['user-id']), ext)
-                image_path = os.path.join('emhub/static/images', image_name)
+                image_name = 'profile-image-%06d%s' % (int(f['user-id']), ext)
+                image_path = os.path.join(app.config['USER_IMAGES'], image_name)
                 profile_image.save(image_path)
                 attrs['profile_image'] = image_name
 
@@ -75,7 +75,6 @@ def update_user():
 @api_bp.route('/get_users', methods=['POST'])
 def get_users():
     return filter_request(app.dm.get_users)
-
 
 # ---------------------------- APPLICATIONS -----------------------------------
 @api_bp.route('/create_template', methods=['POST'])
@@ -153,17 +152,6 @@ def update_session():
 
 
 # -------------------- UTILS functions --------------------------
-
-def send_json_data(data):
-    resp = make_response(json.dumps(data))
-    resp.status_code = 200
-    resp.headers['Access-Control-Allow-Origin'] = '*'
-    return resp
-
-
-def send_error(msg):
-    return send_json_data({'error': msg})
-
 
 def filter_request(func):
     condition = request.json.get('condition', None)

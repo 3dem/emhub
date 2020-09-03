@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
+# * [2] MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -24,41 +26,37 @@
 # *
 # **************************************************************************
 
-import json
-import datetime as dt
+import os
+
 import flask
+from flask import request
+from flask import current_app as app
 
-from . import image
-
-
-def pretty_json(d):
-    print(json.dumps(d, indent=4))
+from emhub.utils import datetime_from_isoformat, send_json_data, send_error
 
 
-def pretty_datetime(input_dt):
-    if input_dt is None:
-        return 'None'
-
-    return input_dt.strftime("%d/%m/%Y %I:%M %p")
+images_bp = flask.Blueprint('images', __name__)
 
 
-def datetime_from_isoformat(iso_string):
-    """ Parse the input string and handle ending Z and assume UTC. """
-    dt_string = iso_string.replace('Z', '+00:00').replace('+0000', '+00:00')
-
-    return dt.datetime.fromisoformat(dt_string).replace(tzinfo=dt.timezone.utc)
-
-
-def datetime_to_isoformat(input_dt):
-    return input_dt.isoformat().replace('+00:00', 'Z')
+@images_bp.route("/static", methods=['GET', 'POST'])
+def static():
+    try:
+        fn = request.args['filename']
+        return app.send_static_file(os.path.join('images', fn))
+    except FileNotFoundError:
+        flask.abort(404)
 
 
-def send_json_data(data):
-    resp = flask.make_response(json.dumps(data))
-    resp.status_code = 200
-    resp.headers['Access-Control-Allow-Origin'] = '*'
-    return resp
+@images_bp.route("/user_profile", methods=['GET', 'POST'])
+def user_profile():
+    try:
+        user_id = request.args['user_id']
+        user = app.dm.get_user_by(id=user_id)
 
+        if user.profile_image is None:
+            return app.send_static_file(os.path.join('images', 'user-icon.png'))
 
-def send_error(msg):
-    return send_json_data({'error': msg})
+        return flask.send_from_directory(app.config["USER_IMAGES"],
+                                         filename=user.profile_image)
+    except FileNotFoundError:
+        flask.abort(404)
