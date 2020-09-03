@@ -1,0 +1,6 @@
+# Include the README
+ include *.rst
+
+# Include the requirement file
+include requirements.txt
+
