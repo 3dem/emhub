@@ -1,6 +1,9 @@
 # Include the README
- include *.rst
+include *.rst
 
 # Include the requirement file
 include requirements.txt
 
+graft emhub/static
+graft emhub/templates
+global-exclude *.pyc
