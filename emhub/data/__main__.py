@@ -15,12 +15,6 @@ if __name__ == '__main__':
         raise Exception("Please execute the test command from the root of the "
                         "working directory.")
 
-    dbPath = os.path.join(instance_path, 'emhub.sqlite')
-
-    if os.path.exists(dbPath):
-        print("Deleting existing file: ", dbPath)
-        os.remove(dbPath)
-
     if len(sys.argv) > 1:
         portalDataJson = sys.argv[1]
         bookingsJson = sys.argv[2]
@@ -33,7 +27,7 @@ if __name__ == '__main__':
     else:
         portalDataJson = None
 
-    dm = DataManager(sqlitePath=dbPath)
+    dm = DataManager(instance_path, cleanDb=True)
 
     if portalDataJson:
         PortalData(dm, portalDataJson, bookingsJson)

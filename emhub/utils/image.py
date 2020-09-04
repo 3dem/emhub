@@ -25,7 +25,9 @@
 # **************************************************************************
 
 import io
+import numpy as np
 import base64
+import mrcfile
 from PIL import Image
 
 
@@ -46,6 +48,28 @@ def pil_to_base64(pil_img):
     """ Encode as base64 the PIL image to be
     returned as an AJAX response.
     """
+    img_io = io.BytesIO()
+    pil_img.save(img_io, format='PNG')
+    return base64.b64encode(img_io.getvalue()).decode("utf-8")
+
+
+def mrc_to_base64(filename, MAX_SIZE=(512,512)):
+    """ Convert real float32 mrc to base64.
+    Convert to int8 first, then scale with Pillow.
+    """
+    mrc_img = mrcfile.open(filename)
+    imfloat = mrc_img.data
+    imean = imfloat.mean()
+    isd = imfloat.std()
+
+    iMax = min(imean + 3 * isd, imfloat.max())
+    iMin = max(imean - 3 * isd, imfloat.min())
+    im255 = ((imfloat - iMin) / (iMax - iMin) * 255).astype(np.uint8)
+    mrc_img.close()
+
+    pil_img = Image.fromarray(im255)
+    pil_img.thumbnail(MAX_SIZE)
+
     img_io = io.BytesIO()
     pil_img.save(img_io, format='PNG')
     return base64.b64encode(img_io.getvalue()).decode("utf-8")

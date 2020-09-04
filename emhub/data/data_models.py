@@ -476,6 +476,7 @@ def create_data_models(dm, Base):
                     primary_key=True)
 
         name = Column(String(256),
+                      unique=True,
                       nullable=False)
 
         start = Column(UtcDateTime)
@@ -548,7 +549,7 @@ def create_data_models(dm, Base):
                     for i in range(1, 4)]
 
         def __repr__(self):
-            return '<Session {}>'.format(self.dataName)
+            return '<Session {}>'.format(self.name)
 
         def json(self):
             return _json(self)

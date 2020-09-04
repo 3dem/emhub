@@ -38,7 +38,7 @@ import pwem
 from pwem.objects import SetOfCTF
 
 from emhub.utils import image
-from emhub.data import ImageSessionData, H5SessionData
+from emhub.data import H5SessionData
 
 
 def usage(error):
