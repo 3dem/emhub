@@ -109,8 +109,10 @@ class DataManager:
 
     def update_user(self, **attrs):
         """ Update an existing user. """
-        attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
-        del attrs['password']
+        if 'password' in attrs:
+            attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
+            del attrs['password']
+
         return self.__update_item(self.User, **attrs)
 
     def get_users(self, condition=None, orderBy=None, asJson=False):
