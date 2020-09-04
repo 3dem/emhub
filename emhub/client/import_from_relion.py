@@ -102,12 +102,12 @@ class ImportRelionSession:
             }
             values.update({k: item.get(MICROGRAPH_ATTRS[k], '')
                            for k in MICROGRAPH_ATTRS.keys()})
-            values['micThumbData'] = "" #image.mrc_to_base64(
-                #self._getRelionMicPath(item.rlnMicrographName))
+            values['micThumbData'] = image.mrc_to_base64(
+                self._getRelionMicPath(item.rlnMicrographName))
             values['psdData'] = ""  # image.mrc_to_base64(
             #self._getRelionMicPath(item.rlnCtfImage))
-            values['shiftPlotData'] = ""#image.fn_to_base64(
-                #self._getRelionEpsPath(item.rlnMicrographName))
+            values['shiftPlotData'] = image.fn_to_base64(
+                self._getRelionEpsPath(item.rlnMicrographName))
 
             itemsDict[itemId] = {**values}
 
@@ -154,7 +154,7 @@ class ImportRelionSession:
         print("=" * 80, "\nCreating set id: %s" % 1)
         self.sc.request(method="create_set",
                         json={"attrs": {"id": 1, "data_path": self.dataFn}})
-        result = json.loads(self.sc.json())['set']['data_path']
+        result = json.loads(self.sc.json())['set']
         print("Created new set file: %s" % result)
 
         # Create new session with no items

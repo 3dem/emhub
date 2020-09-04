@@ -130,7 +130,7 @@ class H5SessionData(SessionData):
         #h5py.get_config().track_order = True
         if mode == 'r':
             print("Reading file: ", h5File)
-        elif mode == 'w':
+        elif mode in ['w', 'a']:
             os.makedirs(os.path.dirname(h5File), exist_ok=True)
             print("Writing file: ", h5File)
 

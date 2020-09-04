@@ -167,15 +167,14 @@ def load_session():
 def create_set():
     """ Create a set file without actual session. """
     attrs = request.json['attrs']
-    setId = attrs.get("id", 1)
-    data_path = getSessionDataFile(attrs["data_path"])
-    attrs["data_path"] = data_path
+    setId = attrs.pop("id", 1)
+    data_path = getSessionDataFile(attrs.pop("data_path"))
 
-    sd = Data(data_path, mode="w")
+    sd = Data(data_path, mode="a")
     sd.create_set(setId, **attrs)
     sd.close()
 
-    return send_json_data({'set': attrs})
+    return send_json_data({'set': data_path})
 
 
 @api_bp.route('/add_item', methods=['POST'])
@@ -184,10 +183,9 @@ def add_item():
     attrs = request.json['attrs']
     setId = 1
     itemId = attrs["id"]
-    data_path = getSessionDataFile(attrs["data_path"])
-    attrs["data_path"] = data_path
+    data_path = getSessionDataFile(attrs.pop("data_path"))
 
-    sd = Data(data_path, mode="w")
+    sd = Data(data_path, mode="a")
     sd.add_item(setId, itemId, **attrs)
     sd.close()
 
