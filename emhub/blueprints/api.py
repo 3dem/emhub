@@ -267,6 +267,7 @@ def handle_session(session_func):
 
     return _handle_item(handle, 'session')
 
+
 def handle_session_data(handle):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
@@ -286,4 +287,3 @@ def create_item(name):
         return {'id': item.id}
 
     return _handle_item(handle, name)
-
