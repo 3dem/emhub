@@ -122,10 +122,6 @@ class DataContent:
                 'micrographs': mics,
                 'session': session}
 
-    def get_sessions_stats(self, **kwargs):
-        # FIXME: do we need a different implementation?
-        return self.get_sessions_overview(**kwargs)
-
     def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()
         for u in users:

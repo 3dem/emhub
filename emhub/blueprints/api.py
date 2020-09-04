@@ -170,7 +170,7 @@ def create_set():
     setId = attrs.pop("id", 1)
     data_path = getSessionDataFile(attrs.pop("data_path"))
 
-    sd = Data(data_path, mode="a")
+    sd = Data(data_path, mode="w")
     sd.create_set(setId, **attrs)
     sd.close()
 
@@ -189,7 +189,21 @@ def add_item():
     sd.add_item(setId, itemId, **attrs)
     sd.close()
 
-    # [s.json() for s in result]
+    return send_json_data({'item': attrs})
+
+
+@api_bp.route('/get_item', methods=['POST'])
+def get_item():
+    """ Get an existing item. """
+    attrs = request.json['attrs']
+    setId = 1
+    itemId = attrs["id"]
+    data_path = getSessionDataFile(attrs.pop("data_path"))
+
+    sd = Data(data_path, mode="r")
+    sd.get_item(setId, itemId, **attrs)
+    sd.close()
+
     return send_json_data({'item': attrs})
 
 
