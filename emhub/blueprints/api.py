@@ -33,6 +33,7 @@ from flask import request
 from flask import current_app as app
 
 from emhub.utils import datetime_from_isoformat, send_json_data, send_error
+from emhub.data import H5SessionData as Data
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -75,6 +76,7 @@ def update_user():
 @api_bp.route('/get_users', methods=['POST'])
 def get_users():
     return filter_request(app.dm.get_users)
+
 
 # ---------------------------- APPLICATIONS -----------------------------------
 @api_bp.route('/create_template', methods=['POST'])
@@ -149,6 +151,48 @@ def create_session():
 @api_bp.route('/update_session', methods=['POST'])
 def update_session():
     return handle_session(app.dm.update_session)
+
+
+@api_bp.route('/delete_session', methods=['POST'])
+def delete_session():
+    return handle_session(app.dm.delete_session)
+
+
+@api_bp.route('/load_session', methods=['POST'])
+def load_session():
+    return handle_session(app.dm.load_session)
+
+
+@api_bp.route('/create_set', methods=['POST'])
+def create_set():
+    """ Create a set file without actual session. """
+    attrs = request.json['attrs']
+    setId = attrs.get("id", 1)
+    data_path = getSessionDataFile(attrs["data_path"])
+    attrs["data_path"] = data_path
+
+    sd = Data(data_path, mode="w")
+    sd.create_set(setId, **attrs)
+    sd.close()
+
+    return send_json_data({'set': attrs})
+
+
+@api_bp.route('/add_item', methods=['POST'])
+def add_item():
+    """ Add a new item. """
+    attrs = request.json['attrs']
+    setId = 1
+    itemId = attrs["id"]
+    data_path = getSessionDataFile(attrs["data_path"])
+    attrs["data_path"] = data_path
+
+    sd = Data(data_path, mode="w")
+    sd.add_item(setId, itemId, **attrs)
+    sd.close()
+
+    # [s.json() for s in result]
+    return send_json_data({'item': attrs})
 
 
 # -------------------- UTILS functions ----------------------------------------
@@ -231,3 +275,7 @@ def create_item(name):
         return {'id': item.id}
 
     return _handle_item(handle, name)
+
+
+def getSessionDataFile(path):
+    return os.path.join(app.root_path, app.config['SESSIONS'], path)

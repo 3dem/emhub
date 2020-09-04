@@ -34,7 +34,6 @@ from emtable import Table
 
 from emhub.client import SessionClient
 from emhub.utils import image
-from emhub.data import H5SessionData
 
 
 def usage(error):
@@ -75,13 +74,9 @@ class ImportRelionSession:
     def __init__(self, path):
         self.path = path
         self.session_name = os.path.basename(self.path)
-        self.sessions_dir = os.path.join(app.config['SESSIONS'],
-                                         self.session_name)
-        os.makedirs(self.sessions_dir, exist_ok=True)
-        self.h5fn = '%s/%s.h5' % (self.sessions_dir, self.session_name)
         self.results = dict()
 
-    def parse_jobs(self):
+    def parseRelionJobs(self):
         """ Parse Relion jobs into a dict. """
         for job in STAR_DICT:
             params = STAR_DICT[job]
@@ -95,12 +90,10 @@ class ImportRelionSession:
                 # parse Tables
                 self.results[job] = Table(fileName=fnStar[0], tableName=params[1])
 
-    def create_hdf5(self):
-        """ Create a new set of Micrographs. """
-        hsd = H5SessionData(self.h5fn, 'w')
-        setId = 1
-        hsd.create_set(setId)
-
+    def populateItemsAttrs(self):
+        """ Create a dict with Micrograph items. """
+        itemsDict = dict()
+        print("Parsing Relion micrograph items...")
         for itemId, item in enumerate(self.results['CtfFind']):
             itemId += 1
             values = {
@@ -109,20 +102,19 @@ class ImportRelionSession:
             }
             values.update({k: item.get(MICROGRAPH_ATTRS[k], '')
                            for k in MICROGRAPH_ATTRS.keys()})
-            values['micThumbData'] = image.mrc_to_base64(
-                self._getRelionMicPath(item.rlnMicrographName))
+            values['micThumbData'] = "" #image.mrc_to_base64(
+                #self._getRelionMicPath(item.rlnMicrographName))
             values['psdData'] = ""  # image.mrc_to_base64(
             #self._getRelionMicPath(item.rlnCtfImage))
-            values['shiftPlotData'] = image.fn_to_base64(
-                self._getRelionEpsPath(item.rlnMicrographName))
+            values['shiftPlotData'] = ""#image.fn_to_base64(
+                #self._getRelionEpsPath(item.rlnMicrographName))
 
-            hsd.add_item(setId, itemId, **values)
-            print("Added item %d: " % itemId, values)
+            itemsDict[itemId] = {**values}
 
-        hsd.close()
+        return itemsDict
 
-    def create_session(self):
-        """ Create a session with acquisition and stats attrs. """
+    def populateSessionAttrs(self):
+        """ Create a dict with acquisition etc attrs. """
         fn = os.path.join(self.path, STAR_DICT['CtfFind'][0])
         optics = Table(fileName=fn, tableName='optics')[0]
         numFrames, dosePerFrame = self._getMovieMetadata()
@@ -142,35 +134,55 @@ class ImportRelionSession:
                  'numCtf': len(self.results['CtfFind']),
                  'numPtcls': len(self.results['Extract']),
                  }
-
-        method = "create_session"
-        jsonData = {"attrs": {"name": "%s" % self.session_name,
+        sessionAttrs = {"attrs": {"name": "%s" % self.session_name,
                               #"start": self._getStartDate(),
                               "status": "finished",
                               "resource_id": "2",
                               "operator_id": "23",
-                              "data_path": self.h5fn,
                               "acquisition": acquisition,
                               "stats": stats,
                               }}
 
-        print("=" * 80, "\nCreating session: %s" % jsonData)
-        sc = SessionClient()
-        sc.request(method, jsonData)
-        result_id = json.loads(sc.json())['session']['id']
-        print("Created new session with id: %s" % result_id)
+        return sessionAttrs
 
-        # Check the results
-        sc.request(method="get_sessions",
-                   json={"condition": "id=%s" % result_id})
-        print(sc.json())
+    def createNewSession(self):
+        """ Create a session using REST API. """
+        self.sc = SessionClient()
+        self.dataFn = '%s/%s.h5' % (self.session_name, self.session_name)
 
+        # Create a new set
+        print("=" * 80, "\nCreating set id: %s" % 1)
+        self.sc.request(method="create_set",
+                        json={"attrs": {"id": 1, "data_path": self.dataFn}})
+        result = json.loads(self.sc.json())['set']['data_path']
+        print("Created new set file: %s" % result)
+
+        # Create new session with no items
+        sessionAttrs = self.populateSessionAttrs()
+        sessionAttrs['attrs']["data_path"] = result  # FIXME: result is now a full path
+
+        print("=" * 80, "\nCreating session: %s" % sessionAttrs)
+        self.sc.request("create_session", sessionAttrs)
+        self.session_id = json.loads(self.sc.json())['session']['id']
+        print("Created new session with id: %s" % self.session_id)
+
+        # Add new items one by one
+        # TODO: check if item_id exists, then run update_item,
+        # otherwise run add_item
+        itemsDict = self.populateItemsAttrs()
+        for itemId in itemsDict:
+            values = itemsDict[itemId]
+            values.update({"data_path": self.dataFn,
+                           "id": itemId})
+
+            print("=" * 80, "\nAdding item: %s" % itemId)
+            self.sc.request("add_item", {"attrs": values})
+            print(self.sc.json())
 
     def run(self):
-        """ Main function. """
-        self.parse_jobs()
-        self.create_hdf5()
-        self.create_session()
+        """ Main execute function. """
+        self.parseRelionJobs()
+        self.createNewSession()
 
 # -------------------- UTILS functions ----------------------------------------
 

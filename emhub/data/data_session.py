@@ -131,6 +131,7 @@ class H5SessionData(SessionData):
         if mode == 'r':
             print("Reading file: ", h5File)
         elif mode == 'w':
+            os.makedirs(os.path.dirname(h5File), exist_ok=True)
             print("Writing file: ", h5File)
 
         self._file = h5py.File(h5File, mode)
@@ -196,7 +197,6 @@ class H5SessionData(SessionData):
 
     def add_item(self, setId, itemId, **attrsDict):
         micAttrs = self._file.create_group(self._getMicPath(setId, itemId)).attrs
-
         micAttrs['id'] = itemId
 
         for key, value in attrsDict.items():
