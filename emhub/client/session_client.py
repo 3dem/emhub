@@ -65,14 +65,14 @@ class SessionClient:
 
     #---------------------- Internal functions ------------------------------
     def _method(self, method, resultKey, attrs):
-        r = self._request(method, jsonData={'attrs': attrs})
+        r = self.request(method, jsonData={'attrs': attrs})
         json = r.json()
         if 'error' in json:
             raise Exception("ERROR from Server: ", json['error'])
 
         return json[resultKey]
 
-    def _request(self, method, jsonData=None):
+    def request(self, method, jsonData=None):
         """ Make a request to this method passing the json data.
         """
         self.r = requests.post('%s/api/%s' % (self._server_url, method),
@@ -80,8 +80,9 @@ class SessionClient:
         self.r.raise_for_status()
         return self.r
 
-    # def json(self):
-    #     if self.r.status_code == 200:
-    #         return json.dumps(self.r.json(), indent=4)
-    #     else:
-    #         return "Request failed with status code: %s" % self.r.status_code
+    def json(self):
+        if self.r.status_code == 200:
+            return json.dumps(self.r.json(), indent=4)
+        else:
+            return {'ERROR': "Request failed with status code: %s"
+                             % self.r.status_code}
