@@ -67,9 +67,9 @@
                             <input type="password" required="" placeholder="Enter new password" id="user-password" name="user-password" class="form-control" value="">
                         </div>
                     </div>
-                    <!-- Old Password Row -->
+                    <!-- New Password Repeat Row -->
                     <div class="form-group row">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Phone</label>
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Repeat new password</label>
                         <div class="col-12 col-sm-8 col-lg-6">
                             <input type="password" required="" placeholder="Repeat new password" id="user-repeat-password" name="user-repeat-password" class="form-control" value="">
                         </div>
@@ -120,10 +120,7 @@
 
 
 /** Helper functions to handle User AJAX response or failure */
-function handleUserAjaxDone(jsonResponseStr) {
-    // I don't know why the response from the server is string here instead of JSON
-    // maybe because the request is a bit special without contentType?
-    jsonResponse = JSON.parse(jsonResponseStr);
+function handleUserAjaxDone(jsonResponse) {
     var error = null;
 
     if ('user' in jsonResponse) {
@@ -164,7 +161,7 @@ function onUserOkButtonClick() {
     password = $('#user-password').val();
     repeat_password = $('#user-repeat-password').val();
 
-    if (password != repeat_password) {
+    if (password !== repeat_password) {
         showMessage('ERROR', 'Please type same password twice!');
         return;
     }
@@ -179,7 +176,8 @@ function onUserOkButtonClick() {
         type: "POST",
         data: formData,
         processData: false,
-        contentType: false
+        contentType: false,
+        dataType: "json"
     });
     ajaxContent.done(handleUserAjaxDone);
     ajaxContent.fail(handleAjaxFail);

@@ -168,7 +168,6 @@ def create_app(test_config=None):
 
     @app.template_filter('basename')
     def basename(filename):
-        """Convert a string to all caps."""
         return os.path.basename(filename)
 
     app.jinja_env.filters['reverse'] = basename
