@@ -26,7 +26,6 @@
 # *
 # **************************************************************************
 
-import os
 import unittest
 
 from emhub.data import DataManager, ImageSessionData, H5SessionData

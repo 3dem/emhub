@@ -83,8 +83,9 @@ class DataManager:
             self.commit()
 
     def close(self):
-        if self._lastSession is not None:
-            self._lastSession.data.close()
+        print("somebody run this!")
+        #if self._lastSession is not None:
+        #    self._lastSession.data.close()
 
         self._db_session.remove()
 

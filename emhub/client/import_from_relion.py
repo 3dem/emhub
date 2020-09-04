@@ -27,7 +27,6 @@
 # **************************************************************************
 import os
 import sys
-import json
 from glob import glob
 from datetime import datetime, timezone, timedelta
 from emtable import Table
@@ -143,8 +142,6 @@ class ImportRelionSession:
     def createNewSession(self):
         """ Create a session using REST API. """
         sc = SessionClient()
-        self.dataFn = '%s/%s.h5' % (self.session_name, self.session_name)
-
         # Create new session with no items
         sessionAttrs = self.populateSessionAttrs()
         print("=" * 80, "\nCreating session: %s" % sessionAttrs)
@@ -153,13 +150,11 @@ class ImportRelionSession:
         print("Created new session with id: %s" % self.session_id)
 
         # Create a new set
-        print("=" * 80, "\nCreating set id: %s" % 1)
-
         session_set = {'session_id': self.session_id,
                        'set_id': 1}
-
+        print("=" * 80, "\nCreating set: %s" % session_set)
         sc.create_session_set(session_set)
-        print("Created new set")
+        print("Created new set with id: 1")
 
         # Add new items one by one
         # TODO: check if item_id exists, then run update_item,
