@@ -107,8 +107,14 @@
 
     function fasterPreview( uploader ) {
         if ( uploader.files && uploader.files[0] ){
-              $('#user-profile-image').attr('src',
-                 window.URL.createObjectURL(uploader.files[0]) );
+            // Validate max image size
+            if (uploader.files[0].size > 1024 * 1024){
+                showMessage('ERROR', "Images over 1 Mb are not allowed!");
+            }
+            else {
+                $('#user-profile-image').attr('src',
+                    window.URL.createObjectURL(uploader.files[0]));
+            }
         }
     }
 
