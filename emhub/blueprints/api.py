@@ -76,6 +76,7 @@ def update_user():
 def get_users():
     return filter_request(app.dm.get_users)
 
+
 # ---------------------------- APPLICATIONS -----------------------------------
 @api_bp.route('/create_template', methods=['POST'])
 def create_template():
@@ -146,7 +147,51 @@ def create_session():
     return create_item('session')
 
 
-# -------------------- UTILS functions --------------------------
+@api_bp.route('/update_session', methods=['POST'])
+def update_session():
+    return handle_session(app.dm.update_session)
+
+
+@api_bp.route('/delete_session', methods=['POST'])
+def delete_session():
+    return handle_session(app.dm.delete_session)
+
+
+@api_bp.route('/load_session', methods=['POST'])
+def load_session():
+    return handle_session(app.dm.load_session)
+
+
+@api_bp.route('/create_session_set', methods=['POST'])
+def create_session_set():
+    """ Create a set file without actual session. """
+    def handle(session, set_id, **attrs):
+        session.data.create_set(set_id, **attrs)
+        return {'session_set': {}}
+
+    return handle_session_data(handle)
+
+
+@api_bp.route('/add_session_item', methods=['POST'])
+def add_session_item():
+    """ Add a new item. """
+    def handle(session, set_id, **attrs):
+        session.data.add_item(set_id, attrs['item_id'], **attrs)
+        return {'item': {}}
+
+    return handle_session_data(handle)
+
+
+@api_bp.route('/get_session_item', methods=['POST'])
+def get_session_item():
+    """ Get an existing item. """
+    def handle(session, set_id, **attrs):
+        item = session.data.get_item(set_id, attrs['item_id'], **attrs)
+        return {'item': item}
+
+    return handle_session_data(handle)
+
+# -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
     condition = request.json.get('condition', None)
@@ -209,6 +254,24 @@ def handle_application(application_func):
         return application_func(**attrs).json()
 
     return _handle_item(handle, 'application')
+
+
+def handle_session(session_func):
+    def handle(**attrs):
+        return session_func(**attrs).json()
+
+    return _handle_item(handle, 'session')
+
+
+def handle_session_data(handle):
+    attrs = request.json['attrs']
+    session_id = attrs.pop("session_id")
+    set_id = attrs.pop("set_id", 1)
+
+    with app.dm.load_session(sessionId=session_id) as session:
+        result = handle(session, set_id, **attrs)
+
+    return send_json_data(result)
 
 
 def create_item(name):

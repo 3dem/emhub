@@ -39,16 +39,51 @@ class SessionClient:
         # Store the last request object
         self.r = None
 
-    def request(self, method, json=None):
+    def create_session(self, attrs):
+        """ Request the server to create a new session.
+        Mandatory in attrs:
+            name: the session name
+        """
+        return self._method('create_session', 'session', attrs)
+
+    def create_session_set(self, attrs):
+        """ Request the server to create a set within a session.
+        Mandatory in attrs:
+            session_id: the id of the session
+            set_id: the id of the set that will be created
+        """
+        return self._method('create_session_set', 'session_set', attrs)
+
+    def add_session_item(self, attrs):
+        """ Add new item to a set in the session.
+        Mandatory in attrs:
+            session_id: the id of the session
+            set_id: the id of the set that will be created
+            item_id: the id of the item to be added
+        """
+        return self._method('add_session_item', 'item', attrs)
+
+    #---------------------- Internal functions ------------------------------
+    def _method(self, method, resultKey, attrs):
+        r = self.request(method, jsonData={'attrs': attrs})
+        print("Sending attrs: ", attrs)
+        json = r.json()
+        if 'error' in json:
+            raise Exception("ERROR from Server: ", json['error'])
+
+        return json[resultKey]
+
+    def request(self, method, jsonData=None):
         """ Make a request to this method passing the json data.
         """
         self.r = requests.post('%s/api/%s' % (self._server_url, method),
-                               json=json)
-
+                               json=jsonData)
+        self.r.raise_for_status()
         return self.r
 
     def json(self):
         if self.r.status_code == 200:
             return json.dumps(self.r.json(), indent=4)
         else:
-            return "Request failed with status code: %s" % self.r.status_code
+            return {'ERROR': "Request failed with status code: %s"
+                             % self.r.status_code}

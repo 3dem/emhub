@@ -30,6 +30,7 @@ import os
 import datetime as dt
 import uuid
 from collections import defaultdict
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -42,8 +43,16 @@ from .data_models import create_data_models
 class DataManager:
     """ Main class that will manage the sessions and their information.
     """
-    def __init__(self, sqlitePath, user=None):
+    def __init__(self, dataPath, dbName='emhub.sqlite', user=None, cleanDb=False):
         do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
+
+        self._dataPath = dataPath
+        self._sessionsPath = os.path.join(dataPath, 'sessions')
+
+        sqlitePath = os.path.join(dataPath, dbName)
+
+        if cleanDb and os.path.exists(sqlitePath):
+            os.remove(sqlitePath)
 
         engine = create_engine('sqlite:///' + sqlitePath,
                                convert_unicode=True,
@@ -56,9 +65,11 @@ class DataManager:
 
         create_data_models(self, Base)
 
-        self._lastSessionId = None
         self._lastSession = None
         self._user = user  # Logged user
+
+        # Create sessions dir if not exists
+        os.makedirs(self._sessionsPath, exist_ok=True)
 
         # Create the database if it does not exists
         if not os.path.exists(sqlitePath):
@@ -73,8 +84,8 @@ class DataManager:
             self.commit()
 
     def close(self):
-        # if self._lastSession is not None:
-        #     self._lastSession.data.close()
+        #if self._lastSession is not None:
+        #    self._lastSession.data.close()
 
         self._db_session.remove()
 
@@ -100,7 +111,6 @@ class DataManager:
         """ Update an existing user. """
         # attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
         # del attrs['password']
-        print("DEBUG: update_user: ")
         from pprint import pprint
         pprint(attrs)
         return self.__update_item(self.User, **attrs)
@@ -276,33 +286,45 @@ class DataManager:
 
     def create_session(self, **attrs):
         """ Add a new session row. """
-        return self.__create_item(self.Session, **attrs)
-
-    def update_session(self, sessionId, **attrs):
-        """ Update session attrs. """
-        session = self.Session.query.get(sessionId)
-
-        # TODO: Check the following lines
-        # for attr in attrs:
-        #     session.attr = attrs[attr]
-
+        session = self.__create_item(self.Session, **attrs)
+        # Let's update the data path after we know the id
+        print("Creating session id=%s" % session.id)
+        session.data_path = 'session_%06d.h5' % session.id
         self.commit()
+
+        print("    session-data-path: ", session.data_path)
+        print("    full-path: ", self._session_data_path(session))
+
+        # Create empty hdf5 file
+        data = H5SessionData(self._session_data_path(session), mode='w')
+        data.close()
+
+        return session
+
+    def update_session(self, **attrs):
+        """ Update session attrs. """
+        from pprint import pprint
+        pprint(attrs)
+        return self.__update_item(self.Session, **attrs)
 
     def delete_session(self, sessionId):
         """ Remove a session row. """
         session = self.Session.query.get(sessionId)
         self.delete(session)
 
+    @contextmanager
     def load_session(self, sessionId):
-        if sessionId == self._lastSessionId:
-            session = self._lastSession
-        else:
-            session = self.Session.query.get(sessionId)
-            session.data = H5SessionData(session.data_path, 'r')
-            self._lastSessionId = sessionId
-            self._lastSession = session
+        # if self._lastSession is not None:
+        #     if self._lastSession.id == sessionId:
+        #         return self._lastSession
+        #     self._lastSession.data.close()
 
-        return session
+        session = self.Session.query.get(sessionId)
+        session.data = H5SessionData(self._session_data_path(session), 'a')
+        try:
+            yield session
+        finally:
+            session.data.close()
 
     # ------------------- Some utility methods --------------------------------
     def now(self):
@@ -475,6 +497,9 @@ class DataManager:
         self.commit()
 
         return result
+
+    def _session_data_path(self, session):
+        return os.path.join(self._sessionsPath, session.data_path)
 
 
 class RepeatRanges:

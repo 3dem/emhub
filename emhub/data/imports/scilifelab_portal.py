@@ -68,7 +68,7 @@ class PortalData:
 
             # print("Populating sessions...")
             # self.__populateSessions(dm)
-            print("Populating Bookings")
+            print("Populating bookings")
             self.__importBookings(dm, bookingsData)
 
     def __importUsers(self, dm):
