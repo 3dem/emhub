@@ -272,8 +272,8 @@ def handle_session_data(handle):
     session_id = attrs.pop("session_id")
     set_id = attrs.pop("set_id", 1)
 
-    session = app.dm.load_session(sessionId=session_id)
-    result = handle(session, set_id, **attrs)
+    with app.dm.load_session(sessionId=session_id) as session:
+        result = handle(session, set_id, **attrs)
 
     return send_json_data(result)
 
