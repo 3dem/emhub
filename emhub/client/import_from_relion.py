@@ -90,14 +90,12 @@ class ImportRelionSession:
                 # parse Tables
                 self.results[job] = Table(fileName=fnStar[0], tableName=params[1])
 
-    def populateItemsAttrs(self):
+    def iterateItemsAttrs(self):
         """ Create a dict with Micrograph items. """
-        itemsDict = dict()
         print("Parsing Relion micrograph items...")
         for itemId, item in enumerate(self.results['CtfFind']):
-            itemId += 1
             values = {
-                'id': itemId,
+                'item_id': itemId + 1,
                 'location': item.rlnMicrographName
             }
             values.update({k: item.get(MICROGRAPH_ATTRS[k], '')
@@ -109,9 +107,7 @@ class ImportRelionSession:
             values['shiftPlotData'] = image.fn_to_base64(
                 self._getRelionEpsPath(item.rlnMicrographName))
 
-            itemsDict[itemId] = {**values}
-
-        return itemsDict
+            yield values
 
     def populateSessionAttrs(self):
         """ Create a dict with acquisition etc attrs. """
@@ -134,50 +130,46 @@ class ImportRelionSession:
                  'numCtf': len(self.results['CtfFind']),
                  'numPtcls': len(self.results['Extract']),
                  }
-        sessionAttrs = {"attrs": {"name": "%s" % self.session_name,
-                              #"start": self._getStartDate(),
-                              "status": "finished",
-                              "resource_id": "2",
-                              "operator_id": "23",
-                              "acquisition": acquisition,
-                              "stats": stats,
-                              }}
+        sessionAttrs = {"name": "%s" % self.session_name,
+                        "status": "finished",
+                        "resource_id": "2",
+                        "operator_id": "23",
+                        "acquisition": acquisition,
+                        "stats": stats
+                        }
 
         return sessionAttrs
 
     def createNewSession(self):
         """ Create a session using REST API. """
-        self.sc = SessionClient()
+        sc = SessionClient()
         self.dataFn = '%s/%s.h5' % (self.session_name, self.session_name)
-
-        # Create a new set
-        print("=" * 80, "\nCreating set id: %s" % 1)
-        self.sc.request(method="create_set",
-                        json={"attrs": {"id": 1, "data_path": self.dataFn}})
-        result = json.loads(self.sc.json())['set']
-        print("Created new set file: %s" % result)
 
         # Create new session with no items
         sessionAttrs = self.populateSessionAttrs()
-        sessionAttrs['attrs']["data_path"] = result  # FIXME: result is now a full path
-
         print("=" * 80, "\nCreating session: %s" % sessionAttrs)
-        self.sc.request("create_session", sessionAttrs)
-        self.session_id = json.loads(self.sc.json())['session']['id']
+        sessionJson = sc.create_session(sessionAttrs)
+        self.session_id = sessionJson['id']
         print("Created new session with id: %s" % self.session_id)
+
+        # Create a new set
+        print("=" * 80, "\nCreating set id: %s" % 1)
+
+        session_set = {'session_id': self.session_id,
+                       'set_id': 1}
+
+        sc.create_session_set(session_set)
+        print("Created new set")
 
         # Add new items one by one
         # TODO: check if item_id exists, then run update_item,
         # otherwise run add_item
-        itemsDict = self.populateItemsAttrs()
-        for itemId in itemsDict:
-            values = itemsDict[itemId]
-            values.update({"data_path": self.dataFn,
-                           "id": itemId})
 
-            print("=" * 80, "\nAdding item: %s" % itemId)
-            self.sc.request("add_item", {"attrs": values})
-            print(self.sc.json())
+        for item in self.iterateItemsAttrs():
+            item.update(session_set)
+            print("=" * 80, "\nAdding item: %s" % item['item_id'])
+
+            sc.add_session_item(item)
 
     def run(self):
         """ Main execute function. """

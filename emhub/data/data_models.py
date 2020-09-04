@@ -472,6 +472,7 @@ def create_data_models(dm, Base):
                     primary_key=True)
 
         name = Column(String(256),
+                      unique=True,
                       nullable=False)
 
         start = Column(UtcDateTime)

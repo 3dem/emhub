@@ -55,7 +55,6 @@ def create_app(test_config=None):
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config.from_mapping(SECRET_KEY='dev')
-    dbPath = os.path.join(app.instance_path, 'emhub.sqlite')
 
     app.config["IMAGES"] = os.path.join(app.instance_path, 'images')
     app.config["USER_IMAGES"] = os.path.join(app.config["IMAGES"], 'user')
@@ -178,7 +177,7 @@ def create_app(test_config=None):
 
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user
-    app.dm = DataManager(dbPath, user=app.user)
+    app.dm = DataManager(app.instance_path, user=app.user)
     app.dc = DataContent(app)
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
 

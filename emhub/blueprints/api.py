@@ -33,7 +33,6 @@ from flask import request
 from flask import current_app as app
 
 from emhub.utils import datetime_from_isoformat, send_json_data, send_error
-from emhub.data import H5SessionData as Data
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -163,49 +162,34 @@ def load_session():
     return handle_session(app.dm.load_session)
 
 
-@api_bp.route('/create_set', methods=['POST'])
-def create_set():
+@api_bp.route('/create_session_set', methods=['POST'])
+def create_session_set():
     """ Create a set file without actual session. """
-    attrs = request.json['attrs']
-    setId = attrs.pop("id", 1)
-    data_path = getSessionDataFile(attrs.pop("data_path"))
+    def handle(session, set_id, **attrs):
+        session.data.create_set(set_id, **attrs)
+        return {'session_set': {}}
 
-    sd = Data(data_path, mode="w")
-    sd.create_set(setId, **attrs)
-    sd.close()
-
-    return send_json_data({'set': data_path})
+    return handle_session_data(handle)
 
 
-@api_bp.route('/add_item', methods=['POST'])
-def add_item():
+@api_bp.route('/add_session_item', methods=['POST'])
+def add_session_item():
     """ Add a new item. """
-    attrs = request.json['attrs']
-    setId = 1
-    itemId = attrs["id"]
-    data_path = getSessionDataFile(attrs.pop("data_path"))
+    def handle(session, set_id, **attrs):
+        session.data.add_item(set_id, attrs['item_id'], **attrs)
+        return {'item': {}}
 
-    sd = Data(data_path, mode="a")
-    sd.add_item(setId, itemId, **attrs)
-    sd.close()
-
-    return send_json_data({'item': attrs})
+    return handle_session_data(handle)
 
 
-@api_bp.route('/get_item', methods=['POST'])
-def get_item():
+@api_bp.route('/get_session_item', methods=['POST'])
+def get_session_item():
     """ Get an existing item. """
-    attrs = request.json['attrs']
-    setId = 1
-    itemId = attrs["id"]
-    data_path = getSessionDataFile(attrs.pop("data_path"))
+    def handle(session, set_id, **attrs):
+        item = session.data.get_item(set_id, attrs['item_id'], **attrs)
+        return {'item': item}
 
-    sd = Data(data_path, mode="r")
-    sd.get_item(setId, itemId, **attrs)
-    sd.close()
-
-    return send_json_data({'item': attrs})
-
+    return handle_session_data(handle)
 
 # -------------------- UTILS functions ----------------------------------------
 
@@ -278,6 +262,16 @@ def handle_session(session_func):
 
     return _handle_item(handle, 'session')
 
+def handle_session_data(handle):
+    attrs = request.json['attrs']
+    session_id = attrs.pop("session_id")
+    set_id = attrs.pop("set_id", 1)
+
+    session = app.dm.load_session(sessionId=session_id)
+    result = handle(session, set_id, **attrs)
+
+    return send_json_data(result)
+
 
 def create_item(name):
     def handle(**attrs):
@@ -288,6 +282,3 @@ def create_item(name):
 
     return _handle_item(handle, name)
 
-
-def getSessionDataFile(path):
-    return os.path.join(app.root_path, app.config['SESSIONS'], path)

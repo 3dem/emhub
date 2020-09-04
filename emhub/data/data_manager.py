@@ -42,8 +42,16 @@ from .data_models import create_data_models
 class DataManager:
     """ Main class that will manage the sessions and their information.
     """
-    def __init__(self, sqlitePath, user=None):
+    def __init__(self, dataPath, dbName='emhub.sqlite', user=None, cleanDb=False):
         do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
+
+        self._dataPath = dataPath
+        self._sessionsPath = os.path.join(dataPath, 'sessions')
+
+        sqlitePath = os.path.join(dataPath, dbName)
+
+        if cleanDb and os.path.exists(sqlitePath):
+            os.remove(sqlitePath)
 
         engine = create_engine('sqlite:///' + sqlitePath,
                                convert_unicode=True,
@@ -56,9 +64,11 @@ class DataManager:
 
         create_data_models(self, Base)
 
-        self._lastSessionId = None
         self._lastSession = None
         self._user = user  # Logged user
+
+        # Create sessions dir if not exists
+        os.makedirs(self._sessionsPath, exist_ok=True)
 
         # Create the database if it does not exists
         if not os.path.exists(sqlitePath):
@@ -73,8 +83,8 @@ class DataManager:
             self.commit()
 
     def close(self):
-        # if self._lastSession is not None:
-        #     self._lastSession.data.close()
+        if self._lastSession is not None:
+            self._lastSession.data.close()
 
         self._db_session.remove()
 
@@ -275,7 +285,20 @@ class DataManager:
 
     def create_session(self, **attrs):
         """ Add a new session row. """
-        return self.__create_item(self.Session, **attrs)
+        session = self.__create_item(self.Session, **attrs)
+        # Let's update the data path after we know the id
+        print("Creating session id=%s" % session.id)
+        session.data_path = 'session_%06d.h5' % session.id
+        self.commit()
+
+        print("    session-data-path: ", session.data_path)
+        print("    full-path: ", self._session_data_path(session))
+
+        # Create empty hdf5 file
+        data = H5SessionData(self._session_data_path(session), mode='w')
+        data.close()
+
+        return session
 
     def update_session(self, **attrs):
         """ Update session attrs. """
@@ -289,13 +312,14 @@ class DataManager:
         self.delete(session)
 
     def load_session(self, sessionId):
-        if sessionId == self._lastSessionId:
-            session = self._lastSession
-        else:
-            session = self.Session.query.get(sessionId)
-            session.data = H5SessionData(session.data_path, 'r')
-            self._lastSessionId = sessionId
-            self._lastSession = session
+        if self._lastSession is not None:
+            if self._lastSession.id == sessionId:
+                return self._lastSession
+            self._lastSession.data.close()
+
+        session = self.Session.query.get(sessionId)
+        session.data = H5SessionData(self._session_data_path(session), 'a')
+        self._lastSession = session
 
         return session
 
@@ -470,6 +494,9 @@ class DataManager:
         self.commit()
 
         return result
+
+    def _session_data_path(self, session):
+        return os.path.join(self._sessionsPath, session.data_path)
 
 
 class RepeatRanges:
