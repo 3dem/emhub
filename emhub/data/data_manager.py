@@ -30,6 +30,7 @@ import os
 import datetime as dt
 import uuid
 from collections import defaultdict
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -312,17 +313,19 @@ class DataManager:
         session = self.Session.query.get(sessionId)
         self.delete(session)
 
+    @contextmanager
     def load_session(self, sessionId):
-        if self._lastSession is not None:
-            if self._lastSession.id == sessionId:
-                return self._lastSession
-            self._lastSession.data.close()
+        # if self._lastSession is not None:
+        #     if self._lastSession.id == sessionId:
+        #         return self._lastSession
+        #     self._lastSession.data.close()
 
         session = self.Session.query.get(sessionId)
         session.data = H5SessionData(self._session_data_path(session), 'a')
-        self._lastSession = session
-
-        return session
+        try:
+            yield session
+        finally:
+            session.data.close()
 
     # ------------------- Some utility methods --------------------------------
     def now(self):
