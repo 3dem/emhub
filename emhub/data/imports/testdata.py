@@ -27,6 +27,7 @@
 # **************************************************************************
 
 import os
+import shutil
 from datetime import datetime, timezone, timedelta
 
 
@@ -335,13 +336,14 @@ class TestData:
 
     def __populateSessions(self, dm):
         td = os.environ.get('EMHUB_TESTDATA')
+        inst = os.environ.get('EMHUB_INSTANCE')
 
         dm.create_session(
             name='supervisor_23423452_20201223_123445',
             start=datetime(2020, 3, 5, 12, 30, 10, tzinfo=tzinfo),
             end=None,
             status='running',
-            data_path=os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
+            #data_path=os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
             acquisition={'voltage': 300,
                          'cs': 2.7,
                          'phasePlate': False,
@@ -363,12 +365,15 @@ class TestData:
             operator_id=1,  # User  X
         )
 
+        shutil.copyfile(os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
+                        os.path.join(inst, 'sessions/session_000001.h5'))
+
         dm.create_session(
             name='epu-mysession_20122310_234542',
             start=datetime(2020, 4, 5, 12, 30, 10, tzinfo=tzinfo),
             end=None,
             status='failed',
-            data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
+            #data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
             acquisition={'voltage': 300,
                          'cs': 2.7,
                          'phasePlate': False,
@@ -389,6 +394,9 @@ class TestData:
             booking_id=None,
             operator_id=6,  # User  6
         )
+
+        shutil.copyfile(os.path.join(td, 'hdf5/t20s_pngs.h5'),
+                        os.path.join(inst, 'sessions/session_000002.h5'))
 
         dm.create_session(
             name='session_very_long_name',

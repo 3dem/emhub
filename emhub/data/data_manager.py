@@ -294,7 +294,7 @@ class DataManager:
         print("    full-path: ", self._session_data_path(session))
 
         # Create empty hdf5 file
-        data = H5SessionData(self._session_data_path(session), mode='w')
+        data = H5SessionData(self._session_data_path(session), mode='a')
         data.close()
 
         return session

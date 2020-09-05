@@ -72,10 +72,6 @@ def get_mic_thumb():
                                 dataAttrs=['micThumbData',
                                            'psdData',
                                            'shiftPlotData'])
-    print("MIC:", type(mic.ctfDefocus), type(mic.ctfDefocusAngle), type(mic.ctfDefocusU),
-          type(mic.ctfDefocusV), type(mic.ctfFit), type(mic.ctfResolution), type(mic.id),
-          type(mic.location), type(mic.micThumbData),
-          type(mic.psdData), type(mic.shiftPlotData))
     session.data.close()
 
     return send_json_data(mic._asdict())
