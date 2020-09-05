@@ -106,6 +106,7 @@ class DataContent:
         session = self.app.dm.load_session(session_id)
         firstSetId = session.data.get_sets()[0]['id']
         mics = session.data.get_items(firstSetId, ['location', 'ctfDefocus'])
+        session.data.close()
         defocusList = [m.ctfDefocus for m in mics]
         resolutionList = []  # m.ctfResolution for m in mics]
         sample = ['Defocus'] + defocusList

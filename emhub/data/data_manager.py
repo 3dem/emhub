@@ -310,19 +310,15 @@ class DataManager:
         session = self.Session.query.get(sessionId)
         self.delete(session)
 
-    @contextmanager
-    def load_session(self, sessionId):
+    def load_session(self, sessionId, mode="r"):
         # if self._lastSession is not None:
         #     if self._lastSession.id == sessionId:
         #         return self._lastSession
         #     self._lastSession.data.close()
 
         session = self.Session.query.get(sessionId)
-        session.data = H5SessionData(self._session_data_path(session), 'a')
-        try:
-            yield session
-        finally:
-            session.data.close()
+        session.data = H5SessionData(self._session_data_path(session), mode)
+        return session
 
     # ------------------- Some utility methods --------------------------------
     def now(self):

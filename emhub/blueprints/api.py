@@ -176,9 +176,10 @@ def create_session_set():
     """ Create a set file without actual session. """
     def handle(session, set_id, **attrs):
         session.data.create_set(set_id, **attrs)
+        session.data.close()
         return {'session_set': {}}
 
-    return handle_session_data(handle)
+    return handle_session_data(handle, mode="a")
 
 
 @api_bp.route('/add_session_item', methods=['POST'])
@@ -186,19 +187,11 @@ def add_session_item():
     """ Add a new item. """
     def handle(session, set_id, **attrs):
         session.data.add_item(set_id, attrs['item_id'], **attrs)
+        session.data.close()
         return {'item': {}}
 
-    return handle_session_data(handle)
+    return handle_session_data(handle, mode="a")
 
-
-@api_bp.route('/get_session_item', methods=['POST'])
-def get_session_item():
-    """ Get an existing item. """
-    def handle(session, set_id, **attrs):
-        item = session.data.get_item(set_id, attrs['item_id'], **attrs)
-        return {'item': item}
-
-    return handle_session_data(handle)
 
 # -------------------- UTILS functions ----------------------------------------
 
@@ -272,13 +265,13 @@ def handle_session(session_func):
     return _handle_item(handle, 'session')
 
 
-def handle_session_data(handle):
+def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
     set_id = attrs.pop("set_id", 1)
 
-    with app.dm.load_session(sessionId=session_id) as session:
-        result = handle(session, set_id, **attrs)
+    session = app.dm.load_session(sessionId=session_id, mode=mode)
+    result = handle(session, set_id, **attrs)
 
     return send_json_data(result)
 

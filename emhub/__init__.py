@@ -131,20 +131,6 @@ def create_app(test_config=None):
         flask_login.logout_user()
         return flask.redirect(flask.url_for('index'))
 
-    # TODO: Move to images blueprint
-    @app.route('/get_mic_thumb', methods=['POST'])
-    def get_mic_thumb():
-        micId = int(flask.request.form['micId'])
-        sessionId = int(flask.request.form['sessionId'])
-        session = app.dm.load_session(sessionId)
-        setObj = session.data.get_sets()[0]
-        mic = session.data.get_item(setObj['id'], micId,
-                                    dataAttrs=['micThumbData',
-                                               'psdData',
-                                               'shiftPlotData'])
-
-        return send_json_data(mic._asdict())
-
     @app.route('/get_content', methods=['POST'])
     def get_content():
         content_kwargs = flask.request.form.to_dict()
