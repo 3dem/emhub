@@ -308,6 +308,7 @@ class DataManager:
     def delete_session(self, sessionId):
         """ Remove a session row. """
         session = self.Session.query.get(sessionId)
+        print("Deleting session id=%s" % sessionId)
         self.delete(session)
 
     def load_session(self, sessionId, mode="r"):

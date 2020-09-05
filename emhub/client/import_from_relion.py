@@ -27,6 +27,7 @@
 # **************************************************************************
 import os
 import sys
+import json
 from glob import glob
 from datetime import datetime, timezone, timedelta
 from emtable import Table
@@ -142,6 +143,18 @@ class ImportRelionSession:
     def createNewSession(self):
         """ Create a session using REST API. """
         sc = SessionClient()
+        # Remove existing relion session
+        sc.request(method="get_sessions",
+                   jsonData={"condition": "name='%s'" % self.session_name,
+                             "attrs": 'id'})
+        res = json.loads(sc.json())
+        if res:
+            sc.delete_session(res[0])
+            #FIXME: do this via API
+            data_path = os.path.join(os.environ.get('EMHUB_INSTANCE'),
+                                     'sessions/session_%06d.h5' % res[0]['id'])
+            os.remove(data_path)
+
         # Create new session with no items
         sessionAttrs = self.populateSessionAttrs()
         print("=" * 80, "\nCreating session: %s" % sessionAttrs)
@@ -157,9 +170,6 @@ class ImportRelionSession:
         print("Created new set with id: 1")
 
         # Add new items one by one
-        # TODO: check if item_id exists, then run update_item,
-        # otherwise run add_item
-
         for item in self.iterateItemsAttrs():
             item.update(session_set)
             print("=" * 80, "\nAdding item: %s" % item['item_id'])

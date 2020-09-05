@@ -163,7 +163,8 @@ def update_session():
 
 @api_bp.route('/delete_session', methods=['POST'])
 def delete_session():
-    return handle_session(app.dm.delete_session)
+    result = app.dm.delete_session(request.json['id'])
+    return send_json_data({'session': result})
 
 
 @api_bp.route('/load_session', methods=['POST'])
@@ -186,7 +187,8 @@ def create_session_set():
 def add_session_item():
     """ Add a new item. """
     def handle(session, set_id, **attrs):
-        session.data.add_item(set_id, attrs['item_id'], **attrs)
+        itemId = attrs.pop("item_id")
+        session.data.add_item(set_id, itemId, **attrs)
         session.data.close()
         return {'item': {}}
 
