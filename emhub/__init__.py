@@ -73,7 +73,7 @@ def create_app(test_config=None):
     os.makedirs(app.config['SESSIONS'], exist_ok=True)
 
     # Define some content_id list that does not requires login
-    NO_LOGIN_CONTENT = ['users-list']
+    NO_LOGIN_CONTENT = ['users_list']
 
     @app.route('/main', methods=['GET', 'POST'])
     def main():
@@ -83,9 +83,9 @@ def create_app(test_config=None):
             content_id = flask.request.form['content_id']
 
         if not app.user.is_authenticated:
-            kwargs = {'content_id': 'user-login', 'next_content': content_id}
+            kwargs = {'content_id': 'user_login', 'next_content': content_id}
         else:
-            if content_id == 'user-login':
+            if content_id == 'user_login':
                 content_id = 'dashboard'
             kwargs = {'content_id': content_id}
 
@@ -122,7 +122,7 @@ def create_app(test_config=None):
 
         flask_login.login_user(user)
 
-        if next_content == 'user-login':
+        if next_content == 'user_login':
             next_content = 'dashboard'
         return flask.redirect(flask.url_for('main', content_id=next_content))
 
@@ -143,7 +143,7 @@ def create_app(test_config=None):
             kwargs = app.dc.get(**content_kwargs)
         else:
             kwargs = {'next_content': content_id}
-            content_id = 'user-login'
+            content_id = 'user_login'
 
         content_template = content_id + '.html'
 
