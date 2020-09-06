@@ -17,15 +17,25 @@
                             <li class="nav-item">
                                 <a class="nav-link nav-link-ajax" data-content-id="dashboard" href=""><i class="fas fa-tachometer-alt"></i>Dashboard</a>
                             </li>
+
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="booking-calendar" href=""><i class="fas fa-calendar-alt"></i>Booking Calendar</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="booking_calendar" href=""><i class="fas fa-calendar-alt"></i>Booking Calendar</a>
                             </li>
+
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="sessions-overview" href=""><i class="fas fa-fw fa-chart-pie"></i>Sessions</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="sessions_overview" href=""><i class="fas fa-fw fa-chart-pie"></i>Sessions</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" data-content-id="reports" href=""><i class="fas fa-clipboard-list"></i>Reports</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" data-content-id="applications" href=""><i class="fas fa-rocket"></i>Applications</a>
                             </li>
                         </ul>
 
-
+                        {% if current_user.is_manager %}
                         <li class="nav-divider">
                             ADMIN
                         </li>
@@ -33,35 +43,32 @@
                         <ul class="nav flex-column submenu">
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="users-list" href=""><i class="fas fa-users"></i>Users</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="users_list" href=""><i class="fas fa-users"></i>Users</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="resources-list" href=""><i class="fas fa-boxes"></i>Resources</a>
-                            </li>
-
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="applications" href=""><i class="fas fa-rocket"></i>Applications</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="resources_list" href=""><i class="fas fa-boxes"></i>Resources</a>
                             </li>
 
                         </ul>
+                        {% endif %}
 
-                        {% if is_devel %}
+                        {% if is_devel and current_user.is_admin %}
                         <li class="nav-divider">
                             << DEVELOPMENT >>
                         </li>
 
                         <ul class="nav flex-column submenu">
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="booking-list" href=""><i class="fas fa-list-alt"></i>Booking List</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="booking_list" href=""><i class="fas fa-list-alt"></i>Booking List</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="applications-list" href=""><i class="fas fa-boxes"></i>Applications List</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="applications_list" href=""><i class="fas fa-boxes"></i>Applications List</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="user-login" href="">Login</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="user_login" href="">Login</a>
                             </li>
 
                             <li class="nav-item">
@@ -69,11 +76,11 @@
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="forms-validation" href="">Forms Validation</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="forms_validation" href="">Forms Validation</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="dashboard-finance" href="">Finance</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="dashboard_finance" href="">Finance</a>
                             </li>
 
                         </ul>
@@ -84,19 +91,19 @@
                             <div id="submenu-3" class="collapse submenu" style="">
                                 <ul class="nav flex-column">
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart-c3" href="">C3 Charts</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart_c3" href="">C3 Charts</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart-chartist" href="">Chartist Charts</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart_chartist" href="">Chartist Charts</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart-charts" href="">Chart</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart_charts" href="">Chart</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart-morris" href="">Morris</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart_morris" href="">Morris</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart-sparkline" href="">Sparkline</a>
+                                        <a class="nav-link nav-link-ajax" data-content-id="chart_sparkline" href="">Sparkline</a>
                                     </li>
                                 </ul>
                             </div>

@@ -49,19 +49,28 @@ def update_user():
     try:
         f = request.form
         attrs = {'id': f['user-id'],
-                 'username': f['user-username'],
+                 #'username': f['user-username'],
+                 'name': f['user-name'],
                  'phone': f['user-phone'],
                  }
+
+        password = f['user-password'].strip()
+        if password:
+            attrs['password'] = password
 
         if 'user-profile-image' in request.files:
             profile_image = request.files['user-profile-image']
 
             if profile_image.filename:
                 _, ext = os.path.splitext(profile_image.filename)
-                image_name = 'profile-image-%06d%s' % (int(f['user-id']), ext)
-                image_path = os.path.join(app.config['USER_IMAGES'], image_name)
-                profile_image.save(image_path)
-                attrs['profile_image'] = image_name
+
+                if ext.lstrip(".").upper() not in app.config["ALLOWED_IMAGE_EXTENSIONS"]:
+                    return send_error("Image format %s is not allowed!" % ext.upper())
+                else:
+                    image_name = 'profile-image-%06d%s' % (int(f['user-id']), ext)
+                    image_path = os.path.join(app.config['USER_IMAGES'], image_name)
+                    profile_image.save(image_path)
+                    attrs['profile_image'] = image_name
 
         app.dm.update_user(**attrs)
 
@@ -167,29 +176,35 @@ def create_session_set():
     """ Create a set file without actual session. """
     def handle(session, set_id, **attrs):
         session.data.create_set(set_id, **attrs)
+        session.data.close()
         return {'session_set': {}}
 
-    return handle_session_data(handle)
+    return handle_session_data(handle, mode="a")
 
 
 @api_bp.route('/add_session_item', methods=['POST'])
 def add_session_item():
     """ Add a new item. """
     def handle(session, set_id, **attrs):
-        session.data.add_item(set_id, attrs['item_id'], **attrs)
+        itemId = attrs.pop("item_id")
+        session.data.add_item(set_id, itemId, **attrs)
+        session.data.close()
         return {'item': {}}
 
-    return handle_session_data(handle)
+    return handle_session_data(handle, mode="a")
 
 
-@api_bp.route('/get_session_item', methods=['POST'])
-def get_session_item():
-    """ Get an existing item. """
+@api_bp.route('/update_session_item', methods=['POST'])
+def update_session_item():
+    """ Update existing item. """
     def handle(session, set_id, **attrs):
-        item = session.data.get_item(set_id, attrs['item_id'], **attrs)
-        return {'item': item}
+        itemId = attrs.pop("item_id")
+        session.data.update_item(set_id, itemId, **attrs)
+        session.data.close()
+        return {'item': {}}
 
-    return handle_session_data(handle)
+    return handle_session_data(handle, mode="a")
+
 
 # -------------------- UTILS functions ----------------------------------------
 
@@ -263,13 +278,13 @@ def handle_session(session_func):
     return _handle_item(handle, 'session')
 
 
-def handle_session_data(handle):
+def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
     set_id = attrs.pop("set_id", 1)
 
-    with app.dm.load_session(sessionId=session_id) as session:
-        result = handle(session, set_id, **attrs)
+    session = app.dm.load_session(sessionId=session_id, mode=mode)
+    result = handle(session, set_id, **attrs)
 
     return send_json_data(result)
 

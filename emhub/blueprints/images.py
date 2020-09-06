@@ -32,6 +32,8 @@ import flask
 from flask import request
 from flask import current_app as app
 
+from emhub.utils import send_json_data
+
 
 images_bp = flask.Blueprint('images', __name__)
 
@@ -58,3 +60,18 @@ def user_profile():
                                          filename=user.profile_image)
     except FileNotFoundError:
         flask.abort(404)
+
+
+@images_bp.route("/get_mic_thumb", methods=['POST'])
+def get_mic_thumb():
+    micId = int(request.form['micId'])
+    sessionId = int(request.form['sessionId'])
+    session = app.dm.load_session(sessionId)
+    setObj = session.data.get_sets()[0]
+    mic = session.data.get_item(setObj['id'], micId,
+                                dataAttrs=['micThumbData',
+                                           'psdData',
+                                           'shiftPlotData'])
+    session.data.close()
+
+    return send_json_data(mic._asdict())

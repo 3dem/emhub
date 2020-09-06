@@ -106,7 +106,7 @@
                                 <!-- Variable content depending if the users is signed in or not -->
                                 {% if current_user.is_authenticated %}
                                     <a class="nav-link nav-user-img" href="#" id="navbarDropdownMenuLink2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        {{ current_user.name }} <img src="{{ url_for('static', filename='images/avatar-1.jpg') }}" alt="" class="user-avatar-md rounded-circle">
+                                        {{ current_user.name }} <img src="{{ current_user.image }}" alt="" class="user-avatar-md rounded-circle">
                                     </a>
                                     <div class="dropdown-menu dropdown-menu-right nav-user-dropdown" aria-labelledby="navbarDropdownMenuLink2">
                                         <div class="nav-user-info">

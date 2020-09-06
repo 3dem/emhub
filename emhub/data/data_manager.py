@@ -30,7 +30,6 @@ import os
 import datetime as dt
 import uuid
 from collections import defaultdict
-from contextlib import contextmanager
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -109,10 +108,10 @@ class DataManager:
 
     def update_user(self, **attrs):
         """ Update an existing user. """
-        # attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
-        # del attrs['password']
-        from pprint import pprint
-        pprint(attrs)
+        if 'password' in attrs:
+            attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
+            del attrs['password']
+
         return self.__update_item(self.User, **attrs)
 
     def get_users(self, condition=None, orderBy=None, asJson=False):
@@ -175,8 +174,6 @@ class DataManager:
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self, **attrs):
-        print("Creating booking: ",  attrs)
-
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         attrs.pop('modify_all', None)
@@ -296,7 +293,7 @@ class DataManager:
         print("    full-path: ", self._session_data_path(session))
 
         # Create empty hdf5 file
-        data = H5SessionData(self._session_data_path(session), mode='w')
+        data = H5SessionData(self._session_data_path(session), mode='a')
         data.close()
 
         return session
@@ -305,30 +302,32 @@ class DataManager:
         """ Update session attrs. """
         from pprint import pprint
         pprint(attrs)
+        attrs['id'] = attrs.pop('session_id')
         return self.__update_item(self.Session, **attrs)
 
-    def delete_session(self, sessionId):
+    def delete_session(self, **attrs):
         """ Remove a session row. """
+        sessionId = attrs['session_id']
         session = self.Session.query.get(sessionId)
+        data_path = os.path.join(self._sessionsPath, session.data_path)
+        print("Deleting session id=%s" % sessionId)
         self.delete(session)
+        os.remove(data_path)
+        return session
 
-    @contextmanager
-    def load_session(self, sessionId):
+    def load_session(self, sessionId, mode="r"):
         # if self._lastSession is not None:
         #     if self._lastSession.id == sessionId:
         #         return self._lastSession
         #     self._lastSession.data.close()
 
         session = self.Session.query.get(sessionId)
-        session.data = H5SessionData(self._session_data_path(session), 'a')
-        try:
-            yield session
-        finally:
-            session.data.close()
+        session.data = H5SessionData(self._session_data_path(session), mode)
+        return session
 
     # ------------------- Some utility methods --------------------------------
     def now(self):
-        from tzlocal import get_localzone  # $ pip install tzlocal
+        from tzlocal import get_localzone
         # get local timezone
         local_tz = get_localzone()
         return dt.datetime.now(local_tz)

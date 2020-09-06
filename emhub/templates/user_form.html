@@ -48,7 +48,7 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Enter username" id="user-username" name="user-username" class="form-control" value="{{ user.name }}">
+                            <input type="text" required="" placeholder="Enter username" id="user-name" name="user-name" class="form-control" value="{{ user.name }}">
                         </div>
                     </div>
 
@@ -57,6 +57,21 @@
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Phone</label>
                         <div class="col-12 col-sm-8 col-lg-6">
                             <input type="text" required="" placeholder="Enter phone" id="user-phone" name="user-phone" class="form-control" value="{{ user.phone }}">
+                        </div>
+                    </div>
+
+                    <!-- New Password Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">New Password</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="password" required="" placeholder="Enter new password" id="user-password" name="user-password" class="form-control" value="">
+                        </div>
+                    </div>
+                    <!-- New Password Repeat Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Repeat new password</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="password" required="" placeholder="Repeat new password" id="user-repeat-password" name="user-repeat-password" class="form-control" value="">
                         </div>
                     </div>
 
@@ -92,8 +107,14 @@
 
     function fasterPreview( uploader ) {
         if ( uploader.files && uploader.files[0] ){
-              $('#user-profile-image').attr('src',
-                 window.URL.createObjectURL(uploader.files[0]) );
+            // Validate max image size
+            if (uploader.files[0].size > 1024 * 1024){
+                showMessage('ERROR', "Images over 1 Mb are not allowed!");
+            }
+            else {
+                $('#user-profile-image').attr('src',
+                    window.URL.createObjectURL(uploader.files[0]));
+            }
         }
     }
 
@@ -105,10 +126,7 @@
 
 
 /** Helper functions to handle User AJAX response or failure */
-function handleUserAjaxDone(jsonResponseStr) {
-    // I don't know why the response from the server is string here instead of JSON
-    // maybe because the request is a bit special without contentType?
-    jsonResponse = JSON.parse(jsonResponseStr);
+function handleUserAjaxDone(jsonResponse) {
     var error = null;
 
     if ('user' in jsonResponse) {
@@ -145,12 +163,27 @@ function onUserOkButtonClick() {
         formData.append('user-profile-image', uploader.files[0]);
     }
 
+    // Validate passwords match
+    password = $('#user-password').val();
+    repeat_password = $('#user-repeat-password').val();
+
+    if (password !== repeat_password) {
+        showMessage('ERROR', 'Please type same password twice!');
+        return;
+    }
+
+    if (/\s/g.test(password)){
+        showMessage('ERROR', 'Password can not contains spaces');
+        return;
+    }
+
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.update_user') }}",
         type: "POST",
         data: formData,
         processData: false,
-        contentType: false
+        contentType: false,
+        dataType: "json"
     });
     ajaxContent.done(handleUserAjaxDone);
     ajaxContent.fail(handleAjaxFail);

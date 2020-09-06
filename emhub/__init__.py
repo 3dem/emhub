@@ -58,6 +58,7 @@ def create_app(test_config=None):
 
     app.config["IMAGES"] = os.path.join(app.instance_path, 'images')
     app.config["USER_IMAGES"] = os.path.join(app.config["IMAGES"], 'user')
+    app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
     app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
 
     if test_config is None:
@@ -72,7 +73,7 @@ def create_app(test_config=None):
     os.makedirs(app.config['SESSIONS'], exist_ok=True)
 
     # Define some content_id list that does not requires login
-    NO_LOGIN_CONTENT = ['users-list']
+    NO_LOGIN_CONTENT = ['users_list']
 
     @app.route('/main', methods=['GET', 'POST'])
     def main():
@@ -82,13 +83,14 @@ def create_app(test_config=None):
             content_id = flask.request.form['content_id']
 
         if not app.user.is_authenticated:
-            kwargs = {'content_id': 'user-login', 'next_content': content_id}
+            kwargs = {'content_id': 'user_login', 'next_content': content_id}
         else:
-            if content_id == 'user-login':
+            if content_id == 'user_login':
                 content_id = 'dashboard'
             kwargs = {'content_id': content_id}
 
         kwargs['is_devel'] = app.is_devel
+        app.user.image = app.dc.user_profile_image(app.user)
 
         return flask.render_template('main.html', **kwargs)
 
@@ -114,36 +116,20 @@ def create_app(test_config=None):
         next_content = flask.request.form.get('next_content', 'index')
 
         user = app.dm.get_user_by(username=username)
-
         if user is None or not user.check_password(password):
             flask.flash('Invalid username or password')
             return flask.redirect(flask.url_for('login'))
 
         flask_login.login_user(user)
 
-        if next_content == 'user-login':
+        if next_content == 'user_login':
             next_content = 'dashboard'
-        print("logged user: %s, next_content: %s" % (username, next_content))
         return flask.redirect(flask.url_for('main', content_id=next_content))
 
     @app.route('/logout', methods=['GET', 'POST'])
     def do_logout():
         flask_login.logout_user()
         return flask.redirect(flask.url_for('index'))
-
-    # TODO: Move to images blueprint
-    @app.route('/get_mic_thumb', methods=['POST'])
-    def get_mic_thumb():
-        micId = int(flask.request.form['micId'])
-        sessionId = int(flask.request.form['sessionId'])
-        session = app.dm.load_session(sessionId)
-        setObj = session.data.get_sets()[0]
-        mic = session.data.get_item(setObj['id'], micId,
-                                    dataAttrs=['micThumbData',
-                                               'psdData',
-                                               'shiftPlotData'])
-
-        return send_json_data(mic._asdict())
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
@@ -157,7 +143,7 @@ def create_app(test_config=None):
             kwargs = app.dc.get(**content_kwargs)
         else:
             kwargs = {'next_content': content_id}
-            content_id = 'user-login'
+            content_id = 'user_login'
 
         content_template = content_id + '.html'
 
@@ -169,7 +155,6 @@ def create_app(test_config=None):
 
     @app.template_filter('basename')
     def basename(filename):
-        """Convert a string to all caps."""
         return os.path.basename(filename)
 
     app.jinja_env.filters['reverse'] = basename

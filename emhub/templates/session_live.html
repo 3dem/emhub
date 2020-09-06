@@ -354,7 +354,7 @@
 <script>
     function request_micrograph_images(sessionId, micId) {
         var requestMicThumb = $.ajax({
-            url: "{{ url_for('get_mic_thumb') }}",
+            url: "{{ url_for('images.get_mic_thumb') }}",
             type: "POST",
             data: {micId : micId, sessionId: sessionId},
             dataType: "json"
