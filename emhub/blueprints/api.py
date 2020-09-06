@@ -64,7 +64,7 @@ def update_user():
             if profile_image.filename:
                 _, ext = os.path.splitext(profile_image.filename)
 
-                if ext.upper() not in app.config["ALLOWED_IMAGE_EXTENSIONS"]:
+                if ext.lstrip(".").upper() not in app.config["ALLOWED_IMAGE_EXTENSIONS"]:
                     return send_error("Image format %s is not allowed!" % ext.upper())
                 else:
                     image_name = 'profile-image-%06d%s' % (int(f['user-id']), ext)
