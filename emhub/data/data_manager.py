@@ -302,6 +302,7 @@ class DataManager:
         """ Update session attrs. """
         from pprint import pprint
         pprint(attrs)
+        attrs['id'] = attrs.pop('session_id')
         return self.__update_item(self.Session, **attrs)
 
     def delete_session(self, **attrs):

@@ -194,6 +194,18 @@ def add_session_item():
     return handle_session_data(handle, mode="a")
 
 
+@api_bp.route('/update_session_item', methods=['POST'])
+def update_session_item():
+    """ Update existing item. """
+    def handle(session, set_id, **attrs):
+        itemId = attrs.pop("item_id")
+        session.data.update_item(set_id, itemId, **attrs)
+        session.data.close()
+        return {'item': {}}
+
+    return handle_session_data(handle, mode="a")
+
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):

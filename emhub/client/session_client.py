@@ -46,6 +46,13 @@ class SessionClient:
         """
         return self._method('create_session', 'session', attrs)
 
+    def update_session(self, attrs):
+        """ Request the server to update existing session.
+        Mandatory in attrs:
+            session_id: the id of the session
+        """
+        return self._method('update_session', 'session', attrs)
+
     def delete_session(self, attrs):
         """ Request the server to delete a session.
         Mandatory in attrs:
@@ -69,6 +76,15 @@ class SessionClient:
             item_id: the id of the item to be added
         """
         return self._method('add_session_item', 'item', attrs)
+
+    def update_session_item(self, attrs):
+        """ Update existing item in the set in the session.
+        Mandatory in attrs:
+            session_id: the id of the session
+            set_id: the id of the set
+            item_id: the id of the item to be modified
+        """
+        return self._method('update_session_item', 'item', attrs)
 
     #---------------------- Internal functions ------------------------------
     def _method(self, method, resultKey, attrs):
