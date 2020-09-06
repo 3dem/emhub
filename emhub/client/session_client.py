@@ -48,15 +48,10 @@ class SessionClient:
 
     def delete_session(self, attrs):
         """ Request the server to delete a session.
+        Mandatory in attrs:
             session_id: the id of the session
         """
-        r = self.request('delete_session',
-                         jsonData={**attrs})
-        json = r.json()
-        if 'error' in json:
-            raise Exception("ERROR from Server: ", json['error'])
-
-        return json['session']
+        return self._method('delete_session', 'session', attrs)
 
     def create_session_set(self, attrs):
         """ Request the server to create a set within a session.

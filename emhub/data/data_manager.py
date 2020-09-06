@@ -30,7 +30,6 @@ import os
 import datetime as dt
 import uuid
 from collections import defaultdict
-from contextlib import contextmanager
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -305,11 +304,15 @@ class DataManager:
         pprint(attrs)
         return self.__update_item(self.Session, **attrs)
 
-    def delete_session(self, sessionId):
+    def delete_session(self, **attrs):
         """ Remove a session row. """
+        sessionId = attrs['session_id']
         session = self.Session.query.get(sessionId)
+        data_path = os.path.join(self._sessionsPath, session.data_path)
         print("Deleting session id=%s" % sessionId)
         self.delete(session)
+        os.remove(data_path)
+        return session
 
     def load_session(self, sessionId, mode="r"):
         # if self._lastSession is not None:
@@ -323,7 +326,7 @@ class DataManager:
 
     # ------------------- Some utility methods --------------------------------
     def now(self):
-        from tzlocal import get_localzone  # $ pip install tzlocal
+        from tzlocal import get_localzone
         # get local timezone
         local_tz = get_localzone()
         return dt.datetime.now(local_tz)

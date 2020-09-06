@@ -163,8 +163,7 @@ def update_session():
 
 @api_bp.route('/delete_session', methods=['POST'])
 def delete_session():
-    result = app.dm.delete_session(request.json['id'])
-    return send_json_data({'session': result})
+    return handle_session(app.dm.delete_session)
 
 
 @api_bp.route('/load_session', methods=['POST'])

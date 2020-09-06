@@ -149,11 +149,7 @@ class ImportRelionSession:
                              "attrs": 'id'})
         res = json.loads(sc.json())
         if res:
-            sc.delete_session(res[0])
-            #FIXME: do this via API
-            data_path = os.path.join(os.environ.get('EMHUB_INSTANCE'),
-                                     'sessions/session_%06d.h5' % res[0]['id'])
-            os.remove(data_path)
+            sc.delete_session({"session_id": res[0]['id']})
 
         # Create new session with no items
         sessionAttrs = self.populateSessionAttrs()
