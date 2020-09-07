@@ -49,14 +49,14 @@ class SessionClient:
     def update_session(self, attrs):
         """ Request the server to update existing session.
         Mandatory in attrs:
-            session_id: the id of the session
+            id: the id of the session
         """
         return self._method('update_session', 'session', attrs)
 
     def delete_session(self, attrs):
         """ Request the server to delete a session.
         Mandatory in attrs:
-            session_id: the id of the session
+            id: the id of the session
         """
         return self._method('delete_session', 'session', attrs)
 

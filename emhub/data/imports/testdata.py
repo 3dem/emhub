@@ -109,21 +109,20 @@ class TestData:
     def __populateResources(self, dm):
         resources = [
             {'name': 'Krios 1', 'tags': 'microscope krios',
-             'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
-             # Allow DBB00001 users to book without slot
-             #'booking_auth': {'applications': ['DBB00001']}},
-             'requires_slot': True},
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8}},
             {'name': 'Krios 2', 'tags': 'microscope krios',
-             'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
-             #'booking_auth': {'applications': ['DBB00001']}},
-             'requires_slot': True},
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8}},
             {'name': 'Talos', 'tags': 'microscope talos',
-             'latest_cancellation': 48,
              'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
-             # 'booking_auth': {'applications': ['DBB00001']}},
-             'requires_slot': True},
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8}},
             {'name': 'Vitrobot 1', 'tags': 'instrument',
              'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
             {'name': 'Vitrobot 2', 'tags': 'instrument',
@@ -132,7 +131,7 @@ class TestData:
              'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
             {'name': 'Users Drop-in', 'tags': 'service',
              'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
-             'requires_slot': True}
+             'extra': {'requires_slot': True}}
         ]
 
         for rDict in resources:

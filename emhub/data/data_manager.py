@@ -302,12 +302,12 @@ class DataManager:
         """ Update session attrs. """
         from pprint import pprint
         pprint(attrs)
-        attrs['id'] = attrs.pop('session_id')
+        attrs['id'] = attrs.pop('id')
         return self.__update_item(self.Session, **attrs)
 
     def delete_session(self, **attrs):
         """ Remove a session row. """
-        sessionId = attrs['session_id']
+        sessionId = attrs['id']
         session = self.Session.query.get(sessionId)
         data_path = os.path.join(self._sessionsPath, session.data_path)
         print("Deleting session id=%s" % sessionId)

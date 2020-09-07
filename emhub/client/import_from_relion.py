@@ -149,7 +149,7 @@ class ImportRelionSession:
                              "attrs": 'id'})
         res = json.loads(sc.json())
         if res:
-            sc.delete_session({"session_id": res[0]['id']})
+            sc.delete_session({"id": res[0]['id']})
 
         # Create new session with no items
         sessionAttrs = self.populateSessionAttrs()
