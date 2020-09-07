@@ -21,6 +21,7 @@ Launching the development server
     export FLASK_APP=emhub
     export FLASK_ENV=development
     export EMHUB_TESTDATA=~/work/development/emhub-testdata
+    export EMHUB_INSTANCE=~/work/development/emhub/instance
 
     # Now launch the built-in Flask development server:
     flask run
