@@ -340,7 +340,8 @@ class ImageSessionData(SessionData):
 
 class PytablesSessionData(SessionData):
     """ Implementation of SessionData using pytables. """
-    #TODO: pytables stores strings as bytes, need to decode when reading?
+    #TODO: pytables stores strings as bytes, need to decode when reading
+    # they are also fixed size length :(
 
     class SetOfMicrographs(tbl.IsDescription):
         id = tbl.Int32Col()
@@ -355,10 +356,10 @@ class PytablesSessionData(SessionData):
         ctfDefocusAngle = tbl.Float32Col()
         ctfResolution = tbl.Float32Col()
         ctfFit = tbl.Float32Col()
-        micThumbData = tbl.StringCol(256)
-        psdData = tbl.StringCol(256)
-        ctfFitData = tbl.StringCol(256)
-        shiftPlotData = tbl.StringCol(256)
+        micThumbData = tbl.StringCol(256000)
+        psdData = tbl.StringCol(256000)
+        ctfFitData = tbl.StringCol(256000)
+        shiftPlotData = tbl.StringCol(256000)
 
     def __init__(self, h5File, mode='r'):
         if mode == 'r':
@@ -417,7 +418,14 @@ class PytablesSessionData(SessionData):
         micList = []
 
         for row in mics_table:
-            values = {k: row[k] for k in keys}
+            values = dict()
+            for k in keys:
+                if isinstance(row[k], bytes):
+                    values[k] = row[k].decode()
+                else:
+                    values[k] = row[k]
+
+            #values = {k: row[k] for k in keys}
             micList.append(Micrograph(**values))
 
         return micList
@@ -429,8 +437,14 @@ class PytablesSessionData(SessionData):
 
         keys = mics_table.colnames if dataAttrs is None else dataAttrs
         Micrograph = namedtuple('Micrograph',keys)
-        values = {k: mic[k] for k in keys}
+        values = dict()
+        for k in keys:
+            if isinstance(mic[k], bytes):
+                values[k] = mic[k].decode()
+            else:
+                values[k] = mic[k]
 
+        #values = {k: mic[k] for k in keys}
         return Micrograph(**values)
 
     def add_item(self, setId, itemId, **attrsDict):
