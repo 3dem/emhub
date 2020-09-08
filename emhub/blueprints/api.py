@@ -94,7 +94,7 @@ def create_template():
 
 @api_bp.route('/get_templates', methods=['POST'])
 def get_templates():
-    return send_error('Not implemented')
+    return filter_request(app.dm.get_applications)
 
 
 @api_bp.route('/update_template', methods=['POST'])
@@ -114,7 +114,7 @@ def create_application():
 
 @api_bp.route('/get_applications', methods=['POST'])
 def get_applications():
-    pass
+    return filter_request(app.dm.get_applications)
 
 
 @api_bp.route('/update_application', methods=['POST'])
@@ -126,10 +126,16 @@ def update_application():
 
 @api_bp.route('/create_booking', methods=['POST'])
 def create_booking():
-    def create_booking(attrs):
-        return app.dm.create_booking(attrs)
+    def create(**attrs):
+        check_min = request.json.get('check_min_booking')
+        return app.dm.create_booking(check_min_booking=check_min, **attrs)
 
-    return handle_booking('bookings_created', app.dm.create_booking)
+    return handle_booking('bookings_created', create)
+
+
+@api_bp.route('/get_bookings', methods=['POST'])
+def get_bookings():
+    return filter_request(app.dm.get_bookings)
 
 
 @api_bp.route('/update_booking', methods=['POST'])
