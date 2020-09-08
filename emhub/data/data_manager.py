@@ -173,15 +173,18 @@ class DataManager:
         return self.__update_item(self.Application, **attrs)
 
     # ---------------------------- BOOKINGS -----------------------------------
-    def create_booking(self, **attrs):
+    def create_booking(self, check_min_booking=True,  **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         attrs.pop('modify_all', None)
         bookings = []
 
+        def _add_booking(attrs):
+            b = self.__create_booking(attrs, check_min_booking=check_min_booking)
+            bookings.append(b)
 
         if repeat_value == 'no':
-            bookings.append(self.__create_booking(attrs))
+            _add_booking(attrs)
         else:
             repeat_stop = attrs.pop('repeat_stop')
             repeater = RepeatRanges(repeat_value, attrs)
@@ -189,7 +192,7 @@ class DataManager:
 
             while attrs['end'] < repeat_stop:
                 attrs['repeat_id'] = uid
-                bookings.append(self.__create_booking(attrs))
+                _add_booking(attrs)
                 repeater.move()  # will move next start,end in attrs
 
         # Validate and insert all created bookings
@@ -377,7 +380,7 @@ class DataManager:
         return any(p.code in json_codes for p in applications)
 
     # ------------------- BOOKING helper functions -----------------------------
-    def __create_booking(self, attrs):
+    def __create_booking(self, attrs, **kwargs):
         if 'application_id' not in attrs:
             owner = self.get_user_by(id=attrs['owner_id'])
             apps = owner.get_applications()
@@ -397,15 +400,16 @@ class DataManager:
                 attrs['application_id'] = apps[0].id
 
         b = self.Booking(**attrs)
-        self.__validate_booking(b)
+        self.__validate_booking(b, **kwargs)
         return b
 
-    def __validate_booking(self, booking):
+    def __validate_booking(self, booking, **kwargs):
         # Check the booking time is bigger than the minimum booking time
         # specified in the resource settings
         r = self.get_resource_by(id=booking.resource_id)
+        check_min_booking =  kwargs.get('check_min_booking', True)
 
-        if r.min_booking > 0:
+        if check_min_booking and  r.min_booking > 0:
             mm = dt.timedelta(minutes=int(r.min_booking * 60))
             if booking.duration < mm:
                 raise Exception("The duration of the booking is less that "

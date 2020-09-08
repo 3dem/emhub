@@ -126,6 +126,9 @@ def update_application():
 
 @api_bp.route('/create_booking', methods=['POST'])
 def create_booking():
+    def create_booking(attrs):
+        return app.dm.create_booking(attrs)
+
     return handle_booking('bookings_created', app.dm.create_booking)
 
 

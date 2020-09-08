@@ -172,9 +172,9 @@ class PortalData:
         formsDict = {}
 
         internalTemplate = dm.create_template(
-            title='Template for internal application at DBB',
-            description='Special template for intenal applciation',
-            status='active')
+            title='Template for internal applications (DBB or FAC)',
+            description='Special template for internal applications',
+            status='closed')
 
         for f in jsonData['forms'].values():
             f['emhub_item'] = createTemplate(f)
@@ -257,7 +257,6 @@ class PortalData:
                     if pi is not None:
                         app.users.append(pi)
 
-                        #  TODO: Add other PIs
             except Exception as e:
                 print("Exception when creating Application: %s. IGNORING..." % e)
 
@@ -294,14 +293,16 @@ class PortalData:
             user = self._dictUsers[email]
 
             try:
-                dm.create_booking(title=b['title'],
-                                  start=datetime_from_isoformat(b['startDate']),
-                                  end=datetime_from_isoformat(b['endDate']),
-                                  type=type,
-                                  resource_id=resourcesDict[resource],
-                                  creator_id=user.id,  # first user for now
-                                  owner_id=user.id,  # first user for now
-                                  description="")
+                dm.create_booking(
+                    check_min_booking=False,
+                    title=b['title'],
+                    start=datetime_from_isoformat(b['startDate']),
+                    end=datetime_from_isoformat(b['endDate']),
+                    type=type,
+                    resource_id=resourcesDict[resource],
+                    creator_id=user.id,  # first user for now
+                    owner_id=user.id,  # first user for now
+                    description="")
             except Exception as e:
                 print("Exception when creating Booking: %s. IGNORING..." % e)
 
