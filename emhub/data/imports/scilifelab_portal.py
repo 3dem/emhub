@@ -26,6 +26,7 @@
 
 import os
 import json
+import datetime as dt
 
 from emhub.utils import datetime_from_isoformat
 
@@ -74,6 +75,9 @@ class PortalData:
     def __importUsers(self, dm):
         # Create user table
         def createUser(u, **kwargs):
+            if u['status'] == 'disabled' or 'per.kraulis' in u['email']:
+                return
+
             roles = kwargs.get('roles', ['user'])
             pi = None
             if u['pi']:
@@ -96,7 +100,7 @@ class PortalData:
         staff = {
             'marta.carroni@scilifelab.se': ['manager', 'head'],
             'julian.conrad@scilifelab.se': ['manager'],
-            'karin.walden@scilifelab.se': ['manager'],
+            'karin.wallden@scilifelab.se': ['manager'],
             'mathieu.coincon@scilifelab.se': ['manager'],
             'dustin.morado@scilifelab.se': ['admin', 'manager'],
             'stefan.fleischmann@scilifelab.se': ['admin'],
@@ -115,6 +119,8 @@ class PortalData:
                 createUser(u)
                 piDict[u['email']] = u
 
+        f = open('user_nopi.csv', mode='w')
+
         for u in self._jsonUsers:
             if not u['pi'] and not u['email'] in staff:
                 piEmail = u['invoice_ref']
@@ -122,6 +128,8 @@ class PortalData:
                     createUser(u, pi=piDict[piEmail]['emhub_item'].id)
                 else:
                     print("Skipping user (Missing PI): ", u['email'])
+                    f.write('"%s", "%s"\n' % (u['name'], u['email']))
+        f.close()
 
     def __populateResources(self, dm):
         resources = [
@@ -210,6 +218,27 @@ class PortalData:
         for pi in dbbPis:
             internalApp.users.append(pi)
 
+        import_date = now.replace(year=2018, month=6, day=1)
+
+        def _alias(email):
+            """ Try to guess the Application alias from PI email. """
+            if email.endswith('kth.se'):
+                return 'KTH Bag'
+            if email.endswith('ki.se'):
+                return 'KI Bag'
+            if email.endswith('uu.se'):
+                return 'Uppsala Bag'
+            if email.endswith('umu.se'):
+                return 'Umeå Bag'
+            if email.endswith('gu.se'):
+                return 'Gotherborg Bag'
+            if email.endswith('.fi'):
+                return 'Finland Bag'
+            if email.endswith('.no'):
+                return 'Norway Bag'
+
+            return ''
+
         for o in jsonData['orders']:
             piEmail = o['owner']['email']
             orderId = o['identifier']
@@ -226,8 +255,12 @@ class PortalData:
             # created = dt.datetime.strptime(o['created'], '%Y-%m-%d')
             created = datetime_from_isoformat(o['created'])
 
+            # Skip too old applications
+            if import_date > created:
+                continue
+
             if status == 'accepted' or status == 'enabled':
-                if created.year == now.year or created.year == now.year - 1:
+                if created.year == now.year:
                     status = 'active'
                 else:
                     status = 'closed'
@@ -239,11 +272,14 @@ class PortalData:
             invoiceRef = fields.get('project_invoice_addess', None)
 
             try:
+                pi_list = fields.get('pi_list', [])
+                alias = _alias(pi.email) if pi_list else ''
+
                 app = dm.create_application(
                     code=orderId,
                     title=o['title'],
                     created=created,  # datetime_from_isoformat(o['created']),
-                    alias=status,
+                    alias=alias,
                     status=status,
                     description=description,
                     creator_id=pi.id,
@@ -251,7 +287,7 @@ class PortalData:
                     invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
                 )
 
-                for piTuple in fields.get('pi_list', []):
+                for piTuple in pi_list:
                     piEmail = piTuple[1]
                     pi = self._dictUsers.get(piEmail, None)
                     if pi is not None:
