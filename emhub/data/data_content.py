@@ -149,7 +149,8 @@ class DataContent:
              'image': flask.url_for('images.static', filename=r.image),
              'user_can_book': self.app.user.can_book_resource(r),
              'microscope': 'microscope' in r.tags,
-             'min_booking': r.min_booking
+             'min_booking': r.min_booking,
+             'max_booking': r.max_booking
              }
             for r in self.app.dm.get_resources()
         ]

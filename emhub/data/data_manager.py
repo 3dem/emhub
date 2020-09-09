@@ -128,6 +128,9 @@ class DataManager:
     def create_resource(self, **attrs):
         return self.__create_item(self.Resource, **attrs)
 
+    def update_resource(self, **attrs):
+        return self.__update_item(self.Resource, **attrs)
+
     def get_resources(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Resource,
                                        condition=condition,
@@ -407,13 +410,21 @@ class DataManager:
         # Check the booking time is bigger than the minimum booking time
         # specified in the resource settings
         r = self.get_resource_by(id=booking.resource_id)
-        check_min_booking =  kwargs.get('check_min_booking', True)
+        check_min_booking = kwargs.get('check_min_booking', True)
+        check_max_booking = kwargs.get('check_max_booking', True)
 
-        if check_min_booking and  r.min_booking > 0:
+        if check_min_booking and r.min_booking > 0:
             mm = dt.timedelta(minutes=int(r.min_booking * 60))
             if booking.duration < mm:
                 raise Exception("The duration of the booking is less that "
                                 "the minimum specified for the resource. ")
+
+        if check_max_booking and r.max_booking > 0:
+            mm = dt.timedelta(minutes=int(r.max_booking * 60))
+            if booking.duration > mm:
+                raise Exception("The duration of the booking is greater that "
+                                "the maximum allowed for the resource. ")
+
 
         app_id = booking.application_id
         if app_id is not None:

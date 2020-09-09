@@ -155,6 +155,18 @@ def update_application():
     return handle_application(app.dm.update_application)
 
 
+# ---------------------------- RESOURCES ---------------------------------------
+@api_bp.route('/get_resources', methods=['POST'])
+@flask_login.login_required
+def get_resources():
+    return filter_request(app.dm.get_resources)
+
+
+@api_bp.route('/update_resource', methods=['POST'])
+@flask_login.login_required
+def update_resource():
+    return handle_resource(app.dm.update_resource)
+
 # ---------------------------- BOOKINGS ---------------------------------------
 
 @api_bp.route('/create_booking', methods=['POST'])
@@ -323,6 +335,13 @@ def handle_application(application_func):
         return application_func(**attrs).json()
 
     return _handle_item(handle, 'application')
+
+
+def handle_resource(resource_func):
+    def handle(**attrs):
+        return resource_func(**attrs).json()
+
+    return _handle_item(handle, 'resource')
 
 
 def handle_session(session_func):

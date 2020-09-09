@@ -80,6 +80,9 @@ def create_data_models(dm, Base):
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
 
+        def json(self):
+            return _json(self)
+
         @property
         def requires_slot(self):
             """ If True, users will need to have access to an slot
@@ -102,7 +105,7 @@ def create_data_models(dm, Base):
         def latest_cancellation(self, value):
             self.extra['latest_cancellation'] = int(value)
 
-        # Minimum amount of hours for a booking in this resource
+        # Minimum and maximum amount of hours for a booking in this resource
         # fractions of an hour can also  be used
         @property
         def min_booking(self):
@@ -111,6 +114,16 @@ def create_data_models(dm, Base):
         @min_booking.setter
         def min_booking(self, value):
             self.extra['min_booking'] = int(value)
+
+        # Minimum amount of hours for a booking in this resource
+        # fractions of an hour can also  be used
+        @property
+        def max_booking(self):
+            return self.extra.get('max_booking', 0)
+
+        @max_booking.setter
+        def max_booking(self, value):
+            self.extra['max_booking'] = int(value)
 
         @property
         def is_microscope(self):

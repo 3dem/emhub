@@ -131,32 +131,45 @@ class PortalData:
                     f.write('"%s", "%s"\n' % (u['name'], u['email']))
         f.close()
 
+
+
     def __populateResources(self, dm):
         resources = [
-            {'name': 'Krios 1', 'tags': 'microscope krios',
+            {'name': 'Solna Krios α', 'tags': 'microscope krios solna',
              'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
              'extra': {'latest_cancellation': 48,
                        'requires_slot': True,
-                       'min_booking': 8}},
-            {'name': 'Krios 2', 'tags': 'microscope krios',
-             'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
+                       'min_booking': 8,
+                       'max_booking': 72}},
+            {'name': 'Solna Krios β', 'tags': 'microscope krios solna',
+             'image': 'titan-krios.png', 'color': 'rgba(60, 90, 190, 1.0)',
              'extra': {'latest_cancellation': 48,
                        'requires_slot': True,
-                       'min_booking': 8}},
-            {'name': 'Talos', 'tags': 'microscope talos',
+                       'min_booking': 8,
+                       'max_booking': 72}},
+            {'name': 'Talos', 'tags': 'microscope talos solna',
              'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
              'extra': {'latest_cancellation': 48,
                        'requires_slot': True,
-                       'min_booking': 8}},
-            {'name': 'Vitrobot 1', 'tags': 'instrument',
+                       'min_booking': 8,
+                       'max_booking': 72}},
+            {'name': 'Vitrobot 1', 'tags': 'instrument solna',
              'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
-            {'name': 'Vitrobot 2', 'tags': 'instrument',
+            {'name': 'Vitrobot 2', 'tags': 'instrument solna',
              'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
-            {'name': 'Carbon Coater', 'tags': 'instrument',
+            {'name': 'Carbon Coater', 'tags': 'instrument solna',
              'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
-            {'name': 'Users Drop-in', 'tags': 'service',
+            {'name': 'Users Drop-in', 'tags': 'service solna',
              'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
-             'extra': {'requires_slot': True}}
+             'extra': {'requires_slot': True}},
+
+            # Umeå instruments
+            {'name': 'Umeå Krios', 'tags': 'microscope krios umea',
+             'image': 'titan-krios.png', 'color': 'rgba(15, 40, 130, 1.0)',
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8,
+                       'max_booking': 72}},
         ]
 
         for rDict in resources:
