@@ -32,7 +32,7 @@ from glob import glob
 from datetime import datetime, timezone, timedelta
 from emtable import Table
 
-from emhub.client import SessionClient
+from emhub.client import DataClient
 from emhub.utils import image
 
 
@@ -142,7 +142,7 @@ class ImportRelionSession:
 
     def createNewSession(self):
         """ Create a session using REST API. """
-        sc = SessionClient()
+        sc = DataClient()
         # Remove existing relion session
         sc.request(method="get_sessions",
                    jsonData={"condition": "name='%s'" % self.session_name,

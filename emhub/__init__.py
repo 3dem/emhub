@@ -167,7 +167,7 @@ def create_app(test_config=None):
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
 
     login_manager = flask_login.LoginManager()
-    login_manager.login_view = 'login'
+    #login_manager.login_view = 'login'
     login_manager.init_app(app)
 
     @login_manager.user_loader
