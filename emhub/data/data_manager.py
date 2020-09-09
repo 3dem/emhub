@@ -425,6 +425,8 @@ class DataManager:
                 raise Exception("The duration of the booking is greater that "
                                 "the maximum allowed for the resource. ")
 
+        if not self._user.is_manager and booking.start.date() < self.now().date():
+            raise Exception("The booking start can not be in the past. ")
 
         app_id = booking.application_id
         if app_id is not None:
