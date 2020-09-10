@@ -174,7 +174,10 @@ def update_resource():
 def create_booking():
     def create(**attrs):
         check_min = request.json.get('check_min_booking')
-        return app.dm.create_booking(check_min_booking=check_min, **attrs)
+        check_max = request.json.get('check_max_booking')
+        return app.dm.create_booking(check_min_booking=check_min,
+                                     check_max_booking=check_max,
+                                     **attrs)
 
     return handle_booking('bookings_created', create)
 

@@ -176,14 +176,19 @@ class DataManager:
         return self.__update_item(self.Application, **attrs)
 
     # ---------------------------- BOOKINGS -----------------------------------
-    def create_booking(self, check_min_booking=True,  **attrs):
+    def create_booking(self,
+                       check_min_booking=True,
+                       check_max_booking=True,
+                       **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         attrs.pop('modify_all', None)
         bookings = []
 
         def _add_booking(attrs):
-            b = self.__create_booking(attrs, check_min_booking=check_min_booking)
+            b = self.__create_booking(attrs,
+                                      check_min_booking=check_min_booking,
+                                      check_max_booking=check_max_booking)
             bookings.append(b)
 
         if repeat_value == 'no':

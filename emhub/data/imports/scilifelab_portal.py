@@ -46,6 +46,7 @@ class PortalData:
                 * forms (Templates here)
                 * orders (Applications here)
         """
+        dm.create_admin()
         self.__importData(dm, dataJsonPath, bookingsJsonPath)
 
     def __importData(self, dm, dataJsonPath, bookingsJsonPath):
@@ -74,8 +75,13 @@ class PortalData:
 
     def __importUsers(self, dm):
         # Create user table
-        def createUser(u, **kwargs):
+        def ignoreUser(u):
             if u['status'] == 'disabled' or 'per.kraulis' in u['email']:
+                return True
+            return False
+
+        def createUser(u, **kwargs):
+            if ignoreUser(u):
                 return
 
             roles = kwargs.get('roles', ['user'])
@@ -105,6 +111,10 @@ class PortalData:
             'dustin.morado@scilifelab.se': ['admin', 'manager'],
             'stefan.fleischmann@scilifelab.se': ['admin'],
             'delarosatrevin@scilifelab.se': ['admin'],
+            # Umeå staff
+            'michael.hall@umu.se': ['manager'],
+            'camilla.holmlund@umu.se': ['manager'],
+            'hussein.haggag@umu.se': ['admin']
         }
 
         #  Create first facility staff
@@ -122,7 +132,7 @@ class PortalData:
         f = open('user_nopi.csv', mode='w')
 
         for u in self._jsonUsers:
-            if not u['pi'] and not u['email'] in staff:
+            if not ignoreUser(u) and not u['pi'] and not u['email'] in staff:
                 piEmail = u['invoice_ref']
                 if piEmail in piDict:
                     createUser(u, pi=piDict[piEmail]['emhub_item'].id)
@@ -130,8 +140,6 @@ class PortalData:
                     print("Skipping user (Missing PI): ", u['email'])
                     f.write('"%s", "%s"\n' % (u['name'], u['email']))
         f.close()
-
-
 
     def __populateResources(self, dm):
         resources = [
@@ -344,6 +352,7 @@ class PortalData:
             try:
                 dm.create_booking(
                     check_min_booking=False,
+                    check_max_booking=False,
                     title=b['title'],
                     start=datetime_from_isoformat(b['startDate']),
                     end=datetime_from_isoformat(b['endDate']),
