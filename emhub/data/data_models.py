@@ -77,17 +77,53 @@ def create_data_models(dm, Base):
         color = Column(String(16),
                        nullable=False)
 
-        # Booking authorization, who can book within this slot
-        requires_slot = Column(Boolean, default=False)
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
+        def json(self):
+            return _json(self)
+
+        @property
+        def requires_slot(self):
+            """ If True, users will need to have access to an slot
+            or have some exceptions via the Application.
+            """
+            return  self.extra.get('requires_slot', False)
+
+        @requires_slot.setter
+        def requires_slot(self, value):
+            self.extra['requires_slot'] = bool(value)
 
         # Latest number of hours that a booking can be canceled
         # for this resource (e.g until 48h for a booking on Krios)
         # If 0, means that the booking can be cancelled at any time
-        latest_cancellation = Column(Integer, default=0)
+        @property
+        def latest_cancellation(self):
+            return  self.extra.get('latest_cancellation', 0)
+
+        @latest_cancellation.setter
+        def latest_cancellation(self, value):
+            self.extra['latest_cancellation'] = int(value)
+
+        # Minimum and maximum amount of hours for a booking in this resource
+        # fractions of an hour can also  be used
+        @property
+        def min_booking(self):
+            return self.extra.get('min_booking', 0)
+
+        @min_booking.setter
+        def min_booking(self, value):
+            self.extra['min_booking'] = int(value)
 
         # Minimum amount of hours for a booking in this resource
         # fractions of an hour can also  be used
-        min_booking = Column(Float, default=0)
+        @property
+        def max_booking(self):
+            return self.extra.get('max_booking', 0)
+
+        @max_booking.setter
+        def max_booking(self, value):
+            self.extra['max_booking'] = int(value)
 
         @property
         def is_microscope(self):
@@ -157,6 +193,9 @@ def create_data_models(dm, Base):
         applications = relationship("Application",
                                     secondary=ApplicationUser,
                                     back_populates="users")
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
 
         @staticmethod
         def create_password_hash(password):
@@ -262,6 +301,9 @@ def create_data_models(dm, Base):
 
         applications = relationship("Application", back_populates='template')
 
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
         def json(self):
             return _json(self)
 
@@ -331,6 +373,9 @@ def create_data_models(dm, Base):
         template_id = Column(Integer, ForeignKey('templates.id'), nullable=False)
         template = relationship("Template", foreign_keys=[template_id],
                                 back_populates="applications")
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
 
         def __repr__(self):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
@@ -424,6 +469,9 @@ def create_data_models(dm, Base):
                                    back_populates="bookings")
 
         session = relationship("Session", back_populates="booking")
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
 
         @property
         def duration(self):
@@ -531,6 +579,9 @@ def create_data_models(dm, Base):
         # It might be one of the facility staff or an independent user
         operator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
         operator = relationship("User", back_populates="sessions")
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
 
         class Cost:
             def __init__(self, id, date, comment, amount):

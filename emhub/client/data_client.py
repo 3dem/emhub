@@ -30,14 +30,29 @@ import json
 import requests
 
 
-class SessionClient:
+class DataClient:
     """
     Simple client to communicate with the emhub REST API.
     """
     def __init__(self, server_url='http://127.0.0.1:5000'):
         self._server_url = server_url
         # Store the last request object
-        self.r = None
+        self.cookies = self.r = None
+
+    def login(self, username, password):
+        self.r = requests.post('%s/api/login' % self._server_url,
+                               json={'username': username,
+                                     'password': password})
+        self.r.raise_for_status()
+        self.cookies = self.r.cookies
+        return self.r
+
+    def logout(self):
+        r = requests.post('%s/api/logout' % self._server_url,
+                          cookies=self.cookies)
+        r.raise_for_status()
+        self.cookies = self.r = None
+        return r
 
     def create_session(self, attrs):
         """ Request the server to create a new session.
@@ -49,14 +64,14 @@ class SessionClient:
     def update_session(self, attrs):
         """ Request the server to update existing session.
         Mandatory in attrs:
-            session_id: the id of the session
+            id: the id of the session
         """
         return self._method('update_session', 'session', attrs)
 
     def delete_session(self, attrs):
         """ Request the server to delete a session.
         Mandatory in attrs:
-            session_id: the id of the session
+            id: the id of the session
         """
         return self._method('delete_session', 'session', attrs)
 
@@ -99,10 +114,19 @@ class SessionClient:
     def request(self, method, jsonData=None):
         """ Make a request to this method passing the json data.
         """
+        if self.cookies is None:
+            raise Exception("You should call login method first")
+
         self.r = requests.post('%s/api/%s' % (self._server_url, method),
-                               json=jsonData)
+                               json=jsonData,  cookies=self.cookies)
         self.r.raise_for_status()
         return self.r
+
+    def get(self, name, condition=None, orderBy=None, attrs=None):
+        return self.request('get_%s' % name,
+                            jsonData={'condition': condition,
+                                      'orderBy': orderBy,
+                                      'attrs': attrs})
 
     def json(self):
         if self.r.status_code == 200:
