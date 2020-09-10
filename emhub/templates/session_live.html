@@ -206,11 +206,11 @@
                                             </tr>
                                             <tr>
                                                 <td>Num. of particles</td>
-                                                <td>{{ session.stats['numOfPtcls'] }}</td>
+                                                <td>{{ session.stats.numPtcls }}</td>
                                             </tr>
                                             <tr>
                                                 <td>2D classes</td>
-                                                <td>{{ session.stats['numOfCls2D'] }}</td>
+                                                <td>{{ session.stats.numCls2D }}</td>
                                             </tr>
 
                                             </tbody>
@@ -354,7 +354,7 @@
 <script>
     function request_micrograph_images(sessionId, micId) {
         var requestMicThumb = $.ajax({
-            url: "{{ url_for('get_mic_thumb') }}",
+            url: "{{ url_for('images.get_mic_thumb') }}",
             type: "POST",
             data: {micId : micId, sessionId: sessionId},
             dataType: "json"
@@ -448,8 +448,8 @@
                 data: {
                     labels: ["M", "T", "W", "R", "F", "S", "S"],
                     datasets: [{
-                        label: 'Cashew',
-                        data: [30, 29, 5, 5, 20, 3, 10],
+                        label: {{ bar2['label']|tojson }},
+                        data: {{ bar2['data']|tojson }},
                         backgroundColor: "rgba(255, 64, 123,0.5)",
                         borderColor: "rgba(255, 64, 123,0.7)",
                         borderWidth: 2

@@ -8,17 +8,12 @@ from .imports.scilifelab_portal import PortalData
 
 
 if __name__ == '__main__':
+    instance_path = os.path.abspath(os.environ.get("EMHUB_INSTANCE",
+                                                   'instance'))
 
-    if not os.path.exists('instance'):
+    if not os.path.exists(instance_path):
         raise Exception("Please execute the test command from the root of the "
                         "working directory.")
-
-    dbPath = 'instance/emhub.sqlite'
-
-    if os.path.exists(dbPath):
-        print("Deleting existing file: ", dbPath)
-        os.remove(dbPath)
-
 
     if len(sys.argv) > 1:
         portalDataJson = sys.argv[1]
@@ -32,7 +27,7 @@ if __name__ == '__main__':
     else:
         portalDataJson = None
 
-    dm = DataManager(sqlitePath=dbPath)
+    dm = DataManager(instance_path, cleanDb=True)
 
     if portalDataJson:
         PortalData(dm, portalDataJson, bookingsJson)

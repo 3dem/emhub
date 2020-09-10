@@ -42,8 +42,16 @@ from .data_models import create_data_models
 class DataManager:
     """ Main class that will manage the sessions and their information.
     """
-    def __init__(self, sqlitePath, user=None):
+    def __init__(self, dataPath, dbName='emhub.sqlite', user=None, cleanDb=False):
         do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
+
+        self._dataPath = dataPath
+        self._sessionsPath = os.path.join(dataPath, 'sessions')
+
+        sqlitePath = os.path.join(dataPath, dbName)
+
+        if cleanDb and os.path.exists(sqlitePath):
+            os.remove(sqlitePath)
 
         engine = create_engine('sqlite:///' + sqlitePath,
                                convert_unicode=True,
@@ -56,9 +64,11 @@ class DataManager:
 
         create_data_models(self, Base)
 
-        self._lastSessionId = None
         self._lastSession = None
         self._user = user  # Logged user
+
+        # Create sessions dir if not exists
+        os.makedirs(self._sessionsPath, exist_ok=True)
 
         # Create the database if it does not exists
         if not os.path.exists(sqlitePath):
@@ -73,8 +83,8 @@ class DataManager:
             self.commit()
 
     def close(self):
-        # if self._lastSession is not None:
-        #     self._lastSession.data.close()
+        #if self._lastSession is not None:
+        #    self._lastSession.data.close()
 
         self._db_session.remove()
 
@@ -98,11 +108,10 @@ class DataManager:
 
     def update_user(self, **attrs):
         """ Update an existing user. """
-        # attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
-        # del attrs['password']
-        print("DEBUG: update_user: ")
-        from pprint import pprint
-        pprint(attrs)
+        if 'password' in attrs:
+            attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
+            del attrs['password']
+
         return self.__update_item(self.User, **attrs)
 
     def get_users(self, condition=None, orderBy=None, asJson=False):
@@ -118,6 +127,9 @@ class DataManager:
     # ---------------------------- RESOURCES ---------------------------------
     def create_resource(self, **attrs):
         return self.__create_item(self.Resource, **attrs)
+
+    def update_resource(self, **attrs):
+        return self.__update_item(self.Resource, **attrs)
 
     def get_resources(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Resource,
@@ -164,17 +176,23 @@ class DataManager:
         return self.__update_item(self.Application, **attrs)
 
     # ---------------------------- BOOKINGS -----------------------------------
-    def create_booking(self, **attrs):
-        print("Creating booking: ",  attrs)
-
+    def create_booking(self,
+                       check_min_booking=True,
+                       check_max_booking=True,
+                       **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         attrs.pop('modify_all', None)
         bookings = []
 
+        def _add_booking(attrs):
+            b = self.__create_booking(attrs,
+                                      check_min_booking=check_min_booking,
+                                      check_max_booking=check_max_booking)
+            bookings.append(b)
 
         if repeat_value == 'no':
-            bookings.append(self.__create_booking(attrs))
+            _add_booking(attrs)
         else:
             repeat_stop = attrs.pop('repeat_stop')
             repeater = RepeatRanges(repeat_value, attrs)
@@ -182,7 +200,7 @@ class DataManager:
 
             while attrs['end'] < repeat_stop:
                 attrs['repeat_id'] = uid
-                bookings.append(self.__create_booking(attrs))
+                _add_booking(attrs)
                 repeater.move()  # will move next start,end in attrs
 
         # Validate and insert all created bookings
@@ -276,37 +294,51 @@ class DataManager:
 
     def create_session(self, **attrs):
         """ Add a new session row. """
-        return self.__create_item(self.Session, **attrs)
-
-    def update_session(self, sessionId, **attrs):
-        """ Update session attrs. """
-        session = self.Session.query.get(sessionId)
-
-        # TODO: Check the following lines
-        # for attr in attrs:
-        #     session.attr = attrs[attr]
-
+        session = self.__create_item(self.Session, **attrs)
+        # Let's update the data path after we know the id
+        print("Creating session id=%s" % session.id)
+        session.data_path = 'session_%06d.h5' % session.id
         self.commit()
 
-    def delete_session(self, sessionId):
+        print("    session-data-path: ", session.data_path)
+        print("    full-path: ", self._session_data_path(session))
+
+        # Create empty hdf5 file
+        data = H5SessionData(self._session_data_path(session), mode='a')
+        data.close()
+
+        return session
+
+    def update_session(self, **attrs):
+        """ Update session attrs. """
+        from pprint import pprint
+        pprint(attrs)
+        attrs['id'] = attrs.pop('id')
+        return self.__update_item(self.Session, **attrs)
+
+    def delete_session(self, **attrs):
         """ Remove a session row. """
+        sessionId = attrs['id']
         session = self.Session.query.get(sessionId)
+        data_path = os.path.join(self._sessionsPath, session.data_path)
+        print("Deleting session id=%s" % sessionId)
         self.delete(session)
+        os.remove(data_path)
+        return session
 
-    def load_session(self, sessionId):
-        if sessionId == self._lastSessionId:
-            session = self._lastSession
-        else:
-            session = self.Session.query.get(sessionId)
-            session.data = H5SessionData(session.data_path, 'r')
-            self._lastSessionId = sessionId
-            self._lastSession = session
+    def load_session(self, sessionId, mode="r"):
+        # if self._lastSession is not None:
+        #     if self._lastSession.id == sessionId:
+        #         return self._lastSession
+        #     self._lastSession.data.close()
 
+        session = self.Session.query.get(sessionId)
+        session.data = H5SessionData(self._session_data_path(session), mode)
         return session
 
     # ------------------- Some utility methods --------------------------------
     def now(self):
-        from tzlocal import get_localzone  # $ pip install tzlocal
+        from tzlocal import get_localzone
         # get local timezone
         local_tz = get_localzone()
         return dt.datetime.now(local_tz)
@@ -356,7 +388,7 @@ class DataManager:
         return any(p.code in json_codes for p in applications)
 
     # ------------------- BOOKING helper functions -----------------------------
-    def __create_booking(self, attrs):
+    def __create_booking(self, attrs, **kwargs):
         if 'application_id' not in attrs:
             owner = self.get_user_by(id=attrs['owner_id'])
             apps = owner.get_applications()
@@ -376,19 +408,30 @@ class DataManager:
                 attrs['application_id'] = apps[0].id
 
         b = self.Booking(**attrs)
-        self.__validate_booking(b)
+        self.__validate_booking(b, **kwargs)
         return b
 
-    def __validate_booking(self, booking):
+    def __validate_booking(self, booking, **kwargs):
         # Check the booking time is bigger than the minimum booking time
         # specified in the resource settings
         r = self.get_resource_by(id=booking.resource_id)
+        check_min_booking = kwargs.get('check_min_booking', True)
+        check_max_booking = kwargs.get('check_max_booking', True)
 
-        if r.min_booking > 0:
+        if check_min_booking and r.min_booking > 0:
             mm = dt.timedelta(minutes=int(r.min_booking * 60))
             if booking.duration < mm:
                 raise Exception("The duration of the booking is less that "
                                 "the minimum specified for the resource. ")
+
+        if check_max_booking and r.max_booking > 0:
+            mm = dt.timedelta(minutes=int(r.max_booking * 60))
+            if booking.duration > mm:
+                raise Exception("The duration of the booking is greater that "
+                                "the maximum allowed for the resource. ")
+
+        if not self._user.is_manager and booking.start.date() < self.now().date():
+            raise Exception("The booking start can not be in the past. ")
 
         app_id = booking.application_id
         if app_id is not None:
@@ -475,6 +518,9 @@ class DataManager:
         self.commit()
 
         return result
+
+    def _session_data_path(self, session):
+        return os.path.join(self._sessionsPath, session.data_path)
 
 
 class RepeatRanges:

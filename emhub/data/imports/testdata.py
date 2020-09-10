@@ -27,6 +27,7 @@
 # **************************************************************************
 
 import os
+import shutil
 from datetime import datetime, timezone, timedelta
 
 
@@ -42,6 +43,7 @@ class TestData:
         Args:
             dm: DataManager with db to create test data
         """
+        dm.create_admin()
         self.__populateTestData(dm)
 
     def __populateTestData(self, dm):
@@ -79,19 +81,19 @@ class TestData:
             ('Pat Ernity', 'pi', None),  # 10
 
             # users (R, S)
-            ('Ray Cyst', 'user', 6),  # 11
-            ('Rick Shaw', 'user', 6),  # 12
-            ('Rachel Slurs', 'user', 6),  # 13
-            ('Reggie Stration', 'user', 7),  # 14
-            ('Reuben Sandwich', 'user', 7),  # 15
-            ('Sara Bellum', 'user', 7),  # 16
-            ('Sam Owen', 'user', 7),  # 17
-            ('Sam Buca', 'user', 9),  # 18
-            ('Sarah Yevo', 'user', 9),  # 19
-            ('Sven Gineer', 'user', 9),  # 20
-            ('Sharon Needles', 'user', 9),  # 21
-            ('Ray Diation', 'user', 10),  # 22
-            ('Sal Ami', 'user', 10)   # 23
+            ('Ray Cyst', 'user', 7),  # 11
+            ('Rick Shaw', 'user', 7),  # 12
+            ('Rachel Slurs', 'user', 7),  # 13
+            ('Reggie Stration', 'user', 8),  # 14
+            ('Reuben Sandwich', 'user', 8),  # 15
+            ('Sara Bellum', 'user', 8),  # 16
+            ('Sam Owen', 'user', 8),  # 17
+            ('Sam Buca', 'user', 10),  # 18
+            ('Sarah Yevo', 'user', 10),  # 19
+            ('Sven Gineer', 'user', 10),  # 20
+            ('Sharon Needles', 'user', 10),  # 21
+            ('Ray Diation', 'user', 11),  # 22
+            ('Sal Ami', 'user', 11)   # 23
         ]
 
         for name, roles, pi in usersData:
@@ -108,21 +110,20 @@ class TestData:
     def __populateResources(self, dm):
         resources = [
             {'name': 'Krios 1', 'tags': 'microscope krios',
-             'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
-             # Allow DBB00001 users to book without slot
-             #'booking_auth': {'applications': ['DBB00001']}},
-             'requires_slot': True},
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8}},
             {'name': 'Krios 2', 'tags': 'microscope krios',
-             'latest_cancellation': 48,
              'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
-             #'booking_auth': {'applications': ['DBB00001']}},
-             'requires_slot': True},
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8}},
             {'name': 'Talos', 'tags': 'microscope talos',
-             'latest_cancellation': 48,
              'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
-             # 'booking_auth': {'applications': ['DBB00001']}},
-             'requires_slot': True},
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8}},
             {'name': 'Vitrobot 1', 'tags': 'instrument',
              'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
             {'name': 'Vitrobot 2', 'tags': 'instrument',
@@ -131,7 +132,7 @@ class TestData:
              'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
             {'name': 'Users Drop-in', 'tags': 'service',
              'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
-             'requires_slot': True}
+             'extra': {'requires_slot': True}}
         ]
 
         for rDict in resources:
@@ -173,7 +174,7 @@ class TestData:
              'alias': 'BAG Lund',
              'status': 'active',
              'title': 'Bag Application for Lund University 2019/20',
-             'creator_id': 6,
+             'creator_id': 7,
              'template_id': templates[0].id,
              'invoice_reference': 'AAA',
              'invoice_address': '',
@@ -186,7 +187,7 @@ class TestData:
              'status': 'active',
              'title': 'Bag Application for Stockholm University',
              'description': '',
-             'creator_id': 7,
+             'creator_id': 8,
              'template_id': templates[0].id,
              'invoice_reference': 'BBB',
              'invoice_address': '',
@@ -198,7 +199,7 @@ class TestData:
              'status': 'active',
              'title': 'Rapid Access application',
              'description': '',
-             'creator_id': 8,
+             'creator_id': 9,
              'template_id': templates[1].id,
              'invoice_reference': 'ZZZ',
              'invoice_address': '',
@@ -210,7 +211,7 @@ class TestData:
              'status': 'active',
              'title': 'Internal DBB project',
              'description': '',
-             'creator_id': 9,
+             'creator_id': 10,
              'template_id': templates[-1].id,
              'invoice_reference': 'DDD',
              'invoice_address': '',
@@ -222,7 +223,7 @@ class TestData:
              'status': 'review',
              'title': 'Bag Application for Gothenberg University',
              'description': '',
-             'creator_id': 7,
+             'creator_id': 8,
              'template_id': templates[0].id,
              'invoice_reference': 'BBB',
              'invoice_address': '',
@@ -234,7 +235,7 @@ class TestData:
              'status': 'review',
              'title': 'Bag Application for Stockholm University 2021',
              'description': '',
-             'creator_id': 7,
+             'creator_id': 8,
              'template_id': templates[0].id,
              'invoice_reference': 'BBB',
              'invoice_address': '',
@@ -266,8 +267,8 @@ class TestData:
                           end=now.replace(day=28),
                           type='downtime',
                           resource_id=1,
-                          creator_id=1,  # first user for now
-                          owner_id=1,  # first user for now
+                          creator_id=2,  # first user for now
+                          owner_id=2,  # first user for now
                           description="Some downtime for some problem")
 
         # Create a booking at the downtime from today to one week later
@@ -276,8 +277,8 @@ class TestData:
                           end=now.replace(day=2, hour=23, minute=59),
                           type='booking',
                           resource_id=1,
-                          creator_id=2,  # first user for now
-                          owner_id=11,  # first user for now
+                          creator_id=3,  # first user for now
+                          owner_id=12,  # first user for now
                           description="Krios 1 for user 2")
 
         # Create booking for normal user
@@ -286,8 +287,8 @@ class TestData:
                           end=now.replace(day=6, hour=23, minute=59),
                           type='booking',
                           resource_id=2,
-                          creator_id=10,  # first user for now
-                          owner_id=10,  # first user for now
+                          creator_id=11,  # first user for now
+                          owner_id=11,  # first user for now
                           description="Krios 1 for user 10")
 
         # Create a booking at the downtime from today to one week later
@@ -296,8 +297,8 @@ class TestData:
                           end=now.replace(day=3, hour=23, minute=59),
                           type='booking',
                           resource_id=2,
-                          creator_id=1,  # first user for now
-                          owner_id=15,  # Sara Belum
+                          creator_id=2,  # first user for now
+                          owner_id=16,  # Sara Belum
                           description="Krios 2 for user 3")
 
         # Create a booking at the downtime from today to one week later
@@ -307,8 +308,8 @@ class TestData:
                           type='slot',
                           slot_auth={'applications': ['CEM00297', 'CEM00315']},
                           resource_id=3,
-                          creator_id=1,  # first user for now
-                          owner_id=1,  # first user for now
+                          creator_id=2,  # first user for now
+                          owner_id=2,  # first user for now
                           description="Talos slot for National BAGs")
 
         dm.create_booking(title='Slot 2: RAPID',
@@ -317,8 +318,8 @@ class TestData:
                           type='slot',
                           slot_auth={'applications': ['CEM00332']},
                           resource_id=3,
-                          creator_id=1,  # first user for now
-                          owner_id=1,  # first user for now
+                          creator_id=2,  # first user for now
+                          owner_id=2,  # first user for now
                           description="Talos slot for RAPID applications")
 
         # create a repeating event
@@ -329,19 +330,20 @@ class TestData:
                           repeat_value='bi-weekly',
                           repeat_stop=now.replace(month=month+2),
                           resource_id=7,
-                          creator_id=1,  # first user for now
-                          owner_id=1,  # first user for now
+                          creator_id=2,  # first user for now
+                          owner_id=2,  # first user for now
                           description="Recurrent bi-weekly DROPIN slot. ")
 
     def __populateSessions(self, dm):
         td = os.environ.get('EMHUB_TESTDATA')
+        inst = os.environ.get('EMHUB_INSTANCE')
 
         dm.create_session(
             name='supervisor_23423452_20201223_123445',
             start=datetime(2020, 3, 5, 12, 30, 10, tzinfo=tzinfo),
             end=None,
             status='running',
-            data_path=os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
+            #data_path=os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
             acquisition={'voltage': 300,
                          'cs': 2.7,
                          'phasePlate': False,
@@ -363,12 +365,15 @@ class TestData:
             operator_id=1,  # User  X
         )
 
+        shutil.copyfile(os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
+                        os.path.join(inst, 'sessions/session_000001.h5'))
+
         dm.create_session(
             name='epu-mysession_20122310_234542',
             start=datetime(2020, 4, 5, 12, 30, 10, tzinfo=tzinfo),
             end=None,
             status='failed',
-            data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
+            #data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
             acquisition={'voltage': 300,
                          'cs': 2.7,
                          'phasePlate': False,
@@ -389,6 +394,9 @@ class TestData:
             booking_id=None,
             operator_id=6,  # User  6
         )
+
+        shutil.copyfile(os.path.join(td, 'hdf5/t20s_pngs.h5'),
+                        os.path.join(inst, 'sessions/session_000002.h5'))
 
         dm.create_session(
             name='session_very_long_name',

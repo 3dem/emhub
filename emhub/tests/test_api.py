@@ -30,14 +30,15 @@ import json
 import unittest
 import random
 
-from emhub.client import SessionClient
+from emhub.client import DataClient
 
 
 class TestClientApi(unittest.TestCase):
     def test_create_user(self):
         """ Create a user and check the result. """
         username = "queen%d" % random.randint(1, 1000)
-        sc = SessionClient()
+        sc = DataClient()
+        sc.login('mull', 'mull')
         method = "create_user"
         jsonData = {"attrs":{"username":"%s" % username,
                              "email":"%s@emhub.org" % username,
@@ -47,32 +48,37 @@ class TestClientApi(unittest.TestCase):
                              "phone":"343-332-4525"}}
 
         print("="*80, "\nCreating user: %s" % jsonData)
-        sc.request(method, jsonData)
+        sc.request(method, jsonData=jsonData)
         result_id = json.loads(sc.json())['user']['id']
         print("Created new user with id: %s" % result_id)
 
         sc.request(method="get_users",
-                   json={"condition":"id=%s" % result_id})
+                   jsonData={"condition":"id=%s" % result_id})
         check = json.loads(sc.json())[0]['id']
 
         self.assertEqual(result_id, check, msg="Creating test user failed!")
 
+        sc.logout()
+
     def test_create_session(self):
         """ Create a session and check the result. """
         name = "mysession_%d" % random.randint(1, 1000)
-        sc = SessionClient()
+        sc = DataClient()
+        sc.login('mull', 'mull')
         method = "create_session"
         jsonData = {"attrs": {"name":"%s" % name,
                               "resource_id":"2",
                               "operator_id":"23"}}
 
         print("="*80, "\nCreating session: %s" % jsonData)
-        sc.request(method, jsonData)
+        sc.request(method, jsonData=jsonData)
         result_id = json.loads(sc.json())['session']['id']
         print("Created new session with id: %s" % result_id)
 
         sc.request(method="get_sessions",
-                   json={"condition":"id=%s" % result_id})
+                   jsonData={"condition":"id=%s" % result_id})
         check = json.loads(sc.json())[0]['id']
 
         self.assertEqual(result_id, check, msg="Creating test session failed!")
+
+        sc.logout()

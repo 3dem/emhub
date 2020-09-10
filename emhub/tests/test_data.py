@@ -26,7 +26,6 @@
 # *
 # **************************************************************************
 
-import os
 import unittest
 
 from emhub.data import DataManager, ImageSessionData, H5SessionData
@@ -36,12 +35,7 @@ from emhub.data.imports.testdata import TestData
 class TestDataManager(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        sqlitePath = '/tmp/emhub.sqlite'
-
-        if os.path.exists(sqlitePath):
-            os.remove(sqlitePath)
-
-        cls.dm = DataManager(sqlitePath)
+        cls.dm = DataManager('/tmp/', cleanDb=True)
         # populate db with test data
         TestData(cls.dm)
 

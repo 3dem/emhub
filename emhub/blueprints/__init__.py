@@ -26,29 +26,5 @@
 # *
 # **************************************************************************
 
-import json
-import requests
-
-
-class SessionClient:
-    """
-    Simple client to communicate with the emhub REST API.
-    """
-    def __init__(self, server_url='http://127.0.0.1:5000'):
-        self._server_url = server_url
-        # Store the last request object
-        self.r = None
-
-    def request(self, method, json=None):
-        """ Make a request to this method passing the json data.
-        """
-        self.r = requests.post('%s/api/%s' % (self._server_url, method),
-                               json=json)
-
-        return self.r
-
-    def json(self):
-        if self.r.status_code == 200:
-            return json.dumps(self.r.json(), indent=4)
-        else:
-            return "Request failed with status code: %s" % self.r.status_code
+from .api import api_bp
+from .images import images_bp

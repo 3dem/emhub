@@ -33,8 +33,8 @@ import flask
 import flask_login
 
 from . import utils
-from .api import send_json_data, api_bp
-from .utils import datetime_to_isoformat, pretty_datetime
+from .blueprints import api_bp, images_bp
+from .utils import datetime_to_isoformat, pretty_datetime, send_json_data
 from .data.data_content import DataContent
 
 
@@ -44,12 +44,22 @@ templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '
 
 def create_app(test_config=None):
     # create and configure the app
-    app = flask.Flask(__name__, instance_relative_config=True)
+    emhub_instance_path = os.environ.get('EMHUB_INSTANCE', None)
+
+    app = flask.Flask(__name__,
+                      instance_path=emhub_instance_path,
+                      instance_relative_config=True)
+
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(images_bp, url_prefix='/images')
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config.from_mapping(SECRET_KEY='dev')
-    dbPath = os.path.join(app.instance_path, 'emhub.sqlite')
+
+    app.config["IMAGES"] = os.path.join(app.instance_path, 'images')
+    app.config["USER_IMAGES"] = os.path.join(app.config["IMAGES"], 'user')
+    app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
+    app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -59,13 +69,11 @@ def create_app(test_config=None):
         app.config.from_mapping(test_config)
 
     # ensure the instance folder exists
-    try:
-        os.makedirs(app.instance_path)
-    except OSError:
-        pass
+    os.makedirs(app.config['USER_IMAGES'], exist_ok=True)
+    os.makedirs(app.config['SESSIONS'], exist_ok=True)
 
     # Define some content_id list that does not requires login
-    NO_LOGIN_CONTENT = ['users-list']
+    NO_LOGIN_CONTENT = ['users_list']
 
     @app.route('/main', methods=['GET', 'POST'])
     def main():
@@ -75,13 +83,14 @@ def create_app(test_config=None):
             content_id = flask.request.form['content_id']
 
         if not app.user.is_authenticated:
-            kwargs = {'content_id': 'user-login', 'next_content': content_id}
+            kwargs = {'content_id': 'user_login', 'next_content': content_id}
         else:
-            if content_id == 'user-login':
+            if content_id == 'user_login':
                 content_id = 'dashboard'
             kwargs = {'content_id': content_id}
 
         kwargs['is_devel'] = app.is_devel
+        app.user.image = app.dc.user_profile_image(app.user)
 
         return flask.render_template('main.html', **kwargs)
 
@@ -107,35 +116,20 @@ def create_app(test_config=None):
         next_content = flask.request.form.get('next_content', 'index')
 
         user = app.dm.get_user_by(username=username)
-
         if user is None or not user.check_password(password):
             flask.flash('Invalid username or password')
             return flask.redirect(flask.url_for('login'))
 
         flask_login.login_user(user)
 
-        if next_content == 'user-login':
+        if next_content == 'user_login':
             next_content = 'dashboard'
-        print("logged user: %s, next_content: %s" % (username, next_content))
         return flask.redirect(flask.url_for('main', content_id=next_content))
 
     @app.route('/logout', methods=['GET', 'POST'])
     def do_logout():
         flask_login.logout_user()
         return flask.redirect(flask.url_for('index'))
-
-    @app.route('/get_mic_thumb', methods=['POST'])
-    def get_mic_thumb():
-        micId = int(flask.request.form['micId'])
-        sessionId = int(flask.request.form['sessionId'])
-        session = app.dm.load_session(sessionId)
-        setObj = session.data.get_sets()[0]
-        mic = session.data.get_item(setObj['id'], micId,
-                                    dataAttrs=['micThumbData',
-                                               'psdData',
-                                               'shiftPlotData'])
-
-        return send_json_data(mic._asdict())
 
     @app.route('/get_content', methods=['POST'])
     def get_content():
@@ -149,7 +143,7 @@ def create_app(test_config=None):
             kwargs = app.dc.get(**content_kwargs)
         else:
             kwargs = {'next_content': content_id}
-            content_id = 'user-login'
+            content_id = 'user_login'
 
         content_template = content_id + '.html'
 
@@ -161,7 +155,6 @@ def create_app(test_config=None):
 
     @app.template_filter('basename')
     def basename(filename):
-        """Convert a string to all caps."""
         return os.path.basename(filename)
 
     app.jinja_env.filters['reverse'] = basename
@@ -169,12 +162,12 @@ def create_app(test_config=None):
 
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user
-    app.dm = DataManager(dbPath, user=app.user)
+    app.dm = DataManager(app.instance_path, user=app.user)
     app.dc = DataContent(app)
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
 
     login_manager = flask_login.LoginManager()
-    login_manager.login_view = 'login'
+    #login_manager.login_view = 'login'
     login_manager.init_app(app)
 
     @login_manager.user_loader

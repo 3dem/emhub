@@ -33,7 +33,7 @@ class TestStringMethods(unittest.TestCase):
     print("=" * 80, "\nTesting string methods...")
 
     def setUp(cls):
-        cls.ds = DataManager('/tmp/emhub.sqlite')
+        cls.ds = DataManager('/tmp/')
 
     def test_upper(self):
         self.assertEqual('foo'.upper(), 'FOO')
