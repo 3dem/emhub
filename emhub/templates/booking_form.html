@@ -78,6 +78,11 @@
                             <textarea required="" class="form-control" id="booking-description"></textarea>
                         </div>
                     </div>
+
+                    <div class="form-group row">
+                        <a href="javascript: showExperimentForm()" class="col-12 col-sm-3 col-form-label text-sm-right"><i class="fas fa-edit"></i> Describe Experiment</a>
+                    </div>
+
                 </form>
             </div>
             <!-- ============================================================== -->
@@ -170,3 +175,28 @@
   </div>
 </div>
 </div>
+
+<!-- ============================================================== -->
+<!-- Dynamic Form -->
+<!-- ============================================================== -->
+  <div id="experiment-modal" tabindex="-1" class="modal-dialog modal-dialog-centered modal-xl" role="document">
+  </div>
+
+<script>
+
+    /* Show the Application Form, either for a new booking or an existing one */
+function showExperimentForm(applicationId) {
+    ajaxContent = get_ajax_content("dynamic_form", {application_id: applicationId});
+
+    ajaxContent.done(function(html) {
+        $("#experiment-modal").html(html);
+        // Show the form after setting html content
+        $('#experiment-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+
+}  // function showApplication
+</script>

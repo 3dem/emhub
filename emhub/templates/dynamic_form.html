@@ -1,0 +1,89 @@
+<!-- ============================================================== -->
+<!-- Dynamic Form -->
+<!-- ============================================================== -->
+{#  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">#}
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="dynamic-modal-title"> {{ form['title'] }} </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="dynamic-form" data-parsley-validate="" novalidate="">
+                    <!-- Created Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Created</label>
+                        <label class="col-12 col-sm-8 col-form-label text-sm-left">Testing</label>
+                    </div>
+
+                    {% for param in form['params']  %}
+                        {% set id_name = 'id=%s name=%s'|format(param['id'], param['id']) %}
+                        <div class="form-group row">
+                            <label class="col-12 col-sm-3 text-sm-right">{{ param['label'] }} </label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                {% if 'id' in param %}
+                                    {% if 'enum' in param %}
+                                        {% if param['enum']['display'] == 'combo' %}
+                                            <select class="selectpicker show-tick" data-width="auto" {{ id_name }}>
+                                            {% for o in param['enum']['choices'] %}
+                                                <option value="{{ o }}">{{ o }}</option>
+                                            {% endfor %}
+                                            </select>
+                                        {% else %}
+                                            {% for o in param['enum']['choices'] %}
+                                                <label class="custom-control custom-radio custom-control-inline">
+                                                    <input type="radio" {{ id_name }} checked="" class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>
+                                                </label>
+                                            {% endfor %}
+                                        {% endif %}
+                                    {% else %}
+                                        {% set type = param.get('type', 'string') %}
+                                        {% if type == 'bool' %}
+                                            <label class="be-checkbox custom-control custom-checkbox">
+                                                <input type="checkbox" class="custom-control-input" {{ id_name }}><span class="custom-control-label"></span>
+                                            </label>
+                                        {% elif type == 'text' %}
+                                            <textarea required="" class="form-control" {{ id_name }}>{{ param['value'] }}</textarea>
+                                        {% else %}
+                                            <input type="text" required="" placeholder="" {{ id_name }} class="form-control" value="{{ param['value'] }}">
+                                        {% endif %}
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+
+                    {% endfor %}
+                </form>
+            </div>
+
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="dynamic-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" id="dynamic-btn-ok" class="btn btn-outline-dark" onclick="javascript: getFormAsJson('dynamic-form')">Ok</button>
+      </div>
+    </div>
+{#  </div>#}
+<!-- ============================================================== -->
+<!-- End of Application Modal Content -->
+<!-- ============================================================== -->
+
+
+<script>
+
+(function(window, document, $, undefined) {
+    "use strict";
+
+    $('select').selectpicker();
+
+})(window, document, window.jQuery);
+
+
+
+</script>

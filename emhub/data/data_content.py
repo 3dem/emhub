@@ -239,6 +239,45 @@ class DataContent:
         return {'application': app,
                 'microscopes': mics}
 
+    def get_dynamic_form(self, **kwargs):
+        form = {'title': 'Experiment',
+                'params': [
+                    {'id': 'name',
+                     'value': 'Jose Miguel',
+                     'label': 'Name',
+                     },
+                    {'id': 'phone',
+                     'value': '88546756777',
+                     'label': 'Phone',
+                     },
+                    {'id': 'show-phone',
+                     'value': '0',
+                     'label': 'Show phone?',
+                     'type': 'bool'
+                     },
+                    {'id': 'about',
+                     'value': 'X Y Z',
+                     'label': 'About everything that you need',
+                     'type': 'text'
+                     },
+                    {'label': 'Options'},
+                    {'id': 'level',
+                     'value': '',
+                     'label': 'Level',
+                     'enum': {'choices': ['low', 'medium', 'high'],
+                              'display': 'combo'
+                              }
+                     },
+                    {'id': 'pet',
+                     'value': '',
+                     'label': 'Pet',
+                     'enum': {'choices': ['cat', 'dog', 'horse', 'monkey'],
+                              'display': 'radio'
+                              }
+                     },
+                ]}
+        return {'form': form}
+
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
