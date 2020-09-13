@@ -208,18 +208,5 @@
 
 <script>
 
-function showExperimentForm() {
-    ajaxContent = get_ajax_content("dynamic_form", {form_id: 2});
 
-    ajaxContent.done(function(html) {
-        $("#experiment-modal").html(html);
-        // Show the form after setting html content
-        $('#experiment-modal').modal('show');
-    });
-
-    ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
-    });
-
-}  // function showExperimentForm
 </script>

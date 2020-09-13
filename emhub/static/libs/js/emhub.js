@@ -170,7 +170,7 @@ function notImplemented(msg) {
 }
 
 
-function getFormAsJson(formId){
+function getFormAsJson(formId, includeEmpty){
     var json = {};
 
     $("#" + formId + ":input").each(function () {
@@ -191,7 +191,13 @@ function getFormAsJson(formId){
             json[this.id] = $(this).val()
     });
 
-    printObject(json, "form-json");
-
-    return json;
+    if (includeEmpty)
+        return json;
+    var newJson = {};
+    for (var propName in json) {
+        propValue = json[propName]
+        if (propValue)
+            newJson[propName] = propValue;
+    }
+    return newJson;
 } // function onFormOk

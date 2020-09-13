@@ -357,7 +357,8 @@ function onBookingSelected(event, original_range) {
         owner: props.owner,
         slot_auth: props.slot_auth,
         user_can_modify: props.user_can_modify,
-        original_range: original_range
+        original_range: original_range,
+        experiment: props.experiment
     };
     showBookingForm(last_booking);
 }
@@ -485,7 +486,8 @@ function onOkButtonClick() {
         resource_id: last_booking.resource.id,
         modify_all: modify_all,
         repeat_value: repeat_value,
-        resource: getResource(last_booking.resource.id)
+        resource: getResource(last_booking.resource.id),
+        experiment: last_booking.experiment
     };
 
     if (booking_type == 'slot') {
@@ -575,5 +577,27 @@ function onCancelButtonClick() {
         calendar.render();
     }
 }
+
+function showExperimentForm() {
+    printObject(last_booking.experiment, "last_booking.experiment");
+
+    ajaxContent = get_ajax_content("dynamic_form",
+                                   {form_id: 2, form_values: JSON.stringify(last_booking.experiment)});
+
+    ajaxContent.done(function(html) {
+        $("#experiment-modal").html(html);
+        $("#dynamic-btn-ok" ).click(function() {
+            last_booking.experiment = getFormAsJson('dynamic-form');
+            $('#experiment-modal').modal('hide');
+        });
+        // Show the form after setting html content
+        $('#experiment-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+
+}  // function showExperimentForm
 
 </script>

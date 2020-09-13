@@ -29,6 +29,7 @@
                                 <th>IS_USER_AUTH</th>
                                 <th>repeat_id</th>
                                 <th>repeat_value</th>
+                                <th>experiment</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -46,6 +47,7 @@
                                 <td>book={{b['user_can_book']}}, view={{b['user_can_view']}}, modify={{b['user_can_modify']}}</td>
                                 <td>{{ b['repeat_id'] }}</td>
                                 <td>{{ b['repeat_value'] }}</td>
+                                <td>{{ b['experiment'] }}</td>
                             </tr>
                             {% endfor %}
 

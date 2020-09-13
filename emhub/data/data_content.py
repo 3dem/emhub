@@ -27,6 +27,7 @@
 # **************************************************************************
 
 import datetime as dt
+import json
 
 import flask
 import flask_login
@@ -241,11 +242,33 @@ class DataContent:
 
     def get_dynamic_form(self, **kwargs):
         form_id = int(kwargs.get('form_id', 1))
+        form_values_str = kwargs.get('form_values', None) or '{}'
+        form_values = json.loads(form_values_str)
+
+        from pprint import pprint
+        print(">>> get_dynamic_form: ")
+        print("    kwargs: ")
+        pprint(kwargs)
 
         form = self.app.dm.get_form_by(id=form_id)
 
         if form is None:
             raise Exception("Invalid form id: %s" % form_id)
+
+        definition = form.definition
+
+        def set_value(p):
+            if 'id' not in p:
+                return
+            p['value'] = form_values.get(p['id'], p.get('default', ''))
+
+        if 'params' in definition:
+            for p in definition['params']:
+                set_value(p)
+        else:
+            for section in definition['sections']:
+                for p in section['params']:
+                    set_value(p)
 
         return {'form': form}
 
@@ -324,7 +347,8 @@ class DataContent:
             'slot_auth': booking.slot_auth,
             'repeat_id': booking.repeat_id,
             'repeat_value': booking.repeat_value,
-            'days': booking.days
+            'days': booking.days,
+            'experiment': booking.experiment
         }
 
     def user_profile_image(self, user):

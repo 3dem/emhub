@@ -6,17 +6,21 @@
         <label class="col-12 col-sm-3 text-sm-right">{{ param['label'] }} </label>
         <div class="col-12 col-sm-9 col-lg-6">
             {% if 'id' in param %}
+                {% set value = param['value'] %}
+                {% set help = param.get('help', '') %}
                 {% if 'enum' in param %}
                     {% if param['enum']['display'] == 'combo' %}
                         <select class="selectpicker show-tick" data-width="auto" {{ id_name }}>
                         {% for o in param['enum']['choices'] %}
-                            <option value="{{ o }}">{{ o }}</option>
+                            {% set selected = 'selected' if o == value else '' %}
+                            <option value="{{ o }}" {{ selected }}>{{ o }}</option>'
                         {% endfor %}
                         </select>
                     {% else %}
                         {% for o in param['enum']['choices'] %}
+                            {% set checked = 'checked' if value == o else '' %}
                             <label class="custom-control custom-radio custom-control-inline">
-                                <input type="radio" {{ id_name }} checked="" class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>
+                                <input type="radio" name="{{ param['id'] }}" {{ checked }} class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>
                             </label>
                         {% endfor %}
                     {% endif %}
@@ -24,12 +28,13 @@
                     {% set type = param.get('type', 'string') %}
                     {% if type == 'bool' %}
                         <label class="be-checkbox custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input" {{ id_name }}><span class="custom-control-label"></span>
+                            {% set checked = 'checked' if value else '' %}
+                            <input type="checkbox" class="custom-control-input" {{ id_name }} {{ checked }}><span class="custom-control-label"></span>
                         </label>
                     {% elif type == 'text' %}
-                        <textarea required="" class="form-control" {{ id_name }}>{{ param['value'] }}</textarea>
+                        <textarea required="" class="form-control" {{ id_name }}>{{ value }}</textarea>
                     {% else %}
-                        <input type="text" required="" placeholder="" {{ id_name }} class="form-control" value="{{ param['value'] }}">
+                        <input type="text" required="" placeholder="{{ help }}" {{ id_name }} class="form-control" value="{{ param['value'] }}">
                     {% endif %}
                 {% endif %}
             {% endif %}

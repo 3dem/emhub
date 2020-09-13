@@ -126,7 +126,9 @@
      * @param params dictionary with extra parameters to retrieve the content.
      */
     function get_ajax_content(content_id, params) {
-        console.log("requesting content: " + content_id);
+        console.log("get_ajax_content: \n   content_id: " + content_id);
+        printObject(params, "   params: ");
+
 
         if (params == null)
             params = {content_id: content_id};
@@ -163,7 +165,6 @@
 
     $(document).ready(function(){
         $('.nav-link-ajax').each(function(){
-            console.log('data-content-id: ', $(this).data('content-id'));
             $(this).click(load_content_fromlink);
         });
 
