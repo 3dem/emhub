@@ -48,6 +48,8 @@ class TestData:
 
     def __populateTestData(self, dm):
         # Create tables with test data for each database model
+        print("Populating forms...")
+        self.__populateForms(dm)
         print("Populating users...")
         self.__populateUsers(dm)
         print("Populating resources...")
@@ -58,6 +60,144 @@ class TestData:
         self.__populateBookings(dm)
         print("Populating sessions...")
         self.__populateSessions(dm)
+
+    def __populateForms(self, dm):
+        form1 = {
+            'title': 'Sample Form',
+            'params': [
+                {'id': 'name',
+                 'value': 'Pepe Pérez',
+                 'label': 'Name',
+                 },
+                {'id': 'phone',
+                 'value': '88546756777',
+                 'label': 'Phone',
+                 },
+                {'id': 'show-phone',
+                 'value': '0',
+                 'label': 'Show phone?',
+                 'type': 'bool'
+                 },
+                {'id': 'about',
+                 'value': 'X Y Z',
+                 'label': 'About everything that you need',
+                 'type': 'text'
+                 },
+                {'label': 'Options'},
+                {'id': 'level',
+                 'value': '',
+                 'label': 'Level',
+                 'enum': {'choices': ['low', 'medium', 'high'],
+                          'display': 'combo'
+                          }
+                 },
+                {'id': 'pet',
+                 'value': '',
+                 'label': 'Pet',
+                 'enum': {'choices': ['cat', 'dog', 'horse', 'monkey'],
+                          'display': 'radio'
+                          }
+                 },
+        ]}
+
+        dm.create_form(name='sample',
+                       definition=form1)
+
+        form2 = {
+            'title': 'Experiment',
+            'sections': [
+                {'label': 'Basic',
+                 'params': [
+                     {'id': 'grid_prep_needed',
+                      'value': False,
+                      'label': 'Grids preparation needed?',
+                      'type': 'bool'
+                      },
+                     {'id': 'grid_ready_screen',
+                      'value': False,
+                      'label': 'Grids ready to be screened?',
+                      'type': 'bool'
+                      },
+                     {'id': 'data_collection',
+                      'value': False,
+                      'label': 'Grids ready to be screened?',
+                      'type': 'bool'
+                      },
+                     {'id': 'grid_clipped',
+                      'value': False,
+                      'label': 'Are grids clipped?',
+                      'type': 'bool'
+                      },
+                     {'id': 'grid_type',
+                      'label': 'Grid type',
+                      },
+                 ]},
+                {'label': 'Grid Location',
+                 'params': [
+                     {'id': 'dewar_number',
+                      'label': 'Dewar number',
+                      },
+                     {'id': 'cane_number',
+                      'label': 'Cane number',
+                      },
+                     {'id': 'puck_number',
+                      'label': 'Puck number (color/name)',
+                      },
+                     {'id': 'gridbox_number',
+                      'label': 'Grid box number',
+                      },
+                     {'id': 'gridbox_label',
+                      'label': 'Grid box label',
+                      },
+                     {'id': 'slot_numbers',
+                      'label': ' Slot numbers',
+                      },
+                 ]},
+                {'label': 'Detector',
+                 'params': [
+                     {'id': 'detector_mode',
+                      'value': '',
+                      'label': 'Detector mode',
+                      'enum': {'choices': ['linear', 'counting'],
+                               'display': 'radio'
+                               }
+                      },
+                     {'id': 'pixel_size',
+                      'label': 'Pixel Size (Å)',
+                      },
+                     {'id': 'dose_rate',
+                      'label': 'Dose Rate (e/px/s)',
+                      },
+                     {'id': 'total_dose',
+                      'label': 'Total dose (e/Å2)',
+                      },
+                     {'id': 'defocuses',
+                      'label': 'Defocuses (um)',
+                      },
+                 ]},
+                {'label': 'Other',
+                 'params': [
+                     {'id': 'screening_instructions',
+                      'value': '(for instance protein concentration, blotting '
+                               'time and other useful info)',
+                      'label': 'Screening instructions',
+                      'type': 'text'
+                      },
+                     {'id': 'sample_information',
+                      'value': '(Mw, Dimensions (Å), multimerisation state, etc.)',
+                      'label': 'Sample Information',
+                      'type': 'text'
+                      },
+                     {'id': 'aim_experiment',
+                      'label': 'Aim of experiment',
+                      'type': 'text'
+                      },
+                 ]},
+            ]
+        }
+
+        dm.create_form(name='experiment',
+                       definition=form2)
 
     def __populateUsers(self, dm):
         # Create user table

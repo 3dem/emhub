@@ -470,6 +470,9 @@ def create_data_models(dm, Base):
 
         session = relationship("Session", back_populates="booking")
 
+        # Experiment description
+        experiment = Column(JSON, nullable=True)
+
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
 
@@ -511,6 +514,7 @@ def create_data_models(dm, Base):
 
             return (user.id in allowedUsers or
                     any(a.code in allowedApps for a in user.get_applications()))
+
 
     class Session(Base):
         """Model for sessions."""
@@ -601,6 +605,26 @@ def create_data_models(dm, Base):
         def json(self):
             return _json(self)
 
+
+    class Form(Base):
+        """ Class to store Forms definitions. """
+        __tablename__ = 'forms'
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        name = Column(String(256),
+                      unique=True,
+                      nullable=False)
+
+        # Form sections and params definition
+        definition = Column(JSON, default={})
+
+        def json(self):
+            return _json(self)
+
+
+    dm.Form = Form
     dm.User = User
     dm.Resource = Resource
     dm.Template = Template

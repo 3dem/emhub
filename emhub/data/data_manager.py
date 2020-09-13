@@ -124,6 +124,23 @@ class DataManager:
         """ This should return a single user or None. """
         return self.__item_by(self.User, **kwargs)
 
+    # ---------------------------- FORMS ---------------------------------
+    def create_form(self, **attrs):
+        return self.__create_item(self.Form, **attrs)
+
+    def update_form(self, **attrs):
+        return self.__update_item(self.Form, **attrs)
+
+    def get_forms(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Form,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def get_form_by(self, **kwargs):
+        """ This should return a single Form or None. """
+        return self.__item_by(self.Form, **kwargs)
+
     # ---------------------------- RESOURCES ---------------------------------
     def create_resource(self, **attrs):
         return self.__create_item(self.Resource, **attrs)
