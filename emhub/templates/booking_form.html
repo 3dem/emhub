@@ -179,14 +179,15 @@
 <!-- ============================================================== -->
 <!-- Dynamic Form -->
 <!-- ============================================================== -->
-  <div id="experiment-modal" tabindex="-1" class="modal-dialog modal-dialog-centered modal-xl" role="document">
-  </div>
+<div class="modal" id="experiment-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">
+
+</div>
 
 <script>
 
     /* Show the Application Form, either for a new booking or an existing one */
 function showExperimentForm(applicationId) {
-    ajaxContent = get_ajax_content("dynamic_form", {application_id: applicationId});
+    ajaxContent = get_ajax_content("dynamic_form", {form_id: 1});
 
     ajaxContent.done(function(html) {
         $("#experiment-modal").html(html);

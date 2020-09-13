@@ -87,7 +87,7 @@ def create_app(test_config=None):
         else:
             if content_id == 'user_login':
                 content_id = 'dashboard'
-            kwargs = {'content_id': content_id}
+            kwargs= {'content_id':  content_id}
 
         kwargs['is_devel'] = app.is_devel
         app.user.image = app.dc.user_profile_image(app.user)
@@ -131,9 +131,13 @@ def create_app(test_config=None):
         flask_login.logout_user()
         return flask.redirect(flask.url_for('index'))
 
-    @app.route('/get_content', methods=['POST'])
+    @app.route('/get_content', methods=['GET', 'POST'])
     def get_content():
-        content_kwargs = flask.request.form.to_dict()
+        if flask.request.method == 'GET':
+            content_kwargs = flask.request.args.to_dict()
+        else:
+            content_kwargs = flask.request.form.to_dict()
+
         print("get_content params: ")
         for k, v in content_kwargs.items():
             print("  %s = %s" % (k, v))
@@ -156,6 +160,10 @@ def create_app(test_config=None):
     @app.template_filter('basename')
     def basename(filename):
         return os.path.basename(filename)
+
+    @app.template_filter('id_from_label')
+    def id_from_label(label):
+        return label.replace(' ', '_')
 
     app.jinja_env.filters['reverse'] = basename
     app.jinja_env.filters['pretty_datetime'] = pretty_datetime
