@@ -28,15 +28,10 @@
 
 import os
 import datetime as dt
-import uuid
-from collections import defaultdict
 
-from sqlalchemy import create_engine, text
+import sqlalchemy
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-
-from .data_session import H5SessionData
-from .data_models import create_data_models
 
 
 class DbManager:
@@ -48,8 +43,8 @@ class DbManager:
         if cleanDb and os.path.exists(dbPath):
             os.remove(dbPath)
 
-        engine = create_engine('sqlite:///' + dbPath,
-                               echo=do_echo)
+        engine = sqlalchemy.create_engine('sqlite:///' + dbPath,
+                                          echo=do_echo)
         self._db_session = scoped_session(sessionmaker(autocommit=False,
                                                        autoflush=False,
                                                        bind=engine))

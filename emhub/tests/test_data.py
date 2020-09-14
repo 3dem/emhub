@@ -140,7 +140,6 @@ class TestSessionData(unittest.TestCase):
             print(mic)
 
 
-
 class TestDataLog(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

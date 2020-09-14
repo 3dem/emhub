@@ -31,6 +31,8 @@ import datetime as dt
 import uuid
 from collections import defaultdict
 
+import sqlalchemy
+
 from .data_session import H5SessionData
 from .data_db import DbManager
 from .data_models import create_data_models
@@ -333,7 +335,7 @@ class DataManager(DbManager):
         query = self._db_session.query(ModelClass)
 
         if condition is not None:
-            query = query.filter(text(condition))
+            query = query.filter(sqlalchemy.text(condition))
 
         if orderBy is not None:
             query = query.order_by(orderBy)
