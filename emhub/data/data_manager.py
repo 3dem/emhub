@@ -320,12 +320,6 @@ class DataManager(DbManager):
         session.data = H5SessionData(self._session_data_path(session), mode)
         return session
 
-    # ------------------- Some utility methods --------------------------------
-    def now(self):
-        from tzlocal import get_localzone
-        # get local timezone
-        local_tz = get_localzone()
-        return dt.datetime.now(local_tz)
 
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
@@ -353,11 +347,9 @@ class DataManager(DbManager):
 
     def __update_item(self, ModelClass, **kwargs):
         item = self.__item_by(ModelClass, id=kwargs['id'])
-        print("Updating %s" % item)
         for attr, value in kwargs.items():
             if attr != 'id':
                 setattr(item, attr, value)
-                print("   setting: %s = %s" % (attr, value))
         self.commit()
 
         return item
