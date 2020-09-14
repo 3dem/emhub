@@ -49,7 +49,6 @@ class DbManager:
             os.remove(dbPath)
 
         engine = create_engine('sqlite:///' + dbPath,
-                               convert_unicode=True,
                                echo=do_echo)
         self._db_session = scoped_session(sessionmaker(autocommit=False,
                                                        autoflush=False,
@@ -73,3 +72,10 @@ class DbManager:
 
     def close(self):
         self._db_session.remove()
+
+    # ------------------- Some utility methods --------------------------------
+    def now(self):
+        from tzlocal import get_localzone
+        # get local timezone
+        local_tz = get_localzone()
+        return dt.datetime.now(local_tz)
