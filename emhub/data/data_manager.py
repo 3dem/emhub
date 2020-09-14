@@ -316,34 +316,37 @@ class DataManager(DbManager):
         """ Add a new session row. """
         session = self.__create_item(self.Session, **attrs)
         # Let's update the data path after we know the id
-        print("Creating session id=%s" % session.id)
         session.data_path = 'session_%06d.h5' % session.id
         self.commit()
-
-        print("    session-data-path: ", session.data_path)
-        print("    full-path: ", self._session_data_path(session))
-
         # Create empty hdf5 file
         data = H5SessionData(self._session_data_path(session), mode='a')
         data.close()
+
+        self.log("operation", "create_Session",
+                 attrs=self.json_from_object(session))
 
         return session
 
     def update_session(self, **attrs):
         """ Update session attrs. """
-        from pprint import pprint
-        pprint(attrs)
-        attrs['id'] = attrs.pop('id')
-        return self.__update_item(self.Session, **attrs)
+        result = self.__update_item(self.Session, **attrs)
+
+        self.log("operation", "update_Session",
+                 attrs=self.json_from_dict(attrs))
+
+        return result
 
     def delete_session(self, **attrs):
         """ Remove a session row. """
         sessionId = attrs['id']
         session = self.Session.query.get(sessionId)
         data_path = os.path.join(self._sessionsPath, session.data_path)
-        print("Deleting session id=%s" % sessionId)
         self.delete(session)
         os.remove(data_path)
+
+        self.log("operation", "delete_Session",
+                 attrs=self.json_from_dict(attrs))
+
         return session
 
     def load_session(self, sessionId, mode="r"):
@@ -355,7 +358,6 @@ class DataManager(DbManager):
         session = self.Session.query.get(sessionId)
         session.data = H5SessionData(self._session_data_path(session), mode)
         return session
-
 
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
