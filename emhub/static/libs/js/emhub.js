@@ -173,11 +173,11 @@ function notImplemented(msg) {
 function getFormAsJson(formId, includeEmpty){
     var json = {};
 
-    $("#" + formId + ":input").each(function () {
-        json[this.name] = $(this).val()
-    });
+    // $("#" + formId + ":input").each(function () {
+    //     json[this.name] = $(this).val()
+    // });
 
-    $('#dynamic-form *').filter(':input').each(function(){
+    $('#' + formId + ' *').filter(':input').each(function(){
         if (!this.id.length)
             return;
 
@@ -185,8 +185,9 @@ function getFormAsJson(formId, includeEmpty){
 
         if (type == 'checkbox')
             json[this.id] = $(this).prop('checked');
-        else if (type == 'radio')
-            json[this.id] = $('input[name="' + this.id + '"]:checked').val();
+        else if (type == 'radio') {
+            json[this.name] = $('input[name="' + this.name + '"]:checked').val();
+        }
         else
             json[this.id] = $(this).val()
     });

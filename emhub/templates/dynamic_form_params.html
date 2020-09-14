@@ -20,7 +20,7 @@
                         {% for o in param['enum']['choices'] %}
                             {% set checked = 'checked' if value == o else '' %}
                             <label class="custom-control custom-radio custom-control-inline">
-                                <input type="radio" name="{{ param['id'] }}" {{ checked }} class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>
+                                <input type="radio" name="{{ param['id'] }}" id="{{ param['id'] }}-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>
                             </label>
                         {% endfor %}
                     {% endif %}

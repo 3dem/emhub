@@ -245,11 +245,6 @@ class DataContent:
         form_values_str = kwargs.get('form_values', None) or '{}'
         form_values = json.loads(form_values_str)
 
-        from pprint import pprint
-        print(">>> get_dynamic_form: ")
-        print("    kwargs: ")
-        pprint(kwargs)
-
         form = self.app.dm.get_form_by(id=form_id)
 
         if form is None:

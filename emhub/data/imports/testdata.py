@@ -30,176 +30,17 @@ import os
 import shutil
 from datetime import datetime, timezone, timedelta
 
+from .base import TestDataBase
+
 
 TZ_DELTA = 0  # Define timezone, UTC '0'
 tzinfo = timezone(timedelta(hours=TZ_DELTA))
 
 
-class TestData:
+class TestData(TestDataBase):
     """ Class to create a testing dataset for a given DataManager.
     """
-    def __init__(self, dm):
-        """
-        Args:
-            dm: DataManager with db to create test data
-        """
-        dm.create_admin()
-        self.__populateTestData(dm)
-
-    def __populateTestData(self, dm):
-        # Create tables with test data for each database model
-        print("Populating forms...")
-        self.__populateForms(dm)
-        print("Populating users...")
-        self.__populateUsers(dm)
-        print("Populating resources...")
-        self.__populateResources(dm)
-        print("Populating applications...")
-        self.__populateApplications(dm)
-        print("Populating bookings...")
-        self.__populateBookings(dm)
-        print("Populating sessions...")
-        self.__populateSessions(dm)
-
-    def __populateForms(self, dm):
-        form1 = {
-            'title': 'Sample Form',
-            'params': [
-                {'id': 'name',
-                 'value': 'Pepe Pérez',
-                 'label': 'Name',
-                 },
-                {'id': 'phone',
-                 'value': '88546756777',
-                 'label': 'Phone',
-                 },
-                {'id': 'show-phone',
-                 'value': '0',
-                 'label': 'Show phone?',
-                 'type': 'bool'
-                 },
-                {'id': 'about',
-                 'value': 'X Y Z',
-                 'label': 'About everything that you need',
-                 'type': 'text'
-                 },
-                {'label': 'Options'},
-                {'id': 'level',
-                 'value': '',
-                 'label': 'Level',
-                 'enum': {'choices': ['low', 'medium', 'high'],
-                          'display': 'combo'
-                          }
-                 },
-                {'id': 'pet',
-                 'value': '',
-                 'label': 'Pet',
-                 'enum': {'choices': ['cat', 'dog', 'horse', 'monkey'],
-                          'display': 'radio'
-                          }
-                 },
-        ]}
-
-        dm.create_form(name='sample',
-                       definition=form1)
-
-        form2 = {
-            'title': 'Experiment',
-            'sections': [
-                {'label': 'Basic',
-                 'params': [
-                     {'id': 'grid_prep_needed',
-                      'value': False,
-                      'label': 'Grids preparation needed?',
-                      'type': 'bool'
-                      },
-                     {'id': 'grid_ready_screen',
-                      'value': False,
-                      'label': 'Grids ready to be screened?',
-                      'type': 'bool'
-                      },
-                     {'id': 'data_collection',
-                      'value': False,
-                      'label': 'Grids ready to be screened?',
-                      'type': 'bool'
-                      },
-                     {'id': 'grid_clipped',
-                      'value': False,
-                      'label': 'Are grids clipped?',
-                      'type': 'bool'
-                      },
-                     {'id': 'grid_type',
-                      'label': 'Grid type',
-                      },
-                 ]},
-                {'label': 'Grid Location',
-                 'params': [
-                     {'id': 'dewar_number',
-                      'label': 'Dewar number',
-                      },
-                     {'id': 'cane_number',
-                      'label': 'Cane number',
-                      },
-                     {'id': 'puck_number',
-                      'label': 'Puck number (color/name)',
-                      },
-                     {'id': 'gridbox_number',
-                      'label': 'Grid box number',
-                      },
-                     {'id': 'gridbox_label',
-                      'label': 'Grid box label',
-                      },
-                     {'id': 'slot_numbers',
-                      'label': ' Slot numbers',
-                      },
-                 ]},
-                {'label': 'Detector',
-                 'params': [
-                     {'id': 'detector_mode',
-                      'value': '',
-                      'label': 'Detector mode',
-                      'enum': {'choices': ['linear', 'counting'],
-                               'display': 'radio'
-                               }
-                      },
-                     {'id': 'pixel_size',
-                      'label': 'Pixel Size (Å)',
-                      },
-                     {'id': 'dose_rate',
-                      'label': 'Dose Rate (e/px/s)',
-                      },
-                     {'id': 'total_dose',
-                      'label': 'Total dose (e/Å2)',
-                      },
-                     {'id': 'defocuses',
-                      'label': 'Defocuses (um)',
-                      },
-                 ]},
-                {'label': 'Other',
-                 'params': [
-                     {'id': 'screening_instructions',
-                      'value': '(for instance protein concentration, blotting '
-                               'time and other useful info)',
-                      'label': 'Screening instructions',
-                      'type': 'text'
-                      },
-                     {'id': 'sample_information',
-                      'value': '(Mw, Dimensions (Å), multimerisation state, etc.)',
-                      'label': 'Sample Information',
-                      'type': 'text'
-                      },
-                     {'id': 'aim_experiment',
-                      'label': 'Aim of experiment',
-                      'type': 'text'
-                      },
-                 ]},
-            ]
-        }
-
-        dm.create_form(name='experiment',
-                       definition=form2)
-
-    def __populateUsers(self, dm):
+    def _populateUsers(self, dm):
         # Create user table
         usersData = [
             # dev (D)
@@ -247,38 +88,7 @@ class TestData:
                            roles=roles,
                            pi_id=pi)
 
-    def __populateResources(self, dm):
-        resources = [
-            {'name': 'Krios 1', 'tags': 'microscope krios',
-             'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8}},
-            {'name': 'Krios 2', 'tags': 'microscope krios',
-             'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8}},
-            {'name': 'Talos', 'tags': 'microscope talos',
-             'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8}},
-            {'name': 'Vitrobot 1', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
-            {'name': 'Vitrobot 2', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
-            {'name': 'Carbon Coater', 'tags': 'instrument',
-             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
-            {'name': 'Users Drop-in', 'tags': 'service',
-             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
-             'extra': {'requires_slot': True}}
-        ]
-
-        for rDict in resources:
-            dm.create_resource(**rDict)
-
-    def __populateApplications(self, dm):
+    def _populateApplications(self, dm):
         templateInfo = [
             {'title': 'BAG Application Form - 2019/2020',
              'description': 'Information required in order to submit a request '
@@ -397,7 +207,7 @@ class TestData:
 
         dm.commit()
 
-    def __populateBookings(self, dm):
+    def _populateBookings(self, dm):
         now = dm.now().replace(minute=0, second=0)
         month = now.month
 
@@ -474,7 +284,7 @@ class TestData:
                           owner_id=2,  # first user for now
                           description="Recurrent bi-weekly DROPIN slot. ")
 
-    def __populateSessions(self, dm):
+    def _populateSessions(self, dm):
         td = os.environ.get('EMHUB_TESTDATA')
         inst = os.environ.get('EMHUB_INSTANCE')
 

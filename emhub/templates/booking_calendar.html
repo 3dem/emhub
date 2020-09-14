@@ -210,7 +210,6 @@
 function validateBooking(booking, useTime) {
     var inside_slot = false;
     let events = calendar.getEvents();
-    printObject(booking.resource, "resource");
 
     for (const e of events) {
         let props = e.extendedProps;
@@ -579,10 +578,11 @@ function onCancelButtonClick() {
 }
 
 function showExperimentForm() {
-    printObject(last_booking.experiment, "last_booking.experiment");
+    var params = {form_id: 2};
+    if (last_booking.experiment)
+        params.form_values = JSON.stringify(last_booking.experiment);
 
-    ajaxContent = get_ajax_content("dynamic_form",
-                                   {form_id: 2, form_values: JSON.stringify(last_booking.experiment)});
+    ajaxContent = get_ajax_content("dynamic_form", params);
 
     ajaxContent.done(function(html) {
         $("#experiment-modal").html(html);

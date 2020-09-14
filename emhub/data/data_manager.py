@@ -441,7 +441,7 @@ class DataManager:
                 raise Exception("The duration of the booking is less that "
                                 "the minimum specified for the resource. ")
 
-        if check_max_booking and r.max_booking > 0:
+        if booking.type == 'booking' and check_max_booking and r.max_booking > 0:
             mm = dt.timedelta(minutes=int(r.max_booking * 60))
             if booking.duration > mm:
                 raise Exception("The duration of the booking is greater that "
