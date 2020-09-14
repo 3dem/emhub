@@ -43,19 +43,6 @@ def create_data_models(dm):
 
     Base = dm.Base
 
-    def _json(obj):
-        """ Return row info as json dict. """
-
-        def jsonattr(k):
-            v = getattr(obj, k)
-            if isinstance(v, datetime.date):
-                return v.isoformat()
-            elif isinstance(v, decimal.Decimal):
-                return float(v)
-            else:
-                return v
-
-        return {c.key: jsonattr(c.key) for c in obj.__table__.c}
 
     class Resource(Base):
         """ Representation of different type of Resources.
@@ -83,7 +70,7 @@ def create_data_models(dm):
         extra = Column(JSON, default={})
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         @property
         def requires_slot(self):
@@ -215,7 +202,7 @@ def create_data_models(dm):
             return '<User {}>'.format(self.username)
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         @property
         def is_developer(self):
@@ -307,7 +294,7 @@ def create_data_models(dm):
         extra = Column(JSON, default={})
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
     class Application(Base):
         """
@@ -383,7 +370,7 @@ def create_data_models(dm):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         @property
         def is_active(self):
@@ -500,7 +487,7 @@ def create_data_models(dm):
                        _timestr(self.start), _timestr(self.end)))
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         def allows_user_in_slot(self, user):
             """ Return True if a given user is allowed to book in this Slot.
@@ -605,7 +592,7 @@ def create_data_models(dm):
             return '<Session {}>'.format(self.name)
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
 
     class Form(Base):
@@ -623,7 +610,7 @@ def create_data_models(dm):
         definition = Column(JSON, default={})
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
 
     dm.Form = Form

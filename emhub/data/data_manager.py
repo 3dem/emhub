@@ -36,6 +36,7 @@ import sqlalchemy
 from .data_session import H5SessionData
 from .data_db import DbManager
 from .data_models import create_data_models
+from .data_log import DataLog
 
 
 class DataManager(DbManager):
@@ -45,7 +46,13 @@ class DataManager(DbManager):
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
 
-        self.init_db(os.path.join(dataPath, dbName), cleanDb=cleanDb)
+        # Initialize main database
+        dbPath = os.path.join(dataPath, dbName)
+        self.init_db(dbPath, cleanDb=cleanDb)
+
+        # Create a separate database for logs
+        logDbPath = dbPath.replace('.sqlite', '-logs.sqlite')
+        self._db_log = DataLog(logDbPath, cleanDb=cleanDb)
 
         self._lastSession = None
         self._user = user  # Logged user
@@ -56,6 +63,15 @@ class DataManager(DbManager):
     def _create_models(self):
         """ Function called from the init_db method. """
         create_data_models(self)
+
+    def log(self, log_type, log_name, *args, **kwargs):
+        user_id = None if self._user is None else self._user.id
+
+        self._db_log.log(user_id, log_type, log_name,
+                         *args, **kwargs)
+
+    def get_logs(self):
+        return self._db_log.get_logs()
 
     # ------------------------- USERS ----------------------------------
     def create_admin(self, password='admin'):
@@ -168,7 +184,7 @@ class DataManager(DbManager):
                        **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
-        attrs.pop('modify_all', None)
+        modify_all = attrs.pop('modify_all', None)
         bookings = []
 
         def _add_booking(attrs):
@@ -189,10 +205,18 @@ class DataManager(DbManager):
                 _add_booking(attrs)
                 repeater.move()  # will move next start,end in attrs
 
-        # Validate and insert all created bookings
+        # Insert all created bookings
         for b in bookings:
             self._db_session.add(b)
         self.commit()
+
+        # Log operations after create
+        self.log('operation', 'create_Booking',
+                 check_min_booking=check_min_booking,
+                 check_max_booking=check_max_booking,
+                 modify_all=modify_all,
+                 repeat_stop=repeat_value,
+                 attrs=self.json_from_dict(attrs))
 
         return bookings
 
@@ -216,7 +240,12 @@ class DataManager(DbManager):
             if repeater:
                 repeater.move()  # move start, end for repeating bookings
 
-        return self._modify_bookings(attrs, update)
+        result = self._modify_bookings(attrs, update)
+
+        self.log('operation', 'update_Booking',
+                 attrs=self.json_from_dict(attrs))
+
+        return result
 
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,
@@ -236,7 +265,12 @@ class DataManager(DbManager):
             self.__check_cancellation(b)
             self.delete(b, commit=False)
 
-        return self._modify_bookings(attrs, delete)
+        result = self._modify_bookings(attrs, delete)
+
+        self.log('operation', 'delete_Booking',
+                 attrs=self.json_from_dict(attrs))
+
+        return  result
 
     def get_application_bookings(self, applications,
                                 resource_ids=None, resource_tags=None):
@@ -328,6 +362,9 @@ class DataManager(DbManager):
         new_item = ModelClass(**attrs)
         self._db_session.add(new_item)
         self.commit()
+        self.log('operation', 'create_%s' % ModelClass.__name__,
+                 attrs=self.json_from_dict(attrs))
+
         return new_item
 
     def __items_from_query(self, ModelClass,
@@ -353,6 +390,8 @@ class DataManager(DbManager):
             if attr != 'id':
                 setattr(item, attr, value)
         self.commit()
+        self.log('operation', 'update_%s' % ModelClass.__name__,
+                 **self.json_from_dict(kwargs))
 
         return item
 

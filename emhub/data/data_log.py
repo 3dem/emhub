@@ -70,11 +70,13 @@ class DataLog(DbManager):
 
         self.Log = Log
 
-    def log(self, user_id, type, name, *args, **kwargs):
+    def log(self, user_id, log_type, log_name,
+            *args, **kwargs):
+
         log = self.Log(
             user_id=user_id,
-            type=type,
-            name=name,
+            type=log_type,
+            name=log_name,
             timestamp=self.now(),
             args=args,
             kwargs=kwargs)

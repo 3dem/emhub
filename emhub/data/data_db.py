@@ -28,6 +28,7 @@
 
 import os
 import datetime as dt
+import decimal
 
 import sqlalchemy
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -74,3 +75,23 @@ class DbManager:
         # get local timezone
         local_tz = get_localzone()
         return dt.datetime.now(local_tz)
+
+    @staticmethod
+    def json_from_value(v):
+        if isinstance(v, dt.date) or isinstance(v, dt.datetime):
+            return v.isoformat()
+        elif isinstance(v, decimal.Decimal):
+            return float(v)
+        else:
+            return v
+
+    @staticmethod
+    def json_from_object(obj):
+        """ Return row info as json dict. """
+        return {c.key: DbManager.json_from_value(getattr(obj, c.key))
+                for c in obj.__table__.c}
+
+    @staticmethod
+    def json_from_dict(d):
+        """ Return row info as json dict. """
+        return {k: DbManager.json_from_value(v) for k, v in d.items()}

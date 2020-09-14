@@ -270,6 +270,11 @@ class DataContent:
     def get_forms_list(self, **kwargs):
         return  {'forms': self.app.dm.get_forms()}
 
+    def get_logs(self, **kwargs):
+        logs = self.app.dm.get_logs()
+        logs.sort(key=lambda o: o.id, reverse=True)
+        return  {'logs': logs}
+
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
