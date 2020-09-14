@@ -31,38 +31,19 @@ import datetime as dt
 import uuid
 from collections import defaultdict
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-
 from .data_session import H5SessionData
+from .data_db import DbManager
 from .data_models import create_data_models
 
 
-class DataManager:
+class DataManager(DbManager):
     """ Main class that will manage the sessions and their information.
     """
     def __init__(self, dataPath, dbName='emhub.sqlite', user=None, cleanDb=False):
-        do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
-
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
 
-        sqlitePath = os.path.join(dataPath, dbName)
-
-        if cleanDb and os.path.exists(sqlitePath):
-            os.remove(sqlitePath)
-
-        engine = create_engine('sqlite:///' + sqlitePath,
-                               convert_unicode=True,
-                               echo=do_echo)
-        self._db_session = scoped_session(sessionmaker(autocommit=False,
-                                                       autoflush=False,
-                                                       bind=engine))
-        Base = declarative_base()
-        Base.query = self._db_session.query_property()
-
-        create_data_models(self, Base)
+        self.init_db(os.path.join(dataPath, dbName), cleanDb=cleanDb)
 
         self._lastSession = None
         self._user = user  # Logged user
@@ -70,23 +51,9 @@ class DataManager:
         # Create sessions dir if not exists
         os.makedirs(self._sessionsPath, exist_ok=True)
 
-        # Create the database if it does not exists
-        if not os.path.exists(sqlitePath):
-            Base.metadata.create_all(bind=engine)
-
-    def commit(self):
-        self._db_session.commit()
-
-    def delete(self, item, commit=True):
-        self._db_session.delete(item)
-        if commit:
-            self.commit()
-
-    def close(self):
-        #if self._lastSession is not None:
-        #    self._lastSession.data.close()
-
-        self._db_session.remove()
+    def _create_models(self):
+        """ Function called from the init_db method. """
+        create_data_models(self)
 
     # ------------------------- USERS ----------------------------------
     def create_admin(self, password='admin'):

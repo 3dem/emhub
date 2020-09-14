@@ -38,8 +38,10 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
-def create_data_models(dm, Base):
-    """ Define the Data Models that will be use by the Data Manager. """
+def create_data_models(dm):
+    """ Define the Data Models that will be use by the DataManager. """
+
+    Base = dm.Base
 
     def _json(obj):
         """ Return row info as json dict. """
