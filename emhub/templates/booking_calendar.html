@@ -288,6 +288,11 @@ function showBookingForm(booking) {
         $('#booking-owner-text').prop('readonly', true);
     }
 
+    if  (booking.type == 'booking' && booking.resource.is_microscope)
+        $('#div-describe-experiment').show();
+    else
+        $('#div-describe-experiment').hide();
+
     $('#booking-start-date').val(dateStr(booking.start));
     $('#booking-start-time').val(timeStr(booking.start));
     $('#booking-end-date').val(dateStr(booking.end));

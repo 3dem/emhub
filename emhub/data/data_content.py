@@ -278,7 +278,9 @@ class DataContent:
         if resource is None:
             resource_info = {'id': None, 'name': ''}
         else:
-            resource_info = {'id': resource.id, 'name': resource.name}
+            resource_info = {'id': resource.id, 'name': resource.name,
+                             'is_microscope': resource.is_microscope
+                             }
         owner = booking.owner
         owner_name = owner.name
         creator = booking.creator
