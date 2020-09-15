@@ -68,7 +68,7 @@ class DataContent:
         next7 = now + dt.timedelta(days=7)
         next30 = now + dt.timedelta(days=30)
 
-        for b in self.app.dm.get_bookings():
+        for b in self.app.dm.get_bookings(orderBy='start'):
             if not user.is_manager and not user.same_pi(b.owner):
                 continue
             bDict = {'owner': b.owner.name,
