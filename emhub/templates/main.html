@@ -45,8 +45,10 @@
     {% include 'main_left_sidebar.html' %}
 
     <div class="dashboard-wrapper">
+
         <div class="container-fluid dashboard-content" id="main-content">
         </div>
+
         <!-- footer -->
         <div class="footer">
             <div class="container-fluid">
@@ -165,7 +167,7 @@
             $(this).click(load_content_fromlink);
         });
 
-        load_main_content("{{ content_id }}");
+        load_main_content("{{ content_id }}", {{ params|tojson }});
     });
 
     /* Show the User Form */
