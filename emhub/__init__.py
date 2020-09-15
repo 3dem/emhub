@@ -187,7 +187,7 @@ def create_app(test_config=None):
         user = app.dm.User.verify_reset_password_token(token)
         if not user:
             flask.flash("ERROR: Invalid token for resetting password. ")
-            return _redirect('index')
+            return _redirect('main', content_id='user_reset_password')
 
         flask_login.login_user(user)
 
