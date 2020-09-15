@@ -1,40 +1,24 @@
 
 <div class="container-fluid  dashboard-content">
     <!-- ============================================================== -->
-    <!-- pageheader -->
-    <!-- ============================================================== -->
-    <div class="row">
-        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-            <div class="page-header">
-                <h2 class="pageheader-title">Login </h2>
-                <p class="pageheader-text">
-                </p>
-            </div>
-        </div>
-    </div>
-    <!-- ============================================================== -->
-    <!-- end pageheader -->
-    <!-- ============================================================== -->
-
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul class=flashes>
-        {% for message in messages %}
-          <li>{{ message }}</li>
-        {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
-
-    <!-- ============================================================== -->
     <!-- login form -->
     <!-- ============================================================== -->
     <div class="col-12 col-lg-8 col-xl-6">
         <div class="card">
-            <h5 class="card-header">User login</h5>
+            <h3 class="card-header">User login</h3>
             <div class="card-body">
 
-                <form id="validationform" data-parsley-validate="" novalidate="" action="{{ url_for('do_login') }}" method="post">
+                <form id="login-form" data-parsley-validate="" novalidate="" action="{{ url_for('do_login') }}" method="post">
+
+                    {% with messages = get_flashed_messages() %}
+                      {% if messages %}
+                            {% for message in messages %}
+                            <div class="alert alert-danger" role="alert">
+                                {{ message }}
+                            </div>
+                            {% endfor %}
+                      {% endif %}
+                    {% endwith %}
 
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Username</label>
@@ -50,13 +34,21 @@
                         </div>
                     </div>
 
-                    <input type="hidden" id="next_content" name="next_content" value="{{ next_content }}">
-
-                    <div class="form-group row text-right">
-                        <div class="col col-sm-10 col-lg-9 offset-sm-1 offset-lg-0">
-                            <button type="submit" class="btn btn-space btn-primary">Login</button>
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right"></label>
+                        <div class="col-8 col-sm-6">
+                            <div class="row">
+                                <div class="col col-sm-6 col-lg-6 offset-sm-1 offset-lg-0 text-left">
+                                    <a href="{{ url_for('reset_password') }}">Forgot password?</a>
+                                </div>
+                                <div class="col col-sm-6 col-lg-6 offset-sm-1 offset-lg-0 text-right">
+                                    <button type="submit" class="btn btn-space btn-primary">Login</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
+
+                    <input type="hidden" id="next_content" name="next_content" value="{{ next_content }}">
                 </form>
             </div>
         </div>
