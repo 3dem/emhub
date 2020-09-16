@@ -29,21 +29,23 @@
 import os
 from glob import glob
 
-import flask
-import flask_login
 
-from . import utils
-from .blueprints import api_bp, images_bp
-from .utils import datetime_to_isoformat, pretty_datetime, send_json_data
-from .utils.mail import MailManager
-from .data.data_content import DataContent
-
-
-here = os.path.abspath(os.path.dirname(__file__))
-templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
+__version__ = '0.0.1a5'
 
 
 def create_app(test_config=None):
+    import flask
+    import flask_login
+
+    from . import utils
+    from .blueprints import api_bp, images_bp
+    from .utils import datetime_to_isoformat, pretty_datetime, send_json_data
+    from .utils.mail import MailManager
+    from .data.data_content import DataContent
+
+    here = os.path.abspath(os.path.dirname(__file__))
+    templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
+
     # create and configure the app
     emhub_instance_path = os.environ.get('EMHUB_INSTANCE', None)
 
@@ -102,6 +104,7 @@ def create_app(test_config=None):
                           'params': {}}
 
         kwargs['is_devel'] = app.is_devel
+        kwargs['version'] = __version__
 
         return flask.render_template('main.html', **kwargs)
 
