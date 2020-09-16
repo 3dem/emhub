@@ -65,6 +65,8 @@
 <!-- Modal with  Booking Form -->
 {% include 'booking_form.html' %}
 
+
+
 <!-- Modal Message -->
 <div class="modal" id="message-modal" tabindex="-1" role="dialog" aria-labelledby="messageModal" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
@@ -208,7 +210,6 @@
 function validateBooking(booking, useTime) {
     var inside_slot = false;
     let events = calendar.getEvents();
-    printObject(booking.resource, "resource");
 
     for (const e of events) {
         let props = e.extendedProps;
@@ -287,6 +288,11 @@ function showBookingForm(booking) {
         $('#booking-owner-text').prop('readonly', true);
     }
 
+    if  (booking.type == 'booking' && booking.resource.is_microscope)
+        $('#div-describe-experiment').show();
+    else
+        $('#div-describe-experiment').hide();
+
     $('#booking-start-date').val(dateStr(booking.start));
     $('#booking-start-time').val(timeStr(booking.start));
     $('#booking-end-date').val(dateStr(booking.end));
@@ -355,7 +361,8 @@ function onBookingSelected(event, original_range) {
         owner: props.owner,
         slot_auth: props.slot_auth,
         user_can_modify: props.user_can_modify,
-        original_range: original_range
+        original_range: original_range,
+        experiment: props.experiment
     };
     showBookingForm(last_booking);
 }
@@ -483,7 +490,8 @@ function onOkButtonClick() {
         resource_id: last_booking.resource.id,
         modify_all: modify_all,
         repeat_value: repeat_value,
-        resource: getResource(last_booking.resource.id)
+        resource: getResource(last_booking.resource.id),
+        experiment: last_booking.experiment
     };
 
     if (booking_type == 'slot') {
@@ -573,5 +581,28 @@ function onCancelButtonClick() {
         calendar.render();
     }
 }
+
+function showExperimentForm() {
+    var params = {form_id: 2};
+    if (last_booking.experiment)
+        params.form_values = JSON.stringify(last_booking.experiment);
+
+    ajaxContent = get_ajax_content("dynamic_form", params);
+
+    ajaxContent.done(function(html) {
+        $("#experiment-modal").html(html);
+        $("#dynamic-btn-ok" ).click(function() {
+            last_booking.experiment = getFormAsJson('dynamic-form');
+            $('#experiment-modal').modal('hide');
+        });
+        // Show the form after setting html content
+        $('#experiment-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+
+}  // function showExperimentForm
 
 </script>

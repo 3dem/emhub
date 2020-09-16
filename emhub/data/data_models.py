@@ -27,33 +27,22 @@
 # **************************************************************************
 
 import datetime as dt
-import decimal
-import datetime
+import jwt
 
 from sqlalchemy import (Column, Integer, String, JSON, Boolean, Float,
                         ForeignKey, Text, Table)
 from sqlalchemy.orm import relationship
 from sqlalchemy_utc import UtcDateTime, utcnow
 from flask_login import UserMixin
+from flask import current_app as app
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
-def create_data_models(dm, Base):
-    """ Define the Data Models that will be use by the Data Manager. """
+def create_data_models(dm):
+    """ Define the Data Models that will be use by the DataManager. """
 
-    def _json(obj):
-        """ Return row info as json dict. """
+    Base = dm.Base
 
-        def jsonattr(k):
-            v = getattr(obj, k)
-            if isinstance(v, datetime.date):
-                return v.isoformat()
-            elif isinstance(v, decimal.Decimal):
-                return float(v)
-            else:
-                return v
-
-        return {c.key: jsonattr(c.key) for c in obj.__table__.c}
 
     class Resource(Base):
         """ Representation of different type of Resources.
@@ -81,7 +70,7 @@ def create_data_models(dm, Base):
         extra = Column(JSON, default={})
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         @property
         def requires_slot(self):
@@ -209,11 +198,26 @@ def create_data_models(dm, Base):
             """Check hashed password."""
             return check_password_hash(self.password_hash, password)
 
+        def get_reset_password_token(self, expires_in=600):
+            return jwt.encode(
+                {'reset_password': self.id,
+                 'exp': dm.now() + dt.timedelta(seconds=expires_in)},
+                app.config['SECRET_KEY'], algorithm='HS256').decode('utf-8')
+
+        @staticmethod
+        def verify_reset_password_token(token):
+            try:
+                user_id = jwt.decode(token, app.config['SECRET_KEY'],
+                                algorithms=['HS256'])['reset_password']
+            except:
+                return None
+            return User.query.get(user_id)
+
         def __repr__(self):
             return '<User {}>'.format(self.username)
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         @property
         def is_developer(self):
@@ -305,7 +309,7 @@ def create_data_models(dm, Base):
         extra = Column(JSON, default={})
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
     class Application(Base):
         """
@@ -381,7 +385,7 @@ def create_data_models(dm, Base):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         @property
         def is_active(self):
@@ -470,6 +474,9 @@ def create_data_models(dm, Base):
 
         session = relationship("Session", back_populates="booking")
 
+        # Experiment description
+        experiment = Column(JSON, nullable=True)
+
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
 
@@ -495,7 +502,7 @@ def create_data_models(dm, Base):
                        _timestr(self.start), _timestr(self.end)))
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         def allows_user_in_slot(self, user):
             """ Return True if a given user is allowed to book in this Slot.
@@ -511,6 +518,7 @@ def create_data_models(dm, Base):
 
             return (user.id in allowedUsers or
                     any(a.code in allowedApps for a in user.get_applications()))
+
 
     class Session(Base):
         """Model for sessions."""
@@ -599,8 +607,28 @@ def create_data_models(dm, Base):
             return '<Session {}>'.format(self.name)
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
+
+    class Form(Base):
+        """ Class to store Forms definitions. """
+        __tablename__ = 'forms'
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        name = Column(String(256),
+                      unique=True,
+                      nullable=False)
+
+        # Form sections and params definition
+        definition = Column(JSON, default={})
+
+        def json(self):
+            return dm.json_from_object(self)
+
+
+    dm.Form = Form
     dm.User = User
     dm.Resource = Resource
     dm.Template = Template

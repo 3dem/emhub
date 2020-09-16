@@ -1,0 +1,77 @@
+<!-- ============================================================== -->
+<!-- Dynamic Form -->
+<!-- ============================================================== -->
+{#<div class="modal" id="dynamic-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">#}
+{% set definition = form.definition %}
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content" style="background-color: #f5f5f5">
+      <div class="modal-body">
+        <h3 class="row" id="dynamic-modal-title" style="margin-left: 5px;"> {{ definition['title'] }} </h3>
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="dynamic-form" data-parsley-validate="" novalidate="">
+                    <!-- If there are not section, just create the params -->
+                    {% if 'params' in definition %}
+
+                        {% set params = definition['params'] %}
+                        {% include 'dynamic_form_params.html' %}
+
+                    {% else %}
+
+                        {% set sections = definition['sections'] %}
+
+
+                        <div class="simple-outline-card">
+{#                        <div class="tab-vertical-outline">#}
+
+                            <ul class="nav nav-tabs" id="sections-tab-nav" role="tablist">
+
+{#                        <div class="tab-vertical">#}
+{#                            <ul class="nav nav-tabs " id="sections-tab-nav" role="tablist">#}
+
+                            <!-- Tab headers based on Sections -->
+                            {%  for section in sections %}
+                                {% set section_id = section['label']|id_from_label %}
+                                {% set active_str = "active border-left-0" if loop.index == 1 else "" %}
+                                {% set active_selected = "true" if loop.index == 1 else "false" %}
+                                <li class="nav-item">
+                                    <a class="nav-link {{ active_str }}" id="{{ section_id }}-t-tab" data-toggle="tab" href="#{{ section_id }}-t" role="tab" aria-controls="{{ section_id }}-t" aria-selected="{{ active_selected }}">{{ section['label'] }}</a>
+                                </li>
+                            {%  endfor %}
+                            </ul>
+
+                            <!-- Tab content based on Sections -->
+                            <div class="tab-content" id="sections-tab-content">
+                            {%  for section in sections %}
+                                {% set section_id = section['label']|id_from_label %}
+                                {% set active_str = "show active" if loop.index == 1 else "" %}
+                                <div class="tab-pane fade {{ active_str }}" id="{{ section_id }}-t" role="tabpanel" aria-labelledby="{{ section_id }}-t-tab">
+                                    {% set params = section['params'] %}
+                                    {% include 'dynamic_form_params.html' %}
+                                </div>
+                            {%  endfor %}
+                            </div>
+                        </div>
+
+                    {% endif %}
+
+
+                </form>
+            </div>
+
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="dynamic-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" id="dynamic-btn-ok" class="btn btn-outline-dark">Ok</button>
+      </div>
+    </div>
+  </div>
+{#</div>#}
+<!-- ============================================================== -->
+<!-- End of Dynamic Form Content -->
+<!-- ============================================================== -->

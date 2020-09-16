@@ -30,36 +30,17 @@ import os
 import shutil
 from datetime import datetime, timezone, timedelta
 
+from .base import TestDataBase
+
 
 TZ_DELTA = 0  # Define timezone, UTC '0'
 tzinfo = timezone(timedelta(hours=TZ_DELTA))
 
 
-class TestData:
+class TestData(TestDataBase):
     """ Class to create a testing dataset for a given DataManager.
     """
-    def __init__(self, dm):
-        """
-        Args:
-            dm: DataManager with db to create test data
-        """
-        dm.create_admin()
-        self.__populateTestData(dm)
-
-    def __populateTestData(self, dm):
-        # Create tables with test data for each database model
-        print("Populating users...")
-        self.__populateUsers(dm)
-        print("Populating resources...")
-        self.__populateResources(dm)
-        print("Populating applications...")
-        self.__populateApplications(dm)
-        print("Populating bookings...")
-        self.__populateBookings(dm)
-        print("Populating sessions...")
-        self.__populateSessions(dm)
-
-    def __populateUsers(self, dm):
+    def _populateUsers(self, dm):
         # Create user table
         usersData = [
             # dev (D)
@@ -107,38 +88,7 @@ class TestData:
                            roles=roles,
                            pi_id=pi)
 
-    def __populateResources(self, dm):
-        resources = [
-            {'name': 'Krios 1', 'tags': 'microscope krios',
-             'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8}},
-            {'name': 'Krios 2', 'tags': 'microscope krios',
-             'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8}},
-            {'name': 'Talos', 'tags': 'microscope talos',
-             'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8}},
-            {'name': 'Vitrobot 1', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
-            {'name': 'Vitrobot 2', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
-            {'name': 'Carbon Coater', 'tags': 'instrument',
-             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
-            {'name': 'Users Drop-in', 'tags': 'service',
-             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
-             'extra': {'requires_slot': True}}
-        ]
-
-        for rDict in resources:
-            dm.create_resource(**rDict)
-
-    def __populateApplications(self, dm):
+    def _populateApplications(self, dm):
         templateInfo = [
             {'title': 'BAG Application Form - 2019/2020',
              'description': 'Information required in order to submit a request '
@@ -257,7 +207,7 @@ class TestData:
 
         dm.commit()
 
-    def __populateBookings(self, dm):
+    def _populateBookings(self, dm):
         now = dm.now().replace(minute=0, second=0)
         month = now.month
 
@@ -334,7 +284,7 @@ class TestData:
                           owner_id=2,  # first user for now
                           description="Recurrent bi-weekly DROPIN slot. ")
 
-    def __populateSessions(self, dm):
+    def _populateSessions(self, dm):
         td = os.environ.get('EMHUB_TESTDATA')
         inst = os.environ.get('EMHUB_INSTANCE')
 

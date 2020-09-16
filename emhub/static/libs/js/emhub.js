@@ -168,3 +168,37 @@ function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
 function notImplemented(msg) {
     showMessage("NOT IMPLEMENTED", msg);
 }
+
+
+function getFormAsJson(formId, includeEmpty){
+    var json = {};
+
+    // $("#" + formId + ":input").each(function () {
+    //     json[this.name] = $(this).val()
+    // });
+
+    $('#' + formId + ' *').filter(':input').each(function(){
+        if (!this.id.length)
+            return;
+
+        var type = $(this).prop('type');
+
+        if (type == 'checkbox')
+            json[this.id] = $(this).prop('checked');
+        else if (type == 'radio') {
+            json[this.name] = $('input[name="' + this.name + '"]:checked').val();
+        }
+        else
+            json[this.id] = $(this).val()
+    });
+
+    if (includeEmpty)
+        return json;
+    var newJson = {};
+    for (var propName in json) {
+        propValue = json[propName]
+        if (propValue)
+            newJson[propName] = propValue;
+    }
+    return newJson;
+} // function onFormOk
