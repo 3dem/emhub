@@ -28,7 +28,7 @@
 
 import unittest
 
-from emhub.data import DataManager, ImageSessionData, H5SessionData
+from emhub.data import DataManager, ImageSessionData, H5SessionData, DataLog
 from emhub.data.imports.testdata import TestData
 
 
@@ -138,3 +138,34 @@ class TestSessionData(unittest.TestCase):
         hsd = H5SessionData('/tmp/data.h5', 'r')
         for mic in hsd.get_items(setId):
             print(mic)
+
+
+class TestDataLog(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        pass
+
+    def test(self):
+        print("=" * 80, "\nTesting logs...")
+
+        dbPath = '/tmp/emhub-logs.sqlite'
+        dl  = DataLog(dbPath, cleanDb=True)
+
+        logsData = [
+            (1, 'data', 'create_test_user',
+             ['Pepe Perez'], {'is_admin': False}),
+            (1, 'error', 'deleting_file',
+             [], {'error': 'File was locked', 'exception': True})
+        ]
+
+        for user_id, log_type, name, args, kwargs in logsData:
+            dl.log(user_id, log_type, name, *args, **kwargs)
+
+        dl.close()
+
+        # Open again the logs and check
+        dl = DataLog(dbPath)
+        logs = dl.get_logs()
+        self.assertEqual(2, len(logs))
+        dl.close()
+

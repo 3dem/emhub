@@ -1,0 +1,84 @@
+
+
+<div class="container-fluid  dashboard-content">
+    <!-- Header -->
+    {% set title = "Forms" %}
+    {% include 'include_header.html' %}
+
+    <!-- ============================================================== -->
+    <!-- pagehader  -->
+    <!-- ============================================================== -->
+
+    <div class="row">
+        <!-- ============================================================== -->
+        <!--  resources table  -->
+        <!-- ============================================================== -->
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+                <h5 class="card-header">Forms List</h5>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead class="bg-light">
+                                <tr class="border-0">
+                                    <th class="border-0">Id</th>
+                                    <th class="border-0">Name</th>
+                                    <th class="border-0">Definition</th>
+                                    {% if current_user.is_manager %}
+                                    <th class="border-0">Actions</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for f in forms %}
+                                <tr>
+                                    <td> {{ f.id }} </td>
+                                    <td> {{ f.name }} </td>
+                                    <td> {{ f.definition }}</td>
+                                    {% if current_user.is_manager %}
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showForm({{ f.id }})"><i class="far fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:notImplemented('Can not DELETE Resource. ')"
+                                                data-id="{{ f.id }}" data-name="{{ f.name }}"><i class="far fa-trash-alt"></i></button>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ============================================================== -->
+        <!-- end resources table  -->
+        <!-- ============================================================== -->
+    </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- Dynamic Form -->
+<!-- ============================================================== -->
+<div class="modal" id="experiment-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">
+
+</div>
+
+<script>
+
+    /* Show the Application Form, either for a new booking or an existing one */
+function showForm(formId) {
+    ajaxContent = get_ajax_content("dynamic_form", {form_id: formId});
+
+    ajaxContent.done(function(html) {
+        $("#experiment-modal").html(html);
+        // Show the form after setting html content
+        $('#experiment-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+
+}  // function showApplication
+
+</script>

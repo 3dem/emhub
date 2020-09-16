@@ -26,12 +26,12 @@
 
 import os
 import json
-import datetime as dt
 
 from emhub.utils import datetime_from_isoformat
+from  .base import TestDataBase
 
 
-class PortalData:
+class PortalData(TestDataBase):
     """ Class to import data (users, templates, applications) from the
      Application Portal at SciLifeLab.
     """
@@ -50,6 +50,9 @@ class PortalData:
         self.__importData(dm, dataJsonPath, bookingsJsonPath)
 
     def __importData(self, dm, dataJsonPath, bookingsJsonPath):
+        print("Populating forms...")
+        self._populateForms(dm)
+
         # Create tables with test data for each database model
         print("Importing users...")
 
@@ -60,7 +63,7 @@ class PortalData:
             self.__importUsers(dm)
 
         print("Populating resources...")
-        self.__populateResources(dm)
+        self._populateResources(dm)
 
         print("Importing applications...")
         self.__importApplications(dm, jsonData)
@@ -69,7 +72,7 @@ class PortalData:
             bookingsData = json.load(bookingsFile)
 
             # print("Populating sessions...")
-            # self.__populateSessions(dm)
+            # self._populateSessions(dm)
             print("Populating bookings")
             self.__importBookings(dm, bookingsData)
 
@@ -129,8 +132,6 @@ class PortalData:
                 createUser(u)
                 piDict[u['email']] = u
 
-        f = open('user_nopi.csv', mode='w')
-
         for u in self._jsonUsers:
             if not ignoreUser(u) and not u['pi'] and not u['email'] in staff:
                 piEmail = u['invoice_ref']
@@ -138,50 +139,7 @@ class PortalData:
                     createUser(u, pi=piDict[piEmail]['emhub_item'].id)
                 else:
                     print("Skipping user (Missing PI): ", u['email'])
-                    f.write('"%s", "%s"\n' % (u['name'], u['email']))
-        f.close()
 
-    def __populateResources(self, dm):
-        resources = [
-            {'name': 'Solna Krios α', 'tags': 'microscope krios solna',
-             'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8,
-                       'max_booking': 72}},
-            {'name': 'Solna Krios β', 'tags': 'microscope krios solna',
-             'image': 'titan-krios.png', 'color': 'rgba(60, 90, 190, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8,
-                       'max_booking': 72}},
-            {'name': 'Talos', 'tags': 'microscope talos solna',
-             'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8,
-                       'max_booking': 72}},
-            {'name': 'Vitrobot 1', 'tags': 'instrument solna',
-             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
-            {'name': 'Vitrobot 2', 'tags': 'instrument solna',
-             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
-            {'name': 'Carbon Coater', 'tags': 'instrument solna',
-             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
-            {'name': 'Users Drop-in', 'tags': 'service solna',
-             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
-             'extra': {'requires_slot': True}},
-
-            # Umeå instruments
-            {'name': 'Umeå Krios', 'tags': 'microscope krios umea',
-             'image': 'titan-krios.png', 'color': 'rgba(15, 40, 130, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8,
-                       'max_booking': 72}},
-        ]
-
-        for rDict in resources:
-            dm.create_resource(**rDict)
 
     def __importApplications(self, dm, jsonData):
         statuses = {'disabled': 'closed',
@@ -376,7 +334,7 @@ class PortalData:
                           owner_id=1,  # first user for now
                           description="Recurrent bi-weekly DROPIN slot. ")
 
-    def __populateSessions(self, dm):
+    def _populateSessions(self, dm):
         users = [1, 2, 2]
         session_names = ['supervisor_23423452_20201223_123445',
                          'epu-mysession_20122310_234542',

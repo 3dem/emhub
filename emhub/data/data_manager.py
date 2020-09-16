@@ -31,38 +31,28 @@ import datetime as dt
 import uuid
 from collections import defaultdict
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+import sqlalchemy
 
 from .data_session import H5SessionData
+from .data_db import DbManager
 from .data_models import create_data_models
+from .data_log import DataLog
 
 
-class DataManager:
+class DataManager(DbManager):
     """ Main class that will manage the sessions and their information.
     """
     def __init__(self, dataPath, dbName='emhub.sqlite', user=None, cleanDb=False):
-        do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
-
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
 
-        sqlitePath = os.path.join(dataPath, dbName)
+        # Initialize main database
+        dbPath = os.path.join(dataPath, dbName)
+        self.init_db(dbPath, cleanDb=cleanDb)
 
-        if cleanDb and os.path.exists(sqlitePath):
-            os.remove(sqlitePath)
-
-        engine = create_engine('sqlite:///' + sqlitePath,
-                               convert_unicode=True,
-                               echo=do_echo)
-        self._db_session = scoped_session(sessionmaker(autocommit=False,
-                                                       autoflush=False,
-                                                       bind=engine))
-        Base = declarative_base()
-        Base.query = self._db_session.query_property()
-
-        create_data_models(self, Base)
+        # Create a separate database for logs
+        logDbPath = dbPath.replace('.sqlite', '-logs.sqlite')
+        self._db_log = DataLog(logDbPath, cleanDb=cleanDb)
 
         self._lastSession = None
         self._user = user  # Logged user
@@ -70,23 +60,18 @@ class DataManager:
         # Create sessions dir if not exists
         os.makedirs(self._sessionsPath, exist_ok=True)
 
-        # Create the database if it does not exists
-        if not os.path.exists(sqlitePath):
-            Base.metadata.create_all(bind=engine)
+    def _create_models(self):
+        """ Function called from the init_db method. """
+        create_data_models(self)
 
-    def commit(self):
-        self._db_session.commit()
+    def log(self, log_type, log_name, *args, **kwargs):
+        user_id = None if self._user is None else self._user.id
 
-    def delete(self, item, commit=True):
-        self._db_session.delete(item)
-        if commit:
-            self.commit()
+        self._db_log.log(user_id, log_type, log_name,
+                         *args, **kwargs)
 
-    def close(self):
-        #if self._lastSession is not None:
-        #    self._lastSession.data.close()
-
-        self._db_session.remove()
+    def get_logs(self):
+        return self._db_log.get_logs()
 
     # ------------------------- USERS ----------------------------------
     def create_admin(self, password='admin'):
@@ -123,6 +108,23 @@ class DataManager:
     def get_user_by(self, **kwargs):
         """ This should return a single user or None. """
         return self.__item_by(self.User, **kwargs)
+
+    # ---------------------------- FORMS ---------------------------------
+    def create_form(self, **attrs):
+        return self.__create_item(self.Form, **attrs)
+
+    def update_form(self, **attrs):
+        return self.__update_item(self.Form, **attrs)
+
+    def get_forms(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Form,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def get_form_by(self, **kwargs):
+        """ This should return a single Form or None. """
+        return self.__item_by(self.Form, **kwargs)
 
     # ---------------------------- RESOURCES ---------------------------------
     def create_resource(self, **attrs):
@@ -182,7 +184,7 @@ class DataManager:
                        **attrs):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
-        attrs.pop('modify_all', None)
+        modify_all = attrs.pop('modify_all', None)
         bookings = []
 
         def _add_booking(attrs):
@@ -203,10 +205,18 @@ class DataManager:
                 _add_booking(attrs)
                 repeater.move()  # will move next start,end in attrs
 
-        # Validate and insert all created bookings
+        # Insert all created bookings
         for b in bookings:
             self._db_session.add(b)
         self.commit()
+
+        # Log operations after create
+        self.log('operation', 'create_Booking',
+                 check_min_booking=check_min_booking,
+                 check_max_booking=check_max_booking,
+                 modify_all=modify_all,
+                 repeat_stop=repeat_value,
+                 attrs=self.json_from_dict(attrs))
 
         return bookings
 
@@ -230,7 +240,12 @@ class DataManager:
             if repeater:
                 repeater.move()  # move start, end for repeating bookings
 
-        return self._modify_bookings(attrs, update)
+        result = self._modify_bookings(attrs, update)
+
+        self.log('operation', 'update_Booking',
+                 attrs=self.json_from_dict(attrs))
+
+        return result
 
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,
@@ -250,7 +265,12 @@ class DataManager:
             self.__check_cancellation(b)
             self.delete(b, commit=False)
 
-        return self._modify_bookings(attrs, delete)
+        result = self._modify_bookings(attrs, delete)
+
+        self.log('operation', 'delete_Booking',
+                 attrs=self.json_from_dict(attrs))
+
+        return  result
 
     def get_application_bookings(self, applications,
                                 resource_ids=None, resource_tags=None):
@@ -296,34 +316,37 @@ class DataManager:
         """ Add a new session row. """
         session = self.__create_item(self.Session, **attrs)
         # Let's update the data path after we know the id
-        print("Creating session id=%s" % session.id)
         session.data_path = 'session_%06d.h5' % session.id
         self.commit()
-
-        print("    session-data-path: ", session.data_path)
-        print("    full-path: ", self._session_data_path(session))
-
         # Create empty hdf5 file
         data = H5SessionData(self._session_data_path(session), mode='a')
         data.close()
+
+        self.log("operation", "create_Session",
+                 attrs=self.json_from_object(session))
 
         return session
 
     def update_session(self, **attrs):
         """ Update session attrs. """
-        from pprint import pprint
-        pprint(attrs)
-        attrs['id'] = attrs.pop('id')
-        return self.__update_item(self.Session, **attrs)
+        result = self.__update_item(self.Session, **attrs)
+
+        self.log("operation", "update_Session",
+                 attrs=self.json_from_dict(attrs))
+
+        return result
 
     def delete_session(self, **attrs):
         """ Remove a session row. """
         sessionId = attrs['id']
         session = self.Session.query.get(sessionId)
         data_path = os.path.join(self._sessionsPath, session.data_path)
-        print("Deleting session id=%s" % sessionId)
         self.delete(session)
         os.remove(data_path)
+
+        self.log("operation", "delete_Session",
+                 attrs=self.json_from_dict(attrs))
+
         return session
 
     def load_session(self, sessionId, mode="r"):
@@ -336,18 +359,14 @@ class DataManager:
         session.data = H5SessionData(self._session_data_path(session), mode)
         return session
 
-    # ------------------- Some utility methods --------------------------------
-    def now(self):
-        from tzlocal import get_localzone
-        # get local timezone
-        local_tz = get_localzone()
-        return dt.datetime.now(local_tz)
-
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)
         self._db_session.add(new_item)
         self.commit()
+        self.log('operation', 'create_%s' % ModelClass.__name__,
+                 attrs=self.json_from_dict(attrs))
+
         return new_item
 
     def __items_from_query(self, ModelClass,
@@ -355,7 +374,7 @@ class DataManager:
         query = self._db_session.query(ModelClass)
 
         if condition is not None:
-            query = query.filter(text(condition))
+            query = query.filter(sqlalchemy.text(condition))
 
         if orderBy is not None:
             query = query.order_by(orderBy)
@@ -369,12 +388,12 @@ class DataManager:
 
     def __update_item(self, ModelClass, **kwargs):
         item = self.__item_by(ModelClass, id=kwargs['id'])
-        print("Updating %s" % item)
         for attr, value in kwargs.items():
             if attr != 'id':
                 setattr(item, attr, value)
-                print("   setting: %s = %s" % (attr, value))
         self.commit()
+        self.log('operation', 'update_%s' % ModelClass.__name__,
+                 **self.json_from_dict(kwargs))
 
         return item
 
@@ -424,7 +443,7 @@ class DataManager:
                 raise Exception("The duration of the booking is less that "
                                 "the minimum specified for the resource. ")
 
-        if check_max_booking and r.max_booking > 0:
+        if booking.type == 'booking' and check_max_booking and r.max_booking > 0:
             mm = dt.timedelta(minutes=int(r.max_booking * 60))
             if booking.duration > mm:
                 raise Exception("The duration of the booking is greater that "

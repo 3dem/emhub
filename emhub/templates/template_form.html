@@ -1,0 +1,67 @@
+<!-- ============================================================== -->
+<!-- Template Modal -->
+<!-- ============================================================== -->
+{% set readonly = '' if current_user.is_manager else 'readonly' %}
+{% set disabled = '' if current_user.is_manager else 'disabled' %}
+
+<div class="modal fade" id="template-modal" tabindex="-1" role="dialog" aria-labelledby="templateModal" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="template-modal-title"> TITLE </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+
+            <!-- Template Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="validationform" data-parsley-validate="" novalidate="">
+
+                    <!-- Title Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" {{ readonly }} required="" placeholder="Type something" id="template-title" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <textarea {{ readonly }} required="" class="form-control" id="template-description"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Template Status -->
+                   <div class="form-group row">
+                        <label class="col-sm-3 col-form-label text-sm-right">Template Status</label>
+                        <div class="col-sm-6">
+                            <select {{ disabled }} class="selectpicker show-tick" data-width="auto" id="template-status-select">
+                              <option value="preparation">Preparation</option>
+                              <option value="active">Active</option>
+                              <option value="closed">Closed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <!-- end Template Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="template-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+          {% if current_user.is_manager %}
+            <button type="button" id="template-btn-ok" class="btn btn-outline-dark" onclick="javascript: onTemplateOkButtonClick()">Update</button>
+          {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ============================================================== -->
+<!-- End of Template Modal -->
+<!-- ============================================================== -->
