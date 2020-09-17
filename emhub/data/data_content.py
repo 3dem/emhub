@@ -143,6 +143,7 @@ class DataContent:
         resource_list = [
             {'id': r.id,
              'name': r.name,
+             'status': r.status,
              'tags': r.tags,
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
@@ -226,10 +227,14 @@ class DataContent:
         return dataDict
 
     def get_applications_list(self, **kwargs):
-        if 'content_id' in kwargs:
-            del kwargs['content_id']
+        user = self.app.user
 
-        return {'applications': self.app.dm.get_applications()}
+        if user.is_manager:
+            applications = self.app.dm.get_applications()
+        else:
+            applications = user.get_applications(status='all')
+
+        return {'applications': applications}
 
     def get_application_form(self, **kwargs):
         app = self.app.dm.get_application_by(id=kwargs['application_id'])

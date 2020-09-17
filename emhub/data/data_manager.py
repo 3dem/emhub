@@ -437,6 +437,9 @@ class DataManager(DbManager):
         check_min_booking = kwargs.get('check_min_booking', True)
         check_max_booking = kwargs.get('check_max_booking', True)
 
+        if not self._user.is_manager and not r.is_active:
+            raise Exception("Selected resource is inactive now. ")
+
         if check_min_booking and r.min_booking > 0:
             mm = dt.timedelta(minutes=int(r.min_booking * 60))
             if booking.duration < mm:
@@ -483,13 +486,8 @@ class DataManager(DbManager):
         now = self.now()
         latest = booking.resource.latest_cancellation
 
-        if user.is_manager:
-            if booking.start.date() <= now.date():
-                raise Exception('This booking can not be updated/deleted. \n'
-                                'Even as Manager, it should be done at least '
-                                'one day before. Contact an Administrator if '
-                                'there is any problem with this booking. ')
-        if booking.start - dt.timedelta(hours=latest) < now:
+        if (not self._user.is_manager
+            and booking.start - dt.timedelta(hours=latest) < now):
             raise Exception('This booking can not be updated/deleted. \n'
                             'Should be %d hours in advance. ' % latest)
 
