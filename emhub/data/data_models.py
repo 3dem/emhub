@@ -57,6 +57,12 @@ def create_data_models(dm):
                       unique=True,
                       nullable=False)
 
+        # Possible statuses of a Resource:
+        #   - pending: when then entry is created but not visible
+        #   - active: it has been activated for operation
+        #   - inactive: it has been closed and it becomes inactive
+        status = Column(String(32), default='active')
+
         tags = Column(String(256),
                       nullable=False)
 
@@ -118,6 +124,10 @@ def create_data_models(dm):
         def is_microscope(self):
             return 'microscope' in self.tags
 
+        @property
+        def is_active(self):
+            return self.status == 'active'
+
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
                                    ForeignKey('applications.id')),
@@ -149,6 +159,12 @@ def create_data_models(dm):
                          unique=False,
                          nullable=False,
                          default=utcnow())
+
+        # Possible statuses of a User:
+        #   - pending: when then account is created and pending approval
+        #   - active: user is ready for operation
+        #   - inactive: user is not not longer active
+        status = Column(String(32), default='active')
 
         # Default role should be: 'user'
         # more roles can defined in a json list: ['user', 'admin', 'manager', 'pi']
@@ -239,6 +255,10 @@ def create_data_models(dm):
         def is_application_manager(self):
             return len(self.created_applications) > 0
 
+        @property
+        def is_active(self):
+            return self.status == 'active'
+
         def get_pi(self):
             """ Return the PI of this user. PI are consider PI of themselves.
             """
@@ -261,6 +281,13 @@ def create_data_models(dm):
                 return status == 'all' or a.status == status
 
             return [a for a in applications if _filter(a)]
+
+        def get_lab_members(self, onlyActive=True):
+            """ Return lab members, filtering or not by active status. """
+            if onlyActive:
+                return [u for u in self.lab_members if u.is_active]
+            else:
+                return self.lab_members
 
         def can_book_resource(self, resource):
             """ Return  True if the user can book a given resource without
@@ -580,7 +607,8 @@ def create_data_models(dm):
         resource = relationship("Resource")
 
         # Booking that this Session is related (optional)
-        booking_id = Column(Integer, ForeignKey('bookings.id'))
+        booking_id = Column(Integer, ForeignKey('bookings.id'),
+                            nullable=True)
         booking = relationship("Booking", back_populates="session")
 
         # User that was or is in charge of the session

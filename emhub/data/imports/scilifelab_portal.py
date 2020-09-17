@@ -79,13 +79,15 @@ class PortalData(TestDataBase):
     def __importUsers(self, dm):
         # Create user table
         def ignoreUser(u):
-            if u['status'] == 'disabled' or 'per.kraulis' in u['email']:
+            if 'per.kraulis' in u['email']:
                 return True
             return False
 
         def createUser(u, **kwargs):
             if ignoreUser(u):
                 return
+
+            status = 'inactive' if u['status'] == 'disabled' else 'active'
 
             roles = kwargs.get('roles', ['user'])
             pi = None
@@ -98,10 +100,12 @@ class PortalData(TestDataBase):
                 username=u['email'],
                 email=u['email'],
                 phone='',
-                password=u['email'],
+                password=os.urandom(24).hex(),
                 name="%(first_name)s %(last_name)s" % u,
                 roles=roles,
-                pi_id=pi)
+                pi_id=pi,
+                status=status
+            )
 
             u['emhub_item'] = user
             self._dictUsers[user.email] = user
@@ -132,6 +136,8 @@ class PortalData(TestDataBase):
                 createUser(u)
                 piDict[u['email']] = u
 
+        f = open('users-missing-PI.csv', 'w')
+
         for u in self._jsonUsers:
             if not ignoreUser(u) and not u['pi'] and not u['email'] in staff:
                 piEmail = u['invoice_ref']
@@ -139,7 +145,9 @@ class PortalData(TestDataBase):
                     createUser(u, pi=piDict[piEmail]['emhub_item'].id)
                 else:
                     print("Skipping user (Missing PI): ", u['email'])
-
+                    f.write('"%s", \t"%s", \t"%s"\n'
+                            % (u['name'], u['email'], piEmail))
+        f.close()
 
     def __importApplications(self, dm, jsonData):
         statuses = {'disabled': 'closed',
@@ -172,7 +180,8 @@ class PortalData(TestDataBase):
         def _internalPi(u):
             return (u['pi'] and 'emhub_item' in u and
                     (u['email'].endswith('dbb.su.se')
-                     or u['email'].endswith('scilifelab.se')))
+                     or u['email'].endswith('scilifelab.se')
+                     or u['email'].endswith('mmk.su.se')))
 
         # Insert first PI users, so we store their Ids for other users
         dbbPis = [u['emhub_item'] for u in self._jsonUsers if _internalPi(u)]
@@ -288,10 +297,18 @@ class PortalData(TestDataBase):
             'Carbon Coater': 6
         }
 
+        f = open('users-missing-PORTAL.csv', 'w')
+        missing = set()
+
         for b in bookingsJson:
             name = b['user']['name']
             email = b['user']['email']
             resource = b['resourceName']
+
+            if email not in self._dictUsers:
+                if not email in missing:
+                    missing.add(email)
+                    f.write('"%s", \t"%s"\n' % (name, email))
 
             if email not in self._dictUsers or resource not in resourcesDict:
                 print(b['startDate'], b['endDate'], b['resourceName'],
@@ -321,6 +338,8 @@ class PortalData(TestDataBase):
                     description="")
             except Exception as e:
                 print("Exception when creating Booking: %s. IGNORING..." % e)
+
+        f.close()
 
         # create a repeating event
         dm.create_booking(title='Dropin',

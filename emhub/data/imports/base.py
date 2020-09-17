@@ -201,6 +201,7 @@ class TestDataBase:
                        'min_booking': 8,
                        'max_booking': 72}},
             {'name': 'Solna Krios β', 'tags': 'microscope krios solna',
+             'status': 'inactive',
              'image': 'titan-krios.png', 'color': 'rgba(60, 90, 190, 1.0)',
              'extra': {'latest_cancellation': 48,
                        'requires_slot': True,
