@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.1a5'
+__version__ = '0.0.1a6'
 
 
 def create_app(test_config=None):
@@ -221,6 +221,7 @@ def create_app(test_config=None):
             return flask.render_template(content_template, **kwargs)
 
         return "<h1>Template '%s' not found</h1>" % content_template
+
 
     @app.template_filter('basename')
     def basename(filename):
