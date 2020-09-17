@@ -100,7 +100,7 @@ class PortalData(TestDataBase):
                 username=u['email'],
                 email=u['email'],
                 phone='',
-                password=u['email'],
+                password=os.urandom(24).hex(),
                 name="%(first_name)s %(last_name)s" % u,
                 roles=roles,
                 pi_id=pi,

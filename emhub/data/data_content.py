@@ -93,7 +93,7 @@ class DataContent:
         if user.is_manager:
             dataDict['lab_members'] = [u.json() for u in self._get_facility_staff()]
         else:
-            dataDict['lab_members'] = [u.json() for u in user.get_pi().lab_members]
+            dataDict['lab_members'] = [u.json() for u in user.get_pi().get_lab_members()]
 
         return dataDict
 
@@ -199,7 +199,7 @@ class DataContent:
         labs = []
         for u in piList:
             if u.is_pi:
-                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.lab_members]
+                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
                 labs.append(lab)
 
         if user.is_manager:
@@ -389,9 +389,9 @@ class DataContent:
             return None
 
         condition = 'operator_id == %s' % user.get_id()
-
-        if user.is_pi and len(user.lab_members):
-            membersId = ",".join(u.get_id() for u in user.lab_members)
+        lab_members = user.get_lab_members()
+        if user.is_pi and len(lab_members):
+            membersId = ",".join(u.get_id() for u in lab_members)
             condition = "operator_id IN (%s)" % membersId
 
         return condition

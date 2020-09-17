@@ -255,6 +255,10 @@ def create_data_models(dm):
         def is_application_manager(self):
             return len(self.created_applications) > 0
 
+        @property
+        def is_active(self):
+            return self.status == 'active'
+
         def get_pi(self):
             """ Return the PI of this user. PI are consider PI of themselves.
             """
@@ -277,6 +281,13 @@ def create_data_models(dm):
                 return status == 'all' or a.status == status
 
             return [a for a in applications if _filter(a)]
+
+        def get_lab_members(self, onlyActive=True):
+            """ Return lab members, filtering or not by active status. """
+            if onlyActive:
+                return [u for u in self.lab_members if u.is_active]
+            else:
+                return self.lab_members
 
         def can_book_resource(self, resource):
             """ Return  True if the user can book a given resource without
