@@ -19,3 +19,5 @@ concept
 *data.json
 
 emhub/static/images/user-profile*
+*.csv
+
