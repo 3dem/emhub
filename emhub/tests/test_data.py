@@ -30,6 +30,7 @@ import unittest
 
 from emhub.data import DataManager, ImageSessionData, H5SessionData, DataLog
 from emhub.data.imports.testdata import TestData
+from emhub.utils import datetime_to_isoformat
 
 
 class TestDataManager(unittest.TestCase):
@@ -95,6 +96,19 @@ class TestDataManager(unittest.TestCase):
             # Check applications for lab_members
             for u in members[1:]:
                 self.assertEqual(pRef, u.get_applications())
+
+    def test_bookings(self):
+        # Retrieve all bookings that are either booking or downtime
+        typeCond = "type='booking' OR type='downtime'"
+        bookings = self.dm.get_bookings(condition=typeCond)
+        self.assertEqual(len(bookings), 4)
+
+        # Retrieve all bookings starting before or day 4
+        now = self.dm.now()
+        dateStr = datetime_to_isoformat(now.replace(day=4, hour=0))
+        startCond = "start<='%s' " % dateStr
+        bookings = self.dm.get_bookings(condition=startCond)
+        self.assertEqual(len(bookings), 3)
 
     def test_count_booking_resources(self):
         print("=" * 80, "\nTesting counting booking resources...")

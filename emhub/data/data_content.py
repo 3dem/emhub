@@ -161,7 +161,7 @@ class DataContent:
     def get_booking_calendar(self, **kwargs):
         dm = self.app.dm  # shortcut
         dataDict = self.get_resources_list()
-        dataDict['bookings'] = [self.booking_to_event(b)
+        dataDict['bookings'] = [self._booking_to_event(b)
                                 for b in dm.get_bookings()
                                 if b.resource is not None]
         dataDict['current_user_json'] = flask_login.current_user.json()
@@ -211,7 +211,7 @@ class DataContent:
 
     def get_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
-        return {'bookings': [self.booking_to_event(b) for b in bookings]}
+        return {'bookings': [self._booking_to_event(b) for b in bookings]}
 
     def get_applications(self, **kwargs):
         dataDict = self.get_applications_list()
@@ -281,7 +281,11 @@ class DataContent:
         return  {'logs': logs}
 
     # --------------------- Internal  helper methods ---------------------------
-    def booking_to_event(self, booking):
+    def _booking_to_event(self, booking):
+        return self.booking_to_event(self.app, booking)
+
+    @staticmethod
+    def booking_to_event(app, booking):
         """ Return a dict that can be used as calendar Event object. """
         resource = booking.resource
         # Bookings should have resources, just in case an erroneous one
@@ -295,7 +299,7 @@ class DataContent:
         owner_name = owner.name
         creator = booking.creator
         application = booking.application
-        user = self.app.user
+        user = app.user
         b_title = booking.title
         b_description = booking.description
 

@@ -98,10 +98,11 @@
     var original_range = null;
 
     var resources = {{ resources|tojson }};
-    var bookings = {{ bookings|tojson }} ;
     var current_user_json = {{ current_user_json|tojson }};
     var possible_owners = {{ possible_owners|tojson }};
     var is_devel = {{ is_devel|tojson }};
+
+    var hidden_events = [];
 
 
 (function(window, document, $, undefined) {
@@ -155,7 +156,13 @@
         //     info.draggedEl.parentNode.removeChild(info.draggedEl);
         //   }
         // }
-        events: bookings,
+        //events: bookings,
+        eventSources: [
+            {
+              url: "{{ url_for('api.get_bookings_range') }}",
+              method: 'POST'
+            }
+        ],
         eventReceive: function(info) {
             //info.event.setProp('title', 'Booking of ' + userName)
        },
@@ -184,6 +191,13 @@
         },
         eventDrop: function(info) {
             onBookingSelected(info.event, original_range);
+        },
+
+        viewRender: function (view, element) {
+{#            var lastViewName;#}
+{#            var view = $('#calendar').fullCalendar('getView');#}
+            //var view = calendar.getView();
+            alert('The new title of the view is ' + view.title);
         }
   });
 
@@ -367,24 +381,32 @@ function onBookingSelected(event, original_range) {
     showBookingForm(last_booking);
 }
 
+function hasVisibleResource(visibleResourcesId, event) {
+    for (const rid of visibleResourcesId)
+            if (event.extendedProps.resource.id == rid)
+                return true;
+        return false;
+}
+
 function filterBookingsByResources(sel){
     var visibleResourcesId = getSelectedValues(sel);
+
     // Always show the selected resource
     if (selected_resource)
         visibleResourcesId.push(selected_resource.id);
 
-    visible_bookings = bookings.filter(function (b) {
-        for (const rid of visibleResourcesId)
-            if (b.resource.id == rid)
-                return true;
-        return false;
+    all_events = hidden_events.concat(calendar.getEvents());
+    hidden_events = [];
+
+    calendar.batchRendering(function(){
+        calendar.removeAllEvents();
+        for (e of all_events) {
+            if (hasVisibleResource(visibleResourcesId, e))
+                calendar.addEvent(e);
+            else
+                hidden_events.push(e);
+        }
     });
-
-    calendar.removeAllEvents();
-    for (const b of visible_bookings)
-        calendar.addEvent(b);
-
-    calendar.render();
 }
 
 /** Get the resource object from its id */
@@ -409,21 +431,12 @@ function remove_bookings(deleted) {
     for (var booking of deleted) {
        calendar.getEventById(booking.id).remove();
     }
-
-    // Remove deleted bookings from list
-    bookings = bookings.filter(function (b) {
-        for (var booking of deleted)
-            if (b.id == booking.id)
-                return false;
-        return true;
-    })
 }
 
 /** Add new bookings to the calendar and to the list */
 function add_bookings(added) {
     for (var booking of added) {
         event = calendar.addEvent(booking);
-        bookings.push(booking);
     }
 }
 

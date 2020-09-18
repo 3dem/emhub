@@ -34,6 +34,7 @@ from flask import current_app as app
 import flask_login
 
 from emhub.utils import datetime_from_isoformat, send_json_data, send_error
+from emhub.data import DataContent
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -186,6 +187,22 @@ def create_booking():
 @flask_login.login_required
 def get_bookings():
     return filter_request(app.dm.get_bookings)
+
+
+# Shortcut method to get a range of bookings, used by the Calendar
+@api_bp.route('/get_bookings_range', methods=['POST'])
+@flask_login.login_required
+def get_bookings_range():
+    start = request.form['start']
+    end = request.form['end']
+    # Retrieve all bookings starting before or day 4
+    startBetween = "(start>='%s' AND start<='%s')" % (start, end)
+    endBetween = "(end>='%s' AND end<='%s')" % (start, end)
+    bookings = app.dm.get_bookings(
+        condition='%s OR %s' % (startBetween, endBetween))
+
+    return send_json_data([DataContent.booking_to_event(app, b)
+                           for b in bookings])
 
 
 @api_bp.route('/update_booking', methods=['POST'])
