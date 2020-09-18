@@ -201,8 +201,9 @@ def get_bookings_range():
     bookings = app.dm.get_bookings(
         condition='%s OR %s' % (startBetween, endBetween))
 
-    return send_json_data([DataContent.booking_to_event(app, b)
-                           for b in bookings])
+    func = app.dc.booking_to_event
+
+    return send_json_data([func(b) for b in bookings])
 
 
 @api_bp.route('/update_booking', methods=['POST'])
