@@ -26,6 +26,7 @@
                                 <th>roles
                                 <th>pi_id</th>
                                 <th>applications</th>
+                                <th>extra</th>
                                 <th>actions</th>
                             </tr>
                             </thead>
@@ -41,6 +42,7 @@
                                 <td>{{ user.roles }}</td>
                                 <td>{{ user.pi_id}}</td>
                                 <td>{{ user.project_codes}}</td>
+                                <td>{{ user.extra }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-light" onclick="showUser({{ user.id }})"><i class="far fa-edit"></i></button>
                                 </td>

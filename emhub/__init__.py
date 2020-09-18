@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.1a7'
+__version__ = '0.0.1a8'
 
 
 def create_app(test_config=None):
@@ -170,6 +170,10 @@ def create_app(test_config=None):
                    "sent to your email.")
 
             token = user.get_reset_password_token()
+            print("reset_password_request: token=", user.extra['reset_token'])
+            user.name += " *"
+            app.dm.commit()  # store the user token
+
             def _render(fn):
                 return flask.render_template(fn, user=user, token=token)
 
@@ -189,6 +193,8 @@ def create_app(test_config=None):
             return _redirect('index')
 
         user = app.dm.User.verify_reset_password_token(token)
+        app.dm.commit()  # store the user token
+
         if not user:
             flask.flash("ERROR: Invalid token for resetting password. ")
             return _redirect('main', content_id='user_reset_password')
