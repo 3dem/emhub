@@ -453,7 +453,10 @@ class DataManager(DbManager):
                                 "the maximum allowed for the resource. ")
 
         if not self._user.is_manager and booking.start.date() < self.now().date():
-            raise Exception("The booking start can not be in the past. ")
+            raise Exception("The booking 'start' can not be in the past. ")
+
+        if booking.start >= booking.end:
+            raise Exception("The booking 'end' should be after the 'start'. ")
 
         app_id = booking.application_id
         if app_id is not None:
