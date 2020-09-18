@@ -30,7 +30,7 @@
                             <h5> Display </h5>
                         </div>
                         <div class="col col-auto nopadding">
-                            <select class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to display..."  onchange="filterBookingsByResources(this)">
+                            <select id="selectpicker-resource-display" class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to display..."  onchange="filterBookingsByResources()">
                             {% for r in resources %}#}
                               <option value="{{r['id']}}" class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
                             {% endfor %}
@@ -163,6 +163,42 @@
               method: 'POST'
             }
         ],
+        eventSourceSuccess: function(all_events, xhr) {
+            var sel = document.getElementById("selectpicker-resource-display");
+
+            var visibleResourcesId = getSelectedValues(sel);
+
+            // Always show the selected resource
+            if (selected_resource)
+                visibleResourcesId.push(selected_resource.id);
+
+            hidden_events = [];
+            var visible_events = [];
+            var i;
+            var e;
+
+            calendar.removeAllEvents();
+
+            var all_ids = [];
+            for (i = 0; i < all_events.length; i++) {
+                e = all_events[i];
+                if (all_ids.indexOf(e.id) == -1){
+                    all_ids.push(e.id);
+                    if (hasVisibleResource(visibleResourcesId,
+                                       e.resource.id))
+                        visible_events.push(e);
+                    else {
+                        e.extendedProps = {resource: e.resource};
+                        hidden_events.push(e);
+                    }
+                }
+            }
+
+            console.log("  visible: " + visible_events.length);
+            console.log("   hidden: " + hidden_events.length);
+
+            return visible_events;
+        },
         eventReceive: function(info) {
             //info.event.setProp('title', 'Booking of ' + userName)
        },
@@ -381,30 +417,40 @@ function onBookingSelected(event, original_range) {
     showBookingForm(last_booking);
 }
 
-function hasVisibleResource(visibleResourcesId, event) {
+function hasVisibleResource(visibleResourcesId, erid) {
+    if (visibleResourcesId.length == 0)
+        return true;
+
     for (const rid of visibleResourcesId)
-            if (event.extendedProps.resource.id == rid)
+            if (erid == rid)
                 return true;
         return false;
 }
 
-function filterBookingsByResources(sel){
+function filterBookingsByResources(){
+    var sel = document.getElementById("selectpicker-resource-display");
     var visibleResourcesId = getSelectedValues(sel);
 
     // Always show the selected resource
     if (selected_resource)
         visibleResourcesId.push(selected_resource.id);
 
-    all_events = hidden_events.concat(calendar.getEvents());
+
+    var all_events = hidden_events.concat(calendar.getEvents());
     hidden_events = [];
 
     calendar.batchRendering(function(){
         calendar.removeAllEvents();
+        var all_ids = [];
         for (e of all_events) {
-            if (hasVisibleResource(visibleResourcesId, e))
-                calendar.addEvent(e);
-            else
-                hidden_events.push(e);
+            if (all_ids.indexOf(e.id) == -1) {
+                all_ids.push(e.id);
+                if (hasVisibleResource(visibleResourcesId,
+                        e.extendedProps.resource.id))
+                    calendar.addEvent(e);
+                else
+                    hidden_events.push(e);
+            }
         }
     });
 }
@@ -421,7 +467,7 @@ function getResource(resourceId) {
 function selectResource(sel) {
     let resourceId = getSelectedValues(sel)[0];
     selected_resource = getResource(resourceId);
-    filterBookingsByResources(sel);
+    filterBookingsByResources();
 }
 
 
