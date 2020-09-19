@@ -400,11 +400,9 @@ class PytablesSessionData(SessionData):
         mics_table = self._file.create_table(self._getMicSet(setId), 'mics_tbl',
                                              self.Micrograph, "Mics table")
         mics_table.flush()
-        print("Created setId: ", setId)
 
     def get_items(self, setId, attrList=None, condition=None,
                   itemId=None):
-        print("Requesting items for setId: %s" % setId)
         mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
 
         if attrList is None:
@@ -460,7 +458,6 @@ class PytablesSessionData(SessionData):
 
     def update_item(self, setId, itemId, **attrsDict):
         mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
-        print("Updating item: setId: %s, itemId: %s" % (setId, itemId))
         itemId = int(itemId) - 1  # pytables rows start from 0
         mics_table.modify_columns(itemId, itemId+1,
                                   columns=[[x] for x in attrsDict.values()],
