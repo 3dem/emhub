@@ -5,7 +5,7 @@
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>EMHUB Alpha version (dev)</title>
+    <title>EMhub {{ emhub_title }}</title>
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/circular-std/style.css') }}">
@@ -45,8 +45,10 @@
     {% include 'main_left_sidebar.html' %}
 
     <div class="dashboard-wrapper">
+
         <div class="container-fluid dashboard-content" id="main-content">
         </div>
+
         <!-- footer -->
         <div class="footer">
             <div class="container-fluid">
@@ -56,9 +58,10 @@
                     </div>
                     <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
                         <div class="text-md-right footer-links d-none d-sm-block">
-                            <a href="javascript: void(0);">About</a>
-                            <a href="javascript: void(0);">Support</a>
-                            <a href="javascript: void(0);">Contact Us</a>
+                            Version: {{ version }}
+{#                            <a href="javascript: void(0);">Version: </a>#}
+{#                            <a href="javascript: void(0);">Support</a>#}
+{#                            <a href="javascript: void(0);">Contact Us</a>#}
                         </div>
                     </div>
                 </div>
@@ -126,7 +129,6 @@
      * @param params dictionary with extra parameters to retrieve the content.
      */
     function get_ajax_content(content_id, params) {
-        console.log("requesting content: " + content_id);
 
         if (params == null)
             params = {content_id: content_id};
@@ -163,11 +165,10 @@
 
     $(document).ready(function(){
         $('.nav-link-ajax').each(function(){
-            console.log('data-content-id: ', $(this).data('content-id'));
             $(this).click(load_content_fromlink);
         });
 
-        load_main_content("{{ content_id }}");
+        load_main_content("{{ content_id }}", {{ params|tojson }});
     });
 
     /* Show the User Form */

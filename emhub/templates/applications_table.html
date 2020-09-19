@@ -5,8 +5,10 @@
         <th>code</th>
         <th>status</th>
         <th>created</th>
+        <th>alias</th>
         <th>title</th>
         <th>creator</th>
+        <th>bag</th>
         <th>actions</th>
     </tr>
     </thead>
@@ -17,8 +19,15 @@
             <td><a href="javascript:showApplication({{ a.id }})">{{ a.code }}</a></td>
             <td>{{ a.status }}</td>
             <td>{{ a.created|pretty_datetime }}</td>
+            <td>{{ a.alias }}</td>
             <td>{{ a.title }}</td>
             <td>{{ a.creator.name }}</td>
+            <td>
+                {% set n = a.pi_list|length %}
+                {% if n > 1 %}
+                    <span class="badge badge-pill badge-info">{{ n }}</span>
+                {% endif %}
+            </td>
             <td style="width: 105px;">
                 <button class="btn btn-sm btn-outline-light" onclick="javascript:showApplication({{ a.id }})"><i class="far fa-edit"></i></button>
             </td>

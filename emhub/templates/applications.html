@@ -59,21 +59,27 @@
                     <li class="nav-item">
                         <a class="nav-link active" id="active-tab" data-toggle="tab" href="#active" role="tab" aria-controls="active" aria-selected="true">Active</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="closed-tab" data-toggle="tab" href="#closed" role="tab" aria-controls="closed" aria-selected="false">Closed</a>
+                    </li>
                 </ul>
                 <div class="tab-content" id="applicationTabsContent">
                     <div class="tab-pane fade" id="preparation" role="tabpanel" aria-labelledby="preparation-tab">
                         {% set status = ["preparation"] %}
-                        {%  include "include_applications_table.html" %}
+                        {%  include "applications_table.html" %}
                     </div>
                     <div class="tab-pane fade" id="submitted" role="tabpanel" aria-labelledby="submitted-tab">
                         {% set status = ["review", "accepted", "rejected"] %}
-                        {%  include "include_applications_table.html" %}
+                        {%  include "applications_table.html" %}
                     </div>
                     <div class="tab-pane fade show active" id="active" role="tabpanel" aria-labelledby="active-tab">
                         {% set status = ["active"] %}
-                        {%  include "include_applications_table.html" %}
+                        {%  include "applications_table.html" %}
                     </div>
-
+                    <div class="tab-pane fade" id="closed" role="tabpanel" aria-labelledby="closed-tab">
+                        {% set status = ["closed"] %}
+                        {%  include "applications_table.html" %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -84,6 +90,7 @@
 
     </div>  <!-- row -->
 
+    {% if current_user.is_manager %}
     <div>
         <!-- ============================================================== -->
         <!-- Template Tabs  -->
@@ -125,7 +132,7 @@
         <!-- end - Template Tabs  -->
         <!-- ============================================================== -->
     </div>
-
+    {% endif %}
 
 
 </div>
@@ -133,62 +140,7 @@
 <!-- ============================================================== -->
 <!-- Template Modal -->
 <!-- ============================================================== -->
-<div class="modal fade" id="template-modal" tabindex="-1" role="dialog" aria-labelledby="templateModal" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title" id="template-modal-title"> TITLE </h3>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="row">
-
-            <!-- Template Form -->
-            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                <form id="validationform" data-parsley-validate="" novalidate="">
-
-                    <!-- Title Row -->
-                    <div class="form-group row">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
-                        <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Type something" id="template-title" class="form-control">
-                        </div>
-                    </div>
-
-                    <div class="form-group row">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
-                        <div class="col-12 col-sm-8 col-lg-6">
-                            <textarea required="" class="form-control" id="template-description"></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Template Status -->
-                   <div class="form-group row">
-                        <label class="col-sm-3 col-form-label text-sm-right">Template Status</label>
-                        <div class="col-sm-6">
-                            <select class="selectpicker show-tick" data-width="auto" id="template-status-select">
-                              <option value="preparation">Preparation</option>
-                              <option value="active">Active</option>
-                              <option value="closed">Closed</option>
-                            </select>
-                        </div>
-                    </div>
-
-                </form>
-            </div>
-            <!-- end Template Form -->
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" id="template-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
-        <button type="button" id="template-btn-ok" class="btn btn-outline-dark" onclick="javascript: onTemplateOkButtonClick()">Update</button>
-      </div>
-    </div>
-  </div>
-</div>
+{% include 'template_form.html' %}
 <!-- ============================================================== -->
 <!-- End of Template Modal -->
 <!-- ============================================================== -->
@@ -199,10 +151,6 @@
 <!-- ============================================================== -->
 <div class="modal fade" id="application-modal" tabindex="-1" role="dialog" aria-labelledby="applicationModal" aria-hidden="true">
 </div>
-
-<!-- ============================================================== -->
-<!-- End of Application Modal -->
-<!-- ============================================================== -->
 
 
 <script>

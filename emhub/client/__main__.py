@@ -1,9 +1,9 @@
 
 import sys
 import json
-from .session_client import SessionClient
+from .data_client import DataClient
 
-sc = SessionClient()
+sc = DataClient()
 
 method = sys.argv[1]
 jsonData = json.loads(sys.argv[2])

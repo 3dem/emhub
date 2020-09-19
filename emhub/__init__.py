@@ -29,20 +29,23 @@
 import os
 from glob import glob
 
-import flask
-import flask_login
 
-from . import utils
-from .blueprints import api_bp, images_bp
-from .utils import datetime_to_isoformat, pretty_datetime, send_json_data
-from .data.data_content import DataContent
-
-
-here = os.path.abspath(os.path.dirname(__file__))
-templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
+__version__ = '0.0.1a7'
 
 
 def create_app(test_config=None):
+    import flask
+    import flask_login
+
+    from . import utils
+    from .blueprints import api_bp, images_bp
+    from .utils import datetime_to_isoformat, pretty_datetime, send_json_data
+    from .utils.mail import MailManager
+    from .data.data_content import DataContent
+
+    here = os.path.abspath(os.path.dirname(__file__))
+    templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
+
     # create and configure the app
     emhub_instance_path = os.environ.get('EMHUB_INSTANCE', None)
 
@@ -54,7 +57,7 @@ def create_app(test_config=None):
     app.register_blueprint(images_bp, url_prefix='/images')
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-    app.config.from_mapping(SECRET_KEY='dev')
+    app.config['SECRET_KEY'] = 'dev'
 
     app.config["IMAGES"] = os.path.join(app.instance_path, 'images')
     app.config["USER_IMAGES"] = os.path.join(app.config["IMAGES"], 'user')
@@ -73,31 +76,46 @@ def create_app(test_config=None):
     os.makedirs(app.config['SESSIONS'], exist_ok=True)
 
     # Define some content_id list that does not requires login
-    NO_LOGIN_CONTENT = ['users_list']
+    NO_LOGIN_CONTENT = ['users_list',
+                        'user_reset_password']
 
     @app.route('/main', methods=['GET', 'POST'])
     def main():
         if flask.request.method == 'GET':
-            content_id = flask.request.args.get('content_id', 'empty')
+            params = flask.request.args.to_dict()
+            #content_id = flask.request.args.get('content_id', 'empty')
         else:
-            content_id = flask.request.form['content_id']
+            params = flask.request.form.to_dict()
+            #content_id = flask.request.form['content_id']
 
-        if not app.user.is_authenticated:
-            kwargs = {'content_id': 'user_login', 'next_content': content_id}
+        content_id = params.pop('content_id', 'empty')
+        kwargs = {'content_id': content_id,
+                  'params': params
+                  }
+
+        if app.user.is_authenticated:
+            if content_id == 'user_login':  # Redirects to Dashboard by default
+                kwargs['content_id'] = 'dashboard'
+            app.user.image = app.dc.user_profile_image(app.user)
         else:
-            if content_id == 'user_login':
-                content_id = 'dashboard'
-            kwargs = {'content_id': content_id}
+            if content_id not in NO_LOGIN_CONTENT:
+                kwargs = {'content_id': 'user_login',
+                          'next_content': content_id,
+                          'params': {}}
 
         kwargs['is_devel'] = app.is_devel
-        app.user.image = app.dc.user_profile_image(app.user)
+        kwargs['version'] = __version__
+        kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
 
         return flask.render_template('main.html', **kwargs)
+
+    def _redirect(endpoint, **kwargs):
+        return flask.redirect(flask.url_for(endpoint, **kwargs))
 
     @app.route('/', methods=['GET', 'POST'])
     @app.route('/index', methods=['GET', 'POST'])
     def index():
-        return flask.redirect(flask.url_for('main', content_id='dashboard'))
+        return _redirect('main', content_id='dashboard')
 
     @app.route('/login', methods=['GET'])
     def login():
@@ -105,8 +123,7 @@ def create_app(test_config=None):
         and also when login credentials are submitted (POST).
         """
         next_content = flask.request.args.get('next_content', 'empty')
-        return flask.redirect(flask.url_for('main',
-                                            content_id=next_content))
+        return _redirect('main', content_id=next_content)
 
     @app.route('/do_login', methods=['POST'])
     def do_login():
@@ -118,25 +135,78 @@ def create_app(test_config=None):
         user = app.dm.get_user_by(username=username)
         if user is None or not user.check_password(password):
             flask.flash('Invalid username or password')
-            return flask.redirect(flask.url_for('login'))
+            return _redirect('login')
 
         flask_login.login_user(user)
 
         if next_content == 'user_login':
             next_content = 'dashboard'
-        return flask.redirect(flask.url_for('main', content_id=next_content))
+        return _redirect('main', content_id=next_content)
 
     @app.route('/logout', methods=['GET', 'POST'])
     def do_logout():
         flask_login.logout_user()
-        return flask.redirect(flask.url_for('index'))
+        return _redirect('index')
 
-    @app.route('/get_content', methods=['POST'])
+    @app.route('/reset_password', methods=['GET'])
+    def reset_password():
+        """ This view will called when the user lands in the login page (GET)
+        and also when login credentials are submitted (POST).
+        """
+        return _redirect('main', content_id='user_reset_password')
+
+    @app.route('/reset_password_request', methods=['POST'])
+    def reset_password_request():
+        """ This view will called as POST from the user login page. """
+        email = flask.request.form['user-email']
+        user = app.dm.get_user_by(email=email)
+
+        if not email:
+            msg = "ERROR: email can not be empty."
+        elif user is None:
+            msg = "ERROR: this email does not seen registered with any user."
+        else:
+            msg = ("Instructions about how to reset your password has been "
+                   "sent to your email.")
+
+            token = user.get_reset_password_token()
+            def _render(fn):
+                return flask.render_template(fn, user=user, token=token)
+
+            app.mm.send_mail(
+                [email],
+                "emhub: CryoEM Reset your Password",
+                _render('email/reset_password.txt'),
+                html_body=_render('email/reset_password.html'))
+
+        flask.flash(msg)
+        return _redirect('reset_password')
+
+    @app.route('/do_reset_password/<token>', methods=['GET', 'POST'])
+    def do_reset_password(token):
+        """ This view will called as POST from the user login page. """
+        if app.user.is_authenticated:
+            return _redirect('index')
+
+        user = app.dm.User.verify_reset_password_token(token)
+        if not user:
+            flask.flash("ERROR: Invalid token for resetting password. ")
+            return _redirect('main', content_id='user_reset_password')
+
+        flask_login.login_user(user)
+
+        return _redirect('main', content_id='user_form', user_id=user.id)
+
+    @app.route('/get_content', methods=['GET', 'POST'])
     def get_content():
-        content_kwargs = flask.request.form.to_dict()
-        print("get_content params: ")
-        for k, v in content_kwargs.items():
-            print("  %s = %s" % (k, v))
+        if flask.request.method == 'GET':
+            content_kwargs = flask.request.args.to_dict()
+        else:
+            content_kwargs = flask.request.form.to_dict()
+
+        # print("get_content params: ")
+        # for k, v in content_kwargs.items():
+        #     print("  %s = %s" % (k, v))
         content_id = content_kwargs['content_id']
 
         if content_id in NO_LOGIN_CONTENT or app.user.is_authenticated:
@@ -153,9 +223,14 @@ def create_app(test_config=None):
 
         return "<h1>Template '%s' not found</h1>" % content_template
 
+
     @app.template_filter('basename')
     def basename(filename):
         return os.path.basename(filename)
+
+    @app.template_filter('id_from_label')
+    def id_from_label(label):
+        return label.replace(' ', '_')
 
     app.jinja_env.filters['reverse'] = basename
     app.jinja_env.filters['pretty_datetime'] = pretty_datetime
@@ -167,8 +242,10 @@ def create_app(test_config=None):
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
 
     login_manager = flask_login.LoginManager()
-    login_manager.login_view = 'login'
+    #login_manager.login_view = 'login'
     login_manager.init_app(app)
+
+    app.mm = MailManager(app)
 
     @login_manager.user_loader
     def load_user(user_id):

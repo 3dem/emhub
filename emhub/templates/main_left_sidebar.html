@@ -50,15 +50,8 @@
                                 <a class="nav-link nav-link-ajax" data-content-id="resources_list" href=""><i class="fas fa-boxes"></i>Resources</a>
                             </li>
 
-                        </ul>
-                        {% endif %}
 
-                        {% if is_devel and current_user.is_admin %}
-                        <li class="nav-divider">
-                            << DEVELOPMENT >>
-                        </li>
-
-                        <ul class="nav flex-column submenu">
+                        {% if current_user.is_admin %}
                             <li class="nav-item">
                                 <a class="nav-link nav-link-ajax" data-content-id="booking_list" href=""><i class="fas fa-list-alt"></i>Booking List</a>
                             </li>
@@ -68,47 +61,15 @@
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="user_login" href="">Login</a>
+                                <a class="nav-link nav-link-ajax" data-content-id="forms_list" href=""><i class="fas fa-boxes"></i>Forms List</a>
                             </li>
 
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="empty" href="">Empty page</a>
+                             <li class="nav-item">
+                                <a class="nav-link nav-link-ajax" data-content-id="logs" href=""><i class="fas fa-list-alt"></i>Logs</a>
                             </li>
-
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="forms_validation" href="">Forms Validation</a>
-                            </li>
-
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="dashboard_finance" href="">Finance</a>
-                            </li>
+                        {% endif %}
 
                         </ul>
-
-                        {#Charts Examples#}
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-3" aria-controls="submenu-3"><i class="fas fa-fw fa-chart-pie"></i>Chart</a>
-                            <div id="submenu-3" class="collapse submenu" style="">
-                                <ul class="nav flex-column">
-                                    <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart_c3" href="">C3 Charts</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart_chartist" href="">Chartist Charts</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart_charts" href="">Chart</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart_morris" href="">Morris</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link nav-link-ajax" data-content-id="chart_sparkline" href="">Sparkline</a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </li>
-
                         {% endif %}
 
                     </ul>

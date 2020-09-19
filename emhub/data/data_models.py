@@ -27,33 +27,22 @@
 # **************************************************************************
 
 import datetime as dt
-import decimal
-import datetime
+import jwt
 
 from sqlalchemy import (Column, Integer, String, JSON, Boolean, Float,
                         ForeignKey, Text, Table)
 from sqlalchemy.orm import relationship
 from sqlalchemy_utc import UtcDateTime, utcnow
 from flask_login import UserMixin
+from flask import current_app as app
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
-def create_data_models(dm, Base):
-    """ Define the Data Models that will be use by the Data Manager. """
+def create_data_models(dm):
+    """ Define the Data Models that will be use by the DataManager. """
 
-    def _json(obj):
-        """ Return row info as json dict. """
+    Base = dm.Base
 
-        def jsonattr(k):
-            v = getattr(obj, k)
-            if isinstance(v, datetime.date):
-                return v.isoformat()
-            elif isinstance(v, decimal.Decimal):
-                return float(v)
-            else:
-                return v
-
-        return {c.key: jsonattr(c.key) for c in obj.__table__.c}
 
     class Resource(Base):
         """ Representation of different type of Resources.
@@ -68,6 +57,12 @@ def create_data_models(dm, Base):
                       unique=True,
                       nullable=False)
 
+        # Possible statuses of a Resource:
+        #   - pending: when then entry is created but not visible
+        #   - active: it has been activated for operation
+        #   - inactive: it has been closed and it becomes inactive
+        status = Column(String(32), default='active')
+
         tags = Column(String(256),
                       nullable=False)
 
@@ -77,21 +72,61 @@ def create_data_models(dm, Base):
         color = Column(String(16),
                        nullable=False)
 
-        # Booking authorization, who can book within this slot
-        requires_slot = Column(Boolean, default=False)
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
+        def json(self):
+            return dm.json_from_object(self)
+
+        @property
+        def requires_slot(self):
+            """ If True, users will need to have access to an slot
+            or have some exceptions via the Application.
+            """
+            return  self.extra.get('requires_slot', False)
+
+        @requires_slot.setter
+        def requires_slot(self, value):
+            self.extra['requires_slot'] = bool(value)
 
         # Latest number of hours that a booking can be canceled
         # for this resource (e.g until 48h for a booking on Krios)
         # If 0, means that the booking can be cancelled at any time
-        latest_cancellation = Column(Integer, default=0)
+        @property
+        def latest_cancellation(self):
+            return  self.extra.get('latest_cancellation', 0)
+
+        @latest_cancellation.setter
+        def latest_cancellation(self, value):
+            self.extra['latest_cancellation'] = int(value)
+
+        # Minimum and maximum amount of hours for a booking in this resource
+        # fractions of an hour can also  be used
+        @property
+        def min_booking(self):
+            return self.extra.get('min_booking', 0)
+
+        @min_booking.setter
+        def min_booking(self, value):
+            self.extra['min_booking'] = int(value)
 
         # Minimum amount of hours for a booking in this resource
         # fractions of an hour can also  be used
-        min_booking = Column(Float, default=0)
+        @property
+        def max_booking(self):
+            return self.extra.get('max_booking', 0)
+
+        @max_booking.setter
+        def max_booking(self, value):
+            self.extra['max_booking'] = int(value)
 
         @property
         def is_microscope(self):
             return 'microscope' in self.tags
+
+        @property
+        def is_active(self):
+            return self.status == 'active'
 
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
@@ -124,6 +159,12 @@ def create_data_models(dm, Base):
                          unique=False,
                          nullable=False,
                          default=utcnow())
+
+        # Possible statuses of a User:
+        #   - pending: when then account is created and pending approval
+        #   - active: user is ready for operation
+        #   - inactive: user is not not longer active
+        status = Column(String(32), default='active')
 
         # Default role should be: 'user'
         # more roles can defined in a json list: ['user', 'admin', 'manager', 'pi']
@@ -158,6 +199,9 @@ def create_data_models(dm, Base):
                                     secondary=ApplicationUser,
                                     back_populates="users")
 
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
         @staticmethod
         def create_password_hash(password):
             return generate_password_hash(password, method='sha256')
@@ -170,11 +214,26 @@ def create_data_models(dm, Base):
             """Check hashed password."""
             return check_password_hash(self.password_hash, password)
 
+        def get_reset_password_token(self, expires_in=600):
+            return jwt.encode(
+                {'reset_password': self.id,
+                 'exp': dm.now() + dt.timedelta(seconds=expires_in)},
+                app.config['SECRET_KEY'], algorithm='HS256').decode('utf-8')
+
+        @staticmethod
+        def verify_reset_password_token(token):
+            try:
+                user_id = jwt.decode(token, app.config['SECRET_KEY'],
+                                algorithms=['HS256'])['reset_password']
+            except:
+                return None
+            return User.query.get(user_id)
+
         def __repr__(self):
             return '<User {}>'.format(self.username)
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         @property
         def is_developer(self):
@@ -195,6 +254,10 @@ def create_data_models(dm, Base):
         @property
         def is_application_manager(self):
             return len(self.created_applications) > 0
+
+        @property
+        def is_active(self):
+            return self.status == 'active'
 
         def get_pi(self):
             """ Return the PI of this user. PI are consider PI of themselves.
@@ -218,6 +281,13 @@ def create_data_models(dm, Base):
                 return status == 'all' or a.status == status
 
             return [a for a in applications if _filter(a)]
+
+        def get_lab_members(self, onlyActive=True):
+            """ Return lab members, filtering or not by active status. """
+            if onlyActive:
+                return [u for u in self.lab_members if u.is_active]
+            else:
+                return self.lab_members
 
         def can_book_resource(self, resource):
             """ Return  True if the user can book a given resource without
@@ -262,8 +332,11 @@ def create_data_models(dm, Base):
 
         applications = relationship("Application", back_populates='template')
 
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
     class Application(Base):
         """
@@ -332,11 +405,14 @@ def create_data_models(dm, Base):
         template = relationship("Template", foreign_keys=[template_id],
                                 back_populates="applications")
 
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
         def __repr__(self):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         @property
         def is_active(self):
@@ -425,6 +501,12 @@ def create_data_models(dm, Base):
 
         session = relationship("Session", back_populates="booking")
 
+        # Experiment description
+        experiment = Column(JSON, nullable=True)
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
         @property
         def duration(self):
             return self.end - self.start
@@ -447,7 +529,7 @@ def create_data_models(dm, Base):
                        _timestr(self.start), _timestr(self.end)))
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
         def allows_user_in_slot(self, user):
             """ Return True if a given user is allowed to book in this Slot.
@@ -463,6 +545,7 @@ def create_data_models(dm, Base):
 
             return (user.id in allowedUsers or
                     any(a.code in allowedApps for a in user.get_applications()))
+
 
     class Session(Base):
         """Model for sessions."""
@@ -524,13 +607,17 @@ def create_data_models(dm, Base):
         resource = relationship("Resource")
 
         # Booking that this Session is related (optional)
-        booking_id = Column(Integer, ForeignKey('bookings.id'))
+        booking_id = Column(Integer, ForeignKey('bookings.id'),
+                            nullable=True)
         booking = relationship("Booking", back_populates="session")
 
         # User that was or is in charge of the session
         # It might be one of the facility staff or an independent user
         operator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
         operator = relationship("User", back_populates="sessions")
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
 
         class Cost:
             def __init__(self, id, date, comment, amount):
@@ -548,8 +635,28 @@ def create_data_models(dm, Base):
             return '<Session {}>'.format(self.name)
 
         def json(self):
-            return _json(self)
+            return dm.json_from_object(self)
 
+
+    class Form(Base):
+        """ Class to store Forms definitions. """
+        __tablename__ = 'forms'
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        name = Column(String(256),
+                      unique=True,
+                      nullable=False)
+
+        # Form sections and params definition
+        definition = Column(JSON, default={})
+
+        def json(self):
+            return dm.json_from_object(self)
+
+
+    dm.Form = Form
     dm.User = User
     dm.Resource = Resource
     dm.Template = Template

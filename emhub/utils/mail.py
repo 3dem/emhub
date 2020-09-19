@@ -1,10 +1,8 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
-# * [2] MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -26,4 +24,23 @@
 # *
 # **************************************************************************
 
-from .data_client import DataClient
+import threading
+import flask_mail
+
+
+class MailManager:
+    """ Helper class to send emails via Flask app. """
+    def __init__(self, app):
+        self._app = app
+        self._mail = flask_mail.Mail(app)
+
+    def __send_async(self, msg):
+        with self._app.app_context():
+            self._mail.send(msg)
+
+    def send_mail(self, recipients, subject, body, sender=None, html_body=None):
+        sender = sender or self._app.config['MAIL_DEFAULT_SENDER']
+        msg = flask_mail.Message(subject, sender=sender, recipients=recipients)
+        msg.body = body
+        msg.html = html_body
+        threading.Thread(target=self.__send_async, args=(msg,)).start()

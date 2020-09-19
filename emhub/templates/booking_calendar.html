@@ -65,6 +65,8 @@
 <!-- Modal with  Booking Form -->
 {% include 'booking_form.html' %}
 
+
+
 <!-- Modal Message -->
 <div class="modal" id="message-modal" tabindex="-1" role="dialog" aria-labelledby="messageModal" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
@@ -96,10 +98,11 @@
     var original_range = null;
 
     var resources = {{ resources|tojson }};
-    var bookings = {{ bookings|tojson }} ;
     var current_user_json = {{ current_user_json|tojson }};
     var possible_owners = {{ possible_owners|tojson }};
     var is_devel = {{ is_devel|tojson }};
+
+    var hidden_events = [];
 
 
 (function(window, document, $, undefined) {
@@ -153,7 +156,13 @@
         //     info.draggedEl.parentNode.removeChild(info.draggedEl);
         //   }
         // }
-        events: bookings,
+        //events: bookings,
+        eventSources: [
+            {
+              url: "{{ url_for('api.get_bookings_range') }}",
+              method: 'POST'
+            }
+        ],
         eventReceive: function(info) {
             //info.event.setProp('title', 'Booking of ' + userName)
        },
@@ -182,6 +191,13 @@
         },
         eventDrop: function(info) {
             onBookingSelected(info.event, original_range);
+        },
+
+        viewRender: function (view, element) {
+{#            var lastViewName;#}
+{#            var view = $('#calendar').fullCalendar('getView');#}
+            //var view = calendar.getView();
+            alert('The new title of the view is ' + view.title);
         }
   });
 
@@ -208,7 +224,6 @@
 function validateBooking(booking, useTime) {
     var inside_slot = false;
     let events = calendar.getEvents();
-    printObject(booking.resource, "resource");
 
     for (const e of events) {
         let props = e.extendedProps;
@@ -287,6 +302,11 @@ function showBookingForm(booking) {
         $('#booking-owner-text').prop('readonly', true);
     }
 
+    if  (booking.type == 'booking' && booking.resource.is_microscope)
+        $('#div-describe-experiment').show();
+    else
+        $('#div-describe-experiment').hide();
+
     $('#booking-start-date').val(dateStr(booking.start));
     $('#booking-start-time').val(timeStr(booking.start));
     $('#booking-end-date').val(dateStr(booking.end));
@@ -355,29 +375,38 @@ function onBookingSelected(event, original_range) {
         owner: props.owner,
         slot_auth: props.slot_auth,
         user_can_modify: props.user_can_modify,
-        original_range: original_range
+        original_range: original_range,
+        experiment: props.experiment
     };
     showBookingForm(last_booking);
 }
 
+function hasVisibleResource(visibleResourcesId, event) {
+    for (const rid of visibleResourcesId)
+            if (event.extendedProps.resource.id == rid)
+                return true;
+        return false;
+}
+
 function filterBookingsByResources(sel){
     var visibleResourcesId = getSelectedValues(sel);
+
     // Always show the selected resource
     if (selected_resource)
         visibleResourcesId.push(selected_resource.id);
 
-    visible_bookings = bookings.filter(function (b) {
-        for (const rid of visibleResourcesId)
-            if (b.resource.id == rid)
-                return true;
-        return false;
+    all_events = hidden_events.concat(calendar.getEvents());
+    hidden_events = [];
+
+    calendar.batchRendering(function(){
+        calendar.removeAllEvents();
+        for (e of all_events) {
+            if (hasVisibleResource(visibleResourcesId, e))
+                calendar.addEvent(e);
+            else
+                hidden_events.push(e);
+        }
     });
-
-    calendar.removeAllEvents();
-    for (const b of visible_bookings)
-        calendar.addEvent(b);
-
-    calendar.render();
 }
 
 /** Get the resource object from its id */
@@ -402,21 +431,12 @@ function remove_bookings(deleted) {
     for (var booking of deleted) {
        calendar.getEventById(booking.id).remove();
     }
-
-    // Remove deleted bookings from list
-    bookings = bookings.filter(function (b) {
-        for (var booking of deleted)
-            if (b.id == booking.id)
-                return false;
-        return true;
-    })
 }
 
 /** Add new bookings to the calendar and to the list */
 function add_bookings(added) {
     for (var booking of added) {
         event = calendar.addEvent(booking);
-        bookings.push(booking);
     }
 }
 
@@ -483,7 +503,8 @@ function onOkButtonClick() {
         resource_id: last_booking.resource.id,
         modify_all: modify_all,
         repeat_value: repeat_value,
-        resource: getResource(last_booking.resource.id)
+        resource: getResource(last_booking.resource.id),
+        experiment: last_booking.experiment
     };
 
     if (booking_type == 'slot') {
@@ -573,5 +594,28 @@ function onCancelButtonClick() {
         calendar.render();
     }
 }
+
+function showExperimentForm() {
+    var params = {form_id: 2};
+    if (last_booking.experiment)
+        params.form_values = JSON.stringify(last_booking.experiment);
+
+    ajaxContent = get_ajax_content("dynamic_form", params);
+
+    ajaxContent.done(function(html) {
+        $("#experiment-modal").html(html);
+        $("#dynamic-btn-ok" ).click(function() {
+            last_booking.experiment = getFormAsJson('dynamic-form');
+            $('#experiment-modal').modal('hide');
+        });
+        // Show the form after setting html content
+        $('#experiment-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+
+}  // function showExperimentForm
 
 </script>

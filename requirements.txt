@@ -3,6 +3,8 @@ pillow
 h5py
 sqlalchemy
 flask-login
+flask-mail
+pyjwt
 tzlocal
 pytz
 SQLAlchemy-Utc

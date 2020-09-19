@@ -30,14 +30,15 @@ import json
 import unittest
 import random
 
-from emhub.client import SessionClient
+from emhub.client import DataClient
 
 
 class TestClientApi(unittest.TestCase):
     def test_create_user(self):
         """ Create a user and check the result. """
         username = "queen%d" % random.randint(1, 1000)
-        sc = SessionClient()
+        sc = DataClient()
+        sc.login('mull', 'mull')
         method = "create_user"
         jsonData = {"attrs":{"username":"%s" % username,
                              "email":"%s@emhub.org" % username,
@@ -57,10 +58,13 @@ class TestClientApi(unittest.TestCase):
 
         self.assertEqual(result_id, check, msg="Creating test user failed!")
 
+        sc.logout()
+
     def test_create_session(self):
         """ Create a session and check the result. """
         name = "mysession_%d" % random.randint(1, 1000)
-        sc = SessionClient()
+        sc = DataClient()
+        sc.login('mull', 'mull')
         method = "create_session"
         jsonData = {"attrs": {"name":"%s" % name,
                               "resource_id":"2",
@@ -76,3 +80,5 @@ class TestClientApi(unittest.TestCase):
         check = json.loads(sc.json())[0]['id']
 
         self.assertEqual(result_id, check, msg="Creating test session failed!")
+
+        sc.logout()

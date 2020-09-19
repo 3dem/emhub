@@ -31,20 +31,46 @@ import os
 import flask
 from flask import request
 from flask import current_app as app
+import flask_login
 
 from emhub.utils import datetime_from_isoformat, send_json_data, send_error
+from emhub.data import DataContent
 
 
 api_bp = flask.Blueprint('api', __name__)
 
+# ---------------------------- AUTH  ------------------------------------------
+@api_bp.route('/login', methods=['POST'])
+def login():
+    username = flask.request.json['username']
+    password = flask.request.json['password']
+
+    user = app.dm.get_user_by(username=username)
+    if user is None or not user.check_password(password):
+        send_error('Invalid username or password')
+
+    flask_login.login_user(user)
+
+    return send_json_data('OK')
+
+
+@api_bp.route('/logout', methods=['POST'])
+@flask_login.login_required
+def logout():
+    flask_login.logout_user()
+
+    return send_json_data('OK')
+
 
 # ---------------------------- USERS ------------------------------------------
 @api_bp.route('/create_user', methods=['POST'])
+@flask_login.login_required
 def create_user():
     return create_item('user')
 
 
 @api_bp.route('/update_user', methods=['POST'])
+@flask_login.login_required
 def update_user():
     try:
         f = request.form
@@ -82,59 +108,112 @@ def update_user():
 
 
 @api_bp.route('/get_users', methods=['POST'])
+@flask_login.login_required
 def get_users():
     return filter_request(app.dm.get_users)
 
 
 # ---------------------------- APPLICATIONS -----------------------------------
 @api_bp.route('/create_template', methods=['POST'])
+@flask_login.login_required
 def create_template():
     return handle_template(app.dm.create_template)
 
 
 @api_bp.route('/get_templates', methods=['POST'])
+@flask_login.login_required
 def get_templates():
-    return send_error('Not implemented')
+    return filter_request(app.dm.get_applications)
 
 
 @api_bp.route('/update_template', methods=['POST'])
+@flask_login.login_required
 def update_template():
     return handle_template(app.dm.update_template)
 
 
 @api_bp.route('/delete_template', methods=['POST'])
+@flask_login.login_required
 def delete_template():
     return handle_template(app.dm.delete_template)
 
 
 @api_bp.route('/create_application', methods=['POST'])
+@flask_login.login_required
 def create_application():
     return send_error('create_application NOT IMPLEMENTED')
 
 
 @api_bp.route('/get_applications', methods=['POST'])
+@flask_login.login_required
 def get_applications():
-    pass
+    return filter_request(app.dm.get_applications)
 
 
 @api_bp.route('/update_application', methods=['POST'])
+@flask_login.login_required
 def update_application():
     return handle_application(app.dm.update_application)
 
 
+# ---------------------------- RESOURCES ---------------------------------------
+@api_bp.route('/get_resources', methods=['POST'])
+@flask_login.login_required
+def get_resources():
+    return filter_request(app.dm.get_resources)
+
+
+@api_bp.route('/update_resource', methods=['POST'])
+@flask_login.login_required
+def update_resource():
+    return handle_resource(app.dm.update_resource)
+
 # ---------------------------- BOOKINGS ---------------------------------------
 
 @api_bp.route('/create_booking', methods=['POST'])
+@flask_login.login_required
 def create_booking():
-    return handle_booking('bookings_created', app.dm.create_booking)
+    def create(**attrs):
+        check_min = request.json.get('check_min_booking')
+        check_max = request.json.get('check_max_booking')
+        return app.dm.create_booking(check_min_booking=check_min,
+                                     check_max_booking=check_max,
+                                     **attrs)
+
+    return handle_booking('bookings_created', create)
+
+
+@api_bp.route('/get_bookings', methods=['POST'])
+@flask_login.login_required
+def get_bookings():
+    return filter_request(app.dm.get_bookings)
+
+
+# Shortcut method to get a range of bookings, used by the Calendar
+@api_bp.route('/get_bookings_range', methods=['POST'])
+@flask_login.login_required
+def get_bookings_range():
+    start = request.form['start']
+    end = request.form['end']
+    # Retrieve all bookings starting before or day 4
+    startBetween = "(start>='%s' AND start<='%s')" % (start, end)
+    endBetween = "(end>='%s' AND end<='%s')" % (start, end)
+    bookings = app.dm.get_bookings(
+        condition='%s OR %s' % (startBetween, endBetween))
+
+    func = app.dc.booking_to_event
+
+    return send_json_data([func(b) for b in bookings])
 
 
 @api_bp.route('/update_booking', methods=['POST'])
+@flask_login.login_required
 def update_booking():
     return handle_booking('bookings_updated', app.dm.update_booking)
 
 
 @api_bp.route('/delete_booking', methods=['POST'])
+@flask_login.login_required
 def delete_booking():
     # When deleting we don't need to send all info back, just ID
     def _transform(b):
@@ -147,31 +226,37 @@ def delete_booking():
 # ---------------------------- SESSIONS ---------------------------------------
 
 @api_bp.route('/get_sessions', methods=['POST'])
+@flask_login.login_required
 def get_sessions():
     return filter_request(app.dm.get_sessions)
 
 
 @api_bp.route('/create_session', methods=['POST'])
+@flask_login.login_required
 def create_session():
     return create_item('session')
 
 
 @api_bp.route('/update_session', methods=['POST'])
+@flask_login.login_required
 def update_session():
     return handle_session(app.dm.update_session)
 
 
 @api_bp.route('/delete_session', methods=['POST'])
+@flask_login.login_required
 def delete_session():
     return handle_session(app.dm.delete_session)
 
 
 @api_bp.route('/load_session', methods=['POST'])
+@flask_login.login_required
 def load_session():
     return handle_session(app.dm.load_session)
 
 
 @api_bp.route('/create_session_set', methods=['POST'])
+@flask_login.login_required
 def create_session_set():
     """ Create a set file without actual session. """
     def handle(session, set_id, **attrs):
@@ -183,6 +268,7 @@ def create_session_set():
 
 
 @api_bp.route('/add_session_item', methods=['POST'])
+@flask_login.login_required
 def add_session_item():
     """ Add a new item. """
     def handle(session, set_id, **attrs):
@@ -195,6 +281,7 @@ def add_session_item():
 
 
 @api_bp.route('/update_session_item', methods=['POST'])
+@flask_login.login_required
 def update_session_item():
     """ Update existing item. """
     def handle(session, set_id, **attrs):
@@ -269,6 +356,13 @@ def handle_application(application_func):
         return application_func(**attrs).json()
 
     return _handle_item(handle, 'application')
+
+
+def handle_resource(resource_func):
+    def handle(**attrs):
+        return resource_func(**attrs).json()
+
+    return _handle_item(handle, 'resource')
 
 
 def handle_session(session_func):

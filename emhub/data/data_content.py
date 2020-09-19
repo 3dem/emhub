@@ -27,6 +27,7 @@
 # **************************************************************************
 
 import datetime as dt
+import json
 
 import flask
 import flask_login
@@ -67,7 +68,7 @@ class DataContent:
         next7 = now + dt.timedelta(days=7)
         next30 = now + dt.timedelta(days=30)
 
-        for b in self.app.dm.get_bookings():
+        for b in self.app.dm.get_bookings(orderBy='start'):
             if not user.is_manager and not user.same_pi(b.owner):
                 continue
             bDict = {'owner': b.owner.name,
@@ -92,7 +93,7 @@ class DataContent:
         if user.is_manager:
             dataDict['lab_members'] = [u.json() for u in self._get_facility_staff()]
         else:
-            dataDict['lab_members'] = [u.json() for u in user.get_pi().lab_members]
+            dataDict['lab_members'] = [u.json() for u in user.get_pi().get_lab_members()]
 
         return dataDict
 
@@ -142,6 +143,7 @@ class DataContent:
         resource_list = [
             {'id': r.id,
              'name': r.name,
+             'status': r.status,
              'tags': r.tags,
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
@@ -149,7 +151,8 @@ class DataContent:
              'image': flask.url_for('images.static', filename=r.image),
              'user_can_book': self.app.user.can_book_resource(r),
              'microscope': 'microscope' in r.tags,
-             'min_booking': r.min_booking
+             'min_booking': r.min_booking,
+             'max_booking': r.max_booking
              }
             for r in self.app.dm.get_resources()
         ]
@@ -196,7 +199,7 @@ class DataContent:
         labs = []
         for u in piList:
             if u.is_pi:
-                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.lab_members]
+                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
                 labs.append(lab)
 
         if user.is_manager:
@@ -224,10 +227,14 @@ class DataContent:
         return dataDict
 
     def get_applications_list(self, **kwargs):
-        if 'content_id' in kwargs:
-            del kwargs['content_id']
+        user = self.app.user
 
-        return {'applications': self.app.dm.get_applications()}
+        if user.is_manager:
+            applications = self.app.dm.get_applications()
+        else:
+            applications = user.get_applications(status='all')
+
+        return {'applications': applications}
 
     def get_application_form(self, **kwargs):
         app = self.app.dm.get_application_by(id=kwargs['application_id'])
@@ -238,6 +245,41 @@ class DataContent:
         return {'application': app,
                 'microscopes': mics}
 
+    def get_dynamic_form(self, **kwargs):
+        form_id = int(kwargs.get('form_id', 1))
+        form_values_str = kwargs.get('form_values', None) or '{}'
+        form_values = json.loads(form_values_str)
+
+        form = self.app.dm.get_form_by(id=form_id)
+
+        if form is None:
+            raise Exception("Invalid form id: %s" % form_id)
+
+        definition = form.definition
+
+        def set_value(p):
+            if 'id' not in p:
+                return
+            p['value'] = form_values.get(p['id'], p.get('default', ''))
+
+        if 'params' in definition:
+            for p in definition['params']:
+                set_value(p)
+        else:
+            for section in definition['sections']:
+                for p in section['params']:
+                    set_value(p)
+
+        return {'form': form}
+
+    def get_forms_list(self, **kwargs):
+        return  {'forms': self.app.dm.get_forms()}
+
+    def get_logs(self, **kwargs):
+        logs = self.app.dm.get_logs()
+        logs.sort(key=lambda o: o.id, reverse=True)
+        return  {'logs': logs}
+
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
@@ -246,7 +288,9 @@ class DataContent:
         if resource is None:
             resource_info = {'id': None, 'name': ''}
         else:
-            resource_info = {'id': resource.id, 'name': resource.name}
+            resource_info = {'id': resource.id, 'name': resource.name,
+                             'is_microscope': resource.is_microscope
+                             }
         owner = booking.owner
         owner_name = owner.name
         creator = booking.creator
@@ -310,7 +354,8 @@ class DataContent:
             'slot_auth': booking.slot_auth,
             'repeat_id': booking.repeat_id,
             'repeat_value': booking.repeat_value,
-            'days': booking.days
+            'days': booking.days,
+            'experiment': booking.experiment
         }
 
     def user_profile_image(self, user):
@@ -344,9 +389,9 @@ class DataContent:
             return None
 
         condition = 'operator_id == %s' % user.get_id()
-
-        if user.is_pi and len(user.lab_members):
-            membersId = ",".join(u.get_id() for u in user.lab_members)
+        lab_members = user.get_lab_members()
+        if user.is_pi and len(lab_members):
+            membersId = ",".join(u.get_id() for u in lab_members)
             condition = "operator_id IN (%s)" % membersId
 
         return condition

@@ -16,6 +16,8 @@ build/
 .idea/*
 
 concept
-data.json
+*data.json
 
 emhub/static/images/user-profile*
+*.csv
+

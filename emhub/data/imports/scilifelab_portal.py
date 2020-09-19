@@ -28,9 +28,10 @@ import os
 import json
 
 from emhub.utils import datetime_from_isoformat
+from  .base import TestDataBase
 
 
-class PortalData:
+class PortalData(TestDataBase):
     """ Class to import data (users, templates, applications) from the
      Application Portal at SciLifeLab.
     """
@@ -45,9 +46,13 @@ class PortalData:
                 * forms (Templates here)
                 * orders (Applications here)
         """
+        dm.create_admin()
         self.__importData(dm, dataJsonPath, bookingsJsonPath)
 
     def __importData(self, dm, dataJsonPath, bookingsJsonPath):
+        print("Populating forms...")
+        self._populateForms(dm)
+
         # Create tables with test data for each database model
         print("Importing users...")
 
@@ -58,7 +63,7 @@ class PortalData:
             self.__importUsers(dm)
 
         print("Populating resources...")
-        self.__populateResources(dm)
+        self._populateResources(dm)
 
         print("Importing applications...")
         self.__importApplications(dm, jsonData)
@@ -67,13 +72,23 @@ class PortalData:
             bookingsData = json.load(bookingsFile)
 
             # print("Populating sessions...")
-            # self.__populateSessions(dm)
+            # self._populateSessions(dm)
             print("Populating bookings")
             self.__importBookings(dm, bookingsData)
 
     def __importUsers(self, dm):
         # Create user table
+        def ignoreUser(u):
+            if 'per.kraulis' in u['email']:
+                return True
+            return False
+
         def createUser(u, **kwargs):
+            if ignoreUser(u):
+                return
+
+            status = 'inactive' if u['status'] == 'disabled' else 'active'
+
             roles = kwargs.get('roles', ['user'])
             pi = None
             if u['pi']:
@@ -85,10 +100,12 @@ class PortalData:
                 username=u['email'],
                 email=u['email'],
                 phone='',
-                password=u['email'],
+                password=os.urandom(24).hex(),
                 name="%(first_name)s %(last_name)s" % u,
                 roles=roles,
-                pi_id=pi)
+                pi_id=pi,
+                status=status
+            )
 
             u['emhub_item'] = user
             self._dictUsers[user.email] = user
@@ -96,11 +113,15 @@ class PortalData:
         staff = {
             'marta.carroni@scilifelab.se': ['manager', 'head'],
             'julian.conrad@scilifelab.se': ['manager'],
-            'karin.walden@scilifelab.se': ['manager'],
+            'karin.wallden@scilifelab.se': ['manager'],
             'mathieu.coincon@scilifelab.se': ['manager'],
             'dustin.morado@scilifelab.se': ['admin', 'manager'],
             'stefan.fleischmann@scilifelab.se': ['admin'],
             'delarosatrevin@scilifelab.se': ['admin'],
+            # Umeå staff
+            'michael.hall@umu.se': ['manager'],
+            'camilla.holmlund@umu.se': ['manager'],
+            'hussein.haggag@umu.se': ['admin']
         }
 
         #  Create first facility staff
@@ -115,44 +136,18 @@ class PortalData:
                 createUser(u)
                 piDict[u['email']] = u
 
+        f = open('users-missing-PI.csv', 'w')
+
         for u in self._jsonUsers:
-            if not u['pi'] and not u['email'] in staff:
+            if not ignoreUser(u) and not u['pi'] and not u['email'] in staff:
                 piEmail = u['invoice_ref']
                 if piEmail in piDict:
                     createUser(u, pi=piDict[piEmail]['emhub_item'].id)
                 else:
                     print("Skipping user (Missing PI): ", u['email'])
-
-    def __populateResources(self, dm):
-        resources = [
-            {'name': 'Krios 1', 'tags': 'microscope krios',
-             'latest_cancellation': 48,
-             'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
-             'requires_slot': True,
-             'min_booking': 8},
-            {'name': 'Krios 2', 'tags': 'microscope krios',
-             'latest_cancellation': 48,
-             'image': 'titan-krios.png', 'color': 'rgba(33, 60, 148, 1.0)',
-             'requires_slot': True,
-             'min_booking': 8},
-            {'name': 'Talos', 'tags': 'microscope talos',
-             'latest_cancellation': 48,
-             'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
-             'requires_slot': True,
-             'min_booking': 8},
-            {'name': 'Vitrobot 1', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
-            {'name': 'Vitrobot 2', 'tags': 'instrument',
-             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
-            {'name': 'Carbon Coater', 'tags': 'instrument',
-             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
-            {'name': 'Users Drop-in', 'tags': 'service',
-             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
-             'requires_slot': True}
-        ]
-
-        for rDict in resources:
-            dm.create_resource(**rDict)
+                    f.write('"%s", \t"%s", \t"%s"\n'
+                            % (u['name'], u['email'], piEmail))
+        f.close()
 
     def __importApplications(self, dm, jsonData):
         statuses = {'disabled': 'closed',
@@ -172,9 +167,9 @@ class PortalData:
         formsDict = {}
 
         internalTemplate = dm.create_template(
-            title='Template for internal application at DBB',
-            description='Special template for intenal applciation',
-            status='active')
+            title='Template for internal applications (DBB or FAC)',
+            description='Special template for internal applications',
+            status='closed')
 
         for f in jsonData['forms'].values():
             f['emhub_item'] = createTemplate(f)
@@ -185,7 +180,8 @@ class PortalData:
         def _internalPi(u):
             return (u['pi'] and 'emhub_item' in u and
                     (u['email'].endswith('dbb.su.se')
-                     or u['email'].endswith('scilifelab.se')))
+                     or u['email'].endswith('scilifelab.se')
+                     or u['email'].endswith('mmk.su.se')))
 
         # Insert first PI users, so we store their Ids for other users
         dbbPis = [u['emhub_item'] for u in self._jsonUsers if _internalPi(u)]
@@ -210,6 +206,27 @@ class PortalData:
         for pi in dbbPis:
             internalApp.users.append(pi)
 
+        import_date = now.replace(year=2018, month=6, day=1)
+
+        def _alias(email):
+            """ Try to guess the Application alias from PI email. """
+            if email.endswith('kth.se'):
+                return 'KTH Bag'
+            if email.endswith('ki.se'):
+                return 'KI Bag'
+            if email.endswith('uu.se'):
+                return 'Uppsala Bag'
+            if email.endswith('umu.se'):
+                return 'Umeå Bag'
+            if email.endswith('gu.se'):
+                return 'Gotherborg Bag'
+            if email.endswith('.fi'):
+                return 'Finland Bag'
+            if email.endswith('.no'):
+                return 'Norway Bag'
+
+            return ''
+
         for o in jsonData['orders']:
             piEmail = o['owner']['email']
             orderId = o['identifier']
@@ -226,8 +243,12 @@ class PortalData:
             # created = dt.datetime.strptime(o['created'], '%Y-%m-%d')
             created = datetime_from_isoformat(o['created'])
 
+            # Skip too old applications
+            if import_date > created:
+                continue
+
             if status == 'accepted' or status == 'enabled':
-                if created.year == now.year or created.year == now.year - 1:
+                if created.year == now.year:
                     status = 'active'
                 else:
                     status = 'closed'
@@ -239,11 +260,14 @@ class PortalData:
             invoiceRef = fields.get('project_invoice_addess', None)
 
             try:
+                pi_list = fields.get('pi_list', [])
+                alias = _alias(pi.email) if pi_list else ''
+
                 app = dm.create_application(
                     code=orderId,
                     title=o['title'],
                     created=created,  # datetime_from_isoformat(o['created']),
-                    alias=status,
+                    alias=alias,
                     status=status,
                     description=description,
                     creator_id=pi.id,
@@ -251,13 +275,12 @@ class PortalData:
                     invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
                 )
 
-                for piTuple in fields.get('pi_list', []):
+                for piTuple in pi_list:
                     piEmail = piTuple[1]
                     pi = self._dictUsers.get(piEmail, None)
                     if pi is not None:
                         app.users.append(pi)
 
-                        #  TODO: Add other PIs
             except Exception as e:
                 print("Exception when creating Application: %s. IGNORING..." % e)
 
@@ -274,10 +297,18 @@ class PortalData:
             'Carbon Coater': 6
         }
 
+        f = open('users-missing-PORTAL.csv', 'w')
+        missing = set()
+
         for b in bookingsJson:
             name = b['user']['name']
             email = b['user']['email']
             resource = b['resourceName']
+
+            if email not in self._dictUsers:
+                if not email in missing:
+                    missing.add(email)
+                    f.write('"%s", \t"%s"\n' % (name, email))
 
             if email not in self._dictUsers or resource not in resourcesDict:
                 print(b['startDate'], b['endDate'], b['resourceName'],
@@ -294,16 +325,21 @@ class PortalData:
             user = self._dictUsers[email]
 
             try:
-                dm.create_booking(title=b['title'],
-                                  start=datetime_from_isoformat(b['startDate']),
-                                  end=datetime_from_isoformat(b['endDate']),
-                                  type=type,
-                                  resource_id=resourcesDict[resource],
-                                  creator_id=user.id,  # first user for now
-                                  owner_id=user.id,  # first user for now
-                                  description="")
+                dm.create_booking(
+                    check_min_booking=False,
+                    check_max_booking=False,
+                    title=b['title'],
+                    start=datetime_from_isoformat(b['startDate']),
+                    end=datetime_from_isoformat(b['endDate']),
+                    type=type,
+                    resource_id=resourcesDict[resource],
+                    creator_id=user.id,  # first user for now
+                    owner_id=user.id,  # first user for now
+                    description="")
             except Exception as e:
                 print("Exception when creating Booking: %s. IGNORING..." % e)
+
+        f.close()
 
         # create a repeating event
         dm.create_booking(title='Dropin',
@@ -317,7 +353,7 @@ class PortalData:
                           owner_id=1,  # first user for now
                           description="Recurrent bi-weekly DROPIN slot. ")
 
-    def __populateSessions(self, dm):
+    def _populateSessions(self, dm):
         users = [1, 2, 2]
         session_names = ['supervisor_23423452_20201223_123445',
                          'epu-mysession_20122310_234542',

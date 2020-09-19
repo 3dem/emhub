@@ -1,6 +1,9 @@
 <!-- ============================================================== -->
 <!-- Application Modal Content -->
 <!-- ============================================================== -->
+{% set readonly = '' if current_user.is_manager else 'readonly' %}
+{% set disabled = '' if current_user.is_manager else 'disabled' %}
+
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
@@ -25,7 +28,7 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Alias</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Enter Alias" id="application-alias" class="form-control" value="{{ application.alias }}">
+                            <input type="text" {{ readonly }} required="" placeholder="Enter Alias" id="application-alias" class="form-control" value="{{ application.alias }}">
                         </div>
                     </div>
 
@@ -33,7 +36,7 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Enter Title" id="application-title" class="form-control" value="{{ application.title }}">
+                            <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="application-title" class="form-control" value="{{ application.title }}">
                         </div>
                     </div>
 
@@ -41,7 +44,7 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <textarea required="" class="form-control" id="application-description">{{ application.description }}</textarea>
+                            <textarea {{ readonly }} required="" class="form-control" id="application-description">{{ application.description }}</textarea>
                         </div>
                     </div>
 
@@ -51,9 +54,9 @@
                         <div class="col-12 col-sm-8 col-lg-6">
                             <div class="row" style="padding-left: 0; margin-left: 0; align-items: center">
                                 <label class="col-1" style="padding-left: 0;  margin-left: 0">Krios</label>
-                                <input type="text" required="" id="quota-krios" class="form-control col-3" value="{{ application.resource_allocation['quota']['krios'] }}">
+                                <input {{ readonly }} type="text" required="" id="quota-krios" class="form-control col-3" value="{{ application.resource_allocation['quota']['krios'] }}">
                             <label class="col-1" style="margin-right: 15px;">Talos</label>
-                                <input type="text" required="" id="quota-talos" class="form-control col-3" value="{{ application.resource_allocation['quota']['talos'] }}">
+                                <input {{ readonly }} type="text" required="" id="quota-talos" class="form-control col-3" value="{{ application.resource_allocation['quota']['talos'] }}">
                             </div>
                         </div>
                     </div>
@@ -65,7 +68,7 @@
                                 {% for m in microscopes %}
                                     {% set checked = 'checked' if m['noslot'] else '' %}
                                     <label class="custom-control custom-checkbox col-2">
-                                    <input type="checkbox" {{ checked }} class="custom-control-input noslot" value="{{ m['id'] }}"><span class="custom-control-label">{{ m['name'] }}</span>
+                                    <input type="checkbox" {{ disabled }} {{ checked }} class="custom-control-input noslot" value="{{ m['id'] }}"><span class="custom-control-label">{{ m['name'] }}</span>
                                     </label>
                                 {% endfor %}
                             </div>
