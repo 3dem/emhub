@@ -26,6 +26,7 @@
 # *
 # **************************************************************************
 
+import os
 import datetime as dt
 import json
 
@@ -279,6 +280,18 @@ class DataContent:
         logs = self.app.dm.get_logs()
         logs.sort(key=lambda o: o.id, reverse=True)
         return  {'logs': logs}
+
+    def get_pages(self, **kwargs):
+        page_id = kwargs['page_id']
+        page_path = os.path.join(self.app.config['PAGES'], '%s.md' % page_id)
+
+        # with open(page_path) as f:
+        #     page = f.read()
+
+        return {
+            'page_id': page_id,
+            'page': 'pages/%s.md' % page_id
+        }
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):

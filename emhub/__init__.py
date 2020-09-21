@@ -38,7 +38,7 @@ def create_app(test_config=None):
     import flask_login
 
     from . import utils
-    from .blueprints import api_bp, images_bp
+    from .blueprints import api_bp, images_bp, pages_bp
     from .utils import datetime_to_isoformat, pretty_datetime, send_json_data
     from .utils.mail import MailManager
     from .data.data_content import DataContent
@@ -55,6 +55,7 @@ def create_app(test_config=None):
 
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(images_bp, url_prefix='/images')
+    app.register_blueprint(pages_bp, url_prefix='/pages')
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config['SECRET_KEY'] = 'dev'
@@ -63,6 +64,7 @@ def create_app(test_config=None):
     app.config["USER_IMAGES"] = os.path.join(app.config["IMAGES"], 'user')
     app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
     app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
+    app.config["PAGES"] = os.path.join(app.instance_path, 'pages')
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -74,10 +76,12 @@ def create_app(test_config=None):
     # ensure the instance folder exists
     os.makedirs(app.config['USER_IMAGES'], exist_ok=True)
     os.makedirs(app.config['SESSIONS'], exist_ok=True)
+    os.makedirs(app.config['PAGES'], exist_ok=True)
 
     # Define some content_id list that does not requires login
     NO_LOGIN_CONTENT = ['users_list',
-                        'user_reset_password']
+                        'user_reset_password',
+                        'pages']
 
     @app.route('/main', methods=['GET', 'POST'])
     def main():
@@ -252,6 +256,9 @@ def create_app(test_config=None):
     login_manager.init_app(app)
 
     app.mm = MailManager(app)
+
+    from flaskext.markdown import Markdown
+    Markdown(app)
 
     @login_manager.user_loader
     def load_user(user_id):
