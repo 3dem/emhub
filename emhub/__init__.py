@@ -174,8 +174,6 @@ def create_app(test_config=None):
                    "sent to your email.")
 
             token = user.get_reset_password_token()
-            print("reset_password_request: token=", user.extra['reset_token'])
-            user.name += " *"
             app.dm.commit()  # store the user token
 
             def _render(fn):
@@ -214,9 +212,6 @@ def create_app(test_config=None):
         else:
             content_kwargs = flask.request.form.to_dict()
 
-        # print("get_content params: ")
-        # for k, v in content_kwargs.items():
-        #     print("  %s = %s" % (k, v))
         content_id = content_kwargs['content_id']
 
         if content_id in NO_LOGIN_CONTENT or app.user.is_authenticated:
