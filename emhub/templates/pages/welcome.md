@@ -4,7 +4,7 @@
 As part of the computational infrastructure of the SciLifeLab Cryo-EM National Facility,
 we are developing a new platform (EMHub) that provides the following functionality:
  
-1. Manage all instrument bookings, both for internal and external users
+1. Manage instrument bookings
 2. Monitor data collection and pre-processing (future versions)
 3. Live reports of used sessions and costs per labs/applications (future versions)
 
@@ -17,7 +17,7 @@ First step would be to **REGISTER** in the Application portal:
 
 <https://cryoem.scilifelab.se/>
 
-Group PIs should also be registered before any member of its lab can do it.
+PIs must also register before any of their lab members can do so.
  
 ### 1.2 Reset password in EMHub 
 
@@ -42,11 +42,11 @@ information in your profile, such as you photo or phone.
 
 ## 2. Create Bookings
 
-One of the main use of the EMHub is to booking instruments for sample preparation, data collection and 
+One of the main use of the EMHub is booking instruments for sample preparation, data collection and
 image processing support. 
 
 ### 2.1 Booking Calendar
-After an user is logged in, it is possible to go the **Booking Calendar** (e.g October 2020 below):
+Once logged in, it is possible to go the **Booking Calendar** (e.g October 2020 below):
  
 <img width="100%" src="https://github.com/delarosatrevin/scipion-session/wiki/images/booking_calendar.png">
 
@@ -61,20 +61,18 @@ the **Talos**.
 ### 2.3 Booking Slots
 
 To create a booking, the user should have authorization. One way is to create the booking in a 
-predefined **SLOT** that has granted access to an application that the user (or its PI) is involved.
-In the previous example for the Talos, all national users (all applications with CEM code) are able
-to book during the weeks of October 5-10 and 19-24. 
-Internal users will not be able to book during these weeks, but can book in available free days 
-(e.g Tuesday September 29 or October 14 or 17).
+predefined **SLOT** that has granted access to an application that the user (or its PI) is involved with.
+In the previous example for the Talos, users within CEM code applications are able
+to book during the weeks of October 5-10 and 19-24.
 
-One can select one or several days (recommended max 2 days) and optional set a title and description. 
+One can select one or several days (recommended max 2 days), and optional a title and a description.
 
 <img width="100%" src="https://github.com/delarosatrevin/scipion-session/wiki/images/booking_form.png">
 
 ### 2.4 Describe Experiment
 
-It is important to describe your desired experiment before you data collection session starts.
-Experiments parameters can be set via the attached form to your booking as shown below:
+It is important to describe your desired experiment before your session starts.
+Experiment parameters can be set via the attached form to your booking as shown below:
 
 <img width="75%" src="https://github.com/delarosatrevin/scipion-session/wiki/images/booking_experiment.png">
 
@@ -89,8 +87,8 @@ It is also possible to create recurring events.
 Now with the new EMhub  platform, it is possible to make the  booking for the drop-in service
 in the same system.  You need to select **Drop-in**  as another resource.
 
-For booking the Drop-in, it is easier to change the calendar to the **Week view** and then select
-a one hour slot. The  Drop-in SLOT is a bi-weekly event, from 9:00  to 16:00 with a lunch break.
+For booking the Drop-in, it is easier to change the calendar to the Week view and then select a one-hour slot.
+The  Drop-in SLOT is a bi-weekly event, from 9:00  to 16:00 with a lunch break.
 
 <img width="100%" src="https://github.com/delarosatrevin/scipion-session/wiki/images/book_dropin.png">
 

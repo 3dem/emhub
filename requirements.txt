@@ -4,6 +4,7 @@ h5py
 sqlalchemy
 flask-login
 flask-mail
+Flask-Markdown
 pyjwt
 tzlocal
 pytz
