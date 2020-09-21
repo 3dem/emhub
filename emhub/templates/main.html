@@ -164,10 +164,6 @@
     }
 
     $(document).ready(function(){
-        $('.nav-link-ajax').each(function(){
-            $(this).click(load_content_fromlink);
-        });
-
         load_main_content("{{ content_id }}", {{ params|tojson }});
     });
 
