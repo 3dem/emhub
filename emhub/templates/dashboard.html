@@ -95,7 +95,8 @@
 {#                                        {%  endif %}#}
                                     </div>
                                     <div class="col-2">
-                                         <a href="javascript: load_calendar('{{r['id']}}');"> <i class="fas fa-calendar-alt"></i>   </a>
+                                         <a href="{{ url_for('main', content_id='booking_calendar', resource_id=r['id']) }}">
+                                             <i class="fas fa-calendar-alt"></i>   </a>
                                     </div>
                                 </div>
                             </div>

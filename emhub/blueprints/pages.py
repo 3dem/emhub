@@ -26,6 +26,31 @@
 # *
 # **************************************************************************
 
-from .api import api_bp
-from .images import images_bp
-from .pages import pages_bp
+import os
+
+import flask
+from flask import request
+from flask import current_app as app
+
+
+pages_bp = flask.Blueprint('pages', __name__)
+
+
+@pages_bp.route("/", methods=['GET', 'POST'])
+def index():
+    if flask.request.method == 'GET':
+        kwargs = flask.request.args.to_dict()
+    else:
+        kwargs = flask.request.form.to_dict()
+
+    page_id = kwargs['page_id']
+
+    params = {
+        'page_id': page_id,
+    }
+
+    return flask.render_template('main.html',
+                                 content_id='pages',
+                                 params=params)
+
+

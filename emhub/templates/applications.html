@@ -260,7 +260,7 @@ function handleAjaxDone(jsonResponse) {
         showMessage('ERROR', error);
     else {
         $('#template-modal').on('hidden.bs.modal', function () {
-            var params = {template_selected_status: template.status}
+            var params = {template_selected_status: template.status};
             load_main_content("applications", params);
         });
         $('#template-modal').modal('hide');
@@ -304,7 +304,6 @@ function onTemplateOkButtonClick() {
 /** Helper functions to handle Application AJAX response or failure */
 function handleApplicationAjaxDone(jsonResponse) {
     var error = null;
-    console.log("type: ", typeof(jsonResponse));
 
     if ('application' in jsonResponse) {
     }

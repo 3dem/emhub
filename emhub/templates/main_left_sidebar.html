@@ -15,24 +15,39 @@
 
                         <ul class="nav flex-column submenu">
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="dashboard" href=""><i class="fas fa-tachometer-alt"></i>Dashboard</a>
+                                <a class="nav-link" href="{{ url_for('main', content_id='dashboard') }}">
+                                    <i class="fas fa-tachometer-alt"></i>Dashboard</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="booking_calendar" href=""><i class="fas fa-calendar-alt"></i>Booking Calendar</a>
+                                <a class="nav-link" href="{{ url_for('main', content_id='booking_calendar') }}">
+                                    <i class="fas fa-calendar-alt"></i>Booking Calendar</a>
                             </li>
 
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="sessions_overview" href=""><i class="fas fa-fw fa-chart-pie"></i>Sessions</a>
-                            </li>
+{#                            <li class="nav-item">#}
+{#                                <a class="nav-link nav-link-ajax" data-content-id="sessions_overview" href=""><i class="fas fa-fw fa-chart-pie"></i>Sessions</a>#}
+{#                            </li>#}
+{##}
+{#                            <li class="nav-item">#}
+{#                                <a class="nav-link nav-link-ajax" data-content-id="reports" href=""><i class="fas fa-clipboard-list"></i>Reports</a>#}
+{#                            </li>#}
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="reports" href=""><i class="fas fa-clipboard-list"></i>Reports</a>
+                                <a class="nav-link" href="{{ url_for('main', content_id='applications') }}">
+                                    <i class="fas fa-rocket"></i>Applications</a>
                             </li>
 
-                            <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="applications" href=""><i class="fas fa-rocket"></i>Applications</a>
-                            </li>
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-pages" aria-controls="submenu-pages">
+                                <i class="fas fa-f fa-folder"></i>Pages</a>
+
+                            <div id="submenu-pages" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='welcome') }}">Welcome</a>
+                                    </li>
+                                </ul>
+                            </div>
+
                         </ul>
 
                         {% if current_user.is_manager %}
@@ -43,29 +58,37 @@
                         <ul class="nav flex-column submenu">
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="users_list" href=""><i class="fas fa-users"></i>Users</a>
+                                <a class="nav-link" href="{{ url_for('main', content_id='users_list') }}">
+                                    <i class="fas fa-users"></i>Users</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="resources_list" href=""><i class="fas fa-boxes"></i>Resources</a>
+                                <a class="nav-link" href="{{ url_for('main', content_id='resources_list') }}">
+                                    <i class="fas fa-boxes"></i>Resources</a>
                             </li>
+
+
 
 
                         {% if current_user.is_admin %}
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="booking_list" href=""><i class="fas fa-list-alt"></i>Booking List</a>
+                                <a class="nav-link" href="{{ url_for('main', content_id='booking_list') }}">
+                                    <i class="fas fa-list-alt"></i>Booking List</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="applications_list" href=""><i class="fas fa-boxes"></i>Applications List</a>
+                                <a class="nav-link" href="{{ url_for('main', content_id='applications_list') }}">
+                                    <i class="fas fa-boxes"></i>Applications List</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="forms_list" href=""><i class="fas fa-boxes"></i>Forms List</a>
+                                <a class="nav-link" href="{{ url_for('main', content_id='forms_list') }}">
+                                    <i class="fas fa-boxes"></i>Forms List</a>
                             </li>
 
                              <li class="nav-item">
-                                <a class="nav-link nav-link-ajax" data-content-id="logs" href=""><i class="fas fa-list-alt"></i>Logs</a>
+                                 <a class="nav-link" href="{{ url_for('main', content_id='logs') }}">
+                                    <i class="fas fa-list-alt"></i>Logs</a>
                             </li>
                         {% endif %}
 
