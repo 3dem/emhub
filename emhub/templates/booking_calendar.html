@@ -308,6 +308,7 @@ function showBookingForm(booking) {
     var titlePrefix = null;
     if (booking.id == null) {  // New booking
         titlePrefix = 'Create ';
+        booking.user_can_modify = true;
         $('#booking-btn-ok').show();
         $('#booking-btn-delete').hide();
     }
@@ -338,7 +339,9 @@ function showBookingForm(booking) {
         $('#booking-owner-text').prop('readonly', true);
     }
 
-    if  (booking.type == 'booking' && booking.resource.is_microscope)
+    if  (booking.type == 'booking' &&
+         booking.resource.is_microscope &&
+         booking.user_can_modify)
         $('#div-describe-experiment').show();
     else
         $('#div-describe-experiment').hide();

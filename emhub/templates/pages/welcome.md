@@ -1,7 +1,7 @@
 
-# Welcome to the new EMHub platform
+# Welcome to the CryoEM-Sweden EMHub platform
 
-As part of the computational infrastructure of the SciLifeLab Cryo-EM Facility, 
+As part of the computational infrastructure of the SciLifeLab Cryo-EM National Facility,
 we are developing a new platform (EMHub) that provides the following functionality:
  
 1. Manage all instrument bookings, both for internal and external users
@@ -58,7 +58,7 @@ the **Talos**.
 
 <img width="100%" src="https://github.com/delarosatrevin/scipion-session/wiki/images/book_resource.png">
 
-#### 2.1 Booking Slots
+### 2.3 Booking Slots
 
 To create a booking, the user should have authorization. One way is to create the booking in a 
 predefined **SLOT** that has granted access to an application that the user (or its PI) is involved.
@@ -71,25 +71,27 @@ One can select one or several days (recommended max 2 days) and optional set a t
 
 <img width="100%" src="https://github.com/delarosatrevin/scipion-session/wiki/images/booking_form.png">
 
-### Falcon 3
+### 2.4 Describe Experiment
 
-If you are using the Falcon 3, first you need to select the folder name in EPU for storing the images. We recommend to follow the convention of project code + '_epu' (e.g, dbb00072_epu, sll00069_epu, etc). Then the raw data can be found in `/mnt/krios-falcon3` (or `/mnt/talos-falcon3`). You can use the command `copy-falcon3-data` (using `rsync` internally) to copy the data to your project folder as in the example shown below (change to your own data folder):
+It is important to describe your desired experiment before you data collection session starts.
+Experiments parameters can be set via the attached form to your booking as shown below:
 
-```
-$ copy-falcon3-data /mnt/talos-falcon3/dbb00073_20180126_EPU
-```
+<img width="75%" src="https://github.com/delarosatrevin/scipion-session/wiki/images/booking_experiment.png">
 
-The following lines are the output from the command (no need to be executed by the user)
+### 2.4 Admin options
 
-```Output folder: /data/staging/dbb/dbb00073/f3_frames```
+If you are part of the facility stuff, there are some extra options in the **Admin** tab, that
+are not visible for other users. In this section one can create DOWNTIME, SLOTS or normal bookings.
+It is also possible to create recurring events.
 
-```rsync -avuP /mnt/talos-falcon3/dbb00073_20180126_EPU/ /data/staging/dbb/dbb00073/f3_frames/```
+### 2.5 Image Processing Drop-In (Stockholm)
 
-```rsync -avuP /mnt/talos-falcon3/dbb00073_20180126_EPU/ /data/staging/dbb/dbb00073/f3_frames/```
+Now with the new EMhub  platform, it is possible to make the  booking for the drop-in service
+in the same system.  You need to select **Drop-in**  as another resource.
 
+For booking the Drop-in, it is easier to change the calendar to the **Week view** and then select
+a one hour slot. The  Drop-in SLOT is a bi-weekly event, from 9:00  to 16:00 with a lunch break.
 
-## 4. Execute Scipion streaming pipeline
+<img width="100%" src="https://github.com/delarosatrevin/scipion-session/wiki/images/book_dropin.png">
 
-If you have selected to use Scipion for streaming pre-processing, then you should get a newly created Scipion project. After you You can then go through each protocol, provide input parameters for each protocol and execute them. If everything went fine, you should have now running protocols (yellow boxes) as shown below:
-
-<img src="https://github.com/delarosatrevin/scipion-session/wiki/images/scipion-project.png">
+<img width="100%" src="https://github.com/delarosatrevin/scipion-session/wiki/images/booking_form_dropin.png">
