@@ -28,7 +28,8 @@
 
 import unittest
 
-from emhub.data import DataManager, ImageSessionData, H5SessionData, DataLog
+from emhub.data import (DataManager, ImageSessionData, H5SessionData,
+                        PytablesSessionData, DataLog)
 from emhub.data.imports.testdata import TestData
 from emhub.utils import datetime_to_isoformat
 
@@ -135,9 +136,9 @@ class TestSessionData(unittest.TestCase):
         setId = 1
         tsd = ImageSessionData()
         mics = tsd.get_items(setId)
-        print("=" * 80, "\nTesting hdf5 session...")
+        print("=" * 80, "\nTesting h5py session...")
 
-        hsd = H5SessionData('/tmp/data.h5', 'w')
+        hsd = H5SessionData('/tmp/h5py.h5', 'w')
         hsd.create_set(setId, label='Test set')
 
         for mic in mics:
@@ -149,9 +150,29 @@ class TestSessionData(unittest.TestCase):
 
         hsd.close()
 
-        hsd = H5SessionData('/tmp/data.h5', 'r')
+        hsd = H5SessionData('/tmp/h5py.h5', 'r')
         for mic in hsd.get_items(setId):
             print(mic)
+
+        print("=" * 80, "\nTesting pytables session...")
+        psd = PytablesSessionData('/tmp/pytables.h5', 'w')
+        psd.create_set(setId)
+
+        for mic in mics:
+            micData = tsd.get_item(setId, mic.id,
+                                   dataAttrs=['micThumbData',
+                                              'psdData',
+                                              'shiftPlotData'])
+            psd.add_item(setId, itemId=mic.id, **micData._asdict())
+
+        # test updating item
+        dic = {'location': '/new/location', 'psdData': 'newstr'}
+        psd.update_item(setId, itemId=2, **dic)
+        for mic in psd.get_items(setId,
+                                 attrList=['id', 'location', 'ctfDefocus']):
+            print(mic)
+
+        psd.close()
 
 
 class TestDataLog(unittest.TestCase):
@@ -182,4 +203,3 @@ class TestDataLog(unittest.TestCase):
         logs = dl.get_logs()
         self.assertEqual(2, len(logs))
         dl.close()
-

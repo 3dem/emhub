@@ -29,7 +29,7 @@
 import datetime as dt
 import jwt
 
-from sqlalchemy import (Column, Integer, String, JSON, Boolean, Float,
+from sqlalchemy import (Column, Integer, String, JSON,
                         ForeignKey, Text, Table)
 from sqlalchemy.orm import relationship
 from sqlalchemy_utc import UtcDateTime, utcnow

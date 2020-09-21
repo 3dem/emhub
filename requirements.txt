@@ -12,3 +12,4 @@ gunicorn
 requests
 mrcfile
 emtable
+tables

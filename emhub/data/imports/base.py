@@ -26,9 +26,7 @@
 # *
 # **************************************************************************
 
-import os
-import shutil
-from datetime import datetime, timezone, timedelta
+from datetime import timezone, timedelta
 
 
 TZ_DELTA = 0  # Define timezone, UTC '0'
