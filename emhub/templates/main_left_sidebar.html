@@ -36,6 +36,18 @@
                                 <a class="nav-link" href="{{ url_for('main', content_id='applications') }}">
                                     <i class="fas fa-rocket"></i>Applications</a>
                             </li>
+
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-pages" aria-controls="submenu-pages">
+                                <i class="fas fa-f fa-folder"></i>Pages</a>
+
+                            <div id="submenu-pages" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='welcome') }}">Welcome</a>
+                                    </li>
+                                </ul>
+                            </div>
+
                         </ul>
 
                         {% if current_user.is_manager %}
@@ -54,6 +66,8 @@
                                 <a class="nav-link" href="{{ url_for('main', content_id='resources_list') }}">
                                     <i class="fas fa-boxes"></i>Resources</a>
                             </li>
+
+
 
 
                         {% if current_user.is_admin %}
