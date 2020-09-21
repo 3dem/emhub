@@ -240,6 +240,8 @@ class DataManager(DbManager):
             if repeater:
                 repeater.move()  # move start, end for repeating bookings
 
+            self.__validate_booking(b)
+
         result = self._modify_bookings(attrs, update)
 
         self.log('operation', 'update_Booking',
@@ -440,6 +442,12 @@ class DataManager(DbManager):
         if not self._user.is_manager and not r.is_active:
             raise Exception("Selected resource is inactive now. ")
 
+        if booking.start >= booking.end:
+            raise Exception("The booking 'end' should be after the 'start'. ")
+
+        if not self._user.is_manager and booking.start.date() < self.now().date():
+            raise Exception("The booking 'start' can not be in the past. ")
+
         if check_min_booking and r.min_booking > 0:
             mm = dt.timedelta(minutes=int(r.min_booking * 60))
             if booking.duration < mm:
@@ -451,12 +459,6 @@ class DataManager(DbManager):
             if booking.duration > mm:
                 raise Exception("The duration of the booking is greater that "
                                 "the maximum allowed for the resource. ")
-
-        if not self._user.is_manager and booking.start.date() < self.now().date():
-            raise Exception("The booking 'start' can not be in the past. ")
-
-        if booking.start >= booking.end:
-            raise Exception("The booking 'end' should be after the 'start'. ")
 
         app_id = booking.application_id
         if app_id is not None:

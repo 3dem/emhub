@@ -215,10 +215,13 @@ def create_data_models(dm):
             return check_password_hash(self.password_hash, password)
 
         def get_reset_password_token(self, expires_in=600):
-            return jwt.encode(
+            token = jwt.encode(
                 {'reset_password': self.id,
                  'exp': dm.now() + dt.timedelta(seconds=expires_in)},
                 app.config['SECRET_KEY'], algorithm='HS256').decode('utf-8')
+            self.extra = {'reset_token': token}
+
+            return token
 
         @staticmethod
         def verify_reset_password_token(token):
@@ -227,7 +230,15 @@ def create_data_models(dm):
                                 algorithms=['HS256'])['reset_password']
             except:
                 return None
-            return User.query.get(user_id)
+            user = User.query.get(user_id)
+
+            if user is not None:
+                if token != user.extra.get('reset_token', None):
+                    return None
+                # Valid token, let's make it invalid from now
+                user.extra = {'reset_token': None}
+
+            return user
 
         def __repr__(self):
             return '<User {}>'.format(self.username)

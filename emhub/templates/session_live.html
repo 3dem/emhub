@@ -384,7 +384,6 @@
                     columns: [ {{ sample|tojson }} ],
                     colors: {sample: '#5969ff'},
                     onclick: function (d) {
-                        console.log("onclick on item#", d.index);
                         request_micrograph_images({{ session.id }}, d.index);
                         document.getElementById("itemId").innerHTML = "Results for session #{{session.id}}, item #" + d.index;
                     },
