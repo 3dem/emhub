@@ -25,10 +25,12 @@
 # **************************************************************************
 
 import os
+import sys
 import json
 
 from emhub.utils import datetime_from_isoformat
-from  .base import TestDataBase
+from emhub.data import DataManager
+from emhub.data.imports import TestDataBase
 
 
 class PortalData(TestDataBase):
@@ -136,7 +138,7 @@ class PortalData(TestDataBase):
                 createUser(u)
                 piDict[u['email']] = u
 
-        f = open('users-missing-PI.csv', 'w')
+        # f = open('users-missing-PI.csv', 'w')
 
         for u in self._jsonUsers:
             if not ignoreUser(u) and not u['pi'] and not u['email'] in staff:
@@ -145,9 +147,9 @@ class PortalData(TestDataBase):
                     createUser(u, pi=piDict[piEmail]['emhub_item'].id)
                 else:
                     print("Skipping user (Missing PI): ", u['email'])
-                    f.write('"%s", \t"%s", \t"%s"\n'
-                            % (u['name'], u['email'], piEmail))
-        f.close()
+        #             f.write('"%s", \t"%s", \t"%s"\n'
+        #                     % (u['name'], u['email'], piEmail))
+        # f.close()
 
     def __importApplications(self, dm, jsonData):
         statuses = {'disabled': 'closed',
@@ -297,7 +299,7 @@ class PortalData(TestDataBase):
             'Carbon Coater': 6
         }
 
-        f = open('users-missing-PORTAL.csv', 'w')
+        # f = open('users-missing-PORTAL.csv', 'w')
         missing = set()
 
         for b in bookingsJson:
@@ -308,7 +310,7 @@ class PortalData(TestDataBase):
             if email not in self._dictUsers:
                 if not email in missing:
                     missing.add(email)
-                    f.write('"%s", \t"%s"\n' % (name, email))
+                    # f.write('"%s", \t"%s"\n' % (name, email))
 
             if email not in self._dictUsers or resource not in resourcesDict:
                 print(b['startDate'], b['endDate'], b['resourceName'],
@@ -339,7 +341,7 @@ class PortalData(TestDataBase):
             except Exception as e:
                 print("Exception when creating Booking: %s. IGNORING..." % e)
 
-        f.close()
+        # f.close()
 
         # create a repeating event
         dm.create_booking(title='Dropin',
@@ -424,3 +426,28 @@ class PortalData(TestDataBase):
                           numOfCls2D=0,
                           ptclSizeMin=140,
                           ptclSizeMax=160, )
+
+
+if __name__ == '__main__':
+    instance_path = os.path.abspath(os.environ.get("EMHUB_INSTANCE",
+                                                   'instance'))
+
+    if not os.path.exists(instance_path):
+        raise Exception("Instance folder '%s' not found!!!" % instance_path)
+
+    if len(sys.argv) != 3:
+        print("\nUSAGE:\n"
+              "    python -m emhub.data.imports.scilifelab portal-data.json booked-data.json\n")
+        sys.exit(1)
+
+    portalDataJson = sys.argv[1]
+    bookingsJson = sys.argv[2]
+
+    if not os.path.exists(portalDataJson):
+        print("JSON data file '%s' does not exists. " % portalDataJson)
+
+    if not os.path.exists(bookingsJson):
+        print("JSON bookings file '%s' does not exists. " % bookingsJson)
+
+    dm = DataManager(instance_path, cleanDb=True)
+    PortalData(dm, portalDataJson, bookingsJson)

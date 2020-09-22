@@ -28,13 +28,9 @@
 
 import os
 import shutil
-from datetime import datetime, timezone, timedelta
 
-from .base import TestDataBase
-
-
-TZ_DELTA = 0  # Define timezone, UTC '0'
-tzinfo = timezone(timedelta(hours=TZ_DELTA))
+from emhub.data import DataManager
+from emhub.data.imports import TestDataBase
 
 
 class TestData(TestDataBase):
@@ -290,7 +286,7 @@ class TestData(TestDataBase):
 
         dm.create_session(
             name='supervisor_23423452_20201223_123445',
-            start=datetime(2020, 3, 5, 12, 30, 10, tzinfo=tzinfo),
+            start=self._datetime(2020, 3, 5, 12, 30, 10),
             end=None,
             status='running',
             #data_path=os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
@@ -320,7 +316,7 @@ class TestData(TestDataBase):
 
         dm.create_session(
             name='epu-mysession_20122310_234542',
-            start=datetime(2020, 4, 5, 12, 30, 10, tzinfo=tzinfo),
+            start=self._datetime(2020, 4, 5, 12, 30, 10),
             end=None,
             status='failed',
             #data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
@@ -350,8 +346,8 @@ class TestData(TestDataBase):
 
         dm.create_session(
             name='session_very_long_name',
-            start=datetime(2020, 5, 7, 12, 30, 10, tzinfo=tzinfo),
-            end=datetime(2020, 5, 8, 9, 30, 10, tzinfo=tzinfo),
+            start=self._datetime(2020, 5, 7, 12, 30, 10),
+            end=self._datetime(2020, 5, 8, 9, 30, 10),
             status='finished',
             data_path=os.path.join(td, 'non-existing-file'),
             acquisition={'voltage': 300,
@@ -374,3 +370,14 @@ class TestData(TestDataBase):
             booking_id=None,
             operator_id=12,  # User  12
         )
+
+
+if __name__ == '__main__':
+    instance_path = os.path.abspath(os.environ.get("EMHUB_INSTANCE",
+                                                   'instance'))
+
+    if not os.path.exists(instance_path):
+        raise Exception("Instance folder '%s' not found!!!" % instance_path)
+
+    dm = DataManager(instance_path, cleanDb=True)
+    TestData(dm)
