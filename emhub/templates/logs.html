@@ -18,12 +18,13 @@
                 <h5 class="card-header">Logs List</h5>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table">
+                        <table class="table" id="logs-table">
                             <thead class="bg-light">
                                 <tr class="border-0">
                                     <th class="border-0">id</th>
                                     <th class="border-0">timestamp</th>
-                                    <th class="border-0">user_id</th>
+                                    <th class="border-0">username</th>
+                                    <th class="border-0">user_name</th>
                                     <th class="border-0">name</th>
                                     <th class="border-0">args</th>
                                     <th class="border-0">kwargs</th>
@@ -35,7 +36,8 @@
                                 <tr>
                                     <td> {{ log.id }} </td>
                                     <td> {{ log.timestamp|pretty_datetime    }} </td>
-                                    <td> {{ log.user_id }} </td>
+                                    <td> {{ log.user.name }} </td>
+                                    <td> {{ log.user.username }} </td>
                                     <td> {{ log.name }} </td>
                                     <td> {{ log.args }}</td>
                                     <td> {{ log.kwargs }}</td>
@@ -54,29 +56,8 @@
     </div>
 </div>
 
-<!-- ============================================================== -->
-<!-- Dynamic Form -->
-<!-- ============================================================== -->
-<div class="modal" id="experiment-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">
-
-</div>
 
 <script>
 
-    /* Show the Application Form, either for a new booking or an existing one */
-function showForm(formId) {
-    ajaxContent = get_ajax_content("dynamic_form", {form_id: formId});
-
-    ajaxContent.done(function(html) {
-        $("#experiment-modal").html(html);
-        // Show the form after setting html content
-        $('#experiment-modal').modal('show');
-    });
-
-    ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
-    });
-
-}  // function showApplication
-
+    $('#logs-table').DataTable();
 </script>

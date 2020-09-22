@@ -1,8 +1,8 @@
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
-    {% set title = "Applications List" %}
-    {% set navigation = [('Admin', ''), ('Applications', '')] %}
+    {% set title = "Users Management" %}
+    {% set navigation = [('Admin', ''), ('Users', '')] %}
     {% include 'include_header.html' %}
 
     <!-- table row -->
@@ -10,44 +10,31 @@
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Applications List</h5>
+                    <h5 class="mb-0">Users List</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table id="applications-table" class="table table-striped table-bordered" style="width:100%">
+                        <table id="users-table" class="table table-striped table-bordered" style="width:100%">
                             <thead>
                             <tr>
-                                <th>id</th>
-                                <th>code</th>
-                                <th>created</th>
-                                <th>alias</th>
-                                <th>title</th>
-                                <th>creator</th>
-                                <th>template</th>
-                                <th>invoice reference</th>
-                                <th>pi-list</th>
-                                <th>resource_allocation</th>
+                                <th>pi</th>
+                                <th>email</th>
+                                <th>name</th>
+                                <td>invoice_ref</td>
+                                <th>status</th>
                                 <th>actions</th>
                             </tr>
                             </thead>
                             <tbody>
-                            {% for a in applications %}
+                            {% for pu in portal_users %}
                             <tr>
-                                <td>{{ a.id }}</td>
-                                <td>{{ a.code }}</td>
-                                <td>{{ a.created }}</td>
-                                <td>{{ a.alias }}</td>
-                                <td>{{ a.title }}</td>
-                                <td>{{ a.creator.name }}</td>
-                                <td>{{ a.template.id }}</td>
-                                <td>{{ a.invoice_reference }}</td>
-                                <td>{{ a.users }}</td>
-                                <td>{{ a.resource_allocation }}</td>
+                                <td>{{ pu['pi'] }}</td>
+                                <td>{{ pu['email'] }}</td>
+                                <td>{{ pu['name'] }}</td>
+                                <td>{{ pu['invoice_ref'] }}</td>
+                                <td>{{ pu['status'] }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
-                                    <button class="btn btn-sm btn-outline-light"><i class="far fa-copy"></i></button>
-                                    <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
-                                            data-id="{{ a.id }}" data-alias="{{ a.alias }}"><i class="far fa-trash-alt"></i></button>
+                                    <button class="btn btn-sm btn-outline-light" onclick=""><i class="far fa-edit"></i></button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -87,7 +74,7 @@
 
 <script>
   $('#deleteModal').on('show.bs.modal', function (event) {
-      var button = $(event.relatedTarget); // Button that triggered the modal
+      var button = $(event.relatedTarget) // Button that triggered the modal
 
       // Extract info from data-* attributes
       var id = button.data('id')
@@ -100,5 +87,6 @@
       modal.find('.modal-body').html('<p> Do you want to DELETE user <b>' + name + '</b> (id = ' + id + ') ? </p>')
     })
 
-    $('#applications-table').DataTable();
+    $('#users-table').DataTable();
+
 </script>

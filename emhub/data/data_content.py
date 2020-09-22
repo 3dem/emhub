@@ -277,7 +277,11 @@ class DataContent:
         return  {'forms': self.app.dm.get_forms()}
 
     def get_logs(self, **kwargs):
-        logs = self.app.dm.get_logs()
+        dm = self.app.dm
+        logs = dm.get_logs()
+        for log in logs:
+            log.user = dm.get_user_by(id=log.user_id)
+
         logs.sort(key=lambda o: o.id, reverse=True)
         return  {'logs': logs}
 
@@ -292,6 +296,31 @@ class DataContent:
             'page_id': page_id,
             'page': 'pages/%s.md' % page_id
         }
+
+    def get_portal_users_list(self, **kwargs):
+        dm = self.app.dm
+        users = []
+
+        for pu in self.app.sll_pm.fetchAccountsJson():
+            user = dm.get_user_by(email=pu['email'])
+
+            if user is None:
+                users.append(pu)
+
+                invoiceRef = pu['invoice_ref']
+                if not pu['pi']:
+                    pi = dm.get_user_by(email=invoiceRef)
+                    if pi is None:
+                        pu['status'] = 'Error: Missing PI'
+                    else:
+                        pu['status'] = 'Ready: user'
+                else:
+                    if invoiceRef.strip():
+                        pu['status'] = 'Ready: pi'
+                    else:
+                        pu['status'] = 'Error: Missing Invoice Reference'
+
+        return {'portal_users': users}
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):

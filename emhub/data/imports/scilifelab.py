@@ -27,6 +27,7 @@
 import os
 import sys
 import json
+import requests
 
 from emhub.utils import datetime_from_isoformat
 from emhub.data import DataManager
@@ -426,6 +427,62 @@ class PortalData(TestDataBase):
                           numOfCls2D=0,
                           ptclSizeMin=140,
                           ptclSizeMax=160, )
+
+
+class PortalManager:
+    """ Helper class to interact with the Application Portal system.
+    """
+    def __init__(self, apiJson, cache=True):
+        self._headers = apiJson['headers']
+        self._baseUrl = apiJson['baseUrl']
+
+        # Create a cached dict with json files for url
+        # to avoid make unnecessary queries in the same session
+        if cache:
+            self._cache = {}
+
+    def _getUrl(self, suffix):
+        return self._baseUrl + suffix
+
+    def _fetchJsonFromUrl(self, url):
+        cache = getattr(self, '_cache', None)
+        cachedJson = cache.get(url, None) if cache is not None else None
+
+        if cachedJson:
+            print("Returning cached JSON for url: %s" % url)
+            return cachedJson
+
+        print("Retrieving url: %s" % url)
+        response = requests.get(url, headers=self._headers)
+
+        if response.status_code != 200:
+            print(response.status_code)
+            return None
+        else:
+            result = response.json()
+            if cache is not None:
+                cache[url] = result
+            return result
+
+    def _fetchJsonFromUrlSuffix(self, suffix):
+        return self._fetchJsonFromUrl(self._getUrl(suffix))
+
+    def fetchOrdersJson(self):
+        """ Fetch orders from the booking system. """
+        return self._fetchJsonFromUrlSuffix('orders?recent=False')['items']
+
+    def fetchOrderDetailsJson(self, orderCEM):
+        return self._fetchJsonFromUrlSuffix('order/%s' % orderCEM.upper())
+        #orderUrl = orderJson['links']['api']['href']
+        #return self._fetchJsonFromUrl(orderUrl)
+
+    def fetchFormDetailsJson(self, formId):
+        """ Return  the JSON data about a given form. """
+        return self._fetchJsonFromUrlSuffix('form/%s' % formId)
+
+    def fetchAccountsJson(self):
+        """ Retrieve the users list from the portal system. """
+        return self._fetchJsonFromUrlSuffix('accounts')['items']
 
 
 if __name__ == '__main__':

@@ -423,7 +423,9 @@ def create_data_models(dm):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
 
         def json(self):
-            return dm.json_from_object(self)
+            json = dm.json_from_object(self)
+            json['pi_list'] = [pi.id for pi in self.pi_list]
+            return json
 
         @property
         def is_active(self):
