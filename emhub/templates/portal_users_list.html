@@ -1,16 +1,25 @@
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
-    {% set title = "Users Management" %}
+    {% set title = "Users Import" %}
     {% set navigation = [('Admin', ''), ('Users', '')] %}
     {% include 'include_header.html' %}
 
     <!-- table row -->
     <div class="row">
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+Do import: {{ do_import }}
+            </div>
+    </div>
+
+    <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Users List</h5>
+                    <div class="row">
+                    <h5 class="mb-0 col-8">Users from Application Portal</h5>
+                    <button type="button" id="import-btn" class="btn btn-outline-dark col-4" onclick="onOkButtonClick()">Import Users ({{ portal_users|length }} {{ status }})</button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
