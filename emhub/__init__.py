@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.1a10'
+__version__ = '0.0.1a11'
 
 
 def create_app(test_config=None):
@@ -253,6 +253,7 @@ def create_app(test_config=None):
     app.dm = DataManager(app.instance_path, user=app.user)
     app.dc = DataContent(app)
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
+    app.version = __version__
 
     login_manager = flask_login.LoginManager()
     #login_manager.login_view = 'login'
