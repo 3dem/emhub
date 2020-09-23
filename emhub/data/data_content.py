@@ -277,7 +277,11 @@ class DataContent:
         return  {'forms': self.app.dm.get_forms()}
 
     def get_logs(self, **kwargs):
-        logs = self.app.dm.get_logs()
+        dm = self.app.dm
+        logs = dm.get_logs()
+        for log in logs:
+            log.user = dm.get_user_by(id=log.user_id)
+
         logs.sort(key=lambda o: o.id, reverse=True)
         return  {'logs': logs}
 
@@ -292,6 +296,51 @@ class DataContent:
             'page_id': page_id,
             'page': 'pages/%s.md' % page_id
         }
+
+    def get_portal_users_list(self, **kwargs):
+        dm = self.app.dm
+        do_import = 'import' in kwargs
+        imported = []
+        failed = []
+
+        if do_import:
+            users = self._get_users_from_portal(status='ready')
+            for u in users:
+                roles = ['user', 'pi'] if u['pi'] else ['user']
+                pi_id = None if u['pi'] else u['pi_user'].id
+
+                try:
+                    user = dm.create_user(
+                        username=u['email'],
+                        email=u['email'],
+                        phone='',
+                        password=os.urandom(24).hex(),
+                        name="%(first_name)s %(last_name)s" % u,
+                        roles=roles,
+                        pi_id=pi_id,
+                        status='active'
+                    )
+                    imported.append(u)
+                    self.app.mm.send_mail(
+                        [user.email],
+                        "emhub: New account imported",
+                        flask.render_template('email/account_created.txt',
+                                              user=user))
+                except Exception as e:
+                    u['error'] = str(e)
+                    failed.append(u)
+            status = None
+        else:
+            status = kwargs.get('status', None)
+
+        users = self._get_users_from_portal(status)
+
+        return {'portal_users': users,
+                'status': status,
+                'do_import': do_import,
+                'users_imported': imported,
+                'users_failed': failed
+                }
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
@@ -338,13 +387,12 @@ class DataContent:
         else:
 
             # Show all booking information in title in some cases only
+            appStr = '' if application is None else ', %s' % application.code
+            extra = "%s%s" % (owner.name, appStr)
             if user_can_view:
-                appStr = '' if application is None else ', %s' % application.code
-                extra = "%s%s" % (owner.name, appStr)
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
             else:
-                title = "%s Booking" % resource.name
-                owner_name = "Hidden owner"
+                title = "%s (%s)" % (resource_info['name'], extra)
                 b_title = "Hidden title"
                 b_description = "Hidden description"
 
@@ -408,3 +456,37 @@ class DataContent:
             condition = "operator_id IN (%s)" % membersId
 
         return condition
+
+    def _get_users_from_portal(self, status=None):
+        """ Retrieve users from Portal with a given status.
+        If status is None, all will be retrieved.
+        """
+        dm = self.app.dm
+        users = []
+
+        for pu in self.app.sll_pm.fetchAccountsJson():
+            user = dm.get_user_by(email=pu['email'])
+
+            if user is None:
+                invoiceRef = pu['invoice_ref']
+
+                if pu['status'] == 'enabled':
+                    pu['pi_user'] = None
+
+                    if not pu['pi']:
+                        pi = dm.get_user_by(email=invoiceRef)
+                        if pi is None:
+                            pu['status'] = 'error: Missing PI'
+                        else:
+                            pu['status'] = 'ready: user'
+                            pu['pi_user'] = pi
+                    else:
+                        if invoiceRef.strip():
+                            pu['status'] = 'ready: pi'
+                        else:
+                            pu['status'] = 'error: Missing Invoice Reference'
+
+                    if status is None or pu['status'].startswith(status):
+                        users.append(pu)
+
+        return users

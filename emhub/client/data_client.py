@@ -111,13 +111,14 @@ class DataClient:
 
         return json[resultKey]
 
-    def request(self, method, jsonData=None):
+    def request(self, method, jsonData=None, bp='api'):
         """ Make a request to this method passing the json data.
         """
         if self.cookies is None:
             raise Exception("You should call login method first")
 
-        self.r = requests.post('%s/api/%s' % (self._server_url, method),
+        self.r = requests.post('%s/%s/%s'
+                               % (self._server_url, bp, method),
                                json=jsonData,  cookies=self.cookies)
         self.r.raise_for_status()
         return self.r

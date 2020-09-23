@@ -30,6 +30,7 @@ import os
 from collections import namedtuple
 import h5py
 import sqlite3
+import tables as tbl
 
 from emhub.utils import image
 
@@ -335,3 +336,136 @@ class ImageSessionData(SessionData):
             print(e)
 
         return rows
+
+
+class PytablesSessionData(SessionData):
+    """ Implementation of SessionData using pytables. """
+    #TODO: pytables stores strings as bytes, need to decode when reading
+    # they are also fixed size length :(
+
+    class SetOfMicrographs(tbl.IsDescription):
+        id = tbl.Int32Col()
+        extra = tbl.StringCol(256)
+
+    class Micrograph(tbl.IsDescription):
+        id = tbl.Int32Col()
+        location = tbl.StringCol(256)
+        ctfDefocus = tbl.Float32Col()
+        ctfDefocusU = tbl.Float32Col()
+        ctfDefocusV = tbl.Float32Col()
+        ctfDefocusAngle = tbl.Float32Col()
+        ctfResolution = tbl.Float32Col()
+        ctfFit = tbl.Float32Col()
+        micThumbData = tbl.StringCol(256000)
+        psdData = tbl.StringCol(256000)
+        ctfFitData = tbl.StringCol(256000)
+        shiftPlotData = tbl.StringCol(256000)
+
+    def __init__(self, h5File, mode='r'):
+        if mode == 'r':
+            print("Reading file: ", h5File)
+        elif mode in ['w', 'a']:
+            os.makedirs(os.path.dirname(h5File), exist_ok=True)
+            print("Writing file: ", h5File)
+
+        self._file = tbl.open_file(h5File, mode)
+
+    def get_sets(self, attrList=None, condition=None, setId=None):
+        setList = []
+        if setId is not None:
+            setTbl = self._file.get_node(self._getMicSet(setId) + '/set_tbl')
+            # setTbl has only one row
+            row = setTbl[0]
+            setList.append({k: row[k] for k in setTbl.colnames})
+        else:
+            for grp in self._file.iter_nodes("/Micrographs"):
+                values = {k: grp.set_tbl[0][k] for k in grp.set_tbl.colnames}
+                setList.append(values)
+
+        return setList
+
+    def create_set(self, setId, **attrs):
+        self._file.create_group("/Micrographs", "set%03d" % setId,
+                                createparents=True)
+        setTbl = self._file.create_table(self._getMicSet(setId), 'set_tbl',
+                                         self.SetOfMicrographs,
+                                         "Set table")
+        setRow = setTbl.row
+        attrs.update({'id': setId})
+
+        for key, value in attrs.items():
+            setRow[key] = value
+        setRow.append()
+        setTbl.flush()
+        mics_table = self._file.create_table(self._getMicSet(setId), 'mics_tbl',
+                                             self.Micrograph, "Mics table")
+        mics_table.flush()
+
+    def get_items(self, setId, attrList=None, condition=None,
+                  itemId=None):
+        mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
+
+        if attrList is None:
+            keys = mics_table.colnames
+        elif 'id' not in attrList:
+            keys = ['id'] + attrList
+        else:
+            keys = attrList
+
+        Micrograph = namedtuple('Micrograph', keys)
+        micList = []
+
+        for row in mics_table:
+            values = dict()
+            for k in keys:
+                if isinstance(row[k], bytes):
+                    values[k] = row[k].decode()
+                else:
+                    values[k] = row[k]
+
+            #values = {k: row[k] for k in keys}
+            micList.append(Micrograph(**values))
+
+        return micList
+
+    def get_item(self, setId, itemId, dataAttrs=None):
+        print("Requesting item: setId: %s, itemId: %s" % (setId, itemId))
+        mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
+        mic = mics_table[itemId-1]  # pytables rows start from 0
+
+        keys = mics_table.colnames if dataAttrs is None else dataAttrs
+        Micrograph = namedtuple('Micrograph',keys)
+        values = dict()
+        for k in keys:
+            if isinstance(mic[k], bytes):
+                values[k] = mic[k].decode()
+            else:
+                values[k] = mic[k]
+
+        #values = {k: mic[k] for k in keys}
+        return Micrograph(**values)
+
+    def add_item(self, setId, itemId, **attrsDict):
+        mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
+        mic = mics_table.row
+
+        attrsDict.update({'id': itemId})
+        for key, value in attrsDict.items():
+            mic[key] = value
+
+        mic.append()
+        mics_table.flush()
+
+    def update_item(self, setId, itemId, **attrsDict):
+        mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
+        itemId = int(itemId) - 1  # pytables rows start from 0
+        mics_table.modify_columns(itemId, itemId+1,
+                                  columns=[[x] for x in attrsDict.values()],
+                                  names=list(attrsDict.keys()))
+        mics_table.flush()
+
+    def close(self):
+        self._file.close()
+
+    def _getMicSet(self, setId):
+        return '/Micrographs/set%03d' % setId

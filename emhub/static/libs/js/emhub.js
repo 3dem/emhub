@@ -43,20 +43,18 @@ function pad(n) {
 
 /* Get date string in YYYY-MM-DD format */
 function dateStr(date) {
-    return pad(date.getDate()) + '/' + pad(date.getMonth() + 1) + '/' +  pad(date.getFullYear());
+    return date.getFullYear() + '/' + pad(date.getMonth() + 1) + '/' + pad(date.getDate());
 }
 
 function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val();
-    var dateParts = dateVal.split('/');
-    var dateIsoVal = dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0];
     if (timeId)
-        dateIsoVal += 'T' + $(timeId).val();
-    return new Date(dateIsoVal);
+        dateVal += ' ' + $(timeId).val();
+    return new Date(dateVal);
 }
 
 function dateIsoFromValue(dateId, timeId) {
-    return dateFromValue(dateId).toISOString();
+    return dateFromValue(dateId, timeId).toISOString();
 }
 
 /* Get hour:minutes string HH:00 format */

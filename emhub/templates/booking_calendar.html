@@ -111,7 +111,7 @@
     $('select').selectpicker();
 
     $('.datetimepicker-input').datetimepicker({
-        format: 'DD/MM/YYYY'
+        format: 'YYYY/MM/DD'
     });
 
     /* Register when the Booking type change */
@@ -372,6 +372,7 @@ function bookingFromSelection(info, resource) {
     }
 
     repeat_value = 'no';
+    booking_type = 'booking';  // Reset booking_type to default
 
     return {
         id: null,

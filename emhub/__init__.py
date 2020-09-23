@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.1a10'
+__version__ = '0.0.1a11'
 
 
 def create_app(test_config=None):
@@ -57,6 +57,9 @@ def create_app(test_config=None):
     app.register_blueprint(images_bp, url_prefix='/images')
     app.register_blueprint(pages_bp, url_prefix='/pages')
 
+
+
+
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config['SECRET_KEY'] = 'dev'
 
@@ -72,6 +75,11 @@ def create_app(test_config=None):
     else:
         # load the test config if passed in
         app.config.from_mapping(test_config)
+
+    portalAPI = app.config.get('SLL_PORTAL_API', None)
+    if portalAPI is not None:
+        from .data.imports.scilifelab import PortalManager
+        app.sll_pm = PortalManager(portalAPI, cache=False)
 
     # ensure the instance folder exists
     os.makedirs(app.config['USER_IMAGES'], exist_ok=True)
@@ -245,6 +253,7 @@ def create_app(test_config=None):
     app.dm = DataManager(app.instance_path, user=app.user)
     app.dc = DataContent(app)
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
+    app.version = __version__
 
     login_manager = flask_login.LoginManager()
     #login_manager.login_view = 'login'
@@ -254,6 +263,8 @@ def create_app(test_config=None):
 
     from flaskext.markdown import Markdown
     Markdown(app)
+
+
 
     @login_manager.user_loader
     def load_user(user_id):

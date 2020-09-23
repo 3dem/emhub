@@ -26,18 +26,16 @@
 # *
 # **************************************************************************
 
-import os
-import shutil
-from datetime import datetime, timezone, timedelta
-
-
-TZ_DELTA = 0  # Define timezone, UTC '0'
-tzinfo = timezone(timedelta(hours=TZ_DELTA))
+import datetime as dt
 
 
 class TestDataBase:
     """ Base class to create a dataset for a given DataManager.
     """
+
+    TZ_DELTA = 0  # Define timezone, UTC '0'
+    tzinfo = dt.timezone(dt.timedelta(hours=TZ_DELTA))
+
     def __init__(self, dm):
         """
         Args:
@@ -243,3 +241,6 @@ class TestDataBase:
 
     def _populateSessions(self, dm):
         pass
+
+    def _datetime(self, *args):
+        return dt.datetime(*args, tzinfo=self.tzinfo)

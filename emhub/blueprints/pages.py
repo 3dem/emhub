@@ -49,8 +49,14 @@ def index():
         'page_id': page_id,
     }
 
+    if app.user.is_authenticated:
+        app.user.image = app.dc.user_profile_image(app.user)
+
     return flask.render_template('main.html',
                                  content_id='pages',
-                                 params=params)
+                                 params=params,
+                                 is_devel=app.is_devel,
+                                 version=app.version,
+                                 emhub_title=app.config.get('EMHUB_TITLE', ''))
 
 

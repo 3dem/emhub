@@ -45,6 +45,9 @@
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ url_for('pages.index', page_id='welcome') }}">Welcome</a>
                                     </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='guidelines') }}">Guidelines</a>
+                                    </li>
                                 </ul>
                             </div>
 
@@ -56,11 +59,19 @@
                         </li>
 
                         <ul class="nav flex-column submenu">
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-users" aria-controls="submenu-users">
+                                    <i class="fas fa-f fa-users"></i>Users</a>
 
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='users_list') }}">
-                                    <i class="fas fa-users"></i>Users</a>
-                            </li>
+                            <div id="submenu-users" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='users_list') }}">All Users List</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_users_list') }}">Users from Portal</a>
+                                    </li>
+                                </ul>
+                            </div>
 
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('main', content_id='resources_list') }}">

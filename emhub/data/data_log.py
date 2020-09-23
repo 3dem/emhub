@@ -26,9 +26,8 @@
 # *
 # **************************************************************************
 
-from sqlalchemy import (Column, Integer, String, JSON, Boolean, Float,
-                        ForeignKey, Text, Table)
-from sqlalchemy_utc import UtcDateTime, utcnow
+from sqlalchemy import Column, Integer, String, JSON
+from sqlalchemy_utc import UtcDateTime
 
 from .data_db import DbManager
 
