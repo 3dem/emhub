@@ -387,13 +387,12 @@ class DataContent:
         else:
 
             # Show all booking information in title in some cases only
+            appStr = '' if application is None else ', %s' % application.code
+            extra = "%s%s" % (owner.name, appStr)
             if user_can_view:
-                appStr = '' if application is None else ', %s' % application.code
-                extra = "%s%s" % (owner.name, appStr)
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
             else:
-                title = "%s Booking" % resource.name
-                owner_name = "Hidden owner"
+                title = "%s (%s)" % (resource_info['name'], extra)
                 b_title = "Hidden title"
                 b_description = "Hidden description"
 
