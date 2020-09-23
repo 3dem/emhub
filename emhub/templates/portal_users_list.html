@@ -8,7 +8,26 @@
     <!-- table row -->
     <div class="row">
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-Do import: {{ do_import }}
+                {% if users_imported %}
+                    <row>
+                    <h4>Imported users:</h4>
+                    <ul>
+                    {% for iu in users_imported %}
+                        <li>{{ iu['name'] }}</li>
+                    {% endfor %}
+                    </ul>
+                    </row>
+                {% endif %}
+                {% if users_failed %}
+                    <row>
+                    <h4>Failed to import users:</h4>
+                    <ul>
+                    {% for fu in users_failed %}
+                        <li>{{ fu['name'] }} - Error: {{ fu['error'] }}</li>
+                    {% endfor %}
+                    </ul>
+                    </row>
+                {% endif %}
             </div>
     </div>
 
@@ -18,7 +37,21 @@ Do import: {{ do_import }}
                 <div class="card-header">
                     <div class="row">
                     <h5 class="mb-0 col-8">Users from Application Portal</h5>
-                    <button type="button" id="import-btn" class="btn btn-outline-dark col-4" onclick="onOkButtonClick()">Import Users ({{ portal_users|length }} {{ status }})</button>
+                        {% if status == 'ready' %}
+                            {% if portal_users %}
+                                <button type="button" id="import-btn" class="btn btn-outline-dark col-4"
+                                        onclick="importReadyUsers()">Import Users ({{ portal_users|length }} {{ status }})
+                                </button>
+                            {% else %}
+                                <button type="button" id="showall-btn" class="btn btn-outline-dark col-4"
+                                        onclick="showAllUsers()">Show All Users
+                                </button>
+                            {% endif %}
+                        {% else %}
+                            <button type="button" id="showready-btn" class="btn btn-outline-dark col-4"
+                                    onclick="showReadyUsers()"> Show Ready Users
+                            </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="card-body">
@@ -31,6 +64,7 @@ Do import: {{ do_import }}
                                 <th>name</th>
                                 <td>invoice_ref</td>
                                 <th>status</th>
+                                <th>pi</th>
                                 <th>actions</th>
                             </tr>
                             </thead>
@@ -42,6 +76,7 @@ Do import: {{ do_import }}
                                 <td>{{ pu['name'] }}</td>
                                 <td>{{ pu['invoice_ref'] }}</td>
                                 <td>{{ pu['status'] }}</td>
+                                <td>{{ pu['pi_user'].name }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-light" onclick=""><i class="far fa-edit"></i></button>
                                 </td>
@@ -82,20 +117,18 @@ Do import: {{ do_import }}
 
 
 <script>
-  $('#deleteModal').on('show.bs.modal', function (event) {
-      var button = $(event.relatedTarget) // Button that triggered the modal
-
-      // Extract info from data-* attributes
-      var id = button.data('id')
-      var name = button.data('name')
-
-      // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
-      // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
-      var modal = $(this)
-      // modal.find('.modal-title').text('New message to ' + recipient)
-      modal.find('.modal-body').html('<p> Do you want to DELETE user <b>' + name + '</b> (id = ' + id + ') ? </p>')
-    })
-
     $('#users-table').DataTable();
+    
+    function showReadyUsers() {
+        window.location.href = "{{ url_for('main', content_id='portal_users_list')}}" + '&status=ready';
+    }
+
+    function showAllUsers() {
+        window.location.href = "{{ url_for('main', content_id='portal_users_list')}}";
+    }
+
+    function importReadyUsers() {
+        window.location.href = "{{ url_for('main', content_id='portal_users_list')}}" + '&import';
+    }
 
 </script>
