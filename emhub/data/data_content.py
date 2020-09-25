@@ -278,11 +278,10 @@ class DataContent:
 
     def get_logs(self, **kwargs):
         dm = self.app.dm
-        logs = dm.get_logs()
+        logs = dm.get_logs()[-100:  ]
         for log in logs:
             log.user = dm.get_user_by(id=log.user_id)
 
-        logs.sort(key=lambda o: o.id, reverse=True)
         return  {'logs': logs}
 
     def get_pages(self, **kwargs):
