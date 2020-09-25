@@ -1,6 +1,8 @@
 
 # Guidelines for microscope usage and booking rules at the SciLifeLab Cryo-EM Facility 
 (also available at <https://cryoem.scilifelab.se/> ):
+
+---
  
 1. Every user **MUST** register in the SciLifeLab Cryo-EM portal <https://cryoem.scilifelab.se/> 
  

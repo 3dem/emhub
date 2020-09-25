@@ -1,6 +1,8 @@
 
 # Welcome to the CryoEM-Sweden EMHub platform
 
+---
+
 As part of the computational infrastructure of the SciLifeLab Cryo-EM National Facility,
 we are developing a new platform (EMHub) that provides the following functionality:
  
@@ -8,7 +10,9 @@ we are developing a new platform (EMHub) that provides the following functionali
 2. Monitor data collection and pre-processing (future versions)
 3. Live reports of used sessions and costs per labs/applications (future versions)
 
-In order to access the platform, please read carefully the following guideline.
+In order to access the platform, please read carefully this page and
+the booking guidelines
+[Booking Guideline]({{ url_for('pages.index', page_id="guidelines", _external=True) }})
 
 ## 1. Users registration
 
