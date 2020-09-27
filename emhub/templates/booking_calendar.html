@@ -388,11 +388,6 @@ function bookingFromSelection(info, resource) {
     };
 }
 
-/** Function called when new dates are selected for a given Resource.
- * It creates a new booking and shows the Booking Form. **/
-function onDateSelection(start, end) {
-
-}
 
 /* This function is called when an existing Booking event is clicked */
 function onBookingSelected(event, original_range) {
@@ -556,6 +551,13 @@ function onOkButtonClick() {
 
     if (booking_type == 'slot') {
         booking.slot_auth = {applications: $('#booking-slot-auth').selectpicker('val'), users: []}
+    }
+    else if (booking_type == 'booking') {
+        if (jQuery.isEmptyObject(booking.experiment)) {
+            showMessage("ERROR", "<p>Please describe your experiment!!! <br> " +
+                                 "At least the fields in the <b>Basic</b> input tab.<p>");
+            return
+        }
     }
 
     let endpoint = null;
