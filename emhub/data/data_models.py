@@ -443,7 +443,7 @@ def create_data_models(dm):
             return self.resource_allocation['quota'].get(key, None)
 
         def no_slot(self, resourceKey):
-            """ Return True if this application is not force to create bookings within
+            """ Return True if this application is not forced to create bookings within
             a given slot for certain resource.
              For example, some applications might be required to book Krios1 only on specific
              slots, while others will be able to book in free days.
@@ -533,12 +533,16 @@ def create_data_models(dm):
             td = self.end.date() - self.start.date() + dt.timedelta(days=1)
             return td.days
 
+        @property
+        def is_slot(self):
+            return self.type == 'slot'
+
         def __repr__(self):
             def _timestr(dt):
                 return dt.strftime('%Y/%m/%d')
 
-            return ('<Booking: %s, owner=%s, dates: %s - %s>'
-                    % (self.title, self.owner.name,
+            return ('<Booking: resource=%s, owner=%s, dates: %s - %s>'
+                    % (self.resource.name, self.owner.name,
                        _timestr(self.start), _timestr(self.end)))
 
         def json(self):
@@ -547,7 +551,7 @@ def create_data_models(dm):
         def allows_user_in_slot(self, user):
             """ Return True if a given user is allowed to book in this Slot.
             """
-            if self.type != 'slot':
+            if not self.is_slot:
                 return False
 
             if user.is_manager:
@@ -558,6 +562,12 @@ def create_data_models(dm):
 
             return (user.id in allowedUsers or
                     any(a.code in allowedApps for a in user.get_applications()))
+
+        def application_in_slot(self, application):
+            if not self.is_slot:
+                return False
+
+            return application.code in self.slot_auth.get('applications', [])
 
 
     class Session(Base):

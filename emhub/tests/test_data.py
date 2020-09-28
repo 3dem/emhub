@@ -27,10 +27,11 @@
 # **************************************************************************
 
 import unittest
+import datetime as dt
 
 from emhub.data import (DataManager, ImageSessionData, H5SessionData,
                         PytablesSessionData, DataLog)
-from emhub.data.imports.testdata import TestData
+from emhub.data.imports.test import TestData
 from emhub.utils import datetime_to_isoformat
 
 
@@ -39,7 +40,7 @@ class TestDataManager(unittest.TestCase):
     def setUpClass(cls):
         cls.dm = DataManager('/tmp/', cleanDb=True)
         # populate db with test data
-        TestData(cls.dm)
+        cls.td = TestData(cls.dm)
 
     def test_users(self):
         print("=" * 80, "\nTesting users...")
@@ -105,9 +106,9 @@ class TestDataManager(unittest.TestCase):
         self.assertEqual(len(bookings), 4)
 
         # Retrieve all bookings starting before or day 4
-        now = self.dm.now()
-        dateStr = datetime_to_isoformat(now.replace(day=4, hour=0))
-        startCond = "start<='%s' " % dateStr
+        fm = self.td.firstMonday + dt.timedelta(days=14)
+        dateStr = datetime_to_isoformat(fm)
+        startCond = "start<='%s' AND type='booking'" % dateStr
         bookings = self.dm.get_bookings(condition=startCond)
         self.assertEqual(len(bookings), 3)
 

@@ -28,6 +28,7 @@
 
 import os
 import shutil
+import datetime as dt
 
 from emhub.data import DataManager
 from emhub.data.imports import TestDataBase
@@ -40,35 +41,38 @@ class TestData(TestDataBase):
         # Create user table
         usersData = [
             # dev (D)
-            ('Don Stairs', 'admin', None),  # 1
+            ('Don Stairs', 'admin', None),  # 2
 
             # admin (A)
-            ('Anna Mull', 'admin,manager,head', None),   # 2
-            ('Arty Ficial', 'admin', None),  # 3
+            ('Anna Mull', 'admin,manager,head', None),   # 3
+            ('Arty Ficial', 'admin', None),  # 4
 
             # managers (M)
-            ('Monty Carlo', 'manager', None),  # 4
-            ('Moe Fugga', 'manager', None),  # 5
+            ('Monty Carlo', 'manager', None),  # 5
+            ('Moe Fugga', 'manager', None),  # 6
 
             # pi (P)
-            ('Polly Tech', 'pi', None),  # 6
-            ('Petey Cruiser', 'pi', None),  # 7
-            ('Pat Agonia', 'pi', None),  # 8
-            ('Paul Molive', 'pi', None),  # 9
-            ('Pat Ernity', 'pi', None),  # 10
+            ('Polly Tech', 'pi', None),  # 7
+            ('Petey Cruiser', 'pi', None),  # 8
+            ('Pat Agonia', 'pi', None),  # 9
+            ('Paul Molive', 'pi', None),  # 10
+            ('Pat Ernity', 'pi', None),  # 11
 
             # users (R, S)
-            ('Ray Cyst', 'user', 7),  # 11
-            ('Rick Shaw', 'user', 7),  # 12
-            ('Rachel Slurs', 'user', 7),  # 13
-            ('Reggie Stration', 'user', 8),  # 14
-            ('Reuben Sandwich', 'user', 8),  # 15
-            ('Sara Bellum', 'user', 8),  # 16
-            ('Sam Owen', 'user', 8),  # 17
-            ('Sam Buca', 'user', 10),  # 18
-            ('Sarah Yevo', 'user', 10),  # 19
-            ('Sven Gineer', 'user', 10),  # 20
-            ('Sharon Needles', 'user', 10),  # 21
+            ('Ray Cyst', 'user', 7),  # 12
+            ('Rick Shaw', 'user', 7),  # 13
+            ('Rachel Slurs', 'user', 7),  # 14
+
+            ('Reggie Stration', 'user', 8),  # 15
+            ('Reuben Sandwich', 'user', 8),  # 16
+            ('Sara Bellum', 'user', 8),  # 17
+            ('Sam Owen', 'user', 8),  # 18
+
+            ('Sam Buca', 'user', 10),  # 19
+            ('Sarah Yevo', 'user', 10),  # 20
+            ('Sven Gineer', 'user', 10),  # 21
+            ('Sharon Needles', 'user', 10),  # 22
+
             ('Ray Diation', 'user', 11),  # 22
             ('Sal Ami', 'user', 11)   # 23
         ]
@@ -120,7 +124,7 @@ class TestData(TestDataBase):
              'alias': 'BAG Lund',
              'status': 'active',
              'title': 'Bag Application for Lund University 2019/20',
-             'creator_id': 7,
+             'creator': 'agonia',
              'template_id': templates[0].id,
              'invoice_reference': 'AAA',
              'invoice_address': '',
@@ -133,7 +137,7 @@ class TestData(TestDataBase):
              'status': 'active',
              'title': 'Bag Application for Stockholm University',
              'description': '',
-             'creator_id': 8,
+             'creator': 'tech',
              'template_id': templates[0].id,
              'invoice_reference': 'BBB',
              'invoice_address': '',
@@ -145,7 +149,7 @@ class TestData(TestDataBase):
              'status': 'active',
              'title': 'Rapid Access application',
              'description': '',
-             'creator_id': 9,
+             'creator': 'ernity',
              'template_id': templates[1].id,
              'invoice_reference': 'ZZZ',
              'invoice_address': '',
@@ -157,7 +161,7 @@ class TestData(TestDataBase):
              'status': 'active',
              'title': 'Internal DBB project',
              'description': '',
-             'creator_id': 10,
+             'creator': 'tech',
              'template_id': templates[-1].id,
              'invoice_reference': 'DDD',
              'invoice_address': '',
@@ -165,11 +169,11 @@ class TestData(TestDataBase):
                                      'noslot': [1, 2]}
              },
             {'code': 'CEM00345',
-             'alias': 'BAG GU',
+             'alias': 'BAG Lund 2021',
              'status': 'review',
-             'title': 'Bag Application for Gothenberg University',
+             'title': 'Bag Application for Lund University 2021',
              'description': '',
-             'creator_id': 8,
+             'creator': 'agonia',
              'template_id': templates[0].id,
              'invoice_reference': 'BBB',
              'invoice_address': '',
@@ -181,7 +185,7 @@ class TestData(TestDataBase):
              'status': 'review',
              'title': 'Bag Application for Stockholm University 2021',
              'description': '',
-             'creator_id': 8,
+             'creator': 'tech',
              'template_id': templates[0].id,
              'invoice_reference': 'BBB',
              'invoice_address': '',
@@ -191,6 +195,9 @@ class TestData(TestDataBase):
         ]
 
         for pDict in applications:
+            username = pDict.pop('creator')
+            u = dm.get_user_by(username=username)
+            pDict['creator_id'] = u.id
             dm.create_application(**pDict)
 
         def __addPi(appCode, piUser):
@@ -198,80 +205,103 @@ class TestData(TestDataBase):
             u1 = dm.get_user_by(username=piUser)
             a1.users.append(u1)
 
-        __addPi('DBB00001', 'agonia')
-        __addPi('CEM00315', 'ernity')
+        for u in ['cruiser', 'agonia']:
+            __addPi('DBB00001', u)
+
+        for u in ['cruiser']:
+            __addPi('CEM00315', u)
+
+        for u in ['molive']:
+            __addPi('CEM00297', 'ernity')
 
         dm.commit()
+
+    def __firstMonday(self, now):
+        td = dt.timedelta(days=now.weekday())
+        td7 = dt.timedelta(days=7)
+
+        prevMonday = now - td
+
+        while prevMonday.month == now.month:
+            prevMonday = prevMonday - td7
+
+        return prevMonday + td7
+
 
     def _populateBookings(self, dm):
         now = dm.now().replace(minute=0, second=0)
         month = now.month
+        self.firstMonday = self.__firstMonday(now)
+        td = dt.timedelta  # shortcut
+
+        def fm(shift):
+            return (self.firstMonday + td(days=shift)).replace(hour=9)
+
+        # Create a booking at the downtime from today to one week later
+        for r in [1, 3]:  # Krios 1 and  Talos
+            for s in [0, 14]:
+                dm.create_booking(title='',
+                                  start=fm(s),
+                                  end=fm(s+5).replace(hour=23),
+                                  type='slot',
+                                  slot_auth={'applications': ['CEM00297', 'CEM00315']},
+                                  resource_id=r,
+                                  creator_id=2,  # first user for now
+                                  owner_id=2,  # first user for now
+                                  description="Slot for National BAGs")
 
         # Create a downtime from today to one week later
-        dm.create_booking(title='First Booking',
-                          start=now.replace(day=21),
-                          end=now.replace(day=28),
+        dm.create_booking(title='',
+                          start=fm(17),
+                          end=fm(21).replace(hour=23),
                           type='downtime',
                           resource_id=1,
                           creator_id=2,  # first user for now
                           owner_id=2,  # first user for now
                           description="Some downtime for some problem")
 
-        # Create a booking at the downtime from today to one week later
-        dm.create_booking(title='Booking Krios 1',
-                          start=now.replace(day=1, hour=9),
-                          end=now.replace(day=2, hour=23, minute=59),
+        dm.create_booking(title='',
+                          start=fm(-7),
+                          end=fm(-6).replace(hour=23),
                           type='booking',
                           resource_id=1,
-                          creator_id=3,  # first user for now
-                          owner_id=12,  # first user for now
-                          description="Krios 1 for user 2")
+                          creator_id=3,  # ann mull
+                          owner_id=3,  # mull
+                          description="")
 
         # Create booking for normal user
-        dm.create_booking(title='Booking Krios 2',
-                          start=now.replace(day=4, hour=9),
-                          end=now.replace(day=6, hour=23, minute=59),
+        dm.create_booking(title='',
+                          start=fm(0),
+                          end=fm(1).replace(hour=23),
                           type='booking',
-                          resource_id=2,
-                          creator_id=11,  # first user for now
-                          owner_id=11,  # first user for now
-                          description="Krios 1 for user 10")
+                          resource_id=1,
+                          creator_id=13,  # first user for now
+                          owner_id=13,  # first user for now
+                          description="")
 
-        # Create a booking at the downtime from today to one week later
-        dm.create_booking(title='Booking Krios 1',
-                          start=now.replace(day=2, hour=9),
-                          end=now.replace(day=3, hour=23, minute=59),
+        dm.create_booking(title='',
+                          start=fm(2),
+                          end=fm(4).replace(hour=23),
                           type='booking',
-                          resource_id=2,
+                          resource_id=1,
                           creator_id=2,  # first user for now
                           owner_id=16,  # Sara Belum
                           description="Krios 2 for user 3")
 
-        # Create a booking at the downtime from today to one week later
-        dm.create_booking(title='Slot 1: BAGs',
-                          start=now.replace(day=6, hour=9),
-                          end=now.replace(day=10, hour=23, minute=59),
-                          type='slot',
-                          slot_auth={'applications': ['CEM00297', 'CEM00315']},
-                          resource_id=3,
-                          creator_id=2,  # first user for now
-                          owner_id=2,  # first user for now
-                          description="Talos slot for National BAGs")
-
         dm.create_booking(title='Slot 2: RAPID',
-                          start=now.replace(day=20, hour=9),
-                          end=now.replace(day=24, hour=23, minute=59),
-                          type='slot',
-                          slot_auth={'applications': ['CEM00332']},
-                          resource_id=3,
-                          creator_id=2,  # first user for now
-                          owner_id=2,  # first user for now
-                          description="Talos slot for RAPID applications")
+                      start=fm(21),
+                      end=fm(22).replace(hour=23),
+                      type='slot',
+                      slot_auth={'applications': ['CEM00332']},
+                      resource_id=3,
+                      creator_id=2,  # first user for now
+                      owner_id=2,  # first user for now
+                      description="Talos slot for RAPID applications")
 
         # create a repeating event
         dm.create_booking(title='Dropin',
-                          start=now.replace(day=6, hour=9),
-                          end=now.replace(day=6, hour=13),
+                          start=fm(2),
+                          end=fm(2).replace(hour=16),
                           type='slot',
                           repeat_value='bi-weekly',
                           repeat_stop=now.replace(month=month+2),
