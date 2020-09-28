@@ -26,6 +26,25 @@
     height: 150px;
 }
 
+/* unvisited link */
+.page-content a:link {
+  color: #4c979f;
+}
+
+/* visited link */
+.page-content a:visited {
+  color: #4c979f;
+}
+
+/* mouse over link */
+.page-content a:hover {
+  color: #a7c947;
+}
+
+/* selected link */
+a:active {
+  color: #a7c947;
+}
 
 /* Custom, iPhone Retina */
 @media only screen and (max-width:320px) {}

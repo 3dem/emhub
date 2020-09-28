@@ -35,7 +35,7 @@
                     <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                         <form id="validationform" data-parsley-validate="" novalidate="">
 
-                            <!-- Title Row -->
+                            <!-- Owner Row -->
                             <div class="form-group row">
                                 <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
                                 <div class="col-12 col-sm-8 col-lg-6">
@@ -52,6 +52,14 @@
                                     {% else %}
                                         <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control">
                                     {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Application Row -->
+                            <div class="form-group row">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Application</label>
+                                <div class="col-12 col-sm-8 col-lg-6">
+                                    <label id="application-label" class="col-12 col-sm-3 col-form-label text-sm-left"></label>
                                 </div>
                             </div>
 

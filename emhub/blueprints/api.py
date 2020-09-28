@@ -231,13 +231,8 @@ def get_bookings():
 @api_bp.route('/get_bookings_range', methods=['POST'])
 @flask_login.login_required
 def get_bookings_range():
-    start = request.form['start']
-    end = request.form['end']
-    # Retrieve all bookings starting before or day 4
-    startBetween = "(start>='%s' AND start<='%s')" % (start, end)
-    endBetween = "(end>='%s' AND end<='%s')" % (start, end)
-    bookings = app.dm.get_bookings(
-        condition='%s OR %s' % (startBetween, endBetween))
+    bookings = app.dm.get_bookings_range(
+        request.form['start'], request.form['end'])
 
     func = app.dc.booking_to_event
 

@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.1a11'
+__version__ = '0.0.1b1'
 
 
 def create_app(test_config=None):
@@ -127,7 +127,7 @@ def create_app(test_config=None):
     @app.route('/', methods=['GET', 'POST'])
     @app.route('/index', methods=['GET', 'POST'])
     def index():
-        return _redirect('main', content_id='dashboard')
+        return _redirect('pages.index', page_id='welcome')
 
     @app.route('/login', methods=['GET'])
     def login():

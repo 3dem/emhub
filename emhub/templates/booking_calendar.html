@@ -308,6 +308,7 @@ function showBookingForm(booking) {
         booking.user_can_modify = true;
         $('#booking-btn-ok').show();
         $('#booking-btn-delete').hide();
+        $('#application-label').html('Not set');
     }
     else {
         titlePrefix = 'Update ';
@@ -319,6 +320,7 @@ function showBookingForm(booking) {
             $('#booking-btn-delete').hide();
             $('#booking-btn-ok').hide();
         }
+        $('#application-label').html(booking.application_label);
     }
 
     let htmlStr = titlePrefix + ' Booking - ' + booking.resource.name;
@@ -388,11 +390,6 @@ function bookingFromSelection(info, resource) {
     };
 }
 
-/** Function called when new dates are selected for a given Resource.
- * It creates a new booking and shows the Booking Form. **/
-function onDateSelection(start, end) {
-
-}
 
 /* This function is called when an existing Booking event is clicked */
 function onBookingSelected(event, original_range) {
@@ -413,7 +410,8 @@ function onBookingSelected(event, original_range) {
         slot_auth: props.slot_auth,
         user_can_modify: props.user_can_modify,
         original_range: original_range,
-        experiment: props.experiment
+        experiment: props.experiment,
+        application_label: props.application_label
     };
     showBookingForm(last_booking);
 }
@@ -551,11 +549,19 @@ function onOkButtonClick() {
         modify_all: modify_all,
         repeat_value: repeat_value,
         resource: getResource(last_booking.resource.id),
-        experiment: last_booking.experiment
+        experiment: last_booking.experiment,
+        application_label: last_booking.application_label
     };
 
     if (booking_type == 'slot') {
         booking.slot_auth = {applications: $('#booking-slot-auth').selectpicker('val'), users: []}
+    }
+    else if (booking_type == 'booking') {
+        if (jQuery.isEmptyObject(booking.experiment)) {
+            showMessage("ERROR", "<p>Please describe your experiment!!! <br> " +
+                                 "At least the fields in the <b>Basic</b> input tab.<p>");
+            return
+        }
     }
 
     let endpoint = null;

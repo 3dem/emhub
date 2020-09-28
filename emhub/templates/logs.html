@@ -59,5 +59,8 @@
 
 <script>
 
-    $('#logs-table').DataTable();
+    $('#logs-table').DataTable({
+        "order": [[0, "desc"]],
+        "pageLength": 50
+    });
 </script>

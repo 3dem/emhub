@@ -278,11 +278,10 @@ class DataContent:
 
     def get_logs(self, **kwargs):
         dm = self.app.dm
-        logs = dm.get_logs()
+        logs = dm.get_logs()[-100:  ]
         for log in logs:
             log.user = dm.get_user_by(id=log.user_id)
 
-        logs.sort(key=lambda o: o.id, reverse=True)
         return  {'logs': logs}
 
     def get_pages(self, **kwargs):
@@ -376,6 +375,8 @@ class DataContent:
         user_can_view = user_can_modify or user.same_pi(owner)
         color = resource.color if resource else 'grey'
 
+        application_label = 'None'
+
         if booking.type == 'downtime':
             color = 'red'
             title = "%s (DOWNTIME): %s" % (resource.name, b_title)
@@ -391,6 +392,8 @@ class DataContent:
             extra = "%s%s" % (owner.name, appStr)
             if user_can_view:
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
+                if application:
+                    application_label = application.code
             else:
                 title = "%s (%s)" % (resource_info['name'], extra)
                 b_title = "Hidden title"
@@ -416,7 +419,8 @@ class DataContent:
             'repeat_id': booking.repeat_id,
             'repeat_value': booking.repeat_value,
             'days': booking.days,
-            'experiment': booking.experiment
+            'experiment': booking.experiment,
+            'application_label': application_label
         }
 
     def user_profile_image(self, user):

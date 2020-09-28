@@ -26,17 +26,17 @@
 # *
 # **************************************************************************
 
-import os
 import datetime as dt
+import os
 import uuid
 from collections import defaultdict
 
 import sqlalchemy
 
-from .data_session import H5SessionData
 from .data_db import DbManager
-from .data_models import create_data_models
 from .data_log import DataLog
+from .data_models import create_data_models
+from .data_session import H5SessionData
 
 
 class DataManager(DbManager):
@@ -80,7 +80,7 @@ class DataManager(DbManager):
                                  email='admin@emhub.org',
                                  password=password,
                                  name='admin',
-                                 roles='dev, admin',
+                                 roles=['admin'],
                                  pi_id=None)
         if self._user is None:
             self._user = admin
@@ -255,6 +255,19 @@ class DataManager(DbManager):
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_bookings_range(self, start, end, resource=None):
+        """ Shortcut function to retrieve a range of bookings. """
+        # Retrieve all bookings starting before or day 4
+        startBetween = "(start>='%s' AND start<='%s')" % (start, end)
+        endBetween = "(end>='%s' AND end<='%s')" % (start, end)
+        rangeOver = "(start<='%s' AND end>='%s')" % (start, end)
+        conditionStr = "(%s OR %s OR %s)" % (startBetween, endBetween, rangeOver)
+
+        if resource is not None:
+            conditionStr += " AND resource_id=%s" % resource.id
+
+        return self.get_bookings(condition=conditionStr)
+
     def delete_booking(self, **attrs):
         """ Delete one or many bookings (in case of repeating events)
 
@@ -287,8 +300,6 @@ class DataManager(DbManager):
         count_dict = defaultdict(lambda: defaultdict(lambda: 0))
 
         for b in self.get_bookings():
-            #print("Booking: ", b, "\n   - Application: ", b.application)
-
             if b.application is None:
                 continue
 
@@ -410,23 +421,7 @@ class DataManager(DbManager):
 
     # ------------------- BOOKING helper functions -----------------------------
     def __create_booking(self, attrs, **kwargs):
-        if 'application_id' not in attrs:
-            owner = self.get_user_by(id=attrs['owner_id'])
-            apps = owner.get_applications()
-            n = len(apps)
 
-            if n == 0 and not owner.is_manager:
-                raise Exception("User %s has no active application"
-                                % owner.name)
-
-            # FIXME: Validate one application is selected when many are active
-            # if n > 1:
-            #     raise Exception("User %s has more than one active application"
-            #                     % owner.name)
-            # elif n == 1:
-            #     attrs['application_id'] = apps[0].id
-            if apps:
-                attrs['application_id'] = apps[0].id
 
         b = self.Booking(**attrs)
         self.__validate_booking(b, **kwargs)
@@ -460,20 +455,68 @@ class DataManager(DbManager):
                 raise Exception("The duration of the booking is greater that "
                                 "the maximum allowed for the resource. ")
 
-        app_id = booking.application_id
-        if app_id is not None:
-            a = self.get_application_by(id=app_id)
+        overlap = self.get_bookings_range(booking.start,
+                                          booking.end,
+                                          resource=r)
 
+        app = None
+
+        if not booking.is_slot:
+            # Check there is not overlapping with other non-slot events
+            overlap_noslots = [b for b in overlap
+                               if not b.is_slot and b.id != booking.id]
+            if overlap_noslots:
+                raise Exception("Booking is overlapping with other events: %s"
+                                % overlap_noslots)
+
+            overlap_slots = [b for b in overlap
+                             if b.is_slot and b.id != booking.id]
+
+            # FIXME: Check when it make sense to use application_id if coming
+            app_id = None  # booking.application_id
+
+            if app_id is None:
+                owner = self.get_user_by(id=booking.owner_id)
+                apps = owner.get_applications()
+                n = len(apps)
+
+                if n == 0 and not owner.is_manager:
+                    raise Exception("User %s has no active application"
+                                    % owner.name)
+
+                # Let's try to find an application that allows the owner to book
+                def find_app():
+                    for b in overlap_slots:
+                        for a in apps:
+                            if b.application_in_slot(a):
+                                return a
+
+                    for a in apps:
+                        if a.no_slot(r.id):
+                            return a
+
+                    return None
+
+                app = find_app()
+
+                if app is None and not owner.is_manager:
+                    raise Exception("The owner of the have no permission to book "
+                                    "outside slots for this resource or have not "
+                                    "access to the given slot. ")
+            else:
+                app = self.get_application_by(id=app_id)
+
+        if app is not None:
+            booking.application_id = app.id
             count = self.count_booking_resources([app_id],
                                                  resource_tags=r.tags.split())
-            for tagKey, tagCount in count[app_id]   .items():
-                alloc = a.get_quota(tagKey)
+            for tagKey, tagCount in count[app_id].items():
+                alloc = app.get_quota(tagKey)
                 if alloc:  # if different from None or 0, then check
                     if tagCount + booking.days > alloc:
                         raise Exception("Exceeded number of allocated days "
                                         "for application %s on resource tag '%s'"
-                                        % (a.code, tagKey))
-        #raise Exception("No more bookings allowed now. ")
+                                        % (app.code, tagKey))
 
     def __check_cancellation(self, booking):
         """ Check if this booking can be updated or deleted.
