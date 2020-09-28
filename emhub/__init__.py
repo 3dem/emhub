@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.1a11'
+__version__ = '0.0.1b1'
 
 
 def create_app(test_config=None):
