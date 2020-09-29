@@ -135,6 +135,11 @@ function showMessage(title, msg) {
     confirmModal.modal('show');
 }
 
+/* Shortcut to show error messages */
+function showError(msg) {
+    showMessage('ERROR', msg);
+}
+
 /* Generic Confirm func */
 function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
     var confirmModal =

@@ -510,7 +510,7 @@ function handleAjaxDone(jsonResponse) {
     }
 
     if (error)
-        showMessage('ERROR', error);
+        showError(error);
     else {
         $('#booking-modal').modal('hide');
         calendar.render();
@@ -519,7 +519,7 @@ function handleAjaxDone(jsonResponse) {
 
 
 function handleAjaxFail(jqXHR, textStatus) {
-    showMessage("ERROR", "Request failed: " + textStatus );
+    showError("Request failed: " + textStatus );
 }
 
 
@@ -565,8 +565,8 @@ function onOkButtonClick() {
     }
     else if (booking_type == 'booking') {
         if (resource.is_microscope && jQuery.isEmptyObject(booking.experiment)) {
-            showMessage("ERROR", "<p>Please describe your experiment!!! <br> " +
-                                 "At least the fields in the <b>Basic</b> input tab.<p>");
+            showError("<p>Please describe your experiment!!! <br> " +
+                      "At least the fields in the <b>Basic</b> input tab.<p>");
             return
         }
     }
@@ -576,16 +576,23 @@ function onOkButtonClick() {
     if (booking.id) {
         endpoint = "{{ url_for('api.update_booking') }}"
         if (booking.repeat_value != 'no' && modify_all === null) {
-            showMessage("ERROR", "<p>Please select a value for input <b>Modify repeating</b>: " +
-                        "<i>Only this</i> or <i>All upcoming</i>.")
+            showError("<p>Please select a value for input <b>Modify repeating</b>: " +
+                      "<i>Only this</i> or <i>All upcoming</i>.")
             return
         }
     }
     else {
         // Only take into account repeat value when creating a new booking
 
-        if (repeat_value != 'no')
-              booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
+        if (repeat_value != 'no') {
+            try {
+                booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
+            }
+            catch(err) {
+                showError("<p>Please provide a valid <b>Stop date</b> for the repeating event.")
+                return
+            }
+        }
         booking.creator_id = booking.owner_id
         endpoint = "{{ url_for('api.create_booking') }}"
     }
@@ -593,7 +600,7 @@ function onOkButtonClick() {
     var error = validateBooking(booking, true);
 
     if (error != '') {
-        showMessage("ERROR", error);
+        showError(error);
         return;
     }
 
@@ -619,9 +626,10 @@ function onOkButtonClick() {
  */
 function onDeleteButtonClick() {
 
-    if (last_booking.repeat_id && modify_all === null) {
-            showMessage("ERROR", "<p>Please select a value for input <b>Modify repeating</b>: " +
-                        "<i>Only this</i> or <i>All upcoming</i>.")
+    //if (last_booking.repeat_id && modify_all === null) {
+    if (last_booking.repeat_value != 'no' && modify_all === null) {
+            showError("<p>Please select a value for input <b>Modify repeating</b>: " +
+                      "<i>Only this</i> or <i>All upcoming</i>.")
             return
     }
 
