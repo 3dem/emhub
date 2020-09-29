@@ -75,6 +75,17 @@
                         </div>
                     </div>
 
+                    {% if current_user.is_manager %}
+                    <!-- Row to add more PIs, only for Admins -->
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label text-sm-right"></label>
+                            <input type="text" placeholder="Enter PI ids (separated by space)" id="application-add-users" class="form-control col-sm-6">
+                            <div class="col-sm-3 text-sm-left">
+                                <a href="javascript:onAddPiClick()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add PI </a>
+                            </div>
+                    </div>
+                    {% endif %}
+
                     <div class="form-group row">
                         <label class="col-sm-3 col-form-label text-sm-right">PI List</label>
                         <table class="table col-sm-9">
@@ -87,7 +98,7 @@
                             </tr>
                             {% for u in application.pi_list[1:] %}
                                 <tr>
-                                    <td>{{ u.name }}</td>
+                                    <td id="{{ u.id }}">{{ u.name }}</td>
                                     <td> {{ u.email }}</td>
                                     </tr>
                                 </tr>

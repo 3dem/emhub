@@ -166,6 +166,9 @@ def add_application_users():
 
         app_id = request.json['application_id']
         users = request.json['users']
+        if isinstance(users, str):
+            users = map(int, users.split())
+
         application = app.dm.get_application_by(id=app_id)
 
         errorMsg = ''

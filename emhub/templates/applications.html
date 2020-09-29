@@ -307,7 +307,7 @@ function onTemplateOkButtonClick() {
 function handleApplicationAjaxDone(jsonResponse) {
     var error = null;
 
-    if ('application' in jsonResponse) {
+    if ('application' in jsonResponse || 'OK' in jsonResponse) {
     }
     else if ('error' in jsonResponse) {
         error = jsonResponse.error;
@@ -373,5 +373,24 @@ function onApplicationOkButtonClick() {
     ajaxContent.done(handleApplicationAjaxDone);
     ajaxContent.fail(handleAjaxFail);
 }  // function onTemplateOkButtonClick
+    
+function onAddPiClick() {
+        // Update template values
+    var params = {
+        application_id: parseInt($('#application-id').val()),
+        users: $('#application-add-users').val(),
+    };
+
+    var ajaxContent = $.ajax({
+        url: "{{ url_for('api.add_application_users') }}",
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify(params),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleApplicationAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
+}
 
 </script>
