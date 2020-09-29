@@ -204,7 +204,7 @@ function showTemplate(templateId) {
         template = templateDict[templateId];
 
     if (template == null) {
-        showMessage("ERROR", "Invalid Template id: " + templateId);
+        showError("Invalid Template id: " + templateId);
         return
     }
 
@@ -259,7 +259,7 @@ function handleAjaxDone(jsonResponse) {
     }
 
     if (error)
-        showMessage('ERROR', error);
+        showError(error);
     else {
         $('#template-modal').on('hidden.bs.modal', function () {
             var params = {template_selected_status: template.status};
@@ -271,7 +271,7 @@ function handleAjaxDone(jsonResponse) {
 
 
 function handleAjaxFail(jqXHR, textStatus) {
-    showMessage("ERROR", "Request failed: " + textStatus );
+    showError("Request failed: " + textStatus );
 }
 
 
@@ -317,7 +317,7 @@ function handleApplicationAjaxDone(jsonResponse) {
     }
 
     if (error)
-        showMessage('ERROR', error);
+        showError(error);
     else {
         $('#application-modal').on('hidden.bs.modal', function () {
             var params = {}
