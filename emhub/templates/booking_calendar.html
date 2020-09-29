@@ -473,8 +473,11 @@ function selectResource(sel) {
 /** Remove bookings events from calendar and from booking list */
 function remove_bookings(deleted) {
     // Remove events from Calendar
+    var event;
     for (var booking of deleted) {
-       calendar.getEventById(booking.id).remove();
+       event = calendar.getEventById(booking.id);
+       if (event)
+           event.remove();
     }
 }
 
@@ -536,6 +539,7 @@ function onOkButtonClick() {
 
     var start = dateFromValue('#booking-start-date', '#booking-start-time');
     var end = dateFromValue('#booking-end-date', '#booking-end-time');
+    var resource = getResource(last_booking.resource.id);
 
     var booking = {
         id: last_booking.id,
@@ -548,16 +552,19 @@ function onOkButtonClick() {
         resource_id: last_booking.resource.id,
         modify_all: modify_all,
         repeat_value: repeat_value,
-        resource: getResource(last_booking.resource.id),
+        resource: resource,
         experiment: last_booking.experiment,
         application_label: last_booking.application_label
     };
 
     if (booking_type == 'slot') {
-        booking.slot_auth = {applications: $('#booking-slot-auth').selectpicker('val'), users: []}
+        booking.slot_auth = {
+            applications: $('#booking-slot-auth').selectpicker('val'),
+            users: []
+        }
     }
     else if (booking_type == 'booking') {
-        if (jQuery.isEmptyObject(booking.experiment)) {
+        if (resource.is_microscope && jQuery.isEmptyObject(booking.experiment)) {
             showMessage("ERROR", "<p>Please describe your experiment!!! <br> " +
                                  "At least the fields in the <b>Basic</b> input tab.<p>");
             return
