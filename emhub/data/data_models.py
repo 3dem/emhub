@@ -78,47 +78,57 @@ def create_data_models(dm):
         def json(self):
             return dm.json_from_object(self)
 
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
         @property
         def requires_slot(self):
             """ If True, users will need to have access to an slot
             or have some exceptions via the Application.
             """
-            return  self.extra.get('requires_slot', False)
+            return  self.__getExtra('requires_slot', False)
 
         @requires_slot.setter
         def requires_slot(self, value):
-            self.extra['requires_slot'] = bool(value)
+            self.__setExtra('requires_slot', value)
 
         # Latest number of hours that a booking can be canceled
         # for this resource (e.g until 48h for a booking on Krios)
         # If 0, means that the booking can be cancelled at any time
         @property
         def latest_cancellation(self):
-            return  self.extra.get('latest_cancellation', 0)
+            return  self.__getExtra('latest_cancellation', 0)
 
         @latest_cancellation.setter
         def latest_cancellation(self, value):
-            self.extra['latest_cancellation'] = int(value)
+            self.__setExtra('latest_cancellation', int(value))
 
-        # Minimum and maximum amount of hours for a booking in this resource
-        # fractions of an hour can also  be used
         @property
         def min_booking(self):
-            return self.extra.get('min_booking', 0)
+            """ Minimum amount of hours that should be used for
+            booking this resource.
+            """
+            return self.__getExtra('min_booking', 0)
 
         @min_booking.setter
         def min_booking(self, value):
-            self.extra['min_booking'] = int(value)
+            self.__setExtra('min_booking', int(value))
 
-        # Minimum amount of hours for a booking in this resource
-        # fractions of an hour can also  be used
         @property
         def max_booking(self):
-            return self.extra.get('max_booking', 0)
+            """ Minimum amount of hours that should be used for
+            booking this resource.
+            """
+            return self.__getExtra('max_booking', 0)
 
         @max_booking.setter
         def max_booking(self, value):
-            self.extra['max_booking'] = int(value)
+            self.__setExtra('max_booking', int(value))
 
         @property
         def is_microscope(self):
@@ -126,7 +136,21 @@ def create_data_models(dm):
 
         @property
         def is_active(self):
+            """ Return True if this instrument is "active".
+            If not "active" bookings can not be made for this instrument.
+            """
             return self.status == 'active'
+
+        @property
+        def requires_application(self):
+            """ Minimum amount of hours that should be used for
+            booking this resource.
+            """
+            return self.__getExtra('requires_application', True)
+
+        @requires_application.setter
+        def requires_application(self, value):
+            self.__setExtra('requires_application', bool(value))
 
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
@@ -560,7 +584,7 @@ def create_data_models(dm):
             allowedUsers = self.slot_auth.get('users', [])
             allowedApps = self.slot_auth.get('applications', [])
 
-            return (user.id in allowedUsers or
+            return (user.id in allowedUsers or 'any' in allowedApps or
                     any(a.code in allowedApps for a in user.get_applications()))
 
         def application_in_slot(self, application):

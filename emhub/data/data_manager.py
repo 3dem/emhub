@@ -434,13 +434,14 @@ class DataManager(DbManager):
         check_min_booking = kwargs.get('check_min_booking', True)
         check_max_booking = kwargs.get('check_max_booking', True)
 
-        if not self._user.is_manager and not r.is_active:
+        user = self._user
+        if not user.is_manager and not r.is_active:
             raise Exception("Selected resource is inactive now. ")
 
         if booking.start >= booking.end:
             raise Exception("The booking 'end' should be after the 'start'. ")
 
-        if not self._user.is_manager and booking.start.date() < self.now().date():
+        if not user.is_manager and booking.start.date() < self.now().date():
             raise Exception("The booking 'start' can not be in the past. ")
 
         if check_min_booking and r.min_booking > 0:
@@ -480,11 +481,13 @@ class DataManager(DbManager):
                 apps = owner.get_applications()
                 n = len(apps)
 
-                if n == 0 and not owner.is_manager:
+                if n == 0 and not owner.is_manager and r.requires_application:
                     raise Exception("User %s has no active application"
                                     % owner.name)
 
                 # Let's try to find an application that allows the owner to book
+
+
                 def find_app():
                     for b in overlap_slots:
                         for a in apps:
@@ -498,8 +501,10 @@ class DataManager(DbManager):
                     return None
 
                 app = find_app()
+                user_can_book = any(user.can_book_slot(s) for s in overlap_slots)
 
-                if app is None and not owner.is_manager:
+                if (app is None and not user.is_manager
+                    and not user_can_book and r.requires_slot):
                     raise Exception("The owner of the have no permission to book "
                                     "outside slots for this resource or have not "
                                     "access to the given slot. ")
