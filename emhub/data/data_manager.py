@@ -499,7 +499,7 @@ class DataManager(DbManager):
 
                 app = find_app()
 
-                if app is None and not owner.is_manager:
+                if app is None and not owner.is_manager and r.requires_slot:
                     raise Exception("The owner of the have no permission to book "
                                     "outside slots for this resource or have not "
                                     "access to the given slot. ")
