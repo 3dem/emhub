@@ -306,7 +306,8 @@ class DataContent:
 
     def get_logs(self, **kwargs):
         dm = self.app.dm
-        logs = dm.get_logs()[-100:  ]
+        logs = int(kwargs.get('n', 100))
+        logs = dm.get_logs()[-logs:  ]
         for log in logs:
             log.user = dm.get_user_by(id=log.user_id)
 
