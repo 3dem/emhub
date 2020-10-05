@@ -584,7 +584,7 @@ def create_data_models(dm):
             allowedUsers = self.slot_auth.get('users', [])
             allowedApps = self.slot_auth.get('applications', [])
 
-            return (user.id in allowedUsers or
+            return (user.id in allowedUsers or 'any' in allowedApps or
                     any(a.code in allowedApps for a in user.get_applications()))
 
         def application_in_slot(self, application):
