@@ -422,6 +422,8 @@ class DataContent:
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
                 if application:
                     application_label = application.code
+                    if application.alias:
+                        application_label += "  (%s)" % application.alias
             else:
                 title = "%s (%s)" % (resource_info['name'], extra)
                 b_title = "Hidden title"
