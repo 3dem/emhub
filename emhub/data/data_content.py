@@ -159,6 +159,34 @@ class DataContent:
         ]
         return {'resources': resource_list}
 
+    def get_resource_form(self, **kwargs):
+        r = self.app.dm.get_resource_by(id=kwargs['resource_id'])
+
+        params = []
+
+        def _add(attr, label, **kwargs):
+            p = {'id': attr,
+                 'label': label,
+                 'value': getattr(r, attr)
+                 }
+            p.update(kwargs)
+            params.append(p)
+
+        _add('name', 'Name')
+        _add('status', 'Status',
+             enum={'display': 'combo',
+                   'choices': ['active', 'inactive']})
+        _add('tags', 'Tags')
+        _add('latest_cancellation', 'Latest cancellation (h)')
+        _add('min_booking', 'Minimum booking time (h)')
+        _add('min_booking', 'Maximum booking time (h)')
+        _add('requires_slot', 'Requires Slot', type='bool')
+        _add('requires_application', 'Requires Application', type='bool')
+
+        return {
+            'resource': r, 'params': params
+        }
+
     def get_booking_calendar(self, **kwargs):
         dm = self.app.dm  # shortcut
         dataDict = self.get_resources_list()
