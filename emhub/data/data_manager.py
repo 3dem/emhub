@@ -33,6 +33,7 @@ from collections import defaultdict
 
 import sqlalchemy
 
+from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
@@ -257,7 +258,12 @@ class DataManager(DbManager):
 
     def get_bookings_range(self, start, end, resource=None):
         """ Shortcut function to retrieve a range of bookings. """
-        # Retrieve all bookings starting before or day 4
+        newStart = (start - dt.timedelta(days=1)).replace(hour=23, minute=59)
+        start = datetime_to_isoformat(newStart)
+
+        newEnd = (end + dt.timedelta(days=1)).replace(hour=0, minute=0)
+        end = datetime_to_isoformat(newEnd)
+
         startBetween = "(start>='%s' AND start<='%s')" % (start, end)
         endBetween = "(end>='%s' AND end<='%s')" % (start, end)
         rangeOver = "(start<='%s' AND end>='%s')" % (start, end)
@@ -421,7 +427,8 @@ class DataManager(DbManager):
 
     # ------------------- BOOKING helper functions -----------------------------
     def __create_booking(self, attrs, **kwargs):
-
+        if 'creator_id' not in attrs:
+            attrs['creator_id'] = self._user.id
 
         b = self.Booking(**attrs)
         self.__validate_booking(b, **kwargs)
@@ -499,8 +506,8 @@ class DataManager(DbManager):
 
                 app = find_app()
 
-                if app is None and not owner.is_manager:
-                    raise Exception("The owner of the have no permission to book "
+                if app is None and not self._user.is_manager:
+                    raise Exception("You do not have permission to book "
                                     "outside slots for this resource or have not "
                                     "access to the given slot. ")
             else:
