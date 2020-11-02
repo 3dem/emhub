@@ -26,7 +26,6 @@
 
 import json
 import datetime as dt
-import flask
 
 from . import image
 
@@ -54,6 +53,7 @@ def datetime_to_isoformat(input_dt):
 
 
 def send_json_data(data):
+    import flask
     resp = flask.make_response(json.dumps(data))
     resp.status_code = 200
     resp.headers['Access-Control-Allow-Origin'] = '*'
