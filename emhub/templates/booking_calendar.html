@@ -206,8 +206,8 @@
             booking.id = draggedEvent.id;
             var error = validateBooking(booking, true);
             var ok = error  == '';
-            if (!ok)
-                showError(error);
+{#            if (!ok)#}
+{#                showError(error);#}
             return ok;
         },
         selectAllow: function(info) {
@@ -293,8 +293,8 @@ function validateBooking(booking, useTime) {
                 }
             }
             else {
-                // Only check other events overlapping when using time.
-                if (useTime && e.id != booking.id && booking.type != 'slot' && rangesOverlap(booking, e, useTime))
+                // Only check other events overlapping when  using time.
+                if (useTime && e.id != booking.id && rangesOverlap(booking, e, useTime) && booking.type != "slot")
                 {
                     return "Selected dates/time overlaps with another existing " +
                            "booking. ";
@@ -603,7 +603,6 @@ function onOkButtonClick() {
                 return
             }
         }
-        booking.creator_id = booking.owner_id
         endpoint = "{{ url_for('api.create_booking') }}"
     }
 

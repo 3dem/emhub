@@ -33,6 +33,7 @@ from collections import defaultdict
 
 import sqlalchemy
 
+from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
@@ -257,16 +258,29 @@ class DataManager(DbManager):
 
     def get_bookings_range(self, start, end, resource=None):
         """ Shortcut function to retrieve a range of bookings. """
-        # Retrieve all bookings starting before or day 4
-        startBetween = "(start>='%s' AND start<='%s')" % (start, end)
-        endBetween = "(end>='%s' AND end<='%s')" % (start, end)
-        rangeOver = "(start<='%s' AND end>='%s')" % (start, end)
+        # JMRT: For some reason the retrieval of the date ranges is not working
+        # as expected for the time. So we are taking on day before for the start
+        # and one day after for the end and filter later
+        newStart = (start - dt.timedelta(days=1)).replace(hour=23, minute=59)
+        newEnd = (end + dt.timedelta(days=1)).replace(hour=0, minute=0)
+        rangeStr = datetime_to_isoformat(newStart), datetime_to_isoformat(newEnd)
+
+        startBetween = "(start>='%s' AND start<='%s')" % rangeStr
+        endBetween = "(end>='%s' AND end<='%s')" % rangeStr
+        rangeOver = "(start<='%s' AND end>='%s')" % rangeStr
         conditionStr = "(%s OR %s OR %s)" % (startBetween, endBetween, rangeOver)
 
         if resource is not None:
             conditionStr += " AND resource_id=%s" % resource.id
 
-        return self.get_bookings(condition=conditionStr)
+        def in_range(b):
+            s, e = b.start, b.end
+            return ((s >= start and s <= end) or
+                    (e >= start and e <= end) or
+                    (s <= start and e >= end))
+
+        return [b for b in self.get_bookings(condition=conditionStr)
+                if in_range(b)]
 
     def delete_booking(self, **attrs):
         """ Delete one or many bookings (in case of repeating events)
@@ -421,7 +435,8 @@ class DataManager(DbManager):
 
     # ------------------- BOOKING helper functions -----------------------------
     def __create_booking(self, attrs, **kwargs):
-
+        if 'creator_id' not in attrs:
+            attrs['creator_id'] = self._user.id
 
         b = self.Booking(**attrs)
         self.__validate_booking(b, **kwargs)
@@ -486,8 +501,6 @@ class DataManager(DbManager):
                                     % owner.name)
 
                 # Let's try to find an application that allows the owner to book
-
-
                 def find_app():
                     for b in overlap_slots:
                         for a in apps:
@@ -505,7 +518,7 @@ class DataManager(DbManager):
 
                 if (app is None and not user.is_manager
                     and not user_can_book and r.requires_slot):
-                    raise Exception("The owner of the have no permission to book "
+                    raise Exception("You do not have permission to book "
                                     "outside slots for this resource or have not "
                                     "access to the given slot. ")
             else:
@@ -546,9 +559,10 @@ class DataManager(DbManager):
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
-        Keyword Args:
-            id: Id of the main booking
-            modify_all: If True, all repeating bookings from this one will be
+        Params:
+            attrs:
+                id: Id of the main booking
+                modify_all: If True, all repeating bookings from this one will be
                 returned
         """
         booking_id = attrs['id']

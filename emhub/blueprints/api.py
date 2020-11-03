@@ -43,8 +43,8 @@ api_bp = flask.Blueprint('api', __name__)
 # ---------------------------- AUTH  ------------------------------------------
 @api_bp.route('/login', methods=['POST'])
 def login():
-    username = flask.request.json['username']
-    password = flask.request.json['password']
+    username = request.json['username']
+    password = request.json['password']
 
     user = app.dm.get_user_by(username=username)
     if user is None or not user.check_password(password):
@@ -234,11 +234,12 @@ def get_bookings():
 @api_bp.route('/get_bookings_range', methods=['POST'])
 @flask_login.login_required
 def get_bookings_range():
+    d = request.json or request.form
     bookings = app.dm.get_bookings_range(
-        request.form['start'], request.form['end'])
-
+        datetime_from_isoformat(d['start']),
+        datetime_from_isoformat(d['end'])
+    )
     func = app.dc.booking_to_event
-
     return send_json_data([func(b) for b in bookings])
 
 
