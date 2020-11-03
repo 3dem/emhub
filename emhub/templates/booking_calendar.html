@@ -206,8 +206,8 @@
             booking.id = draggedEvent.id;
             var error = validateBooking(booking, true);
             var ok = error  == '';
-            if (!ok)
-                showError(error);
+{#            if (!ok)#}
+{#                showError(error);#}
             return ok;
         },
         selectAllow: function(info) {

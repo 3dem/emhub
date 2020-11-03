@@ -258,21 +258,29 @@ class DataManager(DbManager):
 
     def get_bookings_range(self, start, end, resource=None):
         """ Shortcut function to retrieve a range of bookings. """
+        # JMRT: For some reason the retrieval of the date ranges is not working
+        # as expected for the time. So we are taking on day before for the start
+        # and one day after for the end and filter later
         newStart = (start - dt.timedelta(days=1)).replace(hour=23, minute=59)
-        start = datetime_to_isoformat(newStart)
-
         newEnd = (end + dt.timedelta(days=1)).replace(hour=0, minute=0)
-        end = datetime_to_isoformat(newEnd)
+        rangeStr = datetime_to_isoformat(newStart), datetime_to_isoformat(newEnd)
 
-        startBetween = "(start>='%s' AND start<='%s')" % (start, end)
-        endBetween = "(end>='%s' AND end<='%s')" % (start, end)
-        rangeOver = "(start<='%s' AND end>='%s')" % (start, end)
+        startBetween = "(start>='%s' AND start<='%s')" % rangeStr
+        endBetween = "(end>='%s' AND end<='%s')" % rangeStr
+        rangeOver = "(start<='%s' AND end>='%s')" % rangeStr
         conditionStr = "(%s OR %s OR %s)" % (startBetween, endBetween, rangeOver)
 
         if resource is not None:
             conditionStr += " AND resource_id=%s" % resource.id
 
-        return self.get_bookings(condition=conditionStr)
+        def in_range(b):
+            s, e = b.start, b.end
+            return ((s >= start and s <= end) or
+                    (e >= start and e <= end) or
+                    (s <= start and e >= end))
+
+        return [b for b in self.get_bookings(condition=conditionStr)
+                if in_range(b)]
 
     def delete_booking(self, **attrs):
         """ Delete one or many bookings (in case of repeating events)
