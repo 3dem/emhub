@@ -204,13 +204,23 @@
             original_range = {start: draggedEvent.start, end: draggedEvent.end};
             let booking = bookingFromSelection(info, resource);
             booking.id = draggedEvent.id;
-            return validateBooking(booking, true) == '';
+            var error = validateBooking(booking, true);
+            var ok = error  == '';
+            if (!ok)
+                showError(error);
+            return ok;
         },
         selectAllow: function(info) {
-            if (selected_resource == null)
+            if (selected_resource == null) {
+                showError("Please select Resource to book first.")
                 return false;
+            }
             let booking = bookingFromSelection(info, selected_resource)
-            return validateBooking(booking, false) ==  '';
+            var error = validateBooking(booking, false);
+            var ok = error  == '';
+            if (!ok)
+                showError(error);
+            return ok;
         },
         // dateClick: function(info) {
         //     alert('clicked ' + info.dateStr);

@@ -131,6 +131,14 @@ class TestDataManager(unittest.TestCase):
         self.assertTrue(len(count_tags))
         print_count(count_tags)
 
+    def test_resources(self):
+        resources = self.dm.get_resources()
+
+        microscopes = [r for r in resources if r.is_microscope]
+
+        self.assertTrue(all(m.requires_slot for m in  microscopes))
+        self.assertFalse(all(m.requires_slot for m in microscopes))
+
 
 class TestSessionData(unittest.TestCase):
     def test_basic(self):

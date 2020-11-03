@@ -140,6 +140,7 @@
                             <label class="col-12 col-sm-3 col-form-label text-sm-right">Sloth Authorization</label>
                             <div class="col-12 col-sm-8 col-lg-6">
                             <select id="booking-slot-auth" class="selectpicker show-tick" multiple data-width="100%" data-selected-text-format="count > 5" data-live-search="true" data-actions-box="true" title="Select authorization...">
+                                <option value="any">Any</option>
                                 {% for a in applications %}#}
             {#                      <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}" data-content="<span class='badge badge-light'>{{a['code']}}</span>">{{a['code']}}</option>#}
                                   <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}">{{a['code']}}</option>
