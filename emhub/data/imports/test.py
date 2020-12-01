@@ -304,7 +304,7 @@ class TestData(TestDataBase):
                           end=fm(2).replace(hour=16),
                           type='slot',
                           repeat_value='bi-weekly',
-                          repeat_stop=now.replace(month=month+2),
+                          repeat_stop=now + dt.timedelta(2*30),
                           resource_id=7,
                           creator_id=2,  # first user for now
                           owner_id=2,  # first user for now

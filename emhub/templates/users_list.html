@@ -45,6 +45,12 @@
                                 <td>{{ user.extra }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-light" onclick="showUser({{ user.id }})"><i class="far fa-edit"></i></button>
+                                    {% if current_user.is_admin %}
+                                        <button class="btn btn-sm btn-outline-light"
+                                                onclick="switchUser('{{ user.username }}', '{{ user.name }}')">
+                                            <i class="fas fa-user-secret"></i>
+                                        </button>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -104,6 +110,35 @@
         ]
     });
 
+    function switchUser(username, name) {
+        confirm("Switch User", "Do you want to switch as user: " + name + " ?",
+            "No", "Yes",
+            function () { doSwitch(username); })
+    }
+
+    function doSwitch(username) {
+        var ajaxContent = $.ajax({
+            url: "{{ url_for('do_switch_login') }}",
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify({'username': username}),
+            dataType: "json"
+        });
+
+        ajaxContent.done(function(jsonResponse) {
+            if ('user' in jsonResponse) {
+                window.location.href = "{{ url_for('main', content_id='dashboard')}}";
+            }
+            else if ('error' in jsonResponse) {
+                showError(jsonResponse.error);
+            }
+        });
+
+        ajaxContent.fail(function(jqXHR, textStatus) {
+            showError(textStatus );
+        });
+
+    }
 
 
 </script>

@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.2'
+__version__ = '0.0.3a1'
 
 
 def create_app(test_config=None):
@@ -39,7 +39,7 @@ def create_app(test_config=None):
 
     from . import utils
     from .blueprints import api_bp, images_bp, pages_bp
-    from .utils import datetime_to_isoformat, pretty_datetime, send_json_data
+    from .utils import datetime_to_isoformat, pretty_datetime, send_json_data, send_error
     from .utils.mail import MailManager
     from .data.data_content import DataContent
 
@@ -56,9 +56,6 @@ def create_app(test_config=None):
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(images_bp, url_prefix='/images')
     app.register_blueprint(pages_bp, url_prefix='/pages')
-
-
-
 
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config['SECRET_KEY'] = 'dev'
@@ -154,6 +151,26 @@ def create_app(test_config=None):
         if next_content == 'user_login':
             next_content = 'dashboard'
         return _redirect('main', content_id=next_content)
+
+    @app.route('/do_switch_login', methods=['POST'])
+    @flask_login.login_required
+    def do_switch_login():
+        """ This view will called as POST from a currently logged admin user.
+         It will allow admins to login as another users for troubleshooting.
+        """
+        if not app.user.is_admin:
+            return send_error("Current user is not admin!")
+
+        username = flask.request.json['username']
+
+        user = app.dm.get_user_by(username=username)
+        if user is None:
+            return send_error("Invalid username: '%s'" % username)
+
+        flask_login.logout_user()
+        flask_login.login_user(user)
+
+        return send_json_data({'user': user.id})
 
     @app.route('/logout', methods=['GET', 'POST'])
     def do_logout():
@@ -263,8 +280,6 @@ def create_app(test_config=None):
 
     from flaskext.markdown import Markdown
     Markdown(app)
-
-
 
     @login_manager.user_loader
     def load_user(user_id):
