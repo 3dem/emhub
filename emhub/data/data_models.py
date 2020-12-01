@@ -161,6 +161,7 @@ def create_data_models(dm):
     class User(UserMixin, Base):
         """Model for user accounts."""
         __tablename__ = 'users'
+        ROLES = ['user', 'admin', 'manager', 'head', 'pi']
 
         id = Column(Integer,
                     primary_key=True)
@@ -293,6 +294,11 @@ def create_data_models(dm):
         @property
         def is_active(self):
             return self.status == 'active'
+
+        @property
+        def rolesmap(self):
+            return {role: role in self.roles
+                    for role in self.ROLES}
 
         def get_pi(self):
             """ Return the PI of this user. PI are consider PI of themselves.

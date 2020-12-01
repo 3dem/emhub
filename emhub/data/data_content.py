@@ -136,8 +136,16 @@ class DataContent:
     def get_user_form(self, **kwargs):
         user = self.app.dm.get_user_by(id=kwargs['user_id'])
         user.image = self.user_profile_image(user)
+        data = {'user': user}
 
-        return {'user': user}
+        # Allow to change pi if it is a manager logged
+        if self.app.user.is_manager:
+            data['possible_pis'] = [
+                {'id': u.id, 'name': u.name}
+                for u in self.app.dm.get_users() if u.is_pi
+            ]
+
+        return data
 
     def get_resources_list(self, **kwargs):
 
