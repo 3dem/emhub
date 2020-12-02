@@ -75,11 +75,23 @@ def create_user():
 def update_user():
     try:
         f = request.form
+
         attrs = {'id': f['user-id'],
                  #'username': f['user-username'],
                  'name': f['user-name'],
                  'phone': f['user-phone'],
+                 'roles': [v.replace('role-', '')
+                           for v in f if v.startswith('role-')]
                  }
+
+        if 'user-pi-select' in f:
+            attrs['pi_id'] = int(f['user-pi-select'])
+            # TODO: Validate if a user is not longer PI
+            # check that there are not other users referencing this one as pi
+            # still this will not be a very common case
+
+        for v in f:
+            print(v, '=', f[v])
 
         password = f['user-password'].strip()
         if password:

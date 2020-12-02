@@ -138,12 +138,22 @@ class DataContent:
         user.image = self.user_profile_image(user)
         data = {'user': user}
 
+        pi_label = None
+
         # Allow to change pi if it is a manager logged
-        if self.app.user.is_manager:
+        if user.is_pi:
+            pi_label = 'Self'
+        elif user.is_manager:
+            pi_label = 'None'
+        elif self.app.user.is_manager:
             data['possible_pis'] = [
                 {'id': u.id, 'name': u.name}
                 for u in self.app.dm.get_users() if u.is_pi
             ]
+        else:
+            pi_label = user.pi.name
+
+        data['pi_label'] = pi_label
 
         return data
 
