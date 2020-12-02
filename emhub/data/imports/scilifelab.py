@@ -468,7 +468,7 @@ class PortalManager:
         return self._fetchJsonFromUrl(self._getUrl(suffix))
 
     def fetchOrdersJson(self):
-        """ Fetch orders from the booking system. """
+        """ Fetch orders from the Portal. """
         return self._fetchJsonFromUrlSuffix('orders?recent=False')['items']
 
     def fetchOrderDetailsJson(self, orderCEM):

@@ -388,6 +388,20 @@ class DataContent:
                 'users_failed': failed
                 }
 
+    def get_portal_import_application(self, **kwargs):
+        result = {}
+        application_id = kwargs.get('application_id', None)
+
+        if application_id is not None:
+            orderJson = self.app.sll_pm.fetchOrderDetailsJson(application_id)
+
+            if orderJson is None:
+                result['errors'] = ['Invalid application ID %s' % application_id]
+            else:
+                result['order'] = orderJson
+
+        return result
+
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """

@@ -53,60 +53,77 @@
 
                         </ul>
 
+                    <!-- Start of ADMIN section -->
                         {% if current_user.is_manager %}
                         <li class="nav-divider">
                             ADMIN
                         </li>
 
                         <ul class="nav flex-column submenu">
-                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-users" aria-controls="submenu-users">
-                                    <i class="fas fa-f fa-users"></i>Users</a>
 
-                            <div id="submenu-users" class="collapse submenu" style="">
-                                <ul class="nav flex-column">
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='users_list') }}">All Users List</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_users_list') }}">Users from Portal</a>
-                                    </li>
-                                </ul>
-                            </div>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('main', content_id='users_list') }}">
+                                    <i class="fas fa-f fa-users"></i>All Users List</a>
+                            </li>
 
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('main', content_id='resources_list') }}">
                                     <i class="fas fa-boxes"></i>Resources</a>
                             </li>
 
-
-
-
-                        {% if current_user.is_admin %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='booking_list') }}">
-                                    <i class="fas fa-list-alt"></i>Booking List</a>
-                            </li>
-
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='applications_list') }}">
-                                    <i class="fas fa-boxes"></i>Applications List</a>
-                            </li>
-
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='forms_list') }}">
-                                    <i class="fas fa-boxes"></i>Forms List</a>
-                            </li>
-
-                             <li class="nav-item">
                                  <a class="nav-link" href="{{ url_for('main', content_id='logs') }}">
                                     <i class="fas fa-list-alt"></i>Logs</a>
                             </li>
-                        {% endif %}
 
                         </ul>
                         {% endif %}
+                    <!-- End of ADMIN section -->
 
+                    <!-- Start of DATA section -->
+                    {% if current_user.is_admin %}
+                    <li class="nav-divider">
+                        DATA
+                    </li>
+
+                    <ul class="nav flex-column submenu">
+
+                    <!-- Import from Portal -->
+                    <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-portal" aria-controls="submenu-portal">
+                                    <i class="fas fa-f fa-download"></i>Import from Portal</a>
+
+                        <div id="submenu-portal" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_users_list') }}">Import Users</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_import_application') }}">Import Application</a>
+                                    </li>
+                                </ul>
+                            </div>
+
+                        <!-- DATA tables -->
+                        <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-data-tables" aria-controls="submenu-data-tables">
+                                    <i class="fas fa-table"></i>Raw Data Tables</a>
+
+                            <div id="submenu-data-tables" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='booking_list') }}">Bookings</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='applications_list') }}">Applications</a>
+                                    </li>
+
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='forms_list') }}"> Forms</a>
+                                    </li>
+                                </ul>
+                            </div>
                     </ul>
+                    {% endif %}
+
                 </div>
             </nav>
         </div>
