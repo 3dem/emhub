@@ -415,6 +415,10 @@ class DataManager(DbManager):
 
     def __update_item(self, ModelClass, **kwargs):
         item = self.__item_by(ModelClass, id=kwargs['id'])
+        if item is None:
+            raise Exception("Not found item %s with id %s"
+                            % (ModelClass.__name__, kwargs['id']))
+
         for attr, value in kwargs.items():
             if attr != 'id':
                 setattr(item, attr, value)

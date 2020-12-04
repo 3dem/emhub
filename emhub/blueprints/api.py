@@ -136,7 +136,7 @@ def create_template():
 @api_bp.route('/get_templates', methods=['POST'])
 @flask_login.login_required
 def get_templates():
-    return filter_request(app.dm.get_applications)
+    return filter_request(app.dm.get_templates)
 
 
 @api_bp.route('/update_template', methods=['POST'])

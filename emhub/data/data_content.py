@@ -33,7 +33,8 @@ import json
 import flask
 import flask_login
 
-from emhub.utils import pretty_datetime, datetime_to_isoformat
+from emhub.utils import (pretty_datetime, datetime_to_isoformat,
+                         datetime_from_isoformat)
 
 
 class DataContent:
@@ -390,13 +391,22 @@ class DataContent:
 
     def get_portal_import_application(self, **kwargs):
         result = {}
-        application_id = kwargs.get('application_id', None)
+        app_code = kwargs.get('code', None)
+        errors = []
 
-        if application_id is not None:
-            orderJson = self.app.sll_pm.fetchOrderDetailsJson(application_id)
+        if app_code is not None:
+            app_code = app_code.upper()
+            app = self.app.dm.get_application_by(code=app_code)
+            if app is not None:
+                errors.append('Application %s already exist' % app_code)
+            else:
+                orderJson = self.app.sll_pm.fetchOrderDetailsJson(app_code)
 
-            if orderJson is None:
-                result['errors'] = ['Invalid application ID %s' % application_id]
+                if orderJson is None:
+                    errors.append('Invalid application ID %s' % app_code)
+
+            if errors:
+                result['errors'] = errors
             else:
                 result['order'] = orderJson
 
@@ -557,3 +567,55 @@ class DataContent:
                         users.append(pu)
 
         return users
+
+    def _import_order_from_portal(self, orderCode, orderJson):
+        """ Try to import a new order from the portal.
+        Return an error list or a valid imported application.
+        """
+        dm = self.app.dm
+
+        try:
+            piEmail = orderJson['owner']['email']
+            # orderId = orderJson['identifier']
+
+            pi = dm.get_user_by(email=piEmail)
+
+            if pi is None:
+                return "Order owner email (%s) not found as PI" % piEmail
+
+            if orderJson['status'] != 'accepted':
+                return "Only 'accepted' applications can be imported. "
+
+            fields = orderJson['fields']
+            description = fields.get('project_des', None)
+            invoiceRef = fields.get('project_invoice_addess', None)
+
+            created = datetime_from_isoformat(orderJson['created'])
+            pi_list = fields.get('pi_list', [])
+
+            iuid = orderJson['form']['iuid']
+
+            app = dm.create_application(
+                code=orderCode,
+                title=orderJson['title'],
+                created=created,  # datetime_from_isoformat(o['created']),
+                status='active',
+                description=description,
+                creator_id=pi.id,
+                template_id=formsDict[]['emhub_item'].id,
+                invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
+            )
+
+            for piTuple in pi_list:
+                piEmail = piTuple[1]
+                pi = dm.get_user_by(email=piEmail)
+                if pi is not None:
+                    app.users.append(pi)
+
+            dm.commit()
+
+            return app
+
+        except Exception as e:
+            return "Exception when creating Application: %s." % e
+

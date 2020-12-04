@@ -11,7 +11,7 @@
             <div class="form-group row">
                 <div class="col-12 col-sm-3 col-form-label text-sm-right">
                     <input type="hidden" id="content_id" name="content_id" value="portal_import_application">
-                    <input type="text" required="" placeholder="Application ID" id="application_id" name="application_id" class="form-control" value="">
+                    <input type="text" required="" placeholder="Application ID" id="application_id" name="code" class="form-control" value="">
                 </div>
                 <div class="col-12 col-sm-8 col-lg-6">
                     <button type="submit" id="application-import-btn" class="btn btn-outline-dark">Import Application</button>
@@ -52,13 +52,7 @@
 (function(window, document, $, undefined) {
     "use strict";
 
-    // Since we load this template content via AJAX we need to initialize
-    // javascript components here
-    $('#datetimepicker4').datetimepicker({
-        format: 'L'
-    });
 }
-
 )(window, document, window.jQuery);
 
 </script>
