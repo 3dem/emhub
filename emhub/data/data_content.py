@@ -268,7 +268,8 @@ class DataContent:
         dataDict['templates'] = [{'id': t.id,
                                   'title': t.title,
                                   'description': t.description,
-                                  'status': t.status
+                                  'status': t.status,
+                                  'iuid': t.extra.get('portal_iuid', 'no')
                                   }
                                  for t in self.app.dm.get_templates()]
 
@@ -395,20 +396,12 @@ class DataContent:
         errors = []
 
         if app_code is not None:
-            app_code = app_code.upper()
-            app = self.app.dm.get_application_by(code=app_code)
-            if app is not None:
-                errors.append('Application %s already exist' % app_code)
-            else:
-                orderJson = self.app.sll_pm.fetchOrderDetailsJson(app_code)
-
-                if orderJson is None:
-                    errors.append('Invalid application ID %s' % app_code)
-
-            if errors:
-                result['errors'] = errors
-            else:
-                result['order'] = orderJson
+            try:
+                app_code = app_code.upper()
+                app = self._import_order_from_portal(app_code)
+                result['order'] = app
+            except Exception as e:
+                result['errors'] = [str(e)]
 
         return result
 
@@ -568,54 +561,78 @@ class DataContent:
 
         return users
 
-    def _import_order_from_portal(self, orderCode, orderJson):
+    def _import_order_from_portal(self, orderCode):
         """ Try to import a new order from the portal.
         Return an error list or a valid imported application.
         """
         dm = self.app.dm
 
-        try:
-            piEmail = orderJson['owner']['email']
-            # orderId = orderJson['identifier']
+        app = self.app.dm.get_application_by(code=orderCode)
 
-            pi = dm.get_user_by(email=piEmail)
+        if app is not None:
+            raise Exception('Application %s already exist' % orderCode)
 
-            if pi is None:
-                return "Order owner email (%s) not found as PI" % piEmail
+        orderJson = self.app.sll_pm.fetchOrderDetailsJson(orderCode)
 
-            if orderJson['status'] != 'accepted':
-                return "Only 'accepted' applications can be imported. "
+        if orderJson is None:
+            raise Exception('Invalid application ID %s' % orderCode)
 
-            fields = orderJson['fields']
-            description = fields.get('project_des', None)
-            invoiceRef = fields.get('project_invoice_addess', None)
+        piEmail = orderJson['owner']['email']
+        # orderId = orderJson['identifier']
 
-            created = datetime_from_isoformat(orderJson['created'])
-            pi_list = fields.get('pi_list', [])
+        pi = dm.get_user_by(email=piEmail)
 
-            iuid = orderJson['form']['iuid']
+        if pi is None:
+            raise Exception("Order owner email (%s) not found as PI" % piEmail)
 
-            app = dm.create_application(
-                code=orderCode,
-                title=orderJson['title'],
-                created=created,  # datetime_from_isoformat(o['created']),
+        if orderJson['status'] != 'accepted':
+            raise Exception("Only 'accepted' applications can be imported. ")
+
+        fields = orderJson['fields']
+        description = fields.get('project_des', None)
+        invoiceRef = fields.get('project_invoice_addess', None)
+
+        created = datetime_from_isoformat(orderJson['created'])
+        pi_list = fields.get('pi_list', [])
+
+        form = orderJson['form']
+        iuid = form['iuid']
+
+        # Check if the given form (here templates) already exist
+        # or we need to create a new one
+        orderTemplate = None
+        templates = dm.get_templates()
+        for t in templates:
+            if t.extra.get('portal_iuid', None)  == iuid:
+                orderTemplate = t
+                break
+
+        if orderTemplate is None:
+            orderTemplate = dm.create_template(
+                title=form['title'],
                 status='active',
-                description=description,
-                creator_id=pi.id,
-                template_id=formsDict[]['emhub_item'].id,
-                invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
+                extra={'portal_iuid': iuid}
             )
-
-            for piTuple in pi_list:
-                piEmail = piTuple[1]
-                pi = dm.get_user_by(email=piEmail)
-                if pi is not None:
-                    app.users.append(pi)
-
             dm.commit()
 
-            return app
+        app = dm.create_application(
+            code=orderCode,
+            title=orderJson['title'],
+            created=created,  # datetime_from_isoformat(o['created']),
+            status='active',
+            description=description,
+            creator_id=pi.id,
+            template_id=orderTemplate.id,
+            invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
+        )
 
-        except Exception as e:
-            return "Exception when creating Application: %s." % e
+        for piTuple in pi_list:
+            piEmail = piTuple[1]
+            pi = dm.get_user_by(email=piEmail)
+            if pi is not None:
+                app.users.append(pi)
+
+        dm.commit()
+
+        return app
 

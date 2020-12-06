@@ -24,10 +24,16 @@
                 <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                     {% if order %}
                         <row>
-                        <h4>Imported users:</h4>
-                        <ul>
-                        <p>{{ order }}</p>
-                        </ul>
+                            <h4>Imported Application:</h4>
+
+                            <div class="form-group row">
+                                <div class="col-12 col-sm-3 col-form-label text-sm-right">
+                                    <span>Title: </span>
+                                </div>
+                                <div class="col-12 col-sm-8 col-lg-6">
+                                    <span>{{ order.title }}</span>
+                                </div>
+                            </div>
                         </row>
                     {% endif %}
                     {% if errors %}
