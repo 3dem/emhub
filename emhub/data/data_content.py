@@ -405,6 +405,24 @@ class DataContent:
 
         return result
 
+    def get_reports_time_distribution(self, **kwargs):
+        #d = request.json or request.form
+        d = {'start': '2020-01-01',
+             'end': '2020-12-31'
+             }
+        bookings = self.app.dm.get_bookings_range(
+            datetime_from_isoformat(d['start']),
+            datetime_from_isoformat(d['end'])
+        )
+        func = self.app.dc.booking_to_event
+        bookings = [func(b) for b in bookings]
+        from emhub.reports import get_booking_counters
+        counters, cem_counters = get_booking_counters(bookings)
+
+        return {'overall': counters,
+                'cem': cem_counters
+                }
+
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """

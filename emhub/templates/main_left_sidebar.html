@@ -76,6 +76,17 @@
                                     <i class="fas fa-list-alt"></i>Logs</a>
                             </li>
 
+                            <!-- Reports -->
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-reports" aria-controls="submenu-reports">
+                                    <i class="fas fa-f fa-download"></i>Reports</a>
+                            <div id="submenu-reports" class="collapse submenu" style="">
+                            <ul class="nav flex-column">
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ url_for('main', content_id='reports_time_distribution') }}">Overall Time Distribution</a>
+                                </li>
+                            </ul>
+                        </div>
+
                         </ul>
                         {% endif %}
                     <!-- End of ADMIN section -->
@@ -92,16 +103,16 @@
                     <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-portal" aria-controls="submenu-portal">
                                     <i class="fas fa-f fa-download"></i>Import from Portal</a>
 
-                        <div id="submenu-portal" class="collapse submenu" style="">
-                                <ul class="nav flex-column">
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_users_list') }}">Import Users</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_import_application') }}">Import Application</a>
-                                    </li>
-                                </ul>
-                            </div>
+                    <div id="submenu-portal" class="collapse submenu" style="">
+                        <ul class="nav flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('main', content_id='portal_users_list') }}">Import Users</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('main', content_id='portal_import_application') }}">Import Application</a>
+                            </li>
+                        </ul>
+                    </div>
 
                         <!-- DATA tables -->
                         <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-data-tables" aria-controls="submenu-data-tables">
