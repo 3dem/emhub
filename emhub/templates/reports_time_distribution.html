@@ -121,7 +121,8 @@
                             <tr>
                                 <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>
                                 <td>{{ b['start'] }}</td>
-                                <td></td>
+                                <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b['id'] }})"><i class="far fa-edit"></i></button>
+                                        </td>
                             </tr>
                             {% endfor %}
 
@@ -141,7 +142,26 @@
 
 <script>
     var bookings = {{ overall.reminder|tojson }};
-    var last_booking = null;
+
+        $('select').selectpicker();
+
+    $('.datetimepicker-input').datetimepicker({
+        format: 'YYYY/MM/DD'
+    });
+
+    /* Register when the Booking type change */
+    $('input[type=radio][name=booking-type-radio]').change(function() {
+        booking_type = this.value;
+        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+    });
+
+    $('input[type=radio][name=booking-repeat-radio]').change(function() {
+        repeat_value = this.value;
+    });
+
+    $('input[type=radio][name=booking-modify-radio]').change(function() {
+        modify_all = this.value == 'yes';
+    });
 
     $('#table-overall').DataTable({
         sDom: 'lrtip',
@@ -167,6 +187,7 @@
         }
         last_booking.start = new Date(last_booking.start);
         last_booking.end = new Date(last_booking.end);
+        has_calendar = false;
         showBookingForm(last_booking);
     }
     

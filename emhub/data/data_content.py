@@ -54,8 +54,11 @@ class DataContent:
     def get(self, **kwargs):
         content_id = kwargs['content_id']
         get_func_name = 'get_%s' % content_id.replace('-', '_')  # FIXME
+        dataDict = {}  # self.get_resources_list()
         get_func = getattr(self, get_func_name, None)
-        return {} if get_func is None else get_func(**kwargs)
+        if get_func is not None:
+            dataDict.update(get_func(**kwargs))
+        return dataDict
 
     def get_dashboard(self, **kwargs):
         dataDict = self.get_resources_list()
@@ -381,7 +384,9 @@ class DataContent:
             datetime_from_isoformat(d['end'])
         )
         func = self.app.dc.booking_to_event
-        bookings = [func(b) for b in bookings]
+        bookings = [func(b) for b in bookings
+                    if b.resource.is_microscope]
+
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
 

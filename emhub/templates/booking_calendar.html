@@ -91,8 +91,7 @@
     var calendar;
     var selected_resource = null;
     var selected_resource_id = {{ resource_id|tojson }};
-    var booking_type = 'booking';
-    var repeat_value = null;
+
     var last_booking = null;
     var modify_all = false;
     var original_range = null;
@@ -107,25 +106,25 @@
 (function(window, document, $, undefined) {
     "use strict";
 
-{#    $('select').selectpicker();#}
-{##}
-{#    $('.datetimepicker-input').datetimepicker({#}
-{#        format: 'YYYY/MM/DD'#}
-{#    });#}
-{##}
-{#    /* Register when the Booking type change */#}
-{#    $('input[type=radio][name=booking-type-radio]').change(function() {#}
-{#        booking_type = this.value;#}
-{#        $('#booking-slot-auth').prop('readonly', this.value != 'slot');#}
-{#    });#}
-{##}
-{#    $('input[type=radio][name=booking-repeat-radio]').change(function() {#}
-{#        repeat_value = this.value;#}
-{#    });#}
-{##}
-{#    $('input[type=radio][name=booking-modify-radio]').change(function() {#}
-{#        modify_all = this.value == 'yes';#}
-{#    });#}
+    $('select').selectpicker();
+
+    $('.datetimepicker-input').datetimepicker({
+        format: 'YYYY/MM/DD'
+    });
+
+    /* Register when the Booking type change */
+    $('input[type=radio][name=booking-type-radio]').change(function() {
+        booking_type = this.value;
+        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+    });
+
+    $('input[type=radio][name=booking-repeat-radio]').change(function() {
+        repeat_value = this.value;
+    });
+
+    $('input[type=radio][name=booking-modify-radio]').change(function() {
+        modify_all = this.value == 'yes';
+    });
 
    /* initialize the external events
   -----------------------------------------------------------------*/
@@ -400,13 +399,6 @@ function filterBookingsByResources(){
     });
 }
 
-/** Get the resource object from its id */
-function getResource(resourceId) {
-    for (var r of resources)
-        if (r.id == resourceId)
-            return r;
-    return null;
-}
 
 /** This function is called when a different resource is changed. */
 function selectResource(sel) {

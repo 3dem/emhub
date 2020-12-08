@@ -125,6 +125,10 @@
     /* Some variables */
     var possible_owners = {{ possible_owners|tojson }};
     var is_devel = {{ is_devel|tojson }};
+    var resources = {{ resources|tojson }};
+    var booking_type = 'booking';
+    var repeat_value = null;
+    var has_calendar = true;
 
 
     (function(window, document, $, undefined) {
@@ -139,6 +143,8 @@
     /* Register when the Booking type change */
     $('input[type=radio][name=booking-type-radio]').change(function() {
         booking_type = this.value;
+        console.log("booking_type:  " + booking_type);
+
         $('#booking-slot-auth').prop('readonly', this.value != 'slot');
     });
 
@@ -213,6 +219,14 @@
         });
     }  // function showUser
 
+    /* ---------------- RESOURCE functions ------------------*/
+    /** Get the resource object from its id */
+    function getResource(resourceId) {
+        for (var r of resources)
+            if (r.id == resourceId)
+                return r;
+        return null;
+    }
 
     /* ---------------- BOOKING functions ------------------ */
     /** Helper functions to handle AJAX response or failure */
@@ -220,14 +234,18 @@
         let error = null;
 
         if ('bookings_created' in jsonResponse) {
-            add_bookings(jsonResponse.bookings_created);
+            if (has_calendar)
+                add_bookings(jsonResponse.bookings_created);
         }
         else if ('bookings_updated' in jsonResponse) {
-            remove_bookings(jsonResponse.bookings_updated);
-            add_bookings(jsonResponse.bookings_updated);
+            if (has_calendar) {
+                remove_bookings(jsonResponse.bookings_updated);
+                add_bookings(jsonResponse.bookings_updated);
+            }
         }
         else if ('bookings_deleted' in jsonResponse) {
-            remove_bookings(jsonResponse.bookings_deleted);
+            if (has_calendar)
+                remove_bookings(jsonResponse.bookings_deleted);
         }
         else if ('error' in jsonResponse) {
             error = jsonResponse.error;
@@ -240,7 +258,8 @@
             showError(error);
         else {
             $('#booking-modal').modal('hide');
-            calendar.render();
+            if (has_calendar)
+                calendar.render();
         }
     }
 
@@ -251,6 +270,9 @@
 
     /* Show the Booking Form, either for a new booking or an existing one */
     function showBookingForm(booking) {
+        booking_type = booking.type;
+        repeat_value = booking.repeat_value;
+
         var titlePrefix = null;
         if (booking.id == null) {  // New booking
             titlePrefix = 'Create ';
@@ -387,11 +409,13 @@
             endpoint = "{{ url_for('api.create_booking') }}"
         }
 
-        var error = validateBooking(booking, true);
+        if (has_calendar) {
+            var error = validateBooking(booking, true);
 
-        if (error != '') {
-            showError(error);
-            return;
+            if (error != '') {
+                showError(error);
+                return;
+            }
         }
 
         delete booking.resource;  // resource_id is enough
