@@ -119,7 +119,7 @@
                             <tbody>
                             {% for b in overall.reminder %}
                             <tr>
-                                <td>{{ b['title'] }}</td>
+                                <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>
                                 <td>{{ b['start'] }}</td>
                                 <td></td>
                             </tr>
@@ -135,29 +135,14 @@
 
 </div>
 
-<!-- Modal -->
-<div class="modal" id="deleteModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 class="modal-title" id="exampleModalLongTitle">Delete User</h3>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-primary">Delete</button>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- Modal with  Booking Form -->
+{% include 'booking_form.html' %}
 
 
 <script>
+    var bookings = {{ overall.reminder|tojson }};
+    var last_booking = null;
+
     $('#table-overall').DataTable({
         sDom: 'lrtip',
         paging: false,
@@ -172,6 +157,18 @@
 
     $('#table-reminder').DataTable({
     });
+
+    function showBooking(bookingId) {
+        last_booking = null;
+
+        for (const b of bookings) {
+            if (b.id == bookingId)
+                last_booking = b;
+        }
+        last_booking.start = new Date(last_booking.start);
+        last_booking.end = new Date(last_booking.end);
+        showBookingForm(last_booking);
+    }
     
     function showReadyUsers() {
         window.location.href = "{{ url_for('main', content_id='portal_users_list')}}" + '&status=ready';

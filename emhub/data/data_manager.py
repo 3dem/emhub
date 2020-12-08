@@ -453,27 +453,31 @@ class DataManager(DbManager):
         check_min_booking = kwargs.get('check_min_booking', True)
         check_max_booking = kwargs.get('check_max_booking', True)
 
-        user = self._user
-        if not user.is_manager and not r.is_active:
-            raise Exception("Selected resource is inactive now. ")
 
         if booking.start >= booking.end:
             raise Exception("The booking 'end' should be after the 'start'. ")
 
-        if not user.is_manager and booking.start.date() < self.now().date():
-            raise Exception("The booking 'start' can not be in the past. ")
+        user = self._user
 
-        if check_min_booking and r.min_booking > 0:
-            mm = dt.timedelta(minutes=int(r.min_booking * 60))
-            if booking.duration < mm:
-                raise Exception("The duration of the booking is less that "
-                                "the minimum specified for the resource. ")
+        # The following validations do not apply for managers
+        if not user.is_manager:
+            if r.is_active:
+                raise Exception("Selected resource is inactive now. ")
 
-        if booking.type == 'booking' and check_max_booking and r.max_booking > 0:
-            mm = dt.timedelta(minutes=int(r.max_booking * 60))
-            if booking.duration > mm:
-                raise Exception("The duration of the booking is greater that "
-                                "the maximum allowed for the resource. ")
+            if booking.start.date() < self.now().date():
+                raise Exception("The booking 'start' can not be in the past. ")
+
+            if check_min_booking and r.min_booking > 0:
+                mm = dt.timedelta(minutes=int(r.min_booking * 60))
+                if booking.duration < mm:
+                    raise Exception("The duration of the booking is less that "
+                                    "the minimum specified for the resource. ")
+
+            if booking.type == 'booking' and check_max_booking and r.max_booking > 0:
+                mm = dt.timedelta(minutes=int(r.max_booking * 60))
+                if booking.duration > mm:
+                    raise Exception("The duration of the booking is greater that "
+                                    "the maximum allowed for the resource. ")
 
         overlap = self.get_bookings_range(booking.start,
                                           booking.end,

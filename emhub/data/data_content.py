@@ -219,41 +219,7 @@ class DataContent:
                                     for a in dm.get_applications()
                                     if a.is_active]
 
-        # Send a list of possible owners of bookings
-        # 1) Managers or admins can change the ownership to any user
-        # 2) Application managers can change the ownership to any user in their
-        #    application
-        # 3) Other users can not change the ownership
-        user = self.app.user  # shortcut
-        if user.is_manager:
-            piList = [u for u in dm.get_users() if u.is_pi]
-        elif user.is_application_manager:
-            apps = [a for a in user.created_applications if a.is_active]
-            piSet = {user.get_id()}
-            piList = [user]
-            for a in apps:
-                for pi in a.users:
-                    if pi.get_id() not in piSet:
-                        piList.append(pi)
-        elif user.is_pi:
-            piList = [user]
-        else:
-            piList = []
-
-        def _userjson(u):
-            return {'id': u.id, 'name': u.name}
-
-        # Group users by PI
-        labs = []
-        for u in piList:
-            if u.is_pi:
-                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
-                labs.append(lab)
-
-        if user.is_manager:
-            labs.append([_userjson(u) for u in self._get_facility_staff()])
-
-        dataDict['possible_owners'] = labs
+        dataDict['possible_owners'] = self.get_pi_labs()
         dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
 
@@ -420,7 +386,8 @@ class DataContent:
         counters, cem_counters = get_booking_counters(bookings)
 
         return {'overall': counters,
-                'cem': cem_counters
+                'cem': cem_counters,
+                'possible_owners': self.get_pi_labs()
                 }
 
     # --------------------- Internal  helper methods ---------------------------
@@ -654,3 +621,39 @@ class DataContent:
 
         return app
 
+    def get_pi_labs(self):
+        # Send a list of possible owners of bookings
+        # 1) Managers or admins can change the ownership to any user
+        # 2) Application managers can change the ownership to any user in their
+        #    application
+        # 3) Other users can not change the ownership
+        user = self.app.user  # shortcut
+        if user.is_manager:
+            piList = [u for u in self.app.dm.get_users() if u.is_pi]
+        elif user.is_application_manager:
+            apps = [a for a in user.created_applications if a.is_active]
+            piSet = {user.get_id()}
+            piList = [user]
+            for a in apps:
+                for pi in a.users:
+                    if pi.get_id() not in piSet:
+                        piList.append(pi)
+        elif user.is_pi:
+            piList = [user]
+        else:
+            piList = []
+
+        def _userjson(u):
+            return {'id': u.id, 'name': u.name}
+
+        # Group users by PI
+        labs = []
+        for u in piList:
+            if u.is_pi:
+                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
+                labs.append(lab)
+
+        if user.is_manager:
+            labs.append([_userjson(u) for u in self._get_facility_staff()])
+
+        return labs

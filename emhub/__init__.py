@@ -115,6 +115,7 @@ def create_app(test_config=None):
         kwargs['is_devel'] = app.is_devel
         kwargs['version'] = __version__
         kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
+        kwargs['possible_owners'] = app.dc.get_pi_labs()
 
         return flask.render_template('main.html', **kwargs)
 
