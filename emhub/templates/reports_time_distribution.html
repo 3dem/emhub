@@ -1,0 +1,206 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Overall Time Distribution" %}
+    {% set navigation = [('Reports', ''), ('Time Distribution', '')] %}
+    {% include 'include_header.html' %}
+
+    <!-- table row -->
+    <div class="row">
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                {% if users_imported %}
+                    <row>
+                    <h4>Imported users:</h4>
+                    <ul>
+                    {% for iu in users_imported %}
+                        <li>{{ iu['name'] }}</li>
+                    {% endfor %}
+                    </ul>
+                    </row>
+                {% endif %}
+                {% if users_failed %}
+                    <row>
+                    <h4>Failed to import users:</h4>
+                    <ul>
+                    {% for fu in users_failed %}
+                        <li>{{ fu['name'] }} - Error: {{ fu['error'] }}</li>
+                    {% endfor %}
+                    </ul>
+                    </row>
+                {% endif %}
+            </div>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row">
+                    <h5>Overall Distribution</h5>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="table-overall" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>name</th>
+                                <th>bookings</th>
+                                <th>days</th>
+                                <td>percent</td>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for row in overall.data() %}
+                            <tr>
+                                <td>{{ row[0] }}</td>
+                                <td>{{ row[1] }}</td>
+                                <td>{{ row[2] }}</td>
+                                <td>{{ row[3] }}</td>
+                            </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row">
+                    <h5 class="mb-0 col-8">CEM Distribution</h5>
+                    </div>
+                </div>
+                <div class="card-body">
+                        <table id="table-cem" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>name</th>
+                                <th>bookings</th>
+                                <th>days</th>
+                                <td>percent</td>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for row in cem.data() %}
+                            <tr>
+                                <td>{{ row[0] }}</td>
+                                <td>{{ row[1] }}</td>
+                                <td>{{ row[2] }}</td>
+                                <td>{{ row[3] }}</td>
+                            </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row">
+                    <h5 class="mb-0 col-8">Reminder: Uncategorized Bookings (Review and Update)</h5>
+                    </div>
+                </div>
+                <div class="card-body">
+                        <table id="table-reminder" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>Booking Title</th>
+                                <td>Start</td>
+                                <td>Actions</td>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for b in overall.reminder %}
+                            <tr>
+                                <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>
+                                <td>{{ b['start'] }}</td>
+                                <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b['id'] }})"><i class="far fa-edit"></i></button>
+                                        </td>
+                            </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<!-- Modal with  Booking Form -->
+{% include 'booking_form.html' %}
+
+
+<script>
+    var bookings = {{ overall.reminder|tojson }};
+
+        $('select').selectpicker();
+
+    $('.datetimepicker-input').datetimepicker({
+        format: 'YYYY/MM/DD'
+    });
+
+    /* Register when the Booking type change */
+    $('input[type=radio][name=booking-type-radio]').change(function() {
+        booking_type = this.value;
+        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+    });
+
+    $('input[type=radio][name=booking-repeat-radio]').change(function() {
+        repeat_value = this.value;
+    });
+
+    $('input[type=radio][name=booking-modify-radio]').change(function() {
+        modify_all = this.value == 'yes';
+    });
+
+    $('#table-overall').DataTable({
+        sDom: 'lrtip',
+        paging: false,
+        info: false,
+    });
+
+    $('#table-cem').DataTable({
+        sDom: 'lrtip',
+        paging: false,
+        info: false,
+    });
+
+    $('#table-reminder').DataTable({
+    });
+
+    function showBooking(bookingId) {
+        last_booking = null;
+
+        for (const b of bookings) {
+            if (b.id == bookingId)
+                last_booking = b;
+        }
+        last_booking.start = new Date(last_booking.start);
+        last_booking.end = new Date(last_booking.end);
+        has_calendar = false;
+        showBookingForm(last_booking);
+    }
+    
+    function showReadyUsers() {
+        window.location.href = "{{ url_for('main', content_id='portal_users_list')}}" + '&status=ready';
+    }
+
+    function showAllUsers() {
+        window.location.href = "{{ url_for('main', content_id='portal_users_list')}}";
+    }
+
+    function importReadyUsers() {
+        window.location.href = "{{ url_for('main', content_id='portal_users_list')}}" + '&import';
+    }
+
+</script>

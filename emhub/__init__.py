@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'
 
 
 def create_app(test_config=None):
@@ -115,6 +115,8 @@ def create_app(test_config=None):
         kwargs['is_devel'] = app.is_devel
         kwargs['version'] = __version__
         kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
+        kwargs['possible_owners'] = app.dc.get_pi_labs()
+        kwargs.update(app.dc.get_resources_list())
 
         return flask.render_template('main.html', **kwargs)
 

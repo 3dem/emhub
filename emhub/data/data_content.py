@@ -54,8 +54,11 @@ class DataContent:
     def get(self, **kwargs):
         content_id = kwargs['content_id']
         get_func_name = 'get_%s' % content_id.replace('-', '_')  # FIXME
+        dataDict = {}  # self.get_resources_list()
         get_func = getattr(self, get_func_name, None)
-        return {} if get_func is None else get_func(**kwargs)
+        if get_func is not None:
+            dataDict.update(get_func(**kwargs))
+        return dataDict
 
     def get_dashboard(self, **kwargs):
         dataDict = self.get_resources_list()
@@ -219,41 +222,7 @@ class DataContent:
                                     for a in dm.get_applications()
                                     if a.is_active]
 
-        # Send a list of possible owners of bookings
-        # 1) Managers or admins can change the ownership to any user
-        # 2) Application managers can change the ownership to any user in their
-        #    application
-        # 3) Other users can not change the ownership
-        user = self.app.user  # shortcut
-        if user.is_manager:
-            piList = [u for u in dm.get_users() if u.is_pi]
-        elif user.is_application_manager:
-            apps = [a for a in user.created_applications if a.is_active]
-            piSet = {user.get_id()}
-            piList = [user]
-            for a in apps:
-                for pi in a.users:
-                    if pi.get_id() not in piSet:
-                        piList.append(pi)
-        elif user.is_pi:
-            piList = [user]
-        else:
-            piList = []
-
-        def _userjson(u):
-            return {'id': u.id, 'name': u.name}
-
-        # Group users by PI
-        labs = []
-        for u in piList:
-            if u.is_pi:
-                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
-                labs.append(lab)
-
-        if user.is_manager:
-            labs.append([_userjson(u) for u in self._get_facility_staff()])
-
-        dataDict['possible_owners'] = labs
+        dataDict['possible_owners'] = self.get_pi_labs()
         dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
 
@@ -404,6 +373,27 @@ class DataContent:
                 result['errors'] = [str(e)]
 
         return result
+
+    def get_reports_time_distribution(self, **kwargs):
+        #d = request.json or request.form
+        d = {'start': '2020-01-01',
+             'end': '2020-12-31'
+             }
+        bookings = self.app.dm.get_bookings_range(
+            datetime_from_isoformat(d['start']),
+            datetime_from_isoformat(d['end'])
+        )
+        func = self.app.dc.booking_to_event
+        bookings = [func(b) for b in bookings
+                    if b.resource.is_microscope]
+
+        from emhub.reports import get_booking_counters
+        counters, cem_counters = get_booking_counters(bookings)
+
+        return {'overall': counters,
+                'cem': cem_counters,
+                'possible_owners': self.get_pi_labs()
+                }
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
@@ -636,3 +626,39 @@ class DataContent:
 
         return app
 
+    def get_pi_labs(self):
+        # Send a list of possible owners of bookings
+        # 1) Managers or admins can change the ownership to any user
+        # 2) Application managers can change the ownership to any user in their
+        #    application
+        # 3) Other users can not change the ownership
+        user = self.app.user  # shortcut
+        if user.is_manager:
+            piList = [u for u in self.app.dm.get_users() if u.is_pi]
+        elif user.is_application_manager:
+            apps = [a for a in user.created_applications if a.is_active]
+            piSet = {user.get_id()}
+            piList = [user]
+            for a in apps:
+                for pi in a.users:
+                    if pi.get_id() not in piSet:
+                        piList.append(pi)
+        elif user.is_pi:
+            piList = [user]
+        else:
+            piList = []
+
+        def _userjson(u):
+            return {'id': u.id, 'name': u.name}
+
+        # Group users by PI
+        labs = []
+        for u in piList:
+            if u.is_pi:
+                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
+                labs.append(lab)
+
+        if user.is_manager:
+            labs.append([_userjson(u) for u in self._get_facility_staff()])
+
+        return labs
