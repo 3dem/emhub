@@ -85,7 +85,7 @@ def get_cem(b):
 
     # Take only the first part of the application label
     # (because it can contains the alias in parenthesis)
-    m = re.search("(CEM([0-9])+)", title)
+    m = re.search("(CEM([0-9]+))", title)
 
     if m is not None:
         parsedCem = m.group(1).upper().strip()
