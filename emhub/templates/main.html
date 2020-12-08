@@ -123,9 +123,11 @@
 
 <script type="text/javascript">
     /* Some variables */
-    var possible_owners = {{ possible_owners|tojson }};
+    {%  if possible_owners %}
+        var possible_owners = {{ possible_owners|tojson }};
+        var resources = {{ resources|tojson }};
+    {% endif %}
     var is_devel = {{ is_devel|tojson }};
-    var resources = {{ resources|tojson }};
     var booking_type = 'booking';
     var repeat_value = null;
     var has_calendar = true;
