@@ -162,6 +162,9 @@ class DataContent:
         return data
 
     def get_resources_list(self, **kwargs):
+        user = self.app.user
+        if not user.is_authenticated:
+            return  {'resources': []}
 
         resource_list = [
             {'id': r.id,
@@ -172,7 +175,7 @@ class DataContent:
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
              'image': flask.url_for('images.static', filename=r.image),
-             'user_can_book': self.app.user.can_book_resource(r),
+             'user_can_book': user.can_book_resource(r),
              'is_microscope': r.is_microscope,
              'min_booking': r.min_booking,
              'max_booking': r.max_booking
@@ -633,6 +636,9 @@ class DataContent:
         #    application
         # 3) Other users can not change the ownership
         user = self.app.user  # shortcut
+        if not user.is_authenticated:
+            return []
+
         if user.is_manager:
             piList = [u for u in self.app.dm.get_users() if u.is_pi]
         elif user.is_application_manager:
