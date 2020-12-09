@@ -75,6 +75,7 @@ def is_maintainance(b):
     t = b['title'].lower()
     return any(k in t for k in ['cycle', 'installation', 'maintenance', 'afis'])
 
+
 def is_developmnt(b):
     t = b['title'].lower()
     return any(k in t for k in ['method', 'research', 'tests', 'mikroed', 'microed'])
@@ -88,7 +89,6 @@ def get_cem(b):
     m = re.search("(CEM([0-9]+))", title)
 
     if m is not None:
-        parsedCem = m.group(1).upper().strip()
         # Enforce numeric part is exactly 5 digits
         cemNumber = m.group(2)
         n = len(cemNumber)
@@ -109,7 +109,7 @@ class CemCounter(Counter):
 
 def get_booking_counters(bookings):
     maintainance = Counter('Maintenance', is_maintainance)
-    development = Counter('Developmnt', is_developmnt)
+    development = Counter('Development', is_developmnt)
     CEM = Counter('CEM', filter=lambda b: get_cem(b) is not None)
 
     counters = CounterList('Downtime', maintainance, 'DBB', CEM, development)
