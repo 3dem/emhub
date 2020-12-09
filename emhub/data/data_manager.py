@@ -522,6 +522,12 @@ class DataManager(DbManager):
                     return None
 
                 app = find_app()
+
+                # In the case of a manager updating a booking, the manager
+                # can do the booking despise the SLOTs and Application rules
+                if app is None and user.is_manager and apps:
+                    app = apps[0]
+
                 user_can_book = any(user.can_book_slot(s) for s in overlap_slots)
 
                 if (app is None and not user.is_manager
