@@ -126,7 +126,11 @@
     {%  if possible_owners %}
         var possible_owners = {{ possible_owners|tojson }};
         var resources = {{ resources|tojson }};
+    {% else  %}
+        var possible_owners = [];
+        var resources = [];
     {% endif %}
+
     var is_devel = {{ is_devel|tojson }};
     var booking_type = 'booking';
     var repeat_value = null;
