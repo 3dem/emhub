@@ -461,7 +461,7 @@ class DataManager(DbManager):
 
         # The following validations do not apply for managers
         if not user.is_manager:
-            if r.is_active:
+            if not r.is_active:
                 raise Exception("Selected resource is inactive now. ")
 
             if booking.start.date() < self.now().date():
