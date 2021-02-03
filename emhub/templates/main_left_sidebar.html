@@ -24,14 +24,6 @@
                                     <i class="fas fa-calendar-alt"></i>Booking Calendar</a>
                             </li>
 
-{#                            <li class="nav-item">#}
-{#                                <a class="nav-link nav-link-ajax" data-content-id="sessions_overview" href=""><i class="fas fa-fw fa-chart-pie"></i>Sessions</a>#}
-{#                            </li>#}
-{##}
-{#                            <li class="nav-item">#}
-{#                                <a class="nav-link nav-link-ajax" data-content-id="reports" href=""><i class="fas fa-clipboard-list"></i>Reports</a>#}
-{#                            </li>#}
-
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('main', content_id='applications') }}">
                                     <i class="fas fa-rocket"></i>Applications</a>
@@ -48,6 +40,14 @@
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ url_for('pages.index', page_id='guidelines') }}">Guidelines</a>
                                     </li>
+
+                                    <!-- Some ADMIN pages -->
+                                    {% if current_user.is_manager %}
+                                        <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='admin_users') }}">Admin - Users</a>
+                                    </li>
+                                    {% endif %}
+
                                 </ul>
                             </div>
 
@@ -61,16 +61,19 @@
 
                         <ul class="nav flex-column submenu">
 
+                            <!-- Users -->
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('main', content_id='users_list') }}">
                                     <i class="fas fa-f fa-users"></i>All Users List</a>
                             </li>
 
+                            <!-- Resources -->
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('main', content_id='resources_list') }}">
                                     <i class="fas fa-boxes"></i>Resources</a>
                             </li>
 
+                            <!-- Logs -->
                             <li class="nav-item">
                                  <a class="nav-link" href="{{ url_for('main', content_id='logs') }}">
                                     <i class="fas fa-list-alt"></i>Logs</a>
@@ -85,7 +88,22 @@
                                     <a class="nav-link" href="{{ url_for('main', content_id='reports_time_distribution') }}">Overall Time Distribution</a>
                                 </li>
                             </ul>
-                        </div>
+                            </div>
+
+                            <!-- Import from Portal -->
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-portal" aria-controls="submenu-portal">
+                                            <i class="fas fa-f fa-download"></i>Import from Portal</a>
+
+                            <div id="submenu-portal" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_users_list') }}">Import Users</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_import_application') }}">Import Application</a>
+                                    </li>
+                                </ul>
+                            </div>
 
                         </ul>
                         {% endif %}
@@ -93,26 +111,14 @@
 
                     <!-- Start of DATA section -->
                     {% if current_user.is_admin %}
+
                     <li class="nav-divider">
-                        DATA
+                        DEVEL
                     </li>
 
                     <ul class="nav flex-column submenu">
 
-                    <!-- Import from Portal -->
-                    <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-portal" aria-controls="submenu-portal">
-                                    <i class="fas fa-f fa-download"></i>Import from Portal</a>
 
-                    <div id="submenu-portal" class="collapse submenu" style="">
-                        <ul class="nav flex-column">
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='portal_users_list') }}">Import Users</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='portal_import_application') }}">Import Application</a>
-                            </li>
-                        </ul>
-                    </div>
 
                         <!-- DATA tables -->
                         <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-data-tables" aria-controls="submenu-data-tables">
