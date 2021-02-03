@@ -1,5 +1,5 @@
 
-# Welcome to the CryoEM-Sweden EMHub platform
+# Welcome to the CryoEM-Sweden EMhub platform
 
 ---
 
