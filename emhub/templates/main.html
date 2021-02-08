@@ -505,6 +505,29 @@
         });
 
     }  // function showExperimentForm
+
+    function showBookingCosts() {
+        var params = {booking_id: last_booking.id};
+
+        ajaxContent = get_ajax_content("booking_costs_table", params);
+
+        ajaxContent.done(function(html) {
+            $("#experiment-modal").html(html);
+            $("#costs-btn-update" ).click(function() {
+                var data = costs_table.rows().data();
+                printObject(data, "Data");
+                last_booking.costs = 0;
+                $('#experiment-modal').modal('hide');
+            });
+            // Show the form after setting html content
+            $('#experiment-modal').modal('show');
+        });
+
+        ajaxContent.fail(function(jqXHR, textStatus) {
+            alert( "Request failed: " + textStatus );
+        });
+
+    }  // function showBookingCosts
 </script>
 
 

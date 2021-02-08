@@ -1,0 +1,51 @@
+<!-- ============================================================== -->
+<!-- Dynamic Form -->
+<!-- ============================================================== -->
+
+{# Expects 'table' as input param. #}
+
+{% set title = table['title'] %}
+{% set columns = table['columns'] %}
+{% set rows = table['rows'] %}
+
+<!-- ============================================================== -->
+<!--  dynamic table  -->
+<!-- ============================================================== -->
+<div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+    <div class="card">
+        <h5 class="card-header"> {{ title }}</h5>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+
+                <table class="table" id="dynamic-table">
+                    <thead class="bg-light">
+                        <tr class="border-0">
+                        {% for column in columns %}
+                            <th class="border-0">{{ column['label'] }}</th>
+                        {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                            {% for column in columns %}
+                                <td>
+                                    {% if column['render'] == 'textbox' %}
+                                        <input type="text" {{ id_name }} class="form-control" value="{{ row[loop.index0] }}">
+                                    {% else %}
+                                        {{ row[loop.index0] }}
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ============================================================== -->
+<!-- end dynamic table  -->
+<!-- ============================================================== -->
+

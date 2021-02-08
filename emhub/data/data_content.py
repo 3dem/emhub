@@ -400,6 +400,20 @@ class DataContent:
                 'possible_owners': self.get_pi_labs()
                 }
 
+    def get_booking_costs_table(self, **kwargs):
+        booking_id = int(kwargs.get('booking_id', 1))
+        print("get_costs_table: booking_id = %s" % booking_id)
+
+        resources = self.app.dm.get_resources()
+
+        return {'table': {
+            'title': "Booking Costs",
+            'columns': [{'label': 'name'},
+                        {'label': 'status', 'render': 'textbox'},
+                        {'label': 'tags', 'render': 'textbox'}],
+            'rows': [(r.name, r.status, r.tags) for r in resources]
+        }}
+
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
