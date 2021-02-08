@@ -53,6 +53,7 @@
                                     <th class="border-0">Requires Slot</th>
                                     <th class="border-0">Latest cancel (h)</th>
                                     <th class="border-0">Min/Max  booking (h)</th>
+                                    <th class="border-0">Daily Cost (SEK)</th>
                                     {% if current_user.is_manager %}
                                     <th class="border-0">Actions</th>
                                     {% endif %}
@@ -72,6 +73,7 @@
                                     <td> {{ r['requires_slot'] }}</td>
                                     <td> {{ r['latest_cancellation'] }}</td>
                                     <td> {{ r['min_booking'] }} / {{ r['max_booking'] }}</td>
+                                    <td> {{ r['daily_cost'] }}</td>
                                     {% if current_user.is_manager %}
                                     <td>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id'] }})"><i class="far fa-edit"></i></button>

@@ -178,7 +178,8 @@ class DataContent:
              'user_can_book': user.can_book_resource(r),
              'is_microscope': r.is_microscope,
              'min_booking': r.min_booking,
-             'max_booking': r.max_booking
+             'max_booking': r.max_booking,
+             'daily_cost': r.daily_cost
              }
             for r in self.app.dm.get_resources()
         ]
@@ -205,6 +206,7 @@ class DataContent:
         _add('latest_cancellation', 'Latest cancellation (h)')
         _add('min_booking', 'Minimum booking time (h)')
         _add('min_booking', 'Maximum booking time (h)')
+        _add('daily_cost', 'Daily cost')
         _add('requires_slot', 'Requires Slot', type='bool')
         _add('requires_application', 'Requires Application', type='bool')
 

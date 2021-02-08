@@ -152,6 +152,18 @@ def create_data_models(dm):
         def requires_application(self, value):
             self.__setExtra('requires_application', bool(value))
 
+        @property
+        def daily_cost(self):
+            """ Cost of one day session using this resource.
+            """
+            return self.__getExtra('daily_cost', 0)
+
+        @daily_cost.setter
+        def daily_cost(self, value):
+            self.__setExtra('daily_cost', int(value))
+
+
+
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
                                    ForeignKey('applications.id')),
