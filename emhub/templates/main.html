@@ -513,10 +513,15 @@
 
         ajaxContent.done(function(html) {
             $("#experiment-modal").html(html);
+            if (last_booking.costs == null)
+                last_booking.costs = [
+                ['2020/02/01', 'Shipping', '20000'],
+                ['2020/01/21', 'Shipping back', '20000']
+                ]
+            addAllCosts(last_booking.costs);
+
             $("#costs-btn-update" ).click(function() {
-                var data = costs_table.rows().data();
-                printObject(data, "Data");
-                last_booking.costs = 0;
+                last_booking.costs = getAllCosts();
                 $('#experiment-modal').modal('hide');
             });
             // Show the form after setting html content

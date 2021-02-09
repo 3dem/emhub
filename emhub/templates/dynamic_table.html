@@ -23,20 +23,29 @@
                         {% for column in columns %}
                             <th class="border-0">{{ column['label'] }}</th>
                         {% endfor %}
+                        <th>Remove</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for row in rows %}
+                            {% set row_index = loop.index0 %}
                             <tr>
                             {% for column in columns %}
+                                {% set col_index = loop.index0 %}
+                                {% set id_name = 'row-%d-col-%d'|format(row_index, col_index) %}
                                 <td>
                                     {% if column['render'] == 'textbox' %}
-                                        <input type="text" {{ id_name }} class="form-control" value="{{ row[loop.index0] }}">
+                                        <input type="text" id="{{ id_name }}" name="{{ id_name }}" class="form-control" value="{{ row[col_index] }}">
                                     {% else %}
                                         {{ row[loop.index0] }}
+                                        <input type="hidden" id="{{ id_name }}" name="{{ id_name }}" class="form-control" value="{{ row[col_index] }}">
                                     {% endif %}
                                 </td>
                             {% endfor %}
+                            <td>
+                            <button class="btn btn-sm btn-outline-light btn-del-row" data-id="{{ row_index }}"><i class="far fa-trash-alt"></i></button>
+                            </td>
+                            </tr>
                         {% endfor %}
                     </tbody>
                 </table>

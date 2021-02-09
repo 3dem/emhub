@@ -2,16 +2,46 @@
 <!-- Dynamic Form -->
 <!-- ============================================================== -->
 
-{# Expects 'table' as input param. #}
-
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content" style="background-color: #f5f5f5">
       <div class="modal-body">
-        <div class="row">
 
-        {% include "dynamic_table.html" %}
+         <div class="row">
 
+            <!-- ============================================================== -->
+<!--  dynamic table  -->
+<!-- ============================================================== -->
+<div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+    <div class="card">
+        <h5 class="card-header"> {{ title }}</h5>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+
+                <table class="table" id="dynamic-table">
+                    <thead class="bg-light">
+                        <tr class="border-0">
+                            <th class="border-0">Date</th>
+                            <th class="border-0">Comment</th>
+                            <th class="border-0">Cost (SEK)</th>
+                        <th class="border-0">Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                    </tbody>
+                </table>
+
+            </div>
         </div>
+    </div>
+</div>
+
+         </div>
+          <div class="row">
+              <div class="col-12 text-sm-right">
+              <a href="#" id="addRow" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Cost</a>
+                  </div>
+          </div>
       </div>
 
       <div class="modal-footer">
@@ -32,4 +62,54 @@
         paging: false,
         info: false
     });
+
+    var rows_counter = costs_table.rows().data().length;
+    //var cols_counter = costs_table.columns().data().length;
+
+    $('#addRow').on( 'click', function () {
+        addRow([dateStr(new Date()), '',  0]);
+    } );
+
+    function deleteRow(row_id) {
+        costs_table.row(row_id).remove().draw();
+    }
+
+    function addRow(rowData) {
+        const prefix = 'row-' + rows_counter + '-col-';
+        var rowStr = '<tr id="row-' + rows_counter + '">';
+        rowStr += '<td> <input type="text" value="' + rowData[0] + '" class="form-control" name="' + prefix + 0 + '"></td>';
+        rowStr += '<td><input type="text" value="' + rowData[1] + '" class="form-control" name="' + prefix + 1 + '"></td>';
+        rowStr += '<td><input type="text" value="' + rowData[2] + '" class="form-control" name="' + prefix + 2 + '"></td>';
+        rowStr += '<td><button class="btn btn-sm btn-outline-light" onclick="javascript:deleteRow(' + rows_counter + ')"><i class="far fa-trash-alt"></i></button></td>';
+        rowStr += '</tr>';
+        costs_table.row.add($(rowStr)).draw(false);
+        rows_counter = rows_counter + 1;
+    }
+
+    function addAllCosts(costs) {
+        costs_table.rows().remove();
+
+        for (i = 0; i < costs.length; i++) {
+            addRow(costs[i]);
+        }
+    }
+
+    function getAllCosts() {
+        const cols = 3;
+        var data = [];
+        var row_data = null;
+        var i = 0;
+
+        $("[name^='row-']").each(function(){
+            if (i % cols === 0) {
+                row_data = [];
+                data.push(row_data);
+            }
+            row_data.push(this.value);
+            i += 1;
+        });
+
+        return data;
+    }
+
 </script>

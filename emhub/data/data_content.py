@@ -406,13 +406,8 @@ class DataContent:
 
         resources = self.app.dm.get_resources()
 
-        return {'table': {
-            'title': "Booking Costs",
-            'columns': [{'label': 'name'},
-                        {'label': 'status', 'render': 'textbox'},
-                        {'label': 'tags', 'render': 'textbox'}],
-            'rows': [(r.name, r.status, r.tags) for r in resources]
-        }}
+        return {'data': [(r.name, r.status, r.tags) for r in resources]}
+
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
