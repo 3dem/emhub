@@ -587,6 +587,36 @@ def create_data_models(dm):
                     % (self.resource.name, self.owner.name,
                        _timestr(self.start), _timestr(self.end)))
 
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def costs(self):
+            """ Return extra costs associated with this Booking
+            """
+            return  self.__getExtra('costs', [])
+
+        @costs.setter
+        def costs(self, value):
+            self.__setExtra('costs', value)
+
+        @property
+        def total_cost(self):
+            """ Return all costs associated with this Booking
+            """
+            cost = self.days * self.resource.daily_cost
+            for c in self.costs:
+                try:
+                    cost += int(c)
+                except:
+                    pass
+            return cost
+
         def json(self):
             return dm.json_from_object(self)
 

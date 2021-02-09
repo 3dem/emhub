@@ -235,6 +235,17 @@
     }
 
     /* ---------------- BOOKING functions ------------------ */
+    /** Return how many days this booking expands.
+     * (Used to calculate costs based on daily costs of the
+     * used resource.)
+     **/
+    function getBookingDays(booking) {
+         var time_difference = dateNoTime(booking.end).getTime() - dateNoTime(booking.start).getTime();
+         //calculate days difference by dividing total milliseconds in a day
+         var days_difference = time_difference / (1000 * 60 * 60 * 24);
+         return days_difference + 1;
+    }
+
     /** Helper functions to handle AJAX response or failure */
     function handleAjaxDone(jsonResponse) {
         let error = null;
@@ -373,7 +384,8 @@
             repeat_value: repeat_value,
             resource: resource,
             experiment: last_booking.experiment,
-            application_label: last_booking.application_label
+            application_label: last_booking.application_label,
+            costs: last_booking.costs
         };
 
         if (booking_type == 'slot') {
@@ -518,7 +530,7 @@
                 ['2020/02/01', 'Shipping', '20000'],
                 ['2020/01/21', 'Shipping back', '20000']
                 ]
-            addAllCosts(last_booking.costs);
+            addBookingCosts(last_booking);
 
             $("#costs-btn-update" ).click(function() {
                 last_booking.costs = getAllCosts();

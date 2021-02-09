@@ -490,7 +490,9 @@ class DataContent:
             'repeat_value': booking.repeat_value,
             'days': booking.days,
             'experiment': booking.experiment,
-            'application_label': application_label
+            'application_label': application_label,
+            'extra': booking.costs,
+            'total_cost': booking.total_cost
         }
 
     def user_profile_image(self, user):

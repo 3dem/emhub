@@ -63,6 +63,7 @@
         info: false
     });
 
+    var cols_counter = 3;
     var rows_counter = costs_table.rows().data().length;
     //var cols_counter = costs_table.columns().data().length;
 
@@ -74,34 +75,42 @@
         costs_table.row(row_id).remove().draw();
     }
 
-    function addRow(rowData) {
+    function addRow(rowData, readonly) {
+
         const prefix = 'row-' + rows_counter + '-col-';
+        const readonlyStr = readonly ? "readonly" : "";
+
         var rowStr = '<tr id="row-' + rows_counter + '">';
-        rowStr += '<td> <input type="text" value="' + rowData[0] + '" class="form-control" name="' + prefix + 0 + '"></td>';
-        rowStr += '<td><input type="text" value="' + rowData[1] + '" class="form-control" name="' + prefix + 1 + '"></td>';
-        rowStr += '<td><input type="text" value="' + rowData[2] + '" class="form-control" name="' + prefix + 2 + '"></td>';
-        rowStr += '<td><button class="btn btn-sm btn-outline-light" onclick="javascript:deleteRow(' + rows_counter + ')"><i class="far fa-trash-alt"></i></button></td>';
-        rowStr += '</tr>';
+
+        for (var i = 0; i < cols_counter; i++) {
+            rowStr += '<td> <input type="text" ' + readonlyStr + ' value="' + rowData[i] + '" class="form-control" name="' + prefix + i + '"></td>';
+        }
+        const deleteBtnStr = readonly ? '': '<button class="btn btn-sm btn-outline-light" onclick="javascript:deleteRow(' + rows_counter + ')"><i class="far fa-trash-alt"></i></button>'
+        rowStr += '<td>' + deleteBtnStr;
+        rowStr += '</td></tr>';
         costs_table.row.add($(rowStr)).draw(false);
         rows_counter = rows_counter + 1;
     }
 
-    function addAllCosts(costs) {
+    function addBookingCosts(booking) {
         costs_table.rows().remove();
-
+        const costs = booking.costs;
+        const resource = getResource(booking.resource.id);
+        var base_cost = getBookingDays(booking) * resource.daily_cost;
+        addRow([dateStr(booking.start), 'Instrument cost per days', base_cost], true);
         for (i = 0; i < costs.length; i++) {
             addRow(costs[i]);
         }
     }
 
     function getAllCosts() {
-        const cols = 3;
+
         var data = [];
         var row_data = null;
         var i = 0;
 
         $("[name^='row-']").each(function(){
-            if (i % cols === 0) {
+            if (i % cols_counter === 0) {
                 row_data = [];
                 data.push(row_data);
             }
@@ -109,6 +118,8 @@
             i += 1;
         });
 
+        // Remove first row that is computed from daily costs
+        data.shift();
         return data;
     }
 
