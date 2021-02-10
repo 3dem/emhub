@@ -610,7 +610,7 @@ def create_data_models(dm):
             """ Return all costs associated with this Booking
             """
             cost = self.days * self.resource.daily_cost
-            for c in self.costs:
+            for _, _, c in self.costs:
                 try:
                     cost += int(c)
                 except:

@@ -491,7 +491,7 @@ class DataContent:
             'days': booking.days,
             'experiment': booking.experiment,
             'application_label': application_label,
-            'extra': booking.costs,
+            'costs': booking.costs,
             'total_cost': booking.total_cost
         }
 
