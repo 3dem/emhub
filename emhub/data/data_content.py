@@ -380,25 +380,82 @@ class DataContent:
         return result
 
     def get_reports_time_distribution(self, **kwargs):
+        app_dict = {a.code: a.alias for a in self.app.dm.get_applications()}
+
         #d = request.json or request.form
-        d = {'start': '2020-01-01',
-             'end': '2020-12-31'
+        d = {'start': kwargs['start'], #'2020-01-01',
+             'end': kwargs['end'],     #'2020-12-31'
              }
+
         bookings = self.app.dm.get_bookings_range(
             datetime_from_isoformat(d['start']),
             datetime_from_isoformat(d['end'])
         )
-        func = self.app.dc.booking_to_event
-        bookings = [func(b) for b in bookings
-                    if b.resource.is_microscope]
+
+        def process_booking(b):
+            bd = self.app.dc.booking_to_event(b)
+            bd['pretty_start'] = pretty_datetime(b.start)
+            bd['pretty_end'] = pretty_datetime(b.end)
+            pi = b.owner.get_pi()
+            if pi:
+                bd['pi_id'] = pi.id
+                bd['pi_name'] = pi.name
+
+            return bd
+
+        def _filter(b):
+            return b.resource.is_microscope and not b.is_slot
+
+        bookings = [process_booking(b) for b in bookings if _filter(b)]
 
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
 
-        return {'overall': counters,
-                'cem': cem_counters,
-                'possible_owners': self.get_pi_labs()
-                }
+        details_key = kwargs.get('details', 'Reminder')
+
+        def _group(bookings):
+            pi_bookings = {}
+            for b in bookings:
+                pi_id = b['pi_id']
+                if pi_id not in pi_bookings:
+                    pi_bookings[pi_id] = [[pi_id, b['pi_name'], 0, 0]]
+
+                pi_list = pi_bookings[pi_id]
+                pi_list.append(b)
+                pi_list[0][2] += b['days']
+                pi_list[0][3] += b['total_cost']
+
+            return list(pi_bookings.values())
+
+        if details_key.startswith('CEM') and len(details_key) > 3:
+            alias = app_dict.get(details_key, None)
+            details_title = details_key + (' (%s)' % alias if alias else '')
+            details_bookings = cem_counters[details_key].bookings
+        else:
+            details_title = {
+                'Reminder': "Reminder: Uncategorized Bookings (Review and Update)",
+                'DBB': "DBB Bookings",
+                'Downtime': "Downtime",
+                'Maintenance': "Maintenance",
+                'Development': "Development"
+            }[details_key]
+            details_bookings = counters[details_key].bookings
+
+        d.update({
+            'overall': counters,
+            'cem': cem_counters,
+            'possible_owners': self.get_pi_labs(),
+            'app_dict': app_dict,
+            'details_bookings': details_bookings,
+            'details_title': details_title,
+            'details_key': details_key,
+            'details_groups': [],
+        })
+
+        if details_key.startswith('CEM') or details_key.startswith('DBB'):
+            d['details_groups'] = _group(details_bookings)
+
+        return d
 
     def get_booking_costs_table(self, **kwargs):
         booking_id = int(kwargs.get('booking_id', 1))

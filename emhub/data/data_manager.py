@@ -279,7 +279,7 @@ class DataManager(DbManager):
                     (e >= start and e <= end) or
                     (s <= start and e >= end))
 
-        return [b for b in self.get_bookings(condition=conditionStr)
+        return [b for b in self.get_bookings(condition=conditionStr, orderBy='start')
                 if in_range(b)]
 
     def delete_booking(self, **attrs):
