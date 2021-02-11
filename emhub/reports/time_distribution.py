@@ -3,14 +3,16 @@ import re
 
 
 class Counter:
-    HEADERS = ["", "Bookings", "Days", "%"]
-    FORMAT = u"{:>15}{:>10}{:>10}{:>10}"
+    HEADERS = ["", "Bookings", "Days", "%", "Cost"]
+    FORMAT = u"{:>15}{:>10}{:>10}{:>10}{:>10}"
     TOTAL = None
 
     def __init__(self, name, filter=None):
         self._name = name
         self.counter = 0
         self.days = 0
+        self.cost = 0
+        self.bookings = []
         self._filter = filter or self._filter_by_name
 
     def _filter_by_name(self, b):
@@ -19,7 +21,9 @@ class Counter:
     def count(self, b):
         if self._filter(b):
             self.counter += 1
+            self.cost += b['total_cost']
             self.days += b['days']
+            self.bookings.append(b)
             return True
         return False
 
@@ -31,13 +35,19 @@ class CounterList:
             Counter('Reminder', lambda b: True)
         ]
         self.reminder = []
+        self._countersDict = {c._name: c for c in self._counters}
 
         for n in names:
             self.addCounter(n)
 
+
+    def __getitem__(self, item):
+        return self._countersDict[item]
+
     def addCounter(self, counter):
         c = counter if isinstance(counter, Counter) else Counter(str(counter))
         self._counters.insert(-1, c)
+        self._countersDict[c._name] = c
 
     def count(self, b):
         self._counters[0].count(b)  # Always count total
@@ -55,7 +65,7 @@ class CounterList:
     def data(self):
         total = self._counters[0].days
         data = [[c._name, c.counter, c.days,
-                 '%0.2f' % (c.days * 100 / total)]
+                 '%0.2f' % (c.days * 100 / total), c.cost]
                 for c in self._counters]
 
         return data
@@ -76,9 +86,9 @@ def is_maintainance(b):
     return any(k in t for k in ['cycle', 'installation', 'maintenance', 'afis'])
 
 
-def is_developmnt(b):
+def is_development(b):
     t = b['title'].lower()
-    return any(k in t for k in ['method', 'research', 'tests', 'mikroed', 'microed'])
+    return any(k in t for k in ['method', 'research', 'test', 'mikroed', 'microed', 'devel'])
 
 
 def get_cem(b):
@@ -109,7 +119,7 @@ class CemCounter(Counter):
 
 def get_booking_counters(bookings):
     maintainance = Counter('Maintenance', is_maintainance)
-    development = Counter('Development', is_developmnt)
+    development = Counter('Development', is_development)
     CEM = Counter('CEM', filter=lambda b: get_cem(b) is not None)
 
     counters = CounterList('Downtime', maintainance, 'DBB', CEM, development)

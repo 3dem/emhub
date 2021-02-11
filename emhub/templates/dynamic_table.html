@@ -1,0 +1,60 @@
+<!-- ============================================================== -->
+<!-- Dynamic Form -->
+<!-- ============================================================== -->
+
+{# Expects 'table' as input param. #}
+
+{% set title = table['title'] %}
+{% set columns = table['columns'] %}
+{% set rows = table['rows'] %}
+
+<!-- ============================================================== -->
+<!--  dynamic table  -->
+<!-- ============================================================== -->
+<div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+    <div class="card">
+        <h5 class="card-header"> {{ title }}</h5>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+
+                <table class="table" id="dynamic-table">
+                    <thead class="bg-light">
+                        <tr class="border-0">
+                        {% for column in columns %}
+                            <th class="border-0">{{ column['label'] }}</th>
+                        {% endfor %}
+                        <th>Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            {% set row_index = loop.index0 %}
+                            <tr>
+                            {% for column in columns %}
+                                {% set col_index = loop.index0 %}
+                                {% set id_name = 'row-%d-col-%d'|format(row_index, col_index) %}
+                                <td>
+                                    {% if column['render'] == 'textbox' %}
+                                        <input type="text" id="{{ id_name }}" name="{{ id_name }}" class="form-control" value="{{ row[col_index] }}">
+                                    {% else %}
+                                        {{ row[loop.index0] }}
+                                        <input type="hidden" id="{{ id_name }}" name="{{ id_name }}" class="form-control" value="{{ row[col_index] }}">
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                            <td>
+                            <button class="btn btn-sm btn-outline-light btn-del-row" data-id="{{ row_index }}"><i class="far fa-trash-alt"></i></button>
+                            </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ============================================================== -->
+<!-- end dynamic table  -->
+<!-- ============================================================== -->
+

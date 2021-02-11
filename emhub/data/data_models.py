@@ -152,6 +152,18 @@ def create_data_models(dm):
         def requires_application(self, value):
             self.__setExtra('requires_application', bool(value))
 
+        @property
+        def daily_cost(self):
+            """ Cost of one day session using this resource.
+            """
+            return self.__getExtra('daily_cost', 0)
+
+        @daily_cost.setter
+        def daily_cost(self, value):
+            self.__setExtra('daily_cost', int(value))
+
+
+
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
                                    ForeignKey('applications.id')),
@@ -574,6 +586,36 @@ def create_data_models(dm):
             return ('<Booking: resource=%s, owner=%s, dates: %s - %s>'
                     % (self.resource.name, self.owner.name,
                        _timestr(self.start), _timestr(self.end)))
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def costs(self):
+            """ Return extra costs associated with this Booking
+            """
+            return  self.__getExtra('costs', [])
+
+        @costs.setter
+        def costs(self, value):
+            self.__setExtra('costs', value)
+
+        @property
+        def total_cost(self):
+            """ Return all costs associated with this Booking
+            """
+            cost = self.days * self.resource.daily_cost
+            for _, _, c in self.costs:
+                try:
+                    cost += int(c)
+                except:
+                    pass
+            return cost
 
         def json(self):
             return dm.json_from_object(self)

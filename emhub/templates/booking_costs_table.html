@@ -1,0 +1,126 @@
+<!-- ============================================================== -->
+<!-- Dynamic Form -->
+<!-- ============================================================== -->
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content" style="background-color: #f5f5f5">
+      <div class="modal-body">
+
+         <div class="row">
+
+            <!-- ============================================================== -->
+<!--  dynamic table  -->
+<!-- ============================================================== -->
+<div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+    <div class="card">
+        <h5 class="card-header"> {{ title }}</h5>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+
+                <table class="table" id="dynamic-table">
+                    <thead class="bg-light">
+                        <tr class="border-0">
+                            <th class="border-0">Date</th>
+                            <th class="border-0">Comment</th>
+                            <th class="border-0">Cost (SEK)</th>
+                        <th class="border-0">Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                    </tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+         </div>
+          <div class="row">
+              <div class="col-12 text-sm-right">
+              <a href="#" id="addRow" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Cost</a>
+                  </div>
+          </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="costs-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" id="costs-btn-update" class="btn btn-outline-dark">Update</button>
+      </div>
+    </div>
+  </div>
+{#</div>#}
+<!-- ============================================================== -->
+<!-- End of Dynamic Form Content -->
+<!-- ============================================================== -->
+
+<script>
+    var costs_table = $('#dynamic-table').DataTable({
+        sDom: 'lrtip',
+        ordering: false,
+        paging: false,
+        info: false
+    });
+
+    var cols_counter = 3;
+    var rows_counter = costs_table.rows().data().length;
+    //var cols_counter = costs_table.columns().data().length;
+
+    $('#addRow').on( 'click', function () {
+        addRow([dateStr(new Date()), '',  0]);
+    } );
+
+    function deleteRow(row_id) {
+        costs_table.row(row_id).remove().draw();
+    }
+
+    function addRow(rowData, readonly) {
+
+        const prefix = 'row-' + rows_counter + '-col-';
+        const readonlyStr = readonly ? "readonly" : "";
+
+        var rowStr = '<tr id="row-' + rows_counter + '">';
+
+        for (var i = 0; i < cols_counter; i++) {
+            rowStr += '<td> <input type="text" ' + readonlyStr + ' value="' + rowData[i] + '" class="form-control" name="' + prefix + i + '"></td>';
+        }
+        const deleteBtnStr = readonly ? '': '<button class="btn btn-sm btn-outline-light" onclick="javascript:deleteRow(' + rows_counter + ')"><i class="far fa-trash-alt"></i></button>'
+        rowStr += '<td>' + deleteBtnStr;
+        rowStr += '</td></tr>';
+        costs_table.row.add($(rowStr)).draw(false);
+        rows_counter = rows_counter + 1;
+    }
+
+    function addBookingCosts(booking) {
+        costs_table.rows().remove();
+        const costs = booking.costs;
+        const resource = getResource(booking.resource.id);
+        var base_cost = getBookingDays(booking) * resource.daily_cost;
+        addRow([dateStr(booking.start), 'Instrument cost per days', base_cost], true);
+        for (i = 0; i < costs.length; i++) {
+            addRow(costs[i]);
+        }
+    }
+
+    function getAllCosts() {
+
+        var data = [];
+        var row_data = null;
+        var i = 0;
+
+        $("[name^='row-']").each(function(){
+            if (i % cols_counter === 0) {
+                row_data = [];
+                data.push(row_data);
+            }
+            row_data.push(this.value);
+            i += 1;
+        });
+
+        // Remove first row that is computed from daily costs
+        data.shift();
+        return data;
+    }
+
+</script>

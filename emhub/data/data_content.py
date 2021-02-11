@@ -178,7 +178,8 @@ class DataContent:
              'user_can_book': user.can_book_resource(r),
              'is_microscope': r.is_microscope,
              'min_booking': r.min_booking,
-             'max_booking': r.max_booking
+             'max_booking': r.max_booking,
+             'daily_cost': r.daily_cost
              }
             for r in self.app.dm.get_resources()
         ]
@@ -205,6 +206,7 @@ class DataContent:
         _add('latest_cancellation', 'Latest cancellation (h)')
         _add('min_booking', 'Minimum booking time (h)')
         _add('min_booking', 'Maximum booking time (h)')
+        _add('daily_cost', 'Daily cost')
         _add('requires_slot', 'Requires Slot', type='bool')
         _add('requires_application', 'Requires Application', type='bool')
 
@@ -378,25 +380,104 @@ class DataContent:
         return result
 
     def get_reports_time_distribution(self, **kwargs):
-        #d = request.json or request.form
-        d = {'start': '2020-01-01',
-             'end': '2020-12-31'
-             }
+        app_dict = {a.code: a.alias for a in self.app.dm.get_applications()}
+
+        if 'start' in kwargs and 'end' in kwargs:
+            # d = request.json or request.form
+            d = {'start': kwargs['start'], 'end': kwargs['end']}
+        else:
+            # If date range is not passed, let's use by default the
+            # current quarter
+            now = dt.datetime.now()
+            qi = (now.month - 1) // 3
+            start, end = [
+                ('01-01', '03-31'),
+                ('01-04', '06-30'),
+                ('01-07', '09-30'),
+                ('01-10', '12-31')
+            ][qi]
+            d = {'start': '%d-%s' % (now.year, start),
+                 'end': '%d-%s' % (now.year, end)
+                 }
+
         bookings = self.app.dm.get_bookings_range(
             datetime_from_isoformat(d['start']),
             datetime_from_isoformat(d['end'])
         )
-        func = self.app.dc.booking_to_event
-        bookings = [func(b) for b in bookings
-                    if b.resource.is_microscope]
+
+        def process_booking(b):
+            bd = self.app.dc.booking_to_event(b)
+            bd['pretty_start'] = pretty_datetime(b.start)
+            bd['pretty_end'] = pretty_datetime(b.end)
+            pi = b.owner.get_pi()
+            if pi:
+                bd['pi_id'] = pi.id
+                bd['pi_name'] = pi.name
+
+            return bd
+
+        def _filter(b):
+            return b.resource.is_microscope and not b.is_slot
+
+        bookings = [process_booking(b) for b in bookings if _filter(b)]
 
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
 
-        return {'overall': counters,
-                'cem': cem_counters,
-                'possible_owners': self.get_pi_labs()
-                }
+        details_key = kwargs.get('details', 'Reminder')
+
+        def _group(bookings):
+            pi_bookings = {}
+            for b in bookings:
+                pi_id = b['pi_id']
+                if pi_id not in pi_bookings:
+                    pi_bookings[pi_id] = [[pi_id, b['pi_name'], 0, 0]]
+
+                pi_list = pi_bookings[pi_id]
+                pi_list.append(b)
+                pi_list[0][2] += b['days']
+                pi_list[0][3] += b['total_cost']
+
+            return list(pi_bookings.values())
+
+        if details_key.startswith('CEM') and len(details_key) > 3:
+            alias = app_dict.get(details_key, None)
+            details_title = details_key + (' (%s)' % alias if alias else '')
+            details_bookings = cem_counters[details_key].bookings
+        else:
+            details_title = {
+                'Reminder': "Reminder: Uncategorized Bookings (Review and Update)",
+                'DBB': "DBB Bookings",
+                'Downtime': "Downtime",
+                'Maintenance': "Maintenance",
+                'Development': "Development"
+            }[details_key]
+            details_bookings = counters[details_key].bookings
+
+        d.update({
+            'overall': counters,
+            'cem': cem_counters,
+            'possible_owners': self.get_pi_labs(),
+            'app_dict': app_dict,
+            'details_bookings': details_bookings,
+            'details_title': details_title,
+            'details_key': details_key,
+            'details_groups': [],
+        })
+
+        if details_key.startswith('CEM') or details_key.startswith('DBB'):
+            d['details_groups'] = _group(details_bookings)
+
+        return d
+
+    def get_booking_costs_table(self, **kwargs):
+        booking_id = int(kwargs.get('booking_id', 1))
+        print("get_costs_table: booking_id = %s" % booking_id)
+
+        resources = self.app.dm.get_resources()
+
+        return {'data': [(r.name, r.status, r.tags) for r in resources]}
+
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
@@ -479,7 +560,9 @@ class DataContent:
             'repeat_value': booking.repeat_value,
             'days': booking.days,
             'experiment': booking.experiment,
-            'application_label': application_label
+            'application_label': application_label,
+            'costs': booking.costs,
+            'total_cost': booking.total_cost
         }
 
     def user_profile_image(self, user):
