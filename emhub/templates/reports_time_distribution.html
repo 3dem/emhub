@@ -152,13 +152,15 @@
 {#                            {% endfor %}#}
                             {% if details_groups|length > 0 %}
                                 {% set bookings = details_groups %}
+                                {% set start_index = 1 %}
                             {% else %}
-                                {% set bookings = [[], details_bookings] %}
+                                {% set bookings = [details_bookings] %}
+                                {% set start_index = 0 %}
                             {% endif %}
 
                             {% for bList in bookings %}
                                 {% set first = bList[0] %}
-                                {% if first|length > 0 %}
+                                {% if start_index > 0 %}
                                     {# First row is special #}
                                     <tr class="table-primary">
                                         <td>{{ first[1] }}</td>
@@ -171,7 +173,7 @@
                                 {% endif %}
 
                                 {# Then the other rows with real bookings info #}
-                                {% for b in bList[1:] %}
+                                {% for b in bList[start_index:] %}
                                 <tr>
                                     <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>
                                     <td>{{ b['pretty_start'] }}</td>

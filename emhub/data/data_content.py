@@ -382,10 +382,23 @@ class DataContent:
     def get_reports_time_distribution(self, **kwargs):
         app_dict = {a.code: a.alias for a in self.app.dm.get_applications()}
 
-        #d = request.json or request.form
-        d = {'start': kwargs['start'], #'2020-01-01',
-             'end': kwargs['end'],     #'2020-12-31'
-             }
+        if 'start' in kwargs and 'end' in kwargs:
+            # d = request.json or request.form
+            d = {'start': kwargs['start'], 'end': kwargs['end']}
+        else:
+            # If date range is not passed, let's use by default the
+            # current quarter
+            now = dt.datetime.now()
+            qi = (now.month - 1) // 3
+            start, end = [
+                ('01-01', '03-31'),
+                ('01-04', '06-30'),
+                ('01-07', '09-30'),
+                ('01-10', '12-31')
+            ][qi]
+            d = {'start': '%d-%s' % (now.year, start),
+                 'end': '%d-%s' % (now.year, end)
+                 }
 
         bookings = self.app.dm.get_bookings_range(
             datetime_from_isoformat(d['start']),
