@@ -53,6 +53,19 @@ def pil_to_base64(pil_img):
     return base64.b64encode(img_io.getvalue()).decode("utf-8")
 
 
+def fn_to_blob(filename):
+    """ Read the image filename as a PIL image
+    and encode it as base64.
+    """
+    try:
+        with open(filename, 'rb') as img_f:
+            binary_data = img_f.read()  # read the image as python binary
+
+        return np.asarray(binary_data)
+    except:
+        return None
+
+
 def mrc_to_base64(filename, MAX_SIZE=(512,512)):
     """ Convert real float32 mrc to base64.
     Convert to int8 first, then scale with Pillow.
