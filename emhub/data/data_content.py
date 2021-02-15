@@ -111,21 +111,26 @@ class DataContent:
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
         firstSetId = session.data.get_sets()[0]['id']
-        mics = session.data.get_set_items(firstSetId, ['location', 'ctfDefocus'])
+        attrList = ['location', 'ctfDefocus', 'ctfResolution']
+        mics = session.data.get_set_items(firstSetId, attrList=attrList)
         session.data.close()
+
         defocusList = [m['ctfDefocus'] for m in mics]
-        resolutionList = []  # m.ctfResolution for m in mics]
-        sample = ['Defocus'] + defocusList
+        resolutionList = [m['ctfResolution'] for m in mics]
 
-        bar1 = {'label': 'CTF Defocus',
-                'data': defocusList}
+        ctf_defocus_bar = {
+            'label': 'CTF Defocus',
+            'data': defocusList
+        }
 
-        bar2 = {'label': 'CTF Resolution',
-                'data': resolutionList}
+        ctf_resolution_bar = {
+            'label': 'CTF Resolution',
+            'data': resolutionList}
 
-        return {'sample': sample,
-                'bar1': bar1,
-                'bar2': bar2,
+        return {'defocus_plot': ['Defocus'] + defocusList,
+                'ctf_defocus_bar': ctf_defocus_bar,
+                'resolution_plot': ['Resolution'] + resolutionList,
+                'ctf_resolution_bar': ctf_resolution_bar,
                 'micrographs': mics,
                 'session': session}
 

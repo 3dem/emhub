@@ -1,23 +1,10 @@
 <!-- wrapper  -->
 <div class="container-fluid dashboard-content ">
-    <!-- pageheader  -->
-    <div class="row">
-        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-            <div class="page-header">
-                <h2 class="pageheader-title">{{ session.name }}</h2>
-                <p class="pageheader-text">{{ session.description }} - this is session {{ session.id }}</p>
-                <div class="page-breadcrumb">
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="#" class="breadcrumb-link">Sessions</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">{{ session.resource.name }}</li>
-                        </ol>
-                    </nav>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- end pageheader  -->
+        <!-- pageheader  -->
+    {% set title = "Session Live: " + session.name %}
+    {% set navigation = [('Sessions', ''), (session.name, '')] %}
+    {% include 'include_header.html' %}
+
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
             <!-- tabs -->
@@ -42,86 +29,109 @@
                             <div class="row">
                                 <p id="itemId">Results for the last processed item</p>
                             </div>
+
                             <!-- thumbnails row -->
                             <div class="row">
-                                <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
-                                    <div class="card card-figure">
-                                        <!-- .card-figure -->
-                                        <figure class="figure">
-                                            <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                            <!-- .figure-caption -->
-                                            <figcaption class="figure-caption">
-                                                <h6 class="figure-title"> Micrograph </h6>
-                                                <p class="text-muted mb-0"> Give some text description </p>
-                                            </figcaption>
-                                            <!-- /.figure-caption -->
-                                        </figure>
-                                        <!-- /.card-figure -->
-                                        <!-- /.card -->
-                                    </div>
-                                </div>
-                                <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
-                                    <div class="card card-figure">
-                                        <!-- .card-figure -->
-                                        <figure class="figure">
-                                            <img class="img-fluid" id="img_shifts" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                            <!-- .figure-caption -->
-                                            <figcaption class="figure-caption">
-                                                <h6 class="figure-title"> Drift plot </h6>
-                                                <p class="text-muted mb-0"> Give some text description </p>
-                                            </figcaption>
-                                            <!-- /.figure-caption -->
-                                        </figure>
-                                        <!-- /.card-figure -->
-                                        <!-- /.card -->
-                                    </div>
-                                </div>
-                                <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
-                                    <div class="card card-figure">
-                                        <!-- .card-figure -->
-                                        <figure class="figure">
-                                            <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                            <!-- .figure-caption -->
-                                            <figcaption class="figure-caption">
-                                                <h6 class="figure-title"> PSD plot </h6>
-                                                <p class="text-muted mb-0"> Give some text description </p>
-                                            </figcaption>
-                                            <!-- /.figure-caption -->
-                                        </figure>
-                                        <!-- /.card-figure -->
-                                        <!-- /.card -->
-                                    </div>
-                                </div>
-                                <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">
-                                    <div class="card card-figure">
-                                        <!-- .card-figure -->
-                                        <figure class="figure">
-                                            <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                            <!-- .figure-caption -->
-                                            <figcaption class="figure-caption">
-                                                <h6 class="figure-title"> CTF fit plot </h6>
-                                                <p class="text-muted mb-0"> Give some text description </p>
-                                            </figcaption>
-                                            <!-- /.figure-caption -->
-                                        </figure>
-                                        <!-- /.card-figure -->
-                                        <!-- /.card -->
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- end thumbnails row -->
-                            <!-- charts row -->
-                            <div class="row">
-                                <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                                <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
                                     <div class="card">
-                                        <h5 class="card-header">Defocus</h5>
+                                        <h5 class="card-header">CTF Defocus</h5>
                                         <div class="card-body">
-                                            <div id="c3chart_zoom"></div>
+                                            <div class="row">
+                                                <div id="defocus_plot" class="col-9"></div>
+                                                <canvas id="defocus_hist" class="col-3"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card">
+                                        <h5 class="card-header">CTF Resolution</h5>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div id="resolution_plot" class="col-9"></div>
+                                                <canvas id="resolution_hist" class="col-3"></canvas>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+
+                                <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
+                                    <div class="row">
+                                    <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
+                                        <div class="card card-figure">
+                                            <!-- .card-figure -->
+                                            <figure class="figure">
+                                                <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                                <!-- .figure-caption -->
+                                                <figcaption class="figure-caption">
+                                                    <h6 class="figure-title"> Micrograph </h6>
+                                                    <p class="text-muted mb-0"> Give some text description </p>
+                                                </figcaption>
+                                                <!-- /.figure-caption -->
+                                            </figure>
+                                            <!-- /.card-figure -->
+                                            <!-- /.card -->
+                                        </div>
+                                    </div>
+                                    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
+                                        <div class="row">
+{#                                        <div class="card card-figure">#}
+{#                                            <!-- .card-figure -->#}
+{#                                            <figure class="figure">#}
+{#                                                <img class="img-fluid" id="img_shifts" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">#}
+{#                                                <!-- .figure-caption -->#}
+{#                                                <figcaption class="figure-caption">#}
+{#                                                    <h6 class="figure-title"> Drift plot </h6>#}
+{#                                                    <p class="text-muted mb-0"> Give some text description </p>#}
+{#                                                </figcaption>#}
+{#                                                <!-- /.figure-caption -->#}
+{#                                            </figure>#}
+{#                                            <!-- /.card-figure -->#}
+{#                                            <!-- /.card -->#}
+{#                                        </div>#}
+
+                                        <div class="card card-figure">
+                                            <!-- .card-figure -->
+                                            <figure class="figure">
+                                                <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                                <!-- .figure-caption -->
+                                                <figcaption class="figure-caption">
+                                                    <h6 class="figure-title"> PSD plot </h6>
+                                                    <p class="text-muted mb-0"> Give some text description </p>
+                                                </figcaption>
+                                                <!-- /.figure-caption -->
+                                            </figure>
+                                            <!-- /.card-figure -->
+                                            <!-- /.card -->
+                                        </div>
+                                    </div>
+
+                                        <div class="card card-figure">
+                                            <!-- .card-figure -->
+                                            <figure class="figure">
+                                                <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                                <!-- .figure-caption -->
+                                                <figcaption class="figure-caption">
+                                                    <h6 class="figure-title"> CTF fit plot </h6>
+                                                    <p class="text-muted mb-0"> Give some text description </p>
+                                                </figcaption>
+                                                <!-- /.figure-caption -->
+                                            </figure>
+                                            <!-- /.card-figure -->
+                                            <!-- /.card -->
+                                        </div>
+                                    </div>
+{#                                        #}
+{#                                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">#}
+{##}
+{#                                    </div>#}
+{#                                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">#}
+{#                                        #}
+{#                                    </div>#}
+                                </div>
+                                </div>
+
                             </div>
-                            <!-- end charts row -->
+                            <!-- end thumbnails row -->
+
                         </div>
                     </div>
                     <!-- end tab "Live" -->
@@ -220,13 +230,14 @@
                             </div>
                         </div>
                         <!-- end parameters row -->
+
                         <!-- histograms row -->
                         <div class="row">
                             <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
                                 <div class="card">
                                     <h5 class="card-header">Average defocus</h5>
                                     <div class="card-body">
-                                        <canvas id="chartjs_bar1"></canvas>
+
                                     </div>
                                 </div>
                             </div>
@@ -377,11 +388,11 @@
     "use strict";
     $(function() {
 
-        if ($('#c3chart_zoom').length) {
+        if ($('#defocus_plot').length) {
             var chart = c3.generate({
-                bindto: "#c3chart_zoom",
+                bindto: "#defocus_plot",
                 data: {
-                    columns: [ {{ sample|tojson }} ],
+                    columns: [ {{ defocus_plot|tojson }} ],
                     colors: {sample: '#5969ff'},
                     onclick: function (d) {
                         request_micrograph_images({{ session.id }}, d.index);
@@ -392,19 +403,42 @@
                 axis: {
                     y: {show: true},
                     x: {show: true}
-                }
+                },
+                legend: {show: false}
             });
         }
 
-        if ($('#chartjs_bar1').length) {
-            var ctx = document.getElementById("chartjs_bar1").getContext('2d');
+        if ($('#resolution_plot').length) {
+            var chart = c3.generate({
+                bindto: "#resolution_plot",
+                data: {
+                    columns: [ {{ resolution_plot|tojson }} ],
+                    colors: {sample: 'rgba(255, 64, 123,0.5)'},
+                    type: 'scatter',
+                    onclick: function (d) {
+                        request_micrograph_images({{ session.id }}, d.index);
+                        document.getElementById("itemId").innerHTML = "Results for session #{{session.id}}, item #" + d.index;
+                    },
+                },
+                zoom: {enabled: true},
+                axis: {
+                    y: {show: true},
+                    x: {show: true}
+                },
+                legend: {show: false},
+
+            });
+        }
+
+        if ($('#defocus_hist').length) {
+            var ctx = document.getElementById("defocus_hist").getContext('2d');
             var myChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: ["M", "T", "W", "R", "F", "S", "S"],
                     datasets: [{
-                        label: {{ bar1['label']|tojson }},
-                        data: {{ bar1['data']|tojson }},
+                        label: {{ ctf_defocus_bar['label']|tojson }},
+                        data: {{ ctf_defocus_bar['data']|tojson }},
                         backgroundColor: "rgba(89, 105, 255,0.5)",
                         borderColor: "rgba(89, 105, 255,0.7)",
                         borderWidth: 2
@@ -412,7 +446,7 @@
                 },
                 options: {
                     legend: {
-                        display: true,
+                        display: false,
                         position: 'bottom',
                         labels: {
                             fontColor: '#71748d',
@@ -441,14 +475,14 @@
         }
 
         if ($('#chartjs_bar2').length) {
-            var ctx = document.getElementById("chartjs_bar2").getContext('2d');
+            var ctx = document.getElementById("resolution_hist").getContext('2d');
             var myChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: ["M", "T", "W", "R", "F", "S", "S"],
                     datasets: [{
-                        label: {{ bar2['label']|tojson }},
-                        data: {{ bar2['data']|tojson }},
+                        label: {{ ctf_resolution_bar['label']|tojson }},
+                        data: {{ ctf_resolution_bar['data']|tojson }},
                         backgroundColor: "rgba(255, 64, 123,0.5)",
                         borderColor: "rgba(255, 64, 123,0.7)",
                         borderWidth: 2
