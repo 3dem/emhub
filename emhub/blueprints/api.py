@@ -283,7 +283,7 @@ def get_sessions():
 @api_bp.route('/create_session', methods=['POST'])
 @flask_login.login_required
 def create_session():
-    return create_item('session')
+    return handle_session(app.dm.create_session)
 
 
 @api_bp.route('/update_session', methods=['POST'])
@@ -416,6 +416,12 @@ def handle_resource(resource_func):
 
 def handle_session(session_func):
     def handle(**attrs):
+        def _fix_date(date_key):
+            if date_key in attrs:
+                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+
+        _fix_date('start')
+        _fix_date('end')
         return session_func(**attrs).json()
 
     return _handle_item(handle, 'session')

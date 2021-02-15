@@ -68,10 +68,10 @@ def get_mic_thumb():
     sessionId = int(request.form['sessionId'])
     session = app.dm.load_session(sessionId)
     setObj = session.data.get_sets()[0]
-    mic = session.data.get_item(setObj['id'], micId,
-                                dataAttrs=['micThumbData',
-                                           'psdData',
-                                           'shiftPlotData'])
+    mic = session.data.get_set_item(setObj['id'], micId,
+                                    attrList=['micThumbData',
+                                              'psdData',
+                                              'shiftPlotData'])
     session.data.close()
 
-    return send_json_data(mic._asdict())
+    return send_json_data(mic)

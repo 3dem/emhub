@@ -63,7 +63,7 @@ def fn_to_blob(filename):
 
         return np.asarray(binary_data)
     except:
-        return None
+        return np.array(0)
 
 
 def mrc_to_base64(filename, MAX_SIZE=(512,512)):

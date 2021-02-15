@@ -28,6 +28,7 @@
 
 import os
 from collections import namedtuple
+import numpy as np
 import h5py
 import sqlite3
 import tables as tbl
@@ -80,10 +81,10 @@ class SessionData:
     def get_set_item(self, setId, itemId, attrList=None):
         pass
 
-    def add_set_item(self, setId, itemId, attrsDict):
+    def add_set_item(self, setId, itemId, attrDict):
         pass
 
-    def update_set_item(self, setId, itemId, attrsDict):
+    def update_set_item(self, setId, itemId, attrDict):
         pass
 
 
@@ -120,51 +121,60 @@ class H5SessionData(SessionData):
         for k, v in attrs.items():
             group.attrs[k] = v
 
+    def get_set_item(self, setId, itemId, attrList=None):
+        itemAttrs = self._file[self._getItemPath(setId, itemId)].attrs
+        return {a: itemAttrs[a] for a in attrList}
+
     def get_set_items(self, setId, attrList=None, condition=None):
         if attrList is None:
-            attrs = list(self.MICROGRAPH_ATTRS.keys())
+            attrs = list(ImageSessionData.MIC_ATTRS.keys())
         elif 'id' not in attrList:
             attrs = ['id'] + attrList
         else:
             attrs = attrList
 
         # Check that all requested attributes in attrList are valid for Micrograph
-        if any(a not in self.MICROGRAPH_ATTRS for a in attrs):
+        if any(a not in ImageSessionData.MIC_ALL_ATTRS for a in attrs):
             raise Exception("Invalid attribute for micrograph")
 
-        micList = []
+        itemsList = []
 
-        micSet = self._file[self._getMicPath(setId)]
+        setGroup = self._file[self._getSetPath(setId)]
+        print(self._getSetPath(setId))
 
-        for mic in micSet.values():
-            micAttrs = mic.attrs
-            values = {a: micAttrs[a] for a in attrs}
-            values['id'] = int(values['id'])
-            micList.append(Micrograph(**values))
+        for item in setGroup.values():
+            values = {a: item.attrs[a] for a in attrs}
+            itemsList.append(values)
 
-        return micList
+        return itemsList
 
-    def add_set_item(self, setId, itemId, attrsDict):
-        itemPath = self._getSetPath(setId) + '/item%06d' % itemId
-        micGroup = self._file.create_group(itemPath)
+    def add_set_item(self, setId, itemId, attrDict):
+        micGroup = self._file.create_group(self._getItemPath(setId, itemId))
         micAttrs = micGroup.attrs
         micAttrs['id'] = itemId
 
-        for key, value in attrsDict.items():
-            print("Setting attribute: ", key)
-            print("   type: ", type(value))
-            try:
-                micAttrs[key] = value
-            except:
-                if value is not None:
+        for key, value in attrDict.items():
+            # try:
+                if isinstance(value, np.ndarray):
                     micGroup.create_dataset(key, data=value)
+                else:
+                    micAttrs[key] = value
+            # except:
+            #     if value is not None:
+            #         #micGroup.create_dataset(key, data=value)
+            #         print("Setting attribute: ", key)
+            #         print("   type: ", type(value))
+            #         print("   >>> Value is None")
 
-    def update_set_item(self, setId, itemId, attrsDict):
+    def update_set_item(self, setId, itemId, attrDict):
         micAttrs = self._file[self._getMicPath(setId, itemId)].attrs
-        micAttrs.update(**attrsDict)
+        micAttrs.update(**attrDict)
 
     def close(self):
         self._file.close()
+
+    def _getItemPath(self, setId, itemId):
+        return '%s/item%06d' % (self._getSetPath(setId), itemId)
 
     def _getSetPath(self, setId):
         return '/Sets/%s' % setId
@@ -412,23 +422,23 @@ class PytablesSessionData(SessionData):
         #values = {k: mic[k] for k in keys}
         return Micrograph(**values)
 
-    def add_item(self, setId, itemId, **attrsDict):
+    def add_item(self, setId, itemId, **attrDict):
         mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
         mic = mics_table.row
 
-        attrsDict.update({'id': itemId})
-        for key, value in attrsDict.items():
+        attrDict.update({'id': itemId})
+        for key, value in attrDict.items():
             mic[key] = value
 
         mic.append()
         mics_table.flush()
 
-    def update_item(self, setId, itemId, **attrsDict):
+    def update_item(self, setId, itemId, **attrDict):
         mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
         itemId = int(itemId) - 1  # pytables rows start from 0
         mics_table.modify_columns(itemId, itemId+1,
-                                  columns=[[x] for x in attrsDict.values()],
-                                  names=list(attrsDict.keys()))
+                                  columns=[[x] for x in attrDict.values()],
+                                  names=list(attrDict.keys()))
         mics_table.flush()
 
     def close(self):

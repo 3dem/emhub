@@ -708,7 +708,7 @@ def create_data_models(dm):
 
         # User that was or is in charge of the session
         # It might be one of the facility staff or an independent user
-        operator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+        operator_id = Column(Integer, ForeignKey('users.id'), nullable=True)
         operator = relationship("User", back_populates="sessions")
 
         # General JSON dict to store extra attributes

@@ -111,9 +111,9 @@ class DataContent:
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
         firstSetId = session.data.get_sets()[0]['id']
-        mics = session.data.get_items(firstSetId, ['location', 'ctfDefocus'])
+        mics = session.data.get_set_items(firstSetId, ['location', 'ctfDefocus'])
         session.data.close()
-        defocusList = [m.ctfDefocus for m in mics]
+        defocusList = [m['ctfDefocus'] for m in mics]
         resolutionList = []  # m.ctfResolution for m in mics]
         sample = ['Defocus'] + defocusList
 
@@ -231,10 +231,6 @@ class DataContent:
         dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
 
-    def get_booking_list(self, **kwargs):
-        bookings = self.app.dm.get_bookings()
-        return {'bookings': [self.booking_to_event(b) for b in bookings]}
-
     def get_applications(self, **kwargs):
         dataDict = self.get_applications_list()
         dataDict['template_statuses'] = ['preparation', 'active', 'closed']
@@ -249,15 +245,6 @@ class DataContent:
 
         return dataDict
 
-    def get_applications_list(self, **kwargs):
-        user = self.app.user
-
-        if user.is_manager:
-            applications = self.app.dm.get_applications()
-        else:
-            applications = user.get_applications(status='all')
-
-        return {'applications': applications}
 
     def get_application_form(self, **kwargs):
         app = self.app.dm.get_application_by(id=kwargs['application_id'])
@@ -294,9 +281,6 @@ class DataContent:
                     set_value(p)
 
         return {'form': form}
-
-    def get_forms_list(self, **kwargs):
-        return  {'forms': self.app.dm.get_forms()}
 
     def get_logs(self, **kwargs):
         dm = self.app.dm
@@ -478,6 +462,27 @@ class DataContent:
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
 
+    # --------------------- RAW (development) content ---------------------------
+    def get_raw_booking_list(self, **kwargs):
+        bookings = self.app.dm.get_bookings()
+        return {'bookings': [self.booking_to_event(b) for b in bookings]}
+
+    def get_raw_sessions_list(self, **kwargs):
+        sessions = self.app.dm.get_sessions()
+        return {'sessions': sessions}
+
+    def get_raw_applications_list(self, **kwargs):
+        user = self.app.user
+
+        if user.is_manager:
+            applications = self.app.dm.get_applications()
+        else:
+            applications = user.get_applications(status='all')
+
+        return {'applications': applications}
+
+    def get_forms_list(self, **kwargs):
+        return  {'forms': self.app.dm.get_forms()}
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):

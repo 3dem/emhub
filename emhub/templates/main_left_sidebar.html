@@ -127,14 +127,17 @@
                             <div id="submenu-data-tables" class="collapse submenu" style="">
                                 <ul class="nav flex-column">
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='booking_list') }}">Bookings</a>
+                                        <a class="nav-link" href="{{ url_for('main', content_id='raw_booking_list') }}">Bookings</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='applications_list') }}">Applications</a>
+                                        <a class="nav-link" href="{{ url_for('main', content_id='raw_sessions_list') }}"> Sessions</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('main', content_id='raw_applications_list') }}">Applications</a>
                                     </li>
 
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='forms_list') }}"> Forms</a>
+                                        <a class="nav-link" href="{{ url_for('main', content_id='raw_forms_list') }}"> Forms</a>
                                     </li>
                                 </ul>
                             </div>

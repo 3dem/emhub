@@ -164,7 +164,7 @@ class TestSessionData(unittest.TestCase):
         micSetId = 'MicrographSet_%03d' % setId
         hsd.create_set(micSetId, {'label': 'Test set'})
 
-        N = 100
+        N = 10
         c = 0
         for i in range(N):
             for mic in mics:
