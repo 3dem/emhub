@@ -72,7 +72,8 @@ def mrc_to_base64(filename, MAX_SIZE=(512,512), contrast_factor=None):
     """ Convert real float32 mrc to base64.
     Convert to int8 first, then scale with Pillow.
     """
-    mrc_img = mrcfile.open(filename)
+    mrc_img = mrcfile.open(filename, permissive=True)
+
     if mrc_img.is_volume():
         imfloat = mrc_img.data[0, :, :]
     else:
