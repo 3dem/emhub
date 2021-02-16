@@ -231,7 +231,7 @@ class ImageSessionData(SessionData):
     def get_sets(self, attrList=None, condition=None):
         return [{'id': 1}]
 
-    def create_set(self, setId, **attrs):
+    def create_set(self, setId, attrDict):
         raise Exception("Not supported.")
 
     def get_set_items(self, setId, attrList=None, condition=None):
@@ -361,7 +361,7 @@ class PytablesSessionData(SessionData):
 
         return setList
 
-    def create_set(self, setId, **attrs):
+    def create_set(self, setId, attrs):
         self._file.create_group("/Micrographs", "set%03d" % setId,
                                 createparents=True)
         setTbl = self._file.create_table(self._getMicSet(setId), 'set_tbl',

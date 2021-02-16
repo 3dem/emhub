@@ -309,7 +309,7 @@ def load_session():
 def create_session_set():
     """ Create a set file without actual session. """
     def handle(session, set_id, **attrs):
-        session.data.create_set(set_id, **attrs)
+        session.data.create_set(set_id, attrs)
         session.data.close()
         return {'session_set': {}}
 
@@ -322,7 +322,7 @@ def add_session_item():
     """ Add a new item. """
     def handle(session, set_id, **attrs):
         itemId = attrs.pop("item_id")
-        session.data.add_item(set_id, itemId, **attrs)
+        session.data.add_set_item(set_id, itemId, attrs)
         session.data.close()
         return {'item': {}}
 
@@ -335,7 +335,7 @@ def update_session_item():
     """ Update existing item. """
     def handle(session, set_id, **attrs):
         itemId = attrs.pop("item_id")
-        session.data.update_item(set_id, itemId, **attrs)
+        session.data.update_item(set_id, itemId, attrs)
         session.data.close()
         return {'item': {}}
 
