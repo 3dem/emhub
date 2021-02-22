@@ -221,6 +221,8 @@ def notify_session(projName, protId):
 
         with open_client() as dc:
 
+            new_stats = {}
+
             for ctf in ctfSet.iterItems(where="id>%s" % lastId):
                 u, v, a = ctf.getDefocus()
                 lastId = ctfId = ctf.getObjId()
@@ -254,25 +256,31 @@ def notify_session(projName, protId):
                                                           contrast_factor=10)
 
                 dc.add_session_item(attrs)
-                found_new_mics = True
+                new_stats['numOfCtfs'] = ctfSet.getSize()
 
             # Check if there are new micrographs
             if micMonitor.update_count():
-                print("Mics: ", micMonitor.count)
-                print("CTFs: ", ctfSet.getSize())
+                new_stats['numOfMics'] = micMonitor.count
 
-                stats['numOfMics'] = micMonitor.count
-                stats['numOfCtfs'] = ctfSet.getSize()
+            if new_stats:
+                stats.update(new_stats)
+                print("Updating session stats: ")
+                print("   Mics: ", micMonitor.count)
+                print("   CTFs: ", ctfSet.getSize())
+
                 dc.update_session({'id': sessionId, 'stats': stats})
+            else:
+                time.sleep(10)
 
         ctfSet.close()
 
+        print("lastId: ", lastId)
+
         if ctfSet.isStreamClosed():
+            with open_client() as dc:
+                dc.update_session({'id': sessionId, 'status': 'finished'})
             break
 
-        print("lastId: ", lastId)
-        if not found_new_mics:
-            time.sleep(10)
 
 def main():
     args = get_parser().parse_args()

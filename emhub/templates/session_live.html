@@ -74,12 +74,16 @@
                 </div>
 
                 <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
-                    <div class="accordion-regular" id="accordion3">
+                    <div class="row">
+                        <h3>Status:</h3><h3 class="text-success">{{ session['status'] }}</h3>
+                    </div>
+                    <div class="row">
+                        <div class="accordion-regular col-12" id="accordion3">
                         <div class="card mb-2">
                         <div class="card-header" id="headingNine">
                             <h5 class="mb-0">
                             <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseNine" aria-expanded="false" aria-controls="collapseNine">
-                            <span class="fas fa-angle-down mr-3"></span>Accordion Heading Title Here
+                            <span class="fas fa-angle-down mr-3"></span>Acquisition Parameters
                             </button>
                             </h5>
                         </div> <!-- card-header -->
@@ -139,6 +143,7 @@
                         </div>
                         </div>
                     </div>
+                    </div>
                 </div>
             </div>
 
@@ -174,7 +179,7 @@
                                 <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
                                 <!-- .figure-caption -->
                                 <figcaption class="figure-caption">
-                                    <h6 class="figure-title"> Micrograph </h6>
+                                    <h6 class="figure-title" id="micrograph_text"> Micrograph </h6>
                                     <p class="text-muted mb-0"> Give some text description </p>
                                 </figcaption>
                                 <!-- /.figure-caption -->
@@ -256,6 +261,7 @@
         requestMicThumb.done(function(data) {
             //alert("length: " + $("#img_micrograph").length);
             $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
+            document.getElementById('micrograph_text').innerHTML = "Micrograph " + micId;
             $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
             $("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);
         });
@@ -365,14 +371,6 @@
     "use strict";
     $(function() {
 
-{#            var table = $('#example').DataTable( {#}
-{#        lengthChange: false,#}
-{#        buttons: [ 'copy', 'excel', 'pdf', 'colvis' ]#}
-{#    } );#}
-
-{#        table.buttons().container()#}
-{#        .appendTo( '#example_wrapper .col-md-6:eq(0)' );#}
-
         defocus_plot_column = {{ defocus_plot|tojson }};
         defocus_plot_chart = create_c3_chart('#defocus_plot', [defocus_plot_column], 'line', '#5969ff');
 
@@ -460,6 +458,11 @@ function handleAjaxDone(jsonResponse) {
         chart.data.datasets[0].data = jsonResponse.ctf_resolution_hist.data;
         chart.data.labels = jsonResponse.ctf_resolution_hist.bins;
         chart.update();
+
+        if (new_resolution_values.length > 1) {
+            request_micrograph_images({{ session.id }}, defocus_plot_column.length-1);
+        }
+
 
     }
 }
