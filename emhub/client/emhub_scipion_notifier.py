@@ -30,9 +30,12 @@ This script will compute the statistics of the SetOfCTFs in a given project.
 """
 
 import sys, os
+import time
 import datetime as dt
 import argparse
 from pprint import pprint
+from contextlib import contextmanager
+
 
 from pyworkflow.project import Manager
 import pyworkflow.utils as pwutils
@@ -54,22 +57,64 @@ def usage(error):
     sys.exit(1)
 
 
+@contextmanager
+def open_client():
+    dc = DataClient(server_url=config.EMHUB_SERVER_URL)
+    try:
+        dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+        yield dc
+    finally:
+        dc.logout()
+
+
+class SetMonitor:
+    """ Monitor when there are changes to a given set. """
+    def __init__(self, inputSet):
+        self.__class = inputSet.getClass()
+        self.__filename = inputSet.getFileName()
+        self.__lastCheck = None
+        self.count = 0
+
+    @contextmanager
+    def open_set(self):
+        modified = pwutils.getFileLastModificationDate(self.__filename)
+
+        if self.__lastCheck is None or modified > self.__lastCheck:
+            setObj = self.__class(filename=self.__filename)
+            setObj.loadAllProperties()
+            yield setObj
+            setObj.close()
+        else:
+            yield None
+
+        self.__lastCheck = modified
+
+    def update_count(self):
+        """ Return True if there were new items. """
+        old_count = self.count
+        with self.open_set() as setObj:
+            if setObj is not None:
+                self.count = setObj.getSize()
+
+        return self.count > old_count
+
+
 def get_parser():
     """ Return the argparse parser, so we can get the arguments """
 
     parser = argparse.ArgumentParser()
     add = parser.add_argument  # shortcut
 
-    add('projName', metavar='PROJECT_NAME',
-        help="Name of the Scipion project")
-
-    add('protId', metavar='PROTOCOL_ID',
-        help="ID of the CTF protocol. ")
+    # add('projName', metavar='PROJECT_NAME',
+    #     help="Name of the Scipion project")
+    #
+    # add('protId', metavar='PROTOCOL_ID',
+    #     help="ID of the CTF protocol. ")
 
     g = parser.add_mutually_exclusive_group()
     g.add_argument('--list', action='store_true',
                    help="List existing sessions in the server.")
-    g.add_argument('--create',
+    g.add_argument('--create', nargs=2,
                    help="Create a new session")
     g.add_argument(
         '--update',
@@ -96,15 +141,7 @@ def get_parser():
     return parser
 
 
-def main():
-    args = get_parser().parse_args()
-
-    # if len(sys.argv) < 3:
-    #     usage("Incorrect number of input parameters")
-    #
-    projName = args.projName
-    protId = args.protId
-
+def notify_session(projName, protId):
     now = dt.datetime.now()
     stamp = now.strftime("%y%m%d%H%M")
 
@@ -120,94 +157,143 @@ def main():
     except:
         usage("Unexistent protocol with ID: %s" % pwutils.red(protId))
 
-    outputCTF = prot.outputCTF
+    outputCTF = getattr(prot, 'outputCTF', None)
     #outputCTF.printAll()
-    micSet = outputCTF.getMicrographs()
+    micSet = prot.inputMicrographs.get()
+
+    micParents = project.getSourceParents(micSet)
+
+    for p in micParents:
+        p.printAll()
+
     #micSet.printAll()
     acq = micSet.getAcquisition()
 
-    dc = DataClient(server_url=config.EMHUB_SERVER_URL)
+    stats = {
+        'numOfCls2D': 0,
+        'numOfCtfs': outputCTF.getSize(),
+        'numOfMics': micSet.getSize(),
+        'numOfMovies': 0,
+        'numOfPtcls': 0,
+        'ptclSizeMax': 0,
+        'ptclSizeMin': 0
+    }
 
-    dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+    session_attrs = {
+        'acquisition': {'dosePerFrame': acq.getDosePerFrame(),
+                        'exposureTime': -999,
+                        'numberOfFrames': 1000,
+                        'totalDose': 40,
+                        'voltage': acq.getVoltage()},
+        'booking_id': None,
+        'end': '2021-02-23T08:00:00+00:00',
+        'extra': {},
+        'name': '%s-%s-%s' % (projName, protId, stamp),
+        'operator_id': 8,
+        'resource_id': None,
+        'start': '2021-02-22T08:00:00+00:00',
+        'stats': stats,
+        'status': 'running'
+    }
 
-    if args.list:
-        r = dc.request('get_sessions', jsonData={})
-        for session in r.json():
-            pprint(session)
+    sessionId = None
 
-    elif args.delete:
-        for session_id in args.delete:
-            json = dc.delete_session({'id': session_id})
-            print("Deleted: ", json['name'])
+    with open_client() as dc:
+        sessionDict = dc.create_session(session_attrs)
+        sessionId = sessionDict['id']
 
-    elif '--create' in sys.argv:
-        attrs = {
-            'acquisition': {'dosePerFrame': acq.getDosePerFrame(),
-                            'exposureTime': -999,
-                            'numberOfFrames': 1000,
-                            'totalDose': 40,
-                            'voltage': acq.getVoltage()},
-            'booking_id': None,
-            'end': '2021-02-23T08:00:00+00:00',
-            'extra': {},
-            'name': '%s-%s-%s' % (projName, protId, stamp),
-            'operator_id': 8,
-            'resource_id': None,
-            'start': '2021-02-22T08:00:00+00:00',
-            'stats': {'numOfCls2D': 0,
-                      'numOfCtfs': outputCTF.getSize(),
-                      'numOfMics': micSet.getSize(),
-                      'numOfMovies': 0,
-                      'numOfPtcls': 0,
-                      'ptclSizeMax': 0,
-                      'ptclSizeMin': 0},
-            'status': 'running'
-        }
-        sessionDict = dc.create_session(attrs)
         setId = 'Micrographs_%06d' % micSet.getObjId()
         attrs = {
-            'session_id': sessionDict['id'],
+            'session_id': sessionId,
             'set_id': setId
         }
         dc.create_session_set(attrs)
         pprint(sessionDict)
 
-        for ctf in outputCTF:
-            u, v, a = ctf.getDefocus()
-            ctfId = ctf.getObjId()
-            mic = ctf.getMicrograph()
+    lastId = 0
+    ctfMonitor = SetMonitor(outputCTF)
+    micMonitor = SetMonitor(micSet)
 
-            attrs.update({
-                'item_id': ctfId,
-                'ctfDefocus': (u + v) * 0.5,
-                'ctfDefocusU': u,
-                'ctfDefocusV': v,
-                'ctfDefocusAngle': a,
-                'ctfResolution': ctf.getResolution(),
-                'ctfFit': ctf.getFitQuality(),
-                'location': mic.getFileName(),
-                'ctfFitData': '',
-                'shiftPlotData': ''
-            })
+    while True:
+        found_new_mics = False
+        ctfSet = SetOfCTF(filename=outputCTF.getFileName())
+        ctfSet.loadAllProperties()
 
-            print("Adding item %06d" % ctfId)
-            psdPath = os.path.join(project.path, ctf.getPsdFile())
+        with open_client() as dc:
 
-            if os.path.exists(psdPath):
-                print("  PSD: ", psdPath)
-                attrs['psdData'] = mrc_to_base64(psdPath,
-                                                 contrast_factor=5)
+            for ctf in ctfSet.iterItems(where="id>%s" % lastId):
+                u, v, a = ctf.getDefocus()
+                lastId = ctfId = ctf.getObjId()
+                mic = ctf.getMicrograph()
 
-            micPath = os.path.join(project.path, ctf.getMicrograph().getFileName())
-            if os.path.exists(micPath):
-                print("  MIC: ", micPath)
-                attrs['micThumbData'] = mrc_to_base64(micPath,
-                                                      contrast_factor=10)
+                attrs.update({
+                    'item_id': ctfId,
+                    'ctfDefocus': (u + v) * 0.5,
+                    'ctfDefocusU': u,
+                    'ctfDefocusV': v,
+                    'ctfDefocusAngle': a,
+                    'ctfResolution': ctf.getResolution(),
+                    'ctfFit': ctf.getFitQuality(),
+                    'location': mic.getFileName(),
+                    'ctfFitData': '',
+                    'shiftPlotData': ''
+                })
 
+                print("Adding item %06d" % ctfId)
+                psdPath = os.path.join(project.path, ctf.getPsdFile())
 
-            dc.add_session_item(attrs)
+                if os.path.exists(psdPath):
+                    print("  PSD: ", psdPath)
+                    attrs['psdData'] = mrc_to_base64(psdPath,
+                                                     contrast_factor=5)
 
-    dc.logout()
+                micPath = os.path.join(project.path, ctf.getMicrograph().getFileName())
+                if os.path.exists(micPath):
+                    print("  MIC: ", micPath)
+                    attrs['micThumbData'] = mrc_to_base64(micPath,
+                                                          contrast_factor=10)
+
+                dc.add_session_item(attrs)
+                found_new_mics = True
+
+            # Check if there are new micrographs
+            if micMonitor.update_count():
+                print("Mics: ", micMonitor.count)
+                print("CTFs: ", ctfSet.getSize())
+
+                stats['numOfMics'] = micMonitor.count
+                stats['numOfCtfs'] = ctfSet.getSize()
+                dc.update_session({'id': sessionId, 'stats': stats})
+
+        ctfSet.close()
+
+        if ctfSet.isStreamClosed():
+            break
+
+        print("lastId: ", lastId)
+        if not found_new_mics:
+            time.sleep(10)
+
+def main():
+    args = get_parser().parse_args()
+
+    if args.list:
+        with open_client() as dc:
+            r = dc.request('get_sessions', jsonData={})
+
+            for session in r.json():
+                pprint(session)
+
+    elif args.delete:
+        with open_client() as dc:
+            for session_id in args.delete:
+                json = dc.delete_session({'id': session_id})
+                print("Deleted: ", json['name'])
+
+    elif args.create:
+        projName = args.create[0]
+        protId = int(args.create[1])
+        notify_session(projName, protId)
 
 
 if __name__ == '__main__':

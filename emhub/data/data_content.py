@@ -107,32 +107,42 @@ class DataContent:
                                             orderBy='resource_id')
         return {'sessions': sessions}
 
-    def get_session_live(self, **kwargs):
-        session_id = kwargs['session_id']
-        session = self.app.dm.load_session(session_id)
+    def get_session_data(self, session):
         firstSetId = session.data.get_sets()[0]['id']
         attrList = ['location', 'ctfDefocus', 'ctfResolution']
         mics = session.data.get_set_items(firstSetId, attrList=attrList)
         session.data.close()
 
+        def _get_hist(label, inputList):
+            import numpy as np
+            hist, bins = np.histogram(inputList)
+            return {
+                'label': label,
+                'data': [int(h) for h in hist],
+                'bins': ['%0.1f' % b for b in bins],
+            }
+
         defocusList = [m['ctfDefocus'] for m in mics]
         resolutionList = [m['ctfResolution'] for m in mics]
+        stats = session.stats
 
-        ctf_defocus_bar = {
-            'label': 'CTF Defocus',
-            'data': defocusList
-        }
+        return {
+            'defocus_plot': ['Defocus'] + defocusList,
+            'ctf_defocus_hist': _get_hist('CTF Defocus', defocusList),
+            'resolution_plot': ['Resolution'] + resolutionList,
+            'ctf_resolution_hist': _get_hist('CTF Resolution', resolutionList),
+            'session': session.json(),
+            'counters': {
+                'imported': stats['numOfMics'],
+                'aligned': stats['numOfMics'],
+                'ctf': stats['numOfCtfs'],
+                'picked': 0
+            }}
 
-        ctf_resolution_bar = {
-            'label': 'CTF Resolution',
-            'data': resolutionList}
-
-        return {'defocus_plot': ['Defocus'] + defocusList,
-                'ctf_defocus_bar': ctf_defocus_bar,
-                'resolution_plot': ['Resolution'] + resolutionList,
-                'ctf_resolution_bar': ctf_resolution_bar,
-                'micrographs': mics,
-                'session': session}
+    def get_session_live(self, **kwargs):
+        session_id = kwargs['session_id']
+        session = self.app.dm.load_session(session_id)
+        return self.get_session_data(session)
 
     def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()

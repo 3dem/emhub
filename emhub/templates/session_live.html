@@ -1,162 +1,104 @@
 <!-- wrapper  -->
 <div class="container-fluid dashboard-content ">
         <!-- pageheader  -->
-    {% set title = "Session Live: " + session.name %}
-    {% set navigation = [('Sessions', ''), (session.name, '')] %}
+    {% set title = "Session: " + session['name'] %}
     {% include 'include_header.html' %}
 
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
-            <!-- tabs -->
-            <div class="tab-regular">
-                <ul class="nav nav-tabs nav-fill" id="myTab7" role="tablist">
-                    <li class="nav-item">
-                        <a class="nav-link active" id="session-tab-summary" data-toggle="tab" href="#session-content-summary" role="tab" aria-controls="live" aria-selected="true">Live</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="profile-tab-justify" data-toggle="tab" href="#profile-justify" role="tab" aria-controls="profile" aria-selected="false">Summary</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="session-tab-costs" data-toggle="tab" href="#session-content-costs" role="tab" aria-controls="costs" aria-selected="false">Costs</a>
-                    </li>
-                </ul>
-                <div class="tab-content" id="myTabContent7">
 
-                    <!-- tab "Live" -->
-                    <div class="tab-pane fade show active" id="session-content-summary" role="tabpanel" aria-labelledby="session-tab-summary">
-                        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                            <!-- title row -->
-                            <div class="row">
-                                <p id="itemId">Results for the last processed item</p>
+            <div class="row">
+                <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
+                                <div class="row">
+
+                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="text-muted">Imported</h5>
+                            <div class="metric-value d-inline-block">
+                                <h1 class="mb-1" id="counter_imported">{{ counters['imported'] }}</h1>
                             </div>
-
-                            <!-- thumbnails row -->
-                            <div class="row">
-                                <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
-                                    <div class="card">
-                                        <h5 class="card-header">CTF Defocus</h5>
-                                        <div class="card-body">
-                                            <div class="row">
-                                                <div id="defocus_plot" class="col-9"></div>
-                                                <canvas id="defocus_hist" class="col-3"></canvas>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="card">
-                                        <h5 class="card-header">CTF Resolution</h5>
-                                        <div class="card-body">
-                                            <div class="row">
-                                                <div id="resolution_plot" class="col-9"></div>
-                                                <canvas id="resolution_hist" class="col-3"></canvas>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
-                                    <div class="row">
-                                    <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
-                                        <div class="card card-figure">
-                                            <!-- .card-figure -->
-                                            <figure class="figure">
-                                                <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                                <!-- .figure-caption -->
-                                                <figcaption class="figure-caption">
-                                                    <h6 class="figure-title"> Micrograph </h6>
-                                                    <p class="text-muted mb-0"> Give some text description </p>
-                                                </figcaption>
-                                                <!-- /.figure-caption -->
-                                            </figure>
-                                            <!-- /.card-figure -->
-                                            <!-- /.card -->
-                                        </div>
-                                    </div>
-                                    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
-                                        <div class="row">
-{#                                        <div class="card card-figure">#}
-{#                                            <!-- .card-figure -->#}
-{#                                            <figure class="figure">#}
-{#                                                <img class="img-fluid" id="img_shifts" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">#}
-{#                                                <!-- .figure-caption -->#}
-{#                                                <figcaption class="figure-caption">#}
-{#                                                    <h6 class="figure-title"> Drift plot </h6>#}
-{#                                                    <p class="text-muted mb-0"> Give some text description </p>#}
-{#                                                </figcaption>#}
-{#                                                <!-- /.figure-caption -->#}
-{#                                            </figure>#}
-{#                                            <!-- /.card-figure -->#}
-{#                                            <!-- /.card -->#}
-{#                                        </div>#}
-
-                                        <div class="card card-figure">
-                                            <!-- .card-figure -->
-                                            <figure class="figure">
-                                                <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                                <!-- .figure-caption -->
-                                                <figcaption class="figure-caption">
-                                                    <h6 class="figure-title"> PSD plot </h6>
-                                                    <p class="text-muted mb-0"> Give some text description </p>
-                                                </figcaption>
-                                                <!-- /.figure-caption -->
-                                            </figure>
-                                            <!-- /.card-figure -->
-                                            <!-- /.card -->
-                                        </div>
-                                    </div>
-
-                                        <div class="card card-figure">
-                                            <!-- .card-figure -->
-                                            <figure class="figure">
-                                                <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                                <!-- .figure-caption -->
-                                                <figcaption class="figure-caption">
-                                                    <h6 class="figure-title"> CTF fit plot </h6>
-                                                    <p class="text-muted mb-0"> Give some text description </p>
-                                                </figcaption>
-                                                <!-- /.figure-caption -->
-                                            </figure>
-                                            <!-- /.card-figure -->
-                                            <!-- /.card -->
-                                        </div>
-                                    </div>
-{#                                        #}
-{#                                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">#}
-{##}
-{#                                    </div>#}
-{#                                    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3">#}
-{#                                        #}
-{#                                    </div>#}
-                                </div>
-                                </div>
-
+                            <div class="metric-label d-inline-block float-right text-success font-weight-bold">
+                                <span><i class="fa fa-fw fa-arrow-up"></i></span><span>5.86%</span>
                             </div>
-                            <!-- end thumbnails row -->
-
                         </div>
+                        <div id="sparkline-revenue"></div>
                     </div>
-                    <!-- end tab "Live" -->
+                </div>
 
-                    <!-- tab "Summary" -->
-                    <div class="tab-pane fade" id="profile-justify" role="tabpanel" aria-labelledby="profile-tab-justify">
-                        <!-- parameters row -->
-                        <div class="row">
-                            <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
-                                <div class="card">
-                                    <h5 class="card-header">Microscope parameters</h5>
-                                    <div class="card-body">
-                                        <table class="table table-striped">
+                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="text-muted">Aligned</h5>
+                            <div class="metric-value d-inline-block">
+                                <h1 class="mb-1" id="counter_aligned">{{ counters['aligned'] }}</h1>
+                            </div>
+                            <div class="metric-label d-inline-block float-right text-secondary font-weight-bold">
+                                <span id="diff_aligned">{{ counters['aligned'] - counters['imported'] }}</span>
+                            </div>
+                        </div>
+                        <div id="sparkline-revenue2"></div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="text-muted">CTF Estimation</h5>
+                            <div class="metric-value d-inline-block">
+                            <h1 class="mb-1" id="counter_ctf">{{ counters['ctf'] }}</h1>
+                            </div>
+                            <div class="metric-label d-inline-block float-right text-primary font-weight-bold">
+                            <span id="diff_ctf">{{ counters['ctf'] - counters['aligned'] }}</span>
+                            </div>
+                        </div>
+                        <div id="sparkline-revenue3"></div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="text-muted">Particle Picking</h5>
+                            <div class="metric-value d-inline-block">
+                            <h1 class="mb-1" id="counter_picked">{{ counters['picked'] }}</h1>
+                            </div>
+                            <div class="metric-label d-inline-block float-right text-success font-weight-bold">
+                            <span id="diff_picked">0</span>
+                            </div>
+                        </div>
+                        <div id="sparkline-revenue4"></div>
+                    </div>
+                </div>
+            </div>
+                </div>
+
+                <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
+                    <div class="accordion-regular" id="accordion3">
+                        <div class="card mb-2">
+                        <div class="card-header" id="headingNine">
+                            <h5 class="mb-0">
+                            <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseNine" aria-expanded="false" aria-controls="collapseNine">
+                            <span class="fas fa-angle-down mr-3"></span>Accordion Heading Title Here
+                            </button>
+                            </h5>
+                        </div> <!-- card-header -->
+                        <div id="collapseNine" class="collapse" aria-labelledby="headingNine" data-parent="#accordion3">
+                            <div class="card-body">
+                                            <table class="table table-striped">
+                                            {% set acq = session['acquisition'] %}
                                             <tbody>
                                             <tr>
                                                 <td>Voltage</td>
-                                                <td>{{ session.acquisition['voltage'] }} keV</td>
+                                                <td>{{ acq['voltage'] }} keV</td>
                                             </tr>
                                             <tr>
                                                 <td>Cs</td>
-                                                <td>{{ session.acquisition['cs']  }} mm</td>
+                                                <td>{{ acq['cs']  }} mm</td>
                                             </tr>
                                             <tr>
                                                 <td>VPP</td>
-                                                {% if session.acquisition['phasePlate']  %}
+                                                {% if acq['phasePlate']  %}
                                                     <td>Yes</td>
                                                 {% else %}
                                                     <td>No</td>
@@ -164,205 +106,144 @@
                                             </tr>
                                             <tr>
                                                 <td>Detector</td>
-                                                <td>{{ session.acquisition['detector'] }}</td>
+                                                <td>{{ acq['detector'] }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Mode</td>
-                                                <td>{{ session.acquisition['detectorMode'] }}</td>
+                                                <td>{{ acq['detectorMode'] }}</td>
                                             </tr>
                                             <tr>
                                                 <td>Pixel size</td>
-                                                <td>{{ session.acquisition['pixelSize'] }} A</td>
+                                                <td>{{ acq['pixelSize'] }} A</td>
                                             </tr>
                                             <tr>
                                                 <td>Dose per frame</td>
-                                                <td>{{ session.acquisition['dosePerFrame'] }} e/A2</td>
+                                                <td>{{ acq['dosePerFrame'] }} e/A2</td>
                                             </tr>
                                             <tr>
                                                 <td>Total dose</td>
-                                                <td>{{ session.acquisition['totalDose']}} e/A2</td>
+                                                <td>{{ acq['totalDose']}} e/A2</td>
                                             </tr>
                                             <tr>
                                                 <td>Exp. time</td>
-                                                <td>{{ session.acquisition['exposureTime'] }} s</td>
+                                                <td>{{ acq['exposureTime'] }} s</td>
                                             </tr>
                                             <tr>
                                                 <td>Num. of frames</td>
-                                                <td>{{ session.acquisition['numOfFrames'] }}</td>
+                                                <td>{{ acq['numOfFrames'] }}</td>
                                             </tr>
 
                                             </tbody>
                                         </table>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
-                                <div class="card">
-                                    <h5 class="card-header">Session parameters</h5>
-                                    <div class="card-body">
-                                        <table class="table table-striped">
-                                            <tbody>
-                                            <tr>
-                                                <td>User</td>
-                                                <td>{{ session.operator.name }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Started</td>
-                                                <td>{{ session.start|pretty_datetime }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Particle size</td>
-                                                <td>{{ session.ptclSizeMin }}-{{ session.stats['ptclSizeMax'] }} A</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Num. of particles</td>
-                                                <td>{{ session.stats.numPtcls }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td>2D classes</td>
-                                                <td>{{ session.stats.numCls2D }}</td>
-                                            </tr>
-
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
                             </div>
                         </div>
-                        <!-- end parameters row -->
-
-                        <!-- histograms row -->
-                        <div class="row">
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
-                                <div class="card">
-                                    <h5 class="card-header">Average defocus</h5>
-                                    <div class="card-body">
-
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
-                                <div class="card">
-                                    <h5 class="card-header">Average CTF fit resolution</h5>
-                                    <div class="card-body">
-                                        <canvas id="chartjs_bar2"></canvas>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
-                        <!-- end histograms row -->
-
-                        <!-- table row -->
-                        <div class="row">
-                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5 class="mb-0">Data Tables - Print, Excel, CSV, PDF Buttons</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="table-responsive">
-                                            <table id="example" class="table table-striped table-bordered" style="width:100%">
-                                                <thead>
-                                                <tr>
-                                                    <th>Id</th>
-                                                    <th>Filename</th>
-                                                    <th>Defocus</th>
-                                                    <th>Resolution</th>
-                                                    <th>CTF fit</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                {% for mic in micrographs %}
-                                                <tr>
-                                                    <td>{{ mic.id }}</td>
-                                                    <td>{{ mic.location|basename }}</td>
-                                                    <td>{{ mic.ctfDefocus }}</td>
-                                                    <td>{{ mic.ctfResolution }}</td>
-                                                    <td>{{ mic.ctfFit }}</td>
-                                                </tr>
-                                                {% endfor %}
-
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- end table row -->
-
                     </div>
-                    <!-- end tab "Summary" -->
-
-                    <!-- tab "Costs" -->
-                    <div class="tab-pane fade" id="session-content-costs" role="tabpanel" aria-labelledby="session-tab-costs">
-
-                        <!-- table row -->
-                        <div class="row">
-                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <div class="row" style="align-items: center">
-                                            <h5 class="mb-0 float-left col-3" style="">Session Costs</h5>
-                                            <div class="col-9" style="text-align: right;">
-                                                <a href="#" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Cost</a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="table-responsive">
-                                            <table class="table">
-                                                <thead class="bg-light">
-                                                    <tr class="border-0">
-                                                        <th class="border-0">Date</th>
-                                                        <th class="border-0">Comment</th>
-                                                        <th class="border-0">Amount</th>
-                                                        <th class="border-0">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                {% for c in session.costs %}
-                                                    <tr>
-                                                        <td> {{ c.date|pretty_datetime }}</td>
-                                                        <td> {{ c.comment }}</td>
-                                                        <td> {{ c.amount }}</td>
-                                                        <td>
-                                                            <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal">
-                                                                <i class="far fa-trash-alt"></i>
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                {% endfor %}
-                                                </tbody>
-                                            </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- end table row -->
-
-                    </div>
-                    <!-- end tab "Costs" -->
                 </div>
             </div>
-            <!-- end tabs -->
+
+            <!-- thumbnails row -->
+            <div class="row">
+                <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
+                    <div class="card">
+                        <h5 class="card-header">CTF Defocus</h5>
+                        <div class="card-body">
+                            <div class="row">
+                                <div id="defocus_plot" class="col-9"></div>
+                                <canvas id="defocus_hist" class="col-3"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h5 class="card-header">CTF Resolution</h5>
+                        <div class="card-body">
+                            <div class="row">
+                                <div id="resolution_plot" class="col-9"></div>
+                                <canvas id="resolution_hist" class="col-3"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
+                    <div class="row">
+                    <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
+                        <div class="card card-figure">
+                            <!-- .card-figure -->
+                            <figure class="figure">
+                                <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                <!-- .figure-caption -->
+                                <figcaption class="figure-caption">
+                                    <h6 class="figure-title"> Micrograph </h6>
+                                    <p class="text-muted mb-0"> Give some text description </p>
+                                </figcaption>
+                                <!-- /.figure-caption -->
+                            </figure>
+                            <!-- /.card-figure -->
+                            <!-- /.card -->
+                        </div>
+                    </div>
+                    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
+                        <div class="row">
+
+                        <div class="card card-figure">
+                            <!-- .card-figure -->
+                            <figure class="figure">
+                                <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                <!-- .figure-caption -->
+                                <figcaption class="figure-caption">
+                                    <h6 class="figure-title"> PSD plot </h6>
+                                    <p class="text-muted mb-0"> Give some text description </p>
+                                </figcaption>
+                                <!-- /.figure-caption -->
+                            </figure>
+                            <!-- /.card-figure -->
+                            <!-- /.card -->
+                        </div>
+                    </div>
+
+                        <div class="card card-figure">
+                            <!-- .card-figure -->
+                            <figure class="figure">
+                                <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                <!-- .figure-caption -->
+                                <figcaption class="figure-caption">
+                                    <h6 class="figure-title"> CTF fit plot </h6>
+                                    <p class="text-muted mb-0"> Give some text description </p>
+                                </figcaption>
+                                <!-- /.figure-caption -->
+                            </figure>
+                            <!-- /.card-figure -->
+                            <!-- /.card -->
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+            </div>
+            <!-- end thumbnails row -->
+
         </div>
     </div>
-</div>
 <!-- end wrapper  -->
-<!-- javascript  -->
-<script>
-    $(document).ready(function() {
-    var table = $('#example').DataTable( {
-        lengthChange: false,
-        buttons: [ 'copy', 'excel', 'pdf', 'colvis' ]
-    } );
 
-    table.buttons().container()
-        .appendTo( '#example_wrapper .col-md-6:eq(0)' );
-} );
-</script>
+<!-- javascript  -->
+
 <script>
+    // Global variables
+        var defocus_plot_column = null;
+        var defocus_plot_chart = null;
+
+        var resolution_plot_column = null;
+        var resolution_plot_chart = null;
+
+        var ctf_defocus_hist = null;
+        var ctf_defocus_hist_chart = null;
+
+        var ctf_resolution_hist = null;
+        var ctf_resolution_hist_chart = null;
+
+
     function request_micrograph_images(sessionId, micId) {
         var requestMicThumb = $.ajax({
             url: "{{ url_for('images.get_mic_thumb') }}",
@@ -384,19 +265,16 @@
         });
     }
 
-(function(window, document, $, undefined) {
-    "use strict";
-    $(function() {
-
-        if ($('#defocus_plot').length) {
+    function create_c3_chart(bind_id, columns, type, color) {
+        if ($(bind_id).length) {
             var chart = c3.generate({
-                bindto: "#defocus_plot",
+                bindto: bind_id,
                 data: {
-                    columns: [ {{ defocus_plot|tojson }} ],
-                    colors: {sample: '#5969ff'},
+                    columns: columns,
+                    colors: {sample: color},
+                    type: type,
                     onclick: function (d) {
                         request_micrograph_images({{ session.id }}, d.index);
-                        document.getElementById("itemId").innerHTML = "Results for session #{{session.id}}, item #" + d.index;
                     },
                 },
                 zoom: {enabled: true},
@@ -406,41 +284,48 @@
                 },
                 legend: {show: false}
             });
+            return chart;
         }
+    } // function create_c3_chart
 
-        if ($('#resolution_plot').length) {
+    function create_c3_hist(bind_id, histogram_data, backgroundColor, borderColor) {
+        if ($(bind_id).length) {
+            var column = histogram_data.data.slice();
+            column.unshift(histogram_data.label);
+
+            printArray(column, "column");
+
             var chart = c3.generate({
-                bindto: "#resolution_plot",
+                bindto: bind_id,
                 data: {
-                    columns: [ {{ resolution_plot|tojson }} ],
-                    colors: {sample: 'rgba(255, 64, 123,0.5)'},
-                    type: 'scatter',
-                    onclick: function (d) {
-                        request_micrograph_images({{ session.id }}, d.index);
-                        document.getElementById("itemId").innerHTML = "Results for session #{{session.id}}, item #" + d.index;
-                    },
+                    columns: [column],
+                    colors: {sample: backgroundColor},
+                    type: 'bar',
                 },
-                zoom: {enabled: true},
+                zoom: {enabled: false},
                 axis: {
                     y: {show: true},
                     x: {show: true}
                 },
-                legend: {show: false},
-
+                legend: {show: false}
             });
+            return chart;
         }
+    } // function create_c3_chart
 
-        if ($('#defocus_hist').length) {
-            var ctx = document.getElementById("defocus_hist").getContext('2d');
-            var myChart = new Chart(ctx, {
+
+    function create_hist_chart(bind_id, histogram_data, backgroundColor, borderColor){
+           if ($('#' + bind_id).length) {
+            var ctx = document.getElementById(bind_id).getContext('2d');
+            return new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ["M", "T", "W", "R", "F", "S", "S"],
+                    labels: histogram_data.bins,
                     datasets: [{
-                        label: {{ ctf_defocus_bar['label']|tojson }},
-                        data: {{ ctf_defocus_bar['data']|tojson }},
-                        backgroundColor: "rgba(89, 105, 255,0.5)",
-                        borderColor: "rgba(89, 105, 255,0.7)",
+                        label: histogram_data.label,
+                        data: histogram_data.data,
+                        backgroundColor: backgroundColor,
+                        borderColor: borderColor,
                         borderWidth: 2
                     }]
                 },
@@ -467,60 +352,141 @@
                                 fontSize: 14,
                                 fontFamily: 'Circular Std Book',
                                 fontColor: '#71748d',
+                                beginAtZero: true,
                             }
                         }]
                     }
                 }
             });
         }
+    } // function create_hist_chart
 
-        if ($('#chartjs_bar2').length) {
-            var ctx = document.getElementById("resolution_hist").getContext('2d');
-            var myChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ["M", "T", "W", "R", "F", "S", "S"],
-                    datasets: [{
-                        label: {{ ctf_resolution_bar['label']|tojson }},
-                        data: {{ ctf_resolution_bar['data']|tojson }},
-                        backgroundColor: "rgba(255, 64, 123,0.5)",
-                        borderColor: "rgba(255, 64, 123,0.7)",
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    legend: {
-                        display: true,
-                        position: 'bottom',
-                        labels: {
-                            fontColor: '#71748d',
-                            fontFamily: 'Circular Std Book',
-                            fontSize: 14,
-                        }
-                    },
-                    scales: {
-                        xAxes: [{
-                            ticks: {
-                                fontSize: 14,
-                                fontFamily: 'Circular Std Book',
-                                fontColor: '#71748d',
-                            }
-                        }],
-                        yAxes: [{
-                            ticks: {
-                                fontSize: 14,
-                                fontFamily: 'Circular Std Book',
-                                fontColor: '#71748d',
-                            }
-                        }]
-                    }
-                }
-            });
-        }
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
 
-        request_micrograph_images({{ session.id }}, 1);
+{#            var table = $('#example').DataTable( {#}
+{#        lengthChange: false,#}
+{#        buttons: [ 'copy', 'excel', 'pdf', 'colvis' ]#}
+{#    } );#}
+
+{#        table.buttons().container()#}
+{#        .appendTo( '#example_wrapper .col-md-6:eq(0)' );#}
+
+        defocus_plot_column = {{ defocus_plot|tojson }};
+        defocus_plot_chart = create_c3_chart('#defocus_plot', [defocus_plot_column], 'line', '#5969ff');
+
+        resolution_plot_column = {{ resolution_plot|tojson }};
+        resolution_plot_chart = create_c3_chart('#resolution_plot', [resolution_plot_column], 'scatter', 'rgba(255, 64, 123,0.5)');
+
+        ctf_defocus_hist = {{ ctf_defocus_hist|tojson }};
+        ctf_defocus_hist_chart = create_hist_chart('defocus_hist', ctf_defocus_hist, "rgba(89, 105, 255,0.5)", "rgba(89, 105, 255,0.7)");
+
+        ctf_resolution_hist = {{ ctf_resolution_hist|tojson }};
+        ctf_resolution_hist_chart = create_hist_chart("resolution_hist", ctf_resolution_hist, "rgba(255, 64, 123,0.5)", "rgba(255, 64, 123,0.7)");
+
+    // ==============================================================
+    // Use sparkline to plot time-base plots on number of items
+    // ==============================================================
+{#    create_sparkline("#sparkline-revenue", [5, 5, 7, 7, 9, 5, 3, 5, 2, 4, 6, 7]);#}
+{#    create_sparkline("#sparkline-revenue2", [3, 7, 6, 4, 5, 4, 3, 5, 5, 2, 3, 1], {#}
+{#        lineColor: '#ff407b', fillColor: '#ffdbe6'#}
+{#    });#}
+{#    create_sparkline("#sparkline-revenue3", [5, 3, 4, 6, 5, 7, 9, 4, 3, 5, 6, 1], {#}
+{#        lineColor: '#25d5f2', fillColor: '#dffaff'#}
+{#    });#}
+{#    create_sparkline("#sparkline-revenue4",#}
+{#        [6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1], {#}
+{#        lineColor: '#fec957', fillColor: '#fff2d5'#}
+{#    });#}
+
+    request_micrograph_images({{ session['id'] }}, 1);
+
+    setTimeout(requestSessionData, 10000);
 
     });
 
 })(window, document, window.jQuery);
+
+/** Helper functions to handle Template AJAX response or failure */
+function handleAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        console.log('>>>>>>> Updating');
+        console.log('      size: ', jsonResponse.defocus_plot.length);
+        var counters = jsonResponse.counters;
+        printObject(counters, "counters");
+        document.getElementById('counter_imported').innerHTML = counters['imported'];
+        document.getElementById('counter_aligned').innerHTML = counters['aligned'];
+        document.getElementById('diff_aligned').innerHTML = (counters['aligned'] - counters['imported']).toString();
+        document.getElementById('counter_ctf').innerHTML = counters['ctf'];
+        document.getElementById('diff_ctf').innerHTML = (counters['ctf'] - counters['aligned']).toString();
+        document.getElementById('counter_picked').innerHTML = counters['picked'];
+
+        // Update Defocus plot with new values since last time
+        var new_defocus_plot_column = jsonResponse.defocus_plot;
+        var new_defocus_values = new_defocus_plot_column.slice(defocus_plot_column.length);
+        new_defocus_values.unshift(new_defocus_plot_column[0]);
+        defocus_plot_chart.flow({
+            columns: [new_defocus_values],
+            length: 0
+        });
+        defocus_plot_column = new_defocus_plot_column;
+
+        // Update Resolution plot with last values
+        var new_resolution_plot_column = jsonResponse.resolution_plot;
+        var new_resolution_values = new_resolution_plot_column.slice(resolution_plot_column.length);
+        new_resolution_values.unshift(new_resolution_plot_column[0]);
+
+        for (var i = 0; i < new_resolution_values.length; ++i)
+            console.log(i + ": " + new_resolution_values[i]);
+
+        resolution_plot_chart.flow({
+            columns: [new_resolution_values],
+            length: 0
+        });
+        resolution_plot_column = new_resolution_plot_column;
+
+        var chart = ctf_defocus_hist_chart;
+        chart.data.datasets[0].data = jsonResponse.ctf_defocus_hist.data;
+        chart.data.labels = jsonResponse.ctf_defocus_hist.bins;
+        chart.update();
+
+        chart = ctf_resolution_hist_chart;
+        chart.data.datasets[0].data = jsonResponse.ctf_resolution_hist.data;
+        chart.data.labels = jsonResponse.ctf_resolution_hist.bins;
+        chart.update();
+
+    }
+}
+
+
+function handleAjaxFail(jqXHR, textStatus) {
+    alert(" Error: Request failed: " + textStatus );
+}
+
+/** This function will be called when the OK button in the Application form
+ * is clicked. It can be either Create or Update action.
+ */
+function requestSessionData() {
+    // Update template values
+    var attrs = {'session_id': {{ session['id'] }}, 'set_id': 1};
+    var ajaxContent = $.ajax({
+        url: "{{ url_for('api.get_session_data') }}",
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: attrs}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
+
+    setTimeout(requestSessionData, 10000);
+}  // function onTemplateOkButtonClick
+
 </script>

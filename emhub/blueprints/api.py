@@ -342,6 +342,17 @@ def update_session_item():
     return handle_session_data(handle, mode="a")
 
 
+@api_bp.route('/get_session_data', methods=['POST'])
+@flask_login.login_required
+def get_session_data():
+    """ Return some information related to session (e.g CTF values, etc). """
+    def handle(session, set_id, **attrs):
+        result = DataContent(app).get_session_data(session)
+        session.data.close()
+        return result
+
+    return handle_session_data(handle, mode="r")
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
