@@ -62,16 +62,18 @@ def user_profile():
         flask.abort(404)
 
 
-@images_bp.route("/get_mic_thumb", methods=['POST'])
-def get_mic_thumb():
+@images_bp.route("/get_mic_data", methods=['POST'])
+def get_mic_data():
     micId = int(request.form['micId'])
     sessionId = int(request.form['sessionId'])
     session = app.dm.load_session(sessionId)
     setObj = session.data.get_sets()[0]
-    mic = session.data.get_set_item(setObj['id'], micId,
-                                    attrList=['micThumbData',
-                                              'psdData',
-                                              'shiftPlotData'])
+    attrs = [
+        'micThumbData', 'psdData', 'shiftPlotData',
+        'ctfDefocusU', 'ctfDefocusV', 'ctfResolution'
+    ]
+
+    mic = session.data.get_set_item(setObj['id'], micId, attrList=attrs)
     session.data.close()
 
     return send_json_data(mic)

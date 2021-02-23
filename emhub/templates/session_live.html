@@ -74,75 +74,16 @@
                 </div>
 
                 <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
-                    <div class="row">
-                        <h3>Status:</h3><h3 class="text-success">{{ session['status'] }}</h3>
-                    </div>
-                    <div class="row">
-                        <div class="accordion-regular col-12" id="accordion3">
-                        <div class="card mb-2">
-                        <div class="card-header" id="headingNine">
-                            <h5 class="mb-0">
-                            <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapseNine" aria-expanded="false" aria-controls="collapseNine">
-                            <span class="fas fa-angle-down mr-3"></span>Acquisition Parameters
-                            </button>
-                            </h5>
-                        </div> <!-- card-header -->
-                        <div id="collapseNine" class="collapse" aria-labelledby="headingNine" data-parent="#accordion3">
-                            <div class="card-body">
-                                            <table class="table table-striped">
-                                            {% set acq = session['acquisition'] %}
-                                            <tbody>
-                                            <tr>
-                                                <td>Voltage</td>
-                                                <td>{{ acq['voltage'] }} keV</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Cs</td>
-                                                <td>{{ acq['cs']  }} mm</td>
-                                            </tr>
-                                            <tr>
-                                                <td>VPP</td>
-                                                {% if acq['phasePlate']  %}
-                                                    <td>Yes</td>
-                                                {% else %}
-                                                    <td>No</td>
-                                                {% endif %}
-                                            </tr>
-                                            <tr>
-                                                <td>Detector</td>
-                                                <td>{{ acq['detector'] }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Mode</td>
-                                                <td>{{ acq['detectorMode'] }}</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Pixel size</td>
-                                                <td>{{ acq['pixelSize'] }} A</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Dose per frame</td>
-                                                <td>{{ acq['dosePerFrame'] }} e/A2</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Total dose</td>
-                                                <td>{{ acq['totalDose']}} e/A2</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Exp. time</td>
-                                                <td>{{ acq['exposureTime'] }} s</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Num. of frames</td>
-                                                <td>{{ acq['numOfFrames'] }}</td>
-                                            </tr>
-
-                                            </tbody>
-                                        </table>
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="text-muted">Status</h5>
+                            <div class="metric-value d-inline-block">
+                            <h1 class="mb-1" id="status_text">{{ session['status'] }}</h1>
+                            </div>
+                            <div class="metric-label d-inline-block float-right text-success font-weight-bold">
+                            <span id="diff_picked">0</span>
                             </div>
                         </div>
-                        </div>
-                    </div>
                     </div>
                 </div>
             </div>
@@ -179,8 +120,10 @@
                                 <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
                                 <!-- .figure-caption -->
                                 <figcaption class="figure-caption">
-                                    <h6 class="figure-title" id="micrograph_text"> Micrograph </h6>
-                                    <p class="text-muted mb-0"> Give some text description </p>
+                                    <h4 class="figure-title" id="mic_id"> Micrograph </h4>
+                                    <p class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </p>
+                                    <p class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </p>
+                                    <p class="text-muted mb-0" id="mic_resolution"> Resolution: </p>
                                 </figcaption>
                                 <!-- /.figure-caption -->
                             </figure>
@@ -198,7 +141,7 @@
                                 <!-- .figure-caption -->
                                 <figcaption class="figure-caption">
                                     <h6 class="figure-title"> PSD plot </h6>
-                                    <p class="text-muted mb-0"> Give some text description </p>
+{#                                    <p class="text-muted mb-0"> Give some text description </p>#}
                                 </figcaption>
                                 <!-- /.figure-caption -->
                             </figure>
@@ -214,7 +157,7 @@
                                 <!-- .figure-caption -->
                                 <figcaption class="figure-caption">
                                     <h6 class="figure-title"> CTF fit plot </h6>
-                                    <p class="text-muted mb-0"> Give some text description </p>
+{#                                    <p class="text-muted mb-0"> Give some text description </p>#}
                                 </figcaption>
                                 <!-- /.figure-caption -->
                             </figure>
@@ -247,11 +190,12 @@
 
         var ctf_resolution_hist = null;
         var ctf_resolution_hist_chart = null;
+        var session = {{ session|tojson }};
 
 
     function request_micrograph_images(sessionId, micId) {
         var requestMicThumb = $.ajax({
-            url: "{{ url_for('images.get_mic_thumb') }}",
+            url: "{{ url_for('images.get_mic_data') }}",
             type: "POST",
             data: {micId : micId, sessionId: sessionId},
             dataType: "json"
@@ -261,9 +205,12 @@
         requestMicThumb.done(function(data) {
             //alert("length: " + $("#img_micrograph").length);
             $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
-            document.getElementById('micrograph_text').innerHTML = "Micrograph " + micId;
             $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
             $("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);
+            document.getElementById('mic_id').innerHTML = "Micrograph " + micId;
+            document.getElementById('mic_defocus_u').innerHTML = "Defocus U: " + data['ctfDefocusU'];
+            document.getElementById('mic_defocus_v').innerHTML = "Defocus V: " + data['ctfDefocusV'];
+            document.getElementById('mic_resolution').innerHTML = "Resolution: " + data['ctfResolution'];
         });
 
         requestMicThumb.fail(function(jqXHR, textStatus) {
@@ -414,8 +361,8 @@ function handleAjaxDone(jsonResponse) {
         error = jsonResponse.error;
     }
     else {
-        console.log('>>>>>>> Updating');
-        console.log('      size: ', jsonResponse.defocus_plot.length);
+        session = jsonResponse.session;
+        printObject(session, "Session");
         var counters = jsonResponse.counters;
         printObject(counters, "counters");
         document.getElementById('counter_imported').innerHTML = counters['imported'];
@@ -489,7 +436,9 @@ function requestSessionData() {
     ajaxContent.done(handleAjaxDone);
     ajaxContent.fail(handleAjaxFail);
 
-    setTimeout(requestSessionData, 10000);
+    if (session.status === "running") {
+        setTimeout(requestSessionData, 10000);
+    }
 }  // function onTemplateOkButtonClick
 
 </script>
