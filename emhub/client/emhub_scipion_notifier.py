@@ -42,7 +42,13 @@ import pyworkflow.utils as pwutils
 
 from pwem.objects import SetOfCTF
 
-import emhub_notifier_config as config
+
+class config:
+    EMHUB_SOURCE = os.environ['EMHUB_SOURCE']
+    EMHUB_SERVER_URL = os.environ['EMHUB_SERVER_URL']
+    EMHUB_USER = os.environ['EMHUB_USER']
+    EMHUB_PASSWORD = os.environ['EMHUB_PASSWORD']
+
 
 # add emhub source code to the path and import client submodule
 sys.path.append(config.EMHUB_SOURCE)
@@ -255,7 +261,15 @@ def notify_session(projName, protId):
                     attrs['micThumbData'] = mrc_to_base64(micPath,
                                                           contrast_factor=10)
 
-                dc.add_session_item(attrs)
+                for i in range(3):  # try 3 times
+                    try:
+                        dc.add_session_item(attrs)
+                        break
+                    except Exception as e:
+                        print("dc.add_session_item:: Error: %s" % e)
+                        print("                      Trying again in 3 seconds.")
+                        time.sleep(3)
+
                 new_stats['numOfCtfs'] = ctfSet.getSize()
 
             # Check if there are new micrographs
