@@ -247,7 +247,7 @@ class DataContent:
         return dataDict
 
     def get_applications(self, **kwargs):
-        dataDict = self.get_applications_list()
+        dataDict = self.get_raw_applications_list()
         dataDict['template_statuses'] = ['preparation', 'active', 'closed']
         dataDict['template_selected_status'] = kwargs.get('template_selected_status', 'active')
         dataDict['templates'] = [{'id': t.id,
@@ -379,46 +379,8 @@ class DataContent:
         return result
 
     def get_reports_time_distribution(self, **kwargs):
-        app_dict = {a.code: a.alias for a in self.app.dm.get_applications()}
 
-        if 'start' in kwargs and 'end' in kwargs:
-            # d = request.json or request.form
-            d = {'start': kwargs['start'], 'end': kwargs['end']}
-        else:
-            # If date range is not passed, let's use by default the
-            # current quarter
-            now = dt.datetime.now()
-            qi = (now.month - 1) // 3
-            start, end = [
-                ('01-01', '03-31'),
-                ('01-04', '06-30'),
-                ('01-07', '09-30'),
-                ('01-10', '12-31')
-            ][qi]
-            d = {'start': '%d-%s' % (now.year, start),
-                 'end': '%d-%s' % (now.year, end)
-                 }
-
-        bookings = self.app.dm.get_bookings_range(
-            datetime_from_isoformat(d['start']),
-            datetime_from_isoformat(d['end'])
-        )
-
-        def process_booking(b):
-            bd = self.app.dc.booking_to_event(b)
-            bd['pretty_start'] = pretty_datetime(b.start)
-            bd['pretty_end'] = pretty_datetime(b.end)
-            pi = b.owner.get_pi()
-            if pi:
-                bd['pi_id'] = pi.id
-                bd['pi_name'] = pi.name
-
-            return bd
-
-        def _filter(b):
-            return b.resource.is_microscope and not b.is_slot
-
-        bookings = [process_booking(b) for b in bookings if _filter(b)]
+        bookings, range_dict = self.get_booking_in_range(kwargs)
 
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
@@ -439,6 +401,7 @@ class DataContent:
 
             return list(pi_bookings.values())
 
+        app_dict = {a.code: a.alias for a in self.app.dm.get_applications()}
         if details_key.startswith('CEM') and len(details_key) > 3:
             alias = app_dict.get(details_key, None)
             details_title = details_key + (' (%s)' % alias if alias else '')
@@ -453,7 +416,7 @@ class DataContent:
             }[details_key]
             details_bookings = counters[details_key].bookings
 
-        d.update({
+        d = {
             'overall': counters,
             'cem': cem_counters,
             'possible_owners': self.get_pi_labs(),
@@ -462,12 +425,61 @@ class DataContent:
             'details_title': details_title,
             'details_key': details_key,
             'details_groups': [],
-        })
+        }
+
+        d.update(range_dict)
 
         if details_key.startswith('CEM') or details_key.startswith('DBB'):
             d['details_groups'] = _group(details_bookings)
 
         return d
+
+    def get_reports_invoices(self, **kwargs):
+        bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
+
+        apps_dict = {}
+
+        for a in self.app.dm.get_applications():
+            apps_dict[a.code] = {pi.id: {'pi_name': pi.name,
+                                         'bookings': [],
+                                         'sum_cost': 0,
+                                         'sum_days': 0,
+                                         }
+                                 for pi in a.pi_list}
+
+        from pprint import pprint
+        pprint(apps_dict)
+
+        for b in bookings:
+            if b.application is None:
+                continue
+
+            app_id = b.application.code
+
+            if  app_id not in apps_dict:
+                print(">>> Missing app: ", app_id)
+                continue
+
+            pi = b.owner.get_pi()
+
+            if pi is None:
+                print(">>>  None pi, user: ", b.owner.name)
+                continue
+
+            try:
+                pi_info = apps_dict[app_id][pi.id]
+                pi_info['bookings'].append(b)
+                pi_info['sum_cost'] += b.total_cost
+                pi_info['sum_days'] += b.days
+
+            except KeyError:
+                print("Got KeyError, app_id: %s, pi_id: %s"
+                      % (app_id, pi.id))
+
+        result = {'apps_dict':  apps_dict}
+        result.update(range_dict)
+
+        return result
 
     def get_booking_costs_table(self, **kwargs):
         booking_id = int(kwargs.get('booking_id', 1))
@@ -477,7 +489,7 @@ class DataContent:
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
 
-    # --------------------- RAW (development) content ---------------------------
+    # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
         return {'bookings': [self.booking_to_event(b) for b in bookings]}
@@ -771,3 +783,53 @@ class DataContent:
             labs.append([_userjson(u) for u in self._get_facility_staff()])
 
         return labs
+
+    def get_booking_in_range(self, kwargs, asJson=True):
+        """ Return the list of bookings in the given range.
+         It will also attach PI information to each booking.
+         This function is used from report functions.
+         If 'start' and 'end' keys are not in kwargs, the current
+         year quarter will be used for the range.
+        """
+
+        if 'start' in kwargs and 'end' in kwargs:
+            # d = request.json or request.form
+            d = {'start': kwargs['start'], 'end': kwargs['end']}
+        else:
+            # If date range is not passed, let's use by default the
+            # current quarter
+            now = dt.datetime.now()
+            qi = (now.month - 1) // 3
+            start, end = [
+                ('01/01', '03/31'),
+                ('01/04', '06/30'),
+                ('01/07', '09/30'),
+                ('01/10', '12/31')
+            ][qi]
+            d = {'start': '%d/%s' % (now.year, start),
+                 'end': '%d/%s' % (now.year, end)
+                 }
+
+        bookings = self.app.dm.get_bookings_range(
+            datetime_from_isoformat(d['start'].replace('/', '-')),
+            datetime_from_isoformat(d['end'].replace('/', '-'))
+        )
+
+        if asJson:
+            def process_booking(b):
+                bd = self.app.dc.booking_to_event(b)
+                bd['pretty_start'] = pretty_datetime(b.start)
+                bd['pretty_end'] = pretty_datetime(b.end)
+                pi = b.owner.get_pi()
+                if pi:
+                    bd['pi_id'] = pi.id
+                    bd['pi_name'] = pi.name
+
+                return bd
+
+            def _filter(b):
+                return b.resource.is_microscope and not b.is_slot
+
+            bookings = [process_booking(b) for b in bookings if _filter(b)]
+
+        return bookings, d

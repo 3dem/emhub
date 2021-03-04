@@ -42,10 +42,11 @@
 
     <div class="row">
         <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+
             <div class="card">
                 <div class="card-header">
                     <div class="row">
-                    <h5>Overall Distribution</h5>
+                    <h5 class="mb-0 col-8">Overall Distribution</h5>
                     </div>
                 </div>
 
@@ -77,6 +78,12 @@
                     </div>
                 </div>
             </div>
+
+            <div>
+                <button type="submit" id="invoices-btn" class="btn btn-outline-dark" onclick="onInvoicesClick()">
+                    See Invoices for this Period
+                </button>
+            </div>
         </div>
     <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
             <div class="card">
@@ -102,7 +109,7 @@
                                 {% set alias = app_dict[row[0]] %}
                                 <td><a href="{{ url_for('main', content_id='reports_time_distribution', start=start, end=end, details=row[0])}}">{{ row[0] }}</a>
                                     {% if alias %}
-                                    ( {{ alias }} )
+                                    ({{ alias }})
                                     {% endif %}
                                 </td>
                                 <td>{{ row[1] }}</td>
@@ -139,17 +146,6 @@
                             </tr>
                             </thead>
                             <tbody>
-{#                            {% for b in details_bookings %}#}
-{#                            <tr>#}
-{#                                <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>#}
-{#                                <td>{{ b['pretty_start'] }}</td>#}
-{#                                <td>{{ b['pretty_end'] }}</td>#}
-{#                                <td>{{ b['days'] }}</td>#}
-{#                                <td>{{ b['total_cost'] }}</td>#}
-{#                                <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b['id'] }})"><i class="far fa-edit"></i></button>#}
-{#                                        </td>#}
-{#                            </tr>#}
-{#                            {% endfor %}#}
                             {% if details_groups|length > 0 %}
                                 {% set bookings = details_groups %}
                                 {% set start_index = 1 %}
@@ -201,6 +197,9 @@
 
 
 <script>
+    var start_date = new Date({{ start|tojson }});
+    var end_date  = new Date({{ end|tojson }});
+
     var bookings = {{ details_bookings|tojson }};
 
         $('select').selectpicker();
@@ -259,13 +258,19 @@
 
     $('input[name="daterange"]').daterangepicker({
         "locale": {
-            "format": "YYYY-MM-DD",
+            "format": "YYYY/MM/DD",
             "firstDay": 1},
         opens: 'left'
     }, function(start, end, label) {
-        //console.log("A new date selection was made: " + start.format('YYYY-MM-DD') + ' to ' + end.format('YYYY-MM-DD'));
+        //console.log("A new date selection was made: " + start.format('YYYY/MM/DD') + ' to ' + end.format('YYYY/MM/DD'));
         const base_url = "{{ url_for('main', content_id='reports_time_distribution', details=details_key) | safe }}";
-        window.location.href = base_url + "&start=" + start.format('YYYY-MM-DD') + "&end=" + end.format('YYYY-MM-DD');
+        window.location.href = base_url + "&start=" + start.format('YYYY/MM/DD') + "&end=" + end.format('YYYY/MM/DD');
     });
+
+    function onInvoicesClick() {
+        // alert("Start: " +  start_date + " end:  " + end_date);
+        const base_url = "{{ url_for('main', content_id='reports_invoices', details=details_key) | safe }}";
+        window.location.href = base_url + "&start=" + dateStr(start_date) + "&end=" + dateStr(end_date);
+    }
 
 </script>
