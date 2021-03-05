@@ -473,6 +473,9 @@ class DataContent:
                 pi_info['bookings'].append(b)
                 pi_info['sum_cost'] += b.total_cost
                 pi_info['sum_days'] += b.days
+                if b.total_cost == 0:
+                    print(">>> 0 cost booking1!!1")
+                    print(b.json())
 
             except KeyError:
                 print("Got KeyError, app_id: %s, pi_id: %s"
@@ -820,21 +823,22 @@ class DataContent:
             datetime_from_isoformat(d['end'].replace('/', '-'))
         )
 
-        if asJson:
-            def process_booking(b):
-                bd = self.app.dc.booking_to_event(b)
-                bd['pretty_start'] = pretty_datetime(b.start)
-                bd['pretty_end'] = pretty_datetime(b.end)
-                pi = b.owner.get_pi()
-                if pi:
-                    bd['pi_id'] = pi.id
-                    bd['pi_name'] = pi.name
+        def process_booking(b):
+            if not asJson:
+                return  b
+            bd = self.app.dc.booking_to_event(b)
+            bd['pretty_start'] = pretty_datetime(b.start)
+            bd['pretty_end'] = pretty_datetime(b.end)
+            pi = b.owner.get_pi()
+            if pi:
+                bd['pi_id'] = pi.id
+                bd['pi_name'] = pi.name
 
-                return bd
+            return bd
 
-            def _filter(b):
-                return b.resource.is_microscope and not b.is_slot
+        def _filter(b):
+            return b.resource.daily_cost > 0 and not b.is_slot
 
-            bookings = [process_booking(b) for b in bookings if _filter(b)]
+        bookings = [process_booking(b) for b in bookings if _filter(b)]
 
         return bookings, d
