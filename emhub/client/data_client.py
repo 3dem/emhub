@@ -104,7 +104,6 @@ class DataClient:
     #---------------------- Internal functions ------------------------------
     def _method(self, method, resultKey, attrs):
         r = self.request(method, jsonData={'attrs': attrs})
-        print("Sending attrs: ", attrs)
         json = r.json()
         if 'error' in json:
             raise Exception("ERROR from Server: ", json['error'])

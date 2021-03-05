@@ -1,0 +1,154 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Invoices" %}
+    {% set navigation = [('Reports', ''), ('Invoices', '')] %}
+    {% include 'include_header.html' %}
+
+
+<div class="row col-12 mb-4 mr-0">
+    <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3 ml-0 mb-1">
+        <button type="submit" id="overall-btn" class="btn btn-outline-dark" onclick="onOverallClick()">
+                See Overall Time Distribution
+        </button>
+    </div>
+
+    <div class="col-xl-9 col-lg-9 col-md-9 col-sm-9 col-9 mr-0">
+        <div class="row">
+            <div class="col text-right" style="margin-top: 7px;">
+                <h5> Date Range </h5>
+            </div>
+            <div class="col col-auto nopadding">
+                <input class="form-control" type="text" name="daterange" value="{{ start }} - {{ end }}" />
+            </div>
+        </div>
+    </div>
+</div>
+
+
+    {% for cem, pi_dict in apps_dict.items() %}
+    {% set cem_total = pi_dict.values()|sum(attribute='sum_cost') %}
+    {% if cem_total > 0 %}
+
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="row">
+                    <h5 class="mb-0 col-8"> {{ cem }} </h5>
+                    <h5 class="mb-0 col-4"> Total: {{ cem_total }} SEK</h5>
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="table table-invoice" style="width:100%">
+                    <thead>
+                    <tr class="table-primary">
+                        <th>Principal Investigator</th>
+                        <th>Invoice Reference</th>
+                        <td>Invoice Address</td>
+                        <th>Bookings</th>
+                        <td>Days</td>
+                        <td>Cost (SEK)</td>
+                    </tr>
+                    </thead>
+
+                    <tbody>
+
+                    {% for pi_id, pi_info in pi_dict.items() %}
+                        {% set bookings = pi_info['bookings'] %}
+                        {% if bookings|length > 0 %}
+                            {% set pu = portal_users[pi_info['pi_email']] %}
+                            <tr>
+                                <td>{{ pi_info['pi_name'] }}</td>
+                                <td>{{ pu['invoice_ref'] }}</td>
+                                <td>{{ pu['invoice_address']['address'] }}</td>
+                                <td>{{ bookings|length }}</td>
+                                <td>{{ pi_info['sum_days'] }}</td>
+                                <td>{{ pi_info['sum_cost'] }}</td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+    {% endfor %}
+
+</div>
+<!-- end table row -->
+
+
+<!-- Modal with  Booking Form -->
+{% include 'booking_form.html' %}
+
+
+<script>
+    var start_date = new Date({{ start|tojson }});
+    var end_date  = new Date({{ end|tojson }});
+
+    $('select').selectpicker();
+
+    $('.datetimepicker-input').datetimepicker({
+        format: 'YYYY/MM/DD'
+    });
+
+    /* Register when the Booking type change */
+    $('input[type=radio][name=booking-type-radio]').change(function() {
+        booking_type = this.value;
+        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+    });
+
+    $('input[type=radio][name=booking-repeat-radio]').change(function() {
+        repeat_value = this.value;
+    });
+
+    $('input[type=radio][name=booking-modify-radio]').change(function() {
+        modify_all = this.value == 'yes';
+    });
+
+
+    $('.table-invoice').DataTable({
+        sDom: 'Brtip',
+        //sDom: 'lrtip',
+        paging: false,
+        info: false,
+        buttons: [
+            'copy', 'csv', 'excel', 'pdf', 'print'
+        ]
+        //ordering: false,
+    });
+
+    function showBooking(bookingId) {
+        last_booking = null;
+
+        for (const b of bookings) {
+            if (b.id == bookingId)
+                last_booking = b;
+        }
+        last_booking.title = last_booking.booking_title;
+        last_booking.start = new Date(last_booking.start);
+        last_booking.end = new Date(last_booking.end);
+        has_calendar = false;
+        showBookingForm(last_booking);
+    }
+
+    $('input[name="daterange"]').daterangepicker({
+        "locale": {
+            "format": "YYYY/MM/DD",
+            "firstDay": 1},
+        opens: 'left'
+    }, function(start, end, label) {
+        const base_url = "{{ url_for('main', content_id='reports_invoices') | safe }}";
+        window.location.href = base_url + "&start=" + start.format('YYYY/MM/DD') + "&end=" + end.format('YYYY/MM/DD');
+    });
+
+    function onOverallClick() {
+        // alert("Start: " +  start_date + " end:  " + end_date);
+        const base_url = "{{ url_for('main', content_id='reports_time_distribution') | safe }}";
+        window.location.href = base_url + "&start=" + dateStr(start_date) + "&end=" + dateStr(end_date);
+    }
+
+</script>

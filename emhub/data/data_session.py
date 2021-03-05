@@ -28,6 +28,7 @@
 
 import os
 from collections import namedtuple
+import numpy as np
 import h5py
 import sqlite3
 import tables as tbl
@@ -41,85 +42,49 @@ class SessionData:
     It will store information of the acquisition as well as the pre-processing.
     """
 
-    MICROGRAPH_ATTRS = {
-        'id': 'id',
-        'location': 'c11',
-        'ctfDefocus': 'c01',
-        'ctfDefocusU': 'c01',
-        'ctfDefocusV': 'c02',
-        'ctfDefocusAngle': 'c03',
-        'ctfResolution': 'c06',
-        'ctfFit': 'c07'
-    }
-
-    MICROGRAPH_DATA_ATTRS = [
-        'micThumbData', 'psdData', 'ctfFitData', 'shiftPlotData'
-    ]
-
-    def get_sets(self, attrList=None, condition=None, setId=None):
-        """ Get a list with all available micrograph sets.
+    def get_sets(self, attrList=None, condition=None):
+        """ Get a list with all or some sets in the session.
 
         Args:
             attrList: An optional list of attributes, to avoid returning
-                all properties for each set. (e.g 'id')
-            condition: An optional condition string to filter out
-                the result list of objects
-            setId: If not None, only the set with that id will be returned
+                all properties for each set. If None, only id's will be returned.
+            condition: An optional condition string to filter out the result.
         """
         pass
 
-    def create_set(self, setId, setType, **attrs):
-        """ Create a new set of micrographs.
+    def create_set(self, setId, attrsDict):
+        """ Create a new set in the session.
 
         Args:
             setId: The id of the new set that will be created.
-            setType: The type of the set (Either Movies, Micrographs or Ctfs
-
-        Keyword Args:
-            Extra attributes that will be set to the set object.
+            attrsDict: Dict-like object with keys and values
 
         Return:
             True if the set was successfully created, False otherwise.
         """
         pass
 
-    def get_items(self, setId, attrList=None, condition=None, itemId=None):
-        """ Return the list of all movies of the given set.
+    def get_set_items(self, setId, attrList=None, condition=None):
+        """ Return a list with all or some items from this set.
 
         Args:
-            setId: The id of the set containing the movies
+            setId: The id of the set containing the items.
             attrList: An optional list of attributes, to avoid returning
                 all properties for each set. (e.g 'id')
             condition: An optional condition string to filter out
                 the result list of objects
-            itemId: If not None, only the micrograph with that id will be
-                returned
-
         Return:
-            A list with micrographs objects.
+            A list with items (dict objects)
         """
         pass
 
-    def get_item(self, setId, itemId, dataAttrs=None):
-        """
-        Retrieve the information of a given Micrograph, optionally with
-        some images data.
-
-        Args:
-            setId: The id of the set where the requested micrograph belongs.
-            itemId: The id of the micrograph to be retrieved.
-            dataAttrs: Optional list of image data attributes.
-
-        Returns:
-            A Micrograph (namedtuple) with the metadata and maybe some
-            data attributes (in base64 string format).
-        """
+    def get_set_item(self, setId, itemId, attrList=None):
         pass
 
-    def add_item(self, setId, itemId, **attrsDict):
+    def add_set_item(self, setId, itemId, attrDict):
         pass
 
-    def update_item(self, setId, itemId, **attrsDict):
+    def update_set_item(self, setId, itemId, attrDict):
         pass
 
 
@@ -137,78 +102,82 @@ class H5SessionData(SessionData):
 
         self._file = h5py.File(h5File, mode)
 
-    def get_sets(self, attrList=None, condition=None, setId=None):
+    def get_sets(self, attrList=None, condition=None):
+        if attrList is not None and len(attrList) == 0:
+            attrList = ['id']
         setList = []
-        if setId is not None:
-            setList.append(self._file[self._getMicPath(setId)].attrs)
-        else:
-            for k, v in self._file['/Micrographs/'].items():
+        for k, v in self._file[self._getSetPath('')].items():
+            if attrList is None:
                 setList.append(dict(v.attrs))
+            else:
+                setList.append({a: v[a] for a in attrList})
+
         return setList
 
-    def create_set(self, setId, **attrs):
-        group = self._file.create_group(self._getMicPath(setId))
-        attrs.update({'id': setId})
+    def create_set(self, setId, attrDict):
+        group = self._file.create_group(self._getSetPath(setId))
+        attrs = {'id': setId}
+        attrs.update(attrDict)
         for k, v in attrs.items():
             group.attrs[k] = v
 
-        #self._file.create_dataset(name='setId',
-        #                          data=str(self._getMicPath(setId)).encode('utf-8'),
-        #                          dtype=h5py.string_dtype(encoding='utf-8'),
-        #                          compression='gzip')
+    def get_set_item(self, setId, itemId, attrList=None):
+        itemAttrs = self._file[self._getItemPath(setId, itemId)].attrs
+        return {a: itemAttrs[a] for a in attrList}
 
-    def get_items(self, setId, attrList=None, condition=None,
-                  itemId=None):
+    def get_set_items(self, setId, attrList=None, condition=None):
         if attrList is None:
-            attrs = list(self.MICROGRAPH_ATTRS.keys())
+            attrs = list(ImageSessionData.MIC_ATTRS.keys())
         elif 'id' not in attrList:
             attrs = ['id'] + attrList
         else:
             attrs = attrList
 
         # Check that all requested attributes in attrList are valid for Micrograph
-        if any(a not in self.MICROGRAPH_ATTRS for a in attrs):
+        if any(a not in ImageSessionData.MIC_ALL_ATTRS for a in attrs):
             raise Exception("Invalid attribute for micrograph")
 
-        Micrograph = namedtuple('Micrograph', attrs)
-        micList = []
+        itemsList = []
 
-        micSet = self._file[self._getMicPath(setId)]
+        setGroup = self._file[self._getSetPath(setId)]
+        print(self._getSetPath(setId))
 
-        for mic in micSet.values():
-            micAttrs = mic.attrs
-            values = {a: micAttrs[a] for a in attrs}
-            values['id'] = int(values['id'])
-            micList.append(Micrograph(**values))
+        for item in setGroup.values():
+            values = {a: item.attrs[a] for a in attrs}
+            itemsList.append(values)
 
-        return micList
+        return itemsList
 
-    def get_item(self, setId, itemId, dataAttrs=None):
-        print("Requesting item: setId: %s, itemId: %s" % (setId, itemId))
-        micAttrs = self._file[self._getMicPath(setId, itemId)].attrs
-        keys = list(micAttrs.keys())
-        if dataAttrs is not None:
-            for da in dataAttrs:
-                if da not in keys:
-                    keys.append(da)
-        Micrograph = namedtuple('Micrograph', keys)
-        values = {k: micAttrs[k] for k in keys}
-        values['id'] = int(values['id'])
-        return Micrograph(**values)
-
-    def add_item(self, setId, itemId, **attrsDict):
-        micAttrs = self._file.create_group(self._getMicPath(setId, itemId)).attrs
+    def add_set_item(self, setId, itemId, attrDict):
+        micGroup = self._file.create_group(self._getItemPath(setId, itemId))
+        micAttrs = micGroup.attrs
         micAttrs['id'] = itemId
 
-        for key, value in attrsDict.items():
-            micAttrs[key] = value
+        for key, value in attrDict.items():
+            # try:
+                if isinstance(value, np.ndarray):
+                    micGroup.create_dataset(key, data=value)
+                else:
+                    micAttrs[key] = value
+            # except:
+            #     if value is not None:
+            #         #micGroup.create_dataset(key, data=value)
+            #         print("Setting attribute: ", key)
+            #         print("   type: ", type(value))
+            #         print("   >>> Value is None")
 
-    def update_item(self, setId, itemId, **attrsDict):
+    def update_set_item(self, setId, itemId, attrDict):
         micAttrs = self._file[self._getMicPath(setId, itemId)].attrs
-        micAttrs.update(**attrsDict)
+        micAttrs.update(**attrDict)
 
     def close(self):
         self._file.close()
+
+    def _getItemPath(self, setId, itemId):
+        return '%s/item%06d' % (self._getSetPath(setId), itemId)
+
+    def _getSetPath(self, setId):
+        return '/Sets/%s' % setId
 
     def _getMicPath(self, setId, itemId=None):
         return ('/Micrographs/set%03d%s'
@@ -222,7 +191,26 @@ class ImageSessionData(SessionData):
     variable and the t20s_pngs folder inside it.
     """
 
-    def __init__(self):
+    MIC_ATTRS = {
+        'id': 'id',
+        'location': 'c11',
+        'ctfDefocus': 'c01',
+        'ctfDefocusU': 'c01',
+        'ctfDefocusV': 'c02',
+        'ctfDefocusAngle': 'c03',
+        'ctfResolution': 'c06',
+        'ctfFit': 'c07'
+    }
+
+    MIC_DATA_ATTRS = [
+        'micThumbData', 'psdData', 'ctfFitData', 'shiftPlotData'
+    ]
+
+    MIC_ALL_ATTRS = list(MIC_ATTRS.keys()) + MIC_DATA_ATTRS
+
+    def __init__(self, useBase64=True):
+        self._useBase64 = useBase64
+
         testData = os.environ.get('EMHUB_TESTDATA', None)
 
         if testData is None:
@@ -240,86 +228,49 @@ class ImageSessionData(SessionData):
     def getFile(self, *paths):
         return os.path.join(self.dataDir, *paths)
 
-    def get_sets(self, attrList=None, condition=None, setId=None):
+    def get_sets(self, attrList=None, condition=None):
         return [{'id': 1}]
 
-    def create_set(self, setId, **attrs):
+    def create_set(self, setId, attrDict):
         raise Exception("Not supported.")
 
-    def get_items(self, setId, attrList=None, condition=None,
-                  itemId=None):
-        """ Return the list of all movies of the given set.
+    def get_set_items(self, setId, attrList=None, condition=None):
+        if condition is not None:
+            raise Exception("condition evaluation not implemented. ")
 
-        Args:
-            setId: The id of the set containing the movies
-            attrList: An optional list of attributes, to avoid returning
-                all properties for each set. (e.g 'id')
-            condition: An optional condition string to filter out
-                the result list of objects
-            itemId: If not None, only the micrograph with that id will be
-                returned
+        attrs = self._get_attrs(attrList)
 
-        Return:
-            A list with micrographs objects.
-        """
-        if attrList is None:
-            attrs = list(self.MICROGRAPH_ATTRS.keys())
-        elif 'id' not in attrList:
-            attrs = ['id'] + attrList
+        return [self._get_dict_from_row(row, attrs) for row in self._rows]
+
+    def get_set_item(self, setId, itemId, attrList=None):
+        return self._get_dict_from_row(self._rowsDict[itemId],
+                                       self._get_attrs(attrList))
+
+    def add_set_item(self, setId, attrDict):
+        raise Exception("Not supported.")
+
+    def update_set_item(self, setId, attrDict):
+        raise Exception("Not supported.")
+
+    # ------------------------ Utility functions ------------------------
+    def _load_image(self, fn):
+        if self._useBase64:
+            return image.fn_to_base64(fn)
         else:
-            attrs = attrList
-
-        # Check that all requested attributes in attrList are valid for Micrograph
-        if any(a not in self.MICROGRAPH_ATTRS for a in attrs):
-            raise Exception("Invalid attribute for micrograph")
-
-        Micrograph = namedtuple('Micrograph', attrs)
-        micList = []
-
-        for row in self._rows:
-            values = {a: row[self.MICROGRAPH_ATTRS[a]] for a in attrs}
-            micList.append(Micrograph(**values))
-
-        return micList
-
-    def get_item(self, setId, itemId, dataAttrs=None):
-
-        dattrs = dataAttrs or []
-
-        if any(da not in self.MICROGRAPH_DATA_ATTRS for da in dattrs):
-            raise Exception("Invalid data attribute for micrograph. ")
-
-        attrs = list(self.MICROGRAPH_ATTRS.keys())
-        row = self._rowsDict[itemId]
-        values = {a: row[self.MICROGRAPH_ATTRS[a]] for a in attrs}
-
-        micPrefix = os.path.basename(values['location']).replace('_aligned_mic.mrc', '')
-        for da in dattrs:
-            computeFunc = getattr(self, 'compute_%s' % da)
-            values[da] = computeFunc(micPrefix)
-
-        attrs.extend(dattrs)
-        Micrograph = namedtuple('Micrograph', attrs)
-        return Micrograph(**values)
-
-    def add_item(self, setId, **attrsDict):
-        raise Exception("Not supported.")
-
-    def update_item(self, setId, **attrsDict):
-        raise Exception("Not supported.")
+            return image.fn_to_blob(fn)
 
     def compute_micThumbData(self, micPrefix):
         fn = self.getFile('imgMic/%s_thumbnail.png' % micPrefix)
-        return image.fn_to_base64(fn)
+        return self._load_image(fn)
 
     def compute_psdData(self, micPrefix):
         fn = self.getFile('imgPsd/%s_aligned_mic_ctfEstimation.png'
                           % micPrefix)
-        return image.fn_to_base64(fn)
+        return self._load_image(fn)
 
     def compute_shiftPlotData(self, micPrefix):
-        return image.fn_to_base64(self.getFile('imgShift/%s_global_shifts.png'
-                                               % micPrefix))
+        return self._load_image(self.getFile('imgShift/%s_global_shifts.png'
+                                             % micPrefix))
 
     def get_micrograph_rows(self, sqliteFn, micId=None):
         """ Load a sqlite file produced by Scipion. """
@@ -336,6 +287,32 @@ class ImageSessionData(SessionData):
             print(e)
 
         return rows
+
+    def _get_attrs(self, attrList):
+        if attrList is None:
+            attrs = list(self.MIC_ATTRS.keys())
+        elif 'id' not in attrList:
+            attrs = ['id'] + attrList
+        else:
+            attrs = attrList
+
+        # Check that all requested attributes in attrList are valid for Micrograph
+        if any(a not in self.MIC_ALL_ATTRS for a in attrs):
+            raise Exception("Invalid attribute for micrograph")
+
+        return attrs
+
+    def _get_dict_from_row(self, row, attrs):
+        values = {a: row[self.MIC_ATTRS[a]] for a in attrs if a in self.MIC_ATTRS}
+
+        micPrefix = os.path.basename(values['location']).replace('_aligned_mic.mrc', '')
+        for a in attrs:
+            # Compute data for some of the attributes
+            computeFunc = getattr(self, 'compute_%s' % a, None)
+            if computeFunc:
+                values[a] = computeFunc(micPrefix)
+
+        return values
 
 
 class PytablesSessionData(SessionData):
@@ -384,7 +361,7 @@ class PytablesSessionData(SessionData):
 
         return setList
 
-    def create_set(self, setId, **attrs):
+    def create_set(self, setId, attrs):
         self._file.create_group("/Micrographs", "set%03d" % setId,
                                 createparents=True)
         setTbl = self._file.create_table(self._getMicSet(setId), 'set_tbl',
@@ -445,23 +422,23 @@ class PytablesSessionData(SessionData):
         #values = {k: mic[k] for k in keys}
         return Micrograph(**values)
 
-    def add_item(self, setId, itemId, **attrsDict):
+    def add_item(self, setId, itemId, **attrDict):
         mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
         mic = mics_table.row
 
-        attrsDict.update({'id': itemId})
-        for key, value in attrsDict.items():
+        attrDict.update({'id': itemId})
+        for key, value in attrDict.items():
             mic[key] = value
 
         mic.append()
         mics_table.flush()
 
-    def update_item(self, setId, itemId, **attrsDict):
+    def update_item(self, setId, itemId, **attrDict):
         mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
         itemId = int(itemId) - 1  # pytables rows start from 0
         mics_table.modify_columns(itemId, itemId+1,
-                                  columns=[[x] for x in attrsDict.values()],
-                                  names=list(attrsDict.keys()))
+                                  columns=[[x] for x in attrDict.values()],
+                                  names=list(attrDict.keys()))
         mics_table.flush()
 
     def close(self):

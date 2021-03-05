@@ -12,6 +12,15 @@ function printObject(obj, label) {
     }
 }
 
+
+function printArray(array, label){
+    console.log("Array: ", label);
+    var i = 0;
+    for (var i = 0; i < array.length; ++i) {
+        console.log(i + ": " + array[i]);
+    }
+}
+
 function printList(objList, label) {
     console.log("List: ", label);
     var i = 0;
@@ -205,3 +214,23 @@ function getFormAsJson(formId, includeEmpty){
     }
     return newJson;
 } // function onFormOk
+
+
+function create_sparkline(id, values, args) {
+    const new_args = Object.assign({
+        type: 'line',
+        width: '99.5%',
+        height: '50',
+        lineColor: '#5969ff',
+        fillColor: '#dbdeff',
+        lineWidth: 2,
+        spotColor: undefined,
+        minSpotColor: undefined,
+        maxSpotColor: undefined,
+        highlightSpotColor: undefined,
+        highlightLineColor: undefined,
+        resize: true
+    }, args);
+
+    $(id).sparkline(values, new_args);
+}

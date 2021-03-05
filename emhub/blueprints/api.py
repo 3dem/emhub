@@ -283,7 +283,7 @@ def get_sessions():
 @api_bp.route('/create_session', methods=['POST'])
 @flask_login.login_required
 def create_session():
-    return create_item('session')
+    return handle_session(app.dm.create_session)
 
 
 @api_bp.route('/update_session', methods=['POST'])
@@ -309,7 +309,7 @@ def load_session():
 def create_session_set():
     """ Create a set file without actual session. """
     def handle(session, set_id, **attrs):
-        session.data.create_set(set_id, **attrs)
+        session.data.create_set(set_id, attrs)
         session.data.close()
         return {'session_set': {}}
 
@@ -322,7 +322,7 @@ def add_session_item():
     """ Add a new item. """
     def handle(session, set_id, **attrs):
         itemId = attrs.pop("item_id")
-        session.data.add_item(set_id, itemId, **attrs)
+        session.data.add_set_item(set_id, itemId, attrs)
         session.data.close()
         return {'item': {}}
 
@@ -335,12 +335,23 @@ def update_session_item():
     """ Update existing item. """
     def handle(session, set_id, **attrs):
         itemId = attrs.pop("item_id")
-        session.data.update_item(set_id, itemId, **attrs)
+        session.data.update_item(set_id, itemId, attrs)
         session.data.close()
         return {'item': {}}
 
     return handle_session_data(handle, mode="a")
 
+
+@api_bp.route('/get_session_data', methods=['POST'])
+@flask_login.login_required
+def get_session_data():
+    """ Return some information related to session (e.g CTF values, etc). """
+    def handle(session, set_id, **attrs):
+        result = DataContent(app).get_session_data(session)
+        session.data.close()
+        return result
+
+    return handle_session_data(handle, mode="r")
 
 # -------------------- UTILS functions ----------------------------------------
 
@@ -416,6 +427,12 @@ def handle_resource(resource_func):
 
 def handle_session(session_func):
     def handle(**attrs):
+        def _fix_date(date_key):
+            if date_key in attrs:
+                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+
+        _fix_date('start')
+        _fix_date('end')
         return session_func(**attrs).json()
 
     return _handle_item(handle, 'session')

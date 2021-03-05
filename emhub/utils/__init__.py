@@ -38,7 +38,7 @@ def pretty_datetime(input_dt):
     if input_dt is None:
         return 'None'
 
-    return input_dt.strftime("%d/%m/%Y %I:%M %p")
+    return input_dt.strftime("%Y/%m/%d %I:%M %p")
 
 
 def datetime_from_isoformat(iso_string):
