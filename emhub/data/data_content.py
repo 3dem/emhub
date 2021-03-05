@@ -438,17 +438,19 @@ class DataContent:
         bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
 
         apps_dict = {}
+        portal_users = {
+            pu['email']: pu for pu in self.app.sll_pm.fetchAccountsJson()
+            if pu['pi']
+        }
 
         for a in self.app.dm.get_applications():
             apps_dict[a.code] = {pi.id: {'pi_name': pi.name,
+                                         'pi_email': pi.email,
                                          'bookings': [],
                                          'sum_cost': 0,
                                          'sum_days': 0,
                                          }
                                  for pi in a.pi_list}
-
-        from pprint import pprint
-        pprint(apps_dict)
 
         for b in bookings:
             if b.application is None:
@@ -476,7 +478,10 @@ class DataContent:
                 print("Got KeyError, app_id: %s, pi_id: %s"
                       % (app_id, pi.id))
 
-        result = {'apps_dict':  apps_dict}
+        result = {
+            'apps_dict':  apps_dict,
+            'portal_users': portal_users,
+        }
         result.update(range_dict)
 
         return result

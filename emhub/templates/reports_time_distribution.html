@@ -31,12 +31,23 @@
             </div>
     </div>
 
-    <div class="row">
-        <div class="col text-right" style="margin-top: 7px;">
-            <h5> Date Range </h5>
+
+    <div class="row col-12 mb-4 ml-0 pl-0">
+        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3 ml-0 mb-1 pl-0">
+            <button type="submit" id="overall-btn" class="btn btn-outline-dark" onclick="onInvoicesClick()">
+                    See Invoices for this Period
+            </button>
         </div>
-        <div class="col col-auto nopadding">
-            <input class="form-control" type="text" name="daterange" value="{{ start }} - {{ end }}" />
+
+        <div class="col-xl-9 col-lg-9 col-md-9 col-sm-9 col-9 mr-0 pr-0">
+            <div class="row">
+                <div class="col text-right" style="margin-top: 7px;">
+                    <h5> Date Range </h5>
+                </div>
+                <div class="col col-auto nopadding">
+                    <input class="form-control" type="text" name="daterange" value="{{ start }} - {{ end }}" />
+                </div>
+            </div>
         </div>
     </div>
 
@@ -78,13 +89,14 @@
                     </div>
                 </div>
             </div>
-
-            <div>
-                <button type="submit" id="invoices-btn" class="btn btn-outline-dark" onclick="onInvoicesClick()">
-                    See Invoices for this Period
-                </button>
-            </div>
+{##}
+{#            <div>#}
+{#                <button type="submit" id="invoices-btn" class="btn btn-outline-dark" onclick="onInvoicesClick()">#}
+{#                    See Invoices for this Period#}
+{#                </button>#}
+{#            </div>#}
         </div>
+
     <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
             <div class="card">
                 <div class="card-header">
