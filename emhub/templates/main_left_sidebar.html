@@ -29,6 +29,14 @@
                                     <i class="fas fa-rocket"></i>Applications</a>
                             </li>
 
+
+                            {% if current_user.is_pi %}
+                                <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('main', content_id='reports_invoices_lab') }}">
+                                    <i class="far fa-money-bill-alt"></i>Invoices</a>
+                            </li>
+                            {% endif %}
+
                             <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-pages" aria-controls="submenu-pages">
                                 <i class="fas fa-f fa-folder"></i>Pages</a>
 

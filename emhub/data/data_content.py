@@ -34,7 +34,7 @@ import flask
 import flask_login
 
 from emhub.utils import (pretty_datetime, datetime_to_isoformat,
-                         datetime_from_isoformat)
+                         datetime_from_isoformat, get_quarter, pretty_quarter)
 
 
 class DataContent:
@@ -489,6 +489,64 @@ class DataContent:
 
         return result
 
+    def get_reports_invoices_lab(self, **kwargs):
+        from pprint import pprint
+
+        bookings, range_dict = self.get_booking_in_range(kwargs)
+
+        u = self.app.user
+        pi_id_value = kwargs.get('pi_id', u.id)
+
+        try:
+            pi_id = int(pi_id_value)
+
+        except Exception:
+            raise Exception("Provide a valid integer id.")
+
+        pi_user = self.app.dm.get_user_by(id=pi_id)
+        if pi_user is None:
+            raise Exception("Invalid user id: %s" % pi_id)
+
+        if not u.is_manager and (pi_id != u.id or not u.is_pi):
+            raise Exception("You do not have access to this information.")
+
+        apps_dict = {a.id: [] for a in pi_user.get_applications()}
+        all_bookings = []
+        pprint(apps_dict)
+
+        for b in bookings:
+            if b.get('pi_id', None) != pi_id:
+                continue
+
+            app_id = b.get('app_id', None)
+
+            pprint(b)
+
+            if app_id not in apps_dict:
+                continue
+
+            apps_dict[app_id].append(b)
+            all_bookings.append(b)
+
+        q1 = get_quarter()
+        q0 = get_quarter(q1[0] - dt.timedelta(days=1))
+
+        print(q0)
+        print(q1)
+
+        result = {
+            'pi': pi_user,
+            'apps_dict':  apps_dict,
+            'all_bookings': all_bookings,
+            'quarter': pretty_quarter(q0),
+            'q0': q0,
+            'q1': q1
+        }
+
+        result.update(range_dict)
+
+        return result
+
     def get_booking_costs_table(self, **kwargs):
         booking_id = int(kwargs.get('booking_id', 1))
         print("get_costs_table: booking_id = %s" % booking_id)
@@ -833,6 +891,10 @@ class DataContent:
             if pi:
                 bd['pi_id'] = pi.id
                 bd['pi_name'] = pi.name
+
+            app = b.application
+            if app is not None:
+                bd['app_id'] = app.id
 
             return bd
 

@@ -1,0 +1,187 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Invoice: " + pi.name %}
+    {% set navigation = [('Reports', ''), ('Lab Invoices', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="row col-12 mb-4 ml-3 pl-0">
+        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3 ml-0 mb-1 pl-0">
+            <button id="q0-btn" class="btn btn-outline-dark" onclick="showQuarter(0)">
+                    {{ q0|pretty_quarter }}
+            </button>
+        </div>
+
+        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3 ml-0 mb-1 pl-0">
+            <button id="q1-btn" class="btn btn-outline-dark" onclick="showQuarter(1)">
+                    {{ q1|pretty_quarter }}
+            </button>
+        </div>
+
+        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6 mr-0 pr-0">
+            <div class="row">
+                <div class="col text-right" style="margin-top: 7px;">
+                    <h5> Date Range </h5>
+                </div>
+                <div class="col col-auto nopadding">
+                    <input class="form-control" type="text" name="daterange" value="{{ start }} - {{ end }}" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+{#                <div class="card-header">#}
+{#                    <div class="row">#}
+{#                    <h5 class="mb-0 col-8"> {{ pi['name'] }}</h5>#}
+{#                    </div>#}
+{#                </div>#}
+                <div class="card-body">
+                        <table id="table-reminder" class="table" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>Booking Title</th>
+                                <td>Start</td>
+                                <td>End</td>
+                                <td>Days</td>
+                                <td>Cost</td>
+                                <td>Actions</td>
+                            </tr>
+                            </thead>
+                            <tbody>
+
+                            {% set apps = pi.get_applications() %}
+
+                            {% for a in apps %}
+                                {% set bookings = apps_dict[a.id] %}
+
+                                {# First row is special #}
+                                <tr class="table-primary">
+                                    <td>{{ a.code }}</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td> {{ bookings|sum(attribute='days') }}</td>
+                                    <td><strong> {{ bookings|sum(attribute='total_cost') }} </strong></td>
+                                    <td></td>
+                                </tr>
+
+                                {# Then the other rows with real bookings info #}
+                                {% for b in bookings %}
+                                <tr>
+                                    <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>
+                                    <td>{{ b['pretty_start'] }}</td>
+                                    <td>{{ b['pretty_end'] }}</td>
+                                    <td>{{ b['days'] }}</td>
+                                    <td>{{ b['total_cost'] }}</td>
+                                    <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b['id'] }})"><i class="far fa-edit"></i></button>
+                                            </td>
+                                </tr>
+                                {% endfor %}
+                            {% endfor %}
+
+                            {% if apps|length > 1 %}
+                                {# First row is special #}
+                                <tr class="table-primary">
+                                    <td> Total </td>
+                                    <td></td>
+                                    <td></td>
+                                    <td> {{ all_bookings|sum(attribute='days') }}</td>
+                                    <td><strong> {{ all_bookings|sum(attribute='total_cost') }} </strong></td>
+                                    <td></td>
+                                </tr>
+                            {% endif %}
+
+                            </tbody>
+                        </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<!-- Modal with  Booking Form -->
+{% include 'booking_form.html' %}
+
+
+<script>
+    var start_date = new Date({{ start|tojson }});
+    var end_date  = new Date({{ end|tojson }});
+    var quarters = ['{{ q0|range_params }}', '{{ q1|range_params }}'];
+    var pi_id = '{{ pi.id }}';
+    var bookings = {{ all_bookings|tojson }};
+
+    $('select').selectpicker();
+
+    $('.datetimepicker-input').datetimepicker({
+        format: 'YYYY/MM/DD'
+    });
+
+    /* Register when the Booking type change */
+    $('input[type=radio][name=booking-type-radio]').change(function() {
+        booking_type = this.value;
+        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+    });
+
+    $('input[type=radio][name=booking-repeat-radio]').change(function() {
+        repeat_value = this.value;
+    });
+
+    $('input[type=radio][name=booking-modify-radio]').change(function() {
+        modify_all = this.value == 'yes';
+    });
+
+    $('#table-overall').DataTable({
+        sDom: 'lrtip',
+        paging: false,
+        info: false,
+        order: [[ 3, "desc" ]]
+    });
+
+    $('#table-cem').DataTable({
+        sDom: 'lrtip',
+        paging: false,
+        info: false,
+        order: [[ 3, "desc" ]]
+    });
+
+    $('#table-reminder').DataTable({
+        paging: false,
+        info: false,
+        ordering: false
+    });
+
+    function showBooking(bookingId) {
+        last_booking = null;
+
+        for (const b of bookings) {
+            if (b.id == bookingId)
+                last_booking = b;
+        }
+        last_booking.title = last_booking.booking_title;
+        last_booking.start = new Date(last_booking.start);
+        last_booking.end = new Date(last_booking.end);
+        has_calendar = false;
+        showBookingForm(last_booking);
+    }
+
+    $('input[name="daterange"]').daterangepicker({
+        "locale": {
+            "format": "YYYY/MM/DD",
+            "firstDay": 1},
+        opens: 'left'
+    }, function(start, end, label) {
+        //alert('pi_id: ' + pi_id);
+        //console.log("A new date selection was made: " + start.format('YYYY/MM/DD') + ' to ' + end.format('YYYY/MM/DD'));
+        const base_url = "{{ url_for('main', content_id='reports_invoices_lab') | safe }}";
+        window.location.href = base_url + "&pi_id=" + pi_id + "&start=" + start.format('YYYY/MM/DD') + "&end=" + end.format('YYYY/MM/DD');
+    });
+
+    function showQuarter(qindex) {
+        const base_url = "{{ url_for('main', content_id='reports_invoices_lab') | safe }}";
+        window.location.href = base_url + "&pi_id=" + pi_id + quarters[qindex];
+    }
+
+</script>
