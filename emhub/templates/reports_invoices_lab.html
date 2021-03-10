@@ -6,19 +6,19 @@
     {% include 'include_header.html' %}
 
     <div class="row col-12 mb-4 ml-3 pl-0">
-        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3 ml-0 mb-1 pl-0">
+        <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4 ml-0 mb-1 pl-0">
             <button id="q0-btn" class="btn btn-outline-dark" onclick="showQuarter(0)">
-                    {{ q0|pretty_quarter }}
+                    Previous Quarter ({{ q0|pretty_quarter }})
             </button>
         </div>
 
-        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3 ml-0 mb-1 pl-0">
+        <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4 ml-0 mb-1 pl-0">
             <button id="q1-btn" class="btn btn-outline-dark" onclick="showQuarter(1)">
-                    {{ q1|pretty_quarter }}
+                    Current Quarter ({{ q1|pretty_quarter }})
             </button>
         </div>
 
-        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6 mr-0 pr-0">
+        <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4 mr-0 pr-5">
             <div class="row">
                 <div class="col text-right" style="margin-top: 7px;">
                     <h5> Date Range </h5>
@@ -109,7 +109,7 @@
 <script>
     var start_date = new Date({{ start|tojson }});
     var end_date  = new Date({{ end|tojson }});
-    var quarters = ['{{ q0|range_params }}', '{{ q1|range_params }}'];
+    var quarters = ['{{ q0|range_params|safe }}', '{{ q1|range_params|safe }}'];
     var pi_id = '{{ pi.id }}';
     var bookings = {{ all_bookings|tojson }};
 
