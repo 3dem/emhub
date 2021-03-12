@@ -751,6 +751,93 @@ def create_data_models(dm):
             return dm.json_from_object(self)
 
 
+    class InvoicePeriod(Base):
+        """ Period for which invoices will be generated. """
+        __tablename__ = 'invoice_periods'
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        start = Column(UtcDateTime,
+                       nullable=False)
+
+        end = Column(UtcDateTime,
+                     nullable=False)
+
+        # Possible statuses of an InvoicePeriod:
+        #   - created
+        #   - active
+        #   - closed
+        status = Column(String(32), default='active')
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def costs(self):
+            """ Return extra costs associated with this Booking
+            """
+            return  self.__getExtra('costs', [])
+
+        @costs.setter
+        def costs(self, value):
+            self.__setExtra('costs', value)
+
+        def json(self):
+            return dm.json_from_object(self)
+
+
+    class Transaction(Base):
+        """ Financial transactions. """
+        __tablename__ = 'transactions'
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        date = Column(UtcDateTime,
+                      nullable=False)
+
+        # Possible statuses of an InvoicePeriod:
+        #   - created
+        #   - active
+        #   - closed
+        status = Column(String(32), default='active')
+
+        comment = Column(String(256))
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def costs(self):
+            """ Return extra costs associated with this Booking
+            """
+            return  self.__getExtra('costs', [])
+
+        @costs.setter
+        def costs(self, value):
+            self.__setExtra('costs', value)
+
+        def json(self):
+            return dm.json_from_object(self)
+
+
     dm.Form = Form
     dm.User = User
     dm.Resource = Resource
