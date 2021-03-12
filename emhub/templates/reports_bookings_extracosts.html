@@ -1,0 +1,155 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Bookings with Extra Costs" %}
+    {% set navigation = [('Reports', ''), ('Extra Costs', '')] %}
+    {% include 'include_header.html' %}
+
+
+
+    <div class="row col-12 mb-4 ml-0 pl-0">
+        <div class="col-xl-3 col-lg-3 col-md-3 col-sm-3 col-3 ml-0 mb-1 pl-0">
+            <button type="submit" id="overall-btn" class="btn btn-outline-dark" onclick="onInvoicesClick()">
+                    See Invoices for this Period
+            </button>
+        </div>
+
+        <div class="col-xl-9 col-lg-9 col-md-9 col-sm-9 col-9 mr-0 pr-0">
+            <div class="row">
+                <div class="col text-right" style="margin-top: 7px;">
+                    <h5> Date Range </h5>
+                </div>
+                <div class="col col-auto nopadding">
+                    <input class="form-control" type="text" name="daterange" value="{{ start }} - {{ end }}" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row">
+                    <h5 class="mb-0 col-8"> {{ details_title }}</h5>
+                    </div>
+                </div>
+                <div class="card-body">
+                        <table id="table-reminder" class="table" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>Booking Title</th>
+                                <td>Start</td>
+                                <td>End</td>
+                                <td>Days</td>
+                                <td>Extra costs</td>
+                                <td>Cost</td>
+                                <td>Actions</td>
+                            </tr>
+                            </thead>
+                            <tbody>
+
+                            {% for b in bookings %}
+                                <tr>
+                                    <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>
+                                    <td>{{ b['pretty_start'] }}</td>
+                                    <td>{{ b['pretty_end'] }}</td>
+                                    <td>{{ b['days'] }}</td>
+                                    <td>{{ b['costs']|length }}</td>
+                                    <td>{{ b['total_cost'] }}</td>
+                                    <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b['id'] }})"><i class="far fa-edit"></i></button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<!-- Modal with  Booking Form -->
+{% include 'booking_form.html' %}
+
+
+<script>
+    var start_date = new Date({{ start|tojson }});
+    var end_date  = new Date({{ end|tojson }});
+
+    var bookings = {{ bookings|tojson }};
+
+        $('select').selectpicker();
+
+    $('.datetimepicker-input').datetimepicker({
+        format: 'YYYY/MM/DD'
+    });
+
+    /* Register when the Booking type change */
+    $('input[type=radio][name=booking-type-radio]').change(function() {
+        booking_type = this.value;
+        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+    });
+
+    $('input[type=radio][name=booking-repeat-radio]').change(function() {
+        repeat_value = this.value;
+    });
+
+    $('input[type=radio][name=booking-modify-radio]').change(function() {
+        modify_all = this.value == 'yes';
+    });
+
+    $('#table-overall').DataTable({
+        sDom: 'lrtip',
+        paging: false,
+        info: false,
+        order: [[ 3, "desc" ]]
+    });
+
+    $('#table-cem').DataTable({
+        sDom: 'lrtip',
+        paging: false,
+        info: false,
+        order: [[ 3, "desc" ]]
+    });
+
+    $('#table-reminder').DataTable({
+        paging: false,
+        info: false,
+        ordering: false
+    });
+
+    function showBooking(bookingId) {
+        last_booking = null;
+
+        for (const b of bookings) {
+            if (b.id == bookingId)
+                last_booking = b;
+        }
+        last_booking.title = last_booking.booking_title;
+        last_booking.start = new Date(last_booking.start);
+        last_booking.end = new Date(last_booking.end);
+        has_calendar = false;
+        showBookingForm(last_booking);
+    }
+
+    $('input[name="daterange"]').daterangepicker({
+        "locale": {
+            "format": "YYYY/MM/DD",
+            "firstDay": 1},
+        opens: 'left'
+    }, function(start, end, label) {
+        //console.log("A new date selection was made: " + start.format('YYYY/MM/DD') + ' to ' + end.format('YYYY/MM/DD'));
+        const base_url = "{{ url_for('main', content_id='reports_bookings_extracosts') | safe }}";
+        window.location.href = base_url + "&start=" + start.format('YYYY/MM/DD') + "&end=" + end.format('YYYY/MM/DD');
+    });
+
+    function onInvoicesClick() {
+        // alert("Start: " +  start_date + " end:  " + end_date);
+        const base_url = "{{ url_for('main', content_id='reports_invoices', details=details_key) | safe }}";
+        window.location.href = base_url + "&start=" + dateStr(start_date) + "&end=" + dateStr(end_date);
+    }
+
+</script>

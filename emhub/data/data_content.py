@@ -547,10 +547,34 @@ class DataContent:
 
         return result
 
+    def get_reports_bookings_extracosts(self, **kwargs):
+        all_bookings, range_dict = self.get_booking_in_range(kwargs)
+
+        u = self.app.user
+        if not u.is_manager:
+            raise Exception("Only manager users can access this page")
+
+        bookings = []
+
+        for b in all_bookings:
+            if len(b['costs']):
+                bookings.append(b)
+
+        q1 = get_quarter()
+        q0 = get_quarter(q1[0] - dt.timedelta(days=1))
+
+        result = {
+            'bookings': bookings,
+            'q0': q0,
+            'q1': q1
+        }
+
+        result.update(range_dict)
+
+        return result
+
     def get_booking_costs_table(self, **kwargs):
         booking_id = int(kwargs.get('booking_id', 1))
-        print("get_costs_table: booking_id = %s" % booking_id)
-
         resources = self.app.dm.get_resources()
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
