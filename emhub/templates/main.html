@@ -525,11 +525,6 @@
 
         ajaxContent.done(function(html) {
             $("#experiment-modal").html(html);
-            if (last_booking.costs == null)
-                last_booking.costs = [
-                ['2020/02/01', 'Shipping', '20000'],
-                ['2020/01/21', 'Shipping back', '20000']
-                ]
             addBookingCosts(last_booking);
 
             $("#costs-btn-update" ).click(function() {

@@ -380,6 +380,31 @@ def delete_invoice_period():
     return handle_invoice_period(app.dm.delete_invoice_period)
 
 
+# ------------------------------ TRANSACTIONS ---------------------------------
+
+@api_bp.route('/get_transactions', methods=['POST'])
+@flask_login.login_required
+def get_transactions():
+    return filter_request(app.dm.get_transactions)
+
+
+@api_bp.route('/create_transaction', methods=['POST'])
+@flask_login.login_required
+def create_transaction():
+    return handle_transaction(app.dm.create_transaction)
+
+
+@api_bp.route('/update_transaction', methods=['POST'])
+@flask_login.login_required
+def update_transaction():
+    return handle_transaction(app.dm.update_transaction)
+
+
+@api_bp.route('/delete_transaction', methods=['POST'])
+@flask_login.login_required
+def delete_transaction():
+    return handle_transaction(app.dm.delete_transaction)
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
@@ -485,6 +510,18 @@ def handle_invoice_period(invoice_period_func):
         _fix_date('start')
         _fix_date('end')
         return invoice_period_func(**attrs).json()
+
+    return _handle_item(handle, 'invoice_period')
+
+
+def handle_transaction(transaction_func):
+    def handle(**attrs):
+        def _fix_date(date_key):
+            if date_key in attrs:
+                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+
+        _fix_date('date')
+        return transaction_func(**attrs).json()
 
     return _handle_item(handle, 'invoice_period')
 

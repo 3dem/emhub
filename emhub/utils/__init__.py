@@ -34,6 +34,13 @@ def pretty_json(d):
     print(json.dumps(d, indent=4))
 
 
+def pretty_date(input_dt):
+    if input_dt is None:
+        return 'None'
+
+    return input_dt.strftime("%Y/%m/%d")
+
+
 def pretty_datetime(input_dt):
     if input_dt is None:
         return 'None'

@@ -427,6 +427,45 @@ class DataManager(DbManager):
 
         return period
 
+    # ---------------------------- TRANSACTIONS -------------------------------
+    def get_transactions(self, condition=None, orderBy=None, asJson=False):
+        """ Returns a list.
+        condition example: text("id<:value and name=:name")
+        """
+        return self.__items_from_query(self.Transaction,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def create_transaction(self, **attrs):
+        """ Add a new session row. """
+        transaction = self.__create_item(self.Transaction, **attrs)
+        # Let's update the data path after we know the id
+        self.log("operation", "create_Transaction",
+                 attrs=self.json_from_object(transaction))
+
+        return transaction
+
+    def update_transaction(self, **attrs):
+        """ Update session attrs. """
+        result = self.__update_item(self.Transaction, **attrs)
+
+        self.log("operation", "update_Transaction",
+                 attrs=self.json_from_dict(attrs))
+
+        return result
+
+    def delete_transaction(self, **attrs):
+        """ Remove a session row. """
+        transactionId = attrs['id']
+        transaction = self.Transaction.query.get(transactionId)
+        self.delete(transaction)
+
+        self.log("operation", "delete_Transaction",
+                 attrs=self.json_from_dict(attrs))
+
+        return transaction
+
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)

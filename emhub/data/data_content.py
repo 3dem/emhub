@@ -601,6 +601,12 @@ class DataContent:
     def get_forms_list(self, **kwargs):
         return  {'forms': self.app.dm.get_forms()}
 
+    def get_raw_invoice_periods_list(self, **kwargs):
+        return {'invoice_periods': self.app.dm.get_invoice_periods()}
+
+    def get_raw_transactions_list(self, **kwargs):
+        return {'transactions': self.app.dm.get_transactions()}
+
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
