@@ -26,6 +26,7 @@
 # *
 # **************************************************************************
 
+import os
 import json
 import requests
 
@@ -34,12 +35,16 @@ class DataClient:
     """
     Simple client to communicate with the emhub REST API.
     """
-    def __init__(self, server_url='http://127.0.0.1:5000'):
-        self._server_url = server_url
+    def __init__(self, server_url=None):
+        self._server_url = server_url or os.environ.get('EMHUB_SERVER_URL',
+                                                        'http://127.0.0.1:5000')
         # Store the last request object
         self.cookies = self.r = None
 
-    def login(self, username, password):
+    def login(self, username=None, password=None):
+        username = username or os.environ['EMHUB_USER']
+        password = password or os.environ['EMHUB_PASSWORD']
+
         self.r = requests.post('%s/api/login' % self._server_url,
                                json={'username': username,
                                      'password': password})
@@ -118,7 +123,7 @@ class DataClient:
 
         self.r = requests.post('%s/%s/%s'
                                % (self._server_url, bp, method),
-                               json=jsonData,  cookies=self.cookies)
+                               json=jsonData or {},  cookies=self.cookies)
         self.r.raise_for_status()
         return self.r
 

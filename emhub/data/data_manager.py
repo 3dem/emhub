@@ -43,23 +43,25 @@ from .data_session import H5SessionData
 class DataManager(DbManager):
     """ Main class that will manage the sessions and their information.
     """
-    def __init__(self, dataPath, dbName='emhub.sqlite', user=None, cleanDb=False):
+    def __init__(self, dataPath, dbName='emhub.sqlite',
+                 user=None, cleanDb=False, create=True):
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
 
         # Initialize main database
         dbPath = os.path.join(dataPath, dbName)
-        self.init_db(dbPath, cleanDb=cleanDb)
-
-        # Create a separate database for logs
-        logDbPath = dbPath.replace('.sqlite', '-logs.sqlite')
-        self._db_log = DataLog(logDbPath, cleanDb=cleanDb)
+        self.init_db(dbPath, cleanDb=cleanDb, create=create)
 
         self._lastSession = None
         self._user = user  # Logged user
 
-        # Create sessions dir if not exists
-        os.makedirs(self._sessionsPath, exist_ok=True)
+        if create:
+            # Create a separate database for logs
+            logDbPath = dbPath.replace('.sqlite', '-logs.sqlite')
+            self._db_log = DataLog(logDbPath, cleanDb=cleanDb)
+
+            # Create sessions dir if not exists
+            os.makedirs(self._sessionsPath, exist_ok=True)
 
     def _create_models(self):
         """ Function called from the init_db method. """
@@ -385,6 +387,88 @@ class DataManager(DbManager):
         session = self.Session.query.get(sessionId)
         session.data = H5SessionData(self._session_data_path(session), mode)
         return session
+
+    # -------------------------- INVOICE PERIODS ------------------------------
+    def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):
+        """ Returns a list.
+        condition example: text("id<:value and name=:name")
+        """
+        return self.__items_from_query(self.InvoicePeriod,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def create_invoice_period(self, **attrs):
+        """ Add a new session row. """
+        period = self.__create_item(self.InvoicePeriod, **attrs)
+        # Let's update the data path after we know the id
+        self.log("operation", "create_InvoicePeriod",
+                 attrs=self.json_from_object(period))
+
+        return period
+
+    def update_invoice_period(self, **attrs):
+        """ Update session attrs. """
+        result = self.__update_item(self.InvoicePeriod, **attrs)
+
+        self.log("operation", "update_InvoicePeriod",
+                 attrs=self.json_from_dict(attrs))
+
+        return result
+
+    def delete_invoice_period(self, **attrs):
+        """ Remove a session row. """
+        periodId = attrs['id']
+        period = self.InvoicePeriod.query.get(periodId)
+        self.delete(period)
+
+        self.log("operation", "delete_InvoicePeriod",
+                 attrs=self.json_from_dict(attrs))
+
+        return period
+
+    # ---------------------------- TRANSACTIONS -------------------------------
+    def get_transactions(self, condition=None, orderBy=None, asJson=False):
+        """ Returns a list.
+        condition example: text("id<:value and name=:name")
+        """
+        return self.__items_from_query(self.Transaction,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def create_transaction(self, **attrs):
+        """ Add a new session row. """
+        transaction = self.__create_item(self.Transaction, **attrs)
+        # Let's update the data path after we know the id
+        self.log("operation", "create_Transaction",
+                 attrs=self.json_from_object(transaction))
+
+        return transaction
+
+    def update_transaction(self, **attrs):
+        """ Update session attrs. """
+        result = self.__update_item(self.Transaction, **attrs)
+
+        self.log("operation", "update_Transaction",
+                 attrs=self.json_from_dict(attrs))
+
+        return result
+
+    def delete_transaction(self, **attrs):
+        """ Remove a session row. """
+        transactionId = attrs['id']
+        transaction = self.Transaction.query.get(transactionId)
+        self.delete(transaction)
+
+        self.log("operation", "delete_Transaction",
+                 attrs=self.json_from_dict(attrs))
+
+        return transaction
+
+    def get_transaction_by(self, **kwargs):
+        """ This should return a single user or None. """
+        return self.__item_by(self.Transaction, **kwargs)
 
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):

@@ -184,6 +184,12 @@ class TestSessionData(unittest.TestCase):
 
 class TestPytablesSessionData(unittest.TestCase):
     def test_basic(self):
+        setId = 1
+        tsd = ImageSessionData(useBase64=True)
+        FEW_ATTRS = ['id', 'ctfDefocus', 'location']
+
+        mics = tsd.get_set_items(setId, attrList=FEW_ATTRS)
+
         print("=" * 80, "\nTesting pytables session...")
         psd = PytablesSessionData('/tmp/pytables.h5', 'w')
         psd.create_set(setId)

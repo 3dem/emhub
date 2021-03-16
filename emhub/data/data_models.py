@@ -30,7 +30,7 @@ import datetime as dt
 import jwt
 
 from sqlalchemy import (Column, Integer, String, JSON,
-                        ForeignKey, Text, Table)
+                        ForeignKey, Text, Table, Float)
 from sqlalchemy.orm import relationship
 from sqlalchemy_utc import UtcDateTime, utcnow
 from flask_login import UserMixin
@@ -235,6 +235,8 @@ def create_data_models(dm):
         applications = relationship("Application",
                                     secondary=ApplicationUser,
                                     back_populates="users")
+
+        transactions = relationship('Transaction', back_populates="user")
 
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
@@ -708,7 +710,7 @@ def create_data_models(dm):
 
         # User that was or is in charge of the session
         # It might be one of the facility staff or an independent user
-        operator_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+        operator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
         operator = relationship("User", back_populates="sessions")
 
         # General JSON dict to store extra attributes
@@ -781,16 +783,6 @@ def create_data_models(dm):
             extra[key] = value
             self.extra = extra
 
-        @property
-        def costs(self):
-            """ Return extra costs associated with this Booking
-            """
-            return  self.__getExtra('costs', [])
-
-        @costs.setter
-        def costs(self, value):
-            self.__setExtra('costs', value)
-
         def json(self):
             return dm.json_from_object(self)
 
@@ -805,16 +797,17 @@ def create_data_models(dm):
         date = Column(UtcDateTime,
                       nullable=False)
 
-        # Possible statuses of an InvoicePeriod:
-        #   - created
-        #   - active
-        #   - closed
-        status = Column(String(32), default='active')
+        amount  = Column(Float, default=0)
 
         comment = Column(String(256))
 
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
+
+        # User to which this Transaction is associated with
+        # Usually it is a PI and the transaction is related to invoices
+        user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+        user = relationship("User", back_populates="transactions")
 
         def __getExtra(self, key, default):
             return self.extra.get(key, default)
@@ -823,16 +816,6 @@ def create_data_models(dm):
             extra = dict(self.extra)
             extra[key] = value
             self.extra = extra
-
-        @property
-        def costs(self):
-            """ Return extra costs associated with this Booking
-            """
-            return  self.__getExtra('costs', [])
-
-        @costs.setter
-        def costs(self, value):
-            self.__setExtra('costs', value)
 
         def json(self):
             return dm.json_from_object(self)
@@ -845,3 +828,5 @@ def create_data_models(dm):
     dm.Application = Application
     dm.Booking = Booking
     dm.Session = Session
+    dm.Transaction = Transaction
+    dm.InvoicePeriod = InvoicePeriod
