@@ -236,6 +236,8 @@ def create_data_models(dm):
                                     secondary=ApplicationUser,
                                     back_populates="users")
 
+        transactions = relationship('Session', back_populates="user")
+
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
 
@@ -781,16 +783,6 @@ def create_data_models(dm):
             extra[key] = value
             self.extra = extra
 
-        @property
-        def costs(self):
-            """ Return extra costs associated with this Booking
-            """
-            return  self.__getExtra('costs', [])
-
-        @costs.setter
-        def costs(self, value):
-            self.__setExtra('costs', value)
-
         def json(self):
             return dm.json_from_object(self)
 
@@ -812,6 +804,11 @@ def create_data_models(dm):
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
 
+        # User to which this Transaction is associated with
+        # Usually it is a PI and the transaction is related to invoices
+        user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+        user = relationship("User", back_populates="transactions")
+
         def __getExtra(self, key, default):
             return self.extra.get(key, default)
 
@@ -819,16 +816,6 @@ def create_data_models(dm):
             extra = dict(self.extra)
             extra[key] = value
             self.extra = extra
-
-        @property
-        def costs(self):
-            """ Return extra costs associated with this Booking
-            """
-            return  self.__getExtra('costs', [])
-
-        @costs.setter
-        def costs(self, value):
-            self.__setExtra('costs', value)
 
         def json(self):
             return dm.json_from_object(self)
