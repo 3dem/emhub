@@ -38,14 +38,14 @@ from sqlalchemy.ext.declarative import declarative_base
 class DbManager:
     """ Helper class to deal with DB stuff
     """
-    def init_db(self, dbPath, cleanDb=False):
+    def init_db(self, dbPath, cleanDb=False, create=True):
         do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
 
         if cleanDb and os.path.exists(dbPath):
             os.remove(dbPath)
 
-        engine = sqlalchemy.create_engine('sqlite:///' + dbPath,
-                                          echo=do_echo)
+        engine = sqlalchemy.create_engine('sqlite:///' + dbPath, echo=do_echo)
+
         self._db_session = scoped_session(sessionmaker(autocommit=False,
                                                        autoflush=False,
                                                        bind=engine))
@@ -55,7 +55,7 @@ class DbManager:
         self._create_models()
 
         # Create the database if it does not exists
-        if not os.path.exists(dbPath):
+        if not os.path.exists(dbPath) and create:
             self.Base.metadata.create_all(bind=engine)
 
     def commit(self):

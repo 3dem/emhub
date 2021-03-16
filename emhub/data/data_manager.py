@@ -43,23 +43,25 @@ from .data_session import H5SessionData
 class DataManager(DbManager):
     """ Main class that will manage the sessions and their information.
     """
-    def __init__(self, dataPath, dbName='emhub.sqlite', user=None, cleanDb=False):
+    def __init__(self, dataPath, dbName='emhub.sqlite',
+                 user=None, cleanDb=False, create=True):
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
 
         # Initialize main database
         dbPath = os.path.join(dataPath, dbName)
-        self.init_db(dbPath, cleanDb=cleanDb)
-
-        # Create a separate database for logs
-        logDbPath = dbPath.replace('.sqlite', '-logs.sqlite')
-        self._db_log = DataLog(logDbPath, cleanDb=cleanDb)
+        self.init_db(dbPath, cleanDb=cleanDb, create=create)
 
         self._lastSession = None
         self._user = user  # Logged user
 
-        # Create sessions dir if not exists
-        os.makedirs(self._sessionsPath, exist_ok=True)
+        if create:
+            # Create a separate database for logs
+            logDbPath = dbPath.replace('.sqlite', '-logs.sqlite')
+            self._db_log = DataLog(logDbPath, cleanDb=cleanDb)
+
+            # Create sessions dir if not exists
+            os.makedirs(self._sessionsPath, exist_ok=True)
 
     def _create_models(self):
         """ Function called from the init_db method. """

@@ -30,7 +30,7 @@ import datetime as dt
 import jwt
 
 from sqlalchemy import (Column, Integer, String, JSON,
-                        ForeignKey, Text, Table)
+                        ForeignKey, Text, Table, Float)
 from sqlalchemy.orm import relationship
 from sqlalchemy_utc import UtcDateTime, utcnow
 from flask_login import UserMixin
@@ -708,7 +708,7 @@ def create_data_models(dm):
 
         # User that was or is in charge of the session
         # It might be one of the facility staff or an independent user
-        operator_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+        operator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
         operator = relationship("User", back_populates="sessions")
 
         # General JSON dict to store extra attributes
@@ -805,11 +805,7 @@ def create_data_models(dm):
         date = Column(UtcDateTime,
                       nullable=False)
 
-        # Possible statuses of an InvoicePeriod:
-        #   - created
-        #   - active
-        #   - closed
-        status = Column(String(32), default='active')
+        amount  = Column(Float, default=0)
 
         comment = Column(String(256))
 
