@@ -10,11 +10,11 @@
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Invoice Period List</h5>
+                    <a href="javascript:showTransactionForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Transaction</a>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table id="applications-table" class="table table-striped table-bordered" style="width:100%">
+                        <table id="transactions-table" class="table table-striped table-bordered" style="width:100%">
                             <thead>
                             <tr>
                                 <th>id</th>
@@ -36,7 +36,7 @@
                                 <td>{{ t.comment }}</td>
                                 <td>{{ t.extra }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
+                                    <button class="btn btn-sm btn-outline-light" onclick="showTransactionForm({{ t.id }})"><i class="far fa-edit"></i></button>
                                     <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
                                             data-id="{{ t.id }}" data-alias="{{ t.alias }}"><i class="far fa-trash-alt"></i></button>
                                 </td>
@@ -75,21 +75,107 @@
   </div>
 </div>
 
+<!-- ============================================================== -->
+<!-- Application Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="transaction-modal" tabindex="-1" role="dialog" aria-labelledby="transactionModal" aria-hidden="true">
+</div>
+
 
 <script>
-  $('#deleteModal').on('show.bs.modal', function (event) {
-      var button = $(event.relatedTarget); // Button that triggered the modal
+{#  $('#deleteModal').on('show.bs.modal', function (event) {#}
+{#      var button = $(event.relatedTarget); // Button that triggered the modal#}
+{##}
+{#      // Extract info from data-* attributes#}
+{#      var id = button.data('id')#}
+{#      var name = button.data('name')#}
+{##}
+{#      // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).#}
+{#      // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.#}
+{#      var modal = $(this)#}
+{#      // modal.find('.modal-title').text('New message to ' + recipient)#}
+{#      modal.find('.modal-body').html('<p> Do you want to DELETE user <b>' + name + '</b> (id = ' + id + ') ? </p>')#}
+{#    })#}
 
-      // Extract info from data-* attributes
-      var id = button.data('id')
-      var name = button.data('name')
+    $('#transactions-table').DataTable();
 
-      // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
-      // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
-      var modal = $(this)
-      // modal.find('.modal-title').text('New message to ' + recipient)
-      modal.find('.modal-body').html('<p> Do you want to DELETE user <b>' + name + '</b> (id = ' + id + ') ? </p>')
-    })
+/* Show the Application Form, either for a new booking or an existing one */
+function showTransactionForm(transactionId) {
+    ajaxContent = get_ajax_content("transaction_form", {transaction_id: transactionId});
 
-    $('#applications-table').DataTable();
+    ajaxContent.done(function(html) {
+        $("#transaction-modal").html(html);
+        // Show the form after setting html content
+        $('#transaction-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+
+}  // function showTransactionForm
+
+
+
+    /** This function will be called when the OK button in the Application form
+ * is clicked. It can be either Create or Update action.
+ */
+function onTransactionOkButtonClick() {
+    // Update template values
+    var transaction = {
+        id: parseInt($('#transaction-id').val()),
+        title: $('#transaction-amount').val(),
+        alias: $('#transaction-comment').val(),
+    };
+
+    var endpoint = null;
+
+    if (transaction.id != null) {
+        endpoint = "{{ url_for('api.update_transaction') }}";
+    }
+    else {
+        endpoint = "{{ url_for('api.create_transaction') }}";
+    }
+
+    var ajaxContent = $.ajax({
+        url: endpoint,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: transaction}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
+}  // function onTemplateOkButtonClick
+
+
+    /** Helper functions to handle Template AJAX response or failure */
+function handleAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('transaction' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showError(error);
+    else {
+        $('#template-modal').on('hidden.bs.modal', function () {
+{#            var params = {template_selected_status: template.status};#}
+{#            load_main_content("applications", params);#}
+        });
+        $('#template-modal').modal('hide');
+    }
+}
+
+
+function handleAjaxFail(jqXHR, textStatus) {
+    showError("Request failed: " + textStatus );
+}
 </script>

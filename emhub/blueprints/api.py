@@ -405,6 +405,7 @@ def update_transaction():
 def delete_transaction():
     return handle_transaction(app.dm.delete_transaction)
 
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
@@ -516,6 +517,9 @@ def handle_invoice_period(invoice_period_func):
 
 def handle_transaction(transaction_func):
     def handle(**attrs):
+
+        print("handle_transaction: ", attrs)
+
         def _fix_date(date_key):
             if date_key in attrs:
                 attrs[date_key] = datetime_from_isoformat(attrs[date_key])
@@ -523,7 +527,7 @@ def handle_transaction(transaction_func):
         _fix_date('date')
         return transaction_func(**attrs).json()
 
-    return _handle_item(handle, 'invoice_period')
+    return _handle_item(handle, 'transaction')
 
 
 def create_item(name):

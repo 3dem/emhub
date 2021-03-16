@@ -466,6 +466,10 @@ class DataManager(DbManager):
 
         return transaction
 
+    def get_transaction_by(self, **kwargs):
+        """ This should return a single user or None. """
+        return self.__item_by(self.Transaction, **kwargs)
+
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)
