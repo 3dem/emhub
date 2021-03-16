@@ -388,6 +388,45 @@ class DataManager(DbManager):
         session.data = H5SessionData(self._session_data_path(session), mode)
         return session
 
+    # -------------------------- INVOICE PERIODS ------------------------------
+    def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):
+        """ Returns a list.
+        condition example: text("id<:value and name=:name")
+        """
+        return self.__items_from_query(self.InvoicePeriod,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def create_invoice_period(self, **attrs):
+        """ Add a new session row. """
+        period = self.__create_item(self.InvoicePeriod, **attrs)
+        # Let's update the data path after we know the id
+        self.log("operation", "create_InvoicePeriod",
+                 attrs=self.json_from_object(period))
+
+        return period
+
+    def update_invoice_period(self, **attrs):
+        """ Update session attrs. """
+        result = self.__update_item(self.InvoicePeriod, **attrs)
+
+        self.log("operation", "update_InvoicePeriod",
+                 attrs=self.json_from_dict(attrs))
+
+        return result
+
+    def delete_invoice_period(self, **attrs):
+        """ Remove a session row. """
+        periodId = attrs['id']
+        period = self.InvoicePeriod.query.get(periodId)
+        self.delete(period)
+
+        self.log("operation", "delete_InvoicePeriod",
+                 attrs=self.json_from_dict(attrs))
+
+        return period
+
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)

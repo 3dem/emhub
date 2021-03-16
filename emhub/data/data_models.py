@@ -236,7 +236,7 @@ def create_data_models(dm):
                                     secondary=ApplicationUser,
                                     back_populates="users")
 
-        transactions = relationship('Session', back_populates="user")
+        transactions = relationship('Transaction', back_populates="user")
 
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
@@ -828,3 +828,5 @@ def create_data_models(dm):
     dm.Application = Application
     dm.Booking = Booking
     dm.Session = Session
+    dm.Transaction = Transaction
+    dm.InvoicePeriod = InvoicePeriod
