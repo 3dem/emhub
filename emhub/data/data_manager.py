@@ -68,9 +68,9 @@ class DataManager(DbManager):
         create_data_models(self)
 
     def log(self, log_type, log_name, *args, **kwargs):
-        user_id = None if self._user is None else self._user.id
+        log_user_id = None if self._user is None else self._user.id
 
-        self._db_log.log(user_id, log_type, log_name,
+        self._db_log.log(log_user_id, log_type, log_name,
                          *args, **kwargs)
 
     def get_logs(self):

@@ -36,9 +36,10 @@
                                 <td>{{ t.comment }}</td>
                                 <td>{{ t.extra }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-light" onclick="showTransactionForm({{ t.id }})"><i class="far fa-edit"></i></button>
-                                    <button class="btn btn-sm btn-outline-light" data-toggle="modal" data-target="#deleteModal"
-                                            data-id="{{ t.id }}" data-alias="{{ t.alias }}"><i class="far fa-trash-alt"></i></button>
+                                    <button class="btn btn-sm btn-outline-light" onclick="showTransactionForm({{ t.id }})">
+                                        <i class="far fa-edit"></i></button>
+                                    <button class="btn btn-sm btn-outline-light" onclick="deleteTransaction({{ t.id }})">
+                                        <i class="far fa-trash-alt"></i></button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -78,24 +79,11 @@
 <!-- ============================================================== -->
 <!-- Application Modal -->
 <!-- ============================================================== -->
-<div class="modal fade" id="transaction-modal" tabindex="-1" role="dialog" aria-labelledby="transactionModal" aria-hidden="true">
+<div class="modal fade" id="transaction-modal" tabindex="-1" role="dialog" aria-labelledby="transactionModal" aria-hidden="true" >
 </div>
 
 
 <script>
-{#  $('#deleteModal').on('show.bs.modal', function (event) {#}
-{#      var button = $(event.relatedTarget); // Button that triggered the modal#}
-{##}
-{#      // Extract info from data-* attributes#}
-{#      var id = button.data('id')#}
-{#      var name = button.data('name')#}
-{##}
-{#      // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).#}
-{#      // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.#}
-{#      var modal = $(this)#}
-{#      // modal.find('.modal-title').text('New message to ' + recipient)#}
-{#      modal.find('.modal-body').html('<p> Do you want to DELETE user <b>' + name + '</b> (id = ' + id + ') ? </p>')#}
-{#    })#}
 
     $('#transactions-table').DataTable();
 
@@ -115,7 +103,14 @@ function showTransactionForm(transactionId) {
 
 }  // function showTransactionForm
 
-
+function deleteTransaction(transactionId) {
+    confirm("Delete Transaction",
+            "Do you want to DELETE transaction id=" + transactionId + "?",
+             "Cancel", "Delete", function () {
+            sendAjax("{{ url_for('api.delete_transaction') }}",
+                     {id: transactionId});
+        });
+} // function deleteTransaction
 
     /** This function will be called when the OK button in the Application form
  * is clicked. It can be either Create or Update action.
@@ -124,30 +119,42 @@ function onTransactionOkButtonClick() {
     // Update template values
     var transaction = {
         id: parseInt($('#transaction-id').val()),
-        amount: $('#transaction-amount').val(),
+        user_id: $('#transaction-user-select').selectpicker('val'),
+        date: dateIsoFromValue('#transaction-date'),
+        amount: parseFloat($('#transaction-amount').val()),
         comment: $('#transaction-comment').val(),
     };
 
+    if (transaction.user_id <= 0) {
+        showError("Please select a PI");
+        return;
+    }
+
     var endpoint = null;
 
-    if (transaction.id != null) {
+    if (transaction.id != null && !Number.isNaN(transaction.id)) {
         endpoint = "{{ url_for('api.update_transaction') }}";
     }
     else {
         endpoint = "{{ url_for('api.create_transaction') }}";
     }
 
+    sendAjax(endpoint, transaction);
+}  // function onTemplateOkButtonClick
+
+
+function sendAjax(endpoint, attrs) {
     var ajaxContent = $.ajax({
         url: endpoint,
         type: "POST",
         contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify({attrs: transaction}),
+        data: JSON.stringify({attrs: attrs}),
         dataType: "json"
     });
 
     ajaxContent.done(handleAjaxDone);
     ajaxContent.fail(handleAjaxFail);
-}  // function onTemplateOkButtonClick
+} // function sendAjax
 
 
     /** Helper functions to handle Template AJAX response or failure */
@@ -166,11 +173,11 @@ function handleAjaxDone(jsonResponse) {
     if (error)
         showError(error);
     else {
-        $('#template-modal').on('hidden.bs.modal', function () {
-{#            var params = {template_selected_status: template.status};#}
-{#            load_main_content("applications", params);#}
+        $('#transaction-modal').on('hidden.bs.modal', function () {
+            //location.reload();
         });
-        $('#template-modal').modal('hide');
+        $('#transaction-modal').modal('hide');
+        location.reload();
     }
 }
 
@@ -178,4 +185,5 @@ function handleAjaxDone(jsonResponse) {
 function handleAjaxFail(jqXHR, textStatus) {
     showError("Request failed: " + textStatus );
 }
+
 </script>

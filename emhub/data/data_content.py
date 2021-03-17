@@ -608,15 +608,19 @@ class DataContent:
         return {'transactions': self.app.dm.get_transactions()}
 
     def get_transaction_form(self, **kwargs):
+        dm = self.app.dm
         transaction_id = kwargs['transaction_id']
         if transaction_id:
-            t = self.app.dm.get_transaction_by(id=transaction_id)
+            t = dm.get_transaction_by(id=transaction_id)
         else:
-            t = self.app.dm.Transaction(date=dt.datetime.now(),
-                                        amount=0,
-                                        comment='')
+            t = dm.Transaction(date=dt.datetime.now(),
+                               amount=0,
+                               comment='')
 
-        return {'transaction': t}
+        return {
+            'transaction': t,
+            'pi_list': [u for u in dm.get_users() if u.is_pi]
+        }
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
