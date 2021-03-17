@@ -124,8 +124,8 @@ function onTransactionOkButtonClick() {
     // Update template values
     var transaction = {
         id: parseInt($('#transaction-id').val()),
-        title: $('#transaction-amount').val(),
-        alias: $('#transaction-comment').val(),
+        amount: $('#transaction-amount').val(),
+        comment: $('#transaction-comment').val(),
     };
 
     var endpoint = null;

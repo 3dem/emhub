@@ -351,19 +351,11 @@ class DataManager(DbManager):
         data = H5SessionData(self._session_data_path(session), mode='a')
         data.close()
 
-        self.log("operation", "create_Session",
-                 attrs=self.json_from_object(session))
-
         return session
 
     def update_session(self, **attrs):
         """ Update session attrs. """
-        result = self.__update_item(self.Session, **attrs)
-
-        self.log("operation", "update_Session",
-                 attrs=self.json_from_dict(attrs))
-
-        return result
+        return self.__update_item(self.Session, **attrs)
 
     def delete_session(self, **attrs):
         """ Remove a session row. """
@@ -400,21 +392,11 @@ class DataManager(DbManager):
 
     def create_invoice_period(self, **attrs):
         """ Add a new session row. """
-        period = self.__create_item(self.InvoicePeriod, **attrs)
-        # Let's update the data path after we know the id
-        self.log("operation", "create_InvoicePeriod",
-                 attrs=self.json_from_object(period))
-
-        return period
+        return self.__create_item(self.InvoicePeriod, **attrs)
 
     def update_invoice_period(self, **attrs):
         """ Update session attrs. """
-        result = self.__update_item(self.InvoicePeriod, **attrs)
-
-        self.log("operation", "update_InvoicePeriod",
-                 attrs=self.json_from_dict(attrs))
-
-        return result
+        return self.__update_item(self.InvoicePeriod, **attrs)
 
     def delete_invoice_period(self, **attrs):
         """ Remove a session row. """
@@ -439,21 +421,11 @@ class DataManager(DbManager):
 
     def create_transaction(self, **attrs):
         """ Add a new session row. """
-        transaction = self.__create_item(self.Transaction, **attrs)
-        # Let's update the data path after we know the id
-        self.log("operation", "create_Transaction",
-                 attrs=self.json_from_object(transaction))
-
-        return transaction
+        return self.__create_item(self.Transaction, **attrs)
 
     def update_transaction(self, **attrs):
         """ Update session attrs. """
-        result = self.__update_item(self.Transaction, **attrs)
-
-        self.log("operation", "update_Transaction",
-                 attrs=self.json_from_dict(attrs))
-
-        return result
+        return self.__update_item(self.Transaction, **attrs)
 
     def delete_transaction(self, **attrs):
         """ Remove a session row. """
