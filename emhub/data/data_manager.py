@@ -409,6 +409,10 @@ class DataManager(DbManager):
 
         return period
 
+    def get_invoice_period_by(self, **kwargs):
+        """ This should return a single user or None. """
+        return self.__item_by(self.InvoicePeriod, **kwargs)
+
     # ---------------------------- TRANSACTIONS -------------------------------
     def get_transactions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
