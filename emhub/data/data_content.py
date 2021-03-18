@@ -33,7 +33,7 @@ import json
 import flask
 import flask_login
 
-from emhub.utils import (pretty_datetime, datetime_to_isoformat,
+from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          datetime_from_isoformat, get_quarter, pretty_quarter)
 
 
@@ -385,7 +385,7 @@ class DataContent:
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
 
-        details_key = kwargs.get('details', 'Reminder')
+        details_key = kwargs.get('details', None) or 'Reminder'
 
         def _group(bookings):
             pi_bookings = {}
@@ -621,6 +621,70 @@ class DataContent:
             'transaction': t,
             'pi_list': [u for u in dm.get_users() if u.is_pi]
         }
+
+    def get_invoice_periods_list(self, **kwargs):
+        periods = [
+            {'id': ip.id,
+             'status': ip.status,
+             'start': ip.start,
+             'end': ip.end,
+             'period': pretty_quarter((ip.start, ip.end))
+            } for ip in self.app.dm.get_invoice_periods()
+        ]
+
+        return {'invoice_periods': periods}
+
+    def get_invoice_period_form(self, **kwargs):
+        dm = self.app.dm
+        invoice_period_id = kwargs['invoice_period_id']
+        if invoice_period_id:
+            ip = dm.get_invoice_period_by(id=invoice_period_id)
+        else:
+            ip = dm.InvoicePeriod(status='active',
+                                 start=dt.datetime.now(),
+                                 end=dt.datetime.now())
+
+        return {
+            'invoice_period': ip
+        }
+
+    def get_invoice_period(self, **kwargs):
+        dm = self.app.dm  # shortcut
+        period = dm.get_invoice_period_by(id=int(kwargs['period']))
+        tabs = [
+            {'label': 'overall',
+             'template': 'time_distribution.html'
+             },
+            {'label': 'invoices',
+             'template': 'invoices_list.html'
+             },
+            {'label': 'transactions',
+             'template': 'transactions_list.html'
+             }
+        ]
+        tab = kwargs.get('tab', tabs[0]['label'])
+        transactions = [t for t in dm.get_transactions()
+                        if period.start < t.date < period.end]
+        data = {
+            'period': period,
+            'tabs': tabs,
+            'selected_tab': tab,
+            'transactions': transactions,
+            'base_url': flask.url_for('main',
+                                 content_id='invoice_period',
+                                 period=period.id,
+                                 tab=tab)
+        }
+
+        report_args = {
+            'start': pretty_date(period.start),
+            'end': pretty_date(period.end),
+            'details': kwargs.get('details', None)
+        }
+        data.update(self.get_reports_invoices(**report_args))
+        data.update(self.get_reports_time_distribution(**report_args))
+
+        return data
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):

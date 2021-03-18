@@ -1,0 +1,190 @@
+
+
+<!-- Overall and CEM row -->
+<div class="row">
+    {% set range_str = "(%s - %s)"|format(start, end)  %}
+    <!-- Overall table -->
+    <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+        <div class="card">
+            <div class="card-header">
+                <div class="row">
+                <h5 class="mb-0 col-8">Overall Distribution {{ range_str }}</h5>
+                </div>
+            </div>
+
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="table-overall" class="table table-striped table-bordered" style="width:100%">
+                        <thead>
+                        <tr>
+                            <th>name</th>
+                            <th>bookings</th>
+                            <th>days</th>
+                            <td>percent</td>
+                            <td>cost</td>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for row in overall.data() %}
+                        <tr>
+                            <td><a href="{{  base_url }}&details={{ row[0]}}">{{ row[0] }}</a></td>
+                            <td>{{ row[1] }}</td>
+                            <td>{{ row[2] }}</td>
+                            <td>{{ row[3] }}</td>
+                            <td>{{ row[4] }}</td>
+                        </tr>
+                        {% endfor %}
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div> <!-- Overall table -->
+
+    <!-- CEM table -->
+    <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row">
+                    <h5 class="mb-0 col-8">CEM Distribution {{ range_str }}</h5>
+                    </div>
+                </div>
+                <div class="card-body">
+                        <table id="table-cem" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>name</th>
+                                <th>bookings</th>
+                                <th>days</th>
+                                <td>percent</td>
+                                <td>cost</td>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for row in cem.data() %}
+                            <tr>
+                                {% set alias = app_dict[row[0]] %}
+                                <td><a href="{{  base_url }}&details={{ row[0]}}">{{ row[0] }}</a>
+                                    {% if alias %}
+                                    ({{ alias }})
+                                    {% endif %}
+                                </td>
+                                <td>{{ row[1] }}</td>
+                                <td>{{ row[2] }}</td>
+                                <td>{{ row[3] }}</td>
+                                <td>{{ row[4] }}</td>
+                            </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                </div>
+            </div>
+    </div> <!-- CEM table -->
+</div> <!-- Overall and CEM row -->
+
+<!-- Details table  -->
+<div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+    <div class="card">
+        <div class="card-header">
+            <div class="row">
+            <h5 class="mb-0 col-8"> {{ details_title }} - {{ range_str }}</h5>
+            </div>
+        </div>
+        <div class="card-body">
+                <table id="table-reminder" class="table" style="width:100%">
+                    <thead>
+                    <tr>
+                        <th>Booking Title</th>
+                        <td>Start</td>
+                        <td>End</td>
+                        <td>Days</td>
+                        <td>Cost</td>
+                        <td>Actions</td>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% if details_groups|length > 0 %}
+                        {% set bookings = details_groups %}
+                        {% set start_index = 1 %}
+                    {% else %}
+                        {% set bookings = [details_bookings] %}
+                        {% set start_index = 0 %}
+                    {% endif %}
+
+                    {% for bList in bookings %}
+                        {% set first = bList[0] %}
+                        {% if start_index > 0 %}
+                            {# First row is special #}
+                            <tr class="table-primary">
+                                <td>{{ first[1] }}</td>
+                                <td></td>
+                                <td></td>
+                                <td>{{ first[2] }}</td>
+                                <td><strong>{{ first[3] }}</strong></td>
+                                <td></td>
+                            </tr>
+                        {% endif %}
+
+                        {# Then the other rows with real bookings info #}
+                        {% for b in bList[start_index:] %}
+                        <tr>
+                            <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>
+                            <td>{{ b['pretty_start'] }}</td>
+                            <td>{{ b['pretty_end'] }}</td>
+                            <td>{{ b['days'] }}</td>
+                            <td>{{ b['total_cost'] }}</td>
+                            <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b['id'] }})"><i class="far fa-edit"></i></button>
+                                    </td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+
+                    </tbody>
+                </table>
+        </div>
+    </div>
+</div> <!-- end Details table  -->
+
+
+<script>
+    var bookings = {{ details_bookings|tojson }};
+
+    $('select').selectpicker();
+
+    $('#table-overall').DataTable({
+        sDom: 'lrtip',
+        paging: false,
+        info: false,
+        order: [[ 3, "desc" ]]
+    });
+
+    $('#table-cem').DataTable({
+        sDom: 'lrtip',
+        paging: false,
+        info: false,
+        order: [[ 3, "desc" ]]
+    });
+
+    $('#table-reminder').DataTable({
+        paging: false,
+        info: false,
+        ordering: false
+    });
+
+    function showBooking(bookingId) {
+        last_booking = null;
+
+        for (const b of bookings) {
+            if (b.id == bookingId)
+                last_booking = b;
+        }
+        last_booking.title = last_booking.booking_title;
+        last_booking.start = new Date(last_booking.start);
+        last_booking.end = new Date(last_booking.end);
+        has_calendar = false;
+        showBookingForm(last_booking);
+    }
+
+</script>

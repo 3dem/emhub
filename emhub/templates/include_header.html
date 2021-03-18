@@ -13,7 +13,7 @@
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb">
                             {% for item_title, item_url in navigation[:-1] %}
-                                <li class="breadcrumb-item"><a href="#" class="breadcrumb-link"> {{ item_title }} </a></li>
+                                <li class="breadcrumb-item"><a href="{{ item_url }}" class="breadcrumb-link"> {{ item_title }} </a></li>
                             {% endfor %}
                             <li class="breadcrumb-item active" aria-current="page"> {{ navigation[-1][0] }} </li>
                         </ol>
