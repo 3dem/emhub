@@ -1,20 +1,18 @@
 
-{% for cem, pi_dict in apps_dict.items() %}
-{% set cem_total = pi_dict.values()|sum(attribute='sum_cost') %}
-{% if cem_total > 0 %}
+
 
 <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
     <div class="card">
         <div class="card-header">
             <div class="row">
-                <h5 class="mb-0 col-8"> {{ cem }} </h5>
-                <h5 class="mb-0 col-4"> Total: {{ cem_total }} SEK</h5>
+                <h5 class="mb-0 col-8"> </h5>
+                <h5 class="mb-0 col-4"> </h5>
             </div>
         </div>
         <div class="card-body">
             <table class="table table-invoice" style="width:100%">
                 <thead>
-                <tr class="table-primary">
+                <tr>
                     <th>Principal Investigator</th>
                     <th>Invoice Reference</th>
                     <td>Invoice Address</td>
@@ -26,18 +24,34 @@
 
                 <tbody>
 
-                {% for pi_id, pi_info in pi_dict.items() %}
-                    {% set bookings = pi_info['bookings'] %}
-                    {% if bookings|length > 0 %}
-                        {% set pu = portal_users[pi_info['pi_email']] %}
-                        <tr>
-                            <td>{{ pi_info['pi_name'] }}</td>
-                            <td>{{ pu['invoice_ref'] }}</td>
-                            <td>{{ pu['invoice_address']['address'] }}</td>
-                            <td>{{ bookings|length }}</td>
-                            <td>{{ pi_info['sum_days'] }}</td>
-                            <td>{{ pi_info['sum_cost'] }}</td>
+                {% for cem, pi_dict in apps_dict.items() %}
+                    {% set cem_total = pi_dict.values()|sum(attribute='sum_cost') %}
+                    {% set cem_sum_days = pi_dict.values()|sum(attribute='sum_days') %}
+                    {% if cem_total > 0 %}
+                        <tr class="table-primary"> <!-- CEM row -->
+                            <td>{{ cem }}</td>
+                            <td> </td>
+                            <td> </td>
+                            <td> </td>
+                            <td> {{ cem_days }}</td>
+                            <td>{{ cem_total }}</td>
                         </tr>
+
+                        {% for pi_id, pi_info in pi_dict.items() %}
+                            {% set bookings = pi_info['bookings'] %}
+                            {% if bookings|length > 0 %}
+                                {% set pu = portal_users[pi_info['pi_email']] %}
+                                <tr>
+                                    <td>{{ pi_info['pi_name'] }}</td>
+                                    <td>{{ pu['invoice_ref'] }}</td>
+                                    <td>{{ pu['invoice_address']['address'] }}</td>
+                                    <td>{{ bookings|length }}</td>
+                                    <td>{{ pi_info['sum_days'] }}</td>
+                                    <td>{{ pi_info['sum_cost'] }}</td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+
                     {% endif %}
                 {% endfor %}
 
@@ -47,8 +61,6 @@
     </div>
 </div>
 
-{% endif %}
-{% endfor %}
 
 
 <script>
@@ -58,6 +70,7 @@ $('.table-invoice').DataTable({
     //sDom: 'lrtip',
     paging: false,
     info: false,
+    ordering: false,
     buttons: [
         'copy', 'csv', 'excel', 'pdf', 'print'
     ]
