@@ -1,4 +1,5 @@
 
+{% set range_str = "(%s - %s)"|format(period.start|pretty_date, period.end|pretty_date)  %}
 
 <!-- table row -->
 <div class="row">
@@ -56,12 +57,19 @@
 
 
 <script>
+    var period = {
+        id: {{ period.id }},
+        start: new Date("{{ period.start|pretty_date }}"),
+        end: new Date("{{ period.end|pretty_date }}"),
+    } ;
+
+
     $('#transactions-table').DataTable({
     sDom: 'lrtip',
     paging: false,
     info: false,
     ordering: false
-});
+    });
 
 /* Show the Application Form, either for a new booking or an existing one */
 function showTransactionForm(transactionId) {
@@ -85,6 +93,8 @@ function deleteTransaction(transactionId) {
              "Cancel", "Delete", function () {
             sendAjax("{{ url_for('api.delete_transaction') }}",
                      {id: transactionId});
+            ajax = get_ajax_content('transactions_list', {period: period.id});
+            load_html_from_ajax('#transactions-container', ajax);
         });
 } // function deleteTransaction
 
@@ -93,16 +103,25 @@ function deleteTransaction(transactionId) {
  */
 function onTransactionOkButtonClick() {
     // Update template values
+
+    selectedDateStr = $('#transaction-date').val().replace(/\//g, '-');
+    selectedDate = new Date(selectedDateStr);
+
     var transaction = {
         id: parseInt($('#transaction-id').val()),
         user_id: $('#transaction-user-select').selectpicker('val'),
-        date: dateIsoFromValue('#transaction-date'),
+        date: selectedDateStr + 'T00:00:00.000Z',
         amount: parseFloat($('#transaction-amount').val()),
         comment: $('#transaction-comment').val(),
     };
 
     if (transaction.user_id <= 0) {
         showError("Please select a PI");
+        return;
+    }
+
+    if (selectedDate < period.start || selectedDate > period.end) {
+        showError("Please selected a Transaction Date in the current invoice period. <br>{{ range_str }}")
         return;
     }
 
@@ -150,10 +169,12 @@ function handleAjaxDone(jsonResponse) {
         showError(error);
     else {
         $('#transaction-modal').on('hidden.bs.modal', function () {
-            //location.reload();
+            console.log('reloading...');
+            ajax = get_ajax_content('transactions_list', {period: period.id});
+            load_html_from_ajax('#transactions-container', ajax);
         });
         $('#transaction-modal').modal('hide');
-        location.reload();
+
     }
 }
 

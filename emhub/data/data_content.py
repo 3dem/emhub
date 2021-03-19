@@ -648,6 +648,16 @@ class DataContent:
             'invoice_period': ip
         }
 
+    def get_transactions_list(self, **kwargs):
+        dm = self.app.dm  # shortcut
+        period = dm.get_invoice_period_by(id=int(kwargs['period']))
+        transactions = [t for t in dm.get_transactions()
+                        if period.start < t.date < period.end]
+        return {
+            'transactions': transactions,
+            'period': period
+        }
+
     def get_invoice_period(self, **kwargs):
         dm = self.app.dm  # shortcut
         period = dm.get_invoice_period_by(id=int(kwargs['period']))
@@ -659,17 +669,14 @@ class DataContent:
              'template': 'invoices_list.html'
              },
             {'label': 'transactions',
-             'template': 'transactions_list.html'
+             'template': 'transactions_list.html',
              }
         ]
         tab = kwargs.get('tab', tabs[0]['label'])
-        transactions = [t for t in dm.get_transactions()
-                        if period.start < t.date < period.end]
         data = {
             'period': period,
             'tabs': tabs,
             'selected_tab': tab,
-            'transactions': transactions,
             'base_url': flask.url_for('main',
                                  content_id='invoice_period',
                                  period=period.id,
@@ -681,6 +688,8 @@ class DataContent:
             'end': pretty_date(period.end),
             'details': kwargs.get('details', None)
         }
+
+        data.update(self.get_transactions_list(period=period.id))
         data.update(self.get_reports_invoices(**report_args))
         data.update(self.get_reports_time_distribution(**report_args))
 

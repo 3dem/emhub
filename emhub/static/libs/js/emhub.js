@@ -57,6 +57,8 @@ function dateStr(date) {
 
 function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val();
+    console.log("dateFromValue, dateVal: ", dateVal);
+
     if (timeId)
         dateVal += ' ' + $(timeId).val();
     return new Date(dateVal);
@@ -233,4 +235,45 @@ function create_sparkline(id, values, args) {
     }, args);
 
     $(id).sparkline(values, new_args);
+}
+
+function get_ajax_html(url, params) {
+    return $.ajax({
+        url: url,
+        type: "POST",
+        data: params,
+        dataType: "html"
+    });
+}
+
+/**
+ * Make an AJAX request to the server and render the html result in a container.
+ * @param container_id The HTML container id where the result content will be placed.
+ * @param content_id contend id that will be requested to the server
+ * @param params dictionary with extra parameters to retrieve the content.
+ */
+function get_ajax_content(content_id, params) {
+
+    if (params == null)
+        params = {content_id: content_id};
+    else
+        params.content_id = content_id;
+
+    return get_ajax_html(content_url, params);
+}
+
+/**
+ * Make an AJAX request to retrieve some content and set it as html of the container
+ * @param container_id: Container that Will receive the content
+ * @param content_id: id of the content to be retrieved
+ * @param params: params passed to retrieving the content
+ */
+function load_html_from_ajax(container_id, ajaxContent) {
+    ajaxContent.done(function(html) {
+        $(container_id).html(html);
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
 }
