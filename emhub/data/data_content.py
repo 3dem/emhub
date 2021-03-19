@@ -490,7 +490,10 @@ class DataContent:
         return result
 
     def get_reports_invoices_lab(self, **kwargs):
-        from pprint import pprint
+        dm = self.app.dm  # shortcut
+        period = dm.get_invoice_period_by(id=int(kwargs['period']))
+        kwargs['start'] = pretty_date(period.start)
+        kwargs['end'] = pretty_date(period.end)
 
         bookings, range_dict = self.get_booking_in_range(kwargs)
 
@@ -512,15 +515,11 @@ class DataContent:
 
         apps_dict = {a.id: [] for a in pi_user.get_applications()}
         all_bookings = []
-        pprint(apps_dict)
-
         for b in bookings:
             if b.get('pi_id', None) != pi_id:
                 continue
 
             app_id = b.get('app_id', None)
-
-            pprint(b)
 
             if app_id not in apps_dict:
                 continue
@@ -528,22 +527,16 @@ class DataContent:
             apps_dict[app_id].append(b)
             all_bookings.append(b)
 
-        q1 = get_quarter()
-        q0 = get_quarter(q1[0] - dt.timedelta(days=1))
-
-        print(q0)
-        print(q1)
-
         result = {
             'pi': pi_user,
             'apps_dict':  apps_dict,
             'all_bookings': all_bookings,
-            'quarter': pretty_quarter(q0),
-            'q0': q0,
-            'q1': q1
+            'total': sum(b['total_cost'] for b in all_bookings)
         }
 
         result.update(range_dict)
+        result.update(self.get_transactions_list(period=period.id,
+                                                 pi=pi_user.id))
 
         return result
 
@@ -562,6 +555,8 @@ class DataContent:
 
         q1 = get_quarter()
         q0 = get_quarter(q1[0] - dt.timedelta(days=1))
+
+        self.get_transactions_list(**kwargs)
 
         result = {
             'bookings': bookings,
@@ -651,9 +646,14 @@ class DataContent:
     def get_transactions_list(self, **kwargs):
         dm = self.app.dm  # shortcut
         period = dm.get_invoice_period_by(id=int(kwargs['period']))
-        transactions = [t for t in dm.get_transactions()
-                        if period.start < t.date < period.end]
+
+        def _filter(t):
+            return ((period.start < t.date < period.end) and
+                    ('pi' not in kwargs or t.user.id == kwargs['pi'] ))
+
+        transactions = [t for t in dm.get_transactions() if _filter(t)]
         transactions_dict = {}
+
         for t in transactions:
             user_id = t.user.id
             if user_id not in transactions_dict:

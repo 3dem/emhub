@@ -48,7 +48,7 @@
                             {% if bookings|length > 0 or extra_costs != 0 %}
                                 {% set pu = portal_users[pi_info['pi_email']] %}
                                 <tr>
-                                    <td>{{ pi_info['pi_name'] }}</td>
+                                    <td><a href="javascript:showPiInvoicesForm({{ pi_id }})" </a>{{ pi_info['pi_name'] }}</td>
                                     <td>{{ pu['invoice_ref'] }}</td>
                                     <td>{{ pu['invoice_address']['address'] }}</td>
                                     <td>{{ bookings|length }}</td>
@@ -69,7 +69,11 @@
     </div>
 </div>
 
-
+<!-- ============================================================== -->
+<!-- Application Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="pi-invoices-modal" tabindex="-1" role="dialog" aria-labelledby="piInvoicesModal" aria-hidden="true" >
+</div>
 
 <script>
 
@@ -84,5 +88,20 @@ $('.table-invoice').DataTable({
     ]
     //ordering: false,
 });
+
+/* Show the Application Form, either for a new booking or an existing one */
+function showPiInvoicesForm(piId) {
+    ajaxContent = get_ajax_content("reports_invoices_lab", {pi: piId, period: {{ period.id}});
+
+    ajaxContent.done(function(html) {
+        $("#pi-invoices-modal").html(html);
+        // Show the form after setting html content
+        $('#pi-invoices-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+}  // function showTransactionForm
 
 </script>
