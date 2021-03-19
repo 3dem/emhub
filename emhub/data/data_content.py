@@ -653,9 +653,17 @@ class DataContent:
         period = dm.get_invoice_period_by(id=int(kwargs['period']))
         transactions = [t for t in dm.get_transactions()
                         if period.start < t.date < period.end]
+        transactions_dict = {}
+        for t in transactions:
+            user_id = t.user.id
+            if user_id not in transactions_dict:
+                transactions_dict[user_id] = 0
+            transactions_dict[user_id] += int(float(t.amount))
+
         return {
             'transactions': transactions,
-            'period': period
+            'period': period,
+            'transactions_dict': transactions_dict
         }
 
     def get_invoice_period(self, **kwargs):

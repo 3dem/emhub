@@ -32,27 +32,9 @@
     var start_date = new Date({{ start|tojson }});
     var end_date  = new Date({{ end|tojson }});
 
-    var bookings = {{ details_bookings|tojson }};
-
-        $('select').selectpicker();
-
     $('.datetimepicker-input').datetimepicker({
         format: 'YYYY/MM/DD'
     });
-
-    function showBooking(bookingId) {
-        last_booking = null;
-
-        for (const b of bookings) {
-            if (b.id == bookingId)
-                last_booking = b;
-        }
-        last_booking.title = last_booking.booking_title;
-        last_booking.start = new Date(last_booking.start);
-        last_booking.end = new Date(last_booking.end);
-        has_calendar = false;
-        showBookingForm(last_booking);
-    }
 
     $('input[name="daterange"]').daterangepicker({
         "locale": {

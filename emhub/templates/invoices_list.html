@@ -19,6 +19,8 @@
                     <th>Bookings</th>
                     <td>Days</td>
                     <td>Cost (SEK)</td>
+                    <td>Extras (SEK) </td>
+                    <td>TO BE INVOICED</td>
                 </tr>
                 </thead>
 
@@ -35,11 +37,15 @@
                             <td> </td>
                             <td> {{ cem_days }}</td>
                             <td>{{ cem_total }}</td>
+                            <td></td>
+                            <td></td>
                         </tr>
 
                         {% for pi_id, pi_info in pi_dict.items() %}
                             {% set bookings = pi_info['bookings'] %}
-                            {% if bookings|length > 0 %}
+                            {% set extra_costs = transactions_dict.get(pi_id, 0) %}
+                            {% set to_invoice = pi_info['sum_cost'] + extra_costs %}
+                            {% if bookings|length > 0 or extra_costs != 0 %}
                                 {% set pu = portal_users[pi_info['pi_email']] %}
                                 <tr>
                                     <td>{{ pi_info['pi_name'] }}</td>
@@ -48,6 +54,8 @@
                                     <td>{{ bookings|length }}</td>
                                     <td>{{ pi_info['sum_days'] }}</td>
                                     <td>{{ pi_info['sum_cost'] }}</td>
+                                    <td> {{ extra_costs }}</td>
+                                    <td> <span class="font-weight-bold"> {{ to_invoice }}</span></td>
                                 </tr>
                             {% endif %}
                         {% endfor %}

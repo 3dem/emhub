@@ -147,6 +147,9 @@
     </div>
 </div> <!-- end Details table  -->
 
+<!-- Modal with  Booking Form -->
+{% include 'booking_form.html' %}
+
 
 <script>
     var bookings = {{ details_bookings|tojson }};
@@ -174,6 +177,8 @@
     });
 
     function showBooking(bookingId) {
+        console.log('showBoking, id: ', bookingId);
+
         last_booking = null;
 
         for (const b of bookings) {
