@@ -4,15 +4,18 @@
     {% set title = "Invoice Periods List" %}
     {% set navigation = [('Admin', ''), ('Invoices', '')] %}
     {% include 'include_header.html' %}
+    {% set is_admin = current_user.is_manager %}
 
     <!-- table row -->
     <div class="row">
         <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
             <div class="card">
-                <div class="card-header">
-                    <a href="javascript:showInvoicePeriodForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Invoice Period</a>
-                </div>
                 <div class="card-body">
+                    {% if is_admin %}
+                        <div class="col-12 mb-3">
+                            <a href="javascript:showInvoicePeriodForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Invoice Period</a>
+                        </div>
+                    {% endif %}
                     <div class="table-responsive">
                         <table id="invoice_periods-table" class="table">
                             <thead>
@@ -20,23 +23,29 @@
                                 <th>id</th>
                                 <th>period</th>
                                 <th>status</th>
-                                <th>actions</th>
+                                {% if is_admin %}
+                                    <th>actions</th>
+                                {% endif %}
                             </tr>
                             </thead>
                             <tbody>
                             {% for ip in invoice_periods %}
                             <tr>
                                 <td>{{ ip['id'] }}</td>
-                                {% set start = ip['start']|pretty_date %}
-                                {% set end = ip['end']|pretty_date %}
-                                <td><a href="{{ url_for('main', content_id='invoice_period', period=ip['id']) }}">{{ ip['period'] }}</a></td>
+                                {% if is_admin %}
+                                    <td><a href="{{ url_for('main', content_id='invoice_period', period=ip['id']) }}">{{ ip['period'] }}</a></td>
+                                {% else %}
+                                    <td><a href="{{ url_for('main', content_id='reports_invoices_lab', period=ip['id']) }}">{{ ip['period'] }}</a></td>
+                                {% endif %}
                                 <td>{{ ip['status'] }}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-light" onclick="showInvoicePeriodForm({{ ip['id'] }})">
-                                        <i class="far fa-edit"></i></button>
-                                    <button class="btn btn-sm btn-outline-light" onclick="deleteInvoicePeriod({{ ip['id'] }})">
-                                        <i class="far fa-trash-alt"></i></button>
-                                </td>
+                                {% if is_admin %}
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-light" onclick="showInvoicePeriodForm({{ ip['id'] }})">
+                                            <i class="far fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="deleteInvoicePeriod({{ ip['id'] }})">
+                                            <i class="far fa-trash-alt"></i></button>
+                                    </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
 

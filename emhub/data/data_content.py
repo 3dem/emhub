@@ -490,8 +490,21 @@ class DataContent:
         return result
 
     def get_reports_invoices_lab(self, **kwargs):
+        return self.get_invoices_lab_list(**kwargs)
+
+    def get_invoices_lab_list(self, **kwargs):
         dm = self.app.dm  # shortcut
-        period = dm.get_invoice_period_by(id=int(kwargs['period']))
+
+        period = None
+        period_id = kwargs.get('period', None)
+
+        if period_id is None:
+            for p in dm.get_invoice_periods():
+                if p.status == 'active':
+                    period = p
+        else:
+            period = dm.get_invoice_period_by(id=int(period_id))
+
         kwargs['start'] = pretty_date(period.start)
         kwargs['end'] = pretty_date(period.end)
 

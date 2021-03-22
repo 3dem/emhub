@@ -1,79 +1,20 @@
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
-    {% set title = "Invoice: " + pi.name %}
-    {% set navigation = [('Reports', ''), ('Lab Invoices', '')] %}
+    {% set period_label = (period.start, period.end)|pretty_quarter %}
+    {% set title = "Invoices: " + pi.name %}
+    {% set navigation = [('Lab Invoices', url_for('main', content_id='invoice_periods_list')), (period_label, '')] %}
     {% include 'include_header.html' %}
+
 
     <!-- Bookings -->
     <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
         <div class="card">
-{#            <div class="card-header">#}
-{#                <div class="row">#}
-{#                </div>#}
-{#            </div>#}
             <div class="card-body">
-                    <table id="table-bookings" class="table" style="width:100%">
-                        <thead>
-                        <tr>
-                            <th>Comment</th>
-                            <td>Date</td>
-                            <td class="text-right">Cost</td>
-                        </tr>
-                        </thead>
-                        <tbody>
-
-                        {% set apps = pi.get_applications() %}
-
-                        {# Bookings marker row #}
-                        <tr class="table-primary">
-                            <td> Bookings </td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-
-                        {% for a in apps %}
-                            {% set bookings = apps_dict[a.id] %}
-
-                            {# Then the other rows with real bookings info #}
-                            {% for b in bookings %}
-                            <tr>
-                                <td>{{ b['title'] }}</td>
-                                <td>{{ b['pretty_start']}} - {{ b['pretty_end'] }}</td>
-                                <td class="text-right">{{ b['total_cost'] }}</td>
-                            </tr>
-                            {% endfor %}
-                        {% endfor %}
-
-                        {% if transactions|length > 0 %}
-                            {# Transactions marker row #}
-                            <tr class="table-primary">
-                                <td> Extra costs </td>
-                                <td></td>
-                                <td></td>
-                            </tr>
-
-                            {% for t in transactions %}
-                                <tr>
-                                    <td>{{ t.comment }}</td>
-                                    <td>{{ t.date|pretty_date }}</td>
-                                    <td class="text-right">{{ t.amount|int }}</td>
-                                </tr>
-                            {% endfor %}
-
-                        {% endif %}
-
-                        {# Total marker row #}
-                        {% set booking_total = all_bookings|sum(attribute='total_cost') %}
-                        {% set extra_total = transactions|sum(attribute='amount') %}
-                        <tr class="table-primary">
-                            <td> <strong>TOTAL TO BE INVOICED </strong> </td>
-                            <td></td>
-                            <td class="text-right"><strong>{{ booking_total + extra_total|int }}</strong></td>
-                        </tr>
-
-                        </tbody>
-                    </table>
+                <div class="col-12">
+                    <h3> Period: {{ period_label }}</h3>
+                </div>
+                {% include 'invoices_lab_list.html' %}
             </div>
         </div>
     </div>
@@ -81,17 +22,3 @@
 
 </div>
 
-
-
-<script>
-    var pi_id = '{{ pi.id }}';
-    var bookings = {{ all_bookings|tojson }};
-
-    $('#table-bookings').DataTable({
-        sDom: 'lrtip',
-        paging: false,
-        info: false,
-        ordering: false
-    });
-
-</script>
