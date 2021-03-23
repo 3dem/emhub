@@ -34,11 +34,24 @@ def pretty_json(d):
     print(json.dumps(d, indent=4))
 
 
+def pretty_date(input_dt):
+    if input_dt is None:
+        return 'None'
+
+    return input_dt.strftime("%Y/%m/%d")
+
+
 def pretty_datetime(input_dt):
     if input_dt is None:
         return 'None'
 
     return input_dt.strftime("%Y/%m/%d %I:%M %p")
+
+
+def pretty_quarter(quarter):
+    qs, qe = quarter
+    return '%s - %s' % (qs.strftime('%b'),
+                        qe.strftime('%b %Y'))
 
 
 def datetime_from_isoformat(iso_string):
@@ -50,6 +63,29 @@ def datetime_from_isoformat(iso_string):
 
 def datetime_to_isoformat(input_dt):
     return input_dt.isoformat().replace('+00:00', 'Z')
+
+
+def get_quarter(date=None):
+    """ Return the quarter date range of a given date
+    (now if not date is passed. )
+    """
+    # If date range is not passed, let's use by default the
+    # current quarter
+    d = date or dt.datetime.now()
+    y = d.year
+    qi = (d.month - 1) // 3
+    start, end = [
+        ('01/01', '03/31'),
+        ('04/01', '06/30'),
+        ('07/01', '09/30'),
+        ('10/01', '12/31')
+    ][qi]
+
+    def _dt(value):
+        value_str = '%d/%s' % (y, value)
+        return dt.datetime.strptime(value_str, '%Y/%m/%d')
+
+    return _dt(start), _dt(end)
 
 
 def send_json_data(data):

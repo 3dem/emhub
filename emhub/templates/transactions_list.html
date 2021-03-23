@@ -1,0 +1,185 @@
+
+{% set range_str = "(%s - %s)"|format(period.start|pretty_date, period.end|pretty_date)  %}
+
+<!-- table row -->
+<div class="row">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        <div class="card">
+            <div class="card-header">
+                <a href="javascript:showTransactionForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Transaction</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="transactions-table" class="table table-striped table-bordered" style="width:100%">
+                        <thead>
+                        <tr>
+                            <th>id</th>
+                            <th>date</th>
+                            <th>user</th>
+                            <th>amount</th>
+                            <th>comment</th>
+                            <th>extra</th>
+                            <th>actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for t in transactions %}
+                        <tr>
+                            <td>{{ t.id }}</td>
+                            <td>{{ t.date|pretty_date }}</td>
+                            <td>{{ t.user.name }}</td>
+                            <td>{{ t.amount }}</td>
+                            <td>{{ t.comment }}</td>
+                            <td>{{ t.extra }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-light" onclick="showTransactionForm({{ t.id }})">
+                                    <i class="far fa-edit"></i></button>
+                                <button class="btn btn-sm btn-outline-light" onclick="deleteTransaction({{ t.id }})">
+                                    <i class="far fa-trash-alt"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- end table row -->
+
+<!-- ============================================================== -->
+<!-- Application Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="transaction-modal" tabindex="-1" role="dialog" aria-labelledby="transactionModal" aria-hidden="true" >
+</div>
+
+
+<script>
+    var period = {
+        id: {{ period.id }},
+        start: new Date("{{ period.start|pretty_date }}"),
+        end: new Date("{{ period.end|pretty_date }}"),
+    } ;
+
+
+    $('#transactions-table').DataTable({
+    sDom: 'lrtip',
+    paging: false,
+    info: false,
+    ordering: false
+    });
+
+/* Show the Application Form, either for a new booking or an existing one */
+function showTransactionForm(transactionId) {
+    ajaxContent = get_ajax_content("transaction_form", {transaction_id: transactionId});
+
+    ajaxContent.done(function(html) {
+        $("#transaction-modal").html(html);
+        // Show the form after setting html content
+        $('#transaction-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        alert( "Request failed: " + textStatus );
+    });
+}  // function showTransactionForm
+
+function deleteTransaction(transactionId) {
+    confirm("Delete Transaction",
+            "Do you want to DELETE transaction id=" + transactionId + "?",
+             "Cancel", "Delete", function () {
+            sendAjax("{{ url_for('api.delete_transaction') }}",
+                     {id: transactionId});
+            ajax = get_ajax_content('transactions_list', {period: period.id});
+            load_html_from_ajax('#transactions-container', ajax);
+        });
+} // function deleteTransaction
+
+    /** This function will be called when the OK button in the Application form
+ * is clicked. It can be either Create or Update action.
+ */
+function onTransactionOkButtonClick() {
+    // Update template values
+
+    selectedDateStr = $('#transaction-date').val().replace(/\//g, '-');
+    selectedDate = new Date(selectedDateStr);
+
+    var transaction = {
+        id: parseInt($('#transaction-id').val()),
+        user_id: $('#transaction-user-select').selectpicker('val'),
+        date: selectedDateStr + 'T00:00:00.000Z',
+        amount: parseFloat($('#transaction-amount').val()),
+        comment: $('#transaction-comment').val(),
+    };
+
+    if (transaction.user_id <= 0) {
+        showError("Please select a PI");
+        return;
+    }
+
+    if (selectedDate < period.start || selectedDate > period.end) {
+        showError("Please selected a Transaction Date in the current invoice period. <br>{{ range_str }}")
+        return;
+    }
+
+    var endpoint = null;
+
+    if (transaction.id != null && !Number.isNaN(transaction.id)) {
+        endpoint = "{{ url_for('api.update_transaction') }}";
+    }
+    else {
+        endpoint = "{{ url_for('api.create_transaction') }}";
+    }
+
+    sendAjax(endpoint, transaction);
+}  // function onTemplateOkButtonClick
+
+
+function sendAjax(endpoint, attrs) {
+    var ajaxContent = $.ajax({
+        url: endpoint,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: attrs}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
+} // function sendAjax
+
+
+/** Helper functions to handle Template AJAX response or failure */
+function handleAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('transaction' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showError(error);
+    else {
+        $('#transaction-modal').on('hidden.bs.modal', function () {
+            console.log('reloading...');
+            ajax = get_ajax_content('transactions_list', {period: period.id});
+            load_html_from_ajax('#transactions-container', ajax);
+        });
+        $('#transaction-modal').modal('hide');
+
+    }
+}
+
+
+function handleAjaxFail(jqXHR, textStatus) {
+    showError("Request failed: " + textStatus );
+}
+
+</script>

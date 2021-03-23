@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.11'
+__version__ = '0.0.12'
 
 
 def create_app(test_config=None):
@@ -39,7 +39,9 @@ def create_app(test_config=None):
 
     from . import utils
     from .blueprints import api_bp, images_bp, pages_bp
-    from .utils import datetime_to_isoformat, pretty_datetime, send_json_data, send_error
+    from .utils import (datetime_to_isoformat,
+                        pretty_date, pretty_datetime, pretty_quarter,
+                        send_json_data, send_error)
     from .utils.mail import MailManager
     from .data.data_content import DataContent
 
@@ -242,7 +244,10 @@ def create_app(test_config=None):
         content_id = content_kwargs['content_id']
 
         if content_id in NO_LOGIN_CONTENT or app.user.is_authenticated:
-            kwargs = app.dc.get(**content_kwargs)
+            try:
+                kwargs = app.dc.get(**content_kwargs)
+            except Exception as e:
+                return "<h1><span style='color: red'>Error</span> </br>%s</h1>" % e
         else:
             kwargs = {'next_content': content_id}
             content_id = 'user_login'
@@ -264,8 +269,16 @@ def create_app(test_config=None):
     def id_from_label(label):
         return label.replace(' ', '_')
 
+    @app.template_filter('range_params')
+    def range_params(date_range):
+        s = date_range[0].strftime("%Y/%m/%d")
+        e = date_range[1].strftime("%Y/%m/%d")
+        return "&start=%s&end=%s" % (s, e)
+
     app.jinja_env.filters['reverse'] = basename
     app.jinja_env.filters['pretty_datetime'] = pretty_datetime
+    app.jinja_env.filters['pretty_date'] = pretty_date
+    app.jinja_env.filters['pretty_quarter'] = pretty_quarter
 
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user

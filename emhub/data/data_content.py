@@ -33,8 +33,8 @@ import json
 import flask
 import flask_login
 
-from emhub.utils import (pretty_datetime, datetime_to_isoformat,
-                         datetime_from_isoformat)
+from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
+                         datetime_from_isoformat, get_quarter, pretty_quarter)
 
 
 class DataContent:
@@ -385,7 +385,7 @@ class DataContent:
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
 
-        details_key = kwargs.get('details', 'Reminder')
+        details_key = kwargs.get('details', None) or 'Reminder'
 
         def _group(bookings):
             pi_bookings = {}
@@ -489,10 +489,100 @@ class DataContent:
 
         return result
 
+    def get_reports_invoices_lab(self, **kwargs):
+        return self.get_invoices_lab_list(**kwargs)
+
+    def get_invoices_lab_list(self, **kwargs):
+        dm = self.app.dm  # shortcut
+
+        period = None
+        period_id = kwargs.get('period', None)
+
+        if period_id is None:
+            for p in dm.get_invoice_periods():
+                if p.status == 'active':
+                    period = p
+        else:
+            period = dm.get_invoice_period_by(id=int(period_id))
+
+        kwargs['start'] = pretty_date(period.start)
+        kwargs['end'] = pretty_date(period.end)
+
+        bookings, range_dict = self.get_booking_in_range(kwargs)
+
+        u = self.app.user
+        pi_id_value = kwargs.get('pi_id', u.id)
+
+        try:
+            pi_id = int(pi_id_value)
+
+        except Exception:
+            raise Exception("Provide a valid integer id.")
+
+        pi_user = self.app.dm.get_user_by(id=pi_id)
+        if pi_user is None:
+            raise Exception("Invalid user id: %s" % pi_id)
+
+        if not u.is_manager and (pi_id != u.id or not u.is_pi):
+            raise Exception("You do not have access to this information.")
+
+        apps_dict = {a.id: [] for a in pi_user.get_applications()}
+        all_bookings = []
+        for b in bookings:
+            if b.get('pi_id', None) != pi_id:
+                continue
+
+            app_id = b.get('app_id', None)
+
+            if app_id not in apps_dict:
+                continue
+
+            apps_dict[app_id].append(b)
+            all_bookings.append(b)
+
+        result = {
+            'pi': pi_user,
+            'apps_dict':  apps_dict,
+            'all_bookings': all_bookings,
+            'total': sum(b['total_cost'] for b in all_bookings)
+        }
+
+        result.update(range_dict)
+        result.update(self.get_transactions_list(period=period.id,
+                                                 pi=pi_user.id))
+
+        return result
+
+    def get_reports_bookings_extracosts(self, **kwargs):
+        all_bookings, range_dict = self.get_booking_in_range(kwargs)
+
+        u = self.app.user
+        if not u.is_manager:
+            raise Exception("Only manager users can access this page")
+
+        bookings = []
+
+        for b in all_bookings:
+            if len(b['costs']):
+                bookings.append(b)
+
+        q1 = get_quarter()
+        q0 = get_quarter(q1[0] - dt.timedelta(days=1))
+
+        self.get_transactions_list(**kwargs)
+
+        result = {
+            'bookings': bookings,
+            'q0': q0,
+            'q1': q1
+        }
+
+        result.update(range_dict)
+
+        return result
+
     def get_booking_costs_table(self, **kwargs):
         booking_id = int(kwargs.get('booking_id', 1))
-        print("get_costs_table: booking_id = %s" % booking_id)
-
         resources = self.app.dm.get_resources()
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
@@ -518,6 +608,113 @@ class DataContent:
 
     def get_forms_list(self, **kwargs):
         return  {'forms': self.app.dm.get_forms()}
+
+    def get_raw_invoice_periods_list(self, **kwargs):
+        return {'invoice_periods': self.app.dm.get_invoice_periods()}
+
+    def get_raw_transactions_list(self, **kwargs):
+        return {'transactions': self.app.dm.get_transactions()}
+
+    def get_transaction_form(self, **kwargs):
+        dm = self.app.dm
+        transaction_id = kwargs['transaction_id']
+        if transaction_id:
+            t = dm.get_transaction_by(id=transaction_id)
+        else:
+            t = dm.Transaction(date=dt.datetime.now(),
+                               amount=0,
+                               comment='')
+
+        return {
+            'transaction': t,
+            'pi_list': [u for u in dm.get_users() if u.is_pi]
+        }
+
+    def get_invoice_periods_list(self, **kwargs):
+        periods = [
+            {'id': ip.id,
+             'status': ip.status,
+             'start': ip.start,
+             'end': ip.end,
+             'period': pretty_quarter((ip.start, ip.end))
+            } for ip in self.app.dm.get_invoice_periods()
+        ]
+
+        return {'invoice_periods': periods}
+
+    def get_invoice_period_form(self, **kwargs):
+        dm = self.app.dm
+        invoice_period_id = kwargs['invoice_period_id']
+        if invoice_period_id:
+            ip = dm.get_invoice_period_by(id=invoice_period_id)
+        else:
+            ip = dm.InvoicePeriod(status='active',
+                                 start=dt.datetime.now(),
+                                 end=dt.datetime.now())
+
+        return {
+            'invoice_period': ip
+        }
+
+    def get_transactions_list(self, **kwargs):
+        dm = self.app.dm  # shortcut
+        period = dm.get_invoice_period_by(id=int(kwargs['period']))
+
+        def _filter(t):
+            return ((period.start < t.date < period.end) and
+                    ('pi' not in kwargs or t.user.id == kwargs['pi'] ))
+
+        transactions = [t for t in dm.get_transactions() if _filter(t)]
+        transactions_dict = {}
+
+        for t in transactions:
+            user_id = t.user.id
+            if user_id not in transactions_dict:
+                transactions_dict[user_id] = 0
+            transactions_dict[user_id] += int(float(t.amount))
+
+        return {
+            'transactions': transactions,
+            'period': period,
+            'transactions_dict': transactions_dict
+        }
+
+    def get_invoice_period(self, **kwargs):
+        dm = self.app.dm  # shortcut
+        period = dm.get_invoice_period_by(id=int(kwargs['period']))
+        tabs = [
+            {'label': 'overall',
+             'template': 'time_distribution.html'
+             },
+            {'label': 'invoices',
+             'template': 'invoices_list.html'
+             },
+            {'label': 'transactions',
+             'template': 'transactions_list.html',
+             }
+        ]
+        tab = kwargs.get('tab', tabs[0]['label'])
+        data = {
+            'period': period,
+            'tabs': tabs,
+            'selected_tab': tab,
+            'base_url': flask.url_for('main',
+                                 content_id='invoice_period',
+                                 period=period.id,
+                                 tab=tab)
+        }
+
+        report_args = {
+            'start': pretty_date(period.start),
+            'end': pretty_date(period.end),
+            'details': kwargs.get('details', None)
+        }
+
+        data.update(self.get_transactions_list(period=period.id))
+        data.update(self.get_reports_invoices(**report_args))
+        data.update(self.get_reports_time_distribution(**report_args))
+
+        return data
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
@@ -833,6 +1030,10 @@ class DataContent:
             if pi:
                 bd['pi_id'] = pi.id
                 bd['pi_name'] = pi.name
+
+            app = b.application
+            if app is not None:
+                bd['app_id'] = app.id
 
             return bd
 

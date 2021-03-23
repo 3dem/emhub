@@ -1,0 +1,102 @@
+<!-- ============================================================== -->
+<!-- Application Modal Content -->
+<!-- ============================================================== -->
+{% set can_edit = current_user.is_manager %}
+{% set readonly = '' if can_edit else 'readonly' %}
+{% set disabled = '' if can_edit else 'disabled' %}
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document" data-backdrop="static" data-keyboard="false">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="transaction-modal-title"> Transaction (id = {{ transaction.id }}) </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="transaction-form" data-parsley-validate="" novalidate="">
+                    <input type="hidden" id="transaction-id" name="transaction-id" value="{{ transaction.id }}">
+
+                    <!-- Date Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Date</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                             <input type="text" class="form-control datetimepicker-input" data-target="#transaction-date" id="transaction-date" data-toggle="datetimepicker" />
+                        </div>
+                    </div>
+
+                    <!-- PI Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">PI</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <select id="transaction-user-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
+                                {% for pi in pi_list %}
+                                    <option value="{{ pi.id }}">{{ pi.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Amount Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Amount</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" {{ readonly }} required="" placeholder="Enter amount" id="transaction-amount" name="transaction-amount"  class="form-control" value="{{ transaction.amount }}">
+                        </div>
+                    </div>
+
+                    <!-- Comment Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Comment</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" {{ readonly }} required="" placeholder="Enter comment" id="transaction-comment" name="transaction-comment" class="form-control" value="{{ transaction.comment }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+
+                    </div>
+
+                </form>
+            </div>
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+
+          <button type="button" id="transaction-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+
+          {% if current_user.is_manager %}
+              {% set btnOkText = "Update" if transaction.id else "Create" %}
+               <button class="btn btn-outline-dark" onclick="onTransactionOkButtonClick()">{{ btnOkText }}</button>
+          {% else %}
+
+          {% endif %}
+
+
+
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of Application Modal Content -->
+<!-- ============================================================== -->
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    $('#transaction-date').datetimepicker({
+        format: 'YYYY/MM/DD',
+        date:  new Date('{{ transaction.date|pretty_date }}')
+    });
+
+    $('select').selectpicker();
+    $('#transaction-user-select').selectpicker('val', "{{ transaction.user.id }}");
+
+})(window, document, window.jQuery);
+</script>

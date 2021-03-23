@@ -135,6 +135,7 @@
     var booking_type = 'booking';
     var repeat_value = null;
     var has_calendar = true;
+    var content_url = "{{ url_for('get_content') }}";
 
 
     (function(window, document, $, undefined) {
@@ -165,39 +166,10 @@
     })(window, document, window.jQuery);
 
 
-    /**
-     * Make an AJAX request to the server and render the html result in a container.
-     * @param container_id The HTML container id where the result content will be placed.
-     * @param content_id contend id that will be requested to the server
-     * @param params dictionary with extra parameters to retrieve the content.
-     */
-    function get_ajax_content(content_id, params) {
-
-        if (params == null)
-            params = {content_id: content_id};
-        else
-            params.content_id = content_id;
-
-        var ajaxContent = $.ajax({
-            url: "{{ url_for('get_content') }}",
-            type: "POST",
-            data: params,
-            dataType: "html"
-        });
-
-        return ajaxContent;
-    }
-
     function load_main_content(content_id, params) {
-        ajaxContent = get_ajax_content(content_id, params);
-
-        ajaxContent.done(function(html) {
-            $("#main-content").html(html);
-        });
-
-        ajaxContent.fail(function(jqXHR, textStatus) {
-            alert( "Request failed: " + textStatus );
-        });
+        load_html_from_ajax("#main-content",
+            get_ajax_content(content_id, params)
+        );
     }
 
     function load_content_fromlink(e) {
@@ -525,11 +497,6 @@
 
         ajaxContent.done(function(html) {
             $("#experiment-modal").html(html);
-            if (last_booking.costs == null)
-                last_booking.costs = [
-                ['2020/02/01', 'Shipping', '20000'],
-                ['2020/01/21', 'Shipping back', '20000']
-                ]
             addBookingCosts(last_booking);
 
             $("#costs-btn-update" ).click(function() {

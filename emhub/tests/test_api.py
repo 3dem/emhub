@@ -29,8 +29,10 @@
 import json
 import unittest
 import random
+import datetime as dt
 
 from emhub.client import DataClient
+from emhub.utils import (get_quarter, pretty_quarter)
 
 
 class TestClientApi(unittest.TestCase):
@@ -80,5 +82,18 @@ class TestClientApi(unittest.TestCase):
         check = json.loads(sc.json())[0]['id']
 
         self.assertEqual(result_id, check, msg="Creating test session failed!")
+
+        sc.logout()
+
+    def test_create_invoice_periods(self):
+        q1 = get_quarter()
+        q0 = get_quarter(q1[0] - dt.timedelta(days=1))
+
+        sc = DataClient()
+        sc.login('mull', 'mull')
+        method = "create_invoice_period"
+
+        for q in [q0, q1]:
+            pass
 
         sc.logout()

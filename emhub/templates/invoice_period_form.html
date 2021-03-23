@@ -1,0 +1,93 @@
+<!-- ============================================================== -->
+<!-- Application Modal Content -->
+<!-- ============================================================== -->
+{% set can_edit = current_user.is_manager %}
+{% set readonly = '' if can_edit else 'readonly' %}
+{% set disabled = '' if can_edit else 'disabled' %}
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document" data-backdrop="static" data-keyboard="false">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="invoice_period-modal-title"> Invoice Period (id = {{ invoice_period.id }}) </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="invoice_period-form" data-parsley-validate="" novalidate="">
+                    <input type="hidden" id="invoice_period-id" name="invoice_period-id" value="{{ invoice_period.id }}">
+
+                    <!-- Status Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Status</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Enter status" id="invoice_period-status" name="invoice_period-status" class="form-control" value="{{ invoice_period.status }}">
+                        </div>
+                    </div>
+
+                    <!-- Date Start Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Start</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                             <input type="text" class="form-control datetimepicker-input" data-target="#invoice_period-start" id="invoice_period-start" data-toggle="datetimepicker" />
+                        </div>
+                    </div>
+
+                    <!-- Date Start Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">End</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                             <input type="text" class="form-control datetimepicker-input" data-target="#invoice_period-end" id="invoice_period-end" data-toggle="datetimepicker" />
+                        </div>
+                    </div>
+
+
+                    <div class="form-group row">
+
+                    </div>
+
+                </form>
+            </div>
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+
+          <button type="button" id="invoice_period-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+
+          {% if current_user.is_manager %}
+              {% set btnOkText = "Update" if invoice_period.id else "Create" %}
+               <button class="btn btn-outline-dark" onclick="onInvoicePeriodOkButtonClick()">{{ btnOkText }}</button>
+          {% else %}
+
+          {% endif %}
+
+
+
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of Application Modal Content -->
+<!-- ============================================================== -->
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    $('#invoice_period-start').datetimepicker({
+        format: 'YYYY/MM/DD',
+        date:  new Date('{{ invoice_period.start|pretty_date }}')
+    });
+
+    $('#invoice_period-end').datetimepicker({
+        format: 'YYYY/MM/DD',
+        date:  new Date('{{ invoice_period.end|pretty_date }}')
+    });
+
+})(window, document, window.jQuery);
+</script>

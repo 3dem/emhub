@@ -1,0 +1,24 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set period_label = (period.start, period.end)|pretty_quarter %}
+    {% set title = "Invoices: " + pi.name %}
+    {% set navigation = [('Lab Invoices', url_for('main', content_id='invoice_periods_list')), (period_label, '')] %}
+    {% include 'include_header.html' %}
+
+
+    <!-- Bookings -->
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="col-12">
+                    <h3> Period: {{ period_label }}</h3>
+                </div>
+                {% include 'invoices_lab_list.html' %}
+            </div>
+        </div>
+    </div>
+    <!-- end Bookings -->
+
+</div>
+
