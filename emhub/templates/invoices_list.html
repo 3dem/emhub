@@ -5,14 +5,14 @@
     <div class="card">
         <div class="card-header">
             <div class="row">
-                <h5 class="mb-0 col-8"> </h5>
-                <h5 class="mb-0 col-4"> </h5>
+                {% set btn_prefix = 'Hide' if group == 1 else 'Show' %}
+                <a id="show-hide-btn" class="btn btn-outline-dark" href="{{ url_for('main', content_id='invoice_period', period=period.id, tab='invoices', group=1-group) }}"> {{ btn_prefix }} Application Groups  </a>
             </div>
         </div>
         <div class="card-body">
             <table class="table table-invoice" style="width:100%">
                 <thead>
-                <tr>
+                <tr class="table-secondary">
                     <th>Principal Investigator</th>
                     <th>Invoice Reference</th>
                     <td>Invoice Address</td>
@@ -26,42 +26,70 @@
 
                 <tbody>
 
-                {% for cem, pi_dict in apps_dict.items() %}
-                    {% set cem_total = pi_dict.values()|sum(attribute='sum_cost') %}
-                    {% set cem_sum_days = pi_dict.values()|sum(attribute='sum_days') %}
-                    {% if cem_total > 0 %}
-                        <tr class="table-primary"> <!-- CEM row -->
-                            <td>{{ cem }}</td>
-                            <td> </td>
-                            <td> </td>
-                            <td> </td>
-                            <td> {{ cem_days }}</td>
-                            <td>{{ cem_total }}</td>
-                            <td></td>
-                            <td></td>
-                        </tr>
+                {% if group == 1 %}
+                    {# Group rows by Application (CEM)#}
 
-                        {% for pi_id, pi_info in pi_dict.items() %}
-                            {% set bookings = pi_info['bookings'] %}
-                            {% set extra_costs = transactions_dict.get(pi_id, 0) %}
-                            {% set to_invoice = pi_info['sum_cost'] + extra_costs %}
-                            {% if bookings|length > 0 or extra_costs != 0 %}
-                                {% set pu = portal_users[pi_info['pi_email']] %}
-                                <tr>
-                                    <td><a href="javascript:showPiInvoicesForm({{ pi_id }}, '{{ pi_info['pi_name'] }}')" </a>{{ pi_info['pi_name'] }}</td>
-                                    <td>{{ pu['invoice_ref'] }}</td>
-                                    <td>{{ pu['invoice_address']['address'] }}</td>
-                                    <td>{{ bookings|length }}</td>
-                                    <td>{{ pi_info['sum_days'] }}</td>
-                                    <td>{{ pi_info['sum_cost'] }}</td>
-                                    <td> {{ extra_costs }}</td>
-                                    <td> <span class="font-weight-bold"> {{ to_invoice }}</span></td>
-                                </tr>
-                            {% endif %}
-                        {% endfor %}
+                    {% for cem, pi_dict in apps_dict.items() %}
+                        {% set cem_total = pi_dict.values()|sum(attribute='sum_cost') %}
+                        {% set cem_sum_days = pi_dict.values()|sum(attribute='sum_days') %}
+                        {% if cem_total > 0 %}
+                            <tr class="table-primary"> <!-- CEM row -->
+                                <td>{{ cem }}</td>
+                                <td> </td>
+                                <td> </td>
+                                <td> </td>
+                                <td> {{ cem_days }}</td>
+                                <td>{{ cem_total }}</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
 
-                    {% endif %}
-                {% endfor %}
+                            {% for pi_id, pi_info in pi_dict.items() %}
+                                {% set bookings = pi_info['bookings'] %}
+                                {% set extra_costs = transactions_dict.get(pi_id, 0) %}
+                                {% set to_invoice = pi_info['sum_cost'] + extra_costs %}
+                                {% if bookings|length > 0 or extra_costs != 0 %}
+                                    {% set pu = portal_users[pi_info['pi_email']] %}
+                                    <tr>
+                                        <td><a href="javascript:showPiInvoicesForm({{ pi_id }}, '{{ pi_info['pi_name'] }}')" </a>{{ pi_info['pi_name'] }}</td>
+                                        <td>{{ pu['invoice_ref'] }}</td>
+                                        <td>{{ pu['invoice_address']['address'] }}</td>
+                                        <td>{{ bookings|length }}</td>
+                                        <td>{{ pi_info['sum_days'] }}</td>
+                                        <td>{{ pi_info['sum_cost'] }}</td>
+                                        <td> {{ extra_costs }}</td>
+                                        <td> <span class="font-weight-bold"> {{ to_invoice }}</span></td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+
+                        {% endif %}
+                    {% endfor %}
+
+                {% else %}
+                    {# No grouping, just PI rows #}
+                    {% for pi_id, pi_info in pi_dict.items() %}
+                        {% set bookings = pi_info['bookings'] %}
+                        {% set extra_costs = transactions_dict.get(pi_id, 0) %}
+                        {% set to_invoice = pi_info['sum_cost'] + extra_costs %}
+                        {% if bookings|length > 0 or extra_costs != 0 %}
+                            {% set pu = portal_users[pi_info['pi_email']] %}
+                            <tr>
+                                <td><a href="javascript:showPiInvoicesForm({{ pi_id }}, '{{ pi_info['pi_name'] }}')" </a>{{ pi_info['pi_name'] }}</td>
+                                <td>{{ pu['invoice_ref'] }}</td>
+                                <td>{{ pu['invoice_address']['address'] }}</td>
+                                <td>{{ bookings|length }}</td>
+                                <td>{{ pi_info['sum_days'] }}</td>
+                                <td>{{ pi_info['sum_cost'] }}</td>
+                                <td> {{ extra_costs }}</td>
+                                <td> <span class="font-weight-bold"> {{ to_invoice }}</span></td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+
+
+                {% endif %}
+
 
                 </tbody>
             </table>

@@ -18,17 +18,13 @@
         <td></td>
     </tr>
 
-    {% for a in apps %}
-        {% set bookings = apps_dict[a.id] %}
-
-        {# Then the other rows with real bookings info #}
-        {% for b in bookings %}
-        <tr>
-            <td>{{ b['title'] }}</td>
-            <td>{{ b['pretty_start']}} - {{ b['pretty_end'] }}</td>
-            <td class="text-right">{{ b['total_cost'] }}</td>
-        </tr>
-        {% endfor %}
+    {# Then the other rows with real bookings info #}
+    {% for b in all_bookings %}
+    <tr>
+        <td>{{ b['id'] }} --- {{ b['title'] }}</td>
+        <td>{{ b['pretty_start']}} - {{ b['pretty_end'] }}</td>
+        <td class="text-right">{{ b['total_cost'] }}</td>
+    </tr>
     {% endfor %}
 
     {% if transactions|length > 0 %}

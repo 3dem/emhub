@@ -437,20 +437,34 @@ class DataContent:
     def get_reports_invoices(self, **kwargs):
         bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
 
-        apps_dict = {}
         portal_users = {
             pu['email']: pu for pu in self.app.sll_pm.fetchAccountsJson()
             if pu['pi']
         }
 
+        def create_pi_info_dict(a):
+            return {pi.id: {
+                'pi_name': pi.name,
+                'pi_email': pi.email,
+                'bookings': [],
+                'sum_cost': 0,
+                'sum_days': 0,
+                } for pi in a.pi_list
+            }
+
+        def update_pi_info(pi_info, b):
+            pi_info['bookings'].append(b)
+            pi_info['sum_cost'] += b.total_cost
+            pi_info['sum_days'] += b.days
+
+        # Create a dictionary where pi/bookings are grouped by Application
+        # and another one grouped by pi
+        apps_dict = {}
+        pi_dict = {}
+
         for a in self.app.dm.get_applications():
-            apps_dict[a.code] = {pi.id: {'pi_name': pi.name,
-                                         'pi_email': pi.email,
-                                         'bookings': [],
-                                         'sum_cost': 0,
-                                         'sum_days': 0,
-                                         }
-                                 for pi in a.pi_list}
+            apps_dict[a.code] = create_pi_info_dict(a)
+            pi_dict.update(create_pi_info_dict(a))
 
         for b in bookings:
             if b.application is None:
@@ -469,10 +483,9 @@ class DataContent:
                 continue
 
             try:
-                pi_info = apps_dict[app_id][pi.id]
-                pi_info['bookings'].append(b)
-                pi_info['sum_cost'] += b.total_cost
-                pi_info['sum_days'] += b.days
+                update_pi_info(apps_dict[app_id][pi.id], b)
+                update_pi_info(pi_dict[pi.id], b)
+
                 if b.total_cost == 0:
                     print(">>> 0 cost booking1!!1")
                     print(b.json())
@@ -483,7 +496,9 @@ class DataContent:
 
         result = {
             'apps_dict':  apps_dict,
+            'pi_dict': pi_dict,
             'portal_users': portal_users,
+            'group': int(kwargs.get('group', 1))
         }
         result.update(range_dict)
 
@@ -707,7 +722,8 @@ class DataContent:
         report_args = {
             'start': pretty_date(period.start),
             'end': pretty_date(period.end),
-            'details': kwargs.get('details', None)
+            'details': kwargs.get('details', None),
+            'group': kwargs.get('group', 1)
         }
 
         data.update(self.get_transactions_list(period=period.id))
