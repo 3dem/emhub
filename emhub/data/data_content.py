@@ -243,6 +243,10 @@ class DataContent:
                                     if a.is_active]
 
         dataDict['possible_owners'] = self.get_pi_labs()
+
+        if self.app.user.is_manager:
+            dataDict['possible_operators'] = [u for u in dm.get_users() if 'manager' in u.roles]
+
         dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
 
