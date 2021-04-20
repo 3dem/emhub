@@ -150,8 +150,6 @@
     /* Register when the Booking type change */
     $('input[type=radio][name=booking-type-radio]').change(function() {
         booking_type = this.value;
-        console.log("booking_type:  " + booking_type);
-
         $('#booking-slot-auth').prop('readonly', this.value != 'slot');
     });
 
@@ -219,7 +217,7 @@
     }
 
     /** Helper functions to handle AJAX response or failure */
-    function handleAjaxDone(jsonResponse) {
+    function handleBookingAjaxDone(jsonResponse) {
         let error = null;
 
         if ('bookings_created' in jsonResponse) {
@@ -290,10 +288,7 @@
         $('#booking-modal-title').html(htmlStr);
         $('#booking-btn-ok').html(titlePrefix);
 
-        console.log("owners.lenght", possible_owners.length);
-
         if (possible_owners.length) {
-            console.log("booking.owner.id", booking.owner.id);
             $('#booking-owner-select').selectpicker('val', booking.owner.id);
         }
         else {
@@ -421,7 +416,7 @@
             dataType: "json"
         });
 
-        ajaxContent.done(handleAjaxDone);
+        ajaxContent.done(handleBookingAjaxDone);
         ajaxContent.fail(handleAjaxFail);
     }  // function onOkButtonClick
 
@@ -450,7 +445,7 @@
             dataType: "json"
         });
 
-        ajaxContent.done(handleAjaxDone);
+        ajaxContent.done(handleBookingAjaxDone);
         ajaxContent.fail(handleAjaxFail);
     }
 
