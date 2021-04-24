@@ -407,22 +407,22 @@ def delete_transaction():
 
 
 # ---------------------------- HEALTH INFO ------------------------------------
-@api_bp.route('/create_health_item', methods=['POST'])
+@api_bp.route('/add_health_items', methods=['POST'])
 @flask_login.login_required
-def create_health_table():
-    return handle_health_table(app.dm.create_health_item)
+def add_health_items():
+    return handle_health_table(app.dm.add_health_items)
 
 
-@api_bp.route('/get_health_item', methods=['POST'])
+@api_bp.route('/get_health_items', methods=['POST'])
 @flask_login.login_required
-def get_health_table():
+def get_health_items():
     return filter_request(app.dm.get_health_items)
 
 
-@api_bp.route('/update_health_item', methods=['POST'])
+@api_bp.route('/update_health_items', methods=['POST'])
 @flask_login.login_required
-def update_health_table():
-    return handle_health_table(app.dm.update_health_item)
+def update_health_items():
+    return handle_health_table(app.dm.update_health_items)
 
 
 # -------------------- UTILS functions ----------------------------------------

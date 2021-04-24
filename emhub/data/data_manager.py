@@ -452,17 +452,17 @@ class DataManager(DbManager):
         return self.__item_by(self.Transaction, **kwargs)
 
     # ---------------------------- HEALTH INFO --------------------------------
-    def create_health_item(self, **attrs):
-        new_item = self._db_health.create_row(**attrs)
-        self.log('operation', 'create_health',
-                 attrs=self.json_from_dict(attrs))
-        return new_item
+    def add_health_items(self, **attrs):
+        new_items = self._db_health.create_rows(**attrs)
+        #self.log('operation', 'create_health',
+        #         attrs=self.json_from_dict(attrs))
+        return new_items
 
-    def update_health_item(self, **attrs):
-        item = self._db_health.update_row(**attrs)
+    def update_health_items(self, **attrs):
+        items = self._db_health.update_rows(**attrs)
         self.log('operation', 'update_health',
                  attrs=self.json_from_dict(attrs))
-        return item
+        return items
 
     def get_health_items(self, condition=None, orderBy=None, asJson=False):
         return self._db_health.items_from_query(condition=condition,

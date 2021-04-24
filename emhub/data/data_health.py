@@ -66,33 +66,39 @@ class DataHealth(DbManager):
             # Microscope used
             resource_id = Column(Integer, index=True)
 
-            #def json(self):
-            #    return self.json_from_object(self)
+            def json(self):
+                return DbManager.json_from_object(self)
 
         self.HealthTable = HealthTable
 
-    def create_row(self, **attrs):
-        row = self.HealthTable(**attrs)
-        self._db_session.add(row)
+    def create_rows(self, **kwargs):
+        items = []
+        for row_dict in kwargs['attrs']:
+            row = self.HealthTable(**row_dict)
+            items.append(row)
+            self._db_session.add(row)
         self.commit()
 
-        return row
+        return items
 
-    def update_row(self, **kwargs):
+    def update_rows(self, **kwargs):
         query = self._db_session.query(self.HealthTable)
-        item = query.filter_by(id=kwargs['id']).one_or_none()
+        items_list = kwargs['attrs']
+        ids = [item['id'] for item in items_list]
 
-        if item is None:
-            raise Exception("Not found item %s with id %s"
+        items_db = [query.filter(query.id.in_(ids))]
+        if not items_db:
+            raise Exception("Found no items %s with ids %s"
                             % (self.HealthTable.__name__,
-                               kwargs['id']))
+                               ids))
 
-        for attr, value in kwargs.items():
-            if attr != 'id':
-                setattr(item, attr, value)
+        for item_dict, item_db in zip(items_list, items_db):
+            for attr, value in item_dict.items():
+                if attr != 'id':
+                    setattr(item_db, attr, value)
         self.commit()
 
-        return item
+        return items_db
 
     def items_from_query(self, condition=None, orderBy=None, asJson=False):
         query = self._db_session.query(self.HealthTable)
