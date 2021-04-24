@@ -1,0 +1,55 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Health Info table" %}
+    {% set navigation = [('Admin', ''), ('Health Info table', '')] %}
+    {% include 'include_header.html' %}
+
+    <!-- table row -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Health Info</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="health-table" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>id</th>
+                                <th>time</th>
+                                <th>microscope</th>
+                                <th>cartridge #</th>
+                                <th>cassette #</th>
+                                <th>spot size</th>
+                                <th>acquisition #</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for r in health_info %}
+                            <tr>
+                                <td>{{ r.id }}</td>
+                                <td>{{ r.timestamp }}</td>
+                                <td>{{ r.resource_id }}</td>
+                                <td>{{ r.cartridge_count }}</td>
+                                <td>{{ r.cassette_count }}</td>
+                                <td>{{ r.spot_size }}</td>
+                                <td>{{ r.acq_count }}</td>
+                            </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<script>
+    $('#health-table').DataTable();
+</script>

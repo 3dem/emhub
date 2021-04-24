@@ -179,7 +179,7 @@ class DataContent:
     def get_resources_list(self, **kwargs):
         user = self.app.user
         if not user.is_authenticated:
-            return  {'resources': []}
+            return {'resources': []}
 
         resource_list = [
             {'id': r.id,
@@ -622,13 +622,16 @@ class DataContent:
         return {'applications': applications}
 
     def get_forms_list(self, **kwargs):
-        return  {'forms': self.app.dm.get_forms()}
+        return {'forms': self.app.dm.get_forms()}
 
     def get_raw_invoice_periods_list(self, **kwargs):
         return {'invoice_periods': self.app.dm.get_invoice_periods()}
 
     def get_raw_transactions_list(self, **kwargs):
         return {'transactions': self.app.dm.get_transactions()}
+
+    def get_raw_health_info(self, **kwargs):
+        return {'health_info': self.app.dm.get_health_items()}
 
     def get_transaction_form(self, **kwargs):
         dm = self.app.dm

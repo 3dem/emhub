@@ -401,6 +401,50 @@ class TestData(TestDataBase):
             operator_id=12,  # User  12
         )
 
+    def _populateHealthInfo(self, dm):
+        dm.create_health_item(
+            vpp_slot=0,
+            vpp_position=1,
+            acq_count=1232,
+            acq_mode='Linear',
+            frac_fmt='mrc',
+            cartridge_count=233,
+            cassette_count=34,
+            emission_current=2336,
+            gun_lens=6,
+            spot_size=4,
+            column_valves='Open',
+            timestamp=self._datetime(2020, 5, 8, 9, 30, 10),
+            resource_id=1
+        )
+
+        dm.create_health_item(
+            vpp_slot=0,
+            vpp_position=1,
+            acq_count=1233,
+            acq_mode='Linear',
+            frac_fmt='mrc',
+            cartridge_count=233,
+            cassette_count=34,
+            emission_current=2334,
+            gun_lens=6,
+            spot_size=4,
+            column_valves='Open',
+            timestamp=self._datetime(2020, 5, 8, 9, 31, 20),
+            resource_id=1
+        )
+
+        dm.create_health_item(
+            cartridge_count=453,
+            cassette_count=11,
+            emission_current=2008,
+            gun_lens=6,
+            spot_size=6,
+            column_valves='Closed',
+            timestamp=self._datetime(2020, 5, 3, 9, 10, 20),
+            resource_id=2
+        )
+
 
 if __name__ == '__main__':
     instance_path = os.path.abspath(os.environ.get("EMHUB_INSTANCE",

@@ -36,6 +36,7 @@ import sqlalchemy
 from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
+from .data_health import DataHealth
 from .data_models import create_data_models
 from .data_session import H5SessionData
 
@@ -59,6 +60,10 @@ class DataManager(DbManager):
             # Create a separate database for logs
             logDbPath = dbPath.replace('.sqlite', '-logs.sqlite')
             self._db_log = DataLog(logDbPath, cleanDb=cleanDb)
+
+            # Create a separate database for health data
+            healthDbPath = dbPath.replace('emhub.sqlite', 'health_data.sqlite')
+            self._db_health = DataHealth(healthDbPath, cleanDb=cleanDb)
 
             # Create sessions dir if not exists
             os.makedirs(self._sessionsPath, exist_ok=True)
@@ -445,6 +450,24 @@ class DataManager(DbManager):
     def get_transaction_by(self, **kwargs):
         """ This should return a single user or None. """
         return self.__item_by(self.Transaction, **kwargs)
+
+    # ---------------------------- HEALTH INFO --------------------------------
+    def create_health_item(self, **attrs):
+        new_item = self._db_health.create_row(**attrs)
+        self.log('operation', 'create_health',
+                 attrs=self.json_from_dict(attrs))
+        return new_item
+
+    def update_health_item(self, **attrs):
+        item = self._db_health.update_row(**attrs)
+        self.log('operation', 'update_health',
+                 attrs=self.json_from_dict(attrs))
+        return item
+
+    def get_health_items(self, condition=None, orderBy=None, asJson=False):
+        return self._db_health.items_from_query(condition=condition,
+                                                orderBy=orderBy,
+                                                asJson=asJson)
 
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):

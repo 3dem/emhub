@@ -145,6 +145,3 @@ def get_booking_counters(bookings):
             cem_counters.count(b)
 
     return counters, cem_counters
-
-
-

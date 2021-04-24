@@ -58,5 +58,3 @@ def index():
                                  is_devel=app.is_devel,
                                  version=app.version,
                                  emhub_title=app.config.get('EMHUB_TITLE', ''))
-
-

@@ -406,6 +406,25 @@ def delete_transaction():
     return handle_transaction(app.dm.delete_transaction)
 
 
+# ---------------------------- HEALTH INFO ------------------------------------
+@api_bp.route('/create_health_item', methods=['POST'])
+@flask_login.login_required
+def create_health_table():
+    return handle_health_table(app.dm.create_health_item)
+
+
+@api_bp.route('/get_health_item', methods=['POST'])
+@flask_login.login_required
+def get_health_table():
+    return filter_request(app.dm.get_health_items)
+
+
+@api_bp.route('/update_health_item', methods=['POST'])
+@flask_login.login_required
+def update_health_table():
+    return handle_health_table(app.dm.update_health_item)
+
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
@@ -476,6 +495,13 @@ def handle_resource(resource_func):
         return resource_func(**attrs).json()
 
     return _handle_item(handle, 'resource')
+
+
+def handle_health_table(func):
+    def handle(**attrs):
+        return func(**attrs).json()
+
+    return _handle_item(handle, 'health_table')
 
 
 def handle_session(session_func):

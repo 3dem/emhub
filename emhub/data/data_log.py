@@ -87,4 +87,3 @@ class DataLog(DbManager):
 
     def get_logs(self):
         return self._db_session.query(self.Log).all()
-

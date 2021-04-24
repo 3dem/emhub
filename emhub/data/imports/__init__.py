@@ -58,6 +58,8 @@ class TestDataBase:
         self._populateBookings(dm)
         print("Populating sessions...")
         self._populateSessions(dm)
+        print("Populating health info...")
+        self._populateHealthInfo(dm)
 
     def _populateForms(self, dm):
         form1 = {
@@ -240,6 +242,9 @@ class TestDataBase:
         pass
 
     def _populateSessions(self, dm):
+        pass
+
+    def _populateHealthInfo(self, dm):
         pass
 
     def _datetime(self, *args):

@@ -120,5 +120,3 @@ if __name__ == '__main__':
         print("%s - defocus %s" % (ctf._micObj.thumbnail.getFileName(), ctf.getDefocusU()))
 
     hsd.close()
-
-

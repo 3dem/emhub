@@ -102,7 +102,7 @@ def create_data_models(dm):
         # If 0, means that the booking can be cancelled at any time
         @property
         def latest_cancellation(self):
-            return  self.__getExtra('latest_cancellation', 0)
+            return self.__getExtra('latest_cancellation', 0)
 
         @latest_cancellation.setter
         def latest_cancellation(self, value):
@@ -133,6 +133,14 @@ def create_data_models(dm):
         @property
         def is_microscope(self):
             return 'microscope' in self.tags
+
+        @property
+        def has_health_info(self):
+            return self.__getExtra('has_health_info', False)
+
+        @has_health_info.setter
+        def has_health_info(self, value):
+            self.__setExtra('has_health_info', bool(value))
 
         @property
         def is_active(self):
