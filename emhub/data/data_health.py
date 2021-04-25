@@ -29,8 +29,13 @@
 import sqlalchemy
 from sqlalchemy import Column, Integer, String, Float
 from sqlalchemy_utc import UtcDateTime
+from datetime import datetime, timezone, timedelta
 
 from .data_db import DbManager
+
+
+TZ_DELTA = 0  # Define timezone, UTC '0'
+tzinfo = timezone(timedelta(hours=TZ_DELTA))
 
 
 class DataHealth(DbManager):
@@ -49,7 +54,8 @@ class DataHealth(DbManager):
             # Microscope used
             resource_id = Column(Integer, default=1, index=True)
 
-            timestamp = Column(UtcDateTime, unique=True, index=True)
+            # FIXME: should be unique
+            timestamp = Column(UtcDateTime, unique=False, index=True)
 
             vpp_slot = Column(Integer, nullable=True)
             vpp_position = Column(Integer, nullable=True)
@@ -80,10 +86,14 @@ class DataHealth(DbManager):
         self.HealthTable = HealthTable
 
     def create_rows(self, **kwargs):
-        items = []
-        for row_dict in kwargs['attrs']:
+        items = {'items': []}
+        for row_dict in kwargs['items']:
+            # FIXME: remove this date hack
+            stamp = row_dict['timestamp']
+            if isinstance(stamp, str):
+                row_dict['timestamp'] = self._datetime(2020, 5, 8, 9, 30, 10)
             row = self.HealthTable(**row_dict)
-            items.append(row)
+            items['items'].append(row.json())
             self._db_session.add(row)
         self.commit()
 
@@ -119,3 +129,6 @@ class DataHealth(DbManager):
 
         result = query.all()
         return [s.json() for s in result] if asJson else result
+
+    def _datetime(self, *args):
+        return datetime(*args, tzinfo=tzinfo)

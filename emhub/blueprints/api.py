@@ -497,11 +497,17 @@ def handle_resource(resource_func):
     return _handle_item(handle, 'resource')
 
 
-def handle_health_table(func):
-    def handle(**attrs):
-        return func(**attrs).json()
-
-    return _handle_item(handle, 'health_table')
+def handle_health_table(handle_func):
+    try:
+        if not request.json:
+            raise Exception("Expecting JSON request.")
+        result = handle_func(**request.json['attrs'])
+        return send_json_data(result)
+    except Exception as e:
+        print(e)
+        import traceback
+        traceback.print_exc()
+        return send_error('ERROR from Server: %s' % e)
 
 
 def handle_session(session_func):

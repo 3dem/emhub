@@ -107,11 +107,11 @@ class DataClient:
         return self._method('update_session_item', 'item', attrs)
 
     def add_health_records(self, attrs):
-        """ Add a list of new items to a health_data db.
+        """ Add new items to a health_data db.
         Mandatory in attrs:
-            attrs: the list of dicts
+            items: list of dicts/items
         """
-        return self._method('add_health_items', 'item', attrs)
+        return self._method('add_health_items', 'items', attrs)
 
     #---------------------- Internal functions ------------------------------
     def _method(self, method, resultKey, attrs):

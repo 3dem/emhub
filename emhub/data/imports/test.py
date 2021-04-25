@@ -402,7 +402,7 @@ class TestData(TestDataBase):
         )
 
     def _populateHealthInfo(self, dm):
-        dm.add_health_items(attrs=[
+        dm.add_health_items(items=[
             {'vpp_slot': 0,
              'vpp_position': 1,
              'acq_count': 1232,

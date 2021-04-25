@@ -28,7 +28,7 @@
 import os
 import sys
 import pandas as pd
-from datetime import timezone, timedelta
+from contextlib import contextmanager
 
 from emhub.client import DataClient
 
@@ -42,8 +42,6 @@ def usage(error):
     """ % (sys.argv[0], error))
     sys.exit(1)
 
-TZ_DELTA = 0  # Define timezone, UTC '0'
-tzinfo = timezone(timedelta(hours=TZ_DELTA))
 
 # Dict to match cvs parameter names and db columns
 MATCH_DICT = {
@@ -74,6 +72,16 @@ MATCH_DICT = {
 }
 
 
+@contextmanager
+def open_client():
+    dc = DataClient()
+    try:
+        dc.login('stairs', 'stairs')
+        yield dc
+    finally:
+        dc.logout()
+
+
 class ImportHealthData:
     def __init__(self, path):
         self.path = path
@@ -96,15 +104,18 @@ class ImportHealthData:
         df.fillna(method='ffill', inplace=True)
         # TODO: check with different order?
         df.rename(columns=MATCH_DICT, inplace=True)
+        # Make timestamp JSON-serializable
+        #df['timestamp'] = df['timestamp'].dt.date
+        df['timestamp'] = df['timestamp'].astype(str)
         self.data = df.to_dict(orient='records')
 
         #print(self.data)
 
     def addHealthRecords(self):
         """ Create a session using REST API. """
-        sc = DataClient()
-        print("=" * 80, "\nAdding health items...")
-        sc.add_health_records(self.data)
+        with open_client() as dc:
+            print("=" * 80, "\nAdding health items...")
+            dc.add_health_records({'items': self.data})
 
 
     def run(self):
