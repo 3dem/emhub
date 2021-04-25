@@ -27,9 +27,8 @@
 # **************************************************************************
 import os
 import sys
-import json
 import pandas as pd
-from datetime import datetime, timezone, timedelta
+from datetime import timezone, timedelta
 
 from emhub.client import DataClient
 
@@ -45,6 +44,34 @@ def usage(error):
 
 TZ_DELTA = 0  # Define timezone, UTC '0'
 tzinfo = timezone(timedelta(hours=TZ_DELTA))
+
+# Dict to match cvs parameter names and db columns
+MATCH_DICT = {
+    'Date_Time': 'timestamp',
+    'Phase Plate Slot': 'vpp_slot',
+    'Phase Plate Preset Position Counter': 'vpp_position',
+    'Count of acquisitions': 'acq_count',
+    'Acquisition mode': 'acq_mode',
+    'Fractions file format': 'frac_fmt',
+    'Cartridge Load Counter': 'cartridge_count',
+    'Cassette Load Counter': 'cassette_count',
+    'Autoloader Dewar LN2 Usage (% per hour)': 'al_dewar_usage',
+    'Column Dewar LN2 Usage (% per hour)': 'col_dewar_usage',
+    'Emission Current': 'emission_current',
+    'Gun Lens Index': 'gun_lens',
+    'Spot Size': 'spot_size',
+    'Nominal Magnification': 'mag',
+    'Eftem Mode': 'eftem_mode',
+    'Illumination Mode': 'illum_mode',
+    'Column Valves States': 'column_valves',
+    'Memory Load': 'memory_load',
+    'Aberration Free Image Beam Shift is Enabled': 'afis',
+    'Camera Mode': 'camera_mode',
+    'Number of Completed Exposures': 'num_exp',
+    'Images per Hole': 'img_per_hole',
+    'Mean Image Dose Rate': 'dose_rate',
+    'test_label_old': 'test_label_new',
+}
 
 
 class ImportHealthData:
@@ -63,55 +90,27 @@ class ImportHealthData:
 
         # Merge Date and Time columns
         print("Parsing CSV file...")
-        data = pd.read_csv(self.path, sep=',', names=cols, skiprows=12,
-                           parse_dates=[['Date', 'Time']], )#dtype=typesdict)
-        # Set date_time as index
-        data = data.set_index(['Date_Time'])
-        data.sort_index(inplace=True, ascending=True)
-        data.fillna(method='ffill', inplace=True)
-        print("Parsed OK")
+        df = pd.read_csv(self.path, sep=',', names=cols, skiprows=12,
+                           parse_dates=[['Date', 'Time']], )
 
-        return data
+        df.fillna(method='ffill', inplace=True)
+        # TODO: check with different order?
+        df.rename(columns=MATCH_DICT, inplace=True)
+        self.data = df.to_dict(orient='records')
 
-    def iterateItemsAttrs(self):
-        """ Create a dict with Micrograph items. """
-        print("Parsing Relion micrograph items...")
-        for itemId, item in enumerate(self.results['CtfFind']):
-            values = {
-                'item_id': itemId + 1,
-                'location': item.rlnMicrographName
-            }
+        #print(self.data)
 
-            yield values
-
-    def createNewSession(self):
+    def addHealthRecords(self):
         """ Create a session using REST API. """
         sc = DataClient()
-        # Create new session with no items
-        sessionAttrs = self.populateSessionAttrs()
-        print("=" * 80, "\nCreating session: %s" % sessionAttrs)
-        sessionJson = sc.create_session(sessionAttrs)
-        self.session_id = sessionJson['id']
-        print("Created new session with id: %s" % self.session_id)
+        print("=" * 80, "\nAdding health items...")
+        sc.add_health_records(self.data)
 
-        # Create a new set
-        session_set = {'session_id': self.session_id,
-                       'set_id': 1}
-        print("=" * 80, "\nCreating set: %s" % session_set)
-        sc.create_session_set(session_set)
-        print("Created new set with id: 1")
-
-        # Add new items one by one
-        for item in self.iterateItemsAttrs():
-            item.update(session_set)
-            print("=" * 80, "\nAdding item: %s" % item['item_id'])
-
-            sc.add_session_item(item)
 
     def run(self):
         """ Main execute function. """
         self.parseCsv()
-        #self.createNewSession()
+        self.addHealthRecords()
 
 # -------------------- UTILS functions ----------------------------------------
 

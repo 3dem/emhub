@@ -106,6 +106,13 @@ class DataClient:
         """
         return self._method('update_session_item', 'item', attrs)
 
+    def add_health_records(self, attrs):
+        """ Add a list of new items to a health_data db.
+        Mandatory in attrs:
+            attrs: the list of dicts
+        """
+        return self._method('add_health_items', 'item', attrs)
+
     #---------------------- Internal functions ------------------------------
     def _method(self, method, resultKey, attrs):
         r = self.request(method, jsonData={'attrs': attrs})

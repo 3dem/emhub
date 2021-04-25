@@ -46,6 +46,8 @@ class DataHealth(DbManager):
             """Model for health information of a resource."""
             __tablename__ = 'health'
             id = Column(Integer, primary_key=True)
+            # Microscope used
+            resource_id = Column(Integer, default=1, index=True)
 
             timestamp = Column(UtcDateTime, unique=True, index=True)
 
@@ -56,15 +58,21 @@ class DataHealth(DbManager):
             frac_fmt = Column(String(256), nullable=True)
             cartridge_count = Column(Integer, nullable=True)
             cassette_count = Column(Integer, nullable=True)
+            al_dewar_usage = Column(Float, default=0, nullable=True)
+            col_dewar_usage = Column(Float, default=0, nullable=True)
             emission_current = Column(Integer, nullable=True)
             gun_lens = Column(Integer, nullable=True)
             spot_size = Column(Integer, nullable=True)
+            mag = Column(Integer, nullable=True)
+            eftem_mode = Column(String(256), nullable=True)
+            illum_mode = Column(String(256), nullable=True)
             column_valves = Column(String(256), nullable=True)
-            al_dewar_usage = Column(Float, default=0, nullable=True)
-            col_dewar_usage = Column(Float, default=0, nullable=True)
-
-            # Microscope used
-            resource_id = Column(Integer, index=True)
+            memory_load = Column(String(256), nullable=True)
+            afis = Column(String(256), nullable=True)
+            camera_mode = Column(String(256), nullable=True)
+            num_exp = Column(Integer, nullable=True)
+            img_per_hole = Column(Integer, nullable=True)
+            dose_rate = Column(Float, default=0, nullable=True)
 
             def json(self):
                 return DbManager.json_from_object(self)
