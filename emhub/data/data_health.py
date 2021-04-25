@@ -131,4 +131,4 @@ class DataHealth(DbManager):
 
     def _datetime(self, isostr):
         """ Convert iso str format to datetime with tzinfo. """
-        return datetime.strptime(isostr, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=tzinfo)
+        return datetime.strptime(isostr, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=tzinfo)

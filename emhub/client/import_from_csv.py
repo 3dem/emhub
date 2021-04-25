@@ -105,7 +105,7 @@ class ImportHealthData:
         # TODO: check with different order?
         df.rename(columns=MATCH_DICT, inplace=True)
         # Make timestamp JSON-serializable
-        df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+        df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
         self.data = df.to_dict(orient='records')
 
 
