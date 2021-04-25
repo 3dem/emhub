@@ -105,11 +105,9 @@ class ImportHealthData:
         # TODO: check with different order?
         df.rename(columns=MATCH_DICT, inplace=True)
         # Make timestamp JSON-serializable
-        #df['timestamp'] = df['timestamp'].dt.date
-        df['timestamp'] = df['timestamp'].astype(str)
+        df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
         self.data = df.to_dict(orient='records')
 
-        #print(self.data)
 
     def addHealthRecords(self):
         """ Create a session using REST API. """
@@ -123,16 +121,6 @@ class ImportHealthData:
         self.parseCsv()
         self.addHealthRecords()
 
-# -------------------- UTILS functions ----------------------------------------
-
-    def getRowsByDate(self, startdate, enddate=None):
-        if enddate:
-            return self.data.loc[startdate:enddate]
-        else:
-            return self.data.loc[startdate:]
-
-    def getColsByName(self, colnames):
-        return self.data[colnames]
 
 
 if __name__ == '__main__':

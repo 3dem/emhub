@@ -54,8 +54,7 @@ class DataHealth(DbManager):
             # Microscope used
             resource_id = Column(Integer, default=1, index=True)
 
-            # FIXME: should be unique
-            timestamp = Column(UtcDateTime, unique=False, index=True)
+            timestamp = Column(UtcDateTime, unique=True, index=True)
 
             vpp_slot = Column(Integer, nullable=True)
             vpp_position = Column(Integer, nullable=True)
@@ -88,10 +87,10 @@ class DataHealth(DbManager):
     def create_rows(self, **kwargs):
         items = {'items': []}
         for row_dict in kwargs['items']:
-            # FIXME: remove this date hack
+            # convert timestamp iso str to datetime
             stamp = row_dict['timestamp']
             if isinstance(stamp, str):
-                row_dict['timestamp'] = self._datetime(2020, 5, 8, 9, 30, 10)
+                row_dict['timestamp'] = self._datetime(stamp)
             row = self.HealthTable(**row_dict)
             items['items'].append(row.json())
             self._db_session.add(row)
@@ -130,5 +129,6 @@ class DataHealth(DbManager):
         result = query.all()
         return [s.json() for s in result] if asJson else result
 
-    def _datetime(self, *args):
-        return datetime(*args, tzinfo=tzinfo)
+    def _datetime(self, isostr):
+        """ Convert iso str format to datetime with tzinfo. """
+        return datetime.strptime(isostr, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=tzinfo)
