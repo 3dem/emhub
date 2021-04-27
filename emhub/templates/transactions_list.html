@@ -168,7 +168,6 @@ function handleAjaxDone(jsonResponse) {
         showError(error);
     else {
         $('#transaction-modal').on('hidden.bs.modal', function () {
-            console.log('reloading...');
             ajax = get_ajax_content('transactions_list', {period: period.id});
             load_html_from_ajax('#transactions-container', ajax);
         });

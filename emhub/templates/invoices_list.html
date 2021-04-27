@@ -53,7 +53,8 @@
                                     <tr>
                                         <td><a href="javascript:showPiInvoicesForm({{ pi_id }}, '{{ pi_info['pi_name'] }}')" </a>{{ pi_info['pi_name'] }}</td>
                                         <td>{{ pu['invoice_ref'] }}</td>
-                                        <td>{{ pu['invoice_address']['address'] }}</td>
+                                        {%  set ia = pu['invoice_address'] %}
+                                        <td>{{ ia['address']}}, {{ia['zip']}}, {{ia['city'] }}, {{ ia['country'] }}</td>
                                         <td>{{ bookings|length }}</td>
                                         <td>{{ pi_info['sum_days'] }}</td>
                                         <td>{{ pi_info['sum_cost'] }}</td>

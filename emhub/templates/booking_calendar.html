@@ -98,6 +98,7 @@
 
     var resources = {{ resources|tojson }};
     var current_user_json = {{ current_user_json|tojson }};
+    var current_user_ismanager = {{ current_user.is_manager|tojson }}
 
 
     var hidden_events = [];
@@ -321,7 +322,7 @@ function bookingFromSelection(info, resource) {
     repeat_value = 'no';
     booking_type = 'booking';  // Reset booking_type to default
 
-    return {
+    var booking = {
         id: null,
         title: '',
         start: info.start,
@@ -333,6 +334,9 @@ function bookingFromSelection(info, resource) {
         repeat_value: repeat_value,
         slot_auth: {applications: [], users: []}
     };
+
+    return booking;
+
 }
 
 
@@ -352,6 +356,7 @@ function onBookingSelected(event, original_range) {
         description: props.description,
         repeat_value: props.repeat_value,
         owner: props.owner,
+        operator: props.operator,
         slot_auth: props.slot_auth,
         user_can_modify: props.user_can_modify,
         original_range: original_range,

@@ -557,6 +557,11 @@ def create_data_models(dm):
                           nullable=False)
         owner = relationship("User", foreign_keys=[owner_id])
 
+        # And this is the user that "owns" the Booking
+        operator_id = Column(Integer, ForeignKey('users.id'),
+                          nullable=True)
+        operator = relationship("User", foreign_keys=[operator_id])
+
         # Related to the Owner, we also keep the Application to which
         # this booking is associated
         application_id = Column(Integer, ForeignKey('applications.id'),

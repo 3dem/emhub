@@ -123,13 +123,9 @@
 
 <script type="text/javascript">
     /* Some variables */
-    {%  if possible_owners %}
-        var possible_owners = {{ possible_owners|tojson }};
-        var resources = {{ resources|tojson }};
-    {% else  %}
-        var possible_owners = [];
-        var resources = [];
-    {% endif %}
+    var possible_owners = {{ possible_owners|tojson }};
+    var resources = {{ resources|tojson }};
+    var possible_operators = {{ possible_operators|tojson }};
 
     var is_devel = {{ is_devel|tojson }};
     var booking_type = 'booking';
@@ -150,8 +146,6 @@
     /* Register when the Booking type change */
     $('input[type=radio][name=booking-type-radio]').change(function() {
         booking_type = this.value;
-        console.log("booking_type:  " + booking_type);
-
         $('#booking-slot-auth').prop('readonly', this.value != 'slot');
     });
 
@@ -219,7 +213,7 @@
     }
 
     /** Helper functions to handle AJAX response or failure */
-    function handleAjaxDone(jsonResponse) {
+    function handleBookingAjaxDone(jsonResponse) {
         let error = null;
 
         if ('bookings_created' in jsonResponse) {
@@ -290,15 +284,22 @@
         $('#booking-modal-title').html(htmlStr);
         $('#booking-btn-ok').html(titlePrefix);
 
-        console.log("owners.lenght", possible_owners.length);
-
         if (possible_owners.length) {
-            console.log("booking.owner.id", booking.owner.id);
             $('#booking-owner-select').selectpicker('val', booking.owner.id);
         }
         else {
             $('#booking-owner-text').val(booking.owner.name);
             $('#booking-owner-text').prop('readonly', true);
+        }
+
+        if (possible_operators.length) {
+            if (booking.operator)
+                $('#booking-operator-select').selectpicker('val', booking.operator.id);
+        }
+        else {
+            if (booking.operator)
+                $('#booking-operator-select').val(booking.operator.name);
+            $('#booking-operator-select').prop('readonly', true);
         }
 
         if  (booking.type == 'booking' &&
@@ -335,9 +336,14 @@
         // //showMessage("Testing", "Testing");
         // return;
         var owner_id = last_booking.owner.id;
+        var operator_id = last_booking.operator ? last_booking.operator.id : null;
 
         if (possible_owners.length)
             owner_id = $('#booking-owner-select').selectpicker('val');
+
+        if (possible_operators.length) {
+            operator_id = $('#booking-operator-select').selectpicker('val');
+        }
 
         var start = dateFromValue('#booking-start-date', '#booking-start-time');
         var end = dateFromValue('#booking-end-date', '#booking-end-time');
@@ -351,6 +357,7 @@
             type: booking_type,
             description: $('#booking-description').val(),
             owner_id: owner_id,
+            operator_id: operator_id,
             resource_id: last_booking.resource.id,
             modify_all: modify_all,
             repeat_value: repeat_value,
@@ -421,7 +428,7 @@
             dataType: "json"
         });
 
-        ajaxContent.done(handleAjaxDone);
+        ajaxContent.done(handleBookingAjaxDone);
         ajaxContent.fail(handleAjaxFail);
     }  // function onOkButtonClick
 
@@ -450,7 +457,7 @@
             dataType: "json"
         });
 
-        ajaxContent.done(handleAjaxDone);
+        ajaxContent.done(handleBookingAjaxDone);
         ajaxContent.fail(handleAjaxFail);
     }
 

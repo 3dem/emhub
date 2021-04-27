@@ -49,6 +49,14 @@ def index():
         'page_id': page_id,
     }
 
+    # Following params are required in main.html but are not really used
+    # here in pages, maybe we should consider to have a separate template
+    kwargs = {
+        'possible_owners': [],
+        'possible_operators': [],
+        'resources': [],
+    }
+
     if app.user.is_authenticated:
         app.user.image = app.dc.user_profile_image(app.user)
 
@@ -57,4 +65,5 @@ def index():
                                  params=params,
                                  is_devel=app.is_devel,
                                  version=app.version,
-                                 emhub_title=app.config.get('EMHUB_TITLE', ''))
+                                 emhub_title=app.config.get('EMHUB_TITLE', ''),
+                                 **kwargs)
