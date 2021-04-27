@@ -1017,7 +1017,7 @@ class DataContent:
     def get_possible_operators(self):
         dm = self.app.dm
 
-        if self.app.user.is_manager:
+        if self.app.user.is_authenticated and self.app.user.is_manager:
             return [{'id': u.id, 'name': u.name}
                     for u in dm.get_users() if 'manager' in u.roles]
         return  []

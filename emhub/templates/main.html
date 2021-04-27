@@ -123,14 +123,8 @@
 
 <script type="text/javascript">
     /* Some variables */
-    {%  if possible_owners %}
-        var possible_owners = {{ possible_owners|tojson }};
-        var resources = {{ resources|tojson }};
-    {% else  %}
-        var possible_owners = [];
-        var resources = [];
-    {% endif %}
-
+    var possible_owners = {{ possible_owners|tojson }};
+    var resources = {{ resources|tojson }};
     var possible_operators = {{ possible_operators|tojson }};
 
     var is_devel = {{ is_devel|tojson }};
