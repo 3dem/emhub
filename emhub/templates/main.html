@@ -131,6 +131,8 @@
         var resources = [];
     {% endif %}
 
+    var possible_operators = {{ possible_operators|tojson }};
+
     var is_devel = {{ is_devel|tojson }};
     var booking_type = 'booking';
     var repeat_value = null;
@@ -296,6 +298,15 @@
             $('#booking-owner-text').prop('readonly', true);
         }
 
+        if (possible_operators.length) {
+            $('#booking-operator-select').selectpicker('val', booking.operator.id);
+        }
+        else {
+            if (booking.operator)
+                $('#booking-operator-select').val(booking.operator.name);
+            $('#booking-operator-select').prop('readonly', true);
+        }
+
         if  (booking.type == 'booking' &&
              booking.resource.is_microscope &&
              booking.user_can_modify)
@@ -330,9 +341,14 @@
         // //showMessage("Testing", "Testing");
         // return;
         var owner_id = last_booking.owner.id;
+        var operator_id = last_booking.operator ? last_booking.operator.id : null;
 
         if (possible_owners.length)
             owner_id = $('#booking-owner-select').selectpicker('val');
+
+        if (possible_operators.length) {
+            operator_id = $('#booking-operator-select').selectpicker('val');
+        }
 
         var start = dateFromValue('#booking-start-date', '#booking-start-time');
         var end = dateFromValue('#booking-end-date', '#booking-end-time');
@@ -346,6 +362,7 @@
             type: booking_type,
             description: $('#booking-description').val(),
             owner_id: owner_id,
+            operator_id: operator_id,
             resource_id: last_booking.resource.id,
             modify_all: modify_all,
             repeat_value: repeat_value,

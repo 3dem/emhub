@@ -243,9 +243,7 @@ class DataContent:
                                     if a.is_active]
 
         dataDict['possible_owners'] = self.get_pi_labs()
-
-        if self.app.user.is_manager:
-            dataDict['possible_operators'] = [u for u in dm.get_users() if 'manager' in u.roles]
+        dataDict['possible_operators'] = self.get_possible_operators()
 
         dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
@@ -749,6 +747,12 @@ class DataContent:
                              }
         owner = booking.owner
         owner_name = owner.name
+        o = booking.operator  #  shortcut
+        if o:
+            operator_dict = {'id': o.id, 'name': o.name}
+        else:
+            operator_dict = {'id': None, 'name': ''}
+
         creator = booking.creator
         application = booking.application
         user = self.app.user
@@ -807,6 +811,7 @@ class DataContent:
             'resource': resource_info,
             'creator': {'id': creator.id, 'name': creator.name},
             'owner': {'id': owner.id, 'name': owner_name},
+            'operator': operator_dict,
             'type': booking.type,
             'booking_title': b_title,
             'user_can_book': user_can_book,
@@ -1008,6 +1013,14 @@ class DataContent:
             labs.append([_userjson(u) for u in self._get_facility_staff()])
 
         return labs
+
+    def get_possible_operators(self):
+        dm = self.app.dm
+
+        if self.app.user.is_manager:
+            return [{'id': u.id, 'name': u.name}
+                    for u in dm.get_users() if 'manager' in u.roles]
+        return  []
 
     def get_booking_in_range(self, kwargs, asJson=True):
         """ Return the list of bookings in the given range.
