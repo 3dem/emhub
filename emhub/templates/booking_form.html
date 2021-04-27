@@ -57,6 +57,25 @@
                                 </div>
                             </div>
 
+                            <!-- Operator Row -->
+                            <div class="form-group row">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Operator
+
+                                </label>
+                                <div class="col-12 col-sm-8 col-lg-6">
+                                    {% if possible_operators %}
+                                        <select id="booking-operator-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
+                                        <option value="0">Not set</option>
+                                        {% for u in possible_operators %}
+                                            <option value="{{u['id']}}">{{u['name']}}</option>
+                                        {% endfor %}
+                                        </select>
+                                    {% else %}
+                                        <input type="text" required="" placeholder="Operator" id="booking-owner-text" class="form-control">
+                                    {% endif %}
+                                </div>
+                            </div>
+
                             <!-- Application Row -->
                             <div class="form-group row">
                                 <label class="col-12 col-sm-3 col-form-label text-sm-right">Application</label>
