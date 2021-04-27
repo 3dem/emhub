@@ -293,7 +293,8 @@
         }
 
         if (possible_operators.length) {
-            $('#booking-operator-select').selectpicker('val', booking.operator.id);
+            if (booking.operator)
+                $('#booking-operator-select').selectpicker('val', booking.operator.id);
         }
         else {
             if (booking.operator)

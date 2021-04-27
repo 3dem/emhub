@@ -57,7 +57,6 @@ function dateStr(date) {
 
 function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val();
-    console.log("dateFromValue, dateVal: ", dateVal);
 
     if (timeId)
         dateVal += ' ' + $(timeId).val();
