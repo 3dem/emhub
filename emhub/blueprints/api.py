@@ -419,14 +419,7 @@ def get_health_items():
     return filter_request(app.dm.get_health_items)
 
 
-@api_bp.route('/update_health_items', methods=['POST'])
-@flask_login.login_required
-def update_health_items():
-    return handle_health_table(app.dm.update_health_items)
-
-
 # -------------------- UTILS functions ----------------------------------------
-
 def filter_request(func):
     condition = request.json.get('condition', None)
     orderBy = request.json.get('orderBy', None)

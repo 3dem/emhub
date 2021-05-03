@@ -62,8 +62,7 @@ class DataManager(DbManager):
             self._db_log = DataLog(logDbPath, cleanDb=cleanDb)
 
             # Create a separate database for health data
-            healthDbPath = dbPath.replace('emhub.sqlite', 'health_data.sqlite')
-            self._db_health = DataHealth(healthDbPath, cleanDb=cleanDb)
+            self._db_health = DataHealth()
 
             # Create sessions dir if not exists
             os.makedirs(self._sessionsPath, exist_ok=True)
@@ -454,15 +453,7 @@ class DataManager(DbManager):
     # ---------------------------- HEALTH INFO --------------------------------
     def add_health_items(self, **attrs):
         new_items = self._db_health.create_rows(**attrs)
-        #self.log('operation', 'create_health',
-        #         attrs=self.json_from_dict(attrs))
         return new_items
-
-    def update_health_items(self, **attrs):
-        items = self._db_health.update_rows(**attrs)
-        self.log('operation', 'update_health',
-                 attrs=self.json_from_dict(attrs))
-        return items
 
     def get_health_items(self, condition=None, orderBy=None, asJson=False):
         return self._db_health.items_from_query(condition=condition,

@@ -402,44 +402,9 @@ class TestData(TestDataBase):
         )
 
     def _populateHealthInfo(self, dm):
-        dm.add_health_items(items=[
-            {'vpp_slot': 0,
-             'vpp_position': 1,
-             'acq_count': 1232,
-             'acq_mode': 'Linear',
-             'frac_fmt': 'mrc',
-             'cartridge_count': 233,
-             'cassette_count': 34,
-             'emission_current': 2336,
-             'gun_lens': 6,
-             'spot_size': 4,
-             'column_valves': 'Open',
-             'timestamp': self._datetime(2020, 5, 8, 9, 30, 10),
-             'resource_id': 1},
-
-            {'vpp_slot': 0,
-             'vpp_position': 1,
-             'acq_count': 1233,
-             'acq_mode': 'Linear',
-             'frac_fmt': 'mrc',
-             'cartridge_count': 233,
-             'cassette_count': 34,
-             'emission_current': 2334,
-             'gun_lens': 6,
-             'spot_size': 4,
-             'column_valves': 'Open',
-             'timestamp': self._datetime(2020, 5, 8, 9, 31, 20),
-             'resource_id': 1},
-
-            {'cartridge_count': 453,
-             'cassette_count': 11,
-             'emission_current': 2008,
-             'gun_lens': 6,
-             'spot_size': 6,
-             'column_valves': 'Closed',
-             'timestamp': self._datetime(2020, 5, 3, 9, 10, 20),
-             'resource_id': 2}
-        ])
+        # items should be a json string
+        dm.add_health_items(items='{"1613600999858":{"EPU\/Automated Acquisition\/Camera Mode":"linear","EPU\/Automated Acquisition\/Number of Completed Exposures":"","EPU\/Automated Acquisition\/Images per Hole":"3","Camera\/BM-Falcon\/Mean Image Dose Rate":"3.96196777906363"},"1613601000776":{"EPU\/Automated Acquisition\/Camera Mode":"","EPU\/Automated Acquisition\/Number of Completed Exposures":"1418","EPU\/Automated Acquisition\/Images per Hole":"","Camera\/BM-Falcon\/Mean Image Dose Rate":""},"1613601012781":{"EPU\/Automated Acquisition\/Camera Mode":"","EPU\/Automated Acquisition\/Number of Completed Exposures":"","EPU\/Automated Acquisition\/Images per Hole":"","Camera\/BM-Falcon\/Mean Image Dose Rate":"3.93544597951302"},"1613601013683":{"EPU\/Automated Acquisition\/Camera Mode":"","EPU\/Automated Acquisition\/Number of Completed Exposures":"1419","EPU\/Automated Acquisition\/Images per Hole":"","Camera\/BM-Falcon\/Mean Image Dose Rate":""},"1613601025800":{"EPU\/Automated Acquisition\/Camera Mode":"","EPU\/Automated Acquisition\/Number of Completed Exposures":"","EPU\/Automated Acquisition\/Images per Hole":"","Camera\/BM-Falcon\/Mean Image Dose Rate":"3.96875549465614"},"1613601026736":{"EPU\/Automated Acquisition\/Camera Mode":"","EPU\/Automated Acquisition\/Number of Completed Exposures":"1420","EPU\/Automated Acquisition\/Images per Hole":"","Camera\/BM-Falcon\/Mean Image Dose Rate":""},"1613601038749":{"EPU\/Automated Acquisition\/Camera Mode":"","EPU\/Automated Acquisition\/Number of Completed Exposures":"","EPU\/Automated Acquisition\/Images per Hole":"","Camera\/BM-Falcon\/Mean Image Dose Rate":"3.95891196783116"}}',
+                            microscope="Titan Krios #1")
 
 
 if __name__ == '__main__':

@@ -29,6 +29,7 @@ import os
 import sys
 import pandas as pd
 from contextlib import contextmanager
+#from influxdb_client import InfluxDBClient
 
 from emhub.client import DataClient
 
@@ -41,35 +42,6 @@ def usage(error):
         CSV_FILE_PATH: provide the full path to TFS Health Monitor exported data.
     """ % (sys.argv[0], error))
     sys.exit(1)
-
-
-# Dict to match cvs parameter names and db columns
-MATCH_DICT = {
-    'Date_Time': 'timestamp',
-    'Phase Plate Slot': 'vpp_slot',
-    'Phase Plate Preset Position Counter': 'vpp_position',
-    'Count of acquisitions': 'acq_count',
-    'Acquisition mode': 'acq_mode',
-    'Fractions file format': 'frac_fmt',
-    'Cartridge Load Counter': 'cartridge_count',
-    'Cassette Load Counter': 'cassette_count',
-    'Autoloader Dewar LN2 Usage (% per hour)': 'al_dewar_usage',
-    'Column Dewar LN2 Usage (% per hour)': 'col_dewar_usage',
-    'Emission Current': 'emission_current',
-    'Gun Lens Index': 'gun_lens',
-    'Spot Size': 'spot_size',
-    'Nominal Magnification': 'mag',
-    'Eftem Mode': 'eftem_mode',
-    'Illumination Mode': 'illum_mode',
-    'Column Valves States': 'column_valves',
-    'Memory Load': 'memory_load',
-    'Aberration Free Image Beam Shift is Enabled': 'afis',
-    'Camera Mode': 'camera_mode',
-    'Number of Completed Exposures': 'num_exp',
-    'Images per Hole': 'img_per_hole',
-    'Mean Image Dose Rate': 'dose_rate',
-    'test_label_old': 'test_label_new',
-}
 
 
 @contextmanager
@@ -87,40 +59,74 @@ class ImportHealthData:
         self.path = path
         self.name = os.path.basename(self.path)
 
-    def parseCsv(self):
-        """ Parse CSV file into a dict. """
-        cols = ["Date", "Time"]
+    def parse_header(self):
+        """ Parse CSV header and return a nested dict of params. """
         header = pd.read_csv(self.path, sep=',', header=None, skiprows=5,
                              nrows=6, index_col=1)
-        # Add "Parameter" names to the cols list
-        for ind in range(2, len(header.columns) + 1):
-            cols.append(header[ind][3])
+        self.microscope = header[2][0]
+        params = ["Date", "Time"]
 
-        # Merge Date and Time columns
-        print("Parsing CSV file...")
-        df = pd.read_csv(self.path, sep=',', names=cols, skiprows=12,
-                           parse_dates=[['Date', 'Time']], )
+        for i in range(2, len(header.columns)+1):
+            params.append("%s/%s/%s" % (header[i][1], header[i][2], header[i][3]))
 
-        df.fillna(method='ffill', inplace=True)
-        # TODO: check with different order?
-        df.rename(columns=MATCH_DICT, inplace=True)
-        # Make timestamp JSON-serializable
-        df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-        self.data = df.to_dict(orient='records')
+        return params
 
+    def parseCsv(self, params):
+        """ Parse CSV data into a dict. """
+        self.df = pd.read_csv(self.path, sep=',', skiprows=12,
+                         parse_dates=[["Date", "Time"]],
+                         index_col=0,
+                         keep_default_na=False,
+                         na_filter=False, error_bad_lines=False,
+                         names=params)
+
+        #print(self.df.info())
+        self.jsonData = self.df.to_json(orient='index')
 
     def addHealthRecords(self):
         """ Create a session using REST API. """
         with open_client() as dc:
             print("=" * 80, "\nAdding health items...")
-            dc.add_health_records({'items': self.data})
+            dc.add_health_records({'items': self.jsonData, 'microscope': self.microscope})
 
+    def testInflux(self):
+        # TODO: remove this later
+        # You can generate a Token from the "Tokens Tab" in the UI
+        token = "ECCh91MEsbHtX8DwU-S_82IikgejP8GSQ8-Iki4QFZyeLcFe4W9P4_YZ8i3drdWnKYad9EEy7niZHd62YRPNUg=="
+        org = "emhub"
+        bucket = "health"
+
+        client = InfluxDBClient(url="http://localhost:8086", token=token,
+                                org=org)
+        # if DEBUG:
+        #     print(self.df)
+        #     print(self.df.index)
+        #     print(self.df.columns)
+        #
+        # write_api = client.write_api(write_options=SYNCHRONOUS)
+        # write_api.write(bucket=bucket, org=org, record=self.df,
+        #                 data_frame_measurement_name=self.microscope)
+        # write_api.close()
+
+        query = '''
+                 from(bucket:"health") |> range(start: -1y)
+                 |> filter(fn: (r) => r["_measurement"] == "%s")
+                 '''
+        result = client.query_api().query(org=org, query=query % self.microscope)
+
+        for table in result:
+            print(table)
+            for record in table.records:
+                print(str(record["_time"]) + " - " + record["_field"] + ": " + str(record["_value"]))
+
+        client.close()
 
     def run(self):
         """ Main execute function. """
-        self.parseCsv()
+        columns = self.parse_header()
+        self.parseCsv(columns)
         self.addHealthRecords()
-
+        #self.testInflux()
 
 
 if __name__ == '__main__':
