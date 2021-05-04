@@ -28,7 +28,7 @@
 
 import pandas as pd
 import numpy as np
-from influxdb_client import InfluxDBClient, WritePrecision
+from influxdb_client import InfluxDBClient, WritePrecision, WriteOptions
 from influxdb_client.client.write_api import SYNCHRONOUS
 
 from .data_db import DbManager
@@ -44,9 +44,6 @@ class DataHealth(DbManager):
         self.org = "emhub"
         self.bucket = "health"
 
-    def db_client(self):
-        return InfluxDBClient(url=self.url, token=self.token, org=self.org)
-
     def create_rows(self, **kwargs):
         items = kwargs.get("items", "")
         #print(items)
@@ -56,8 +53,12 @@ class DataHealth(DbManager):
         df.index = df.index.astype(np.int64) // int(1e6)
         scope = kwargs.get("microscope")
 
-        client = self.db_client()
-        write_api = client.write_api(write_options=SYNCHRONOUS)
+        print(df.shape)
+
+        client = InfluxDBClient(url=self.url, token=self.token, org=self.org)
+        write_api = client.write_api(write_options=WriteOptions(SYNCHRONOUS,
+                                                                batch_size=1_000,
+                                                                flush_interval=5_000))
         write_api.write(bucket=self.bucket, org=self.org, record=df,
                         data_frame_measurement_name=scope,
                         write_precision=WritePrecision.MS)
@@ -68,7 +69,7 @@ class DataHealth(DbManager):
         return {"items": ''}
 
     def items_from_query(self, condition=None, orderBy=None, asJson=False):
-        client = self.db_client()
+        client = "tbd"
         query = '''
                 from(bucket:"health") |> range(start: -1y)
                 |> filter(fn: (r) => r["_measurement"] == "3413 (943205600511) [Titan Krios]")

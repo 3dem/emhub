@@ -25,11 +25,9 @@
 # *  e-mail address 'delarosatrevin@scilifelab.se'
 # *
 # **************************************************************************
-import os
 import sys
 import pandas as pd
 from contextlib import contextmanager
-#from influxdb_client import InfluxDBClient
 
 from emhub.client import DataClient
 
@@ -57,76 +55,48 @@ def open_client():
 class ImportHealthData:
     def __init__(self, path):
         self.path = path
-        self.name = os.path.basename(self.path)
+
+    def _convert(self, value):
+        """ Convert a string to datatype. """
+        if value == "":
+            return value
+        elif len(value.split(".")) == 2:
+            return float(value)
+        elif value.lstrip("-").isdecimal():
+            return int(value)
+        else:
+            return str(value)
 
     def parse_header(self):
-        """ Parse CSV header and return a nested dict of params. """
+        """ Parse CSV header. """
         header = pd.read_csv(self.path, sep=',', header=None, skiprows=5,
                              nrows=6, index_col=1)
         self.microscope = header[2][0]
-        params = ["Date", "Time"]
+        self.params = ["Date", "Time"]
+        self.dtypes = {}
 
         for i in range(2, len(header.columns)+1):
-            params.append("%s/%s/%s" % (header[i][1], header[i][2], header[i][3]))
+            self.params.append("%s/%s/%s" % (header[i][1], header[i][2], header[i][3]))
+            self.dtypes[self.params[-1]] = self._convert
 
-        return params
 
-    def parseCsv(self, params):
-        """ Parse CSV data into a dict. """
-        self.df = pd.read_csv(self.path, sep=',', skiprows=12,
+    def parse_data(self):
+        """ Parse CSV data into json. """
+        with pd.read_csv(self.path, sep=',', skiprows=12,
                          parse_dates=[["Date", "Time"]],
-                         index_col=0,
-                         keep_default_na=False,
-                         na_filter=False, error_bad_lines=False,
-                         names=params)
-
-        #print(self.df.info())
-        self.jsonData = self.df.to_json(orient='index')
-
-    def addHealthRecords(self):
-        """ Create a session using REST API. """
-        with open_client() as dc:
+                         index_col=0, na_filter=False,
+                         error_bad_lines=False, names=self.params,
+                         converters=self.dtypes,
+                         chunksize=5000) as reader, open_client() as dc:
             print("=" * 80, "\nAdding health items...")
-            dc.add_health_records({'items': self.jsonData, 'microscope': self.microscope})
-
-    def testInflux(self):
-        # TODO: remove this later
-        # You can generate a Token from the "Tokens Tab" in the UI
-        token = "ECCh91MEsbHtX8DwU-S_82IikgejP8GSQ8-Iki4QFZyeLcFe4W9P4_YZ8i3drdWnKYad9EEy7niZHd62YRPNUg=="
-        org = "emhub"
-        bucket = "health"
-
-        client = InfluxDBClient(url="http://localhost:8086", token=token,
-                                org=org)
-        # if DEBUG:
-        #     print(self.df)
-        #     print(self.df.index)
-        #     print(self.df.columns)
-        #
-        # write_api = client.write_api(write_options=SYNCHRONOUS)
-        # write_api.write(bucket=bucket, org=org, record=self.df,
-        #                 data_frame_measurement_name=self.microscope)
-        # write_api.close()
-
-        query = '''
-                 from(bucket:"health") |> range(start: -1y)
-                 |> filter(fn: (r) => r["_measurement"] == "%s")
-                 '''
-        result = client.query_api().query(org=org, query=query % self.microscope)
-
-        for table in result:
-            print(table)
-            for record in table.records:
-                print(str(record["_time"]) + " - " + record["_field"] + ": " + str(record["_value"]))
-
-        client.close()
+            for chunk in reader:
+                dc.add_health_records({'items': chunk.to_json(orient='index'),
+                                       'microscope': self.microscope})
 
     def run(self):
         """ Main execute function. """
-        columns = self.parse_header()
-        self.parseCsv(columns)
-        self.addHealthRecords()
-        #self.testInflux()
+        self.parse_header()
+        self.parse_data()
 
 
 if __name__ == '__main__':
