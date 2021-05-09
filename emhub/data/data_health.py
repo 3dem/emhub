@@ -26,8 +26,7 @@
 # *
 # **************************************************************************
 
-import pandas as pd
-import numpy as np
+import json
 from influxdb_client import InfluxDBClient, WritePrecision, WriteOptions
 from influxdb_client.client.write_api import SYNCHRONOUS
 
@@ -42,41 +41,53 @@ class DataHealth(DbManager):
         self.url="http://localhost:8086"
         self.token = "ECCh91MEsbHtX8DwU-S_82IikgejP8GSQ8-Iki4QFZyeLcFe4W9P4_YZ8i3drdWnKYad9EEy7niZHd62YRPNUg=="
         self.org = "emhub"
-        self.bucket = "health"
+        self.bucket = "test1"
 
     def create_rows(self, **kwargs):
-        items = kwargs.get("items", "")
-        #print(items)
+        print(kwargs['items'], "\n\n")
+        scope = "scope4" #kwargs.get("microscope").replace(" ", "\ ")
+        items = json.loads(kwargs.get("items", ""))
 
-        df = pd.read_json(items, orient="index")
-        # convert datetime ns to ms
-        df.index = df.index.astype(np.int64) // int(1e6)
-        scope = kwargs.get("microscope")
+        lines = []
+        for point in items:
+            fields = []
+            timestp = int(point)
+            for k, v in items[point].items():
+                k = k.replace(" ", "\ ")
+                if v == '':
+                    continue
+                elif isinstance(v, str):
+                    fields.append('%s="%s"' % (k, v))
+                else:
+                    fields.append('%s=%s' % (k, v))
+            fields = ",".join(fields)
+            lines.append('%s %s %d' % (scope, fields, timestp))
 
-        print(df.shape)
+        print("\n".join(lines))
 
-        client = InfluxDBClient(url=self.url, token=self.token, org=self.org)
-        write_api = client.write_api(write_options=WriteOptions(SYNCHRONOUS,
-                                                                batch_size=1_000,
-                                                                flush_interval=5_000))
-        write_api.write(bucket=self.bucket, org=self.org, record=df,
-                        data_frame_measurement_name=scope,
+        client = InfluxDBClient(url=self.url, token=self.token, org=self.org,
+                                enable_gzip=True)
+        write_api = client.write_api(write_options=WriteOptions(SYNCHRONOUS))
+        write_api.write(bucket=self.bucket, org=self.org, record="\n".join(lines),
                         write_precision=WritePrecision.MS)
         write_api.close()
-
         client.close()
 
         return {"items": ''}
 
     def items_from_query(self, condition=None, orderBy=None, asJson=False):
-        client = "tbd"
+        client = InfluxDBClient(url=self.url, token=self.token, org=self.org,
+                                enable_gzip=True)
         query = '''
-                from(bucket:"health") |> range(start: -1y)
-                |> filter(fn: (r) => r["_measurement"] == "3413 (943205600511) [Titan Krios]")
+                from(bucket:"test1") |> range(start: -1y)
+                |> filter(fn: (r) => r["_measurement"] == "scope4")
+                |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+                |> drop(columns: ["_start", "_stop", "_measurement"])
                 '''
         result = client.query_api().query_data_frame(org=self.org, query=query)
-        print(result.head())
-
+        #result.set_index("_time", inplace=True)
+        results = result.to_json(orient='records')
+        print(results)
         client.close()
 
         if condition is not None:
@@ -85,5 +96,8 @@ class DataHealth(DbManager):
         if orderBy is not None:
             pass
 
-        #result = query.all()
         #return [s.json() for s in result] if asJson else result
+        return results
+
+    def json(self):
+        return DbManager.json_from_object(self)

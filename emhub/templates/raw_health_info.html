@@ -14,28 +14,19 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
+                        {% for r in health_info %}
+                        {{ r }}
+                        {% endfor %}
                         <table id="health-table" class="table table-striped table-bordered" style="width:100%">
                             <thead>
                             <tr>
-                                <th>id</th>
                                 <th>time</th>
-                                <th>microscope</th>
-                                <th>cartridge #</th>
-                                <th>cassette #</th>
-                                <th>spot size</th>
-                                <th>acquisition #</th>
                             </tr>
                             </thead>
                             <tbody>
                             {% for r in health_info %}
                             <tr>
-                                <td>{{ r.id }}</td>
-                                <td>{{ r.timestamp }}</td>
-                                <td>{{ r.resource_id }}</td>
-                                <td>{{ r.cartridge_count }}</td>
-                                <td>{{ r.cassette_count }}</td>
-                                <td>{{ r.spot_size }}</td>
-                                <td>{{ r.acq_count }}</td>
+                                <td>{{ r }}</td>
                             </tr>
                             {% endfor %}
 
