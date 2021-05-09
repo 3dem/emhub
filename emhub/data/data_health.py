@@ -44,8 +44,7 @@ class DataHealth(DbManager):
         self.bucket = "test1"
 
     def create_rows(self, **kwargs):
-        print(kwargs['items'], "\n\n")
-        scope = "scope4" #kwargs.get("microscope").replace(" ", "\ ")
+        scope = kwargs.get("microscope").replace(" ", "\ ")
         items = json.loads(kwargs.get("items", ""))
 
         lines = []
@@ -63,8 +62,6 @@ class DataHealth(DbManager):
             fields = ",".join(fields)
             lines.append('%s %s %d' % (scope, fields, timestp))
 
-        print("\n".join(lines))
-
         client = InfluxDBClient(url=self.url, token=self.token, org=self.org,
                                 enable_gzip=True)
         write_api = client.write_api(write_options=WriteOptions(SYNCHRONOUS))
@@ -80,14 +77,16 @@ class DataHealth(DbManager):
                                 enable_gzip=True)
         query = '''
                 from(bucket:"test1") |> range(start: -1y)
-                |> filter(fn: (r) => r["_measurement"] == "scope4")
+                |> filter(fn: (r) => r["_measurement"] == "%s")
                 |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
                 |> drop(columns: ["_start", "_stop", "_measurement"])
                 '''
-        result = client.query_api().query_data_frame(org=self.org, query=query)
-        #result.set_index("_time", inplace=True)
-        results = result.to_json(orient='records')
-        print(results)
+        result = client.query_api().query_data_frame(org=self.org, query=query % "scope4")
+        result = result.to_dict(orient='records')
+
+        def json(v):
+            return DbManager.json_from_value(v)
+
         client.close()
 
         if condition is not None:
@@ -96,8 +95,4 @@ class DataHealth(DbManager):
         if orderBy is not None:
             pass
 
-        #return [s.json() for s in result] if asJson else result
-        return results
-
-    def json(self):
-        return DbManager.json_from_object(self)
+        return [{k: json(v) for k, v in s.items()} for s in result] if asJson else result
