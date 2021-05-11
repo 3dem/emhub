@@ -5,7 +5,7 @@ sqlalchemy
 flask-login
 flask-mail
 Flask-Markdown
-pyjwt
+pyjwt==1.7.1
 tzlocal
 pytz
 SQLAlchemy-Utc
