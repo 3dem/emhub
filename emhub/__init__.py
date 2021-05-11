@@ -248,7 +248,11 @@ def create_app(test_config=None):
             try:
                 kwargs = app.dc.get(**content_kwargs)
             except Exception as e:
-                return "<h1><span style='color: red'>Error</span> </br>%s</h1>" % e
+                import traceback
+                tb = traceback.format_exc()
+                result = "<h1><span style='color: red'>Error</span> </br>%s</h1>" % e
+                result += "<pre>%s</pre>" % tb
+                return result
         else:
             kwargs = {'next_content': content_id}
             content_id = 'user_login'
