@@ -94,13 +94,16 @@ class DataContent:
                 bookings[i][1].append(bDict)
 
         dataDict['bookings'] = bookings
-
-        if user.is_manager:
-            dataDict['lab_members'] = [u.json() for u in self._get_facility_staff()]
-        else:
-            dataDict['lab_members'] = [u.json() for u in user.get_pi().get_lab_members()]
+        dataDict['lab_members'] = self.get_lab_members(user)
 
         return dataDict
+
+    def get_lab_members(self, user):
+        if user.is_manager:
+            return [u.json() for u in self._get_facility_staff()]
+
+        pi = user.get_pi()
+        return [] if pi is None else [u.json() for u in pi.get_lab_members()]
 
     def get_sessions_overview(self, **kwargs):
         sessions = self.app.dm.get_sessions(condition=self._get_display_condition(),
@@ -170,7 +173,8 @@ class DataContent:
                 for u in self.app.dm.get_users() if u.is_pi
             ]
         else:
-            pi_label = user.pi.name
+            pi = user.pi
+            pi_label = 'Unknown' if pi is None else pi.name
 
         data['pi_label'] = pi_label
 
