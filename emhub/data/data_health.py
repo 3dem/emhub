@@ -43,6 +43,10 @@ class DataHealth(DbManager):
         self.org = "emhub"
         self.bucket = "test1"
 
+    def client(self):
+        return InfluxDBClient(url=self.url, token=self.token, org=self.org,
+                              enable_gzip=True)
+
     def create_rows(self, **kwargs):
         scope = kwargs.get("microscope").replace(" ", "\ ")
         items = json.loads(kwargs.get("items", ""))
@@ -62,26 +66,29 @@ class DataHealth(DbManager):
             fields = ",".join(fields)
             lines.append('%s %s %d' % (scope, fields, timestp))
 
-        client = InfluxDBClient(url=self.url, token=self.token, org=self.org,
-                                enable_gzip=True)
+        client = self.client()
         write_api = client.write_api(write_options=WriteOptions(SYNCHRONOUS))
         write_api.write(bucket=self.bucket, org=self.org, record="\n".join(lines),
                         write_precision=WritePrecision.MS)
         write_api.close()
         client.close()
 
-        return {"items": ''}
+        return {"items": 'OK'}
 
     def items_from_query(self, condition=None, orderBy=None, asJson=False):
-        client = InfluxDBClient(url=self.url, token=self.token, org=self.org,
-                                enable_gzip=True)
-        query = '''
-                from(bucket:"test1") |> range(start: -1y)
-                |> filter(fn: (r) => r["_measurement"] == "%s")
-                |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
-                |> drop(columns: ["_start", "_stop", "_measurement"])
+        client = self.client()
+        query = 'from(bucket:"%s") |> range(start: -1y)\n' % self.bucket
+
+        if condition is not None:
+            if condition.startswith("microscope="):
+                resource = condition.split("=")[-1]
+                query += '|> filter(fn: (r) => r["_measurement"] == "%s")\n' % resource
+
+        query += '''|> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+                    |> drop(columns: ["_start", "_stop", "_measurement"])
                 '''
-        result = client.query_api().query_data_frame(org=self.org, query=query % "scope4")
+
+        result = client.query_api().query_data_frame(org=self.org, query=query)
         result = result.to_dict(orient='records')
 
         def json(v):

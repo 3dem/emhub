@@ -637,7 +637,7 @@ class DataContent:
         return {'transactions': self.app.dm.get_transactions()}
 
     def get_raw_health_info(self, **kwargs):
-        return {'health_info': self.app.dm.get_health_items()}
+        return {'health_info': self.app.dm.get_health_items(condition=kwargs['condition'])}
 
     def get_transaction_form(self, **kwargs):
         dm = self.app.dm

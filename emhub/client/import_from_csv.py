@@ -36,8 +36,9 @@ def usage(error):
     print("""
     ERROR: %s
 
-    Usage: %s CSV_FILE_PATH
+    Usage: %s CSV_FILE_PATH MICROSCOPE_NAME
         CSV_FILE_PATH: provide the full path to TFS Health Monitor exported data.
+        MICROSCOPE_NAME: microscope name
     """ % (sys.argv[0], error))
     sys.exit(1)
 
@@ -53,8 +54,9 @@ def open_client():
 
 
 class ImportHealthData:
-    def __init__(self, path):
+    def __init__(self, path, microscope):
         self.path = path
+        self.microscope = microscope
 
     def _convert(self, value):
         """ Convert a string to datatype. """
@@ -71,7 +73,7 @@ class ImportHealthData:
         """ Parse CSV header. """
         header = pd.read_csv(self.path, sep=',', header=None, skiprows=5,
                              nrows=6, index_col=1)
-        self.microscope = header[2][0]
+        #self.microscope = header[2][0]
         self.params = ["Date", "Time"]
         self.dtypes = {}
 
@@ -100,8 +102,8 @@ class ImportHealthData:
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        usage("Incorrect number of input parameters")
+    if len(sys.argv) != 3:
+        usage("Incorrect input parameters.")
     else:
-        job = ImportHealthData(path=sys.argv[1])
+        job = ImportHealthData(path=sys.argv[1], microscope=sys.argv[2])
         job.run()

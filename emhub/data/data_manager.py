@@ -452,8 +452,7 @@ class DataManager(DbManager):
 
     # ---------------------------- HEALTH INFO --------------------------------
     def add_health_items(self, **attrs):
-        new_items = self._db_health.create_rows(**attrs)
-        return new_items
+        return self._db_health.create_rows(**attrs)
 
     def get_health_items(self, condition=None, orderBy=None, asJson=False):
         return self._db_health.items_from_query(condition=condition,
