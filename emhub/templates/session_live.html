@@ -117,7 +117,8 @@
                         <div class="card card-figure">
                             <!-- .card-figure -->
                             <figure class="figure">
-                                <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+{#                                <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">#}
+                                <canvas id="canvas_micrograph"></canvas>
                                 <!-- .figure-caption -->
                                 <figcaption class="figure-caption">
                                     <h4 class="figure-title" id="mic_id"> Micrograph </h4>
@@ -204,7 +205,36 @@
 
         requestMicThumb.done(function(data) {
             //alert("length: " + $("#img_micrograph").length);
-            $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
+            var canvas = document.getElementById("canvas_micrograph");
+            var ctx = canvas.getContext("2d");
+
+            var image = new Image();
+            function getRandomX() {
+                return Math.floor(Math.random() * image.width);
+            }
+            function getRandomY() {
+                return Math.floor(Math.random() * image.height);
+            }
+            image.onload = function() {
+                if (canvas.height != image.height) {
+                    canvas.height = image.height;
+                    canvas.width = image.width;
+                }
+                ctx.drawImage(image, 0, 0, image.width, image.height, 0, 0, image.width, image.height);
+                ctx.fillStyle = '#00ff00';
+
+                for (var i = 0; i < 350; ++i) {
+                    var x = getRandomX();
+                    var y = getRandomY();
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            };
+
+            image.src = 'data:image/png;base64,' + data['micThumbData'];
+
+{#            $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);#}
             $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
             $("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);
             document.getElementById('mic_id').innerHTML = "Micrograph " + micId;

@@ -30,7 +30,7 @@
                             {% for s in sessions %}
                             <tr>
                                 <td>{{ s.id }}</td>
-                                <td>{{ s.name }}</td>
+                                <td><a href="{{ url_for('main', content_id='session_live', session_id=s.id) }}">{{ s.name }}</a></td>
                                 <td>{{ s.start }} / {{ s.end }}</td>
                                 <td>{{ s.status }}</td>
                                 <td>{{ s.data_path }}</td>

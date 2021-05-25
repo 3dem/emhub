@@ -317,6 +317,10 @@ def main():
         protId = int(args.create[1])
         notify_session(projName, protId)
 
+    else:
+        print("Please provide some arguments")
+        sys.exit(1)
+
 
 if __name__ == '__main__':
     main()
