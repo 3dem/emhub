@@ -319,12 +319,37 @@ def notify_session(projName, protIdList):
 
 def update_session(sessionId, projName, protIdList):
     project, protocols = load_project(projName, protIdList)
+    protPicking = protocols[0]
+
+    protPicking
+    outputCoords = getattr(protPicking, 'outputCoordinates', None)
 
     with open_client() as dc:
         sessionDict = dc.get_session(sessionId)
         pprint(sessionDict)
         sets = dc.get_session_sets({'session_id': sessionId})
-        pprint(sets)
+
+
+        attrs = {
+            'session_id': sessionId,
+            'set_id': sets[0]['id'],
+        }
+        coordList = []
+        lastMicId = None
+
+        for coord in outputCoords.iterItems(orderBy='_micId',
+                                        direction='ASC'):
+            micId = coord.getMicId()
+            if micId != lastMicId:
+                # Update the coordinates information if necessary
+                if lastMicId is not None:
+                    attrs['item_id'] = lastMicId
+                    attrs['coordinates'] = coordList
+
+                    dc.update_session_item(attrs)
+                lastMicId = micId
+                coordList = []
+            coordList.append(coord.getPosition())
 
 
 def main():

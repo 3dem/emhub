@@ -70,10 +70,12 @@ def get_mic_data():
     setObj = session.data.get_sets()[0]
     attrs = [
         'micThumbData', 'psdData', 'shiftPlotData',
-        'ctfDefocusU', 'ctfDefocusV', 'ctfResolution'
+        'ctfDefocusU', 'ctfDefocusV', 'ctfResolution',
+        'coordinates'
     ]
 
     mic = session.data.get_set_item(setObj['id'], micId, attrList=attrs)
+    mic['coordinates'] = mic['coordinates'].tolist()
     session.data.close()
 
     return send_json_data(mic)

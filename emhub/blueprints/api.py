@@ -348,7 +348,7 @@ def update_session_item():
     """ Update existing item. """
     def handle(session, set_id, **attrs):
         itemId = attrs.pop("item_id")
-        session.data.update_item(set_id, itemId, attrs)
+        session.data.update_set_item(set_id, int(itemId), attrs)
         session.data.close()
         return {'item': {}}
 
@@ -507,7 +507,7 @@ def handle_session(session_func):
 def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
-    set_id = attrs.pop("set_id", 1)
+    set_id = attrs.pop("set_id", None)
     session = app.dm.load_session(sessionId=session_id, mode=mode)
     result = handle(session, set_id, **attrs)
 

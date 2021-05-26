@@ -168,7 +168,7 @@ class H5SessionData(SessionData):
             #         print("   >>> Value is None")
 
     def update_set_item(self, setId, itemId, attrDict):
-        micAttrs = self._file[self._getMicPath(setId, itemId)].attrs
+        micAttrs = self._file[self._getItemPath(setId, itemId)].attrs
         micAttrs.update(**attrDict)
 
     def close(self):
@@ -179,10 +179,6 @@ class H5SessionData(SessionData):
 
     def _getSetPath(self, setId):
         return '/Sets/%s' % setId
-
-    def _getMicPath(self, setId, itemId=None):
-        return ('/Micrographs/set%03d%s'
-                % (setId, '' if itemId is None else '/item%05d' % itemId))
 
 
 class ImageSessionData(SessionData):
@@ -207,7 +203,11 @@ class ImageSessionData(SessionData):
         'micThumbData', 'psdData', 'ctfFitData', 'shiftPlotData'
     ]
 
-    MIC_ALL_ATTRS = list(MIC_ATTRS.keys()) + MIC_DATA_ATTRS
+    MIC_EXTRA_ATTRS = [
+        'coordinates'
+    ]
+
+    MIC_ALL_ATTRS = list(MIC_ATTRS.keys()) + MIC_DATA_ATTRS + MIC_EXTRA_ATTRS
 
     def __init__(self, useBase64=True):
         self._useBase64 = useBase64
