@@ -120,14 +120,25 @@ def get_parser():
     g = parser.add_mutually_exclusive_group()
     g.add_argument('--list', action='store_true',
                    help="List existing sessions in the server.")
-    g.add_argument('--create', nargs=2,
+    g.add_argument('--create', action='store_true',
                    help="Create a new session")
-    g.add_argument(
-        '--update',
-        help="Update an existing session")
+    g.add_argument('--update', action='store_true',
+                   help="Update an existing session")
     g.add_argument(
         '--delete', metavar='SESSION_ID', type=int, nargs='+',
         help='Delete one or several sessions.')
+
+    add('-p', '--project', metavar='PROJECT_NAME',
+        help='Project name.')
+
+    add('--session_id', type=int,
+        help='Session Id')
+
+    add('--prot_ctf', type=int,
+        help="Id of the CTF protocol to monitor. ")
+
+    add('--prot_picking', type=int,
+        help="Id of the particle picking protocol to monitor. ")
 
     #
     # add('datasets', metavar='DATASET', nargs='*', help='Name of a dataset.')
@@ -147,10 +158,8 @@ def get_parser():
     return parser
 
 
-def notify_session(projName, protId):
-    now = dt.datetime.now()
-    stamp = now.strftime("%y%m%d%H%M")
-
+def load_project(projName, protIdList):
+    """ Load a project by name and a list of protocols given their ids. """
     manager = Manager()
 
     if not manager.hasProject(projName):
@@ -158,10 +167,22 @@ def notify_session(projName, protId):
 
     project = manager.loadProject(projName)
 
-    try:
-        prot = project.getProtocol(protId)
-    except:
-        usage("Unexistent protocol with ID: %s" % pwutils.red(protId))
+    def load_protocol(protId):
+        try:
+            return project.getProtocol(protId)
+        except:
+            usage("Unexistent protocol with ID: %s" % pwutils.red(protId))
+
+    return project, [load_protocol(protId) for protId in protIdList]
+
+
+def notify_session(projName, protIdList):
+    now = dt.datetime.now()
+    stamp = now.strftime("%y%m%d%H%M")
+
+    project, protocols = load_project(projName, protIdList)
+    protId = protIdList[0]
+    prot = protocols[0]
 
     outputCTF = getattr(prot, 'outputCTF', None)
     #outputCTF.printAll()
@@ -296,6 +317,16 @@ def notify_session(projName, protId):
             break
 
 
+def update_session(sessionId, projName, protIdList):
+    project, protocols = load_project(projName, protIdList)
+
+    with open_client() as dc:
+        sessionDict = dc.get_session(sessionId)
+        pprint(sessionDict)
+        sets = dc.get_session_sets({'session_id': sessionId})
+        pprint(sets)
+
+
 def main():
     args = get_parser().parse_args()
 
@@ -313,9 +344,10 @@ def main():
                 print("Deleted: ", json['name'])
 
     elif args.create:
-        projName = args.create[0]
-        protId = int(args.create[1])
-        notify_session(projName, protId)
+        notify_session(args.project, [args.prot_ctf])
+
+    elif args.update:
+        update_session(args.session_id, args.project, [args.prot_picking])
 
     else:
         print("Please provide some arguments")

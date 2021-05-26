@@ -94,6 +94,7 @@ class H5SessionData(SessionData):
     """
     def __init__(self, h5File, mode='r'):
         #h5py.get_config().track_order = True
+
         if mode == 'r':
             print("Reading file: ", h5File)
         elif mode in ['w', 'a']:
@@ -110,7 +111,7 @@ class H5SessionData(SessionData):
             if attrList is None:
                 setList.append(dict(v.attrs))
             else:
-                setList.append({a: v[a] for a in attrList})
+                setList.append({a: v.attrs[a] for a in attrList})
 
         return setList
 

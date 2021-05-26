@@ -316,6 +316,19 @@ def create_session_set():
     return handle_session_data(handle, mode="a")
 
 
+@api_bp.route('/get_session_sets', methods=['POST'])
+@flask_login.login_required
+def get_session_sets():
+    """ Return all sets' name of this session. """
+    def handle(session, set_id, **attrs):
+        # set_id is not used here, but passed by default to the handle
+        sets = session.data.get_sets(attrList=attrs)
+        session.data.close()
+        return {'session_sets': sets}
+
+    return handle_session_data(handle, mode="r")
+
+
 @api_bp.route('/add_session_item', methods=['POST'])
 @flask_login.login_required
 def add_session_item():
@@ -495,7 +508,6 @@ def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
     set_id = attrs.pop("set_id", 1)
-
     session = app.dm.load_session(sessionId=session_id, mode=mode)
     result = handle(session, set_id, **attrs)
 
@@ -517,9 +529,6 @@ def handle_invoice_period(invoice_period_func):
 
 def handle_transaction(transaction_func):
     def handle(**attrs):
-
-        print("handle_transaction: ", attrs)
-
         def _fix_date(date_key):
             if date_key in attrs:
                 attrs[date_key] = datetime_from_isoformat(attrs[date_key])
