@@ -71,8 +71,8 @@ def array_to_base64(imageArray, MAX_SIZE=(512,512), contrast_factor=None):
     imean = imageArray.mean()
     isd = imageArray.std()
 
-    iMax = min(imean + 3 * isd, imageArray.max())
-    iMin = max(imean - 3 * isd, imageArray.min())
+    iMax = imageArray.max() # min(imean + 10 * isd, imageArray.max())
+    iMin = imageArray.min() # max(imean - 10 * isd, imageArray.min())
     im255 = ((imageArray - iMin) / (iMax - iMin) * 255).astype(np.uint8)
 
 
@@ -81,7 +81,8 @@ def array_to_base64(imageArray, MAX_SIZE=(512,512), contrast_factor=None):
     if contrast_factor is not None:
         pil_img = ImageOps.autocontrast(pil_img, contrast_factor)
 
-    pil_img.thumbnail(MAX_SIZE)
+    if MAX_SIZE is not None:
+        pil_img.thumbnail(MAX_SIZE)
 
     img_io = io.BytesIO()
     pil_img.save(img_io, format='PNG')

@@ -394,7 +394,8 @@ class ProjectSession:
             attrs.update({
                 'item_id': class2d.getObjId(),
                 'size': class2d.getSize(),
-                'average': array_to_base64(mrc_stack.data[i,:,:])
+                'average': array_to_base64(mrc_stack.data[i,:,:],
+                                           MAX_SIZE=None)
             })
             for i in range(3):  # try 3 times
                 try:
