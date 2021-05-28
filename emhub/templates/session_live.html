@@ -117,9 +117,9 @@
                             <div class="row">
 {#                                <canvas id="canvas_classes2d" class="col-3"></canvas>#}
                                 {% for c in classes2d %}
-                                    <div style="">
+                                    <div style="padding: 5px">
                                     <img src="data:image/png;base64,{{ c['average'] }}">
-                                        <p class="text-muted mb-0"> id: {{ c['id'] }}, size: {{ c['size'] }}</p>
+                                        <p class="text-muted mb-0"> id: {{ c['id'] }}</br>size: {{ c['size'] }}</p>
                                     </div>
                                 {% endfor %}
 
