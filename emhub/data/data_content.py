@@ -143,6 +143,7 @@ class DataContent:
         if classesSet:
             class2DSetId = classesSet[-1]['id']
             classes2d = session.data.get_set_items(class2DSetId, attrList=['size', 'average'])
+            classes2d.sort(key=lambda c: c['size'], reverse=True)
         else:
             classes2d = []
 
