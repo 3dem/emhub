@@ -92,6 +92,14 @@ class DataClient:
         """
         return self._method('create_session_set', 'session_set', attrs)
 
+    def update_session_set(self, attrs):
+        """ Request the server to update a set within a session.
+        Mandatory in attrs:
+            session_id: the id of the session
+            set_id: the id of the set that will be created
+        """
+        return self._method('update_session_set', 'session_set', attrs)
+
     def get_session_sets(self, attrs):
         """ Retrieve all sets associated to a given session.
         Mandatory in attrs:

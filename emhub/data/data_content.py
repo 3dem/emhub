@@ -111,10 +111,19 @@ class DataContent:
         return {'sessions': sessions}
 
     def get_session_data(self, session):
-        firstSetId = session.data.get_sets()[0]['id']
+        micSetId = None
+        sets = session.data.get_sets()
+        for s in sets:
+           if s['id'].startswith('Micrographs'):
+               micSetId = s['id']
+
+        if micSetId is None:
+            raise Exception("Not micrograph set found in '%s'"
+                            % session.data_path)
+
         attrList = ['location', 'ctfDefocus', 'ctfResolution']
-        mics = session.data.get_set_items(firstSetId, attrList=attrList)
-        session.data.close()
+        mics = session.data.get_set_items(micSetId, attrList=attrList)
+
 
         def _get_hist(label, inputList):
             import numpy as np
@@ -129,6 +138,17 @@ class DataContent:
         resolutionList = [m['ctfResolution'] for m in mics]
         stats = session.stats
 
+        # Load classes
+        classesSet = [s for s in sets if s['id'].startswith('Class2D')]
+        if classesSet:
+            class2DSetId = classesSet[-1]['id']
+            classes2d = session.data.get_set_items(class2DSetId, attrList=['size', 'average'])
+        else:
+            classes2d = []
+
+
+        session.data.close()
+
         return {
             'defocus_plot': ['Defocus'] + defocusList,
             'ctf_defocus_hist': _get_hist('CTF Defocus', defocusList),
@@ -140,7 +160,9 @@ class DataContent:
                 'aligned': stats['numOfMics'],
                 'ctf': stats['numOfCtfs'],
                 'picked': 0
-            }}
+            },
+            'classes2d': classes2d
+        }
 
     def get_session_live(self, **kwargs):
         session_id = kwargs['session_id']

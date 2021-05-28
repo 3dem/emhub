@@ -310,7 +310,17 @@ def create_session_set():
     """ Create a set file without actual session. """
     def handle(session, set_id, **attrs):
         session.data.create_set(set_id, attrs)
-        session.data.close()
+        return {'session_set': {}}
+
+    return handle_session_data(handle, mode="a")
+
+
+@api_bp.route('/update_session_set', methods=['POST'])
+@flask_login.login_required
+def update_session_set():
+    """ Create a set file without actual session. """
+    def handle(session, set_id, **attrs):
+        session.data.update_set(set_id, attrs)
         return {'session_set': {}}
 
     return handle_session_data(handle, mode="a")
@@ -323,7 +333,6 @@ def get_session_sets():
     def handle(session, set_id, **attrs):
         # set_id is not used here, but passed by default to the handle
         sets = session.data.get_sets(attrList=attrs)
-        session.data.close()
         return {'session_sets': sets}
 
     return handle_session_data(handle, mode="r")
@@ -336,7 +345,6 @@ def add_session_item():
     def handle(session, set_id, **attrs):
         itemId = attrs.pop("item_id")
         session.data.add_set_item(set_id, itemId, attrs)
-        session.data.close()
         return {'item': {}}
 
     return handle_session_data(handle, mode="a")
@@ -349,7 +357,6 @@ def update_session_item():
     def handle(session, set_id, **attrs):
         itemId = attrs.pop("item_id")
         session.data.update_set_item(set_id, int(itemId), attrs)
-        session.data.close()
         return {'item': {}}
 
     return handle_session_data(handle, mode="a")
@@ -360,9 +367,7 @@ def update_session_item():
 def get_session_data():
     """ Return some information related to session (e.g CTF values, etc). """
     def handle(session, set_id, **attrs):
-        result = DataContent(app).get_session_data(session)
-        session.data.close()
-        return result
+        return DataContent(app).get_session_data(session)
 
     return handle_session_data(handle, mode="r")
 
@@ -510,6 +515,7 @@ def handle_session_data(handle, mode="r"):
     set_id = attrs.pop("set_id", None)
     session = app.dm.load_session(sessionId=session_id, mode=mode)
     result = handle(session, set_id, **attrs)
+    session.data.close()
 
     return send_json_data(result)
 

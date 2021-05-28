@@ -67,14 +67,21 @@ def get_mic_data():
     micId = int(request.form['micId'])
     sessionId = int(request.form['sessionId'])
     session = app.dm.load_session(sessionId)
-    setObj = session.data.get_sets()[0]
+    micSetId = None
+    for s in session.data.get_sets():
+        if s['id'].startswith('Micrographs'):
+            micSetId = s['id']
+
+    if micSetId is None:
+        raise Exception("Not micrograph set found in '%s'"
+                        % session.data_path)
     attrs = [
         'micThumbData', 'psdData', 'shiftPlotData',
         'ctfDefocusU', 'ctfDefocusV', 'ctfResolution',
         'coordinates'
     ]
 
-    mic = session.data.get_set_item(setObj['id'], micId, attrList=attrs)
+    mic = session.data.get_set_item(micSetId, micId, attrList=attrs)
     mic['coordinates'] = mic['coordinates'].tolist()
     session.data.close()
 

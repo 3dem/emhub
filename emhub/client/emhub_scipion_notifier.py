@@ -36,7 +36,6 @@ import argparse
 from pprint import pprint
 from contextlib import contextmanager
 
-
 from pyworkflow.project import Manager
 import pyworkflow.utils as pwutils
 
@@ -54,7 +53,7 @@ class config:
 sys.path.append(config.EMHUB_SOURCE)
 
 from emhub.client import DataClient
-from emhub.utils.image import mrc_to_base64
+from emhub.utils.image import mrc_to_base64, array_to_base64
 
 
 def usage(error):
@@ -134,11 +133,14 @@ def get_parser():
     add('--session_id', type=int,
         help='Session Id')
 
-    add('--prot_ctf', type=int,
+    add('--prot_ctf', type=int, default=0,
         help="Id of the CTF protocol to monitor. ")
 
-    add('--prot_picking', type=int,
+    add('--prot_picking', type=int, default=0,
         help="Id of the particle picking protocol to monitor. ")
+
+    add('--prot_2d', type=int, default=0,
+        help='Id of the classify 2d protocol.')
 
     #
     # add('datasets', metavar='DATASET', nargs='*', help='Name of a dataset.')
@@ -317,28 +319,36 @@ def notify_session(projName, protIdList):
             break
 
 
-def update_session(sessionId, projName, protIdList):
-    project, protocols = load_project(projName, protIdList)
-    protPicking = protocols[0]
+class ProjectSession:
+    def __init__(self, projName, sessionId):
+        self._sessionId = sessionId
+        manager = Manager()
 
-    protPicking
-    outputCoords = getattr(protPicking, 'outputCoordinates', None)
+        if not manager.hasProject(projName):
+            usage("Unexistent project: %s" % pwutils.red(projName))
 
-    with open_client() as dc:
-        sessionDict = dc.get_session(sessionId)
-        pprint(sessionDict)
-        sets = dc.get_session_sets({'session_id': sessionId})
+        self._project = manager.loadProject(projName)
 
+    def _get_path(self, *paths):
+        return os.path.join(self._project.path, *paths)
 
+    def _load_protocol(self, protId):
+        try:
+            return self._project.getProtocol(protId)
+        except:
+            usage("Unexistent protocol with ID: %s" % pwutils.red(protId))
+
+    def _update_coords(self, dc, protCoordsId, micSetDict):
+        protPicking = self._load_protocol(protCoordsId)
+        coordsSet = getattr(protPicking, 'outputCoordinates', None)
         attrs = {
-            'session_id': sessionId,
-            'set_id': sets[0]['id'],
+            'session_id': self._sessionId,
+            'set_id': micSetDict['id'],
         }
         coordList = []
         lastMicId = None
 
-        for coord in outputCoords.iterItems(orderBy='_micId',
-                                        direction='ASC'):
+        for coord in coordsSet.iterItems(orderBy='_micId', direction='ASC'):
             micId = coord.getMicId()
             if micId != lastMicId:
                 # Update the coordinates information if necessary
@@ -350,6 +360,78 @@ def update_session(sessionId, projName, protIdList):
                 lastMicId = micId
                 coordList = []
             coordList.append(coord.getPosition())
+
+    def _update_classes(self, dc, protClass2DId, sets):
+        prot2D = self._load_protocol(protClass2DId)
+        outputClasses = getattr(prot2D, 'outputClasses', None)
+        outputClasses.printAll()
+        setId = 'Class2D_%06d' % protClass2DId
+        attrs = {
+            'session_id': self._sessionId,
+            'set_id': setId,
+            'size': outputClasses.getSize()
+        }
+        if any(s['id'] == setId for s in sets):
+            set_func = dc.update_session_set
+            item_func = dc.update_session_item
+            label = 'Updating'
+        else:
+            set_func = dc.create_session_set
+            item_func = dc.add_session_item
+            label = 'Creating'
+
+        print("- %s set %s" % (label, setId))
+        set_func(attrs)
+
+        import mrcfile
+        fn = outputClasses.getFirstItem().getRepresentative().getFileName()
+        mrc_stack = mrcfile.open(fn, permissive=True)
+
+        for class2d in outputClasses:
+            rep = class2d.getRepresentative()
+            rep.setFileName(self._get_path(rep.getFileName()))
+            i = rep.getIndex() - 1
+            attrs.update({
+                'item_id': class2d.getObjId(),
+                'size': class2d.getSize(),
+                'average': array_to_base64(mrc_stack.data[i,:,:])
+            })
+            for i in range(3):  # try 3 times
+                try:
+                    item_func(attrs)
+                    break
+                except Exception as e:
+                    print("dc.add_session_item:: Error: %s" % e)
+                    print("                      Trying again in 3 seconds.")
+                    time.sleep(3)
+
+    def update_session(self, protCoordsId, protClass2DId):
+
+        with open_client() as dc:
+            sessionDict = dc.get_session(self._sessionId)
+            pprint(sessionDict)
+            sets = dc.get_session_sets({'session_id': self._sessionId})
+
+            print("\n>>> Sets:")
+            for s in sets:
+                pprint(s)
+
+            if protCoordsId:
+                print("\n>>> Updating coordinates...")
+                self._update_coords(dc, protCoordsId, sets[0])
+
+            if protClass2DId:
+                print("\n>>> Updating classes...")
+                print("- Using protocol id=%d" % protClass2DId)
+
+
+                self._update_classes(dc, protClass2DId, sets)
+
+
+
+
+
+
 
 
 def main():
@@ -372,7 +454,8 @@ def main():
         notify_session(args.project, [args.prot_ctf])
 
     elif args.update:
-        update_session(args.session_id, args.project, [args.prot_picking])
+        ps = ProjectSession(args.project, args.session_id)
+        ps.update_session(args.prot_picking, args.prot_2d)
 
     else:
         print("Please provide some arguments")

@@ -32,7 +32,6 @@ import mrcfile
 from PIL import Image, ImageEnhance, ImageOps
 
 
-
 def fn_to_base64(filename):
     """ Read the image filename as a PIL image
     and encode it as base64.
@@ -68,24 +67,14 @@ def fn_to_blob(filename):
         return np.array(0)
 
 
-def mrc_to_base64(filename, MAX_SIZE=(512,512), contrast_factor=None):
-    """ Convert real float32 mrc to base64.
-    Convert to int8 first, then scale with Pillow.
-    """
-    mrc_img = mrcfile.open(filename, permissive=True)
+def array_to_base64(imageArray, MAX_SIZE=(512,512), contrast_factor=None):
+    imean = imageArray.mean()
+    isd = imageArray.std()
 
-    if mrc_img.is_volume():
-        imfloat = mrc_img.data[0, :, :]
-    else:
-        imfloat = mrc_img.data
+    iMax = min(imean + 3 * isd, imageArray.max())
+    iMin = max(imean - 3 * isd, imageArray.min())
+    im255 = ((imageArray - iMin) / (iMax - iMin) * 255).astype(np.uint8)
 
-    imean = imfloat.mean()
-    isd = imfloat.std()
-
-    iMax = min(imean + 3 * isd, imfloat.max())
-    iMin = max(imean - 3 * isd, imfloat.min())
-    im255 = ((imfloat - iMin) / (iMax - iMin) * 255).astype(np.uint8)
-    mrc_img.close()
 
     pil_img = Image.fromarray(im255)
 
@@ -98,3 +87,21 @@ def mrc_to_base64(filename, MAX_SIZE=(512,512), contrast_factor=None):
     pil_img.save(img_io, format='PNG')
 
     return base64.b64encode(img_io.getvalue()).decode("utf-8")
+
+
+def mrc_to_base64(filename, MAX_SIZE=(512,512), contrast_factor=None):
+    """ Convert real float32 mrc to base64.
+    Convert to int8 first, then scale with Pillow.
+    """
+    mrc_img = mrcfile.open(filename, permissive=True)
+
+    if mrc_img.is_volume():
+        imfloat = mrc_img.data[0, :, :]
+    else:
+        imfloat = mrc_img.data
+
+    result = array_to_base64(imfloat,
+                             MAX_SIZE=MAX_SIZE,
+                             contrast_factor=contrast_factor)
+    mrc_img.close()
+    return result

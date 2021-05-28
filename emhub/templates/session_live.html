@@ -9,68 +9,67 @@
 
             <div class="row">
                 <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
-                                <div class="row">
-
-                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="text-muted">Imported</h5>
-                            <div class="metric-value d-inline-block">
-                                <h1 class="mb-1" id="counter_imported">{{ counters['imported'] }}</h1>
-                            </div>
-                            <div class="metric-label d-inline-block float-right text-success font-weight-bold">
-                                <span><i class="fa fa-fw fa-arrow-up"></i></span><span>5.86%</span>
-                            </div>
-                        </div>
-                        <div id="sparkline-revenue"></div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="text-muted">Aligned</h5>
-                            <div class="metric-value d-inline-block">
-                                <h1 class="mb-1" id="counter_aligned">{{ counters['aligned'] }}</h1>
-                            </div>
-                            <div class="metric-label d-inline-block float-right text-secondary font-weight-bold">
-                                <span id="diff_aligned">{{ counters['aligned'] - counters['imported'] }}</span>
+                    <div class="row">
+                        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="text-muted">Imported</h5>
+                                    <div class="metric-value d-inline-block">
+                                        <h1 class="mb-1" id="counter_imported">{{ counters['imported'] }}</h1>
+                                    </div>
+                                    <div class="metric-label d-inline-block float-right text-success font-weight-bold">
+                                        <span><i class="fa fa-fw fa-arrow-up"></i></span><span>5.86%</span>
+                                    </div>
+                                </div>
+                                <div id="sparkline-revenue"></div>
                             </div>
                         </div>
-                        <div id="sparkline-revenue2"></div>
-                    </div>
-                </div>
 
-                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="text-muted">CTF Estimation</h5>
-                            <div class="metric-value d-inline-block">
-                            <h1 class="mb-1" id="counter_ctf">{{ counters['ctf'] }}</h1>
-                            </div>
-                            <div class="metric-label d-inline-block float-right text-primary font-weight-bold">
-                            <span id="diff_ctf">{{ counters['ctf'] - counters['aligned'] }}</span>
+                        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="text-muted">Aligned</h5>
+                                    <div class="metric-value d-inline-block">
+                                        <h1 class="mb-1" id="counter_aligned">{{ counters['aligned'] }}</h1>
+                                    </div>
+                                    <div class="metric-label d-inline-block float-right text-secondary font-weight-bold">
+                                        <span id="diff_aligned">{{ counters['aligned'] - counters['imported'] }}</span>
+                                    </div>
+                                </div>
+                                <div id="sparkline-revenue2"></div>
                             </div>
                         </div>
-                        <div id="sparkline-revenue3"></div>
-                    </div>
-                </div>
 
-                <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="text-muted">Particle Picking</h5>
-                            <div class="metric-value d-inline-block">
-                            <h1 class="mb-1" id="counter_picked">{{ counters['picked'] }}</h1>
-                            </div>
-                            <div class="metric-label d-inline-block float-right text-success font-weight-bold">
-                            <span id="diff_picked">0</span>
+                        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="text-muted">CTF Estimation</h5>
+                                    <div class="metric-value d-inline-block">
+                                    <h1 class="mb-1" id="counter_ctf">{{ counters['ctf'] }}</h1>
+                                    </div>
+                                    <div class="metric-label d-inline-block float-right text-primary font-weight-bold">
+                                    <span id="diff_ctf">{{ counters['ctf'] - counters['aligned'] }}</span>
+                                    </div>
+                                </div>
+                                <div id="sparkline-revenue3"></div>
                             </div>
                         </div>
-                        <div id="sparkline-revenue4"></div>
-                    </div>
+
+                        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="text-muted">Particle Picking</h5>
+                                    <div class="metric-value d-inline-block">
+                                    <h1 class="mb-1" id="counter_picked">{{ counters['picked'] }}</h1>
+                                    </div>
+                                    <div class="metric-label d-inline-block float-right text-success font-weight-bold">
+                                    <span id="diff_picked">0</span>
+                                    </div>
+                                </div>
+                                <div id="sparkline-revenue4"></div>
+                            </div>
+                        </div>
                 </div>
-            </div>
                 </div>
 
                 <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
@@ -91,6 +90,7 @@
             <!-- thumbnails row -->
             <div class="row">
                 <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
+
                     <div class="card">
                         <h5 class="card-header">CTF Defocus</h5>
                         <div class="card-body">
@@ -100,6 +100,7 @@
                             </div>
                         </div>
                     </div>
+
                     <div class="card">
                         <h5 class="card-header">CTF Resolution</h5>
                         <div class="card-body">
@@ -109,6 +110,23 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="card">
+                        <h5 class="card-header">Classes 2D</h5>
+                        <div class="card-body">
+                            <div class="row">
+{#                                <canvas id="canvas_classes2d" class="col-3"></canvas>#}
+                                {% for c in classes2d %}
+                                    <div style="">
+                                    <img src="data:image/png;base64,{{ c['average'] }}">
+                                        <p class="text-muted mb-0"> id: {{ c['id'] }}, size: {{ c['size'] }}</p>
+                                    </div>
+                                {% endfor %}
+
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
@@ -385,7 +403,7 @@
 
     request_micrograph_images({{ session['id'] }}, 1);
 
-    setTimeout(requestSessionData, 10000);
+    //setTimeout(requestSessionData, 10000);
 
     });
 
