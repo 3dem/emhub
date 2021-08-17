@@ -54,7 +54,7 @@
                     <h3 class="font-16">Applications</h3>
                     <div>
                         {% for a in current_user.get_applications() %}
-                            <a href="#" class="badge badge-light mr-1">{{ a.code     }}</a>
+                            <a href="#" class="badge badge-success mr-1">{{ a.code     }}</a>
                         {% endfor %}
                     </div>
                 </div>
