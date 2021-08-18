@@ -104,10 +104,8 @@
     })
 
     $('#users-table').DataTable({
-        dom: 'Bfrtip',
-        buttons: [
-            'copy', 'csv', 'excel', 'pdf', 'print'
-        ]
+        dom: 'frtip',
+        paging: false
     });
 
     function switchUser(username, name) {
