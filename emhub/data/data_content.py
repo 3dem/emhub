@@ -738,6 +738,27 @@ class DataContent:
 
         return data
 
+    def get_raw_user_issues(self, **kwargs):
+        users = self.get_users_list()['users']
+        filterKey = kwargs.get('filter', 'noroles')
+        filterName = '_filter_%s' % filterKey
+
+        def _filter_noapp(u):
+            """ Users with No Active Application """
+            return not u.is_manager and not u.project_codes
+
+        def _filter_noroles(u):
+            """ Users with No Roles """
+            return not u.is_manager and not u.roles
+
+        _filter = locals()[filterName]
+
+        new_users = [u for u in users if _filter(u)]
+
+        return {'users': new_users,
+                'filterDesc': _filter.__doc__
+                }
+
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
