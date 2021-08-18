@@ -40,13 +40,6 @@
                                     <a href="{{ url_for('main', content_id=period_url, period=ip['id']) }}" class="badge badge-info mr-1">{{ ip['period'] }}</a>
                                 </td>
 
-
-{#                                {% if is_admin %}#}
-{#                                    <td><a href="{{ url_for('main', content_id='invoice_period', period=ip['id']) }}">{{ ip['period'] }}</a></td>#}
-{#                                {% else %}#}
-{#                                    <td><a href="{{ url_for('main', content_id='reports_invoices_lab', period=ip['id']) }}">{{ ip['period'] }}</a></td>#}
-{#                                {% endif %}#}
-
                                 <td>{{ ip['status'] }}</td>
                                 {% if is_admin %}
                                     <td>

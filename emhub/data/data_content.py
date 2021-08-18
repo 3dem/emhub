@@ -510,12 +510,9 @@ class DataContent:
 
         return result
 
-    def get_reports_invoices_lab(self, **kwargs):
-        return self.get_invoices_lab_list(**kwargs)
-
-    def get_invoices_lab_list(self, **kwargs):
+    def __get_period(self, kwargs):
+        """ Helper function to update period in kwargs if not present. """
         dm = self.app.dm  # shortcut
-
         period = None
         period_id = kwargs.get('period', None)
 
@@ -529,8 +526,10 @@ class DataContent:
         kwargs['start'] = pretty_date(period.start)
         kwargs['end'] = pretty_date(period.end)
 
-        bookings, range_dict = self.get_booking_in_range(kwargs)
+        return period
 
+    def __get_pi_user(self, kwargs):
+        """ Helper function to get pi user. """
         u = self.app.user
         pi_id_value = kwargs.get('pi_id', u.id)
 
@@ -544,13 +543,45 @@ class DataContent:
         if pi_user is None:
             raise Exception("Invalid user id: %s" % pi_id)
 
-        if not u.is_manager and (pi_id != u.id or not u.is_pi):
-            raise Exception("You do not have access to this information.")
+        def _has_access():
+            if not (u.is_manager or u.is_pi):
+                return False
+
+            pi_apps = set(a.id for a in pi_user.get_applications())
+            u_apps = set(a.id for a in u.get_applications())
+
+            return bool(pi_apps.intersection(u_apps))
+
+        if not _has_access():
+            raise Exception("You do not have access to this information. u.is_pi: %s" % u.is_pi)
+
+        return pi_user
+
+    def get_reports_invoices_lab(self, **kwargs):
+        period = self.__get_period(kwargs)
+        pi_user = self.__get_pi_user(kwargs)
+        app = pi_user.get_applications()[-1]
+
+        data = self.get_reports_invoices(**kwargs)
+        data['apps_dict'] = {app.code: data['apps_dict'][app.code]}
+        data.update(self.get_transactions_list(period=period.id))
+        data['period'] = period
+        alias = app.alias
+        data['details_title'] = app.code + (' (%s)' % alias if alias else '')
+
+        return data
+
+    def get_invoices_lab_list(self, **kwargs):
+
+        period = self.__get_period(kwargs)
+        bookings, range_dict = self.get_booking_in_range(kwargs)
+
+        pi_user = self.__get_pi_user(kwargs)
 
         apps_dict = {a.id: [] for a in pi_user.get_applications()}
         all_bookings = []
         for b in bookings:
-            if b.get('pi_id', None) != pi_id:
+            if b.get('pi_id', None) != pi_user.id:
                 continue
 
             app_id = b.get('app_id', None)
