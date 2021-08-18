@@ -5,8 +5,10 @@
     <div class="card">
         <div class="card-header">
             <div class="row">
-                {% set btn_prefix = 'Hide' if group == 1 else 'Show' %}
-                <a id="show-hide-btn" class="btn btn-outline-dark" href="{{ url_for('main', content_id='invoice_period', period=period.id, tab='invoices', group=1-group) }}"> {{ btn_prefix }} Application Groups  </a>
+                {%  if hide_buttons is none %}
+                    {% set btn_prefix = 'Hide' if group == 1 else 'Show' %}
+                    <a id="show-hide-btn" class="btn btn-outline-dark" href="{{ url_for('main', content_id='invoice_period', period=period.id, tab='invoices', group=1-group) }}"> {{ btn_prefix }} Application Groups  </a>
+                {% endif %}
             </div>
         </div>
         <div class="card-body">

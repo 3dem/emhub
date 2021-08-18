@@ -16,7 +16,10 @@
     {% for a in applications %}
         {% if a.status in status %}
         <tr>
-            <td><a href="javascript:showApplication({{ a.id }})">{{ a.code }}</a></td>
+            <td>
+                <a href="javascript:showApplication({{ a.id }})" class="badge badge-success mr-1">{{ a.code }}</a>
+            </td>
+
             <td>{{ a.status }}</td>
             <td>{{ a.created|pretty_datetime }}</td>
             <td>{{ a.alias }}</td>

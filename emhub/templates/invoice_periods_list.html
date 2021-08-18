@@ -5,8 +5,11 @@
     {% set navigation = [('Admin', ''), ('Invoices', '')] %}
     {% include 'include_header.html' %}
     {% set is_admin = current_user.is_manager %}
+    {% set period_url = 'invoice_period' if is_admin else 'reports_invoices_lab' %}
 
     <!-- table row -->
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+
     <div class="row">
         <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
             <div class="card">
@@ -32,11 +35,11 @@
                             {% for ip in invoice_periods %}
                             <tr>
                                 <td>{{ ip['id'] }}</td>
-                                {% if is_admin %}
-                                    <td><a href="{{ url_for('main', content_id='invoice_period', period=ip['id']) }}">{{ ip['period'] }}</a></td>
-                                {% else %}
-                                    <td><a href="{{ url_for('main', content_id='reports_invoices_lab', period=ip['id']) }}">{{ ip['period'] }}</a></td>
-                                {% endif %}
+
+                                <td>
+                                    <a href="{{ url_for('main', content_id=period_url, period=ip['id']) }}" class="badge badge-info mr-1">{{ ip['period'] }}</a>
+                                </td>
+
                                 <td>{{ ip['status'] }}</td>
                                 {% if is_admin %}
                                     <td>
@@ -109,8 +112,8 @@ function onInvoicePeriodOkButtonClick() {
     var invoice_period = {
         id: parseInt($('#invoice_period-id').val()),
         status: $('#invoice_period-status').val(),
-        start: dateIsoFromValue('#invoice_period-start'),
-        end: dateIsoFromValue('#invoice_period-end')
+        start: dateIsoFromValue('#invoice_period-start', '#hour_id'),
+        end: dateIsoFromValue('#invoice_period-end', '#hour_id')
     };
 
     var endpoint = null;
