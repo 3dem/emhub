@@ -544,7 +544,10 @@ class DataContent:
             raise Exception("Invalid user id: %s" % pi_id)
 
         def _has_access():
-            if not (u.is_manager or u.is_pi):
+            if u.is_manager:
+                return True
+
+            if not u.is_pi:
                 return False
 
             pi_apps = set(a.id for a in pi_user.get_applications())
@@ -564,6 +567,7 @@ class DataContent:
 
         data = self.get_reports_invoices(**kwargs)
         data['apps_dict'] = {app.code: data['apps_dict'][app.code]}
+        data['app'] = app
         data.update(self.get_transactions_list(period=period.id))
         data['period'] = period
         alias = app.alias

@@ -33,23 +33,28 @@
                             </thead>
                             <tbody>
                             {% for ip in invoice_periods %}
-                            <tr>
-                                <td>{{ ip['id'] }}</td>
+                                {% set status = ip['status'] %}
+                                {% if is_admin or status != 'disabled' %}
+                                <tr>
+                                    <td>{{ ip['id'] }}</td>
 
-                                <td>
-                                    <a href="{{ url_for('main', content_id=period_url, period=ip['id']) }}" class="badge badge-info mr-1">{{ ip['period'] }}</a>
-                                </td>
-
-                                <td>{{ ip['status'] }}</td>
-                                {% if is_admin %}
                                     <td>
-                                        <button class="btn btn-sm btn-outline-light" onclick="showInvoicePeriodForm({{ ip['id'] }})">
-                                            <i class="far fa-edit"></i></button>
-                                        <button class="btn btn-sm btn-outline-light" onclick="deleteInvoicePeriod({{ ip['id'] }})">
-                                            <i class="far fa-trash-alt"></i></button>
+                                        {% set badge_type = 'success' if status == 'active' else ('light' if status == 'disabled' else 'info') %}
+{#                                        if status == 'disabled' else 'info') %}#}
+                                        <a href="{{ url_for('main', content_id=period_url, period=ip['id']) }}" class="badge badge-{{ badge_type }} mr-1">{{ ip['period'] }}</a>
                                     </td>
+
+                                    <td>{{ ip['status'] }}</td>
+                                    {% if is_admin %}
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-light" onclick="showInvoicePeriodForm({{ ip['id'] }})">
+                                                <i class="far fa-edit"></i></button>
+                                            <button class="btn btn-sm btn-outline-light" onclick="deleteInvoicePeriod({{ ip['id'] }})">
+                                                <i class="far fa-trash-alt"></i></button>
+                                        </td>
+                                    {% endif %}
+                                </tr>
                                 {% endif %}
-                            </tr>
                             {% endfor %}
 
                             </tbody>
@@ -76,7 +81,8 @@ $('#invoice_periods-table').DataTable({
     sDom: 'lrtip',
     paging: false,
     info: false,
-    ordering: false
+    order: [[ 0, "desc" ]]
+    //ordering: false
 });
 
 /* Show the Application Form, either for a new booking or an existing one */
