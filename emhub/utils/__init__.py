@@ -50,7 +50,7 @@ def pretty_datetime(input_dt):
 
 def pretty_quarter(quarter):
     qs, qe = quarter
-    return '%s - %s' % (qs.strftime('%b'),
+    return '%s - %s' % (qs.strftime('%b %Y'),
                         qe.strftime('%b %Y'))
 
 

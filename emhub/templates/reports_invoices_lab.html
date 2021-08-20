@@ -2,6 +2,7 @@
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set period_label = (period.start, period.end)|pretty_quarter %}
+    {% set table_file_prefix = "invoices_" + app.code + "_" + period_label.replace(' ', '') %}
     {% set title = "Invoices: " + details_title %}
     {% set navigation = [('Lab Invoices', url_for('main', content_id='invoice_periods_list')), (period_label, '')] %}
     {% include 'include_header.html' %}

@@ -1,6 +1,5 @@
 
 
-
 <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
     <div class="card">
         <div class="card-header">
@@ -127,7 +126,23 @@ $('.table-invoice').DataTable({
     info: false,
     ordering: false,
     buttons: [
-        'copy', 'csv', 'excel', 'pdf', 'print'
+        {
+            extend: 'copy',
+            text: 'Copy to clipboard'
+        },
+        {
+            extend: 'csv',
+            title: '{{ table_file_prefix }}'
+        },
+        {
+            extend: 'excel',
+            title: '{{ table_file_prefix }}'
+        },
+        {
+            extend: 'pdf',
+            title: '{{ table_file_prefix }}'
+        },
+        'print'
     ]
     //ordering: false,
 });
