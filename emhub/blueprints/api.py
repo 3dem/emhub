@@ -404,6 +404,33 @@ def delete_transaction():
     return handle_transaction(app.dm.delete_transaction)
 
 
+# ------------------------------ FORMS ---------------------------------
+
+@api_bp.route('/get_forms', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_forms():
+    return send_json_data([f.json() for f in app.dm.get_forms()])
+
+
+@api_bp.route('/create_form', methods=['POST'])
+@flask_login.login_required
+def create_form():
+    return handle_transaction(app.dm.create_form)
+
+
+@api_bp.route('/update_form', methods=['POST'])
+@flask_login.login_required
+def update_form():
+    return handle_transaction(app.dm.update_form)
+
+
+@api_bp.route('/delete_form', methods=['POST'])
+@flask_login.login_required
+def delete_form():
+    return handle_transaction(app.dm.delete_form)
+
+
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
@@ -526,6 +553,13 @@ def handle_transaction(transaction_func):
         return transaction_func(**attrs).json()
 
     return _handle_item(handle, 'transaction')
+
+
+def handle_form(form_func):
+    def handle(**attrs):
+        return form_func(**attrs).json()
+
+    return _handle_item(handle, 'form')
 
 
 def create_item(name):

@@ -794,6 +794,13 @@ class DataContent:
                 'filterDesc': _filter.__doc__
                 }
 
+    def get_raw_forms_list(self, **kwargs):
+        return {'forms': [
+            {'id': f.id,
+             'name': f.name,
+             'definition': json.dumps(f.definition)
+        } for f in self.app.dm.get_forms()]}
+
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
         """ Return a dict that can be used as calendar Event object. """
