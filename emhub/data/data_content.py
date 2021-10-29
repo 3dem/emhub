@@ -68,6 +68,7 @@ class DataContent:
         bookings = [('Today', []),
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
+        sessions = {}
 
         now  = self.app.dm.now()
         next7 = now + dt.timedelta(days=7)
@@ -92,10 +93,14 @@ class DataContent:
 
             if i >= 0:
                 bookings[i][1].append(bDict)
+                r = b.resource
+                if i == 0 and r.is_microscope and 'solna' in r.tags:  # Today's bookings
+                    # FIXME: If there is already a session, also return its id
+                    sessions[r.id] = (b, 0)
 
-        dataDict['bookings'] = bookings
-        dataDict['lab_members'] = self.get_lab_members(user)
-
+        dataDict.update({'bookings': bookings,
+                         'lab_members': self.get_lab_members(user),
+                         'sessions': sessions})
         return dataDict
 
     def get_lab_members(self, user):
@@ -800,6 +805,37 @@ class DataContent:
              'name': f.name,
              'definition': json.dumps(f.definition)
         } for f in self.app.dm.get_forms()]}
+
+    def get_create_session_form(self, **kwargs):
+        b = self.app.dm.get_bookings(condition="id=%s" % kwargs['booking_id'])[0]
+
+        # Load camera options from 'cameras' Form for the booking microscope
+        form_cameras = self.app.dm.get_form_by(name='cameras')
+        if form_cameras is None:
+            raise Exception("Missing Form 'cameras' from the database!!!")
+
+        cameras = []
+        for p in form_cameras.definition['params']:
+            if int(p['id']) == b.resource.id:
+                cameras = p['enum']['choices']
+
+        # Load processing options from the 'processing' Form
+        form_proc = self.app.dm.get_form_by(name='processing')
+        if form_proc is None:
+            raise Exception("Missing Form 'processing' from the database!!!")
+
+        processing = []
+        for section in form_proc.definition['sections']:
+            steps = []
+            processing.append({'name': section['label'], 'steps': steps})
+            for param in section['params']:
+                steps.append({'name': param['label'], 'options': param['enum']['choices']})
+
+        return {
+            'booking': b,
+            'cameras': cameras,
+            'processing': processing
+        }
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):

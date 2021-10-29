@@ -89,11 +89,14 @@
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-10">
-{#                                        TODO: Activate a link to either create to session or see the associated one. #}
-                                        {% if r['is_microscope'] and 'solna' in r['tags'] %}
-                                            <a href="#"><i class="fas fa-external-link-alt"></i> Session</a>
-
+                                    {% if r['id'] in sessions %}
+                                        {% set session_booking, session_id = sessions[r['id']] %}
+                                        {%  if session_id == 0 %}
+                                            <a href="javascript:createSession({{ session_booking.id }})" class="btn btn-primary"><i class="fas fa-plus-circle"></i>  Create Session</a>
+                                        {% elif session_id > 0 %}
+                                            <a href="javascript:showSession({{ session_id }})"><i class="fas fa-external-link-alt"></i>  Open Session</a>
                                         {%  endif %}
+                                    {% endif %}
                                     </div>
                                     <div class="col-2">
                                          <a href="{{ url_for('main', content_id='booking_calendar', resource_id=r['id']) }}">
@@ -153,10 +156,43 @@
 
     </div>
 </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- Session Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="session-modal" tabindex="-1" role="dialog" aria-labelledby="sessionModal" aria-hidden="true">
+</div>
 
 <!-- javascript  -->
 <script>
     function load_calendar(resource_id) {
         return load_main_content('booking_calendar', {resource_id:resource_id});
+    }
+
+    /* Show the Resource Form, either for a new booking or an existing one */
+    function createSession(bookingId) {
+        ajaxContent = get_ajax_content("create_session_form", {booking_id: bookingId});
+
+        ajaxContent.done(function(html) {
+            //alert(html);
+            $("#session-modal").html(html);
+            // Show the form after setting html content
+            $('#session-modal').modal('show');
+        });
+
+        ajaxContent.fail(function(jqXHR, textStatus) {
+            showError("Request failed: " + textStatus );
+        });
+
+    }  // function showResource
+
+    function toggle_display(elementId){
+        var x = document.getElementById(elementId);
+          if (x.style.display === "none") {
+            x.style.display = "block";
+          } else {
+            x.style.display = "none";
+          }
     }
 </script>

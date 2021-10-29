@@ -182,7 +182,7 @@ function editForm(formId) {
         var desc = "form_" + formId.toString() + "_desc";
         form = {
             id: formId,
-            name: document.getElementById(name).textContent,
+            name: document.getElementById(name).textContent.trim(),
             definition: JSON.parse(document.getElementById(desc).textContent)
         }
     }
@@ -198,7 +198,7 @@ function editForm(formId) {
 
 function onFormOk() {
 // Update template values
-    form.name = document.getElementById("form-name-id").value;
+    form.name = document.getElementById("form-name-id").value.trim();
     form.definition = JSON.parse(editor.getValue());
 
     var endpoint = null;
