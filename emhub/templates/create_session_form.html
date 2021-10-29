@@ -15,11 +15,10 @@
 
         <!-- Modal body -->
         <div class="modal-body">
-
+            <input type="hidden" id="booking-id" value="{{ booking.id }}">
         <!-- Create Session Form -->
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <form id="session-form" data-parsley-validate="" novalidate="">
-
                 <!-- Owner Row -->
                 <div class="form-group row">
                     <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
@@ -137,7 +136,33 @@
     }
 
     function onCreateClick(){
-        var values = getFormAsJson('session-form');
-        alert(JSON.stringify(values, null, 4));
+        var jsonData = {
+            attrs: {
+                booking_id: parseInt(document.getElementById('booking-id').value),
+                extra: getFormAsJson('session-form')
+            },
+        }
+        //alert(JSON.stringify(jsonData, null, 4));
+
+        var ajaxContent = $.ajax({
+            url: "{{ url_for('api.create_session') }}",
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(jsonData),
+            dataType: "json"
+        });
+
+        ajaxContent.done(function(jsonResponse) {
+            alert(JSON.stringify(jsonResponse, null, 4));
+
+{#            if ('error' in jsonResponse)#}
+{#                showError(jsonResponse['error']);#}
+{#            else#}
+{#                window.location.reload();#}
+        });
+
+        ajaxContent.fail(function(jqXHR, textStatus) {
+            alert( "Request failed: " + textStatus );
+        });
     }
 </script>

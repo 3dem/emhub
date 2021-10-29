@@ -343,13 +343,25 @@ class DataManager(DbManager):
 
     def create_session(self, **attrs):
         """ Add a new session row. """
+        create_data = attrs.pop('create_data', False)
+        b = self.get_bookings(condition="id=%s" % attrs['booking_id'])[0]
+        attrs['resource_id'] = b.resource.id
+        attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
+
+        if 'start' not in attrs:
+            attrs['start'] = self.now()
+
+        if 'name' not in attrs:
+            attrs['name'] = 'xxx'
+
         session = self.__create_item(self.Session, **attrs)
         # Let's update the data path after we know the id
         session.data_path = 'session_%06d.h5' % session.id
         self.commit()
         # Create empty hdf5 file
-        data = H5SessionData(self._session_data_path(session), mode='a')
-        data.close()
+        if create_data:
+            data = H5SessionData(self._session_data_path(session), mode='a')
+            data.close()
 
         return session
 
@@ -361,9 +373,11 @@ class DataManager(DbManager):
         """ Remove a session row. """
         sessionId = attrs['id']
         session = self.Session.query.get(sessionId)
-        data_path = os.path.join(self._sessionsPath, session.data_path)
+        data_path = self._session_data_path(session)
         self.delete(session)
-        os.remove(data_path)
+
+        if os.path.exists(data_path):
+            os.remove(data_path)
 
         self.log("operation", "delete_Session",
                  attrs=self.json_from_dict(attrs))
