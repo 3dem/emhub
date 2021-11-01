@@ -129,6 +129,16 @@ class DataManager(DbManager):
         """ This should return a single Form or None. """
         return self.__item_by(self.Form, **kwargs)
 
+    def get_form_by_name(self, formName):
+        """ Shortcut method to load a form from db given its name.
+        If the form does not exist, an Exception is thrown.
+        """
+        form = self.get_form_by(name=formName)
+        if form is None:
+            raise Exception("Missing Form '%s' from the database!!!" % formName)
+
+        return form
+
     # ---------------------------- RESOURCES ---------------------------------
     def create_resource(self, **attrs):
         return self.__create_item(self.Resource, **attrs)
@@ -332,6 +342,24 @@ class DataManager(DbManager):
         return count_dict
 
     # ---------------------------- SESSIONS -----------------------------------
+    def get_new_session_name(self, booking_id):
+        """ Return the name for the new session, base on the booking and
+        the previous sessions counter (stored in Form 'counters').
+        """
+        form = self.get_form_by_name('counters').definition
+        counters = {p['label']: p['value'] for p in form['params']}
+
+        from pprint import pprint
+        pprint(counters)
+
+        b = self.get_bookings(condition="id=%s" % booking_id)[0]
+        a = b.application
+        code = 'fac' if a is None else a.code.lower()
+        sep = '' if len(code) == 3 else '_'
+        c = int(counters.get(code, 1))
+
+        return '%s%s%05d' % (code, sep, c)
+
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
         condition example: text("id<:value and name=:name")

@@ -807,12 +807,12 @@ class DataContent:
         } for f in self.app.dm.get_forms()]}
 
     def get_create_session_form(self, **kwargs):
-        b = self.app.dm.get_bookings(condition="id=%s" % kwargs['booking_id'])[0]
+        dm = self.app.dm  # shortcut
+        booking_id = kwargs['booking_id']
+        b = dm.get_bookings(condition="id=%s" % booking_id)[0]
 
         # Load camera options from 'cameras' Form for the booking microscope
-        form_cameras = self.app.dm.get_form_by(name='cameras')
-        if form_cameras is None:
-            raise Exception("Missing Form 'cameras' from the database!!!")
+        form_cameras = dm.get_form_by_name('cameras')
 
         cameras = []
         for p in form_cameras.definition['params']:
@@ -820,9 +820,7 @@ class DataContent:
                 cameras = p['enum']['choices']
 
         # Load processing options from the 'processing' Form
-        form_proc = self.app.dm.get_form_by(name='processing')
-        if form_proc is None:
-            raise Exception("Missing Form 'processing' from the database!!!")
+        form_proc = dm.get_form_by_name('processing')
 
         processing = []
         for section in form_proc.definition['sections']:
@@ -834,7 +832,8 @@ class DataContent:
         return {
             'booking': b,
             'cameras': cameras,
-            'processing': processing
+            'processing': processing,
+            'session_name': dm.get_new_session_name(booking_id)
         }
 
     # --------------------- Internal  helper methods ---------------------------
