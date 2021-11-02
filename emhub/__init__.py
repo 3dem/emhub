@@ -280,6 +280,11 @@ def create_app(test_config=None):
         e = date_range[1].strftime("%Y/%m/%d")
         return "&start=%s&end=%s" % (s, e)
 
+    def url_for_content(contentId, **kwargs):
+        return flask.url_for('main', content_id=contentId, **kwargs)
+
+    app.jinja_env.globals.update(url_for_content=url_for_content)
+
     app.jinja_env.filters['reverse'] = basename
     app.jinja_env.filters['pretty_datetime'] = pretty_datetime
     app.jinja_env.filters['pretty_date'] = pretty_date
