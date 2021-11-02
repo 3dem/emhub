@@ -342,13 +342,21 @@ class DataManager(DbManager):
         return count_dict
 
     # ---------------------------- SESSIONS -----------------------------------
+    def get_session_counters(self):
+        formDef = self.get_form_by_name('sessions_config').definition
+        return {p['label']: p['value']
+                for p in formDef['sections'][0]['params']}
+
+    def get_session_folders(self):
+        formDef = self.get_form_by_name('sessions_config').definition
+        return {p['label']: p['value']
+                for p in formDef['sections'][1]['params']}
+
     def get_new_session_info(self, booking_id):
         """ Return the name for the new session, base on the booking and
         the previous sessions counter (stored in Form 'counters').
         """
-        formDef = self.get_form_by_name('sessions_config').definition
-        counters = {p['label']: p['value']
-                    for p in formDef['sections'][0]['params']}
+        counters = self.get_session_counters()
 
         b = self.get_bookings(condition="id=%s" % booking_id)[0]
         a = b.application

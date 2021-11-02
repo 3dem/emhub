@@ -34,7 +34,8 @@ from flask import request
 from flask import current_app as app
 import flask_login
 
-from emhub.utils import datetime_from_isoformat, send_json_data, send_error
+from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
+                         send_json_data, send_error)
 from emhub.data import DataContent
 
 
@@ -278,18 +279,25 @@ def delete_booking():
 def get_sessions():
     return filter_request(app.dm.get_sessions)
 
+
 @api_bp.route('/poll_sessions', methods=['POST'])
 @flask_login.login_required
 def poll_sessions():
-    from pprint import pprint
+    session_folders = app.dm.get_session_folders()
+
     while True:
         sessions = app.dm.get_sessions(condition='status=="pending"')
         if sessions:
-            data = [{'id': s.id,
-                     'name': s.name
-                     } for s in sessions]
-            pprint(sessions)
-            return send_json_data(sessions)
+            for s in sessions:
+                data = [{
+                    'id': s.id,
+                    'name': s.name,
+                    'booking_id': s.booking_id,
+                    'start': datetime_to_isoformat(s.start),
+                    'operator': s.operator.name,
+                    'folder': session_folders[s.name[:3]]
+                 }]
+                return send_json_data(data)
         time.sleep(3)
 
 @api_bp.route('/create_session', methods=['POST'])

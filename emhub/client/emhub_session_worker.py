@@ -71,20 +71,10 @@ def main():
         with open_client() as dc:
             r = dc.request('poll_sessions', jsonData={})
 
-            print("Updating sessions: ")
-
-            headers = ["id", "name", "status", "booking", "operator", "start"]
-            row_format = u"{:<5}{:<25}{:<10}{:<10}{:<30}"
-            print(row_format.format(*headers))
-
-
             for s in r.json():
-                row = [s['id'], s['name'], s['status'],
-                       s['booking_id'], s['operator_id'], s['start']]
-                print(row_format.format(*row))
-
-            for s in r.json():
-                print("Updating session %s..." % s['id'])
+                print("Handling session %s: " % s['id'])
+                print("   - Creating folder: ", os.path.join(s['folder'], s['name']))
+                print("   - Updating session")
                 dc.update_session({'id': s['id'], 'status': 'created'})
 
 
