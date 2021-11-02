@@ -96,7 +96,8 @@ class DataContent:
                 r = b.resource
                 if i == 0 and r.is_microscope and 'solna' in r.tags:  # Today's bookings
                     # FIXME: If there is already a session, also return its id
-                    sessions[r.id] = (b, 0)
+                    session_id = b.session[0].id if b.session else 0
+                    sessions[r.id] = (b, session_id)
 
         dataDict.update({'bookings': bookings,
                          'lab_members': self.get_lab_members(user),
@@ -151,6 +152,15 @@ class DataContent:
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
         return self.get_session_data(session)
+
+    def get_session_details(self, **kwargs):
+        session_id = kwargs['session_id']
+        session = self.app.dm.get_session_by(id=session_id)
+        return {'session': session}
+
+    def get_sessions_list(self, **kwargs):
+        sessions = self.app.dm.get_sessions()
+        return {'sessions': sessions}
 
     def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()
@@ -643,7 +653,6 @@ class DataContent:
         return result
 
     def get_booking_costs_table(self, **kwargs):
-        booking_id = int(kwargs.get('booking_id', 1))
         resources = self.app.dm.get_resources()
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
@@ -652,10 +661,6 @@ class DataContent:
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
         return {'bookings': [self.booking_to_event(b) for b in bookings]}
-
-    def get_raw_sessions_list(self, **kwargs):
-        sessions = self.app.dm.get_sessions()
-        return {'sessions': sessions}
 
     def get_raw_applications_list(self, **kwargs):
         user = self.app.user
@@ -833,7 +838,7 @@ class DataContent:
             'booking': b,
             'cameras': cameras,
             'processing': processing,
-            'session_name': dm.get_new_session_name(booking_id)
+            'session_name': dm.get_new_session_info(booking_id)['name']
         }
 
     # --------------------- Internal  helper methods ---------------------------

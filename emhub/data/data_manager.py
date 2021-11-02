@@ -342,15 +342,13 @@ class DataManager(DbManager):
         return count_dict
 
     # ---------------------------- SESSIONS -----------------------------------
-    def get_new_session_name(self, booking_id):
+    def get_new_session_info(self, booking_id):
         """ Return the name for the new session, base on the booking and
         the previous sessions counter (stored in Form 'counters').
         """
-        form = self.get_form_by_name('counters').definition
-        counters = {p['label']: p['value'] for p in form['params']}
-
-        from pprint import pprint
-        pprint(counters)
+        formDef = self.get_form_by_name('sessions_config').definition
+        counters = {p['label']: p['value']
+                    for p in formDef['sections'][0]['params']}
 
         b = self.get_bookings(condition="id=%s" % booking_id)[0]
         a = b.application
@@ -358,7 +356,11 @@ class DataManager(DbManager):
         sep = '' if len(code) == 3 else '_'
         c = int(counters.get(code, 1))
 
-        return '%s%s%05d' % (code, sep, c)
+        return {
+            'code': code,
+            'counter': c,
+            'name': '%s%s%05d' % (code, sep, c)
+        }
 
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
@@ -368,6 +370,10 @@ class DataManager(DbManager):
                                        condition=condition,
                                        orderBy=orderBy,
                                        asJson=asJson)
+
+    def get_session_by(self, **kwargs):
+        """ This should return a single Session or None. """
+        return self.__item_by(self.Session, **kwargs)
 
     def create_session(self, **attrs):
         """ Add a new session row. """
@@ -379,17 +385,29 @@ class DataManager(DbManager):
         if 'start' not in attrs:
             attrs['start'] = self.now()
 
-        if 'name' not in attrs:
-            attrs['name'] = 'xxx'
+        session_info = self.get_new_session_info(b.id)
+        attrs['name'] = session_info['name']
 
         session = self.__create_item(self.Session, **attrs)
+
         # Let's update the data path after we know the id
         session.data_path = 'session_%06d.h5' % session.id
+
+        # Update counter for this session group
+        form = self.get_form_by_name('sessions_config')
+        formDef = form.definition
+        for p in formDef['sections'][0]['params']:
+            if p['label'] == session_info['code']:
+                p['value'] = session_info['counter'] + 1
+
         self.commit()
+
         # Create empty hdf5 file
         if create_data:
             data = H5SessionData(self._session_data_path(session), mode='a')
             data.close()
+
+        self.update_form(id=form.id, definition=formDef)
 
         return session
 
