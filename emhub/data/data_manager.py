@@ -385,6 +385,9 @@ class DataManager(DbManager):
         if 'start' not in attrs:
             attrs['start'] = self.now()
 
+        if 'status' not in attrs:
+            attrs['status'] = 'pending'
+
         session_info = self.get_new_session_info(b.id)
         attrs['name'] = session_info['name']
 

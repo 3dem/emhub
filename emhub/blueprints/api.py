@@ -27,6 +27,7 @@
 # **************************************************************************
 
 import os
+import time
 
 import flask
 from flask import request
@@ -277,6 +278,19 @@ def delete_booking():
 def get_sessions():
     return filter_request(app.dm.get_sessions)
 
+@api_bp.route('/poll_sessions', methods=['POST'])
+@flask_login.login_required
+def poll_sessions():
+    from pprint import pprint
+    while True:
+        sessions = app.dm.get_sessions(condition='status=="pending"')
+        if sessions:
+            data = [{'id': s.id,
+                     'name': s.name
+                     } for s in sessions]
+            pprint(sessions)
+            return send_json_data(sessions)
+        time.sleep(3)
 
 @api_bp.route('/create_session', methods=['POST'])
 @flask_login.login_required
