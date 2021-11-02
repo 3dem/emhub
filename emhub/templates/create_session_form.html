@@ -6,7 +6,7 @@
       <div class="modal-content">
         <!-- Modal header -->
         <div class="modal-header">
-            <h3 class="modal-title" id="booking-modal-title"> Create Session: {{ session_name }} </h3>
+            <h3 class="modal-title" id="booking-modal-title"> Create Session:  </h3>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -21,9 +21,18 @@
             <form id="session-form" data-parsley-validate="" novalidate="">
                 <!-- Owner Row -->
                 <div class="form-group row">
+                    <label class="col-12 col-sm-3 col-form-label text-sm-right">ID</label>
+                    <div class="col-12 col-sm-8 col-lg-6">
+                        <h3 class="col-12 text-sm-left">{{ session_name }}*</h3>
+                        <label class="col-12 col-form-label text-sm-left">(* can change after folders creation)</label>
+                    </div>
+                </div>
+
+                <!-- Owner Row -->
+                <div class="form-group row">
                     <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
                     <div class="col-12 col-sm-8 col-lg-6">
-                        <h3 class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.owner.name }}</h3>
+                        <h4 class="col-12 text-sm-left">{{ booking.owner.name }}</h4>
                     </div>
                 </div>
 
@@ -31,7 +40,7 @@
                 <div class="form-group row">
                     <label class="col-12 col-sm-3 col-form-label text-sm-right">Creator</label>
                     <div class="col-12 col-sm-8 col-lg-6">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.creator.name }}</label>
+                        <label class="col-12 col-form-label text-sm-left">{{ booking.creator.name }}</label>
                     </div>
                 </div>
 
@@ -153,12 +162,12 @@
         });
 
         ajaxContent.done(function(jsonResponse) {
-            alert(JSON.stringify(jsonResponse, null, 4));
+            //alert(JSON.stringify(jsonResponse, null, 4));
 
-{#            if ('error' in jsonResponse)#}
-{#                showError(jsonResponse['error']);#}
-{#            else#}
-{#                window.location.reload();#}
+            if ('error' in jsonResponse)
+                showError(jsonResponse['error']);
+            else
+                window.location.reload();
         });
 
         ajaxContent.fail(function(jqXHR, textStatus) {

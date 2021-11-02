@@ -1,0 +1,89 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Sessions List" %}
+    {% set navigation = [('Sessions', '')] %}
+    {% include 'include_header.html' %}
+
+    <!-- table row -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Sessions List</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="bookings-table" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>id</th>
+                                <th>name</th>
+                                <th>start/end</th>
+                                <th>status</th>
+                                <th>data_path</th>
+                                <th>booking_id</th>
+                                <th>operator</th>
+                                <th>actions</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for s in sessions %}
+                            <tr>
+                                <td>{{ s.id }}</td>
+                                <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
+                                <td>{{ s.start }} / {{ s.end }}</td>
+                                <td>{{ s.status }}</td>
+                                <td>{{ s.data_path }}</td>
+                                <td>{{ s.booking_id }}</td>
+                                <td>{{ s.operator.name }}</td>
+                                {% if current_user.is_manager %}
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
+                                                <i class="far fa-trash-alt"></i></button>
+                                        </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<script>
+    $('#bookings-table').DataTable();
+
+    function deleteSession(session_id) {
+    confirm("Delete Session",
+            "Do you want to DELETE session with id=" + session_id + "?",
+             "Cancel", "Delete",
+            function () {
+                    var ajaxContent = $.ajax({
+                        url: "{{ url_for('api.delete_session') }}",
+                        type: "POST",
+                        contentType: 'application/json; charset=utf-8',
+                        data: JSON.stringify({attrs: {id: session_id}}),
+                        dataType: "json"
+                    });
+
+                    ajaxContent.done(function(jsonResponse) {
+                        if ('error' in jsonResponse)
+                            showError(jsonResponse['error']);
+                        else
+                            window.location.reload();
+                    });
+
+                    ajaxContent.fail(function(jqXHR, textStatus) {
+                        showError( "Request failed: " + textStatus );
+                    });
+            }
+            );
+} // function deleteInvoicePeriod
+</script>

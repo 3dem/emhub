@@ -92,9 +92,11 @@
                                     {% if r['id'] in sessions %}
                                         {% set session_booking, session_id = sessions[r['id']] %}
                                         {%  if session_id == 0 %}
-                                            <a href="javascript:createSession({{ session_booking.id }})" class="btn btn-primary"><i class="fas fa-plus-circle"></i>  Create Session</a>
+                                            <a href="javascript:createSession({{ session_booking.id }})" class="btn btn-primary">
+                                                <i class="fas fa-plus-circle"></i>  Create Session</a>
                                         {% elif session_id > 0 %}
-                                            <a href="javascript:showSession({{ session_id }})"><i class="fas fa-external-link-alt"></i>  Open Session</a>
+                                            <a href="{{ url_for_content('session_details', session_id=session_id) }}" class="btn btn-light">
+                                                <i class="fas fa-external-link-alt"></i> Open Session</a>
                                         {%  endif %}
                                     {% endif %}
                                     </div>

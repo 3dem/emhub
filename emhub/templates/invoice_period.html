@@ -6,32 +6,32 @@
     {% set navigation = [('Admin', ''), ('Invoices', url_for('main', content_id='invoice_periods_list')), (period_label, '')] %}
     {% include 'include_header.html' %}
 
-<div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-    <div class="tab-outline">
-        <ul class="nav nav-tabs" id="invoice-period-tab" role="tablist">
-            {% for tab in tabs %}
-                {% set t = tab['label'] %}
-                {% set active = 'active' if t == selected_tab else '' %}
-                <li class="nav-item">
-                    <a class="nav-link {{ active }}" id="tab-outline-{{ t }}" data-toggle="tab" href="#outline-{{ t }}" role="tab" aria-controls="home" aria-selected="true">{{ t }}</a>
-                </li>
-            {% endfor %}
-        </ul>
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        <div class="tab-outline">
+            <ul class="nav nav-tabs" id="invoice-period-tab" role="tablist">
+                {% for tab in tabs %}
+                    {% set t = tab['label'] %}
+                    {% set active = 'active' if t == selected_tab else '' %}
+                    <li class="nav-item">
+                        <a class="nav-link {{ active }}" id="tab-outline-{{ t }}" data-toggle="tab" href="#outline-{{ t }}" role="tab" aria-controls="home" aria-selected="true">{{ t }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
 
-        <div class="tab-content" id="invoice-period-tab-content">
-            {% for tab in tabs %}
-                {% set t = tab['label'] %}
-                {% set active = 'show active' if t == selected_tab else '' %}
-                <div class="tab-pane fade {{ active }}" id="outline-{{ t }}" role="tabpanel" aria-labelledby="tab-outline-{{ t }}">
-                    <div id="{{ t }}-container">
-                        {% include tab['template'] %}
+            <div class="tab-content" id="invoice-period-tab-content">
+                {% for tab in tabs %}
+                    {% set t = tab['label'] %}
+                    {% set active = 'show active' if t == selected_tab else '' %}
+                    <div class="tab-pane fade {{ active }}" id="outline-{{ t }}" role="tabpanel" aria-labelledby="tab-outline-{{ t }}">
+                        <div id="{{ t }}-container">
+                            {% include tab['template'] %}
+                        </div>
                     </div>
-                </div>
-            {% endfor %}
+                {% endfor %}
 
+            </div>
         </div>
     </div>
-</div>
 
 </div>
 

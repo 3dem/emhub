@@ -226,7 +226,7 @@ function onFormOk() {
     });
 
     ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
+        showError( "Request failed: " + textStatus );
     });
 
 }
