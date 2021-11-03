@@ -590,6 +590,74 @@ class DataContent:
 
         return data
 
+    def get_invoices_per_pi(self, **kwargs):
+        pi_id = kwargs.get('pi_id', None)
+
+        if pi_id is None:
+            return {}
+
+        pi_user = self.__get_pi_user(kwargs)
+        dm = self.app.dm  # shortcut
+
+        def _filter(b):
+            pi = b.owner.get_pi()
+            return (b.resource.daily_cost > 0 and
+                    b.start <= dm.now() and
+                    not b.is_slot and pi and pi.id == pi_user.id)
+
+        entries = []
+
+        for b in dm.get_bookings():
+            if _filter(b):
+                entries.append({'id': b.id,
+                                'title': self.booking_to_event(b)['title'],
+                                'date': b.start,
+                                'amount': b.total_cost,
+                                'type': 'booking'
+                                })
+
+        for t in dm.get_transactions():
+            if t.user.id == pi_user.id:
+                entries.append({'id': t.id,
+                                'title': t.comment,
+                                'date': t.date,
+                                'amount': t.amount,
+                                'type': 'transaction'
+                                })
+
+
+
+        invoice_periods = self.get_invoice_periods_list()['invoice_periods']
+        for ip in invoice_periods:
+            if ip['order'] > 0:
+                entries.append({'id': ip['id'],
+                                'title': ip['period'],
+                                'date': ip['end'],
+                                'amount': 0,
+                                'type': 'summary'
+                                })
+
+        entries.sort(key=lambda e: e['date'])
+
+        total = 0
+        for e in entries:
+            if e['type'] == 'summary':
+                e['amount'] = total
+                if total > 0:
+                    total = 0
+            else:
+                total += e['amount']
+
+        data = {
+            'pi': pi_user,
+            'entries': entries,
+            'pi_list': [u for u in self.app.dm.get_users() if u.is_pi],
+            'total': total,
+            'table_file_prefix': 'all_invoices_PI_' + pi_user.name.replace(' ', '_')
+        }
+
+        return data
+
     def get_invoices_lab_list(self, **kwargs):
 
         period = self.__get_period(kwargs)
@@ -697,14 +765,25 @@ class DataContent:
         }
 
     def get_invoice_periods_list(self, **kwargs):
-        periods = [
-            {'id': ip.id,
-             'status': ip.status,
-             'start': ip.start,
-             'end': ip.end,
-             'period': pretty_quarter((ip.start, ip.end))
-            } for ip in self.app.dm.get_invoice_periods()
-        ]
+        c = 0
+        periods = []
+
+        for ip in self.app.dm.get_invoice_periods(orderBy='start'):
+            p = {
+                'id': ip.id,
+                'status': ip.status,
+                'start': ip.start,
+                'end': ip.end,
+                'period': pretty_quarter((ip.start, ip.end))
+            }
+            if ip.status != 'disabled':
+                c += 1
+                p['order'] = c
+            else:
+                p['order'] = 0
+            periods.append(p)
+
+        periods.sort(key=lambda p: p['order'], reverse=True)
 
         return {'invoice_periods': periods}
 
