@@ -1,11 +1,11 @@
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
-    {% set title = "Invoices per PI" %}
+    {% set title = "Invoices: " + pi.name if pi else '' %}
     {% set navigation = [('Admin', ''), ('Invoices', url_for_content('invoice_periods_list')), ('Per PI', '')] %}
     {% include 'include_header.html' %}
-    {% set is_admin = current_user.is_manager %}
-    {% set period_url = 'invoice_period' if is_admin else 'reports_invoices_lab' %}
+    {% set is_manager = current_user.is_manager %}
+    {% set period_url = 'invoice_period' if is_manager else 'reports_invoices_lab' %}
 
     <!-- table row -->
     <input type="hidden" value="09:00:00.000", id="hour_id">
@@ -18,14 +18,16 @@
 
                     <!-- PI Row -->
                     <div class="row" style="margin-bottom: 20px">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Select PI</label>
-                        <div class="col-12 col-sm-8 col-lg-6">
-                            <select id="pi-select" class="selectpicker show-tick" data-width="100%" data-live-search="true" onchange="selectPI()">
-                                {% for pi in pi_list %}
-                                    <option value="{{ pi.id }}">{{ pi.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                        {% if is_manager %}
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Select PI</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <select id="pi-select" class="selectpicker show-tick" data-width="100%" data-live-search="true" onchange="selectPI()">
+                                    {% for pi in pi_list %}
+                                        <option value="{{ pi.id }}">{{ pi.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        {% endif %}
                     </div>
 
                     <table id="table-invoices" class="table" style="width:100%">
@@ -70,7 +72,7 @@
 
                         {# Total marker row #}
                         <tr class="table-primary">
-                            <td style="font-weight: bold"> TOTAL </td>
+                            <td style="font-weight: bold"> Accumulated to Next Period </td>
                             <td></td>
                             <td class="text-right" style="font-weight: bold"> {{ total }} </td>
                         </tr>

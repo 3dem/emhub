@@ -547,6 +547,7 @@ class DataContent:
         """ Helper function to get pi user. """
         u = self.app.user
         pi_id_value = kwargs.get('pi_id', u.id)
+        bag_visible = kwargs.get('bag_visible', True)
 
         try:
             pi_id = int(pi_id_value)
@@ -563,6 +564,10 @@ class DataContent:
                 return True
 
             if not u.is_pi:
+                return False
+
+            # When bag_visible is False, only the own PI can bee seen
+            if not bag_visible and u.id != pi_user.id:
                 return False
 
             pi_apps = set(a.id for a in pi_user.get_applications())

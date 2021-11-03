@@ -65,11 +65,13 @@
         </div>
     </div>
     <!-- end table row -->
-    {% if is_admin %}
         <div class="col-12 mb-3">
-            <a href="{{ url_for_content('invoices_per_pi') }}" class="btn btn-primary"><i class="fas fa-user-circle"></i> Show Invoices per PI</a>
+            {% if is_admin %}
+                <a href="{{ url_for_content('invoices_per_pi') }}" class="btn btn-primary"><i class="fas fa-user-circle"></i> Show Invoices per PI</a>
+            {% else %}
+                <a href="{{ url_for_content('invoices_per_pi', pi_id=current_user.id) }}" class="btn btn-primary"><i class="fas fa-user-circle"></i> Show All Invoices</a>
+            {% endif %}
         </div>
-    {% endif %}
 </div>
 
 <!-- ============================================================== -->
