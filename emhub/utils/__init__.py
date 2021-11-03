@@ -38,12 +38,18 @@ def pretty_date(input_dt):
     if input_dt is None:
         return 'None'
 
+    if isinstance(input_dt, str):
+        input_dt = datetime_from_isoformat(input_dt)
+
     return input_dt.strftime("%Y/%m/%d")
 
 
 def pretty_datetime(input_dt):
     if input_dt is None:
         return 'None'
+
+    if isinstance(input_dt, str):
+        input_dt = datetime_from_isoformat(input_dt)
 
     return input_dt.strftime("%Y/%m/%d %I:%M %p")
 

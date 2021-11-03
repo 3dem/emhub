@@ -49,6 +49,70 @@
                 </div>
         </div>
 
+
+            <div class="row">
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <div class="card">
+                    <div class="card-body">
+
+                        <div class="table-responsive">
+                            <table id="orders-table" class="table">
+                                <thead>
+                                <tr>
+                                    <th>created</th>
+                                    <th>ID</th>
+                                    <th>type</th>
+                                    <th>Title</th>
+                                    <th>Owner</th>
+                                    <th>email</th>
+                                    <th>status</th>
+                                    {% if is_admin %}
+                                        <th>actions</th>
+                                    {% endif %}
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for ip in orders %}
+                                    {% set status = ip['status'] %}
+                                    {% set owner = ip['owner'] %}
+                                    {% set ft = ip['form']['title'] %}
+                                    {% set ip_type = 'BAG' if ft.startswith('BAG') else 'Rapid Access' %}
+                                    <tr>
+                                        <td>{{ ip['created']|pretty_date }}</td>
+                                        <td>{{ ip['identifier'] }}</td>
+                                        <td>{{ ip_type }}</td>
+                                        <td>{{ ip['title'] }}</td>
+                                        <td>{{ owner['name'] }}</td>
+                                        <td>{{ owner['email'] }}</td>
+                                        <td>{{ ip['status'] }}</td>
+
+{#                                        <td>#}
+{#                                            {% set badge_type = 'success' if status == 'active' else ('light' if status == 'disabled' else 'info') %}#}
+    {#                                        if status == 'disabled' else 'info') %}#}
+{#                                            <a href="{{ url_for('main', content_id=period_url, period=ip['id']) }}" class="badge badge-{{ badge_type }} mr-1">{{ ip['period'] }}</a>#}
+{#                                        </td>#}
+{##}
+{#                                        <td>{{ ip['status'] }}</td>#}
+{#                                        {% if is_admin %}#}
+{#                                            <td>#}
+{#                                                <button class="btn btn-sm btn-outline-light" onclick="showInvoicePeriodForm({{ ip['id'] }})">#}
+{#                                                    <i class="far fa-edit"></i></button>#}
+{#                                                <button class="btn btn-sm btn-outline-light" onclick="deleteInvoicePeriod({{ ip['id'] }})">#}
+{#                                                    <i class="far fa-trash-alt"></i></button>#}
+{#                                            </td>#}
+{#                                        {% endif %}#}
+                                    </tr>
+                                {% endfor %}
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- end table row -->
+
     </div>
 </div>
 
@@ -57,6 +121,15 @@
 
 (function(window, document, $, undefined) {
     "use strict";
+
+    $('#orders-table').DataTable({
+    sDom: 'lrtip',
+    paging: true,
+    info: true,
+    order: [[ 0, "desc" ]],
+    pageLength: 25
+    //ordering: false
+});
 
 }
 )(window, document, window.jQuery);
