@@ -593,8 +593,12 @@ class DataContent:
     def get_invoices_per_pi(self, **kwargs):
         pi_id = kwargs.get('pi_id', None)
 
+        data = {'pi_id': pi_id,
+                'pi_list': [u for u in self.app.dm.get_users() if u.is_pi],
+                }
+
         if pi_id is None:
-            return {}
+            return data
 
         pi_user = self.__get_pi_user(kwargs)
         dm = self.app.dm  # shortcut
@@ -625,8 +629,6 @@ class DataContent:
                                 'type': 'transaction'
                                 })
 
-
-
         invoice_periods = self.get_invoice_periods_list()['invoice_periods']
         for ip in invoice_periods:
             if ip['order'] > 0:
@@ -648,13 +650,12 @@ class DataContent:
             else:
                 total += e['amount']
 
-        data = {
+        data.update({
             'pi': pi_user,
             'entries': entries,
-            'pi_list': [u for u in self.app.dm.get_users() if u.is_pi],
             'total': total,
             'table_file_prefix': 'all_invoices_PI_' + pi_user.name.replace(' ', '_')
-        }
+        })
 
         return data
 
