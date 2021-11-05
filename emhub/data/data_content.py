@@ -283,13 +283,30 @@ class DataContent:
 
 
     def get_application_form(self, **kwargs):
+        dm = self.app.dm  # shortcut
         app = self.app.dm.get_application_by(id=kwargs['application_id'])
+
+        # Microscopes info to setup some permissions on the Application form
         mics = [{'id': r.id,
                  'name': r.name,
                  'noslot': app.no_slot(r.id),
-                 } for r in self.app.dm.get_resources() if r.is_microscope]
+                 } for r in dm.get_resources() if r.is_microscope]
+
+        # Check which PIs are in the application
+        in_app = set(pi.id for pi in app.pi_list)
+
         return {'application': app,
-                'microscopes': mics}
+                'application_statuses': ['preparation', 'review', 'accepted',
+                                         'active', 'closed'],
+                'microscopes': mics,
+                'pi_list': [{'id': u.id,
+                             'name': u.name,
+                             'email': u.email,
+                             'in_app': u.id in in_app,
+                             'status': 'creator' if u.id == app.creator.id else ''
+                             }
+                            for u in dm.get_users() if u.is_pi]
+                }
 
     def get_dynamic_form(self, **kwargs):
         form_id = int(kwargs.get('form_id', 1))

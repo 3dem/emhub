@@ -18,10 +18,23 @@
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                 <form id="validationform" data-parsley-validate="" novalidate="">
                     <input type="hidden" id="application-id" name="application-id" value="{{ application.id }}">
+
                     <!-- Created Row -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Created</label>
                         <label class="col-12 col-sm-8 col-form-label text-sm-left">{{ application.created|pretty_datetime }}</label>
+                    </div>
+
+                    <!-- Created Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Status ({{ application.status }})</label>
+                        <label class="col-12 col-sm-8 col-form-label text-sm-left">
+                            <select id="application-status-select" class="selectpicker">
+                                {% for s in application_statuses %}
+                                    <option value="{{ s }}">{{ s }} </option>
+                                {% endfor %}
+                            </select>
+                        </label>
                     </div>
 
                     <!-- Alias Row -->
@@ -75,36 +88,38 @@
                         </div>
                     </div>
 
-                    {% if current_user.is_manager %}
-                    <!-- Row to add more PIs, only for Admins -->
-                    <div class="form-group row">
-                        <label class="col-sm-3 col-form-label text-sm-right"></label>
-                            <input type="text" placeholder="Enter PI ids (separated by space)" id="application-add-users" class="form-control col-sm-6">
-                            <div class="col-sm-3 text-sm-left">
-                                <a href="javascript:onAddPiClick()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add PI </a>
-                            </div>
-                    </div>
-                    {% endif %}
-
                     <div class="form-group row">
                         <label class="col-sm-3 col-form-label text-sm-right">PI List</label>
-                        <table class="table col-sm-9">
 
-                        <tbody>
-                            <tr class="table-primary">
-                                <td>{{ application.creator.name }}</td>
-                                <td>{{ application.creator.email }}</td>
-                            </tr>
-                            </tr>
-                            {% for u in application.pi_list[1:] %}
-                                <tr>
-                                    <td id="{{ u.id }}">{{ u.name }}</td>
-                                    <td> {{ u.email }}</td>
-                                    </tr>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                        </table>
+                        <div class="col-9">
+
+                            <table class="table">
+                                <tbody id="application-pi-list-body">
+                                    {# Rows will be populated via javascript #}
+                                </tbody>
+                            </table>
+
+                            {% if current_user.is_manager %}
+
+                                <!-- Row select PI to add -->
+                                <div class="row col-12">
+                                    <label class="col-1 col-form-label text-sm-right">Select PI</label>
+                                    <div class="col-9">
+                                        <select id="application-pi-list-select" class="selectpicker show-tick" multiple data-selected-text-format="count > 3" data-width="100%" data-live-search="true">
+                                            {% for pi in pi_list %}
+                                                <option value="{{ pi['id'] }}">{{ pi['name'] }} </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-2 text-sm-left">
+                                        <a href="javascript:addPis()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add PI </a>
+                                    </div>
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
                     </div>
 
                 </form>
@@ -126,3 +141,19 @@
 <!-- ============================================================== -->
 <!-- End of Application Modal Content -->
 <!-- ============================================================== -->
+
+
+
+<script>
+
+    var pi_list = {{ pi_list|tojson }};
+    var pi_dict = {};
+    for (var pi of pi_list)
+        pi_dict[pi.id] = pi;
+
+    $('select').selectpicker();
+    $('#application-status-select').selectpicker('val', '{{ application.status }}');
+
+    createPiRows();
+
+</script>
