@@ -156,7 +156,9 @@ var application = {
             talos: parseInt($('#quota-talos').val())
         },
         noslot: []  // FIXME: Create the proper list
-    }
+    },
+    pi_to_add: [],
+    pi_to_remove: []
 };
 
 $( ".noslot" ).each( function( i, el ) {
@@ -165,6 +167,13 @@ $( ".noslot" ).each( function( i, el ) {
         application.resource_allocation.noslot.push(parseInt(elem.val()));
     //alert("checked: " + elem.prop('checked') + " value: " + elem.val());
 });
+
+// Update list of PI users to add or remove to the Application
+for (var pi of pi_list)
+    if (pi.status == "to add")
+        application.pi_to_add.push(pi.id);
+    else if (pi.status == "to remove")
+        application.pi_to_remove.push(pi.id);
 
 var endpoint = null;
 

@@ -187,8 +187,84 @@ class DataManager(DbManager):
         """ This should return a single user or None. """
         return self.__item_by(self.Application, **kwargs)
 
+    def __update_application_pi(self, application, **kwargs):
+        pi_to_add = []
+        pi_to_remove = []
+
+        errorMsg = ""
+        pi_list = application.pi_list
+
+        def _get_pi(pid):
+            pi = self.get_user_by(id=int(pid))
+
+            if pi is None:
+                errorMsg += "\nInvalid user id: %s" % pid
+            elif not pi.is_pi:
+                errorMsg += "\nUser %s is not " % pid
+            else:
+                return pi
+            return None
+
+        for pid in kwargs.get('pi_to_add', []):
+            pi = _get_pi(pid)
+
+            if pi is None:
+                continue
+
+            if pi in pi_list:
+                errorMsg += "\nPI %s is already in the Application" % pi.name
+                continue
+
+            pi_to_add.append(pi)
+
+        for pid in kwargs.get('pi_to_remove', []):
+            pi = _get_pi(pid)
+
+            if pi is None:
+                continue
+
+            if pi not in pi_list:
+                errorMsg += "\nPI %s is not in the Application" % pi.name
+                continue
+
+            pi_to_remove.append(pi)
+
+        if errorMsg:
+            raise Exception(errorMsg)
+
+        for pi in pi_to_remove:
+            application.users.remove(pi)
+
+        for pi in pi_to_add:
+            application.users.append(pi)
+
     def update_application(self, **attrs):
-        return self.__update_item(self.Application, **attrs)
+        """ Update a given Application with new attributes.
+        Special case are:
+            pi_to_add: ids of PI users to add to the Application.
+            pi_to_remove: ids of PI users to remove from the Application
+        """
+        # We don't use the self__update_item method due to the
+        # treatment of the pi_to_add/remove lists
+
+        application = self.get_application_by(id=attrs['id'])
+
+        if application is None:
+            raise Exception("Application not found with id %s"
+                            % (attrs['id']))
+
+        self.__update_application_pi(application, **attrs)
+
+        # Update application properties
+        for attr, value in attrs.items():
+            if attr not in ['id', 'pi_to_add', 'pi_to_remove']:
+                setattr(application, attr, value)
+
+        self.commit()
+        self.log('operation', 'update_Application',
+                 **self.json_from_dict(attrs))
+
+        return application
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self,

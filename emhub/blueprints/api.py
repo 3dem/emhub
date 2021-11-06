@@ -169,45 +169,6 @@ def update_application():
     return handle_application(app.dm.update_application)
 
 
-@api_bp.route('/add_application_users', methods=['POST'])
-@flask_login.login_required
-def add_application_users():
-    try:
-        if not request.json:
-            raise Exception("Expecting JSON request.")
-
-        app_id = request.json['application_id']
-        users = request.json['users']
-        if isinstance(users, str):
-            users = map(int, users.split())
-
-        application = app.dm.get_application_by(id=app_id)
-
-        errorMsg = ''
-
-        if application is None:
-            errorMsg += "Invalid application id: %s" % app_id
-
-        for u in users:
-            user = app.dm.get_user_by(id=u)
-            if user is None:
-                errorMsg += "\nInvalid user id: %s" % u
-            else:
-                application.users.append(user)
-
-        if errorMsg:
-            raise Exception(errorMsg)
-
-        app.dm.commit()
-        return send_json_data({'OK': True})
-
-    except Exception as e:
-        print(e)
-        import traceback
-        traceback.print_exc()
-        return send_error('ERROR from Server: %s' % e)
-
-
 @api_bp.route('/import_application', methods=['POST'])
 @flask_login.login_required
 def import_application():
