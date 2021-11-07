@@ -68,6 +68,7 @@ class DataContent:
         bookings = [('Today', []),
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
+        sessions = {}
 
         now  = self.app.dm.now()
         next7 = now + dt.timedelta(days=7)
@@ -92,10 +93,15 @@ class DataContent:
 
             if i >= 0:
                 bookings[i][1].append(bDict)
+                r = b.resource
+                if i == 0 and r.is_microscope and 'solna' in r.tags:  # Today's bookings
+                    # FIXME: If there is already a session, also return its id
+                    session_id = b.session[0].id if b.session else 0
+                    sessions[r.id] = (b, session_id)
 
-        dataDict['bookings'] = bookings
-        dataDict['lab_members'] = self.get_lab_members(user)
-
+        dataDict.update({'bookings': bookings,
+                         'lab_members': self.get_lab_members(user),
+                         'sessions': sessions})
         return dataDict
 
     def get_lab_members(self, user):
@@ -146,6 +152,15 @@ class DataContent:
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
         return self.get_session_data(session)
+
+    def get_session_details(self, **kwargs):
+        session_id = kwargs['session_id']
+        session = self.app.dm.get_session_by(id=session_id)
+        return {'session': session}
+
+    def get_sessions_list(self, **kwargs):
+        sessions = self.app.dm.get_sessions()
+        return {'sessions': sessions}
 
     def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()
@@ -268,13 +283,30 @@ class DataContent:
 
 
     def get_application_form(self, **kwargs):
+        dm = self.app.dm  # shortcut
         app = self.app.dm.get_application_by(id=kwargs['application_id'])
+
+        # Microscopes info to setup some permissions on the Application form
         mics = [{'id': r.id,
                  'name': r.name,
                  'noslot': app.no_slot(r.id),
-                 } for r in self.app.dm.get_resources() if r.is_microscope]
+                 } for r in dm.get_resources() if r.is_microscope]
+
+        # Check which PIs are in the application
+        in_app = set(pi.id for pi in app.pi_list)
+
         return {'application': app,
-                'microscopes': mics}
+                'application_statuses': ['preparation', 'review', 'accepted',
+                                         'active', 'closed'],
+                'microscopes': mics,
+                'pi_list': [{'id': u.id,
+                             'name': u.name,
+                             'email': u.email,
+                             'in_app': u.id in in_app,
+                             'status': 'creator' if u.id == app.creator.id else ''
+                             }
+                            for u in dm.get_users() if u.is_pi]
+                }
 
     def get_dynamic_form(self, **kwargs):
         form_id = int(kwargs.get('form_id', 1))
@@ -370,10 +402,17 @@ class DataContent:
                 }
 
     def get_portal_import_application(self, **kwargs):
-        result = {}
-        app_code = kwargs.get('code', None)
-        errors = []
+        # Date since the created orders in the portal will be considered
+        sinceArg = kwargs.get('since', None)
 
+        if sinceArg:
+            since = datetime_from_isoformat(sinceArg)
+        else:
+            since = self.app.dm.now() - dt.timedelta(days=183)  # 6 months
+
+        result = {'since': since}
+
+        app_code = None
         if app_code is not None:
             try:
                 app_code = app_code.upper()
@@ -381,6 +420,21 @@ class DataContent:
                 result['order'] = app
             except Exception as e:
                 result['errors'] = [str(e)]
+
+        else:
+            ordersJson = self.app.sll_pm.fetchOrdersJson()
+
+            def _filter(o):
+                s = o['status']
+                code = o['identifier'].upper()
+                app = self.app.dm.get_application_by(code=code)
+                created = datetime_from_isoformat(o['created'])
+
+                return ((s == 'accepted' or s == 'processing') and
+                        app is None and created >= since)
+                        #created.year == self.app.dm.now().year)
+
+            result['orders'] = [o for o in ordersJson if _filter(o)]
 
         return result
 
@@ -426,6 +480,7 @@ class DataContent:
             'overall': counters,
             'cem': cem_counters,
             'possible_owners': self.get_pi_labs(),
+            'possible_operators': self.get_possible_operators(),
             'app_dict': app_dict,
             'details_bookings': details_bookings,
             'details_title': details_title,
@@ -532,6 +587,7 @@ class DataContent:
         """ Helper function to get pi user. """
         u = self.app.user
         pi_id_value = kwargs.get('pi_id', u.id)
+        bag_visible = kwargs.get('bag_visible', True)
 
         try:
             pi_id = int(pi_id_value)
@@ -548,6 +604,10 @@ class DataContent:
                 return True
 
             if not u.is_pi:
+                return False
+
+            # When bag_visible is False, only the own PI can bee seen
+            if not bag_visible and u.id != pi_user.id:
                 return False
 
             pi_apps = set(a.id for a in pi_user.get_applications())
@@ -572,6 +632,75 @@ class DataContent:
         data['period'] = period
         alias = app.alias
         data['details_title'] = app.code + (' (%s)' % alias if alias else '')
+
+        return data
+
+    def get_invoices_per_pi(self, **kwargs):
+        pi_id = kwargs.get('pi_id', None)
+
+        data = {'pi_id': pi_id,
+                'pi_list': [u for u in self.app.dm.get_users() if u.is_pi],
+                }
+
+        if pi_id is None:
+            return data
+
+        pi_user = self.__get_pi_user(kwargs)
+        dm = self.app.dm  # shortcut
+
+        def _filter(b):
+            pi = b.owner.get_pi()
+            return (b.resource.daily_cost > 0 and
+                    b.start <= dm.now() and
+                    not b.is_slot and pi and pi.id == pi_user.id)
+
+        entries = []
+
+        for b in dm.get_bookings():
+            if _filter(b):
+                entries.append({'id': b.id,
+                                'title': self.booking_to_event(b)['title'],
+                                'date': b.start,
+                                'amount': b.total_cost,
+                                'type': 'booking'
+                                })
+
+        for t in dm.get_transactions():
+            if t.user.id == pi_user.id:
+                entries.append({'id': t.id,
+                                'title': t.comment,
+                                'date': t.date,
+                                'amount': t.amount,
+                                'type': 'transaction'
+                                })
+
+        invoice_periods = self.get_invoice_periods_list()['invoice_periods']
+        for ip in invoice_periods:
+            if ip['order'] > 0:
+                entries.append({'id': ip['id'],
+                                'title': ip['period'],
+                                'date': ip['end'],
+                                'amount': 0,
+                                'type': 'summary'
+                                })
+
+        entries.sort(key=lambda e: e['date'])
+
+        total = 0
+        for e in entries:
+            if e['type'] == 'summary':
+                e['amount'] = total
+                if total > 0:
+                    total = 0
+            else:
+                total += e['amount']
+
+        data.update({
+            'pi': pi_user,
+            'entries': entries,
+            'total': total,
+            'table_file_prefix': 'all_invoices_PI_' + pi_user.name.replace(' ', '_')
+        })
 
         return data
 
@@ -638,7 +767,6 @@ class DataContent:
         return result
 
     def get_booking_costs_table(self, **kwargs):
-        booking_id = int(kwargs.get('booking_id', 1))
         resources = self.app.dm.get_resources()
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
@@ -647,10 +775,6 @@ class DataContent:
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
         return {'bookings': [self.booking_to_event(b) for b in bookings]}
-
-    def get_raw_sessions_list(self, **kwargs):
-        sessions = self.app.dm.get_sessions()
-        return {'sessions': sessions}
 
     def get_raw_applications_list(self, **kwargs):
         user = self.app.user
@@ -687,14 +811,25 @@ class DataContent:
         }
 
     def get_invoice_periods_list(self, **kwargs):
-        periods = [
-            {'id': ip.id,
-             'status': ip.status,
-             'start': ip.start,
-             'end': ip.end,
-             'period': pretty_quarter((ip.start, ip.end))
-            } for ip in self.app.dm.get_invoice_periods()
-        ]
+        c = 0
+        periods = []
+
+        for ip in self.app.dm.get_invoice_periods(orderBy='start'):
+            p = {
+                'id': ip.id,
+                'status': ip.status,
+                'start': ip.start,
+                'end': ip.end,
+                'period': pretty_quarter((ip.start, ip.end))
+            }
+            if ip.status != 'disabled':
+                c += 1
+                p['order'] = c
+            else:
+                p['order'] = 0
+            periods.append(p)
+
+        periods.sort(key=lambda p: p['order'], reverse=True)
 
         return {'invoice_periods': periods}
 
@@ -793,6 +928,43 @@ class DataContent:
         return {'users': new_users,
                 'filterDesc': _filter.__doc__
                 }
+
+    def get_raw_forms_list(self, **kwargs):
+        return {'forms': [
+            {'id': f.id,
+             'name': f.name,
+             'definition': json.dumps(f.definition)
+        } for f in self.app.dm.get_forms()]}
+
+    def get_create_session_form(self, **kwargs):
+        dm = self.app.dm  # shortcut
+        booking_id = kwargs['booking_id']
+        b = dm.get_bookings(condition="id=%s" % booking_id)[0]
+
+        # Load camera options from 'cameras' Form for the booking microscope
+        form_cameras = dm.get_form_by_name('cameras')
+
+        cameras = []
+        for p in form_cameras.definition['params']:
+            if int(p['id']) == b.resource.id:
+                cameras = p['enum']['choices']
+
+        # Load processing options from the 'processing' Form
+        form_proc = dm.get_form_by_name('processing')
+
+        processing = []
+        for section in form_proc.definition['sections']:
+            steps = []
+            processing.append({'name': section['label'], 'steps': steps})
+            for param in section['params']:
+                steps.append({'name': param['label'], 'options': param['enum']['choices']})
+
+        return {
+            'booking': b,
+            'cameras': cameras,
+            'processing': processing,
+            'session_name': dm.get_new_session_info(booking_id)['name']
+        }
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking):
@@ -958,81 +1130,6 @@ class DataContent:
                         users.append(pu)
 
         return users
-
-    def _import_order_from_portal(self, orderCode):
-        """ Try to import a new order from the portal.
-        Return an error list or a valid imported application.
-        """
-        dm = self.app.dm
-
-        app = self.app.dm.get_application_by(code=orderCode)
-
-        if app is not None:
-            raise Exception('Application %s already exist' % orderCode)
-
-        orderJson = self.app.sll_pm.fetchOrderDetailsJson(orderCode)
-
-        if orderJson is None:
-            raise Exception('Invalid application ID %s' % orderCode)
-
-        piEmail = orderJson['owner']['email']
-        # orderId = orderJson['identifier']
-
-        pi = dm.get_user_by(email=piEmail)
-
-        if pi is None:
-            raise Exception("Order owner email (%s) not found as PI" % piEmail)
-
-        if orderJson['status'] != 'accepted':
-            raise Exception("Only 'accepted' applications can be imported. ")
-
-        fields = orderJson['fields']
-        description = fields.get('project_des', None)
-        invoiceRef = fields.get('project_invoice_addess', None)
-
-        created = datetime_from_isoformat(orderJson['created'])
-        pi_list = fields.get('pi_list', [])
-
-        form = orderJson['form']
-        iuid = form['iuid']
-
-        # Check if the given form (here templates) already exist
-        # or we need to create a new one
-        orderTemplate = None
-        templates = dm.get_templates()
-        for t in templates:
-            if t.extra.get('portal_iuid', None)  == iuid:
-                orderTemplate = t
-                break
-
-        if orderTemplate is None:
-            orderTemplate = dm.create_template(
-                title=form['title'],
-                status='active',
-                extra={'portal_iuid': iuid}
-            )
-            dm.commit()
-
-        app = dm.create_application(
-            code=orderCode,
-            title=orderJson['title'],
-            created=created,  # datetime_from_isoformat(o['created']),
-            status='active',
-            description=description,
-            creator_id=pi.id,
-            template_id=orderTemplate.id,
-            invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
-        )
-
-        for piTuple in pi_list:
-            piEmail = piTuple[1]
-            pi = dm.get_user_by(email=piEmail)
-            if pi is not None:
-                app.users.append(pi)
-
-        dm.commit()
-
-        return app
 
     def get_pi_labs(self):
         # Send a list of possible owners of bookings

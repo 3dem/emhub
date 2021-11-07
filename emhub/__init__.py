@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.0.17'
+__version__ = '0.0.18'
 
 
 def create_app(test_config=None):
@@ -279,6 +279,11 @@ def create_app(test_config=None):
         s = date_range[0].strftime("%Y/%m/%d")
         e = date_range[1].strftime("%Y/%m/%d")
         return "&start=%s&end=%s" % (s, e)
+
+    def url_for_content(contentId, **kwargs):
+        return flask.url_for('main', content_id=contentId, **kwargs)
+
+    app.jinja_env.globals.update(url_for_content=url_for_content)
 
     app.jinja_env.filters['reverse'] = basename
     app.jinja_env.filters['pretty_datetime'] = pretty_datetime

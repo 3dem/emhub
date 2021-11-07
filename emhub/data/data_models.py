@@ -170,6 +170,7 @@ def create_data_models(dm):
                             Column('user_id', Integer,
                                    ForeignKey('users.id')))
 
+
     class User(UserMixin, Base):
         """Model for user accounts."""
         __tablename__ = 'users'
@@ -361,6 +362,7 @@ def create_data_models(dm):
             """ Return True if the user can book in the given SLOT. """
             return booking_slot.allows_user_in_slot(self)
 
+
     class Template(Base):
         """ Classes used as template to create Applications.
         Template instances that are 'active' will allow to
@@ -392,6 +394,7 @@ def create_data_models(dm):
 
         def json(self):
             return dm.json_from_object(self)
+
 
     class Application(Base):
         """
@@ -505,6 +508,7 @@ def create_data_models(dm):
                 if u.id != self.creator.id:
                     pi_list.append(u)
             return pi_list
+
 
     class Booking(Base):
         """Model for user accounts."""
@@ -665,7 +669,10 @@ def create_data_models(dm):
         end = Column(UtcDateTime)
 
         # Possible statuses of a Session:
-        #   - created (not started)
+        #   - pending (stored in db, but data folders not created)
+        #   - created (data folders created, but no processing reported)
+        # TODO: review if the following states make sense, we might want to
+        # TODO: decouple the session from the associated pre-processing
         #   - running
         #   - failed
         #   - finished

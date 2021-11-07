@@ -1,0 +1,144 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Invoices: " + pi.name if pi else '' %}
+    {% set navigation = [('Admin', ''), ('Invoices', url_for_content('invoice_periods_list')), ('Per PI', '')] %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+    {% set period_url = 'invoice_period' if is_manager else 'reports_invoices_lab' %}
+
+    <!-- table row -->
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+
+    <div class="row">
+        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+            <div class="card">
+
+                <div class="card-body">
+
+                    <!-- PI Row -->
+                    <div class="row" style="margin-bottom: 20px">
+                        {% if is_manager %}
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Select PI</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <select id="pi-select" class="selectpicker show-tick" data-width="100%" data-live-search="true" onchange="selectPI()">
+                                    {% for pi in pi_list %}
+                                        <option value="{{ pi.id }}">{{ pi.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <table id="table-invoices" class="table" style="width:100%">
+                        <thead>
+                        <tr>
+                            <th>Comment</th>
+                            <td>Date</td>
+                            <td class="text-right">Cost</td>
+                        </tr>
+                        </thead>
+                        <tbody>
+
+                        {# Bookings marker row #}
+                        <tr class="table-primary">
+                            <td> Entries </td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+
+                        {# Then the other rows with real bookings info #}
+                        {% for e in entries %}
+                            {% if e['type'] == 'summary' %}
+                                {% set row_class = "table-primary" %}
+                                {% set row_style = "font-weight: bold" %}
+                            {% elif e['type'] == 'transaction' %}
+                                {% set row_class = "table-secondary" if e['amount'] > 0 else 'table-success' %}
+                            {% endif %}
+                            <tr class="{{ row_class }}">
+                                <td style="{{ row_style }}">{{ e['id'] }} --- {{ e['title'] }}</td>
+                                <td>{{ e['date']|pretty_date }}</td>
+                                <td class="text-right" style="{{ row_style }}">{{ e['amount'] }}</td>
+                            </tr>
+
+                            {# Add empty row to separate each invoice period #}
+                            {% if e['type'] == 'summary' %}
+                            <tr>
+                                <td></td> <td></td> <td></td>
+                            </tr>
+                            {% endif %}
+
+                        {% endfor %}
+
+                        {# Total marker row #}
+                        <tr class="table-primary">
+                            <td style="font-weight: bold"> Accumulated to Next Period </td>
+                            <td></td>
+                            <td class="text-right" style="font-weight: bold"> {{ total }} </td>
+                        </tr>
+
+                        </tbody>
+                    </table>
+
+                </div>
+
+
+
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Invoice Period Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="invoice_period-modal" tabindex="-1" role="dialog" aria-labelledby="invoice_periodModal" aria-hidden="true" >
+</div>
+
+
+<script>
+
+
+$('#table-invoices').DataTable({
+    sDom: 'Brtip',
+    //sDom: 'lrtip',
+    paging: false,
+    info: false,
+    ordering: false,
+    buttons: [
+        {
+            extend: 'copy',
+            text: 'Copy to clipboard'
+        },
+        {
+            extend: 'csv',
+            title: '{{ table_file_prefix }}'
+        },
+        {
+            extend: 'excel',
+            title: '{{ table_file_prefix }}'
+        },
+        {
+            extend: 'pdf',
+            title: '{{ table_file_prefix }}'
+        },
+        'print'
+    ]
+    //ordering: false,
+});
+
+$('select').selectpicker();
+$('#pi-select').selectpicker('val', "{{ pi_id }}");
+
+
+function selectPI() {
+    var pi_id = $('#pi-select').selectpicker('val');
+    window.location = "{{ url_for_content('invoices_per_pi') }}" + "&pi_id=" + pi_id;
+}  // function selectPI
+
+
+
+
+</script>

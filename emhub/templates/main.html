@@ -76,6 +76,12 @@
     <div class="modal fade" id="user-modal" tabindex="-1" role="dialog" aria-labelledby="userModal" aria-hidden="true">
     </div>
 
+    <!-- ============================================================== -->
+    <!-- Application Modal -->
+    <!-- ============================================================== -->
+    <div class="modal fade" id="application-modal" tabindex="-1" role="dialog" aria-labelledby="applicationModal" aria-hidden="true">
+    </div>
+
 </div>
 <!-- end main wrapper -->
 
@@ -119,6 +125,7 @@
 
 <!-- emhub -->
 <script src="{{ url_for('static', filename='libs/js/emhub.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/js/emhub_applications.js') }}"></script>
 
 
 <script type="text/javascript">
@@ -132,6 +139,14 @@
     var repeat_value = null;
     var has_calendar = true;
     var content_url = "{{ url_for('get_content') }}";
+    var api_urls = {
+        create_application: "{{ url_for('api.create_application') }}",
+        update_application: "{{ url_for('api.update_application') }}"
+    };
+    var application_config = {
+        on_update: null,
+        modal_status: null
+    };
 
 
     (function(window, document, $, undefined) {
@@ -539,6 +554,8 @@
 <script src="https://cdn.datatables.net/fixedheader/3.1.5/js/dataTables.fixedHeader.min.js"></script>
 <script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/ace/ace.js') }}"></script>
+
 
 
 </body>

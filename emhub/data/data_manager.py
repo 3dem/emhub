@@ -129,6 +129,16 @@ class DataManager(DbManager):
         """ This should return a single Form or None. """
         return self.__item_by(self.Form, **kwargs)
 
+    def get_form_by_name(self, formName):
+        """ Shortcut method to load a form from db given its name.
+        If the form does not exist, an Exception is thrown.
+        """
+        form = self.get_form_by(name=formName)
+        if form is None:
+            raise Exception("Missing Form '%s' from the database!!!" % formName)
+
+        return form
+
     # ---------------------------- RESOURCES ---------------------------------
     def create_resource(self, **attrs):
         return self.__create_item(self.Resource, **attrs)
@@ -177,8 +187,84 @@ class DataManager(DbManager):
         """ This should return a single user or None. """
         return self.__item_by(self.Application, **kwargs)
 
+    def __update_application_pi(self, application, **kwargs):
+        pi_to_add = []
+        pi_to_remove = []
+
+        errorMsg = ""
+        pi_list = application.pi_list
+
+        def _get_pi(pid):
+            pi = self.get_user_by(id=int(pid))
+
+            if pi is None:
+                errorMsg += "\nInvalid user id: %s" % pid
+            elif not pi.is_pi:
+                errorMsg += "\nUser %s is not " % pid
+            else:
+                return pi
+            return None
+
+        for pid in kwargs.get('pi_to_add', []):
+            pi = _get_pi(pid)
+
+            if pi is None:
+                continue
+
+            if pi in pi_list:
+                errorMsg += "\nPI %s is already in the Application" % pi.name
+                continue
+
+            pi_to_add.append(pi)
+
+        for pid in kwargs.get('pi_to_remove', []):
+            pi = _get_pi(pid)
+
+            if pi is None:
+                continue
+
+            if pi not in pi_list:
+                errorMsg += "\nPI %s is not in the Application" % pi.name
+                continue
+
+            pi_to_remove.append(pi)
+
+        if errorMsg:
+            raise Exception(errorMsg)
+
+        for pi in pi_to_remove:
+            application.users.remove(pi)
+
+        for pi in pi_to_add:
+            application.users.append(pi)
+
     def update_application(self, **attrs):
-        return self.__update_item(self.Application, **attrs)
+        """ Update a given Application with new attributes.
+        Special case are:
+            pi_to_add: ids of PI users to add to the Application.
+            pi_to_remove: ids of PI users to remove from the Application
+        """
+        # We don't use the self__update_item method due to the
+        # treatment of the pi_to_add/remove lists
+
+        application = self.get_application_by(id=attrs['id'])
+
+        if application is None:
+            raise Exception("Application not found with id %s"
+                            % (attrs['id']))
+
+        self.__update_application_pi(application, **attrs)
+
+        # Update application properties
+        for attr, value in attrs.items():
+            if attr not in ['id', 'pi_to_add', 'pi_to_remove']:
+                setattr(application, attr, value)
+
+        self.commit()
+        self.log('operation', 'update_Application',
+                 **self.json_from_dict(attrs))
+
+        return application
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self,
@@ -332,6 +418,34 @@ class DataManager(DbManager):
         return count_dict
 
     # ---------------------------- SESSIONS -----------------------------------
+    def get_session_counters(self):
+        formDef = self.get_form_by_name('sessions_config').definition
+        return {p['label']: p['value']
+                for p in formDef['sections'][0]['params']}
+
+    def get_session_folders(self):
+        formDef = self.get_form_by_name('sessions_config').definition
+        return {p['label']: p['value']
+                for p in formDef['sections'][1]['params']}
+
+    def get_new_session_info(self, booking_id):
+        """ Return the name for the new session, base on the booking and
+        the previous sessions counter (stored in Form 'counters').
+        """
+        counters = self.get_session_counters()
+
+        b = self.get_bookings(condition="id=%s" % booking_id)[0]
+        a = b.application
+        code = 'fac' if a is None else a.code.lower()
+        sep = '' if len(code) == 3 else '_'
+        c = int(counters.get(code, 1))
+
+        return {
+            'code': code,
+            'counter': c,
+            'name': '%s%s%05d' % (code, sep, c)
+        }
+
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
         condition example: text("id<:value and name=:name")
@@ -341,15 +455,46 @@ class DataManager(DbManager):
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_session_by(self, **kwargs):
+        """ This should return a single Session or None. """
+        return self.__item_by(self.Session, **kwargs)
+
     def create_session(self, **attrs):
         """ Add a new session row. """
+        create_data = attrs.pop('create_data', False)
+        b = self.get_bookings(condition="id=%s" % attrs['booking_id'])[0]
+        attrs['resource_id'] = b.resource.id
+        attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
+
+        if 'start' not in attrs:
+            attrs['start'] = self.now()
+
+        if 'status' not in attrs:
+            attrs['status'] = 'pending'
+
+        session_info = self.get_new_session_info(b.id)
+        attrs['name'] = session_info['name']
+
         session = self.__create_item(self.Session, **attrs)
+
         # Let's update the data path after we know the id
         session.data_path = 'session_%06d.h5' % session.id
+
+        # Update counter for this session group
+        form = self.get_form_by_name('sessions_config')
+        formDef = form.definition
+        for p in formDef['sections'][0]['params']:
+            if p['label'] == session_info['code']:
+                p['value'] = session_info['counter'] + 1
+
         self.commit()
+
         # Create empty hdf5 file
-        data = H5SessionData(self._session_data_path(session), mode='a')
-        data.close()
+        if create_data:
+            data = H5SessionData(self._session_data_path(session), mode='a')
+            data.close()
+
+        self.update_form(id=form.id, definition=formDef)
 
         return session
 
@@ -361,9 +506,11 @@ class DataManager(DbManager):
         """ Remove a session row. """
         sessionId = attrs['id']
         session = self.Session.query.get(sessionId)
-        data_path = os.path.join(self._sessionsPath, session.data_path)
+        data_path = self._session_data_path(session)
         self.delete(session)
-        os.remove(data_path)
+
+        if os.path.exists(data_path):
+            os.remove(data_path)
 
         self.log("operation", "delete_Session",
                  attrs=self.json_from_dict(attrs))

@@ -1,0 +1,13 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Session Details" %}
+    {% set navigation = [('Sessions', url_for_content('sessions_list')), (session.name, '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        {% include 'session_content.html' %}
+    </div>
+
+</div>
+

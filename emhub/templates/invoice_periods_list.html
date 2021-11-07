@@ -23,7 +23,7 @@
                         <table id="invoice_periods-table" class="table">
                             <thead>
                             <tr>
-                                <th>id</th>
+                                <th>order</th>
                                 <th>period</th>
                                 <th>status</th>
                                 {% if is_admin %}
@@ -36,7 +36,7 @@
                                 {% set status = ip['status'] %}
                                 {% if is_admin or status != 'disabled' %}
                                 <tr>
-                                    <td>{{ ip['id'] }}</td>
+                                    <td>{{ ip['order'] }}</td>
 
                                     <td>
                                         {% set badge_type = 'success' if status == 'active' else ('light' if status == 'disabled' else 'info') %}
@@ -66,6 +66,14 @@
     </div>
     <!-- end table row -->
 
+    <!-- Button to show Invoices per PI -->
+        <div class="col-12 mb-3">
+            {% if is_admin %}
+                <a href="{{ url_for_content('invoices_per_pi') }}" class="btn btn-primary"><i class="fas fa-user-circle"></i> Show Invoices per PI</a>
+            {% else %}
+                <a href="{{ url_for_content('invoices_per_pi', pi_id=current_user.id) }}" class="btn btn-primary"><i class="fas fa-user-circle"></i> Show All Invoices</a>
+            {% endif %}
+        </div>
 </div>
 
 <!-- ============================================================== -->
