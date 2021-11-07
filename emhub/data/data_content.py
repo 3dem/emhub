@@ -480,6 +480,7 @@ class DataContent:
             'overall': counters,
             'cem': cem_counters,
             'possible_owners': self.get_pi_labs(),
+            'possible_operators': self.get_possible_operators(),
             'app_dict': app_dict,
             'details_bookings': details_bookings,
             'details_title': details_title,
