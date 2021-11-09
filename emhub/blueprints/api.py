@@ -190,7 +190,7 @@ def import_application():
         if orderJson is None:
             raise Exception('Invalid application ID %s' % orderCode)
 
-        piEmail = orderJson['owner']['email']
+        piEmail = orderJson['owner']['email'].lower()
         # orderId = orderJson['identifier']
 
         pi = dm.get_user_by(email=piEmail)
@@ -241,7 +241,7 @@ def import_application():
         )
 
         for piTuple in pi_list:
-            piEmail = piTuple[1]
+            piEmail = piTuple[1].lower()
             pi = dm.get_user_by(email=piEmail)
             if pi is not None:
                 application.users.append(pi)

@@ -774,8 +774,15 @@ class DataContent:
     def get_applications_check(self, **kwargs):
 
         dm = self.app.dm
-        since = self.app.dm.now() - dt.timedelta(days=183)  # 6 months
+
+        sinceArg = kwargs.get('since', None)
+
+        if sinceArg:
+            since = datetime_from_isoformat(sinceArg)
+        else:
+            since = self.app.dm.now() - dt.timedelta(days=183)  # 6 months
         results = {}
+
         accountsJson = self.app.sll_pm.fetchAccountsJson()
         usersDict = {a['email'].lower(): a for a in accountsJson}
 
@@ -824,7 +831,9 @@ class DataContent:
                 app_results['application'] = application
                 results[orderCode] = app_results
 
-        return {'checks': results}
+        return {'checks': results,
+                'since': since
+                }
 
     # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):
