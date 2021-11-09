@@ -771,6 +771,61 @@ class DataContent:
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
 
+    def get_applications_check(self, **kwargs):
+
+        dm = self.app.dm
+        since = self.app.dm.now() - dt.timedelta(days=183)  # 6 months
+        results = {}
+        accountsJson = self.app.sll_pm.fetchAccountsJson()
+        usersDict = {a['email'].lower(): a for a in accountsJson}
+
+        for application in dm.get_applications():
+            app_results = {}
+            errors = []
+
+            if application.created < since:
+                continue
+
+            orderCode = application.code.upper()
+            orderJson = self.app.sll_pm.fetchOrderDetailsJson(orderCode)
+
+            if orderJson is None:
+                errors.append('Invalid application ID %s' % orderCode)
+            else:
+                fields = orderJson['fields']
+                pi_list = fields.get('pi_list', [])
+                pi_missing = []
+
+                for piTuple in pi_list:
+                    piName, piEmail = piTuple
+                    piEmail = piEmail.lower()
+
+                    pi = dm.get_user_by(email=piEmail)
+                    piInfo = ''
+                    if pi is None:
+                        if piEmail in usersDict:
+                            piInfo = "in the portal, pi: %s" % usersDict[piEmail]['pi']
+                        else:
+                            piInfo = "NOT in the portal"
+
+                    else:
+                        if pi.id != application.creator.id and pi not in application.users:
+                            piInfo = 'NOT in APP'
+                    if piInfo:
+                        pi_missing.append((piName, piEmail, piInfo))
+
+                if pi_missing:
+                    app_results['pi_missing'] = pi_missing
+
+            if errors:
+                app_results['errors'] = errors
+
+            if app_results:
+                app_results['application'] = application
+                results[orderCode] = app_results
+
+        return {'checks': results}
+
     # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
