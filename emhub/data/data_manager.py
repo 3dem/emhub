@@ -418,15 +418,41 @@ class DataManager(DbManager):
         return count_dict
 
     # ---------------------------- SESSIONS -----------------------------------
-    def get_session_counters(self):
+    def __iter_config_params(self, configName):
         formDef = self.get_form_by_name('sessions_config').definition
+        for s in formDef['sections']:
+            if s['label'] == configName:
+                for p in s['params']:
+                    yield p
+
+    def get_session_counters(self):
         return {p['label']: p['value']
-                for p in formDef['sections'][0]['params']}
+                for p in self.__iter_config_params('counters')}
+
+    def get_session_cameras(self, resourceId):
+        cameras = []
+        for p in self.__iter_config_params('cameras'):
+            if int(p['id']) == resourceId:
+                cameras = p['enum']['choices']
+
+        return cameras
 
     def get_session_folders(self):
-        formDef = self.get_form_by_name('sessions_config').definition
         return {p['label']: p['value']
-                for p in formDef['sections'][1]['params']}
+                for p in self.__iter_config_params('folders')}
+
+    def get_session_processing(self):
+        # Load processing options from the 'processing' Form
+        form_proc = self.get_form_by_name('processing')
+
+        processing = []
+        for section in form_proc.definition['sections']:
+            steps = []
+            processing.append({'name': section['label'], 'steps': steps})
+            for param in section['params']:
+                steps.append({'name': param['label'], 'options': param['enum']['choices']})
+
+        return processing
 
     def get_new_session_info(self, booking_id):
         """ Return the name for the new session, base on the booking and

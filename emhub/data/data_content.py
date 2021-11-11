@@ -1005,28 +1005,10 @@ class DataContent:
         booking_id = kwargs['booking_id']
         b = dm.get_bookings(condition="id=%s" % booking_id)[0]
 
-        # Load camera options from 'cameras' Form for the booking microscope
-        form_cameras = dm.get_form_by_name('cameras')
-
-        cameras = []
-        for p in form_cameras.definition['params']:
-            if int(p['id']) == b.resource.id:
-                cameras = p['enum']['choices']
-
-        # Load processing options from the 'processing' Form
-        form_proc = dm.get_form_by_name('processing')
-
-        processing = []
-        for section in form_proc.definition['sections']:
-            steps = []
-            processing.append({'name': section['label'], 'steps': steps})
-            for param in section['params']:
-                steps.append({'name': param['label'], 'options': param['enum']['choices']})
-
         return {
             'booking': b,
-            'cameras': cameras,
-            'processing': processing,
+            'cameras': dm.get_session_cameras(b.resource.id),
+            'processing': dm.get_session_processing(),
             'session_name': dm.get_new_session_info(booking_id)['name']
         }
 
