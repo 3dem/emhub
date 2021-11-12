@@ -50,7 +50,7 @@ def login():
 
     user = app.dm.get_user_by(username=username)
     if user is None or not user.check_password(password):
-        send_error('Invalid username or password')
+        return send_error('Invalid username or password')
 
     flask_login.login_user(user)
 

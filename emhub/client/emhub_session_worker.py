@@ -29,12 +29,32 @@
 This script will check for actions to be taken on sessions, e.g: create folders or the README file
 """
 
-import sys, os
+import os
+import argparse
+
 
 from emhub.client import DataClient, open_client
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    add = parser.add_argument  # shortcut
+
+    add('--list', action='store_true',
+        help="List existing sessions in the server.")
+
+    args = parser.parse_args()
+
+    # Testing function to just list the sessions
+    if args.list:
+        with open_client() as dc:
+            r = dc.request('get_sessions', jsonData={})
+            print("Sessions: ")
+            for s in r.json():
+                print("   ", s['name'])
+
+        return
+
     while True:
         with open_client() as dc:
             r = dc.request('poll_sessions', jsonData={})
