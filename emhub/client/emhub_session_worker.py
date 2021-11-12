@@ -31,9 +31,53 @@ This script will check for actions to be taken on sessions, e.g: create folders 
 
 import os
 import argparse
+import subprocess
 
 
 from emhub.client import DataClient, open_client
+
+
+def create_session_folder(session):
+    """ Create the session folder, the session counter might change if the given
+    one already exist in the filesystem. In that case the next counter will be
+    found. A README file will also be created with some session info.
+    """
+    session_info = {
+        'id': session['id'],
+        'status': 'created',
+    }
+
+    folder = session['folder']
+    name = session['name']
+    # We assume that the session counter are the last characters of the name
+    # i.g fac00034, dbb00122 or cem00378_00012
+    if '_' in name:
+        prefix, counterStr = name.split('_')
+        counter = int(counterStr)
+        sep = '_'
+    else:
+        prefix = name[:3]
+        counter = int(name[3:])
+        sep = ''
+
+    def _folderPath():
+        return os.path.join(folder, '%s%s%s' % (prefix, sep, counter))
+
+    while os.path.exists(_folderPath()):
+        counter += 1
+
+    folderPath = _folderPath()
+    args = ["sudo", "-n", "-u", "cryofac", "/usr/bin/mkdir", folderPath]
+    print("Running: ", *args)
+    process = subprocess.run(args, capture_output=True, text=True)
+
+    if process.returncode != 0:
+        session_info['status'] = 'failed'
+        session_info['error'] = process.stderr
+    else:
+        session_info['name'] = '%s%s%s' % (prefix, sep, counter)
+
+    return session_info
 
 
 def main():
@@ -63,7 +107,8 @@ def main():
                 print("Handling session %s: " % s['id'])
                 print("   - Creating folder: ", os.path.join(s['folder'], s['name']))
                 print("   - Updating session")
-                dc.update_session({'id': s['id'], 'status': 'created'})
+                session_info = create_session_folder(s)
+                dc.update_session(session_info)
 
 
 if __name__ == '__main__':

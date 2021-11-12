@@ -338,13 +338,15 @@ def poll_sessions():
         sessions = app.dm.get_sessions(condition='status=="pending"')
         if sessions:
             for s in sessions:
+                e = app.dc.booking_to_event(s.booking)
                 data = [{
                     'id': s.id,
                     'name': s.name,
                     'booking_id': s.booking_id,
                     'start': datetime_to_isoformat(s.start),
                     'operator': s.operator.name,
-                    'folder': session_folders[s.name[:3]]
+                    'folder': session_folders[s.name[:3]],
+                    'title': e['title']
                  }]
                 return send_json_data(data)
         time.sleep(3)
