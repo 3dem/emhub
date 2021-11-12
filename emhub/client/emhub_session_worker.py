@@ -30,40 +30,8 @@ This script will check for actions to be taken on sessions, e.g: create folders 
 """
 
 import sys, os
-import time
-import datetime as dt
-import argparse
-from pprint import pprint
-from contextlib import contextmanager
 
-
-from pyworkflow.project import Manager
-import pyworkflow.utils as pwutils
-
-from pwem.objects import SetOfCTF
-
-
-class config:
-    EMHUB_SOURCE = os.environ['EMHUB_SOURCE']
-    EMHUB_SERVER_URL = os.environ['EMHUB_SERVER_URL']
-    EMHUB_USER = os.environ['EMHUB_USER']
-    EMHUB_PASSWORD = os.environ['EMHUB_PASSWORD']
-
-
-# add emhub source code to the path and import client submodule
-sys.path.append(config.EMHUB_SOURCE)
-
-from emhub.client import DataClient
-
-
-@contextmanager
-def open_client():
-    dc = DataClient(server_url=config.EMHUB_SERVER_URL)
-    try:
-        dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
-        yield dc
-    finally:
-        dc.logout()
+from emhub.client import DataClient, open_client
 
 
 def main():

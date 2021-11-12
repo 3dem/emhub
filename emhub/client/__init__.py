@@ -26,4 +26,4 @@
 # *
 # **************************************************************************
 
-from .data_client import DataClient
+from .data_client import config, open_client, DataClient
