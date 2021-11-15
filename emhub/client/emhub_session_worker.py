@@ -60,8 +60,11 @@ def create_session_folder(session):
         counter = int(name[3:])
         sep = ''
 
+    def _folderName():
+        return '%s%s%03d' % (prefix, sep, counter)
+
     def _folderPath():
-        return os.path.join(folder, '%s%s%s' % (prefix, sep, counter))
+        return os.path.join(folder, _folderName())
 
     while os.path.exists(_folderPath()):
         counter += 1
@@ -77,7 +80,7 @@ def create_session_folder(session):
         session_info['status'] = 'failed'
         session_info['extra'] = {'status_info': process.stderr}
     else:
-        session_info['name'] = '%s%s%s' % (prefix, sep, counter)
+        session_info['name'] = _folderName()
 
     return session_info
 
