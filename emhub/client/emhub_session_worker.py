@@ -67,13 +67,15 @@ def create_session_folder(session):
         counter += 1
 
     folderPath = _folderPath()
-    args = ["sudo", "-n", "-u", "cryofac", "/usr/bin/mkdir", folderPath]
+    # Allow to define the command to create sessions
+    args = os.environ.get('EMHUB_SESSION_MKDIR', 'mkdir').split()
+    args.append(folderPath)
     print("Running: ", *args)
     process = subprocess.run(args, capture_output=True, text=True)
 
     if process.returncode != 0:
         session_info['status'] = 'failed'
-        session_info['error'] = process.stderr
+        session_info['extra'] = {'status_info': process.stderr}
     else:
         session_info['name'] = '%s%s%s' % (prefix, sep, counter)
 

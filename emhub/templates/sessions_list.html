@@ -14,13 +14,14 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table id="bookings-table" class="table table-striped table-bordered" style="width:100%">
+                        <table id="sessions-table" class="table table-striped table-bordered" style="width:100%">
                             <thead>
                             <tr>
                                 <th>id</th>
                                 <th>name</th>
                                 <th>start/end</th>
                                 <th>status</th>
+                                <td>extra</td>
                                 <th>data_path</th>
                                 <th>booking_id</th>
                                 <th>operator</th>
@@ -34,6 +35,7 @@
                                 <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
                                 <td>{{ s.start }} / {{ s.end }}</td>
                                 <td>{{ s.status }}</td>
+                                <td>{{ s.extra }}</td>
                                 <td>{{ s.data_path }}</td>
                                 <td>{{ s.booking_id }}</td>
                                 <td>{{ s.operator.name }}</td>
@@ -58,7 +60,7 @@
 </div>
 
 <script>
-    $('#bookings-table').DataTable();
+    $('#sessions-table').DataTable();
 
     function deleteSession(session_id) {
     confirm("Delete Session",
