@@ -32,6 +32,7 @@ This script will check for actions to be taken on sessions, e.g: create folders 
 import os
 import argparse
 import subprocess
+import datetime as dt
 
 
 from emhub.client import DataClient, open_client
@@ -61,10 +62,14 @@ def create_session_folder(session):
         sep = ''
 
     def _folderName():
-        return '%s%s%03d' % (prefix, sep, counter)
+        return '%s%s%05d' % (prefix, sep, counter)
 
     def _folderPath():
         return os.path.join(folder, _folderName())
+
+    def _error(msg):
+        session_info['status'] = 'failed'
+        session_info['extra'] = {'status_info': msg}
 
     while os.path.exists(_folderPath()):
         counter += 1
@@ -77,10 +82,24 @@ def create_session_folder(session):
     process = subprocess.run(args, capture_output=True, text=True)
 
     if process.returncode != 0:
-        session_info['status'] = 'failed'
-        session_info['extra'] = {'status_info': process.stderr}
+        _error(process.stderr)
     else:
         session_info['name'] = _folderName()
+        session_info['extra'] = {'data_folder': folderPath}
+        try:
+            dateStr = dt.datetime.now().strftime('%Y%m%d')
+            readmeFn = os.path.join(folderPath, 'README_%s.TXT' % dateStr)
+
+            with open(readmeFn, 'w') as f:
+                for user in ['pi', 'user', 'operator']:
+                    u = session[user] or {'name': '', 'email': ''}
+                    f.write('%s.name: %s\n' % (user, u['name']))
+                    f.write('%s.email: %s\n' % (user, u['email']))
+                f.write('description: %s\n' % session['title'])
+                f.write('date: %s\n' % dateStr)
+
+        except Exception as e:
+            _error(str(e))
 
     return session_info
 

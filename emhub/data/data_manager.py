@@ -418,16 +418,40 @@ class DataManager(DbManager):
         return count_dict
 
     # ---------------------------- SESSIONS -----------------------------------
-    def __iter_config_params(self, configName):
+    def __get_section(self, sectionName):
         formDef = self.get_form_by_name('sessions_config').definition
         for s in formDef['sections']:
-            if s['label'] == configName:
-                for p in s['params']:
-                    yield p
+            if s['label'] == sectionName:
+                return formDef, s
+        return None
 
-    def get_session_counters(self):
+    def __iter_config_params(self, configName):
+        _, section = self.__get_section(configName)
+        for p in section['params']:
+            yield p
+
+    def __get_session_counters(self):
         return {p['label']: p['value']
                 for p in self.__iter_config_params('counters')}
+
+    def get_session_counter(self, group_code):
+        return int(self.__get_session_counters().get(group_code, 1))
+
+    def update_session_counter(self, group_code, new_counter):
+        # Update counter for this session group
+        formDef, section = self.__get_section('counters')
+
+        found = False
+        for p in section['params']:
+            if p['label'] == group_code:
+                p['value'] = new_counter
+                found = True
+        if not found:
+            section['params'].append({'label': group_code,
+                                      'value': new_counter})
+
+        form = self.get_form_by_name('sessions_config')
+        self.update_form(id=form.id, definition=formDef)
 
     def get_session_cameras(self, resourceId):
         cameras = []
@@ -458,13 +482,11 @@ class DataManager(DbManager):
         """ Return the name for the new session, base on the booking and
         the previous sessions counter (stored in Form 'counters').
         """
-        counters = self.get_session_counters()
-
         b = self.get_bookings(condition="id=%s" % booking_id)[0]
         a = b.application
         code = 'fac' if a is None else a.code.lower()
         sep = '' if len(code) == 3 else '_'
-        c = int(counters.get(code, 1))
+        c = self.get_session_counter(code)
 
         return {
             'code': code,
@@ -506,13 +528,6 @@ class DataManager(DbManager):
         # Let's update the data path after we know the id
         session.data_path = 'session_%06d.h5' % session.id
 
-        # Update counter for this session group
-        form = self.get_form_by_name('sessions_config')
-        formDef = form.definition
-        for p in formDef['sections'][0]['params']:
-            if p['label'] == session_info['code']:
-                p['value'] = session_info['counter'] + 1
-
         self.commit()
 
         # Create empty hdf5 file
@@ -520,13 +535,31 @@ class DataManager(DbManager):
             data = H5SessionData(self._session_data_path(session), mode='a')
             data.close()
 
-        self.update_form(id=form.id, definition=formDef)
+        # Update counter for this session group
+        self.update_session_counter(session_info['code'],
+                                    session_info['counter'] + 1)
 
         return session
 
     def update_session(self, **attrs):
         """ Update session attrs. """
-        return self.__update_item(self.Session, **attrs)
+        session = self.__update_item(self.Session, **attrs)
+
+        # Update the session counter if it was modified
+        name = session.name
+
+        if '_' in name:
+            code, counterStr = name.split('_')
+        else:
+            code = name[:3]
+            counterStr = name[3:]
+
+        c = self.get_session_counter(code)
+        counter = int(counterStr)
+        if c < counter:
+            self.update_session_counter(code, counter + 1)
+
+        return session
 
     def delete_session(self, **attrs):
         """ Remove a session row. """

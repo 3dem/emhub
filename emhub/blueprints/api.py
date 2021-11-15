@@ -334,17 +334,28 @@ def get_sessions():
 def poll_sessions():
     session_folders = app.dm.get_session_folders()
 
+    def _user(u):
+        if not u:
+            return {}
+        else:
+            return {'name': u.name,
+                    'email': u.email
+                    }
+
     while True:
         sessions = app.dm.get_sessions(condition='status=="pending"')
         if sessions:
             for s in sessions:
-                e = app.dc.booking_to_event(s.booking)
+                b = s.booking
+                e = app.dc.booking_to_event(b)
                 data = [{
                     'id': s.id,
                     'name': s.name,
                     'booking_id': s.booking_id,
                     'start': datetime_to_isoformat(s.start),
-                    'operator': s.operator.name,
+                    'user': _user(b.owner),
+                    'pi': _user(b.owner.get_pi()),
+                    'operator': _user(b.operator),
                     'folder': session_folders[s.name[:3]],
                     'title': e['title']
                  }]
