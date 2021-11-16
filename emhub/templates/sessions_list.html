@@ -4,6 +4,8 @@
     {% set title = "Sessions List" %}
     {% set navigation = [('Sessions', '')] %}
     {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+    {% set is_admin = current_user.is_admin %}
 
     <!-- table row -->
     <div class="row">
@@ -19,33 +21,48 @@
                             <tr>
                                 <th>id</th>
                                 <th>name</th>
-                                <th>start/end</th>
+                                <th>start</th>
                                 <th>status</th>
-                                <td>extra</td>
-                                <th>data_path</th>
-                                <th>booking_id</th>
+
+                                {% if is_admin %}
+                                    <td>extra</td>
+                                    <th>data_path</th>
+                                    <th>booking_id</th>
+                                {% endif %}
+
+                                <th>owner</th>
                                 <th>operator</th>
-                                <th>actions</th>
+
+                                {% if current_user.is_manager %}
+                                    <th>actions</th>
+                                {% endif %}
                             </tr>
                             </thead>
                             <tbody>
                             {% for s in sessions %}
+                                {% if is_manager or current_user.get_pi() == s.booking.owner.get_pi() %}
                             <tr>
                                 <td>{{ s.id }}</td>
                                 <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
-                                <td>{{ s.start }} / {{ s.end }}</td>
+                                <td>{{ s.start|pretty_date }} </td>
                                 <td>{{ s.status }}</td>
-                                <td>{{ s.extra }}</td>
-                                <td>{{ s.data_path }}</td>
-                                <td>{{ s.booking_id }}</td>
+                                {% if is_admin %}
+                                    <td>{{ s.extra }}</td>
+                                    <td>{{ s.data_path }}</td>
+                                    <td>{{ s.booking_id }}</td>
+                                {% endif %}
+
+                                <td>{{ s.booking.owner.name }}</td>
                                 <td>{{ s.operator.name }}</td>
-                                {% if current_user.is_manager %}
+
+                                {% if is_manager %}
                                         <td>
                                             <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
                                                 <i class="far fa-trash-alt"></i></button>
                                         </td>
                                 {% endif %}
                             </tr>
+                                {% endif %}
                             {% endfor %}
 
                             </tbody>
