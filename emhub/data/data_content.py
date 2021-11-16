@@ -68,7 +68,7 @@ class DataContent:
         bookings = [('Today', []),
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
-        sessions = {}
+        resource_bookings = {}
 
         now  = self.app.dm.now()
         next7 = now + dt.timedelta(days=7)
@@ -96,12 +96,11 @@ class DataContent:
                 r = b.resource
                 if i == 0 and r.is_microscope and 'solna' in r.tags:  # Today's bookings
                     # FIXME: If there is already a session, also return its id
-                    session_id = b.session[0].id if b.session else 0
-                    sessions[r.id] = (b, session_id)
+                    resource_bookings[r.id] = b
 
         dataDict.update({'bookings': bookings,
                          'lab_members': self.get_lab_members(user),
-                         'sessions': sessions})
+                         'resource_bookings': resource_bookings})
         return dataDict
 
     def get_lab_members(self, user):

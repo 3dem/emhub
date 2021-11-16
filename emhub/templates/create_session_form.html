@@ -86,36 +86,36 @@
                 </div>
 
                 <!-- Processing Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Processing</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        {% for p in processing %}
-                            {% set checked = 'checked' if loop.index == 1 else '' %}
-                            <label class="custom-control custom-radio custom-control-inline">
-                                <input type="radio" name="processing" id="processing-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ p['name'] }}" onclick="javascript:onProcessingClick(this)"><span class="custom-control-label">{{ p['name'] }}</span>
-                            </label>
-                        {% endfor %}
-
-                        {% for p in processing %}
-                            <div class="row processing-row" id="row-{{ p['name'] }}">
-                                <div class="col">
-                                    {% for step_options in p['steps'] %}
-                                        <div class="row">
-                                            <div class="col-4">{{ step_options['name'] }}:</div>
-                                        {% for o in step_options['options'] %}
-                                            {% set checked = 'checked' if loop.index == 1 else '' %}
-                                            <label class="custom-control custom-radio custom-control-inline">
-                                                <input type="radio" name="{{ step_options['name'] }}" id="{{ step_options['name'] }}-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>
-                                            </label>
-                                        {% endfor %}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% endfor %}
-
-                    </div>
-                </div>
+{#                <div class="form-group row">#}
+{#                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Processing</label>#}
+{#                    <div class="col-12 col-sm-8 col-lg-6">#}
+{#                        {% for p in processing %}#}
+{#                            {% set checked = 'checked' if loop.index == 1 else '' %}#}
+{#                            <label class="custom-control custom-radio custom-control-inline">#}
+{#                                <input type="radio" name="processing" id="processing-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ p['name'] }}" onclick="javascript:onProcessingClick(this)"><span class="custom-control-label">{{ p['name'] }}</span>#}
+{#                            </label>#}
+{#                        {% endfor %}#}
+{##}
+{#                        {% for p in processing %}#}
+{#                            <div class="row processing-row" id="row-{{ p['name'] }}">#}
+{#                                <div class="col">#}
+{#                                    {% for step_options in p['steps'] %}#}
+{#                                        <div class="row">#}
+{#                                            <div class="col-4">{{ step_options['name'] }}:</div>#}
+{#                                        {% for o in step_options['options'] %}#}
+{#                                            {% set checked = 'checked' if loop.index == 1 else '' %}#}
+{#                                            <label class="custom-control custom-radio custom-control-inline">#}
+{#                                                <input type="radio" name="{{ step_options['name'] }}" id="{{ step_options['name'] }}-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>#}
+{#                                            </label>#}
+{#                                        {% endfor %}#}
+{#                                        </div>#}
+{#                                    {% endfor %}#}
+{#                                </div>#}
+{#                            </div>#}
+{#                        {% endfor %}#}
+{##}
+{#                    </div>#}
+{#                </div>#}
 
             </form>
         </div>
