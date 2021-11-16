@@ -1,7 +1,12 @@
 
-<!-- Modal to with a Form to create a new Session -->
+<!-- Session details Card -->
 
-    {% set booking = session.booking %}
+{% set booking = session.booking %}
+{% set is_manager = current_user.is_manager %}
+{% set owner = booking.owner %}
+{% set pi = owner.get_pi() %}
+
+{% if is_manager or current_user == owner or current_user == pi %}
 
 <div class="modal-content">
     <!-- Modal header -->
@@ -67,8 +72,15 @@
 
             </form>
         </div>
-        <!-- end Booking Form -->
+        <!-- end Session Card -->
     </div>
 </div>
+
+{% else %}
+    <div>
+    <h2>You do not have access to this information.</h2>
+    <p>A session is only visible to the owner user or the principal investigator. </p>
+    </div>
+{% endif %}
 
 
