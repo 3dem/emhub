@@ -33,9 +33,10 @@ import os
 import argparse
 import subprocess
 import datetime as dt
+import tempfile
 
 
-from emhub.client import DataClient, open_client
+from emhub.client import open_client
 
 
 def create_session_folder(session):
@@ -76,8 +77,8 @@ def create_session_folder(session):
 
     folderPath = _folderPath()
     # Allow to define the command to create sessions
-    args = os.environ.get('EMHUB_SESSION_MKDIR', 'mkdir').split()
-    args.append(folderPath)
+    sudo = os.environ.get('EMHUB_SESSION_SUDO', '').split()
+    args = sudo + ['mkdir', folderPath]
     print("Running: ", *args)
     process = subprocess.run(args, capture_output=True, text=True)
 
@@ -90,13 +91,20 @@ def create_session_folder(session):
             dateStr = dt.datetime.now().strftime('%Y%m%d')
             readmeFn = os.path.join(folderPath, 'README_%s.TXT' % dateStr)
 
-            with open(readmeFn, 'w') as f:
-                for user in ['pi', 'user', 'operator']:
-                    u = session[user] or {'name': '', 'email': ''}
-                    f.write('%s.name: %s\n' % (user, u['name']))
-                    f.write('%s.email: %s\n' % (user, u['email']))
-                f.write('description: %s\n' % session['title'])
-                f.write('date: %s\n' % dateStr)
+            f = tempfile.NamedTemporaryFile('w', delete=False)
+            for user in ['pi', 'user', 'operator']:
+                u = session[user] or {'name': '', 'email': ''}
+                f.write('%s.name: %s\n' % (user, u['name']))
+                f.write('%s.email: %s\n' % (user, u['email']))
+            f.write('description: %s\n' % session['title'])
+            f.write('date: %s\n' % dateStr)
+            f.close()
+            args = sudo + ['mv', f.name, readmeFn]
+            print("Running: ", *args)
+            process = subprocess.run(args, capture_output=True, text=True)
+
+            if process.returncode != 0:
+                _error(process.stderr)
 
         except Exception as e:
             _error(str(e))
@@ -120,7 +128,6 @@ def main():
             print("Sessions: ")
             for s in r.json():
                 print("   ", s['name'])
-
         return
 
     while True:
@@ -137,8 +144,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
-
-
