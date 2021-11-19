@@ -77,7 +77,9 @@
 </div>
 
 <script>
-    $('#sessions-table').DataTable();
+    $('#sessions-table').DataTable({
+        order: [[0, "desc"]]
+    });
 
     function deleteSession(session_id) {
     confirm("Delete Session",

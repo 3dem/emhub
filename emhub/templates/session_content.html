@@ -105,14 +105,23 @@
             <div class="col-12">
                 <form id="session-form" data-parsley-validate="" novalidate="">
                     {% set username = session.name %}
-                    {% set password = session.extra.get('user_data_password', '') %}
+                    {%  set extra = session.extra %}
+                    {% set password = extra['data_user_password'] %}
 
                     <!-- Owner Row -->
                     <div class="row">
                         <div class="col-12">
                             <div class="row">
-                                <h4 class="col-4">Credentials: </h4>
-                                <div class="col-8">
+                                <h4 class="col-3">Data Path: </h4>
+                                <div class="col-9">
+                                    <p>
+                                        <strong>{{ extra['data_folder'] }}</strong>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <h4 class="col-3">Credentials: </h4>
+                                <div class="col-9">
                                     <p>
                                         username: <strong>{{ username }}</strong> <br/>
                                         password: <strong>{{ password }}</strong>
@@ -136,6 +145,11 @@
                                 Password: {{ password }} <br/>
                                 Port: (can be left blank) <br/>
                             </p>
+                            <div class="alert alert-danger" role="alert">
+                              <h4 class="alert-heading">Data Deletion</h4>
+                              <hr>
+                              <p class="mb-0">Please download the data as soon as possible! It will be DELETED in XXX days!!!.</p>
+                            </div>
                         </div>
                     </div>
                 </form>
