@@ -104,7 +104,8 @@ def create_session_folder(session):
         f.close()
 
         # Move the README file to the folder
-        _run(sudo + ['mv', f.name, readmeFn])
+        _run(sudo + ['cp', f.name, readmeFn])
+        os.remove(f.name)
 
         adduserCmd = os.environ.get('EMHUB_SESSION_ADDUSER', '')
 
