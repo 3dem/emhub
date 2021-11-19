@@ -8,73 +8,148 @@
 
 {% if is_manager or current_user == owner or current_user == pi %}
 
-<div class="modal-content">
-    <!-- Modal header -->
-    <div class="modal-header">
-        <h3 class="modal-title" id="booking-modal-title"> {{ session.name }} </h3>
-    </div>
+<div class="row ">
 
-    <div class="modal-body">
-        <!-- Create Session Form -->
-        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-            <form id="session-form" data-parsley-validate="" novalidate="">
-
-                <!-- Owner Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        <h4 class="col-12 text-sm-left">{{ booking.owner.name }}</h4>
-                    </div>
-                </div>
-
-                <!-- Creator Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Creator</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        <label class="col-12 col-form-label text-sm-left">{{ booking.creator.name }}</label>
-                    </div>
-                </div>
-
-                <!-- Operator Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Operator</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.operator.name }}</label>
-                    </div>
-                </div>
-
-                <!-- Operator Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Status</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-left">{{ session.status }}</label>
-                    </div>
-                </div>
-
-                <!-- Microscope Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Microscope</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-{#                        <label id="application-label" class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.resource.name }}</label>#}
-
-                        <div class="row align-items-center justify-content-start">
-                        <div class="col">
-                            <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
-
-                        </div>
-                        <div class="col-10 text-sm-left">
-                            <h5>{{ booking.resource.name }}</h5>
-                        </div>
-                    </div>
-
-                    </div>
-                </div>
-
-            </form>
+    <div class="col-12 col-xl-6">
+        <div class="card">
+        <!-- Modal header -->
+        <div class="card-header">
+            <h3 class="card-header-title" id="booking-modal-title"> Overview </h3>
         </div>
-        <!-- end Session Card -->
+
+        <div class="card-body">
+
+            <!-- Create Session Form -->
+            <div class="col-12">
+                <form id="session-form" data-parsley-validate="" novalidate="">
+
+                    <!-- Session Name Row -->
+                    <div class="row">
+                        <label class="col-12 col-sm-4 col-form-label text-sm-right">Session Name</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <h4 class="col-12 text-sm-left">{{ session.name }}</h4>
+                        </div>
+                    </div>
+
+                    <!-- Owner Row -->
+                    <div class="row">
+                        <label class="col-12 col-sm-4 col-form-label text-sm-right">Owner</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <h4 class="col-12 text-sm-left">{{ booking.owner.name }}</h4>
+                        </div>
+                    </div>
+
+                    <!-- Creator Row -->
+                    <div class="row">
+                        <label class="col-12 col-sm-4 col-form-label text-sm-right">Creator</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <label class="col-12 col-form-label text-sm-left">{{ booking.creator.name }}</label>
+                        </div>
+                    </div>
+
+                    <!-- Operator Row -->
+                    <div class="row">
+                        <label class="col-12 col-sm-4 col-form-label text-sm-right">Operator</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <label class="col-12 col-form-label text-sm-left">{{ booking.operator.name }}</label>
+                        </div>
+                    </div>
+
+                    <!-- Operator Row -->
+                    <div class="row">
+                        <label class="col-12 col-sm-4 col-form-label text-sm-right">Status</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <label class="col-12 col-form-label text-sm-left">{{ session.status }}</label>
+                        </div>
+                    </div>
+
+                    <!-- Microscope Row -->
+                    <div class="row">
+                        <label class="col-12 col-sm-4 col-form-label text-sm-right">Microscope</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <div class="row align-items-center justify-content-start">
+                            <div class="col">
+                                <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
+
+                            </div>
+                            <div class="col-10 text-sm-left">
+                                <h5>{{ booking.resource.name }}</h5>
+                            </div>
+                        </div>
+
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <!-- end Session Card -->
+
+
+
+
+        </div>
     </div>
-</div>
+    </div>
+
+
+    <div class="col-12 col-xl-6">
+        <div class="card">
+        <!-- Modal header -->
+        <div class="card-header">
+            <h3 class="card-header-title" id="booking-modal-title"> Data Download </h3>
+        </div>
+
+        <div class="card-body">
+
+            <!-- Create Session Form -->
+            <div class="col-12">
+                <form id="session-form" data-parsley-validate="" novalidate="">
+                    {% set username = session.name %}
+                    {% set password = session.extra.get('user_data_password', '') %}
+
+                    <!-- Owner Row -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="row">
+                                <h4 class="col-4">Credentials: </h4>
+                                <div class="col-8">
+                                    <p>
+                                        username: <strong>{{ username }}</strong> <br/>
+                                        password: <strong>{{ password }}</strong>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <h4>Instructions: </h4>
+                            <p>
+                                You can use the terminal / command line with rsync to download your data such as:
+                            </p>
+
+                            <p>
+                                <strong>rsync -avuPe ssh {{ username }}@data.cryoem.se:data/  /your/local/path/for/data</strong>
+                            </p>
+                            <p>
+                                or you can use a GUI based program such as FileZilla and then use </p>
+                            <p>
+                                Host: sftp://data.cryoem.se <br/>
+                                Username: {{ username }} <br/>
+                                Password: {{ password }} <br/>
+                                Port: (can be left blank) <br/>
+                            </p>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <!-- end Session Card -->
+
+
+
+
+        </div>
+    </div>
+    </div>
+
+</div> <!-- end of row -->
 
 {% else %}
     <div>

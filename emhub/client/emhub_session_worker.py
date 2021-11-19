@@ -26,7 +26,8 @@
 # **************************************************************************
 
 """ 
-This script will check for actions to be taken on sessions, e.g: create folders or the README file
+This script will check for actions to be taken on sessions,
+e.g: create folders or the README file
 """
 
 import os
@@ -67,10 +68,6 @@ def create_session_folder(session):
 
     def _folderPath():
         return os.path.join(folder, _folderName())
-
-    def _error(msg):
-        session_info['status'] = 'failed'
-        session_info['extra'] = {'status_info': msg}
 
     def _run(args):
         print("Running: ", args)
@@ -115,11 +112,16 @@ def create_session_folder(session):
             args = adduserCmd.split() + [session_info['name']]
             # Add new user to data download machine
             process = _run(args)
-            session_info['add_user'] = process.stdout
-
+            for line in process.stdout:
+                if 'Error: ' in line:
+                    raise Exception(line)
+                elif 'user.password' in line:
+                    password = line.split()[1].strip()
+                    session_info['extra']['data_user_password'] = password
 
     except Exception as e:
-        _error(str(e))
+        session_info['status'] = 'failed'
+        session_info['extra'] = {'status_info': str(e)}
 
     return session_info
 
