@@ -72,42 +72,54 @@ def create_session_folder(session):
         session_info['status'] = 'failed'
         session_info['extra'] = {'status_info': msg}
 
+    def _run(args):
+        print("Running: ", args)
+        process = subprocess.run(args, capture_output=True, text=True)
+        if process.returncode != 0:
+            raise Exception(process.stderr)
+        return process
+
     while os.path.exists(_folderPath()):
         counter += 1
 
     folderPath = _folderPath()
-    # Allow to define the command to create sessions
-    sudo = os.environ.get('EMHUB_SESSION_SUDO', '').split()
-    args = sudo + ['mkdir', folderPath]
-    print("Running: ", *args)
-    process = subprocess.run(args, capture_output=True, text=True)
 
-    if process.returncode != 0:
-        _error(process.stderr)
-    else:
+    try:
+        # Allow to define the command to create sessions
+        sudo = os.environ.get('EMHUB_SESSION_SUDO', '').split()
+
+        # Create the folder
+        _run(sudo + ['mkdir', folderPath])
+
         session_info['name'] = _folderName()
         session_info['extra'] = {'data_folder': folderPath}
-        try:
-            dateStr = dt.datetime.now().strftime('%Y%m%d')
-            readmeFn = os.path.join(folderPath, 'README_%s.TXT' % dateStr)
 
-            f = tempfile.NamedTemporaryFile('w', delete=False)
-            for user in ['pi', 'user', 'operator']:
-                u = session[user] or {'name': '', 'email': ''}
-                f.write('%s.name: %s\n' % (user, u['name']))
-                f.write('%s.email: %s\n' % (user, u['email']))
-            f.write('description: %s\n' % session['title'])
-            f.write('date: %s\n' % dateStr)
-            f.close()
-            args = sudo + ['mv', f.name, readmeFn]
-            print("Running: ", *args)
-            process = subprocess.run(args, capture_output=True, text=True)
+        dateStr = dt.datetime.now().strftime('%Y%m%d')
+        readmeFn = os.path.join(folderPath, 'README_%s.TXT' % dateStr)
 
-            if process.returncode != 0:
-                _error(process.stderr)
+        f = tempfile.NamedTemporaryFile('w', delete=False)
+        for user in ['pi', 'user', 'operator']:
+            u = session[user] or {'name': '', 'email': ''}
+            f.write('%s.name: %s\n' % (user, u['name']))
+            f.write('%s.email: %s\n' % (user, u['email']))
+        f.write('description: %s\n' % session['title'])
+        f.write('date: %s\n' % dateStr)
+        f.close()
 
-        except Exception as e:
-            _error(str(e))
+        # Move the README file to the folder
+        _run(sudo + ['mv', f.name, readmeFn])
+
+        adduserCmd = os.environ.get('EMHUB_SESSION_ADDUSER', '')
+
+        if adduserCmd:
+            args = adduserCmd.split() + [session_info['name']]
+            # Add new user to data download machine
+            process = _run(args)
+            session_info['add_user'] = process.stdout
+
+
+    except Exception as e:
+        _error(str(e))
 
     return session_info
 
