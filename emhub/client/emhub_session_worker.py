@@ -104,6 +104,7 @@ def create_session_folder(session):
         f.close()
 
         # Move the README file to the folder
+        os.chmod(f.name, 0o644)
         _run(sudo + ['cp', f.name, readmeFn])
         os.remove(f.name)
 
@@ -113,7 +114,7 @@ def create_session_folder(session):
             args = adduserCmd.split() + [session_info['name']]
             # Add new user to data download machine
             process = _run(args)
-            for line in process.stdout:
+            for line in process.stdout.split('\n'):
                 if 'Error: ' in line:
                     raise Exception(line)
                 elif 'user.password' in line:
