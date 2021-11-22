@@ -31,10 +31,12 @@ e.g: create folders or the README file
 """
 
 import os
+import sys
 import argparse
 import subprocess
 import datetime as dt
 import tempfile
+from pprint import pprint
 
 
 from emhub.client import open_client
@@ -147,16 +149,20 @@ def main():
         return
 
     while True:
-        with open_client() as dc:
-            r = dc.request('poll_sessions', jsonData={})
+        try:
+            with open_client() as dc:
+                r = dc.request('poll_sessions', jsonData={})
 
-            for s in r.json():
-                print("Handling session %s: " % s['id'])
-                print("   - Creating folder: ", os.path.join(s['folder'], s['name']))
-                print("   - Updating session")
-                session_info = create_session_folder(s)
-                dc.update_session(session_info)
-
+                for s in r.json():
+                    print("Handling session %s: " % s['id'])
+                    print("   - Creating folder: ",
+                          os.path.join(s['folder'], s['name']))
+                    print("   - Updating session")
+                    session_info = create_session_folder(s)
+                    pprint(session_info)
+                    dc.update_session(session_info)
+        except Exception as e:
+            print("Some error happened: ", str(e), file=sys.stderr)
 
 if __name__ == '__main__':
     main()
