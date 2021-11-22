@@ -40,7 +40,7 @@ import tempfile
 from pprint import pprint
 
 
-from emhub.client import open_client
+from emhub.client import open_client, config
 
 
 def create_session_folder(session):
@@ -152,6 +152,7 @@ def main():
     while True:
         try:
             with open_client() as dc:
+                print("Connected to server: ", config.EMHUB_SERVER_URL)
                 r = dc.request('poll_sessions', jsonData={})
 
                 for s in r.json():
