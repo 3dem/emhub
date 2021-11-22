@@ -514,7 +514,6 @@ def delete_form():
     return handle_transaction(app.dm.delete_form)
 
 
-
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
