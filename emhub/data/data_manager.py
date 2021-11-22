@@ -764,15 +764,15 @@ class DataManager(DbManager):
             overlap_slots = [b for b in overlap
                              if b.is_slot and b.id != booking.id]
 
-            # FIXME: Check when it make sense to use application_id if coming
-            app_id = None  # booking.application_id
+            # Always try to find the Application to set in the booking unless
+            # the owner is a manager
+            owner = self.get_user_by(id=booking.owner_id)
 
-            if app_id is None:
-                owner = self.get_user_by(id=booking.owner_id)
+            if not owner.is_manager:
                 apps = owner.get_applications()
                 n = len(apps)
 
-                if n == 0 and not owner.is_manager and r.requires_application:
+                if n == 0 and r.requires_application:
                     raise Exception("User %s has no active application"
                                     % owner.name)
 
@@ -803,20 +803,20 @@ class DataManager(DbManager):
                     raise Exception("You do not have permission to book "
                                     "outside slots for this resource or have not "
                                     "access to the given slot. ")
-            else:
-                app = self.get_application_by(id=app_id)
 
         if app is not None:
             booking.application_id = app.id
-            count = self.count_booking_resources([app_id],
+            count = self.count_booking_resources([app.id],
                                                  resource_tags=r.tags.split())
-            for tagKey, tagCount in count[app_id].items():
+            for tagKey, tagCount in count[app.id].items():
                 alloc = app.get_quota(tagKey)
                 if alloc:  # if different from None or 0, then check
                     if tagCount + booking.days > alloc:
                         raise Exception("Exceeded number of allocated days "
                                         "for application %s on resource tag '%s'"
                                         % (app.code, tagKey))
+        else:
+            booking.application_id = None
 
     def __check_cancellation(self, booking):
         """ Check if this booking can be updated or deleted.
