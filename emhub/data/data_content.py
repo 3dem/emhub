@@ -159,7 +159,17 @@ class DataContent:
 
     def get_sessions_list(self, **kwargs):
         sessions = self.app.dm.get_sessions()
-        return {'sessions': sessions}
+        bookingDict = {
+            s.booking.id: self.booking_to_event(s.booking,
+                                                prettyDate=True, piApp=True)
+            for s in sessions
+        }
+        return {
+            'sessions': sessions,
+            'bookingDict': bookingDict,
+            'possible_owners': self.get_pi_labs(),
+            'possible_operators': self.get_possible_operators(),
+        }
 
     def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()
@@ -547,7 +557,7 @@ class DataContent:
                 update_pi_info(pi_dict[pi.id], b)
 
                 if b.total_cost == 0:
-                    print(">>> 0 cost booking1!!1")
+                    print(">>> 0 cost booking1!!!")
                     print(b.json())
 
             except KeyError:
@@ -1012,7 +1022,7 @@ class DataContent:
         }
 
     # --------------------- Internal  helper methods ---------------------------
-    def booking_to_event(self, booking):
+    def booking_to_event(self, booking, **kwargs):
         """ Return a dict that can be used as calendar Event object. """
         resource = booking.resource
         # Bookings should have resources, just in case an erroneous one
@@ -1024,6 +1034,7 @@ class DataContent:
                              }
         owner = booking.owner
         owner_name = owner.name
+        pi = owner.get_pi()
         o = booking.operator  #  shortcut
         if o:
             operator_dict = {'id': o.id, 'name': o.name}
@@ -1044,8 +1055,8 @@ class DataContent:
         can_modify_list = [owner.id]
         if application is not None:
             can_modify_list.append(application.creator.id)
-        if owner.pi is not None:
-            can_modify_list.append(owner.pi.id)
+        if pi is not None:
+            can_modify_list.append(pi.id)
 
         user_can_modify = user.is_manager or user.id in can_modify_list
         user_can_view = user_can_modify or user.same_pi(owner)
@@ -1077,7 +1088,7 @@ class DataContent:
                 b_title = "Hidden title"
                 b_description = "Hidden description"
 
-        return {
+        bd = {
             'id': booking.id,
             'title': title,
             'description': b_description,
@@ -1103,6 +1114,21 @@ class DataContent:
             'costs': booking.costs,
             'total_cost': booking.total_cost
         }
+
+        if kwargs.get('prettyDate', False):
+            bd['pretty_start'] = pretty_datetime(booking.start)
+            bd['pretty_end'] = pretty_datetime(booking.end)
+
+        if kwargs.get('piApp', False):
+            if pi is not None:
+                bd['pi_id'] = pi.id
+                bd['pi_name'] = pi.name
+
+            app = booking.application
+            if app is not None:
+                bd['app_id'] = app.id
+
+        return bd
 
     def user_profile_image(self, user):
         if getattr(user, 'profile_image', None):
@@ -1257,20 +1283,8 @@ class DataContent:
 
         def process_booking(b):
             if not asJson:
-                return  b
-            bd = self.app.dc.booking_to_event(b)
-            bd['pretty_start'] = pretty_datetime(b.start)
-            bd['pretty_end'] = pretty_datetime(b.end)
-            pi = b.owner.get_pi()
-            if pi:
-                bd['pi_id'] = pi.id
-                bd['pi_name'] = pi.name
-
-            app = b.application
-            if app is not None:
-                bd['app_id'] = app.id
-
-            return bd
+                return b
+            return self.app.dc.booking_to_event(b, prettyDate=True, piApp=True)
 
         def _filter(b):
             return b.resource.daily_cost > 0 and not b.is_slot

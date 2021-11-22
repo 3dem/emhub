@@ -27,9 +27,9 @@
                                 {% if is_admin %}
                                     <td>extra</td>
                                     <th>data_path</th>
-                                    <th>booking_id</th>
                                 {% endif %}
 
+                                <th>booking_id</th>
                                 <th>owner</th>
                                 <th>operator</th>
 
@@ -49,8 +49,9 @@
                                 {% if is_admin %}
                                     <td>{{ s.extra }}</td>
                                     <td>{{ s.data_path }}</td>
-                                    <td>{{ s.booking_id }}</td>
                                 {% endif %}
+                                    <td><a href="javascript:showBooking({{ s.booking_id }})">{{ s.booking_id }}</a></td>
+
 
                                 <td>{{ s.booking.owner.name }}</td>
                                 <td>{{ s.operator.name }}</td>
@@ -76,12 +77,18 @@
 
 </div>
 
+<!-- Modal with  Booking Form -->
+{% include 'booking_form.html' %}
+
 <script>
+
+    var bookingDict = {{ bookingDict|tojson }};
+
     $('#sessions-table').DataTable({
         order: [[0, "desc"]]
     });
 
-    function deleteSession(session_id) {
+function deleteSession(session_id) {
     confirm("Delete Session",
             "Do you want to DELETE session with id=" + session_id + "?",
              "Cancel", "Delete",
@@ -106,5 +113,14 @@
                     });
             }
             );
-} // function deleteInvoicePeriod
+} // function deleteSession
+
+function showBooking(bookingId) {
+    last_booking = bookingDict[bookingId];
+    last_booking.title = last_booking.booking_title;
+    last_booking.start = new Date(last_booking.start);
+    last_booking.end = new Date(last_booking.end);
+    has_calendar = false;
+    showBookingForm(last_booking);
+}
 </script>
