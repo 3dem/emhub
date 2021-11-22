@@ -32,6 +32,7 @@ e.g: create folders or the README file
 
 import os
 import sys
+import time
 import argparse
 import subprocess
 import datetime as dt
@@ -163,6 +164,9 @@ def main():
                     dc.update_session(session_info)
         except Exception as e:
             print("Some error happened: ", str(e), file=sys.stderr)
+            print("Waiting 60 seconds before retrying...")
+            time.sleep(60)
+
 
 if __name__ == '__main__':
     main()
