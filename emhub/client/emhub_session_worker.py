@@ -131,6 +131,10 @@ def create_session_folder(session):
     return session_info
 
 
+def eprint(*args, **kwargs):
+    """ print to stderr """
+    print(*args, file=sys.stderr, **kwargs)
+
 def main():
     parser = argparse.ArgumentParser()
     add = parser.add_argument  # shortcut
@@ -144,28 +148,28 @@ def main():
     if args.list:
         with open_client() as dc:
             r = dc.request('get_sessions', jsonData={})
-            print("Sessions: ")
+            eprint("Sessions: ")
             for s in r.json():
-                print("   ", s['name'])
+                eprint("   ", s['name'])
         return
 
     while True:
         try:
             with open_client() as dc:
-                print("Connected to server: ", config.EMHUB_SERVER_URL)
+                eprint("Connected to server: ", config.EMHUB_SERVER_URL)
                 r = dc.request('poll_sessions', jsonData={})
 
                 for s in r.json():
-                    print("Handling session %s: " % s['id'])
-                    print("   - Creating folder: ",
+                    eprint("Handling session %s: " % s['id'])
+                    eprint("   - Creating folder: ",
                           os.path.join(s['folder'], s['name']))
-                    print("   - Updating session")
+                    eprint("   - Updating session")
                     session_info = create_session_folder(s)
                     pprint(session_info)
                     dc.update_session(session_info)
         except Exception as e:
-            print("Some error happened: ", str(e), file=sys.stderr)
-            print("Waiting 60 seconds before retrying...")
+            eprint("Some error happened: ", str(e))
+            eprint("Waiting 60 seconds before retrying...")
             time.sleep(60)
 
 
