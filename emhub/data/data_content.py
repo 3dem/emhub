@@ -68,7 +68,7 @@ class DataContent:
         bookings = [('Today', []),
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
-        sessions = {}
+        resource_bookings = {}
 
         now  = self.app.dm.now()
         next7 = now + dt.timedelta(days=7)
@@ -96,12 +96,11 @@ class DataContent:
                 r = b.resource
                 if i == 0 and r.is_microscope and 'solna' in r.tags:  # Today's bookings
                     # FIXME: If there is already a session, also return its id
-                    session_id = b.session[0].id if b.session else 0
-                    sessions[r.id] = (b, session_id)
+                    resource_bookings[r.id] = b
 
         dataDict.update({'bookings': bookings,
                          'lab_members': self.get_lab_members(user),
-                         'sessions': sessions})
+                         'resource_bookings': resource_bookings})
         return dataDict
 
     def get_lab_members(self, user):
@@ -156,11 +155,33 @@ class DataContent:
     def get_session_details(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.get_session_by(id=session_id)
-        return {'session': session}
+        days = self.app.dm.get_session_data_deletion(session.name[:3])
+        td = (session.start + dt.timedelta(days=days)) - self.app.dm.now()
+        errors = []
+        # TODO: We might check other type of errors in the future
+        status_info = session.extra.get('status_info', '')
+        if status_info.lower().startswith('error:'):
+            errors.append(status_info)
+
+        return {
+            'session': session,
+            'deletion_days': td.days,
+            'errors': errors
+        }
 
     def get_sessions_list(self, **kwargs):
         sessions = self.app.dm.get_sessions()
-        return {'sessions': sessions}
+        bookingDict = {
+            s.booking.id: self.booking_to_event(s.booking,
+                                                prettyDate=True, piApp=True)
+            for s in sessions
+        }
+        return {
+            'sessions': sessions,
+            'bookingDict': bookingDict,
+            'possible_owners': self.get_pi_labs(),
+            'possible_operators': self.get_possible_operators(),
+        }
 
     def get_users_list(self, **kwargs):
         users = self.app.dm.get_users()
@@ -548,7 +569,7 @@ class DataContent:
                 update_pi_info(pi_dict[pi.id], b)
 
                 if b.total_cost == 0:
-                    print(">>> 0 cost booking1!!1")
+                    print(">>> 0 cost booking1!!!")
                     print(b.json())
 
             except KeyError:
@@ -771,6 +792,70 @@ class DataContent:
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
 
+    def get_applications_check(self, **kwargs):
+
+        dm = self.app.dm
+
+        sinceArg = kwargs.get('since', None)
+
+        if sinceArg:
+            since = datetime_from_isoformat(sinceArg)
+        else:
+            since = self.app.dm.now() - dt.timedelta(days=183)  # 6 months
+        results = {}
+
+        accountsJson = self.app.sll_pm.fetchAccountsJson()
+        usersDict = {a['email'].lower(): a for a in accountsJson}
+
+        for application in dm.get_applications():
+            app_results = {}
+            errors = []
+
+            if application.created < since:
+                continue
+
+            orderCode = application.code.upper()
+            orderJson = self.app.sll_pm.fetchOrderDetailsJson(orderCode)
+
+            if orderJson is None:
+                errors.append('Invalid application ID %s' % orderCode)
+            else:
+                fields = orderJson['fields']
+                pi_list = fields.get('pi_list', [])
+                pi_missing = []
+
+                for piTuple in pi_list:
+                    piName, piEmail = piTuple
+                    piEmail = piEmail.lower()
+
+                    pi = dm.get_user_by(email=piEmail)
+                    piInfo = ''
+                    if pi is None:
+                        if piEmail in usersDict:
+                            piInfo = "in the portal, pi: %s" % usersDict[piEmail]['pi']
+                        else:
+                            piInfo = "NOT in the portal"
+
+                    else:
+                        if pi.id != application.creator.id and pi not in application.users:
+                            piInfo = 'NOT in APP'
+                    if piInfo:
+                        pi_missing.append((piName, piEmail, piInfo))
+
+                if pi_missing:
+                    app_results['pi_missing'] = pi_missing
+
+            if errors:
+                app_results['errors'] = errors
+
+            if app_results:
+                app_results['application'] = application
+                results[orderCode] = app_results
+
+        return {'checks': results,
+                'since': since
+                }
+
     # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
@@ -941,33 +1026,15 @@ class DataContent:
         booking_id = kwargs['booking_id']
         b = dm.get_bookings(condition="id=%s" % booking_id)[0]
 
-        # Load camera options from 'cameras' Form for the booking microscope
-        form_cameras = dm.get_form_by_name('cameras')
-
-        cameras = []
-        for p in form_cameras.definition['params']:
-            if int(p['id']) == b.resource.id:
-                cameras = p['enum']['choices']
-
-        # Load processing options from the 'processing' Form
-        form_proc = dm.get_form_by_name('processing')
-
-        processing = []
-        for section in form_proc.definition['sections']:
-            steps = []
-            processing.append({'name': section['label'], 'steps': steps})
-            for param in section['params']:
-                steps.append({'name': param['label'], 'options': param['enum']['choices']})
-
         return {
             'booking': b,
-            'cameras': cameras,
-            'processing': processing,
+            'cameras': dm.get_session_cameras(b.resource.id),
+            'processing': dm.get_session_processing(),
             'session_name': dm.get_new_session_info(booking_id)['name']
         }
 
     # --------------------- Internal  helper methods ---------------------------
-    def booking_to_event(self, booking):
+    def booking_to_event(self, booking, **kwargs):
         """ Return a dict that can be used as calendar Event object. """
         resource = booking.resource
         # Bookings should have resources, just in case an erroneous one
@@ -979,6 +1046,7 @@ class DataContent:
                              }
         owner = booking.owner
         owner_name = owner.name
+        pi = owner.get_pi()
         o = booking.operator  #  shortcut
         if o:
             operator_dict = {'id': o.id, 'name': o.name}
@@ -999,8 +1067,8 @@ class DataContent:
         can_modify_list = [owner.id]
         if application is not None:
             can_modify_list.append(application.creator.id)
-        if owner.pi is not None:
-            can_modify_list.append(owner.pi.id)
+        if pi is not None:
+            can_modify_list.append(pi.id)
 
         user_can_modify = user.is_manager or user.id in can_modify_list
         user_can_view = user_can_modify or user.same_pi(owner)
@@ -1032,7 +1100,7 @@ class DataContent:
                 b_title = "Hidden title"
                 b_description = "Hidden description"
 
-        return {
+        bd = {
             'id': booking.id,
             'title': title,
             'description': b_description,
@@ -1058,6 +1126,21 @@ class DataContent:
             'costs': booking.costs,
             'total_cost': booking.total_cost
         }
+
+        if kwargs.get('prettyDate', False):
+            bd['pretty_start'] = pretty_datetime(booking.start)
+            bd['pretty_end'] = pretty_datetime(booking.end)
+
+        if kwargs.get('piApp', False):
+            if pi is not None:
+                bd['pi_id'] = pi.id
+                bd['pi_name'] = pi.name
+
+            app = booking.application
+            if app is not None:
+                bd['app_id'] = app.id
+
+        return bd
 
     def user_profile_image(self, user):
         if getattr(user, 'profile_image', None):
@@ -1212,20 +1295,8 @@ class DataContent:
 
         def process_booking(b):
             if not asJson:
-                return  b
-            bd = self.app.dc.booking_to_event(b)
-            bd['pretty_start'] = pretty_datetime(b.start)
-            bd['pretty_end'] = pretty_datetime(b.end)
-            pi = b.owner.get_pi()
-            if pi:
-                bd['pi_id'] = pi.id
-                bd['pi_name'] = pi.name
-
-            app = b.application
-            if app is not None:
-                bd['app_id'] = app.id
-
-            return bd
+                return b
+            return self.app.dc.booking_to_event(b, prettyDate=True, piApp=True)
 
         def _filter(b):
             return b.resource.daily_cost > 0 and not b.is_slot

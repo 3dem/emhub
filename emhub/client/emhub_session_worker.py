@@ -26,62 +26,152 @@
 # **************************************************************************
 
 """ 
-This script will check for actions to be taken on sessions, e.g: create folders or the README file
+This script will check for actions to be taken on sessions,
+e.g: create folders or the README file
 """
 
-import sys, os
+import os
+import sys
 import time
-import datetime as dt
 import argparse
+import subprocess
+import datetime as dt
+import tempfile
 from pprint import pprint
-from contextlib import contextmanager
 
 
-from pyworkflow.project import Manager
-import pyworkflow.utils as pwutils
-
-from pwem.objects import SetOfCTF
+from emhub.client import open_client, config
 
 
-class config:
-    EMHUB_SOURCE = os.environ['EMHUB_SOURCE']
-    EMHUB_SERVER_URL = os.environ['EMHUB_SERVER_URL']
-    EMHUB_USER = os.environ['EMHUB_USER']
-    EMHUB_PASSWORD = os.environ['EMHUB_PASSWORD']
+def create_session_folder(session):
+    """ Create the session folder, the session counter might change if the given
+    one already exist in the filesystem. In that case the next counter will be
+    found. A README file will also be created with some session info.
+    """
+    session_info = {
+        'id': session['id'],
+        'status': 'created',
+    }
 
+    folder = session['folder']
+    name = session['name']
+    # We assume that the session counter are the last characters of the name
+    # i.g fac00034, dbb00122 or cem00378_00012
+    if '_' in name:
+        prefix, counterStr = name.split('_')
+        counter = int(counterStr)
+        sep = '_'
+    else:
+        prefix = name[:3]
+        counter = int(name[3:])
+        sep = ''
 
-# add emhub source code to the path and import client submodule
-sys.path.append(config.EMHUB_SOURCE)
+    def _folderName():
+        return '%s%s%05d' % (prefix, sep, counter)
 
-from emhub.client import DataClient
+    def _folderPath():
+        return os.path.join(folder, _folderName())
 
+    def _run(args):
+        print("Running: ", args)
+        process = subprocess.run(args, capture_output=True, text=True)
+        if process.returncode != 0:
+            raise Exception(process.stderr)
+        return process
 
-@contextmanager
-def open_client():
-    dc = DataClient(server_url=config.EMHUB_SERVER_URL)
+    while os.path.exists(_folderPath()):
+        counter += 1
+
+    folderPath = _folderPath()
+
     try:
-        dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
-        yield dc
-    finally:
-        dc.logout()
+        # Allow to define the command to create sessions
+        sudo = os.environ.get('EMHUB_SESSION_SUDO', '').split()
 
+        # Create the folder
+        _run(sudo + ['mkdir', folderPath])
+
+        session_info['name'] = _folderName()
+        session_info['extra'] = {'data_folder': folderPath}
+
+        dateStr = dt.datetime.now().strftime('%Y%m%d')
+        readmeFn = os.path.join(folderPath, 'README_%s.TXT' % dateStr)
+
+        f = tempfile.NamedTemporaryFile('w', delete=False)
+        for user in ['pi', 'user', 'operator']:
+            u = session[user] or {'name': '', 'email': ''}
+            f.write('%s.name: %s\n' % (user, u['name']))
+            f.write('%s.email: %s\n' % (user, u['email']))
+        f.write('description: %s\n' % session['title'])
+        f.write('date: %s\n' % dateStr)
+        f.close()
+
+        # Move the README file to the folder
+        os.chmod(f.name, 0o644)
+        _run(sudo + ['cp', f.name, readmeFn])
+        os.remove(f.name)
+
+        adduserCmd = os.environ.get('EMHUB_SESSION_ADDUSER', '')
+
+        if adduserCmd:
+            args = adduserCmd.split() + [session_info['name']]
+            # Add new user to data download machine
+            process = _run(args)
+            for line in process.stdout.split('\n'):
+                if 'Error: ' in line:
+                    raise Exception(line)
+                elif 'user.password' in line:
+                    password = line.split()[1].strip()
+                    session_info['extra']['data_user_password'] = password
+
+    except Exception as e:
+        session_info['status'] = 'failed'
+        session_info['extra'] = {'status_info': str(e)}
+
+    return session_info
+
+
+def eprint(*args, **kwargs):
+    """ print to stderr """
+    print(*args, file=sys.stderr, **kwargs)
 
 def main():
-    while True:
-        with open_client() as dc:
-            r = dc.request('poll_sessions', jsonData={})
+    parser = argparse.ArgumentParser()
+    add = parser.add_argument  # shortcut
 
+    add('--list', action='store_true',
+        help="List existing sessions in the server.")
+
+    args = parser.parse_args()
+
+    # Testing function to just list the sessions
+    if args.list:
+        with open_client() as dc:
+            r = dc.request('get_sessions', jsonData={})
+            eprint("Sessions: ")
             for s in r.json():
-                print("Handling session %s: " % s['id'])
-                print("   - Creating folder: ", os.path.join(s['folder'], s['name']))
-                print("   - Updating session")
-                dc.update_session({'id': s['id'], 'status': 'created'})
+                eprint("   ", s['name'])
+        return
+
+    while True:
+        try:
+            with open_client() as dc:
+                eprint("Connected to server: ", config.EMHUB_SERVER_URL)
+                r = dc.request('poll_sessions', jsonData={})
+
+                for s in r.json():
+                    eprint("Handling session %s: " % s['id'])
+                    eprint("   - Creating folder: ",
+                          os.path.join(s['folder'], s['name']))
+                    eprint("   - Updating session")
+                    session_info = create_session_folder(s)
+                    pprint(session_info)
+                    dc.update_session(session_info)
+        except Exception as e:
+            eprint("Some error happened: ", str(e))
+            eprint("Waiting 60 seconds before retrying...")
+            time.sleep(60)
 
 
 if __name__ == '__main__':
     main()
-
-
-
-
-

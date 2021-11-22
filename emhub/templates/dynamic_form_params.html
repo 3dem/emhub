@@ -6,8 +6,8 @@
     <div class="form-group row">
         <label class="col-12 col-sm-3 text-sm-right">{{ param['label'] }} </label>
         <div class="col-12 col-sm-9 col-lg-6">
-            {% set value = param['value'] %}
             {% set help = param.get('help', '') %}
+            {% set value = param['value'] %}
             {% if 'enum' in param %}
                 {% if param['enum']['display'] == 'combo' %}
                     <select class="selectpicker show-tick" data-width="auto" {{ id_name }}>
@@ -33,6 +33,9 @@
                     </label>
                 {% elif type == 'text' %}
                     <textarea required="" class="form-control" {{ id_name }}>{{ value }}</textarea>
+                {% elif type == 'table' %}
+                    {% set table = param %}
+                    {% include 'dynamic_table.html' %}
                 {% else %}
                     <input type="text" required="" placeholder="{{ help }}" {{ id_name }} class="form-control" value="{{ value }}">
                 {% endif %}

@@ -50,7 +50,7 @@ def login():
 
     user = app.dm.get_user_by(username=username)
     if user is None or not user.check_password(password):
-        send_error('Invalid username or password')
+        return send_error('Invalid username or password')
 
     flask_login.login_user(user)
 
@@ -190,7 +190,7 @@ def import_application():
         if orderJson is None:
             raise Exception('Invalid application ID %s' % orderCode)
 
-        piEmail = orderJson['owner']['email']
+        piEmail = orderJson['owner']['email'].lower()
         # orderId = orderJson['identifier']
 
         pi = dm.get_user_by(email=piEmail)
@@ -241,7 +241,7 @@ def import_application():
         )
 
         for piTuple in pi_list:
-            piEmail = piTuple[1]
+            piEmail = piTuple[1].lower()
             pi = dm.get_user_by(email=piEmail)
             if pi is not None:
                 application.users.append(pi)
@@ -334,17 +334,30 @@ def get_sessions():
 def poll_sessions():
     session_folders = app.dm.get_session_folders()
 
+    def _user(u):
+        if not u:
+            return {}
+        else:
+            return {'name': u.name,
+                    'email': u.email
+                    }
+
     while True:
         sessions = app.dm.get_sessions(condition='status=="pending"')
         if sessions:
             for s in sessions:
+                b = s.booking
+                e = app.dc.booking_to_event(b)
                 data = [{
                     'id': s.id,
                     'name': s.name,
                     'booking_id': s.booking_id,
                     'start': datetime_to_isoformat(s.start),
-                    'operator': s.operator.name,
-                    'folder': session_folders[s.name[:3]]
+                    'user': _user(b.owner),
+                    'pi': _user(b.owner.get_pi()),
+                    'operator': _user(b.operator),
+                    'folder': session_folders[s.name[:3]],
+                    'title': e['title']
                  }]
                 return send_json_data(data)
         time.sleep(3)

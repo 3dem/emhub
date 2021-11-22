@@ -418,27 +418,77 @@ class DataManager(DbManager):
         return count_dict
 
     # ---------------------------- SESSIONS -----------------------------------
-    def get_session_counters(self):
+    def __get_section(self, sectionName):
         formDef = self.get_form_by_name('sessions_config').definition
+        for s in formDef['sections']:
+            if s['label'] == sectionName:
+                return formDef, s
+        return None
+
+    def __iter_config_params(self, configName):
+        _, section = self.__get_section(configName)
+        for p in section['params']:
+            yield p
+
+    def __get_session_dict(self, section):
         return {p['label']: p['value']
-                for p in formDef['sections'][0]['params']}
+                for p in self.__iter_config_params(section)}
+
+    def get_session_counter(self, group_code):
+        return int(self.__get_session_dict('counters').get(group_code, 1))
+
+    def update_session_counter(self, group_code, new_counter):
+        # Update counter for this session group
+        formDef, section = self.__get_section('counters')
+
+        found = False
+        for p in section['params']:
+            if p['label'] == group_code:
+                p['value'] = new_counter
+                found = True
+        if not found:
+            section['params'].append({'label': group_code,
+                                      'value': new_counter})
+
+        form = self.get_form_by_name('sessions_config')
+        self.update_form(id=form.id, definition=formDef)
+
+    def get_session_cameras(self, resourceId):
+        cameras = []
+        for p in self.__iter_config_params('cameras'):
+            if int(p['id']) == resourceId:
+                cameras = p['enum']['choices']
+
+        return cameras
 
     def get_session_folders(self):
-        formDef = self.get_form_by_name('sessions_config').definition
-        return {p['label']: p['value']
-                for p in formDef['sections'][1]['params']}
+        return self.__get_session_dict('folders')
+
+    def get_session_data_deletion(self, group_code):
+        return int(self.__get_session_dict('data_deletion')[group_code])
+
+    def get_session_processing(self):
+        # Load processing options from the 'processing' Form
+        form_proc = self.get_form_by_name('processing')
+
+        processing = []
+        for section in form_proc.definition['sections']:
+            steps = []
+            processing.append({'name': section['label'], 'steps': steps})
+            for param in section['params']:
+                steps.append({'name': param['label'], 'options': param['enum']['choices']})
+
+        return processing
 
     def get_new_session_info(self, booking_id):
         """ Return the name for the new session, base on the booking and
         the previous sessions counter (stored in Form 'counters').
         """
-        counters = self.get_session_counters()
-
         b = self.get_bookings(condition="id=%s" % booking_id)[0]
         a = b.application
         code = 'fac' if a is None else a.code.lower()
         sep = '' if len(code) == 3 else '_'
-        c = int(counters.get(code, 1))
+        c = self.get_session_counter(code)
 
         return {
             'code': code,
@@ -480,13 +530,6 @@ class DataManager(DbManager):
         # Let's update the data path after we know the id
         session.data_path = 'session_%06d.h5' % session.id
 
-        # Update counter for this session group
-        form = self.get_form_by_name('sessions_config')
-        formDef = form.definition
-        for p in formDef['sections'][0]['params']:
-            if p['label'] == session_info['code']:
-                p['value'] = session_info['counter'] + 1
-
         self.commit()
 
         # Create empty hdf5 file
@@ -494,13 +537,31 @@ class DataManager(DbManager):
             data = H5SessionData(self._session_data_path(session), mode='a')
             data.close()
 
-        self.update_form(id=form.id, definition=formDef)
+        # Update counter for this session group
+        self.update_session_counter(session_info['code'],
+                                    session_info['counter'] + 1)
 
         return session
 
     def update_session(self, **attrs):
         """ Update session attrs. """
-        return self.__update_item(self.Session, **attrs)
+        session = self.__update_item(self.Session, **attrs)
+
+        # Update the session counter if it was modified
+        name = session.name
+
+        if '_' in name:
+            code, counterStr = name.split('_')
+        else:
+            code = name[:3]
+            counterStr = name[3:]
+
+        c = self.get_session_counter(code)
+        counter = int(counterStr)
+        if c < counter:
+            self.update_session_counter(code, counter + 1)
+
+        return session
 
     def delete_session(self, **attrs):
         """ Remove a session row. """
@@ -703,15 +764,15 @@ class DataManager(DbManager):
             overlap_slots = [b for b in overlap
                              if b.is_slot and b.id != booking.id]
 
-            # FIXME: Check when it make sense to use application_id if coming
-            app_id = None  # booking.application_id
+            # Always try to find the Application to set in the booking unless
+            # the owner is a manager
+            owner = self.get_user_by(id=booking.owner_id)
 
-            if app_id is None:
-                owner = self.get_user_by(id=booking.owner_id)
+            if not owner.is_manager:
                 apps = owner.get_applications()
                 n = len(apps)
 
-                if n == 0 and not owner.is_manager and r.requires_application:
+                if n == 0 and r.requires_application:
                     raise Exception("User %s has no active application"
                                     % owner.name)
 
@@ -742,20 +803,20 @@ class DataManager(DbManager):
                     raise Exception("You do not have permission to book "
                                     "outside slots for this resource or have not "
                                     "access to the given slot. ")
-            else:
-                app = self.get_application_by(id=app_id)
 
         if app is not None:
             booking.application_id = app.id
-            count = self.count_booking_resources([app_id],
+            count = self.count_booking_resources([app.id],
                                                  resource_tags=r.tags.split())
-            for tagKey, tagCount in count[app_id].items():
+            for tagKey, tagCount in count[app.id].items():
                 alloc = app.get_quota(tagKey)
                 if alloc:  # if different from None or 0, then check
                     if tagCount + booking.days > alloc:
                         raise Exception("Exceeded number of allocated days "
                                         "for application %s on resource tag '%s'"
                                         % (app.code, tagKey))
+        else:
+            booking.application_id = None
 
     def __check_cancellation(self, booking):
         """ Check if this booking can be updated or deleted.

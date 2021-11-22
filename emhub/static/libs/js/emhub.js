@@ -162,8 +162,8 @@ function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
           '      <div class="modal-body" id="yesno-body">' + question +
           '      </div>\n' +
           '      <div class="modal-footer">\n' +
-          '        <button type="button" class="btn"  data-dismiss="modal">' + cancelButtonTxt + '</button>\n' +
-          '        <button type="button" class="btn btn-primary" id="okButton" data-dismiss="modal">' + okButtonTxt + '</button>\n' +
+          '        <button type="button" class="btn btn-outline-secondary"  data-dismiss="modal">' + cancelButtonTxt + '</button>\n' +
+          '        <button type="button" class="btn btn-outline-dark" id="okButton" data-dismiss="modal">' + okButtonTxt + '</button>\n' +
           '      </div>\n' +
           '    </div>\n' +
           '  </div>\n' +

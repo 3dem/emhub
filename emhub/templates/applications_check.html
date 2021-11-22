@@ -1,0 +1,42 @@
+
+<div class="container-fluid  dashboard-content">
+    <!-- Header -->
+    {% set title = "Checking Applications (since " + since|pretty_date + ")" %}
+    {% include 'include_header.html' %}
+
+    <div class="card-body border-top">
+        {% for code, results in checks.items() %}
+            {% set app = results['application'] %}
+
+            <div class="card">
+                <h3 class="card-header">{{ code }} ({{ app.alias }})</h3>
+
+                <div class="card-body">
+                    <h4>Representative:</h4>
+                    <ul>
+                        <li>{{ app.creator.name }} ({{ app.creator.email }})</li>
+                    </ul>
+                    {% if 'errors' in results %}
+                        <h4>Errors:</h4>
+                        <ul>
+                            {% for e in results['errors'] %}
+                                <li>{{ e }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if 'pi_missing' in results %}
+                        <h4>Missing PI users:</h4>
+                        <ul>
+                            {% for pi in results['pi_missing'] %}
+                                <li>{{ pi[0] }} ({{ pi[1] }}): {{ pi[2] }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div> <!-- card-body -->
+
+            </div> <!-- card -->
+
+        {% endfor %}
+    </div>
+</div>
+
