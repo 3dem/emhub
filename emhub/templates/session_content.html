@@ -55,7 +55,15 @@
                         </div>
                     </div>
 
-                    <!-- Operator Row -->
+                    <!-- Date Row -->
+                    <div class="row">
+                        <label class="col-12 col-sm-4 col-form-label text-sm-right">Date</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <label class="col-12 col-form-label text-sm-left">{{ session.start|pretty_date }}</label>
+                        </div>
+                    </div>
+
+                    <!-- Status Row -->
                     <div class="row">
                         <label class="col-12 col-sm-4 col-form-label text-sm-right">Status</label>
                         <div class="col-12 col-sm-8 col-lg-6">
@@ -104,9 +112,11 @@
             <!-- Create Session Form -->
             <div class="col-12">
                 <form id="session-form" data-parsley-validate="" novalidate="">
+                {% if not errors %}
                     {% set username = session.name %}
                     {%  set extra = session.extra %}
                     {% set password = extra['data_user_password'] %}
+
 
                     <!-- Owner Row -->
                     <div class="row">
@@ -148,10 +158,37 @@
                             <div class="alert alert-danger" role="alert">
                               <h4 class="alert-heading">Data Deletion</h4>
                               <hr>
-                              <p class="mb-0">Please download the data as soon as possible! It will be DELETED in XXX days!!!.</p>
+                                <p class="mb-0">Please download the data as soon as possible! It will be <strong>DELETED in {{ deletion_days }} days</strong>!!!.</p>
+                            </div>
+
+                            <div class="alert alert-info" role="alert">
+                              <h4 class="alert-heading">Acknowledgements</h4>
+                              <hr>
+                                <p class="">Users publishing work containing data collected at the Cryo-EM Facility
+                                    should ensure that they acknowledge the relevant facility personnel.
+                                    In addition, the funding agencies should be acknowledged through the following statement:</p>
+
+                                  <p class="" style="color: #6c757d">“The data was collected at the Cryo-EM Swedish National Facility
+                                      funded by the Knut and Alice Wallenberg, Family Erling Persson and Kempe Foundations, SciLifeLab,
+                                      Stockholm University and Umeå University.”
+                                  </p>
                             </div>
                         </div>
                     </div>
+
+                    {% else %}
+                    <div class="alert alert-danger" role="alert">
+                      <h4 class="alert-heading">Errors</h4>
+                      <hr>
+                        <ul>
+                            {% for e in errors %}
+                                <li>{{ e }}</li>
+                            {% endfor %}
+                        </ul>
+
+                    </div>
+
+                {% endif %}
                 </form>
             </div>
             <!-- end Session Card -->

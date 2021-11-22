@@ -155,7 +155,19 @@ class DataContent:
     def get_session_details(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.get_session_by(id=session_id)
-        return {'session': session}
+        days = self.app.dm.get_session_data_deletion(session.name[:3])
+        td = (session.start + dt.timedelta(days=days)) - self.app.dm.now()
+        errors = []
+        # TODO: We might check other type of errors in the future
+        status_info = session.extra.get('status_info', '')
+        if status_info.lower().startswith('error:'):
+            errors.append(status_info)
+
+        return {
+            'session': session,
+            'deletion_days': td.days,
+            'errors': errors
+        }
 
     def get_sessions_list(self, **kwargs):
         sessions = self.app.dm.get_sessions()

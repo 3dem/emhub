@@ -430,12 +430,12 @@ class DataManager(DbManager):
         for p in section['params']:
             yield p
 
-    def __get_session_counters(self):
+    def __get_session_dict(self, section):
         return {p['label']: p['value']
-                for p in self.__iter_config_params('counters')}
+                for p in self.__iter_config_params(section)}
 
     def get_session_counter(self, group_code):
-        return int(self.__get_session_counters().get(group_code, 1))
+        return int(self.__get_session_dict('counters').get(group_code, 1))
 
     def update_session_counter(self, group_code, new_counter):
         # Update counter for this session group
@@ -462,8 +462,10 @@ class DataManager(DbManager):
         return cameras
 
     def get_session_folders(self):
-        return {p['label']: p['value']
-                for p in self.__iter_config_params('folders')}
+        return self.__get_session_dict('folders')
+
+    def get_session_data_deletion(self, group_code):
+        return int(self.__get_session_dict('data_deletion')[group_code])
 
     def get_session_processing(self):
         # Load processing options from the 'processing' Form
