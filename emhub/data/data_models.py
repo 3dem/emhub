@@ -239,6 +239,8 @@ def create_data_models(dm):
 
         transactions = relationship('Transaction', back_populates="user")
 
+        #projects = relationship('Project', back_populates="user")
+
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
 
@@ -514,27 +516,21 @@ def create_data_models(dm):
         """Model for user accounts."""
         __tablename__ = 'bookings'
 
-        id = Column(Integer,
-                    primary_key=True)
+        id = Column(Integer, primary_key=True)
 
-        title = Column(String(256),
-                       nullable=False)
+        title = Column(String(256), nullable=False)
 
-        start = Column(UtcDateTime,
-                       nullable=False)
+        start = Column(UtcDateTime, nullable=False)
 
-        end = Column(UtcDateTime,
-                     nullable=False)
+        end = Column(UtcDateTime, nullable=False)
 
         # booking, slot or downtime
-        type = Column(String(16),
-                      nullable=False)
+        type = Column(String(16), nullable=False)
 
         # slot authorization, who can book within this slot
         slot_auth = Column(JSON, default={'applications': [], 'users': []})
 
-        description = Column(Text,
-                             nullable=True)
+        description = Column(Text, nullable=True)
 
         repeat_id = Column(String(256), nullable=True)
 
@@ -833,6 +829,100 @@ def create_data_models(dm):
             return dm.json_from_object(self)
 
 
+    class Project(Base):
+        """ Project entity to group shipments, grids preparation,
+         data collections and data processing.
+         """
+        __tablename__ = 'projects'
+
+        id = Column(Integer, primary_key=True)
+
+        date = Column(UtcDateTime, nullable=False)
+
+        # Possible statuses of a Project:
+        #   - active: default state when created
+        #   - inactive: it has been closed and it becomes inactive
+        status = Column(String(32), default='active')
+
+        title = Column(String(256), nullable=False)
+
+        description = Column(Text, nullable=True)
+
+        # User to which this Project is associated with
+        # The PI of this project is inferred
+        user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+        user = relationship("User", #back_populates= "projects",
+                            foreign_keys=[user_id])
+
+        # Last date (date and user)
+        last_update_date = Column(UtcDateTime, nullable=False)
+
+        # Usually it will be facility staff that will update this
+        last_update_user_id = Column(Integer, ForeignKey('users.id'),
+                                     nullable=False)
+        last_update_user = relationship("User",
+                                        foreign_keys=[last_update_user_id])
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
+        entries = relationship('Entry', back_populates='project')
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        def json(self):
+            return dm.json_from_object(self)
+
+
+    class Entry(Base):
+        """ Entry related to a given project.
+         """
+        __tablename__ = 'entries'
+
+        id = Column(Integer, primary_key=True)
+
+        date = Column(UtcDateTime, nullable=False)
+
+        type = Column(String(16), nullable=False)
+
+        title = Column(String(256), nullable=False)
+
+        description = Column(Text, nullable=True)
+
+        # User to which this Project is associated with
+        # The PI of this project
+        project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
+        project = relationship("Project", back_populates="entries")
+
+        # Last date (date and user)
+        last_update_date = Column(UtcDateTime, nullable=False)
+
+        # Usually it will be facility staff that will update this
+        last_update_user_id = Column(Integer, ForeignKey('users.id'),
+                                     nullable=False)
+        last_update_user = relationship("User")
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        def json(self):
+            return dm.json_from_object(self)
+
+
     dm.Form = Form
     dm.User = User
     dm.Resource = Resource
@@ -842,3 +932,5 @@ def create_data_models(dm):
     dm.Session = Session
     dm.Transaction = Transaction
     dm.InvoicePeriod = InvoicePeriod
+    dm.Project = Project
+    dm.Entry = Entry
