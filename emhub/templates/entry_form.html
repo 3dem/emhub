@@ -15,7 +15,8 @@
       </div>
       <div class="modal-body">
         <div class="row">
-            <!-- Application Form -->
+
+            <!-- Entry Form -->
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                 <form id="entry-form" data-parsley-validate="" novalidate="">
                     <input type="hidden" id="entry-id" name="entry-id" value="{{ entry.id }}">
@@ -49,6 +50,14 @@
                 </form>
             </div>
             <!-- end Application Form -->
+
+            {% if definition %}
+
+                {% include "dynamic_form.html" %}
+
+            {% endif %}
+
+
         </div>
       </div>
 

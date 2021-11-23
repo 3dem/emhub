@@ -329,7 +329,7 @@ class DataContent:
                             for u in dm.get_users() if u.is_pi]
                 }
 
-    def get_dynamic_form(self, **kwargs):
+    def get_dynamic_form_modal(self, **kwargs):
         form_id = int(kwargs.get('form_id', 1))
         form_values_str = kwargs.get('form_values', None) or '{}'
         form_values = json.loads(form_values_str)
@@ -368,9 +368,6 @@ class DataContent:
     def get_pages(self, **kwargs):
         page_id = kwargs['page_id']
         page_path = os.path.join(self.app.config['PAGES'], '%s.md' % page_id)
-
-        # with open(page_path) as f:
-        #     page = f.read()
 
         return {
             'page_id': page_id,
@@ -1028,13 +1025,13 @@ class DataContent:
 
     def get_entry_types(self):
         return {
-            'grid_preparation':
+            'grids_preparation':
                 {'label': 'Grids Preparation',
                  'group': 1,
                  'iconClass': "fas fa-th fa-inverse",
                  'imageClass': "img--picture"
                  },
-            'grid_storage':
+            'grids_storage':
                 {'label': 'Grids Storage',
                  'group': 1,
                  'iconClass': "fas fa-box fa-inverse",
@@ -1065,24 +1062,25 @@ class DataContent:
         entry_id = kwargs['entry_id']
         if entry_id:
             entry = dm.get_entry_by(id=entry_id)
-            entry_type = entry.type
         else:
-            entry_type = kwargs['entry_type']
             project_id = kwargs['entry_project_id']
-
-            print("project_id: ", project_id)
-
             now = dm.now()
             entry = dm.Entry(date=now,
                              last_update_date=now,
                              last_update_user_id=self.app.user.id,
-                             type=entry_type,
+                             type=kwargs['entry_type'],
                              project_id=project_id,
                              title='',
                              description='')
+
+        entry_type = self.get_entry_types()[entry.type]
+        form_id = "entry_form:%s" % entry.type
+        form = dm.get_form_by(name=form_id)
+
         return {
             'entry': entry,
-            'entry_type_label': self.get_entry_types()[entry_type]['label']
+            'entry_type_label': entry_type['label'],
+            'definition': None if form is None else form.definition
         }
 
     def get_raw_user_issues(self, **kwargs):
