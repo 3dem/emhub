@@ -1,0 +1,264 @@
+
+<div class="container-fluid  dashboard-content">
+    <!-- Header -->
+    {% set pi = project.user.get_pi() %}
+    {% set title = "Project: " + pi.name + "/" + project.user.name %}
+    {% set navigation = [('Projects', url_for_content('projects_list')), ('Project ' + project.id|string, '')] %}
+    {% include 'include_header.html' %}
+    {%  set is_admin = current_user.is_admin %}
+    {% set is_manager = current_user.is_manager %}
+
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+
+    <div class="row">
+        <div class="col-12">
+            <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <i class="fas fa-plus-circle"></i> Add Entry </a>
+            <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'grid_preparation')">Grid Preparation</a>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'grid_storage')">Grid Storage</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'booking')">Booking</a>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'data_acquisition')">Data Acquisition</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'note')">Note</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+    <section class="cd-timeline js-cd-timeline">
+
+<div class="cd-timeline__container">
+
+        <!-- Block 1 -->
+    {% for entry in entries %}
+        {% set entry_type = entry_types[entry.type] %}
+        <div class="cd-timeline__block js-cd-block">
+            <div class="cd-timeline__img cd-timeline__{{ entry_type['imageClass'] }} js-cd-img">
+                <div class="fa-2x ml-3 mt-2">
+                <i class="{{ entry_type['iconClass'] }}" data-fa-transform="grow-6 right-2 down-2"></i>
+                </div>
+            </div>
+
+            <div class="cd-timeline__content js-cd-content pr-0">
+                <div class="row  align-items-left justify-content-start">
+                    <div class="col-4"><h4>{{ entry_type['label'] }}:</h4></div>
+                    <div class="col-8"><h4 style="color: gray">{{ entry.title }}</h4></div>
+                </div>
+
+            <p>{{ entry.description }}</p>
+
+            <div class="row col-12 align-items-center justify-content-start pr-0">
+                <div class="col-9"></div>
+                <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }})"><i class="fas fa-edit"></i>   </a></div>
+                <div class="col-1"><a href="#"><i class="fas fa-copy"></i>   </a></div>
+                <div class="col-1"><a href="#"><i class="fas fa-trash-alt"></i>   </a></div>
+            </div>
+
+            <span class="cd-timeline__date">{{ entry.date|pretty_date }}</span>
+            </div>
+        </div>
+
+    {% endfor %}
+
+{#        <!-- Block 2 -->#}
+{#    <div class="cd-timeline__block js-cd-block">#}
+{#    <div class="cd-timeline__img cd-timeline__img--movie js-cd-img">#}
+{#    <img src="../assets/vendor/timeline/img/cd-icon-movie.svg" alt="Movie">#}
+{#    </div>#}
+{##}
+{#    <div class="cd-timeline__content js-cd-content">#}
+{#    <h3>Title of section 2</h3>#}
+{#    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Iusto, optio, dolorum provident rerum aut hic quasi placeat iure tempora laudantium ipsa ad debitis unde?</p>#}
+{#    <a href="#0" class="btn btn-primary btn-lg">Read More</a>#}
+{#    <span class="cd-timeline__date">20 July, 2017</span>#}
+{#    </div>#}
+{##}
+{#    </div>#}
+{##}
+{#    <div class="cd-timeline__block js-cd-block">#}
+{#    <div class="cd-timeline__img cd-timeline__img--picture js-cd-img">#}
+{#    <img src="../assets/vendor/timeline/img/cd-icon-picture.svg" alt="Picture">#}
+{#    </div>#}
+{##}
+{#    <div class="cd-timeline__content js-cd-content">#}
+{#    <h3>Title of section 3</h3>#}
+{#    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Excepturi, obcaecati, quisquam id molestias eaque asperiores voluptatibus cupiditate error assumenda delectus odit similique earum voluptatem doloremque dolorem ipsam quae rerum quis. Odit, itaque, deserunt corporis vero ipsum nisi eius odio natus ullam provident pariatur temporibus quia eos repellat consequuntur perferendis enim amet quae quasi repudiandae sed quod veniam dolore possimus rem voluptatum eveniet eligendi quis fugiat aliquam sunt similique aut adipisci.</p>#}
+{#    <a href="#0" class="btn btn-primary btn-lg">Read More</a>#}
+{#    <span class="cd-timeline__date">24 July, 2018</span>#}
+{#    </div>#}
+{##}
+{#    </div>#}
+{##}
+{#    <div class="cd-timeline__block js-cd-block">#}
+{#    <div class="cd-timeline__img cd-timeline__img--location js-cd-img">#}
+{#    <img src="../assets/vendor/timeline/img/cd-icon-location.svg" alt="Location">#}
+{#    </div>#}
+{##}
+{#    <div class="cd-timeline__content js-cd-content">#}
+{#    <h3>Title of section 4</h3>#}
+{#    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Iusto, optio, dolorum provident rerum aut hic quasi placeat iure tempora laudantium ipsa ad debitis unde? Iste voluptatibus minus veritatis qui ut.</p>#}
+{#    <a href="#0" class="btn btn-primary btn-lg">Read More</a>#}
+{#    <span class="cd-timeline__date">12 September, 2018</span>#}
+{#    </div>#}
+{##}
+{#    </div>#}
+{##}
+{#    <div class="cd-timeline__block js-cd-block">#}
+{#    <div class="cd-timeline__img cd-timeline__img--location js-cd-img">#}
+{#    <img src="../assets/vendor/timeline/img/cd-icon-location.svg" alt="Location">#}
+{#    </div>#}
+{##}
+{#    <div class="cd-timeline__content js-cd-content">#}
+{#    <h3>Title of section 5</h3>#}
+{#    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Iusto, optio, dolorum provident rerum.</p>#}
+{#    <a href="#0" class="btn btn-primary btn-lg">Read More</a>#}
+{#    <span class="cd-timeline__date">{{ project.date|pretty_date }}</span>#}
+{#    </div>#}
+{##}
+{#    </div>#}
+
+    <!-- Project Block -->
+    <div class="cd-timeline__block js-cd-block">
+        <div class="cd-timeline__img cd-timeline__img--movie js-cd-img">
+            <div class="fa-2x ml-3 mt-2">
+            <i class="fas fa-book fa-inverse" data-fa-transform="grow-6 right-2 down-2"></i>
+            </div>
+        </div>
+        <div class="cd-timeline__content js-cd-content">
+        <h4>Project Creation: {{ project.title }}</h4>
+        <p>{{ project.description }}</p>
+        <span class="cd-timeline__date">{{ project.date|pretty_date }}</span>
+        </div>
+    </div>
+
+</div>
+
+    </section>
+
+    </div>
+    </div>
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Project Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="entry-modal" tabindex="-1" role="dialog" aria-labelledby="entryModal" aria-hidden="true" >
+</div>
+
+<!-- javascript  -->
+<script>
+
+(function(window, document, $, undefined) {
+    "use strict";
+
+}
+
+)(window, document, window.jQuery);
+
+var project_id = {{ project.id }};
+
+/* Show the Application Form, either for a new booking or an existing one */
+function showEntryForm(entry_id, entry_type) {
+    ajaxContent = get_ajax_content("entry_form",
+                                   {entry_id: entry_id,
+                                    entry_type: entry_type,
+                                    entry_project_id: project_id
+                                   });
+
+    ajaxContent.done(function(html) {
+        $("#entry-modal").html(html);
+        // Show the form after setting html content
+        $('#entry-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
+    });
+
+}  // function showEntryForm
+
+function deleteEntry(entry_id) {
+    confirm("Delete Entry",
+            "Do you want to DELETE Entry with id=" + entry_id + "?",
+             "Cancel", "Delete", function () {
+            sendAjax("{{ url_for('api.delete_project') }}",
+                     {id: entry_id});
+        });
+} // function deleteEntry
+
+    /** This function will be called when the OK button in the Application form
+ * is clicked. It can be either Create or Update action.
+ */
+function onEntryOkButtonClick() {
+    // Update template values
+    var entry = {
+        id: parseInt($('#entry-id').val()),
+        type: $('#entry-type').val(),
+        project_id: $('#entry-project-id').val(),
+        title: $('#entry-title').val(),
+        description: $('#entry-description').val(),
+        date: dateIsoFromValue('#entry-date', '#hour_id'),
+    };
+
+    var endpoint = null;
+
+    if (entry.id != null && !Number.isNaN(entry.id)) {
+        endpoint = "{{ url_for('api.update_entry') }}";
+    }
+    else {
+        endpoint = "{{ url_for('api.create_entry') }}";
+    }
+
+    sendAjax(endpoint, entry);
+}  // function onTemplateOkButtonClick
+
+
+function sendAjax(endpoint, attrs) {
+    var ajaxContent = $.ajax({
+        url: endpoint,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: attrs}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
+} // function sendAjax
+
+
+    /** Helper functions to handle Template AJAX response or failure */
+function handleAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('entry' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showError(error);
+    else {
+        $('#entry-modal').on('hidden.bs.modal', function () {
+            //location.reload();
+        });
+        $('#entry-modal').modal('hide');
+        location.reload();
+    }
+}
+
+
+function handleAjaxFail(jqXHR, textStatus) {
+    showError("Request failed: " + textStatus );
+}
+
+</script>

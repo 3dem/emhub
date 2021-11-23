@@ -29,7 +29,6 @@
                                 <th>status</th>
                                 <th>user/pi</th>
                                 <th>title</th>
-                                <th>description</th>
                                 <th>actions</th>
                             </tr>
                             </thead>
@@ -43,7 +42,7 @@
                                     <td>
                                         {% set badge_type = 'success' if status == 'active' else 'light' %}
 {#                                        if status == 'disabled' else 'info') %}#}
-                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">{{ p.id }}</a>
+                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ p.id }}</a>
                                     </td>
                                     <td>{{ p.last_update_date|pretty_date }}</td>
                                     <td>{{ p.date|pretty_date }}</td>
@@ -81,7 +80,7 @@
 </div>
 
 <!-- ============================================================== -->
-<!-- Invoice Period Modal -->
+<!-- Project Modal -->
 <!-- ============================================================== -->
 <div class="modal fade" id="project-modal" tabindex="-1" role="dialog" aria-labelledby="projectModal" aria-hidden="true" >
 </div>
@@ -114,7 +113,7 @@ function showProjectForm(project_id) {
 }  // function showProjectForm
 
 function deleteProject(project_id) {
-    confirm("Delete Invoice Period",
+    confirm("Delete Project",
             "Do you want to DELETE Project with id=" + project_id + "?",
              "Cancel", "Delete", function () {
             sendAjax("{{ url_for('api.delete_project') }}",
