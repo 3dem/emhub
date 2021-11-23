@@ -499,20 +499,45 @@ def get_forms():
 @api_bp.route('/create_form', methods=['POST'])
 @flask_login.login_required
 def create_form():
-    return handle_transaction(app.dm.create_form)
+    return handle_form(app.dm.create_form)
 
 
 @api_bp.route('/update_form', methods=['POST'])
 @flask_login.login_required
 def update_form():
-    return handle_transaction(app.dm.update_form)
+    return handle_form(app.dm.update_form)
 
 
 @api_bp.route('/delete_form', methods=['POST'])
 @flask_login.login_required
 def delete_form():
-    return handle_transaction(app.dm.delete_form)
+    return handle_form(app.dm.delete_form)
 
+
+# ------------------------------ PROJECTS ---------------------------------
+
+@api_bp.route('/get_projects', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_projects():
+    return send_json_data([p.json() for p in app.dm.get_projects()])
+
+
+@api_bp.route('/create_project', methods=['POST'])
+@flask_login.login_required
+def create_project():
+    return handle_project(app.dm.create_project)
+
+
+@api_bp.route('/update_project', methods=['POST'])
+@flask_login.login_required
+def update_project():
+    return handle_project(app.dm.update_project)
+
+
+@api_bp.route('/delete_project', methods=['POST'])
+@flask_login.login_required
+def delete_project():
+    return handle_project(app.dm.delete_project)
 
 # -------------------- UTILS functions ----------------------------------------
 
@@ -625,9 +650,6 @@ def handle_invoice_period(invoice_period_func):
 
 def handle_transaction(transaction_func):
     def handle(**attrs):
-
-        print("handle_transaction: ", attrs)
-
         def _fix_date(date_key):
             if date_key in attrs:
                 attrs[date_key] = datetime_from_isoformat(attrs[date_key])
@@ -643,6 +665,19 @@ def handle_form(form_func):
         return form_func(**attrs).json()
 
     return _handle_item(handle, 'form')
+
+
+
+def handle_project(project_func):
+    def handle(**attrs):
+        def _fix_date(date_key):
+            if date_key in attrs:
+                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+
+        _fix_date('date')
+        return project_func(**attrs).json()
+
+    return _handle_item(handle, 'project')
 
 
 def create_item(name):

@@ -1,0 +1,185 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Projects List" %}
+    {% set navigation = [('Projects', '')] %}
+    {% include 'include_header.html' %}
+    {%  set is_admin = current_user.is_admin %}
+    {% set is_manager = current_user.is_manager %}
+
+    <!-- table row -->
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    {% if is_manager %}
+                        <div class="col-12 mb-3">
+                            <a href="javascript:showProjectForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Project</a>
+                        </div>
+                    {% endif %}
+                    <div class="table-responsive">
+                        <table id="projects-table" class="table">
+                            <thead>
+                            <tr>
+                                <th>last updated</th>
+                                <th>created</th>
+                                <th>status</th>
+                                <th>user/pi</th>
+                                <th>title</th>
+                                <th>description</th>
+                                {% if is_manager %}
+                                    <th>actions</th>
+                                {% endif %}
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for p in projects %}
+                                {% set status = p['status'] %}
+                                {% if is_manager or status != 'disabled' %}
+                                <tr>
+                                    <td>{{ p.last_update_date|pretty_date }}</td>
+                                    <td>{{ p.date|pretty_date }}</td>
+                                    <td>{{ p.status }}</td>
+                                    <td>{{ p.user.name }}/{{ p.user.get_pi().name }}</td>
+                                    <td>{{ p.title }}</td>
+                                    <td>{{ p.description }}</td>
+                                    
+
+                                    {% if is_manager %}
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-light" onclick="showProjectForm({{ p['id'] }})">
+                                                <i class="far fa-edit"></i></button>
+                                            <button class="btn btn-sm btn-outline-light" onclick="deleteProject({{ p['id'] }})">
+                                                <i class="far fa-trash-alt"></i></button>
+                                        </td>
+                                    {% endif %}
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Invoice Period Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="project-modal" tabindex="-1" role="dialog" aria-labelledby="projectModal" aria-hidden="true" >
+</div>
+
+
+<script>
+
+$('#projects-table').DataTable({
+    sDom: 'lrtip',
+    paging: false,
+    info: false,
+    order: [[ 0, "desc" ]]
+    //ordering: false
+});
+
+/* Show the Application Form, either for a new booking or an existing one */
+function showProjectForm(project_id) {
+    ajaxContent = get_ajax_content("project_form", {project_id: project_id});
+
+    ajaxContent.done(function(html) {
+        $("#project-modal").html(html);
+        // Show the form after setting html content
+        $('#project-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
+    });
+
+}  // function showProjectForm
+
+function deleteProject(project_id) {
+    confirm("Delete Invoice Period",
+            "Do you want to DELETE Project with id=" + project_id + "?",
+             "Cancel", "Delete", function () {
+            sendAjax("{{ url_for('api.delete_project') }}",
+                     {id: project_id});
+        });
+} // function deleteProject
+
+    /** This function will be called when the OK button in the Application form
+ * is clicked. It can be either Create or Update action.
+ */
+function onProjectOkButtonClick() {
+    // Update template values
+    var project = {
+        id: parseInt($('#project-id').val()),
+        status: $('#project-status').val(),
+        user_id: $('#project-user-select').selectpicker('val'),
+        title: $('#project-title').val(),
+        description: $('#project-description').val(),
+        date: dateIsoFromValue('#project-date', '#hour_id'),
+    };
+
+    var endpoint = null;
+
+    if (project.id != null && !Number.isNaN(project.id)) {
+        endpoint = "{{ url_for('api.update_project') }}";
+    }
+    else {
+        endpoint = "{{ url_for('api.create_project') }}";
+    }
+
+    sendAjax(endpoint, project);
+}  // function onTemplateOkButtonClick
+
+
+function sendAjax(endpoint, attrs) {
+    var ajaxContent = $.ajax({
+        url: endpoint,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: attrs}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
+} // function sendAjax
+
+
+    /** Helper functions to handle Template AJAX response or failure */
+function handleAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('project' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showError(error);
+    else {
+        $('#project-modal').on('hidden.bs.modal', function () {
+            //location.reload();
+        });
+        $('#project-modal').modal('hide');
+        location.reload();
+    }
+}
+
+
+function handleAjaxFail(jqXHR, textStatus) {
+    showError("Request failed: " + textStatus );
+}
+
+</script>

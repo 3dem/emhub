@@ -993,6 +993,27 @@ class DataContent:
 
         return data
 
+
+    def get_projects_list(self, **kwargs):
+        return {'projects': self.app.dm.get_projects()}
+
+    def get_project_form(self, **kwargs):
+        dm = self.app.dm
+        project_id = kwargs['project_id']
+        if project_id:
+            project = dm.get_project_by(id=project_id)
+        else:
+            now = dm.now()
+            project = dm.Project(status='active',
+                                 date=now,
+                                 last_update_date=now,
+                                 last_update_user_id=self.app.user.id)
+
+        return {
+            'project': project,
+            'possible_owners': self.get_pi_labs()
+        }
+
     def get_raw_user_issues(self, **kwargs):
         users = self.get_users_list()['users']
         filterKey = kwargs.get('filter', 'noroles')

@@ -613,14 +613,7 @@ class DataManager(DbManager):
 
     def delete_invoice_period(self, **attrs):
         """ Remove a session row. """
-        periodId = attrs['id']
-        period = self.InvoicePeriod.query.get(periodId)
-        self.delete(period)
-
-        self.log("operation", "delete_InvoicePeriod",
-                 attrs=self.json_from_dict(attrs))
-
-        return period
+        return self.__delete_item(self.InvoicePeriod, **attrs)
 
     def get_invoice_period_by(self, **kwargs):
         """ This should return a single user or None. """
@@ -646,18 +639,43 @@ class DataManager(DbManager):
 
     def delete_transaction(self, **attrs):
         """ Remove a session row. """
-        transactionId = attrs['id']
-        transaction = self.Transaction.query.get(transactionId)
-        self.delete(transaction)
-
-        self.log("operation", "delete_Transaction",
-                 attrs=self.json_from_dict(attrs))
-
-        return transaction
+        return self.__delete_item(self.Transaction, **attrs)
 
     def get_transaction_by(self, **kwargs):
         """ This should return a single user or None. """
         return self.__item_by(self.Transaction, **kwargs)
+
+
+    # ---------------------------- PROJECTS ---------------------------------
+    def create_project(self, **attrs):
+        now = self.now()
+        attrs.update({
+            'date': now,
+            'last_update_date': now,
+            'last_update_user_id': self._user.id,
+        })
+        return self.__create_item(self.Project, **attrs)
+
+    def update_project(self, **attrs):
+        attrs.update({
+            'last_update_date': self.now(),
+            'last_update_user_id': self._user.id,
+        })
+        return self.__update_item(self.Project, **attrs)
+
+    def delete_project(self, **attrs):
+        """ Remove a session row. """
+        return self.__delete_item(self.Project, **attrs)
+
+    def get_projects(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Project,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def get_project_by(self, **kwargs):
+        """ This should return a single Resource or None. """
+        return self.__item_by(self.Project, **kwargs)
 
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
@@ -697,6 +715,16 @@ class DataManager(DbManager):
                 setattr(item, attr, value)
         self.commit()
         self.log('operation', 'update_%s' % ModelClass.__name__,
+                 **self.json_from_dict(kwargs))
+
+        return item
+
+    def __delete_item(self, ModelClass, **kwargs):
+        """ Remove an item from a Db model table. """
+        item = self.__item_by(ModelClass, id=kwargs['id'])
+        self.delete(item)
+
+        self.log("operation", "delete_%s" % ModelClass.__name__,
                  **self.json_from_dict(kwargs))
 
         return item

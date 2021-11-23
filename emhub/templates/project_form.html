@@ -1,0 +1,116 @@
+<!-- ============================================================== -->
+<!-- Application Modal Content -->
+<!-- ============================================================== -->
+{% set can_edit = current_user.is_manager %}
+{% set readonly = '' if can_edit else 'readonly' %}
+{% set disabled = '' if can_edit else 'disabled' %}
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document" data-backdrop="static" data-keyboard="false">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="project-modal-title"> Project (id = {{ project.id }}) </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="project-form" data-parsley-validate="" novalidate="">
+                    <input type="hidden" id="project-id" name="project-id" value="{{ project.id }}">
+
+                    <!-- Status Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Status</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Enter status" id="project-status" name="project-status" class="form-control" value="{{ project.status }}">
+                        </div>
+                    </div>
+
+                    <!-- Date -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Date</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                             <input type="text" class="form-control datetimepicker-input" data-target="#project-date" id="project-date" data-toggle="datetimepicker" />
+                        </div>
+                    </div>
+
+                    <!-- User Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">User
+
+                        </label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            {% if possible_owners %}
+                                <select id="project-user-select" class="selectpicker show-tick" data-width="100%" data-live-search="true" value="{{ project.user.id }}">
+                                {% for lab in possible_owners %}
+                                    <option data-divider="true"></option>
+                                    <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
+                                    {% for u in lab[1:] %}
+                                        <option value="{{u['id']}}">{{u['name']}}</option>
+                                    {% endfor %}
+                                {% endfor %}
+                                </select>
+                            {% else %}
+                                <input type="text" required="" placeholder="Owner" id="project-user-text" class="form-control">
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Title Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="project-title" class="form-control" value="{{ project.title }}">
+                        </div>
+                    </div>
+
+                    <!-- Description Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <textarea {{ readonly }} required="" class="form-control" id="project-description">{{ project.description }}</textarea>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+
+          <button type="button" id="project-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+
+          {% if current_user.is_manager %}
+              {% set btnOkText = "Update" if project.id else "Create" %}
+               <button class="btn btn-outline-dark" onclick="onProjectOkButtonClick()">{{ btnOkText }}</button>
+          {% else %}
+
+          {% endif %}
+
+
+
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of Application Modal Content -->
+<!-- ============================================================== -->
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    $('#project-date').datetimepicker({
+        format: 'YYYY/MM/DD',
+        date:  new Date('{{ project.date|pretty_date }}')
+    });
+
+    $('select').selectpicker();
+    $('#project-user-select').selectpicker('val', {{ project.user.id }});
+
+})(window, document, window.jQuery);
+</script>
