@@ -1007,7 +1007,9 @@ class DataContent:
             project = dm.Project(status='active',
                                  date=now,
                                  last_update_date=now,
-                                 last_update_user_id=self.app.user.id)
+                                 last_update_user_id=self.app.user.id,
+                                 title='',
+                                 description='')
 
         return {
             'project': project,

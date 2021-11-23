@@ -647,7 +647,22 @@ class DataManager(DbManager):
 
 
     # ---------------------------- PROJECTS ---------------------------------
+    def __check_project(self, **attrs):
+        if 'title' in attrs:
+            if not attrs['title'].strip():
+                raise Exception("Project title can not be empty")
+
+        if 'user_id' in attrs:
+            if not attrs['user_id']:
+                raise Exception("Provide a valid User ID for the Project.")
+
+        if 'status' in attrs:
+            if not attrs['status'].strip() in self.Project.STATUS:
+                raise Exception("Provide a valid status: active/inactive")
+
     def create_project(self, **attrs):
+        self.__check_project(**attrs)
+
         now = self.now()
         attrs.update({
             'date': now,
@@ -657,6 +672,8 @@ class DataManager(DbManager):
         return self.__create_item(self.Project, **attrs)
 
     def update_project(self, **attrs):
+        self.__check_project(**attrs)
+
         attrs.update({
             'last_update_date': self.now(),
             'last_update_user_id': self._user.id,

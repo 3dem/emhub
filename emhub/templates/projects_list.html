@@ -23,22 +23,28 @@
                         <table id="projects-table" class="table">
                             <thead>
                             <tr>
+                                <th>id</th>
                                 <th>last updated</th>
                                 <th>created</th>
                                 <th>status</th>
                                 <th>user/pi</th>
                                 <th>title</th>
                                 <th>description</th>
-                                {% if is_manager %}
-                                    <th>actions</th>
-                                {% endif %}
+                                <th>actions</th>
                             </tr>
                             </thead>
                             <tbody>
                             {% for p in projects %}
                                 {% set status = p['status'] %}
                                 {% if is_manager or status != 'disabled' %}
-                                <tr>
+                                    {% set badge_type = 'success' if status == 'active' else 'light' %}
+                                    {% set color = 'black' if status == 'active' else 'gray' %}
+                                <tr style="color: {{ color }}">
+                                    <td>
+                                        {% set badge_type = 'success' if status == 'active' else 'light' %}
+{#                                        if status == 'disabled' else 'info') %}#}
+                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">{{ p.id }}</a>
+                                    </td>
                                     <td>{{ p.last_update_date|pretty_date }}</td>
                                     <td>{{ p.date|pretty_date }}</td>
                                     <td>{{ p.status }}</td>
@@ -46,15 +52,19 @@
                                     <td>{{ p.title }}</td>
                                     <td>{{ p.description }}</td>
                                     
+                                    <td>
+                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
+                                            <i class="fa fa-eye"></i></a>
 
-                                    {% if is_manager %}
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-light" onclick="showProjectForm({{ p['id'] }})">
-                                                <i class="far fa-edit"></i></button>
-                                            <button class="btn btn-sm btn-outline-light" onclick="deleteProject({{ p['id'] }})">
-                                                <i class="far fa-trash-alt"></i></button>
-                                        </td>
-                                    {% endif %}
+                                        {% if is_manager %}
+                                             <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
+                                                 <i class="far fa-edit"></i></a>
+                                             <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
+                                                 <i class="far fa-trash-alt"></i></a>
+
+                                        {% endif %}
+                                    </td>
+
                                 </tr>
                                 {% endif %}
                             {% endfor %}

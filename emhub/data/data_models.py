@@ -839,6 +839,7 @@ def create_data_models(dm):
 
         date = Column(UtcDateTime, nullable=False)
 
+        STATUS = ['active', 'inactive']
         # Possible statuses of a Project:
         #   - active: default state when created
         #   - inactive: it has been closed and it becomes inactive
