@@ -694,6 +694,52 @@ class DataManager(DbManager):
         """ This should return a single Resource or None. """
         return self.__item_by(self.Project, **kwargs)
 
+        # ---------------------------- ENTRIES ---------------------------------
+    def __check_entry(self, **attrs):
+        if 'title' in attrs:
+            if not attrs['title'].strip():
+                raise Exception("Entry title can not be empty")
+
+        # if 'type' in attrs:
+        #     entry_types = self.get_entry_types()
+        #     if not attrs['type'].strip() in entry_types:
+        #         raise Exception("Please provide a valid entry type: %s"
+        #                         % entry_types)
+
+    def create_entry(self, **attrs):
+        self.__check_entry(**attrs)
+
+        now = self.now()
+        attrs.update({
+            'date': now,
+            'last_update_date': now,
+            'last_update_user_id': self._user.id,
+        })
+        return self.__create_item(self.Entry, **attrs)
+
+    def update_entry(self, **attrs):
+        self.__check_entry(**attrs)
+
+        attrs.update({
+            'last_update_date': self.now(),
+            'last_update_user_id': self._user.id,
+        })
+        return self.__update_item(self.Entry, **attrs)
+
+    def delete_entry(self, **attrs):
+        """ Remove a session row. """
+        return self.__delete_item(self.Entry, **attrs)
+
+    def get_entries(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Entry,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def get_entry_by(self, **kwargs):
+        """ This should return a single Resource or None. """
+        return self.__item_by(self.Entry, **kwargs)
+
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)

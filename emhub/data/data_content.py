@@ -1016,6 +1016,75 @@ class DataContent:
             'possible_owners': self.get_pi_labs()
         }
 
+    def get_project_details(self, **kwargs):
+        project = self.app.dm.get_project_by(id=kwargs['project_id'])
+        entries = sorted(project.entries, key=lambda e: e.date, reverse=True)
+
+        return {
+            'project': project,
+            'entries': entries,
+            'entry_types': self.get_entry_types()
+        }
+
+    def get_entry_types(self):
+        return {
+            'grid_preparation':
+                {'label': 'Grids Preparation',
+                 'group': 1,
+                 'iconClass': "fas fa-th fa-inverse",
+                 'imageClass': "img--picture"
+                 },
+            'grid_storage':
+                {'label': 'Grids Storage',
+                 'group': 1,
+                 'iconClass': "fas fa-box fa-inverse",
+                 'imageClass': "img--picture"
+                 },
+            'booking':
+                {'label': 'Booking',
+                 'group': 2,
+                 'iconClass': "fas fa-plus-circle fa-inverse",
+                 'imageClass': "img--location"
+                 },
+            'data_acquisition':
+                {'label': 'Data Acquisition',
+                 'group': 2,
+                 'iconClass': "far fa-image fa-inverse",
+                 'imageClass': "img--location"
+                 },
+            'note':
+                {'label': 'Note',
+                 'group': 3,
+                 'iconClass': "fas fa-sticky-note fa-inverse",
+                 'imageClass': "img--picture"
+                 },
+        }
+
+    def get_entry_form(self, **kwargs):
+        dm = self.app.dm
+        entry_id = kwargs['entry_id']
+        if entry_id:
+            entry = dm.get_entry_by(id=entry_id)
+            entry_type = entry.type
+        else:
+            entry_type = kwargs['entry_type']
+            project_id = kwargs['entry_project_id']
+
+            print("project_id: ", project_id)
+
+            now = dm.now()
+            entry = dm.Entry(date=now,
+                             last_update_date=now,
+                             last_update_user_id=self.app.user.id,
+                             type=entry_type,
+                             project_id=project_id,
+                             title='',
+                             description='')
+        return {
+            'entry': entry,
+            'entry_type_label': self.get_entry_types()[entry_type]['label']
+        }
+
     def get_raw_user_issues(self, **kwargs):
         users = self.get_users_list()['users']
         filterKey = kwargs.get('filter', 'noroles')
