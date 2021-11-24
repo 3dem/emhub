@@ -27,7 +27,7 @@ Launching the development server
     flask run
 
     # or with gunicorn:
-    gunicorn --workers=2 'emhub:create_app()' --bind 0.0.0.0:8080
+    gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:8080
 
 
 To initialize the db:
