@@ -8,4 +8,4 @@ RUN pip install emhub
 
 ENV EMHUB_INSTANCE /instance
 
-CMD [ "gunicorn", "--workers=2", "emhub:create_app()", "--bind", "0.0.0.0:8080" ]
+CMD [ "gunicorn", "-k", "gevent", "--workers=2", "emhub:create_app()", "--bind", "0.0.0.0:8080" ]
