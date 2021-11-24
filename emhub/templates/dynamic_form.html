@@ -15,7 +15,7 @@
             {% set sections = definition['sections'] %}
 
 
-            <div class="simple-outline-card">
+            <div>
                 <ul class="nav nav-tabs" id="sections-tab-nav" role="tablist">
 
                 <!-- Tab headers based on Sections -->
@@ -47,3 +47,17 @@
 </div>
 <!-- end Application Form -->
 
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    $('.selectpicker').selecpicker();
+
+    // by this default 'Nothing selected' -->will change to 'No selection'
+{#    $('.selectpicker').selectpicker({#}
+{#        noneSelectedText : 'None'#}
+{#    });#}
+
+})(window, document, window.jQuery);
+</script>
