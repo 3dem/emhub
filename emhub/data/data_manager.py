@@ -119,6 +119,11 @@ class DataManager(DbManager):
     def update_form(self, **attrs):
         return self.__update_item(self.Form, **attrs)
 
+    def delete_form(self, **attrs):
+        form = self.__item_by(self.Form, id=attrs['id'])
+        self.delete(form)
+        return form
+
     def get_forms(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Form,
                                        condition=condition,
