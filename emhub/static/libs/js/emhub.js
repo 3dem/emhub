@@ -56,7 +56,7 @@ function dateStr(date) {
 }
 
 function dateFromValue(dateId, timeId) {
-    var dateVal = $(dateId).val();
+    var dateVal = $(dateId).val().replace(/\//g, ' ')
 
     if (timeId)
         dateVal += ' ' + $(timeId).val();
