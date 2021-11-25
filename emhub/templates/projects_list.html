@@ -24,11 +24,12 @@
                             <thead>
                             <tr>
                                 <th>id</th>
-                                <th>last updated</th>
                                 <th>created</th>
                                 <th>status</th>
                                 <th>user/pi</th>
                                 <th>title</th>
+                                <th>last updated</th>
+                                <th>last updated by</th>
                                 <th>actions</th>
                             </tr>
                             </thead>
@@ -44,13 +45,13 @@
 {#                                        if status == 'disabled' else 'info') %}#}
                                         <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ p.id }}</a>
                                     </td>
-                                    <td>{{ p.last_update_date|pretty_date }}</td>
+
                                     <td>{{ p.date|pretty_date }}</td>
                                     <td>{{ p.status }}</td>
                                     <td>{{ p.user.name }}/{{ p.user.get_pi().name }}</td>
                                     <td>{{ p.title }}</td>
-                                    <td>{{ p.description }}</td>
-                                    
+                                    <td>{{ p.last_update_date|pretty_date }}</td>
+                                    <td>{{ p.last_update_user.name }}</td>
                                     <td>
                                         <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
                                             <i class="fa fa-eye"></i></a>

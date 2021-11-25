@@ -18,7 +18,7 @@
                 <a class="dropdown-item" href="javascript:showEntryForm(null, 'grids_preparation')">Grid Preparation</a>
                 <a class="dropdown-item" href="javascript:showEntryForm(null, 'grids_storage')">Grid Storage</a>
                 <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="javascript:showEntryForm(null, 'booking')">Booking</a>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'screening')">Screening</a>
                 <a class="dropdown-item" href="javascript:showEntryForm(null, 'data_acquisition')">Data Acquisition</a>
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="javascript:showEntryForm(null, 'note')">Note</a>
@@ -52,7 +52,7 @@
             <p>{{ entry.description }}</p>
 
             <div class="row col-12 align-items-center justify-content-start pr-0">
-                <div class="col-9"></div>
+                <div class="col-9">Last update: {{ entry.last_update_user.name }}, {{ entry.last_update_date|pretty_date }}</div>
                 <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }})"><i class="fas fa-edit"></i>   </a></div>
                 <div class="col-1"><a href="#"><i class="fas fa-copy"></i>   </a></div>
                 <div class="col-1"><a href="#"><i class="fas fa-trash-alt"></i>   </a></div>
@@ -64,63 +64,6 @@
 
     {% endfor %}
 
-{#        <!-- Block 2 -->#}
-{#    <div class="cd-timeline__block js-cd-block">#}
-{#    <div class="cd-timeline__img cd-timeline__img--movie js-cd-img">#}
-{#    <img src="../assets/vendor/timeline/img/cd-icon-movie.svg" alt="Movie">#}
-{#    </div>#}
-{##}
-{#    <div class="cd-timeline__content js-cd-content">#}
-{#    <h3>Title of section 2</h3>#}
-{#    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Iusto, optio, dolorum provident rerum aut hic quasi placeat iure tempora laudantium ipsa ad debitis unde?</p>#}
-{#    <a href="#0" class="btn btn-primary btn-lg">Read More</a>#}
-{#    <span class="cd-timeline__date">20 July, 2017</span>#}
-{#    </div>#}
-{##}
-{#    </div>#}
-{##}
-{#    <div class="cd-timeline__block js-cd-block">#}
-{#    <div class="cd-timeline__img cd-timeline__img--picture js-cd-img">#}
-{#    <img src="../assets/vendor/timeline/img/cd-icon-picture.svg" alt="Picture">#}
-{#    </div>#}
-{##}
-{#    <div class="cd-timeline__content js-cd-content">#}
-{#    <h3>Title of section 3</h3>#}
-{#    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Excepturi, obcaecati, quisquam id molestias eaque asperiores voluptatibus cupiditate error assumenda delectus odit similique earum voluptatem doloremque dolorem ipsam quae rerum quis. Odit, itaque, deserunt corporis vero ipsum nisi eius odio natus ullam provident pariatur temporibus quia eos repellat consequuntur perferendis enim amet quae quasi repudiandae sed quod veniam dolore possimus rem voluptatum eveniet eligendi quis fugiat aliquam sunt similique aut adipisci.</p>#}
-{#    <a href="#0" class="btn btn-primary btn-lg">Read More</a>#}
-{#    <span class="cd-timeline__date">24 July, 2018</span>#}
-{#    </div>#}
-{##}
-{#    </div>#}
-{##}
-{#    <div class="cd-timeline__block js-cd-block">#}
-{#    <div class="cd-timeline__img cd-timeline__img--location js-cd-img">#}
-{#    <img src="../assets/vendor/timeline/img/cd-icon-location.svg" alt="Location">#}
-{#    </div>#}
-{##}
-{#    <div class="cd-timeline__content js-cd-content">#}
-{#    <h3>Title of section 4</h3>#}
-{#    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Iusto, optio, dolorum provident rerum aut hic quasi placeat iure tempora laudantium ipsa ad debitis unde? Iste voluptatibus minus veritatis qui ut.</p>#}
-{#    <a href="#0" class="btn btn-primary btn-lg">Read More</a>#}
-{#    <span class="cd-timeline__date">12 September, 2018</span>#}
-{#    </div>#}
-{##}
-{#    </div>#}
-{##}
-{#    <div class="cd-timeline__block js-cd-block">#}
-{#    <div class="cd-timeline__img cd-timeline__img--location js-cd-img">#}
-{#    <img src="../assets/vendor/timeline/img/cd-icon-location.svg" alt="Location">#}
-{#    </div>#}
-{##}
-{#    <div class="cd-timeline__content js-cd-content">#}
-{#    <h3>Title of section 5</h3>#}
-{#    <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Iusto, optio, dolorum provident rerum.</p>#}
-{#    <a href="#0" class="btn btn-primary btn-lg">Read More</a>#}
-{#    <span class="cd-timeline__date">{{ project.date|pretty_date }}</span>#}
-{#    </div>#}
-{##}
-{#    </div>#}
-
     <!-- Project Block -->
     <div class="cd-timeline__block js-cd-block">
         <div class="cd-timeline__img cd-timeline__img--movie js-cd-img">
@@ -129,7 +72,10 @@
             </div>
         </div>
         <div class="cd-timeline__content js-cd-content">
-        <h4>Project Creation: {{ project.title }}</h4>
+        <div class="row  align-items-left justify-content-start">
+            <div class="col-4"><h4>Project Creation:</h4></div>
+            <div class="col-8"><h4 style="color: gray">{{ project.title }}</h4></div>
+        </div>
         <p>{{ project.description }}</p>
         <span class="cd-timeline__date">{{ project.date|pretty_date }}</span>
         </div>

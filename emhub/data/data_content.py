@@ -1037,10 +1037,10 @@ class DataContent:
                  'iconClass': "fas fa-box fa-inverse",
                  'imageClass': "img--picture"
                  },
-            'booking':
-                {'label': 'Booking',
+            'screening':
+                {'label': 'Screening',
                  'group': 2,
-                 'iconClass': "fas fa-plus-circle fa-inverse",
+                 'iconClass': "fas fa-search fa-inverse",
                  'imageClass': "img--location"
                  },
             'data_acquisition':
