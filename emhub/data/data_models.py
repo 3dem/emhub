@@ -925,7 +925,8 @@ def create_data_models(dm):
         # Usually it will be facility staff that will update this
         last_update_user_id = Column(Integer, ForeignKey('users.id'),
                                      nullable=False)
-        last_update_user = relationship("User")
+        last_update_user = relationship("User",
+                                        foreign_keys=[last_update_user_id])
 
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
