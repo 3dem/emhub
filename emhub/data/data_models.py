@@ -856,6 +856,15 @@ def create_data_models(dm):
                             foreign_keys=[user_id])
 
         # Last date (date and user)
+        creation_date = Column(UtcDateTime, nullable=False)
+
+        # Usually it will be facility staff that will update this
+        creation_user_id = Column(Integer, ForeignKey('users.id'),
+                                     nullable=False)
+        creation_user = relationship("User",
+                                        foreign_keys=[creation_user_id])
+
+        # Last date (date and user)
         last_update_date = Column(UtcDateTime, nullable=False)
 
         # Usually it will be facility staff that will update this
@@ -900,6 +909,15 @@ def create_data_models(dm):
         # The PI of this project
         project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
         project = relationship("Project", back_populates="entries")
+
+        # Last date (date and user)
+        creation_date = Column(UtcDateTime, nullable=False)
+
+        # Usually it will be facility staff that will update this
+        creation_user_id = Column(Integer, ForeignKey('users.id'),
+                                     nullable=False)
+        creation_user = relationship("User",
+                                        foreign_keys=[creation_user_id])
 
         # Last date (date and user)
         last_update_date = Column(UtcDateTime, nullable=False)
