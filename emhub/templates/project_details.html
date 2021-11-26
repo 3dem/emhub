@@ -48,8 +48,8 @@
                 <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
                     <div class="col-9 align-items-center justify-content-start"> <h3>{{ entry_type['label'] }}</h3></div>
                     <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }})"><i class="fas fa-edit"></i>   </a></div>
-                    <div class="col-1"><a href="#"><i class="fas fa-copy"></i>   </a></div>
-                    <div class="col-1"><a href="#"><i class="fas fa-trash-alt"></i>   </a></div>
+                    <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
+                    <div class="col-1"><a href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i> </a></div>
                 </div>
 
                 <hr class="mt-0"/>
@@ -127,11 +127,12 @@
 var project_id = {{ project.id }};
 
 /* Show the Application Form, either for a new booking or an existing one */
-function showEntryForm(entry_id, entry_type) {
+function showEntryForm(entry_id, entry_type, copy_entry) {
     ajaxContent = get_ajax_content("entry_form",
                                    {entry_id: entry_id,
                                     entry_type: entry_type,
-                                    entry_project_id: project_id
+                                    entry_project_id: project_id,
+                                    copy_entry: copy_entry
                                    });
 
     ajaxContent.done(function(html) {
@@ -146,11 +147,11 @@ function showEntryForm(entry_id, entry_type) {
 
 }  // function showEntryForm
 
-function deleteEntry(entry_id) {
+function deleteEntry(entry_id, entry_title) {
     confirm("Delete Entry",
-            "Do you want to DELETE Entry with id=" + entry_id + "?",
+            "Do you want to DELETE Entry '" + entry_title + "' ?",
              "Cancel", "Delete", function () {
-            sendAjax("{{ url_for('api.delete_project') }}",
+            sendAjax("{{ url_for('api.delete_entry') }}",
                      {id: entry_id});
         });
 } // function deleteEntry

@@ -666,6 +666,8 @@ class DataManager(DbManager):
         now = self.now()
         attrs.update({
             'date': now,
+            'creation_date': now,
+            'creation_user_id': self._user.id,
             'last_update_date': now,
             'last_update_user_id': self._user.id,
         })
@@ -712,6 +714,8 @@ class DataManager(DbManager):
         now = self.now()
         attrs.update({
             'date': now,
+            'creation_date': now,
+            'creation_user_id': self._user.id,
             'last_update_date': now,
             'last_update_user_id': self._user.id,
         })

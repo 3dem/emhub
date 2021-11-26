@@ -1059,13 +1059,22 @@ class DataContent:
 
     def get_entry_form(self, **kwargs):
         dm = self.app.dm
+        now = dm.now()
         entry_id = kwargs['entry_id']
         if entry_id:
             entry = dm.get_entry_by(id=entry_id)
+            if kwargs.get('copy_entry', False):
+                entry.id = None
+                entry.title = "Copy of " + entry.title
+                entry.creation_date = now
+                entry.creation_user_id = self.app.user.id
+                entry.last_update_date = now
+                entry.last_update_user_id = self.app.user.id
         else:
             project_id = kwargs['entry_project_id']
-            now = dm.now()
             entry = dm.Entry(date=now,
+                             creation_date=now,
+                             creation_user_id=self.app.user.id,
                              last_update_date=now,
                              last_update_user_id=self.app.user.id,
                              type=kwargs['entry_type'],
