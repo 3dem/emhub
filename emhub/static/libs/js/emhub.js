@@ -59,7 +59,10 @@ function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val().replace(/\//g, ' ')
 
     if (timeId)
-        dateVal += ' ' + $(timeId).val();
+        dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
+
+    console.log(dateVal);
+
     return new Date(dateVal);
 }
 
