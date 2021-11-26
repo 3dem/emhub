@@ -329,7 +329,7 @@ class DataContent:
                             for u in dm.get_users() if u.is_pi]
                 }
 
-    def load_form_values(self, form, values):
+    def set_form_values(self, form, values):
         """ Load values to form parameters based on the ids.
         """
         definition = form.definition
@@ -357,7 +357,7 @@ class DataContent:
         if form is None:
             raise Exception("Invalid form id: %s" % form_id)
 
-        self.load_form_values(form, form_values)
+        self.set_form_values(form, form_values)
 
         return {'form': form}
 
@@ -1090,6 +1090,8 @@ class DataContent:
         entry_type = self.get_entry_types()[entry.type]
         form_id = "entry_form:%s" % entry.type
         form = dm.get_form_by(name=form_id)
+        if form:
+            self.set_form_values(form, entry.extra.get('data', {}))
 
         return {
             'entry': entry,
