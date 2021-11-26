@@ -329,6 +329,24 @@ class DataContent:
                             for u in dm.get_users() if u.is_pi]
                 }
 
+    def load_form_values(self, form, values):
+        """ Load values to form parameters based on the ids.
+        """
+        definition = form.definition
+
+        def set_value(p):
+            if 'id' not in p:
+                return
+            p['value'] = values.get(p['id'], p.get('default', ''))
+
+        if 'params' in definition:
+            for p in definition['params']:
+                set_value(p)
+        else:
+            for section in definition['sections']:
+                for p in section['params']:
+                    set_value(p)
+
     def get_dynamic_form_modal(self, **kwargs):
         form_id = int(kwargs.get('form_id', 1))
         form_values_str = kwargs.get('form_values', None) or '{}'
@@ -339,20 +357,7 @@ class DataContent:
         if form is None:
             raise Exception("Invalid form id: %s" % form_id)
 
-        definition = form.definition
-
-        def set_value(p):
-            if 'id' not in p:
-                return
-            p['value'] = form_values.get(p['id'], p.get('default', ''))
-
-        if 'params' in definition:
-            for p in definition['params']:
-                set_value(p)
-        else:
-            for section in definition['sections']:
-                for p in section['params']:
-                    set_value(p)
+        self.load_form_values(form, form_values)
 
         return {'form': form}
 
@@ -1119,6 +1124,11 @@ class DataContent:
              'name': f.name,
              'definition': json.dumps(f.definition)
         } for f in self.app.dm.get_forms()]}
+
+    def get_raw_entries_list(self, **kwargs):
+        return {
+            'entries': self.app.dm.get_entries()
+        }
 
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut

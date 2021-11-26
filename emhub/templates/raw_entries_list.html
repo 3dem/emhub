@@ -1,0 +1,84 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Raw Entries List" %}
+    {% set navigation = [('Entries', '')] %}
+    {% include 'include_header.html' %}
+    {%  set is_admin = current_user.is_admin %}
+    {% set is_manager = current_user.is_manager %}
+
+    <!-- table row -->
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    {% if is_manager %}
+                        <div class="col-12 mb-3">
+                            <a href="javascript:showProjectForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Project</a>
+                        </div>
+                    {% endif %}
+                    <div class="table-responsive">
+                        <table id="projects-table" class="table">
+                            <thead>
+                            <tr>
+                                <th>id</th>
+                                <th>date</th>
+                                <th>type</th>
+                                <th>title</th>
+                                <th>description</th>
+                                <th>extra</th>
+                                <th>project id</th>
+                                <th>created</th>
+                                <th>created by</th>
+                                <th>last updated</th>
+                                <th>last updated by</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for e in entries %}
+                                <tr>
+                                    <td>{{ e.id }}</td>
+                                    <td>{{ e.date|pretty_date }}</td>
+                                    <td>{{ e.type }}</td>
+                                    <td>{{ e.title }}</td>
+                                    <td>{{ e.description }}</td>
+                                    <td>{{ e.extra }}</td>
+                                    <td>{{ e.project_id }}</td>
+                                    <td>{{ e.creation_date|pretty_datetime }}</td>
+                                    <td>{{ e.creation_user.name }}</td>
+                                    <td>{{ e.last_update_date|pretty_datetime }}</td>
+                                    <td>{{ e.last_update_user.name }}</td>
+                                </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Project Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="entry-modal" tabindex="-1" role="dialog" aria-labelledby="projectModal" aria-hidden="true" >
+</div>
+
+
+<script>
+
+$('#projects-table').DataTable({
+    sDom: 'lrtip',
+    paging: false,
+    info: false,
+    order: [[ 0, "desc" ]]
+    //ordering: false
+});
+
+</script>

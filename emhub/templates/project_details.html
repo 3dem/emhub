@@ -175,6 +175,7 @@ function onEntryOkButtonClick() {
         title: $('#entry-title').val(),
         description: $('#entry-description').val(),
         date: dateIsoFromValue('#entry-date', '#hour_id'),
+        extra: {data: getFormAsJson('dynamic-form')}
     };
 
     var endpoint = null;
