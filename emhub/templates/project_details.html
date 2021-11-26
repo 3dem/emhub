@@ -60,7 +60,10 @@
 
                 <br/>
                 <div class="row col-12  justify-content-start pr-0">
-                    Last update: <span style="color: black">{{ entry.last_update_user.name }}</span>, {{ entry.last_update_date|pretty_date }}
+                    Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.last_update_user.name }}</span>, {{ entry.last_update_date|pretty_datetime }}
+                </div>
+                <div class="row col-12  justify-content-start pr-0">
+                    Created: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.creation_user.name }}</span>, {{ entry.creation_date|pretty_datetime }}
                 </div>
 
             <span class="cd-timeline__date">{{ entry.date|pretty_date }}</span>
@@ -91,8 +94,12 @@
 
                 <br/>
                 <div class="row col-12  justify-content-start pr-0">
-                    Last update: <span style="color: black">{{ project.last_update_user.name }}</span>, {{ project.last_update_date|pretty_date }}
+                    Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.last_update_user.name }}</span>, {{ project.last_update_date|pretty_date }}
                 </div>
+                <div class="row col-12  justify-content-start pr-0">
+                    Creation: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.creation_user.name }}</span>, {{ project.creation_date|pretty_date }}
+                </div>
+
 
         <span class="cd-timeline__date">{{ project.date|pretty_date }}</span>
 
