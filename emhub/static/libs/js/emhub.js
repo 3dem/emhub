@@ -186,30 +186,77 @@ function notImplemented(msg) {
 }
 
 
+function getInputValue(element) {
+    var type = $(element).prop('type');
+    var value = null;
+
+    if (type == 'checkbox')
+        value = $(element).prop('checked');
+    else if (type == 'radio')
+        value = $('input[name="' + element.name + '"]:checked').val();
+    else
+        value = $(element).val();
+
+    return value;
+}
+
+function nonEmpty(value) {
+    var type = typeof value;
+
+    if (type === 'string')
+        return value.trim().length > 0;
+
+    if (type === 'number')
+        return true;
+
+    if (Array.isArray(value))
+        return value.length > 0;
+
+    if (type === 'object')
+        return Object.keys(value).length > 0;
+
+    return Boolean(value);
+}
+
 function getFormAsJson(formId, includeEmpty){
     var json = {};
-
-    // $("#" + formId + ":input").each(function () {
-    //     json[this.name] = $(this).val()
-    // });
 
     $('#' + formId + ' *').filter(':input').each(function(){
         if (!this.id.length)
             return;
-
         var type = $(this).prop('type');
+        var key = type == 'radio' ? this.name : this.id;
+        json[key] = getInputValue(this);
+    });
 
-        if (type == 'checkbox')
-            json[this.id] = $(this).prop('checked');
-        else if (type == 'radio') {
-            json[this.name] = $('input[name="' + this.name + '"]:checked').val();
-        }
-        else
-            json[this.id] = $(this).val()
+    //alert("finding tables, form: #" + formId);
+
+    $('#' + formId + " table").each(function () {
+        var row_list = [];
+        var col_names = [];
+        // Get all columns name
+        $(this).find('.column-name').each(function () {
+            col_names.push($(this).data('key'));
+        });
+
+        $(this).find('.data-row').each(function () {
+            var values = {};
+            $(this).find(':input').each(function (i, v) {
+                var value = getInputValue(this);
+                if (includeEmpty || nonEmpty(value)) {
+                    var col = col_names[i];
+                    values[col] = value;
+                }
+            });
+            if (nonEmpty(values))
+                row_list.push(values);
+        });
+        json[this.id] = row_list;
     });
 
     if (includeEmpty)
         return json;
+
     var newJson = {};
     for (var propName in json) {
         propValue = json[propName]

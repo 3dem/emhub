@@ -1092,6 +1092,8 @@ class DataContent:
         form = dm.get_form_by(name=form_id)
         if form:
             self.set_form_values(form, entry.extra.get('data', {}))
+            from pprint import pprint
+            pprint(form.definition)
 
         return {
             'entry': entry,

@@ -44,7 +44,7 @@
                                     <td>{{ e.type }}</td>
                                     <td>{{ e.title }}</td>
                                     <td>{{ e.description }}</td>
-                                    <td>{{ e.extra }}</td>
+                                    <td>{{ e.extra|tojson }}</td>
                                     <td>{{ e.project_id }}</td>
                                     <td>{{ e.creation_date|pretty_datetime }}</td>
                                     <td>{{ e.creation_user.name }}</td>
