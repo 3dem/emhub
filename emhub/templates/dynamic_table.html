@@ -28,15 +28,15 @@
                     {% set col_id = column['id'] %}
                     {% set param_id = 'row-%d-col-%d'|format(row_index, col_index) %}
                     {% set id_name = 'name=%s'|format(param_id) %}
+                    {% set data_key = ' data-key=%s '|format(col_id) %}
                     {% set param = column %}
-                    {% set value = row_values.get(col_id, None)  %}
-                    value = {{ value }}
+                    {% set value = row_values.get(col_id, '')  %}
 
                     {% if 'enum' in param %}
                         {%  set enum = param['enum'] %}
                         {% if enum['display'] == 'combo' %}
                             {% set multipleStr = 'multiple' if 'multiple' in enum else '' %}
-                            <select class="selectpicker show-tick" data-width="auto" {{ id_name }} {{ multipleStr }} title="None">
+                            <select class="selectpicker show-tick" data-width="auto" {{ id_name }} {{ multipleStr }} title="None" {{ data_key }}>
                             {% for o in enum['choices'] %}
                                 {% set selected = 'selected' if o == value else '' %}
                                 <option value="{{ o }}" {{ selected }}>{{ o }}</option>'
@@ -47,7 +47,7 @@
                                 {% set checked = 'checked' if value == o else '' %}
                                 {# TODO: Multiple is not currently supported with non-combo  #}
                                 <label class="custom-control custom-radio custom-control-inline">
-                                    <input type="radio" name="{{ param['id'] }}" id="{{ param['id'] }}-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>
+                                    <input type="radio" name="{{ param['id'] }}" id="{{ param['id'] }}-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ o }}" {{ data_key }}><span class="custom-control-label">{{ o }}</span>
                                 </label>
                             {% endfor %}
                         {% endif %}
@@ -56,12 +56,12 @@
                         {% if type == 'bool' %}
                             <label class="be-checkbox custom-control custom-checkbox">
                                 {% set checked = 'checked' if value else '' %}
-                                <input type="checkbox" class="custom-control-input" {{ id_name }} {{ checked }}><span class="custom-control-label"></span>
+                                <input type="checkbox" class="custom-control-input" {{ id_name }} {{ checked }} {{ data_key }}><span class="custom-control-label"></span>
                             </label>
                         {% elif type == 'text' %}
-                            <textarea required="" class="form-control" {{ id_name }}  style="min-width: 100px;">{{ value }}</textarea>
+                            <textarea required="" class="form-control" {{ id_name }}  style="min-width: 100px;" {{ data_key }}>{{ value }}</textarea>
                         {% else %}
-                            <input type="text" required="" placeholder="{{ help }}" {{ id_name }} class="form-control" value="{{ value }}" style="min-width: 100px;">
+                            <input type="text" required="" placeholder="{{ help }}" {{ id_name }} class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
                         {% endif %}
                     {% endif %}
 

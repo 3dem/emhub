@@ -244,7 +244,7 @@ function getFormAsJson(formId, includeEmpty){
             $(this).find(':input').each(function (i, v) {
                 var value = getInputValue(this);
                 if (includeEmpty || nonEmpty(value)) {
-                    var col = col_names[i];
+                    var col = $(this).data('key');
                     values[col] = value;
                 }
             });

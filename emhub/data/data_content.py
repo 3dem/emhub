@@ -1085,7 +1085,8 @@ class DataContent:
                              type=kwargs['entry_type'],
                              project_id=project_id,
                              title='',
-                             description='')
+                             description='',
+                             extra={})
 
         entry_type = self.get_entry_types()[entry.type]
         form_id = "entry_form:%s" % entry.type
