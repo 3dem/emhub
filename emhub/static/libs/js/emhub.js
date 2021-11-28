@@ -200,6 +200,7 @@ function getInputValue(element) {
     return value;
 }
 
+
 function nonEmpty(value) {
     var type = typeof value;
 
@@ -217,6 +218,7 @@ function nonEmpty(value) {
 
     return Boolean(value);
 }
+
 
 function getFormAsJson(formId, includeEmpty){
     var json = {};
