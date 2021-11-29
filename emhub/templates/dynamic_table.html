@@ -11,7 +11,7 @@
 
         <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:addRow()"><i class="fas fa-plus-circle"></i>   </a></div>
                     <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:showEntryForm({{ entry.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
-                    <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i> </a></div>
+                    <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:deleteRows()"><i class="fas fa-trash-alt"></i> </a></div>
     </div>
 </div>
 </div>
@@ -42,7 +42,7 @@
                 <tr id="template-row" style="display: none;">
                     <td>
                         <label class="be-checkbox custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input"><span class="custom-control-label"></span>
+                            <input type="checkbox" class="custom-control-input row-checkbox"><span class="custom-control-label"></span>
                         </label>
                     </td>
                 {% for column in columns %}
@@ -64,7 +64,7 @@
                 <tr class="data-row" id="{{ row_id }}">
                     <td>
                         <label class="be-checkbox custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input" data-row="{{ row_id }}"><span class="custom-control-label"></span>
+                            <input type="checkbox" class="custom-control-input  row-checkbox" data-row="{{ row_id }}"><span class="custom-control-label"></span>
                         </label>
                     </td>
                 {% for column in columns %}
@@ -105,8 +105,35 @@
 
     }
 
-    function deleteRows(){
+    function getSelectedRows(){
+        var rows = []
+        $('.row-checkbox').each(function () {
+            if ($(this).prop('checked'))  // get row id
+                rows.push(this.parentElement.parentElement.parentElement);
+        });
+        return rows;
+    }
 
+    function deleteRows(){
+        var rows = getSelectedRows();
+        if (rows.length > 0) {
+            for (var row of rows)
+                row.remove();
+        }
+        else
+            showError("Select rows to Remove");
+    }
+
+    function copyRows(){
+        var rows = getSelectedRows();
+        if (rows.length > 0) {
+            for (var row of rows){
+                var new row.remove();
+            }
+
+        }
+        else
+            showError("Select rows to Remove");
     }
 
 </script>
