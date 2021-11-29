@@ -235,15 +235,10 @@ function getFormAsJson(formId, includeEmpty){
 
     $('#' + formId + " table").each(function () {
         var row_list = [];
-        var col_names = [];
-        // Get all columns name
-        $(this).find('.column-name').each(function () {
-            col_names.push($(this).data('key'));
-        });
 
         $(this).find('.data-row').each(function () {
             var values = {};
-            $(this).find(':input').each(function (i, v) {
+            $(this).find(':input').each(function () {
                 var value = getInputValue(this);
                 if (includeEmpty || nonEmpty(value)) {
                     var col = $(this).data('key');

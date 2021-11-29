@@ -14,7 +14,8 @@
     {% set values = value if is_multiple else [value] %}
     {% if enum['display'] == 'combo' %}
         {% set multipleStr = 'multiple' if is_multiple else '' %}
-        <select class="selectpicker show-tick" data-width="auto" {{ id_name }} {{ multipleStr }} title="None" {{ data_key }}>
+        {% set classStr = 'selectpicker show-tick' if selectpicker else '' %}
+        <select class="{{ classStr }}" data-width="auto"  {{ multipleStr }} title="None" {{ data_key }}>
         {% for o in enum['choices'] %}
             {% set selected = 'selected' if o|string in values else '' %}
             <option value="{{ o }}" {{ selected }}>{{ o }}</option>'
@@ -34,12 +35,12 @@
     {% if type == 'bool' %}
         <label class="be-checkbox custom-control custom-checkbox">
             {% set checked = 'checked' if value else '' %}
-            <input type="checkbox" class="custom-control-input" {{ id_name }} {{ checked }} {{ data_key }}><span class="custom-control-label"></span>
+            <input type="checkbox" class="custom-control-input"  {{ checked }} {{ data_key }}><span class="custom-control-label"></span>
         </label>
     {% elif type == 'text' %}
-        <textarea required="" class="form-control" {{ id_name }}  style="min-width: 100px;" {{ data_key }}>{{ value }}</textarea>
+        <textarea required="" class="form-control"   style="min-width: 100px;" {{ data_key }}>{{ value }}</textarea>
     {% else %}
-        <input type="text" required="" placeholder="{{ help }}" {{ id_name }} class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
+        <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
     {% endif %}
 {% endif %}
 
