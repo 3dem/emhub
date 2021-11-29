@@ -10,7 +10,7 @@
 {#        <button class="btn btn-sm btn-outline-light ml-2"><i class="far fa-trash-alt"></i></button>#}
 
         <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:addRow()"><i class="fas fa-plus-circle"></i>   </a></div>
-                    <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:showEntryForm({{ entry.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
+                    <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:copyRows()"><i class="fas fa-copy"></i>   </a></div>
                     <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:deleteRows()"><i class="fas fa-trash-alt"></i> </a></div>
     </div>
 </div>
@@ -92,15 +92,19 @@
 
 <script>
     var nrows = {{ nrows|tojson }};
+    var values = null;
 
-    function addRow(){
+    function createNewRow(){
         var rowElement = document.getElementById('template-row');
         var newRow = rowElement.cloneNode(true);
         newRow.id = null;
         newRow.className = "data-row";
         newRow.style.display = "table-row";
-        rowElement.parentNode.appendChild(newRow);
+        return newRow;
+    }
 
+    function addRow(){
+        rowElement.parentNode.appendChild(createNewRow());
         $('.data-row select').selectpicker('refresh');
 
     }
@@ -128,12 +132,21 @@
         var rows = getSelectedRows();
         if (rows.length > 0) {
             for (var row of rows){
-                var new row.remove();
+                var newRow = createNewRow();
+                values = getRowValues(row);
+                row.parentElement.insertBefore(newRow, row.nextSibling);
+                $('.data-row select').each(function () {
+                $(this).addClass('selectpicker');
+                });
+                setRowValues(newRow, values);
             }
+
+            $('.selectpicker').selectpicker('render');
+
 
         }
         else
-            showError("Select rows to Remove");
+            showError("Select rows to Clone");
     }
 
 </script>

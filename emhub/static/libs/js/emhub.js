@@ -201,6 +201,22 @@ function getInputValue(element) {
 }
 
 
+function setInputValue(element, value) {
+    var type = $(element).prop('type');
+
+    if (type == 'checkbox')
+        value = $(element).prop('checked', Boolean(value));
+    else if (type == 'radio')
+        value = $('input[name="' + element.name + '"]:checked').val();
+    else if ($(element).hasClass('selectpicker'))
+        $(element).selectpicker('val', value);
+    else
+        value = $(element).val(value);
+
+    return value;
+}
+
+
 function nonEmpty(value) {
     var type = typeof value;
 
@@ -217,6 +233,32 @@ function nonEmpty(value) {
         return Object.keys(value).length > 0;
 
     return Boolean(value);
+}
+
+
+function setRowValues(row, values){
+    $(row).find(':input').each(function () {
+        var col = $(this).data('key');
+        if (col in values) {
+            var value = values[col];
+
+            if (nonEmpty(value))
+                setInputValue(this, value);
+        }
+    });
+}
+
+
+function getRowValues(row, includeEmpty){
+    var values = {};
+    $(row).find(':input').each(function () {
+        var value = getInputValue(this);
+        if (includeEmpty || nonEmpty(value)) {
+            var col = $(this).data('key');
+            values[col] = value;
+        }
+    });
+    return values;
 }
 
 
@@ -237,14 +279,7 @@ function getFormAsJson(formId, includeEmpty){
         var row_list = [];
 
         $(this).find('.data-row').each(function () {
-            var values = {};
-            $(this).find(':input').each(function () {
-                var value = getInputValue(this);
-                if (includeEmpty || nonEmpty(value)) {
-                    var col = $(this).data('key');
-                    values[col] = value;
-                }
-            });
+            var values = getRowValues(this, includeEmpty);
             if (nonEmpty(values))
                 row_list.push(values);
         });
