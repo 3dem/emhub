@@ -997,6 +997,11 @@ class DataContent:
 
 
     def get_projects_list(self, **kwargs):
+        # FIXME Define access/permissions for other users
+        if not self.app.user.is_manager:
+            raise Exception("Projects are only available for "
+                            "Facility staff right now")
+
         return {'projects': self.app.dm.get_projects()}
 
     def get_project_form(self, **kwargs):
@@ -1019,6 +1024,11 @@ class DataContent:
         }
 
     def get_project_details(self, **kwargs):
+        # FIXME Define access/permissions for other users
+        if not self.app.user.is_manager:
+            raise Exception("Projects are only available for "
+                            "Facility staff right now")
+
         project = self.app.dm.get_project_by(id=kwargs['project_id'])
         entries = sorted(project.entries, key=lambda e: e.date, reverse=True)
 
