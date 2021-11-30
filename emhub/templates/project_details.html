@@ -2,8 +2,10 @@
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
     {% set pi = project.user.get_pi() %}
-    {% set title = "Project: " + pi.name + "/" + project.user.name %}
-    {% set navigation = [('Projects', url_for_content('projects_list')), ('Project ' + project.id|string, '')] %}
+    {% set project_prefix = 'Project ' + project.id|string %}
+    {% set pi_prefix = (pi.name + '/ ') if pi else ' '  %}
+    {% set title = project_prefix + ": " + pi_prefix + project.user.name %}
+    {% set navigation = [('Projects', url_for_content('projects_list')), (project_prefix, '')] %}
     {% include 'include_header.html' %}
     {%  set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
