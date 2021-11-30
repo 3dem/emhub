@@ -56,10 +56,13 @@ function dateStr(date) {
 }
 
 function dateFromValue(dateId, timeId) {
-    var dateVal = $(dateId).val();
+    var dateVal = $(dateId).val().replace(/\//g, ' ')
 
     if (timeId)
-        dateVal += ' ' + $(timeId).val();
+        dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
+
+    console.log(dateVal);
+
     return new Date(dateVal);
 }
 
@@ -183,30 +186,109 @@ function notImplemented(msg) {
 }
 
 
+function getInputValue(element) {
+    var type = $(element).prop('type');
+    var value = null;
+
+    if (type == 'checkbox')
+        value = $(element).prop('checked');
+    else if (type == 'radio')
+        value = $('input[name="' + element.name + '"]:checked').val();
+    else
+        value = $(element).val();
+
+    return value;
+}
+
+
+function setInputValue(element, value) {
+    var type = $(element).prop('type');
+
+    if (type == 'checkbox')
+        value = $(element).prop('checked', Boolean(value));
+    else if (type == 'radio')
+        value = $('input[name="' + element.name + '"]:checked').val();
+    else if ($(element).hasClass('selectpicker'))
+        $(element).selectpicker('val', value);
+    else
+        value = $(element).val(value);
+
+    return value;
+}
+
+
+function nonEmpty(value) {
+    var type = typeof value;
+
+    if (type === 'string')
+        return value.trim().length > 0;
+
+    if (type === 'number')
+        return true;
+
+    if (Array.isArray(value))
+        return value.length > 0;
+
+    if (type === 'object')
+        return Object.keys(value).length > 0;
+
+    return Boolean(value);
+}
+
+
+function setRowValues(row, values){
+    $(row).find(':input').each(function () {
+        var col = $(this).data('key');
+        if (col in values) {
+            var value = values[col];
+
+            if (nonEmpty(value))
+                setInputValue(this, value);
+        }
+    });
+}
+
+
+function getRowValues(row, includeEmpty){
+    var values = {};
+    $(row).find(':input').each(function () {
+        var value = getInputValue(this);
+        if (includeEmpty || nonEmpty(value)) {
+            var col = $(this).data('key');
+            values[col] = value;
+        }
+    });
+    return values;
+}
+
+
 function getFormAsJson(formId, includeEmpty){
     var json = {};
-
-    // $("#" + formId + ":input").each(function () {
-    //     json[this.name] = $(this).val()
-    // });
 
     $('#' + formId + ' *').filter(':input').each(function(){
         if (!this.id.length)
             return;
-
         var type = $(this).prop('type');
+        var key = type == 'radio' ? this.name : this.id;
+        json[key] = getInputValue(this);
+    });
 
-        if (type == 'checkbox')
-            json[this.id] = $(this).prop('checked');
-        else if (type == 'radio') {
-            json[this.name] = $('input[name="' + this.name + '"]:checked').val();
-        }
-        else
-            json[this.id] = $(this).val()
+    //alert("finding tables, form: #" + formId);
+
+    $('#' + formId + " table").each(function () {
+        var row_list = [];
+
+        $(this).find('.data-row').each(function () {
+            var values = getRowValues(this, includeEmpty);
+            if (nonEmpty(values))
+                row_list.push(values);
+        });
+        json[this.id] = row_list;
     });
 
     if (includeEmpty)
         return json;
+
     var newJson = {};
     for (var propName in json) {
         propValue = json[propName]

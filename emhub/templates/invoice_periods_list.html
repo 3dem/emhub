@@ -41,7 +41,7 @@
                                     <td>
                                         {% set badge_type = 'success' if status == 'active' else ('light' if status == 'disabled' else 'info') %}
 {#                                        if status == 'disabled' else 'info') %}#}
-                                        <a href="{{ url_for('main', content_id=period_url, period=ip['id']) }}" class="badge badge-{{ badge_type }} mr-1">{{ ip['period'] }}</a>
+                                        <a href="{{ url_for_content(period_url, period=ip['id']) }}" class="badge badge-{{ badge_type }} mr-1">{{ ip['period'] }}</a>
                                     </td>
 
                                     <td>{{ ip['status'] }}</td>

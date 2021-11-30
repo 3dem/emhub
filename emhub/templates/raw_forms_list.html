@@ -154,7 +154,7 @@
 
 /* Show the Application Form, either for a new booking or an existing one */
 function showForm(formId) {
-    ajaxContent = get_ajax_content("dynamic_form", {form_id: formId});
+    ajaxContent = get_ajax_content("dynamic_form_modal", {form_id: formId});
 
     ajaxContent.done(function(html) {
         $("#show-form-modal").html(html);

@@ -1,0 +1,237 @@
+
+<div class="container-fluid  dashboard-content">
+    <!-- Header -->
+    {% set pi = project.user.get_pi() %}
+    {% set title = "Project: " + pi.name + "/" + project.user.name %}
+    {% set navigation = [('Projects', url_for_content('projects_list')), ('Project ' + project.id|string, '')] %}
+    {% include 'include_header.html' %}
+    {%  set is_admin = current_user.is_admin %}
+    {% set is_manager = current_user.is_manager %}
+
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+
+    <div class="row">
+        <div class="col-12">
+            <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <i class="fas fa-plus-circle"></i> Add Entry </a>
+            <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'grids_preparation')">Grid Preparation</a>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'grids_storage')">Grid Storage</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'screening')">Screening</a>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'data_acquisition')">Data Acquisition</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, 'note')">Note</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+    <section class="cd-timeline js-cd-timeline">
+
+<div class="cd-timeline__container">
+
+        <!-- Block 1 -->
+    {% for entry in entries %}
+        {% set entry_type = entry_types[entry.type] %}
+        <div class="cd-timeline__block js-cd-block">
+            <div class="cd-timeline__img cd-timeline__{{ entry_type['imageClass'] }} js-cd-img">
+                <div class="fa-2x ml-3 mt-2">
+                <i class="{{ entry_type['iconClass'] }}" data-fa-transform="grow-6 right-2 down-2"></i>
+                </div>
+            </div>
+
+            <div class="cd-timeline__content js-cd-content pr-0">
+
+                <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
+                    <div class="col-9 align-items-center justify-content-start"> <h3>{{ entry_type['label'] }}</h3></div>
+                    <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }})"><i class="fas fa-edit"></i>   </a></div>
+                    <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
+                    <div class="col-1"><a href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i> </a></div>
+                </div>
+
+                <hr class="mt-0"/>
+
+                <div class="row col-12  justify-content-start">
+                    <h4 style="color: gray">{{ entry.title }}</h4>
+                </div>
+
+                <br/>
+                <div class="row col-12  justify-content-start pr-0">
+                    Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.last_update_user.name }}</span>, {{ entry.last_update_date|pretty_datetime }}
+                </div>
+                <div class="row col-12  justify-content-start pr-0">
+                    Created: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.creation_user.name }}</span>, {{ entry.creation_date|pretty_datetime }}
+                </div>
+
+            <span class="cd-timeline__date">{{ entry.date|pretty_date }}</span>
+            </div>
+        </div>
+
+    {% endfor %}
+
+    <!-- Project Block -->
+    <div class="cd-timeline__block js-cd-block">
+        <div class="cd-timeline__img cd-timeline__img--movie js-cd-img">
+            <div class="fa-2x ml-3 mt-2">
+            <i class="fas fa-book fa-inverse" data-fa-transform="grow-6 right-2 down-2"></i>
+            </div>
+        </div>
+        <div class="cd-timeline__content js-cd-content">
+
+       <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
+                    <div class="col-11 align-items-center justify-content-start"> <h3>Project Creation</h3></div>
+{#                    <div class="col-1"><a href="javascript:showProjectForm({{ project.id }})"><i class="fas fa-edit"></i></a></div>#}
+                </div>
+
+                <hr class="mt-0"/>
+
+                <div class="row col-12  justify-content-start">
+                    <h4 style="color: gray">{{ project.title }}</h4>
+                </div>
+
+                <br/>
+                <div class="row col-12  justify-content-start pr-0">
+                    Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.last_update_user.name }}</span>, {{ project.last_update_date|pretty_datetime }}
+                </div>
+                <div class="row col-12  justify-content-start pr-0">
+                    Creation: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.creation_user.name }}</span>, {{ project.creation_date|pretty_datetime }}
+                </div>
+
+
+        <span class="cd-timeline__date">{{ project.date|pretty_date }}</span>
+
+        </div>
+    </div>
+
+</div>
+
+    </section>
+
+    </div>
+    </div>
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Project Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="entry-modal" tabindex="-1" role="dialog" aria-labelledby="entryModal" aria-hidden="true" >
+</div>
+
+<!-- javascript  -->
+<script>
+
+(function(window, document, $, undefined) {
+    "use strict";
+
+}
+
+)(window, document, window.jQuery);
+
+var project_id = {{ project.id }};
+
+/* Show the Application Form, either for a new booking or an existing one */
+function showEntryForm(entry_id, entry_type, copy_entry) {
+    ajaxContent = get_ajax_content("entry_form",
+                                   {entry_id: entry_id,
+                                    entry_type: entry_type,
+                                    entry_project_id: project_id,
+                                    copy_entry: copy_entry
+                                   });
+
+    ajaxContent.done(function(html) {
+        $("#entry-modal").html(html);
+        // Show the form after setting html content
+        $('#entry-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
+    });
+
+}  // function showEntryForm
+
+function deleteEntry(entry_id, entry_title) {
+    confirm("Delete Entry",
+            "Do you want to DELETE Entry '" + entry_title + "' ?",
+             "Cancel", "Delete", function () {
+            sendAjax("{{ url_for('api.delete_entry') }}",
+                     {id: entry_id});
+        });
+} // function deleteEntry
+
+    /** This function will be called when the OK button in the Application form
+ * is clicked. It can be either Create or Update action.
+ */
+function onEntryOkButtonClick() {
+    // Update template values
+    var entry = {
+        id: parseInt($('#entry-id').val()),
+        type: $('#entry-type').val(),
+        project_id: $('#entry-project-id').val(),
+        title: $('#entry-title').val(),
+        description: $('#entry-description').val(),
+        date: dateIsoFromValue('#entry-date', '#hour_id'),
+        extra: {data: getFormAsJson('dynamic-form')}
+    };
+
+    var endpoint = null;
+
+    if (entry.id != null && !Number.isNaN(entry.id)) {
+        endpoint = "{{ url_for('api.update_entry') }}";
+    }
+    else {
+        endpoint = "{{ url_for('api.create_entry') }}";
+    }
+
+    sendAjax(endpoint, entry);
+}  // function onTemplateOkButtonClick
+
+
+function sendAjax(endpoint, attrs) {
+    var ajaxContent = $.ajax({
+        url: endpoint,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: attrs}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleAjaxDone);
+    ajaxContent.fail(handleAjaxFail);
+} // function sendAjax
+
+
+    /** Helper functions to handle Template AJAX response or failure */
+function handleAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('entry' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showError(error);
+    else {
+        $('#entry-modal').on('hidden.bs.modal', function () {
+            //location.reload();
+        });
+        $('#entry-modal').modal('hide');
+        location.reload();
+    }
+}
+
+
+function handleAjaxFail(jqXHR, textStatus) {
+    showError("Request failed: " + textStatus );
+}
+
+</script>

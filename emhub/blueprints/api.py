@@ -499,20 +499,71 @@ def get_forms():
 @api_bp.route('/create_form', methods=['POST'])
 @flask_login.login_required
 def create_form():
-    return handle_transaction(app.dm.create_form)
+    return handle_form(app.dm.create_form)
 
 
 @api_bp.route('/update_form', methods=['POST'])
 @flask_login.login_required
 def update_form():
-    return handle_transaction(app.dm.update_form)
+    return handle_form(app.dm.update_form)
 
 
 @api_bp.route('/delete_form', methods=['POST'])
 @flask_login.login_required
 def delete_form():
-    return handle_transaction(app.dm.delete_form)
+    return handle_form(app.dm.delete_form)
 
+
+# ------------------------------ PROJECTS ---------------------------------
+
+@api_bp.route('/get_projects', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_projects():
+    return send_json_data([p.json() for p in app.dm.get_projects()])
+
+
+@api_bp.route('/create_project', methods=['POST'])
+@flask_login.login_required
+def create_project():
+    return handle_project(app.dm.create_project)
+
+
+@api_bp.route('/update_project', methods=['POST'])
+@flask_login.login_required
+def update_project():
+    return handle_project(app.dm.update_project)
+
+
+@api_bp.route('/delete_project', methods=['POST'])
+@flask_login.login_required
+def delete_project():
+    return handle_project(app.dm.delete_project)
+
+
+# ------------------------------ ENTRIES ---------------------------------
+
+@api_bp.route('/get_entries', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_entries():
+    return send_json_data([p.json() for p in app.dm.get_entries()])
+
+
+@api_bp.route('/create_entry', methods=['POST'])
+@flask_login.login_required
+def create_entry():
+    return handle_entry(app.dm.create_entry)
+
+
+@api_bp.route('/update_entry', methods=['POST'])
+@flask_login.login_required
+def update_entry():
+    return handle_entry(app.dm.update_entry)
+
+
+@api_bp.route('/delete_entry', methods=['POST'])
+@flask_login.login_required
+def delete_entry():
+    return handle_entry(app.dm.delete_entry)
 
 # -------------------- UTILS functions ----------------------------------------
 
@@ -533,6 +584,13 @@ def filter_request(func):
 
     return send_json_data(items)
 
+def fix_dates(attrs, *date_keys):
+    """ Convert the values from UTC string to datetime
+    for some keys that might be present in the attrs dict. """
+    for date_key in date_keys:
+        if date_key in attrs:
+            attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+
 
 def _handle_item(handle_func, result_key):
     try:
@@ -549,15 +607,12 @@ def _handle_item(handle_func, result_key):
 
 def handle_booking(result_key, booking_func, booking_transform=None):
     def handle(**attrs):
-        def _fix_date(date_key):
-            if date_key in attrs:
-                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
-
-        _fix_date('start')
-        _fix_date('end')
+        dates = ['start', 'end']
 
         if attrs.get('repeat_value', 'no') != 'no':
-            _fix_date('repeat_stop')
+            dates.append('repeat_stop')
+
+        fix_dates(attrs, *dates)
 
         bt = booking_transform or app.dc.booking_to_event
         return [bt(b) for b in booking_func(**attrs)]
@@ -588,12 +643,7 @@ def handle_resource(resource_func):
 
 def handle_session(session_func):
     def handle(**attrs):
-        def _fix_date(date_key):
-            if date_key in attrs:
-                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
-        _fix_date('start')
-        _fix_date('end')
-
+        fix_dates(attrs, 'start', 'end')
         return session_func(**attrs).json()
 
     return _handle_item(handle, 'session')
@@ -612,12 +662,7 @@ def handle_session_data(handle, mode="r"):
 
 def handle_invoice_period(invoice_period_func):
     def handle(**attrs):
-        def _fix_date(date_key):
-            if date_key in attrs:
-                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
-
-        _fix_date('start')
-        _fix_date('end')
+        fix_dates(attrs, 'start', 'end')
         return invoice_period_func(**attrs).json()
 
     return _handle_item(handle, 'invoice_period')
@@ -625,14 +670,7 @@ def handle_invoice_period(invoice_period_func):
 
 def handle_transaction(transaction_func):
     def handle(**attrs):
-
-        print("handle_transaction: ", attrs)
-
-        def _fix_date(date_key):
-            if date_key in attrs:
-                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
-
-        _fix_date('date')
+        fix_dates(attrs, 'date')
         return transaction_func(**attrs).json()
 
     return _handle_item(handle, 'transaction')
@@ -643,6 +681,22 @@ def handle_form(form_func):
         return form_func(**attrs).json()
 
     return _handle_item(handle, 'form')
+
+
+def handle_project(project_func):
+    def handle(**attrs):
+        fix_dates(attrs, 'date')
+        return project_func(**attrs).json()
+
+    return _handle_item(handle, 'project')
+
+
+def handle_entry(entry_func):
+    def handle(**attrs):
+        fix_dates(attrs, 'date')
+        return entry_func(**attrs).json()
+
+    return _handle_item(handle, 'entry')
 
 
 def create_item(name):

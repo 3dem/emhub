@@ -329,7 +329,25 @@ class DataContent:
                             for u in dm.get_users() if u.is_pi]
                 }
 
-    def get_dynamic_form(self, **kwargs):
+    def set_form_values(self, form, values):
+        """ Load values to form parameters based on the ids.
+        """
+        definition = form.definition
+
+        def set_value(p):
+            if 'id' not in p:
+                return
+            p['value'] = values.get(p['id'], p.get('default', ''))
+
+        if 'params' in definition:
+            for p in definition['params']:
+                set_value(p)
+        else:
+            for section in definition['sections']:
+                for p in section['params']:
+                    set_value(p)
+
+    def get_dynamic_form_modal(self, **kwargs):
         form_id = int(kwargs.get('form_id', 1))
         form_values_str = kwargs.get('form_values', None) or '{}'
         form_values = json.loads(form_values_str)
@@ -339,20 +357,7 @@ class DataContent:
         if form is None:
             raise Exception("Invalid form id: %s" % form_id)
 
-        definition = form.definition
-
-        def set_value(p):
-            if 'id' not in p:
-                return
-            p['value'] = form_values.get(p['id'], p.get('default', ''))
-
-        if 'params' in definition:
-            for p in definition['params']:
-                set_value(p)
-        else:
-            for section in definition['sections']:
-                for p in section['params']:
-                    set_value(p)
+        self.set_form_values(form, form_values)
 
         return {'form': form}
 
@@ -368,9 +373,6 @@ class DataContent:
     def get_pages(self, **kwargs):
         page_id = kwargs['page_id']
         page_path = os.path.join(self.app.config['PAGES'], '%s.md' % page_id)
-
-        # with open(page_path) as f:
-        #     page = f.read()
 
         return {
             'page_id': page_id,
@@ -993,6 +995,123 @@ class DataContent:
 
         return data
 
+
+    def get_projects_list(self, **kwargs):
+        # FIXME Define access/permissions for other users
+        if not self.app.user.is_manager:
+            raise Exception("Projects are only available for "
+                            "Facility staff right now")
+
+        return {'projects': self.app.dm.get_projects()}
+
+    def get_project_form(self, **kwargs):
+        dm = self.app.dm
+        project_id = kwargs['project_id']
+        if project_id:
+            project = dm.get_project_by(id=project_id)
+        else:
+            now = dm.now()
+            project = dm.Project(status='active',
+                                 date=now,
+                                 last_update_date=now,
+                                 last_update_user_id=self.app.user.id,
+                                 title='',
+                                 description='')
+
+        return {
+            'project': project,
+            'possible_owners': self.get_pi_labs()
+        }
+
+    def get_project_details(self, **kwargs):
+        # FIXME Define access/permissions for other users
+        if not self.app.user.is_manager:
+            raise Exception("Projects are only available for "
+                            "Facility staff right now")
+
+        project = self.app.dm.get_project_by(id=kwargs['project_id'])
+        entries = sorted(project.entries, key=lambda e: e.date, reverse=True)
+
+        return {
+            'project': project,
+            'entries': entries,
+            'entry_types': self.get_entry_types()
+        }
+
+    def get_entry_types(self):
+        return {
+            'grids_preparation':
+                {'label': 'Grids Preparation',
+                 'group': 1,
+                 'iconClass': "fas fa-th fa-inverse",
+                 'imageClass': "img--picture"
+                 },
+            'grids_storage':
+                {'label': 'Grids Storage',
+                 'group': 1,
+                 'iconClass': "fas fa-box fa-inverse",
+                 'imageClass': "img--picture"
+                 },
+            'screening':
+                {'label': 'Screening',
+                 'group': 2,
+                 'iconClass': "fas fa-search fa-inverse",
+                 'imageClass': "img--location"
+                 },
+            'data_acquisition':
+                {'label': 'Data Acquisition',
+                 'group': 2,
+                 'iconClass': "far fa-image fa-inverse",
+                 'imageClass': "img--location"
+                 },
+            'note':
+                {'label': 'Note',
+                 'group': 3,
+                 'iconClass': "fas fa-sticky-note fa-inverse",
+                 'imageClass': "img--picture"
+                 },
+        }
+
+    def get_entry_form(self, **kwargs):
+        dm = self.app.dm
+        now = dm.now()
+        entry_id = kwargs['entry_id']
+        if entry_id:
+            entry = dm.get_entry_by(id=entry_id)
+            if kwargs.get('copy_entry', False):
+                entry.id = None
+                entry.title = "Copy of " + entry.title
+                entry.creation_date = now
+                entry.creation_user_id = self.app.user.id
+                entry.last_update_date = now
+                entry.last_update_user_id = self.app.user.id
+        else:
+            project_id = kwargs['entry_project_id']
+            entry = dm.Entry(date=now,
+                             creation_date=now,
+                             creation_user_id=self.app.user.id,
+                             last_update_date=now,
+                             last_update_user_id=self.app.user.id,
+                             type=kwargs['entry_type'],
+                             project_id=project_id,
+                             title='',
+                             description='',
+                             extra={})
+
+        entry_type = self.get_entry_types()[entry.type]
+        form_id = "entry_form:%s" % entry.type
+        form = dm.get_form_by(name=form_id)
+        if form:
+            self.set_form_values(form, entry.extra.get('data', {}))
+            from pprint import pprint
+            pprint(form.definition)
+
+        return {
+            'entry': entry,
+            'entry_type_label': entry_type['label'],
+            'definition': None if form is None else form.definition
+        }
+
     def get_raw_user_issues(self, **kwargs):
         users = self.get_users_list()['users']
         filterKey = kwargs.get('filter', 'noroles')
@@ -1020,6 +1139,11 @@ class DataContent:
              'name': f.name,
              'definition': json.dumps(f.definition)
         } for f in self.app.dm.get_forms()]}
+
+    def get_raw_entries_list(self, **kwargs):
+        return {
+            'entries': self.app.dm.get_entries()
+        }
 
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut
