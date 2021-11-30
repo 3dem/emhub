@@ -266,10 +266,7 @@ function getFormAsJson(formId, includeEmpty){
     var json = {};
 
     $('#' + formId + ' *').filter(':input').each(function(){
-        if (!this.id.length)
-            return;
-        var type = $(this).prop('type');
-        var key = type == 'radio' ? this.name : this.id;
+        var key = $(this).data('key');
         json[key] = getInputValue(this);
     });
 
