@@ -1,0 +1,135 @@
+
+{% macro title_text(title, text) -%}
+    <div class="col-12"><h3 class="pb-0 mb-0 mt-3">{{ title }}</h3><p>{{ text }}</p></div>
+{%- endmacro %}
+
+{% macro table_card(title, pairs) -%}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="mb-1">{{ title }}</h3>
+        </div>
+
+        <div class="card-body">
+
+            <div class="table-responsive-sm">
+                <table class="table table-striped" id="details-table">
+                <tbody>
+                    {% for left, right in pairs %}
+                        <tr>
+                        <td class="col-6"><strong>{{ left }}</strong></td>
+                        <td class="col-6">{{ right }}</td>
+                        </tr>
+                    {% endfor %}
+
+                </tbody>
+                </table>
+            </div>
+
+        </div> <!-- end of card-body -->
+    </div> <!-- end of card -->
+
+{%- endmacro %}
+
+
+<div class="modal-dialog modal-dialog-centered modal-xl" role="document" data-backdrop="static" data-keyboard="false">
+<div class="modal-content">
+  <div class="modal-header">
+
+      <div class="row col-12">
+          <div class="col-9"></div>
+          <div class="col-3">
+              <button type="button" class="btn btn-outline-dark ml-5" onclick="javascript:saveReportPdf()">Save PDF</button>
+              <button type="button" class="btn btn-outline-secondary ml-2" data-dismiss="modal" aria-label="Close">Close</button>
+          </div>
+      </div>
+
+  </div>
+  <div class="modal-body" id="report-content">
+
+      <div class="card">
+          <div class="card-header">
+              <div class="row">
+                   <div class="col-8 mb-3">
+                        <img src="https://www.scilifelab.se/wp-content/uploads/2020/09/SciLifeLab_Logotype_Green_POS_large-copy-2048x445.png" width="200px">
+                    </div>
+                    <div class="col-4 mt-3">
+                        <h3>Experimental Protocol</h3>
+                    </div>
+            </div>
+          </div>
+        <div class="card-body">
+
+        <div class="row">
+            <div class="col-4">
+                <div class="row">
+                    {{ title_text('Protocol Number', 'SLL-001') }}
+                    {{ title_text('Issuer', 'Cryo-EM Facility') }}
+                </div>
+            </div>
+            <div class="col-4">
+                {{ title_text('Title', 'SPA Data Acquisition') }}
+            </div>
+            <div class="col-4">
+                {{ title_text('Version', 'V-0001') }}
+                {{ title_text('Replaces', '') }}
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-4">
+                <div class="row">
+                    {{ title_text('Valid From', '2021-11-26') }}
+                </div>
+            </div>
+            <div class="col-4">
+                {{ title_text('Refers to Protocol', 'sll-0001-SPA Data Acquisition') }}
+            </div>
+            <div class="col-4">
+                {{ title_text('', 'Page 1 of 3') }}
+            </div>
+        </div>
+
+        </div>
+      </div>
+
+            {{ table_card('Session Details',
+                [('Project ID', 'CEM00046'),
+                 ('User', 'J.M. de la Rosa'),
+                 ('Institute', 'Uppsala University'),
+                 ('Responsible Staff', 'Dustin Morado'),
+                 ('Start Date', '2021-11-30'),
+                 ('Number of Days', '2')
+                 ])
+            }}
+
+            {{ table_card('Sample Details',
+                [('Sample / Grid ID', 'g005-dg'),
+                 ('Grid Type', 'Carbon')
+                 ])
+            }}
+
+            <p class="html2pdf__page-break"></p>
+
+            {{ table_card('Microscope Details',
+                [('Detector [Mode]', 'Counting'),
+                 ('Accelerating Voltage', '300 keV'),
+                 ('Spherical Aberration', '2.7 mm')
+                 ])
+            }}
+
+            {{ table_card('Software Details',
+                [('Collection Software', 'SerialEM xxx'),
+                 ('Selection Type', 'Automated'),
+                 ('Acquisition Mode', 'Faster Acquisition')
+                 ])
+            }}
+
+  </div>
+
+</div>
+</div>
+
+
+
+
+
