@@ -15,7 +15,7 @@
     {% if enum['display'] == 'combo' %}
         {% set multipleStr = 'multiple' if is_multiple else '' %}
         {% set classStr = 'selectpicker show-tick' if selectpicker else '' %}
-        <select class="{{ classStr }}" data-width="auto"  {{ multipleStr }} title="None" {{ data_key }}>
+        <select class="{{ classStr }}" data-width="auto"  {{ multipleStr }} title="None"  data-live-search="true" {{ data_key }}>
         {% for o in enum['choices'] %}
             {% set selected = 'selected' if o|string in values else '' %}
             <option value="{{ o }}" {{ selected }}>{{ o }}</option>'

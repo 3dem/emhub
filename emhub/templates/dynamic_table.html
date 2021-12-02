@@ -5,13 +5,9 @@
 <div class="row mb-2">
 <div class="col-12">
     <div class="row">
-{#        <button class="btn btn-sm btn-outline-light ml-3" onclick="javascript:addRow()"><i class="fas fa-plus-circle"></i></button>#}
-{#        <button class="btn btn-sm btn-outline-light ml-2"><i class="far fa-copy"></i></button>#}
-{#        <button class="btn btn-sm btn-outline-light ml-2"><i class="far fa-trash-alt"></i></button>#}
-
         <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:addRow()"><i class="fas fa-plus-circle"></i>   </a></div>
-                    <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:copyRows()"><i class="fas fa-copy"></i>   </a></div>
-                    <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:deleteRows()"><i class="fas fa-trash-alt"></i> </a></div>
+        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:copyRows()"><i class="fas fa-copy"></i>   </a></div>
+        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:deleteRows()"><i class="fas fa-trash-alt"></i> </a></div>
     </div>
 </div>
 </div>
@@ -104,6 +100,7 @@
     }
 
     function addRow(){
+        var rowElement = document.getElementById('template-row');
         rowElement.parentNode.appendChild(createNewRow());
         $('.data-row select').selectpicker('refresh');
 
