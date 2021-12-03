@@ -44,6 +44,8 @@
 {% set total_dose = data['exposure_time']|float * dose_rate_A %}
 {% set dose_per_fractions = total_dose / data['dose_fractions']|float %}
 
+<p class="html2pdf__page-break"></p>
+
 {{ macros.table_card('Data Acquisition Details',
     [('Apertures (C1, C2, C3)', apertures),
      ('Objective Aperture', objective_aperture),
@@ -64,17 +66,3 @@
      ('Dose per Fraction', '%0.3f e⁻/Å²'|format(dose_per_fractions))
      ])
 }}
-
-
-
-
-
-
-
-
-
-
-
-
-
-

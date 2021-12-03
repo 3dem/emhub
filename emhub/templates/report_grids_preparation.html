@@ -7,13 +7,13 @@
          ['Grid Box Slots'],
          ['Sample(s)'],
          ['Grid Type'],
-         ['Add. Grid Info.'],
+         ['Additional Grid Info'],
          ['Glow Discharge'],
          ['Device, Temp., RH (%)'],
          ['Blot Time, Wait Time, Drain Time (s)'],
          ['Blot Force, Blot Total, No. Applications'],
          ['Manual Blot / Backside Blot'],
-         ['Add. Freezing Info.']
+         ['Additional Freezing Info']
         ]
     %}
 
@@ -34,10 +34,10 @@
             {% do info[3].append(row['grid_info']) %}
             {% do info[4].append('%s %smA %ss'|format(row['glow_device'], row['glow_current'], row['glow_time'])) %}
             {% do info[5].append('%s %s°C %s%%'|format(row['device'], row['temperature'], row['humidity'])) %}
+            {% do info[6].append('%ss, %ss, %ss'|format(row['blot_time'], row['wait_time'], row['drain_time'])) %}
+            {% do info[7].append('%s, %s, %s'|format(row['blot_force'], row['blot_total'], row['applications_number'])) %}
+            {% do info[8].append('%s %s°C %s%%'|format(row['device'], row['temperature'], row['humidity'])) %}
 
-            {% for l in info[6:] %}
-                {% do l.append('') %}
-            {% endfor %}
         {% else %}
             {% for l in info %}
                 {% do l.append('') %}
@@ -46,6 +46,8 @@
     {% endfor %}
 
     {{ macros.table_card('Grid Box: ' + label, info) }}
+
+    <p class="html2pdf__page-break"></p>
 
 
 {% endfor %}
