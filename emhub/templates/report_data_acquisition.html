@@ -38,13 +38,42 @@
 
 {% set apertures = "%s µm, %s µm, %s µm"|format(data['aperture_c1'], data['aperture_c1'], data['aperture_c1'])%}
 {% set objective_aperture = "%s µm"|format(data['objective_aperture']) %}
+{% set pixel_size = data['pixel_size']|float %}
+{% set dose_rate = data['dose_rate']| float %}
+{% set dose_rate_A = dose_rate / (pixel_size*pixel_size) %}
+{% set total_dose = data['exposure_time']|float * dose_rate_A %}
+{% set dose_per_fractions = total_dose / data['dose_fractions']|float %}
 
 {{ macros.table_card('Data Acquisition Details',
     [('Apertures (C1, C2, C3)', apertures),
      ('Objective Aperture', objective_aperture),
-     ('Acquisition Mode', data['acquisition_mode'])
+     ('Energy Filter Slit Width', '%s eV'|format(data['energy_filter_slit_width'])),
+     ('Illuminated Area', '%s µm'|format(data['illuminated_area'])),
+     ('Spot Size', data['spot_size']),
+     ('Tilt Angle', '%s °'|format(data['tilt_angle'])),
+     ('Nominal Magnification', '%s X'|format(data['nominal_magnification'])),
+     ('Pixel Size', '%s Å'|format(data['pixel_size'])),
+     ('Defocus Range', '%s µm to %s µm'|format(data['low_defocus_target'], data['high_defocus_target'])),
+     ('Defocus Step', '%s µm'|format(data['defocus_step'])),
+     ('Dose Rate', '%0.3f e⁻/px/s'|format(dose_rate)),
+     ('Dose Rate', '%0.3f e⁻/Å²/s'|format(dose_rate_A)),
+
+     ('Exposure Time',  '%s s'|format(data['exposure_time'])),
+     ('Total Dose', '%0.3f e⁻/Å²'|format(total_dose)),
+     ('Dose Fractions (type)', '%s (%s %s)'|format(data['dose_fractions'], data['fraction_size'], data['fraction_format'])),
+     ('Dose per Fraction', '%0.3f e⁻/Å²'|format(dose_per_fractions))
      ])
 }}
+
+
+
+
+
+
+
+
+
+
 
 
 

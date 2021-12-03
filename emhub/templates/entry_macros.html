@@ -15,11 +15,13 @@
                 <table class="table table-striped" id="details-table">
                 <tbody>
                     {% for row in rows %}
-                        <tr>
-                        <td class="col-6"><strong>{{ row[0] }}</strong></td>
-                        {% for value in row[1:] %}
-                            <td class="col-6">{{ value }}</td>
-                        {% endfor %}
+                        <tr class="row">
+                            {% set w = 12//(row|length) %}
+                            {% set r = w + 12 % (row|length) %}
+                            <td class="col-{{ r }}"><strong>{{ row[0] }}</strong></td>
+                            {% for value in row[1:] %}
+                                <td class="col-{{ w }}">{{ value }}</td>
+                            {% endfor %}
                         </tr>
                     {% endfor %}
 

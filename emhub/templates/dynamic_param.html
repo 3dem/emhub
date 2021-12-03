@@ -39,8 +39,10 @@
         </label>
     {% elif type == 'text' %}
         <textarea required="" class="form-control"   style="min-width: 100px;" {{ data_key }}>{{ value }}</textarea>
-    {% else %}
+    {% elif type in ['number', 'int', 'float'] %}
         <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
+    {% else %}
+        <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 200px;" {{ data_key }}>
     {% endif %}
 {% endif %}
 

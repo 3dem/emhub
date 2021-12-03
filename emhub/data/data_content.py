@@ -1123,18 +1123,35 @@ class DataContent:
             raise Exception("Please provide a valid Entry id. ")
 
         entry_type = self.get_entry_types()[entry.type]
+        data = entry.extra['data']
 
         if not 'report' in entry_type:
             raise Exception("There is no Report associated with this Entry. ")
 
+        # Group data rows by gridboxes (label)
+        if entry.type in ['grids_preparation']:
+            #TODO: Some possible validations
+            #TODO:      - There are no more that 4 slots per gridbox
+            #TODO:      - There are no duplicated slots
+            table = data[entry.type + '_table']
+            gridboxes = {}
+
+            for row in table:
+                label = row['gridbox_label']
+                if label not in gridboxes:
+                    gridboxes[label] = {}
+                slots = map(int, row['gridbox_slot'])
+                for s in slots:
+                    gridboxes[label][s] = row
+
+            data['gridboxes'] = gridboxes
+
+
         return {
             'entry': entry,
             'entry_type': entry_type,
-            'data': entry.extra['data']
+            'data': data
         }
-
-
-
 
     def get_raw_user_issues(self, **kwargs):
         users = self.get_users_list()['users']
