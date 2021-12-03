@@ -272,7 +272,8 @@ def create_app(test_config=None):
 
     @app.template_filter('id_from_label')
     def id_from_label(label):
-        return label.replace(' ', '_')
+        return label.translate(label.maketrans("", "", "!#$%^&*()/\\ "))
+        #return label.replace(' ', '_')
 
     @app.template_filter('range_params')
     def range_params(date_range):
@@ -284,7 +285,7 @@ def create_app(test_config=None):
         return flask.url_for('main', content_id=contentId, **kwargs)
 
     app.jinja_env.globals.update(url_for_content=url_for_content)
-
+    app.jinja_env.add_extension('jinja2.ext.do')
     app.jinja_env.filters['reverse'] = basename
     app.jinja_env.filters['pretty_datetime'] = pretty_datetime
     app.jinja_env.filters['pretty_date'] = pretty_date
