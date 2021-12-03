@@ -16,8 +16,9 @@
                 <tbody>
                     {% for row in rows %}
                         <tr class="row">
-                            {% set w = 12//(row|length) %}
-                            {% set r = w + 12 % (row|length) %}
+                            {% set n = row|length %}
+                            {% set w = 12 // n %}
+                            {% set r = w + 12 % n %}
                             <td class="col-{{ r }}"><strong>{{ row[0] }}</strong></td>
                             {% for value in row[1:] %}
                                 <td class="col-{{ w }}">{{ value }}</td>

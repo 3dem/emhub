@@ -18,6 +18,8 @@
     %}
 
     {% for i in range(1, 5) %}
+        {% do info[0].append(i) %}
+
         {% if i in gridbox %}
             {% set row = gridbox[i] %}
             
@@ -27,8 +29,6 @@
             {% set mesh = 'Other' if row['mesh'] == 'Other' else row['mesh'][0] %}
             {% set grid_material = {'Copper': 'Cu', 'Gold': 'Au', 'Nickel': 'Ni', "Molybdenum": "Mo", 'Other': 'Other'}[row['grid_material']] %}
             {% set grid_type = '%s-%s %s-%s%s%s'|format(row['grid_manufacturer'], film, hole_size_prefix, hole_size, mesh, grid_material) %}
-            
-            {% do info[0].append(i) %}
             {% do info[1].append(row['sample']) %}
             {% do info[2].append(grid_type) %}
             {% do info[3].append(row['grid_info']) %}
@@ -39,7 +39,7 @@
             {% do info[8].append('%s %s°C %s%%'|format(row['device'], row['temperature'], row['humidity'])) %}
 
         {% else %}
-            {% for l in info %}
+            {% for l in info[1:] %}
                 {% do l.append('') %}
             {% endfor %}
         {% endif %}

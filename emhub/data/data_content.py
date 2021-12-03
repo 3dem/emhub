@@ -1051,7 +1051,8 @@ class DataContent:
                 {'label': 'Grids Storage',
                  'group': 1,
                  'iconClass': "fas fa-box fa-inverse",
-                 'imageClass': "img--picture"
+                 'imageClass': "img--picture",
+                 'report': "report_grids_storage.html"
                  },
             'screening':
                 {'label': 'Screening',
@@ -1129,7 +1130,7 @@ class DataContent:
             raise Exception("There is no Report associated with this Entry. ")
 
         # Group data rows by gridboxes (label)
-        if entry.type in ['grids_preparation']:
+        if entry.type in ['grids_preparation', 'grids_storage']:
             #TODO: Some possible validations
             #TODO:      - There are no more that 4 slots per gridbox
             #TODO:      - There are no duplicated slots
