@@ -52,7 +52,9 @@
                     <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }})"><i class="fas fa-edit"></i>   </a></div>
                     <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
                     <div class="col-1"><a href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i> </a></div>
-                    <div class="col-1"><a href="javascript:showEntryReport({{ entry.id }})"><i class="fas fa-file-alt"></i> </a></div>
+                    {% if 'report' in entry_type %}
+                        <div class="col-1"><a href="javascript:showEntryReport({{ entry.id }})"><i class="fas fa-file-alt"></i> </a></div>
+                    {% endif %}
                 </div>
 
                 <hr class="mt-0"/>
@@ -240,7 +242,7 @@ function handleAjaxFail(jqXHR, textStatus) {
 
 /* Show the Application Form, either for a new booking or an existing one */
 function showEntryReport(entry_id) {
-    ajaxContent = get_ajax_content("report_data_acquisition",
+    ajaxContent = get_ajax_content("entry_report",
                                    {
                                        entry_id: entry_id
                                    });
@@ -263,7 +265,7 @@ function saveReportPdf() {
     var elementHTML = $('#report-content').html();
 
     var opt = {
-        margin:       1,
+        margin:       10,
         filename:     'myfile.pdf',
         //pagebreak:  { mode: '', before: '.before', after: '.after', avoid: '.avoid' },
         pagebreak: {mode: 'legacy'},

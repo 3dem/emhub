@@ -1,0 +1,33 @@
+
+{% macro title_text(title, text) -%}
+    <div class="col-12"><h3 class="pb-0 mb-0 mt-3">{{ title }}</h3><p>{{ text }}</p></div>
+{%- endmacro %}
+
+{% macro table_card(title, rows) -%}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="mb-1">{{ title }}</h3>
+        </div>
+
+        <div class="card-body">
+
+            <div class="table-responsive-sm">
+                <table class="table table-striped" id="details-table">
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                        <td class="col-6"><strong>{{ row[0] }}</strong></td>
+                        {% for value in row[1:] %}
+                            <td class="col-6">{{ value }}</td>
+                        {% endfor %}
+                        </tr>
+                    {% endfor %}
+
+                </tbody>
+                </table>
+            </div>
+
+        </div> <!-- end of card-body -->
+    </div> <!-- end of card -->
+
+{%- endmacro %}

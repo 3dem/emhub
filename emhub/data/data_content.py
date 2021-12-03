@@ -1044,7 +1044,8 @@ class DataContent:
                 {'label': 'Grids Preparation',
                  'group': 1,
                  'iconClass': "fas fa-th fa-inverse",
-                 'imageClass': "img--picture"
+                 'imageClass': "img--picture",
+                 'report': "report_grids_preparation.html"
                  },
             'grids_storage':
                 {'label': 'Grids Storage',
@@ -1062,7 +1063,8 @@ class DataContent:
                 {'label': 'Data Acquisition',
                  'group': 2,
                  'iconClass': "far fa-image fa-inverse",
-                 'imageClass': "img--location"
+                 'imageClass': "img--location",
+                 'report': "report_data_acquisition.html"
                  },
             'note':
                 {'label': 'Note',
@@ -1111,6 +1113,28 @@ class DataContent:
             'entry_type_label': entry_type['label'],
             'definition': None if form is None else form.definition
         }
+
+    def get_entry_report(self, **kwargs):
+        dm = self.app.dm
+        entry_id = kwargs['entry_id']
+        entry = dm.get_entry_by(id=entry_id) if entry_id else None
+
+        if entry is None:
+            raise Exception("Please provide a valid Entry id. ")
+
+        entry_type = self.get_entry_types()[entry.type]
+
+        if not 'report' in entry_type:
+            raise Exception("There is no Report associated with this Entry. ")
+
+        return {
+            'entry': entry,
+            'entry_type': entry_type,
+            'data': entry.extra['data']
+        }
+
+
+
 
     def get_raw_user_issues(self, **kwargs):
         users = self.get_users_list()['users']
