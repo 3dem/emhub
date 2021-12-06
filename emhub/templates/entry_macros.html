@@ -34,3 +34,17 @@
     </div> <!-- end of card -->
 
 {%- endmacro %}
+
+
+{% macro image_card(title, imgSource) -%}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="mb-1">{{ title }}</h3>
+        </div>
+
+        <div class="card-body p-0">
+            <img src="{{ imgSource }}" width="100%" class="m-0">
+        </div> <!-- end of card-body -->
+    </div> <!-- end of card -->
+
+{%- endmacro %}

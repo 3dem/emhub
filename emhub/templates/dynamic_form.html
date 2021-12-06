@@ -49,15 +49,32 @@
 
 
 <script>
+
+    function onBrowse(rootId){
+        $('#' + rootId + '--file').click();
+    }
+
+    function onClear(rootId){
+        var textId = '#' + rootId + '--text';
+        $(textId).val('DELETE: ' + $(textId).val());
+    }
+
+    function updateFilePath(fileUpload) {
+        if ( fileUpload.files && fileUpload.files[0] ){
+            var textId = fileUpload.id.replace("--file", "--text");
+            $('#' + textId).val(fileUpload.files[0].name);
+        }
+    }
+
     (function(window, document, $, undefined) {
     "use strict";
 
     $('.selectpicker').selectpicker();
 
-    // by this default 'Nothing selected' -->will change to 'No selection'
-{#    $('.selectpicker').selectpicker({#}
-{#        noneSelectedText : 'None'#}
-{#    });#}
+    $(".browser-file-input").change(function(){
+        updateFilePath( this );
+    });
 
 })(window, document, window.jQuery);
 </script>
+
