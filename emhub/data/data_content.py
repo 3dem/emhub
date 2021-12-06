@@ -171,11 +171,13 @@ class DataContent:
 
     def get_sessions_list(self, **kwargs):
         sessions = self.app.dm.get_sessions()
-        bookingDict = {
-            s.booking.id: self.booking_to_event(s.booking,
-                                                prettyDate=True, piApp=True)
-            for s in sessions
-        }
+        bookingDict = {}
+        for s in sessions:
+            if s.booking:
+                b = self.booking_to_event(s.booking,
+                                          prettyDate=True, piApp=True)
+                bookingDict[s.booking.id] = b
+
         return {
             'sessions': sessions,
             'bookingDict': bookingDict,
