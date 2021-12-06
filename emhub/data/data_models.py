@@ -324,7 +324,7 @@ def create_data_models(dm):
 
         def same_pi(self, other):
             """ Return if the same pi. """
-            return self.get_pi() == other.get_pi()
+            return other is not None and self.get_pi() == other.get_pi()
 
         def get_applications(self, status='active'):
             """ Return the applications of this user.
