@@ -35,37 +35,39 @@
                             </thead>
                             <tbody>
                             {% for p in projects %}
-                                {% set status = p['status'] %}
-                                {% if is_manager or status != 'disabled' %}
-                                    {% set badge_type = 'success' if status == 'active' else 'light' %}
-                                    {% set color = 'black' if status == 'active' else 'gray' %}
-                                <tr style="color: {{ color }}">
-                                    <td>
+                                {% if is_manager or current_user.same_pi(p.user) %}
+                                    {% set status = p['status'] %}
+                                    {% if is_manager or status != 'disabled' %}
                                         {% set badge_type = 'success' if status == 'active' else 'light' %}
-{#                                        if status == 'disabled' else 'info') %}#}
-                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ p.id }}</a>
-                                    </td>
+                                        {% set color = 'black' if status == 'active' else 'gray' %}
+                                    <tr style="color: {{ color }}">
+                                        <td>
+                                            {% set badge_type = 'success' if status == 'active' else 'light' %}
+    {#                                        if status == 'disabled' else 'info') %}#}
+                                            <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ p.id }}</a>
+                                        </td>
 
-                                    <td>{{ p.date|pretty_date }}</td>
-                                    <td>{{ p.status }}</td>
-                                    <td>{{ p.user.name }}/{{ p.user.get_pi().name }}</td>
-                                    <td>{{ p.title }}</td>
-                                    <td>{{ p.last_update_date|pretty_date }}</td>
-                                    <td>{{ p.last_update_user.name }}</td>
-                                    <td>
-                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
-                                            <i class="fa fa-eye"></i></a>
+                                        <td>{{ p.date|pretty_date }}</td>
+                                        <td>{{ p.status }}</td>
+                                        <td>{{ p.user.name }}/{{ p.user.get_pi().name }}</td>
+                                        <td>{{ p.title }}</td>
+                                        <td>{{ p.last_update_date|pretty_date }}</td>
+                                        <td>{{ p.last_update_user.name }}</td>
+                                        <td>
+                                            <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
+                                                <i class="fa fa-eye"></i></a>
 
-                                        {% if is_manager %}
-                                             <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
-                                                 <i class="far fa-edit"></i></a>
-                                             <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
-                                                 <i class="far fa-trash-alt"></i></a>
+                                            {% if is_manager %}
+                                                 <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
+                                                     <i class="far fa-edit"></i></a>
+                                                 <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
+                                                     <i class="far fa-trash-alt"></i></a>
 
-                                        {% endif %}
-                                    </td>
+                                            {% endif %}
+                                        </td>
 
-                                </tr>
+                                    </tr>
+                                    {% endif %}
                                 {% endif %}
                             {% endfor %}
 

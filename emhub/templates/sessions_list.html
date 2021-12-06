@@ -49,7 +49,7 @@
                                     {% set owner_name = None %}
                                 {% endif %}
 
-                                {% if is_manager or current_user.get_pi() == owner_pi %}
+                                {% if is_manager or current_user.same_pi(owner_pi) %}
                                     <tr>
                                         <td>{{ s.id }}</td>
                                         <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
