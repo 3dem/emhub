@@ -296,6 +296,21 @@ function getFormAsJson(formId, includeEmpty){
 } // function onFormOk
 
 
+
+function getFilesFromForm(formId) {
+    var json = {};
+
+    $('#' + formId + ' *').filter(':input').each(function(){
+        var key = $(this).data('key');
+        if (key && $(this).prop('type') === 'file')
+           if (this.files && this.files[0])
+                json[key] = this.files[0];
+    });
+
+    return json;
+}
+
+
 function create_sparkline(id, values, args) {
     const new_args = Object.assign({
         type: 'line',

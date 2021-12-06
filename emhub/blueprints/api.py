@@ -28,6 +28,7 @@
 
 import os
 import time
+import json
 
 import flask
 from flask import request
@@ -557,6 +558,10 @@ def create_entry():
 @api_bp.route('/update_entry', methods=['POST'])
 @flask_login.login_required
 def update_entry():
+    print("Files: ")
+    for f in request.files:
+        print(f)
+
     return handle_entry(app.dm.update_entry)
 
 
@@ -594,9 +599,13 @@ def fix_dates(attrs, *date_keys):
 
 def _handle_item(handle_func, result_key):
     try:
-        if not request.json:
-            raise Exception("Expecting JSON request.")
-        result = handle_func(**request.json['attrs'])
+        if request.json:
+            attrs = request.json['attrs']
+        elif request.form:
+            attrs = json.loads(request.form['attrs'])
+        else:
+            raise Exception("Expecting JSON or Form request.")
+        result = handle_func(**attrs)
         return send_json_data({result_key: result})
     except Exception as e:
         print(e)

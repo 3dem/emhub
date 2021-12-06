@@ -193,21 +193,32 @@ function onEntryOkButtonClick() {
         endpoint = "{{ url_for('api.create_entry') }}";
     }
 
-    sendAjax(endpoint, entry);
-}  // function onTemplateOkButtonClick
+    var formData = new FormData();
+    formData.append('attrs', JSON.stringify(entry));
 
+     var files = getFilesFromForm('dynamic-form');
+     Object.keys(files).forEach(function(key) {
+        formData.append(key, files[key]);
+     });
 
-function sendAjax(endpoint, attrs) {
     var ajaxContent = $.ajax({
         url: endpoint,
         type: "POST",
-        contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify({attrs: attrs}),
+        data: formData,
+{#        contentType: 'application/json; charset=utf-8',#}
+{#        dataType: "json"#}
+        processData: false,
+        contentType: false,
         dataType: "json"
     });
 
     ajaxContent.done(handleAjaxDone);
     ajaxContent.fail(handleAjaxFail);
+}  // function onTemplateOkButtonClick
+
+
+function sendAjax(endpoint, attrs) {
+
 } // function sendAjax
 
 
