@@ -40,29 +40,38 @@
                             </thead>
                             <tbody>
                             {% for s in sessions %}
-                                {% if is_manager or current_user.get_pi() == s.booking.owner.get_pi() %}
-                            <tr>
-                                <td>{{ s.id }}</td>
-                                <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
-                                <td>{{ s.start|pretty_date }} </td>
-                                <td>{{ s.status }}</td>
-                                {% if is_admin %}
-                                    <td>{{ s.extra }}</td>
-                                    <td>{{ s.data_path }}</td>
+                                {% set booking = s.booking %}
+                                {% if booking %}
+                                    {% set owner_pi = s.booking.owner.get_pi() %}
+                                    {% set owner_name = s.booking.owner.name %}
+                                {% else %}
+                                    {% set owner_pi = None %}
+                                    {% set owner_name = None %}
                                 {% endif %}
-                                    <td><a href="javascript:showBooking({{ s.booking_id }})">{{ s.booking_id }}</a></td>
+
+                                {% if is_manager or current_user.same_pi(owner_pi) %}
+                                    <tr>
+                                        <td>{{ s.id }}</td>
+                                        <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
+                                        <td>{{ s.start|pretty_date }} </td>
+                                        <td>{{ s.status }}</td>
+                                        {% if is_admin %}
+                                            <td>{{ s.extra }}</td>
+                                            <td>{{ s.data_path }}</td>
+                                        {% endif %}
+                                            <td><a href="javascript:showBooking({{ s.booking_id }})">{{ s.booking_id }}</a></td>
 
 
-                                <td>{{ s.booking.owner.name }}</td>
-                                <td>{{ s.operator.name }}</td>
+                                        <td>{{ owner_name }}</td>
+                                        <td>{{ s.operator.name }}</td>
 
-                                {% if is_manager %}
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
-                                                <i class="far fa-trash-alt"></i></button>
-                                        </td>
-                                {% endif %}
-                            </tr>
+                                        {% if is_manager %}
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
+                                                        <i class="far fa-trash-alt"></i></button>
+                                                </td>
+                                        {% endif %}
+                                    </tr>
                                 {% endif %}
                             {% endfor %}
 

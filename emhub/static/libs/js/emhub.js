@@ -56,14 +56,21 @@ function dateStr(date) {
 }
 
 function dateFromValue(dateId, timeId) {
-    var dateVal = $(dateId).val().replace(/\//g, ' ')
+    var dateVal = $(dateId).val();
 
     if (timeId)
         dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
 
     console.log(dateVal);
 
-    return new Date(dateVal);
+    var date = new Date(dateVal);
+
+    // If the parsing fails with date separator /, let's try with spaces
+    if (isNaN(date)){
+        dateVal = dateVal.replace(/\//g, ' ');
+        date = new Date(dateVal);
+    }
+    return date;
 }
 
 function dateIsoFromValue(dateId, timeId) {
@@ -270,8 +277,6 @@ function getFormAsJson(formId, includeEmpty){
         json[key] = getInputValue(this);
     });
 
-    //alert("finding tables, form: #" + formId);
-
     $('#' + formId + " table").each(function () {
         var row_list = [];
 
@@ -294,6 +299,21 @@ function getFormAsJson(formId, includeEmpty){
     }
     return newJson;
 } // function onFormOk
+
+
+
+function getFilesFromForm(formId) {
+    var json = {};
+
+    $('#' + formId + ' *').filter(':input').each(function(){
+        var key = this.id.replace('--file', '');
+        if (key && $(this).prop('type') === 'file')
+           if (this.files && this.files[0])
+                json[key] = this.files[0];
+    });
+
+    return json;
+}
 
 
 function create_sparkline(id, values, args) {

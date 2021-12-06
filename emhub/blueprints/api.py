@@ -28,6 +28,8 @@
 
 import os
 import time
+import json
+from glob import glob
 
 import flask
 from flask import request
@@ -539,7 +541,6 @@ def update_project():
 def delete_project():
     return handle_project(app.dm.delete_project)
 
-
 # ------------------------------ ENTRIES ---------------------------------
 
 @api_bp.route('/get_entries', methods=['GET', 'POST'])
@@ -551,13 +552,13 @@ def get_entries():
 @api_bp.route('/create_entry', methods=['POST'])
 @flask_login.login_required
 def create_entry():
-    return handle_entry(app.dm.create_entry)
+    return handle_entry(app.dm.create_entry, copy_entry_files)
 
 
 @api_bp.route('/update_entry', methods=['POST'])
 @flask_login.login_required
 def update_entry():
-    return handle_entry(app.dm.update_entry)
+    return handle_entry(app.dm.update_entry, copy_entry_files)
 
 
 @api_bp.route('/delete_entry', methods=['POST'])
@@ -594,9 +595,13 @@ def fix_dates(attrs, *date_keys):
 
 def _handle_item(handle_func, result_key):
     try:
-        if not request.json:
-            raise Exception("Expecting JSON request.")
-        result = handle_func(**request.json['attrs'])
+        if request.json:
+            attrs = request.json['attrs']
+        elif request.form:
+            attrs = json.loads(request.form['attrs'])
+        else:
+            raise Exception("Expecting JSON or Form request.")
+        result = handle_func(**attrs)
         return send_json_data({result_key: result})
     except Exception as e:
         print(e)
@@ -691,9 +696,50 @@ def handle_project(project_func):
     return _handle_item(handle, 'project')
 
 
-def handle_entry(entry_func):
+def copy_entry_files(attrs):
+    """ Function used when creating or updating an Entry.
+    It will handle the upload of new files.
+    """
+    data = attrs['extra']['data']
+
+    from pprint import pprint
+    pprint(data)
+
+    def _path(key):
+        base = 'entry-file-%06d-%s' % (int(attrs['id']), key)
+        return os.path.join(app.config['ENTRY_FILES'], base)
+
+    def _file(key, fn):
+        _, ext = os.path.splitext(fn)
+        return _path(key) + ext
+
+    def _clean(key):
+        """ Clean all previous files starting with that key. """
+        for fn in glob(_path(key) + '.*'):
+            os.remove(fn)
+
+    for f in request.files:
+        file = request.files[f]
+
+        fn = file.filename
+        if fn:
+            _clean(f)
+            data[f] = fn
+            file.save(_file(f, fn))
+
+    for key in data:
+        if data[key].startswith('DELETE:'):
+            print("Deleting...key=%s, value=%s" % (key, data[key]))
+            _clean(key)
+            data[key] = ''
+
+
+def handle_entry(entry_func, files_func=None):
     def handle(**attrs):
         fix_dates(attrs, 'date')
+        if files_func:
+            files_func(attrs)
+
         return entry_func(**attrs).json()
 
     return _handle_item(handle, 'entry')

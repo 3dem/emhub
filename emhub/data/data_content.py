@@ -34,7 +34,8 @@ import flask
 import flask_login
 
 from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
-                         datetime_from_isoformat, get_quarter, pretty_quarter)
+                         datetime_from_isoformat, get_quarter, pretty_quarter,
+                         image)
 
 
 class DataContent:
@@ -171,11 +172,13 @@ class DataContent:
 
     def get_sessions_list(self, **kwargs):
         sessions = self.app.dm.get_sessions()
-        bookingDict = {
-            s.booking.id: self.booking_to_event(s.booking,
-                                                prettyDate=True, piApp=True)
-            for s in sessions
-        }
+        bookingDict = {}
+        for s in sessions:
+            if s.booking:
+                b = self.booking_to_event(s.booking,
+                                          prettyDate=True, piApp=True)
+                bookingDict[s.booking.id] = b
+
         return {
             'sessions': sessions,
             'bookingDict': bookingDict,
@@ -998,10 +1001,6 @@ class DataContent:
 
     def get_projects_list(self, **kwargs):
         # FIXME Define access/permissions for other users
-        if not self.app.user.is_manager:
-            raise Exception("Projects are only available for "
-                            "Facility staff right now")
-
         return {'projects': self.app.dm.get_projects()}
 
     def get_project_form(self, **kwargs):
@@ -1025,11 +1024,17 @@ class DataContent:
 
     def get_project_details(self, **kwargs):
         # FIXME Define access/permissions for other users
-        if not self.app.user.is_manager:
-            raise Exception("Projects are only available for "
-                            "Facility staff right now")
+        user = self.app.user  # shortchut
 
         project = self.app.dm.get_project_by(id=kwargs['project_id'])
+
+        if project is None:
+            raise Exception("Invalid Project Id %s" % kwargs['project_id'])
+
+        if not user.is_manager and not user.same_pi(project.user):
+            raise Exception("You do not have permissions to see this project")
+
+
         entries = sorted(project.entries, key=lambda e: e.date, reverse=True)
 
         return {
@@ -1044,13 +1049,15 @@ class DataContent:
                 {'label': 'Grids Preparation',
                  'group': 1,
                  'iconClass': "fas fa-th fa-inverse",
-                 'imageClass': "img--picture"
+                 'imageClass': "img--picture",
+                 'report': "report_grids_preparation.html"
                  },
             'grids_storage':
                 {'label': 'Grids Storage',
                  'group': 1,
                  'iconClass': "fas fa-box fa-inverse",
-                 'imageClass': "img--picture"
+                 'imageClass': "img--picture",
+                 'report': "report_grids_storage.html"
                  },
             'screening':
                 {'label': 'Screening',
@@ -1062,7 +1069,8 @@ class DataContent:
                 {'label': 'Data Acquisition',
                  'group': 2,
                  'iconClass': "far fa-image fa-inverse",
-                 'imageClass': "img--location"
+                 'imageClass': "img--location",
+                 'report': "report_data_acquisition.html"
                  },
             'note':
                 {'label': 'Note',
@@ -1103,13 +1111,59 @@ class DataContent:
         form = dm.get_form_by(name=form_id)
         if form:
             self.set_form_values(form, entry.extra.get('data', {}))
-            from pprint import pprint
-            pprint(form.definition)
-
         return {
             'entry': entry,
             'entry_type_label': entry_type['label'],
             'definition': None if form is None else form.definition
+        }
+
+    def get_entry_report(self, **kwargs):
+        dm = self.app.dm
+        entry_id = kwargs['entry_id']
+        entry = dm.get_entry_by(id=entry_id) if entry_id else None
+
+        if entry is None:
+            raise Exception("Please provide a valid Entry id. ")
+
+        entry_type = self.get_entry_types()[entry.type]
+        data = entry.extra['data']
+
+        if not 'report' in entry_type:
+            raise Exception("There is no Report associated with this Entry. ")
+
+        images = {}
+
+        for key, value in data.items():
+            if key.endswith('_image'):
+                fn = dm.get_entry_file(entry, key)
+                if os.path.exists(fn):
+                    _, ext = os.path.splitext(fn)
+                    images[key] = 'data:image/%s;base64, ' + image.fn_to_base64(fn)
+
+        # Group data rows by gridboxes (label)
+        if entry.type in ['grids_preparation', 'grids_storage']:
+            #TODO: Some possible validations
+            #TODO:      - There are no more that 4 slots per gridbox
+            #TODO:      - There are no duplicated slots
+            table = data[entry.type + '_table']
+            gridboxes = {}
+
+            for row in table:
+                label = row['gridbox_label']
+                if label not in gridboxes:
+                    gridboxes[label] = {}
+                slots = map(int, row['gridbox_slot'])
+                for s in slots:
+                    gridboxes[label][s] = row
+
+            data['gridboxes'] = gridboxes
+
+
+        return {
+            'entry': entry,
+            'entry_type': entry_type,
+            'data': data,
+            'images': images
         }
 
     def get_raw_user_issues(self, **kwargs):

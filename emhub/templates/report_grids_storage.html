@@ -1,0 +1,62 @@
+
+{% import "entry_macros.html" as macros %}
+
+{% for label, gridbox in data['gridboxes'].items() %}
+
+
+    {% set info = [
+         ['Dewar, Cane'],
+         ['Puck (Color - Label), Position'],
+         ['Grid Box Slots'],
+         ['Sample(s)'],
+         ['Session(s)'],
+         ['Atlas / EPU  ']
+        ]
+    %}
+
+    {% for i in range(1, 5) %}
+        {% do info[2].append(i) %}
+
+        {% if i in gridbox %}
+            {% set row = gridbox[i] %}
+            {% set atlas = 'Yes' if row['atlas'] else 'No' %}
+            {% set epu = 'Yes' if row['EPU'] else 'No' %}
+
+            {% if info[0]|length == 1 %}
+                {% do info[0].append('Dewar: %s, Cane: %s'|format(row['dewar_number'], row['cane_number'])) %}
+                {% do info[1].append('Puck: %s (%s - %s), Position: %s'|format(row['puck_number'], row['puck_color'], row['puck_label'], row['puck_position'])) %}
+            {% endif %}
+            {% do info[3].append(row['sample']) %}
+            {% do info[4].append(row['sessions']) %}
+            {% do info[5].append('%s / %s'|format(atlas, epu)) %}
+
+        {% else %}
+            {% for l in info[3:] %}
+                {% do l.append('') %}
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+
+    {{ macros.table_card('Grid Box: ' + label, info) }}
+
+    <p class="html2pdf__page-break"></p>
+
+
+{% endfor %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

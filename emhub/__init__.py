@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 
 def create_app(test_config=None):
@@ -64,6 +64,7 @@ def create_app(test_config=None):
 
     app.config["IMAGES"] = os.path.join(app.instance_path, 'images')
     app.config["USER_IMAGES"] = os.path.join(app.config["IMAGES"], 'user')
+    app.config["ENTRY_FILES"] = os.path.join(app.instance_path, 'entry_files')
     app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
     app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
     app.config["PAGES"] = os.path.join(app.instance_path, 'pages')
@@ -82,6 +83,7 @@ def create_app(test_config=None):
 
     # ensure the instance folder exists
     os.makedirs(app.config['USER_IMAGES'], exist_ok=True)
+    os.makedirs(app.config['ENTRY_FILES'], exist_ok=True)
     os.makedirs(app.config['SESSIONS'], exist_ok=True)
     os.makedirs(app.config['PAGES'], exist_ok=True)
 
@@ -272,7 +274,8 @@ def create_app(test_config=None):
 
     @app.template_filter('id_from_label')
     def id_from_label(label):
-        return label.replace(' ', '_')
+        return label.translate(label.maketrans("", "", "!#$%^&*()/\\ "))
+        #return label.replace(' ', '_')
 
     @app.template_filter('range_params')
     def range_params(date_range):
@@ -284,7 +287,7 @@ def create_app(test_config=None):
         return flask.url_for('main', content_id=contentId, **kwargs)
 
     app.jinja_env.globals.update(url_for_content=url_for_content)
-
+    app.jinja_env.add_extension('jinja2.ext.do')
     app.jinja_env.filters['reverse'] = basename
     app.jinja_env.filters['pretty_datetime'] = pretty_datetime
     app.jinja_env.filters['pretty_date'] = pretty_date

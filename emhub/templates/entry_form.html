@@ -65,9 +65,10 @@
 
       <div class="modal-footer">
 
-          <button type="button" id="entry-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        {% set btnCancelText = "Cancel" if can_edit else "Close" %}
+          <button type="button" id="entry-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">{{ btnCancelText }}</button>
 
-          {% if current_user.is_manager %}
+          {% if can_edit %}
               {% set btnOkText = "Update" if entry.id else "Create" %}
                <button class="btn btn-outline-dark" onclick="onEntryOkButtonClick()">{{ btnOkText }}</button>
           {% else %}
