@@ -56,14 +56,21 @@ function dateStr(date) {
 }
 
 function dateFromValue(dateId, timeId) {
-    var dateVal = $(dateId).val().replace(/\//g, ' ')
+    var dateVal = $(dateId).val();
 
     if (timeId)
         dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
 
     console.log(dateVal);
 
-    return new Date(dateVal);
+    var date = new Date(dateVal);
+
+    // If the parsing fails with date separator /, let's try with spaces
+    if (isNaN(date)){
+        dateVal = dateVal.replace(/\//g, ' ');
+        date = new Date(dateVal);
+    }
+    return date;
 }
 
 function dateIsoFromValue(dateId, timeId) {
