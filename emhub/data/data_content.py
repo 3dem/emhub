@@ -34,7 +34,8 @@ import flask
 import flask_login
 
 from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
-                         datetime_from_isoformat, get_quarter, pretty_quarter)
+                         datetime_from_isoformat, get_quarter, pretty_quarter,
+                         image)
 
 
 class DataContent:
@@ -1108,9 +1109,6 @@ class DataContent:
         form = dm.get_form_by(name=form_id)
         if form:
             self.set_form_values(form, entry.extra.get('data', {}))
-            from pprint import pprint
-            pprint(form.definition)
-
         return {
             'entry': entry,
             'entry_type_label': entry_type['label'],
@@ -1130,6 +1128,15 @@ class DataContent:
 
         if not 'report' in entry_type:
             raise Exception("There is no Report associated with this Entry. ")
+
+        images = {}
+
+        for key, value in data.items():
+            if key.endswith('_image'):
+                fn = dm.get_entry_file(entry, key)
+                if os.path.exists(fn):
+                    _, ext = os.path.splitext(fn)
+                    images[key] = 'data:image/%s;base64, ' + image.fn_to_base64(fn)
 
         # Group data rows by gridboxes (label)
         if entry.type in ['grids_preparation', 'grids_storage']:
@@ -1153,7 +1160,8 @@ class DataContent:
         return {
             'entry': entry,
             'entry_type': entry_type,
-            'data': data
+            'data': data,
+            'images': images
         }
 
     def get_raw_user_issues(self, **kwargs):

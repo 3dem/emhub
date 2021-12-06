@@ -47,6 +47,7 @@ class DataManager(DbManager):
                  user=None, cleanDb=False, create=True):
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
+        self._entryFiles = os.path.join(dataPath, 'entry_files')
 
         # Initialize main database
         dbPath = os.path.join(dataPath, dbName)
@@ -743,6 +744,19 @@ class DataManager(DbManager):
     def get_entry_by(self, **kwargs):
         """ This should return a single Resource or None. """
         return self.__item_by(self.Entry, **kwargs)
+
+    def get_entry_file(self, entry, file_key, source=None):
+        """ Return the filename associated with a given entry. """
+        filename = source or entry.extra['data'].get(file_key, None)
+
+        if filename is None:
+            raise Exception("Can not retrieve filename without source or '%s' "
+                            "entry. " % file_key)
+
+        _, ext = os.path.splitext(filename)
+
+        return os.path.join(self._entryFiles,
+                            'entry-file-%06d-%s%s' % (entry.id, file_key, ext))
 
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):

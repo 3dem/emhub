@@ -270,8 +270,6 @@ function getFormAsJson(formId, includeEmpty){
         json[key] = getInputValue(this);
     });
 
-    //alert("finding tables, form: #" + formId);
-
     $('#' + formId + " table").each(function () {
         var row_list = [];
 
@@ -301,7 +299,7 @@ function getFilesFromForm(formId) {
     var json = {};
 
     $('#' + formId + ' *').filter(':input').each(function(){
-        var key = $(this).data('key');
+        var key = this.id.replace('--file', '');
         if (key && $(this).prop('type') === 'file')
            if (this.files && this.files[0])
                 json[key] = this.files[0];
