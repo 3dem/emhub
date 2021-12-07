@@ -16,6 +16,8 @@
 {% set grid_type = '%s-%s %s-%s%s%s'|format(data['grid_manufacturer'], film, hole_size_prefix, hole_size, mesh, grid_material) %}
 
 
+{{ macros.header_card(entry_type['label'], entry.date, (2, 'N')) }}
+
 {{ macros.table_card('Sample Details',
     [('Grid Type', grid_type),
      ('Sample / Grid ID', '%s / %s'|format(data['sample'], data['gridbox_label']))
@@ -44,7 +46,8 @@
 {% set total_dose = data['exposure_time']|float * dose_rate_A %}
 {% set dose_per_fractions = total_dose / data['dose_fractions']|float %}
 
-<p class="html2pdf__page-break"></p>
+
+{{ macros.header_card(entry_type['label'], entry.date, (3, 'N')) }}
 
 {{ macros.table_card('Data Acquisition Details',
     [('Apertures (C1, C2, C3)', apertures),
@@ -68,17 +71,17 @@
 }}
 
 {% if 'atlas_image' in images %}
-    <p class="html2pdf__page-break"></p>
+    {{ macros.header_card(entry_type['label'], entry.date, (4, 'N')) }}
     {{ macros.image_card("Atlas Image", images['atlas_image']) }}
 {% endif %}
 
 {% if 'micrograph_image' in images %}
-    <p class="html2pdf__page-break"></p>
+    {{ macros.header_card(entry_type['label'], entry.date, (5, 'N')) }}
     {{ macros.image_card("Sample Micrograph", images['micrograph_image']) }}
 
 {% endif %}
 
 {% if '2dclasses_image' in images %}
-    <p class="html2pdf__page-break"></p>
+    {{ macros.header_card(entry_type['label'], entry.date, (6, 'N')) }}
     {{ macros.image_card("2D Classes", images['2dclasses_image']) }}
 {% endif %}
