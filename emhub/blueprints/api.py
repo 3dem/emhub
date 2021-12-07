@@ -728,8 +728,7 @@ def copy_entry_files(attrs):
             file.save(_file(f, fn))
 
     for key in data:
-        if data[key].startswith('DELETE:'):
-            print("Deleting...key=%s, value=%s" % (key, data[key]))
+        if isinstance(data[key], str) and data[key].startswith('DELETE:'):
             _clean(key)
             data[key] = ''
 
