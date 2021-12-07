@@ -21,18 +21,6 @@
   </div>
   <div class="modal-body" id="report-content">
 
-      {{ macros.header_card(entry_type['label'], entry.date, (1, 'N'), False) }}
-
-      {% include "facility_acknoledgements.html" %}
-
-      {{ macros.table_card('User Details',
-        [('Application ID', application_id),
-         ('PI / User', '%s / %s'|format(pi.name, user.name)),
-         ('Institute', 'Uppsala University'),
-         ('Responsible Staff', entry.creation_user.name),
-         ])
-        }}
-
       {% include entry_type['report'] %}
 
   </div>

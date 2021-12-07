@@ -1158,12 +1158,16 @@ class DataContent:
 
             data['gridboxes'] = gridboxes
 
+        pi = entry.project.user.get_pi()
+        # TODO: We should store some properties in EMhub and avoid this request
+        pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
 
         return {
             'entry': entry,
             'entry_type': entry_type,
             'data': data,
-            'images': images
+            'images': images,
+            'pi_info': pi_info
         }
 
     def get_raw_user_issues(self, **kwargs):
