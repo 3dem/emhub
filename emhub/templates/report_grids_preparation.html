@@ -1,4 +1,8 @@
 
+{% set N = data['gridboxes']|length + 1%}
+
+{% include "report_header.html" %}
+
 {% import "entry_macros.html" as macros %}
 
 {% for label, gridbox in data['gridboxes'].items() %}
@@ -45,10 +49,8 @@
         {% endif %}
     {% endfor %}
 
+    {{ macros.header_card(entry_type['label'], entry.date, (loop.index + 1, N)) }}
     {{ macros.table_card('Grid Box: ' + label, info) }}
-
-    <p class="html2pdf__page-break"></p>
-
 
 {% endfor %}
 

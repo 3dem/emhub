@@ -484,6 +484,9 @@ class PortalManager:
         """ Retrieve the users list from the portal system. """
         return self._fetchJsonFromUrlSuffix('accounts')['items']
 
+    def fetchAccountDetailsJson(self, userEmail):
+        return self._fetchJsonFromUrlSuffix('account/%s' % userEmail)
+
 
 if __name__ == '__main__':
     instance_path = os.path.abspath(os.environ.get("EMHUB_INSTANCE",
