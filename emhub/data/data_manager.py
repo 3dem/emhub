@@ -759,6 +759,10 @@ class DataManager(DbManager):
                             'entry-file-%06d-%s%s' % (entry.id, file_key, ext))
 
     # --------------- Internal implementation methods -------------------------
+    def get_universities_dict(self):
+        formDef = self.get_form_by_name('universities').definition
+        return {p['label']: p['value'] for p in formDef['params']}
+
     def __create_item(self, ModelClass, **attrs):
         new_item = ModelClass(**attrs)
         self._db_session.add(new_item)
