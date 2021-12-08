@@ -1,0 +1,20 @@
+
+{% import "entry_macros.html" as macros %}
+
+{{ macros.header_card(entry_type['label'], entry.date, (1, N), False) }}
+
+{% include "facility_acknoledgements.html" %}
+
+{% if pi_info %}
+    {% set ia = pi_info['invoice_address'] %}
+    {% set address = '%s, %s, %s'|format(ia['address'], ia['city'], ia['country']) %}
+{% endif %}
+
+{{ macros.table_card('User Details',
+[('Application ID', application_id),
+ ('PI / User', '%s / %s'|format(pi.name, user.name)),
+ ('Invoice Address', address),
+ ('Responsible Staff', entry.creation_user.name),
+ ])
+}}
+
