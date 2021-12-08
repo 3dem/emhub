@@ -5,8 +5,11 @@
     {% set navigation = [('Admin', ''), ('Invoices', '')] %}
     {% include 'include_header.html' %}
     {% set is_admin = current_user.is_manager %}
+    {% set period_url = 'invoice_period' if is_admin else 'reports_invoices_lab' %}
 
     <!-- table row -->
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+
     <div class="row">
         <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
             <div class="card">
@@ -20,7 +23,7 @@
                         <table id="invoice_periods-table" class="table">
                             <thead>
                             <tr>
-                                <th>id</th>
+                                <th>order</th>
                                 <th>period</th>
                                 <th>status</th>
                                 {% if is_admin %}
@@ -30,23 +33,28 @@
                             </thead>
                             <tbody>
                             {% for ip in invoice_periods %}
-                            <tr>
-                                <td>{{ ip['id'] }}</td>
-                                {% if is_admin %}
-                                    <td><a href="{{ url_for('main', content_id='invoice_period', period=ip['id']) }}">{{ ip['period'] }}</a></td>
-                                {% else %}
-                                    <td><a href="{{ url_for('main', content_id='reports_invoices_lab', period=ip['id']) }}">{{ ip['period'] }}</a></td>
-                                {% endif %}
-                                <td>{{ ip['status'] }}</td>
-                                {% if is_admin %}
+                                {% set status = ip['status'] %}
+                                {% if is_admin or status != 'disabled' %}
+                                <tr>
+                                    <td>{{ ip['order'] }}</td>
+
                                     <td>
-                                        <button class="btn btn-sm btn-outline-light" onclick="showInvoicePeriodForm({{ ip['id'] }})">
-                                            <i class="far fa-edit"></i></button>
-                                        <button class="btn btn-sm btn-outline-light" onclick="deleteInvoicePeriod({{ ip['id'] }})">
-                                            <i class="far fa-trash-alt"></i></button>
+                                        {% set badge_type = 'success' if status == 'active' else ('light' if status == 'disabled' else 'info') %}
+{#                                        if status == 'disabled' else 'info') %}#}
+                                        <a href="{{ url_for_content(period_url, period=ip['id']) }}" class="badge badge-{{ badge_type }} mr-1">{{ ip['period'] }}</a>
                                     </td>
+
+                                    <td>{{ ip['status'] }}</td>
+                                    {% if is_admin %}
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-light" onclick="showInvoicePeriodForm({{ ip['id'] }})">
+                                                <i class="far fa-edit"></i></button>
+                                            <button class="btn btn-sm btn-outline-light" onclick="deleteInvoicePeriod({{ ip['id'] }})">
+                                                <i class="far fa-trash-alt"></i></button>
+                                        </td>
+                                    {% endif %}
+                                </tr>
                                 {% endif %}
-                            </tr>
                             {% endfor %}
 
                             </tbody>
@@ -58,6 +66,14 @@
     </div>
     <!-- end table row -->
 
+    <!-- Button to show Invoices per PI -->
+        <div class="col-12 mb-3">
+            {% if is_admin %}
+                <a href="{{ url_for_content('invoices_per_pi') }}" class="btn btn-primary"><i class="fas fa-user-circle"></i> Show Invoices per PI</a>
+            {% else %}
+                <a href="{{ url_for_content('invoices_per_pi', pi_id=current_user.id) }}" class="btn btn-primary"><i class="fas fa-user-circle"></i> Show All Invoices</a>
+            {% endif %}
+        </div>
 </div>
 
 <!-- ============================================================== -->
@@ -73,7 +89,8 @@ $('#invoice_periods-table').DataTable({
     sDom: 'lrtip',
     paging: false,
     info: false,
-    ordering: false
+    order: [[ 0, "desc" ]]
+    //ordering: false
 });
 
 /* Show the Application Form, either for a new booking or an existing one */
@@ -109,8 +126,8 @@ function onInvoicePeriodOkButtonClick() {
     var invoice_period = {
         id: parseInt($('#invoice_period-id').val()),
         status: $('#invoice_period-status').val(),
-        start: dateIsoFromValue('#invoice_period-start'),
-        end: dateIsoFromValue('#invoice_period-end')
+        start: dateIsoFromValue('#invoice_period-start', '#hour_id'),
+        end: dateIsoFromValue('#invoice_period-end', '#hour_id')
     };
 
     var endpoint = null;

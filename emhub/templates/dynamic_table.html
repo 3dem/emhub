@@ -1,60 +1,149 @@
-<!-- ============================================================== -->
-<!-- Dynamic Form -->
-<!-- ============================================================== -->
 
-{# Expects 'table' as input param. #}
+{# PARAMS:  #}
+{# id_name: should be set if one want to distinguish this table from others. #}
 
-{% set title = table['title'] %}
-{% set columns = table['columns'] %}
-{% set rows = table['rows'] %}
-
-<!-- ============================================================== -->
-<!--  dynamic table  -->
-<!-- ============================================================== -->
-<div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-    <div class="card">
-        <h5 class="card-header"> {{ title }}</h5>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-
-                <table class="table" id="dynamic-table">
-                    <thead class="bg-light">
-                        <tr class="border-0">
-                        {% for column in columns %}
-                            <th class="border-0">{{ column['label'] }}</th>
-                        {% endfor %}
-                        <th>Remove</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in rows %}
-                            {% set row_index = loop.index0 %}
-                            <tr>
-                            {% for column in columns %}
-                                {% set col_index = loop.index0 %}
-                                {% set id_name = 'row-%d-col-%d'|format(row_index, col_index) %}
-                                <td>
-                                    {% if column['render'] == 'textbox' %}
-                                        <input type="text" id="{{ id_name }}" name="{{ id_name }}" class="form-control" value="{{ row[col_index] }}">
-                                    {% else %}
-                                        {{ row[loop.index0] }}
-                                        <input type="hidden" id="{{ id_name }}" name="{{ id_name }}" class="form-control" value="{{ row[col_index] }}">
-                                    {% endif %}
-                                </td>
-                            {% endfor %}
-                            <td>
-                            <button class="btn btn-sm btn-outline-light btn-del-row" data-id="{{ row_index }}"><i class="far fa-trash-alt"></i></button>
-                            </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-
-            </div>
-        </div>
+<div class="row mb-2">
+<div class="col-12">
+    <div class="row">
+        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:addRow()"><i class="fas fa-plus-circle"></i>   </a></div>
+        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:copyRows()"><i class="fas fa-copy"></i>   </a></div>
+        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:deleteRows()"><i class="fas fa-trash-alt"></i> </a></div>
     </div>
+</div>
+</div>
+
+<div class="table-responsive">
+    <table class="table" {{ id_name  }}>
+        <thead class="bg-light">
+            <tr class="border-0">
+            {% set columns = table['columns'] %}
+            {% set rows = table['value'] %}
+            {% set rows_number = rows|length %}
+            {%  set nrows = [rows_number, table['min_rows']]|max %}
+
+            <th class="border-0"></th>
+            {% for column in columns %}
+                <th class="border-0 column-name">{{ column['label'] }}</th>
+            {% endfor %}
+            </tr>
+        </thead>
+        <tbody name="table-body">
+
+            {% for i in range(nrows) %}
+                {% set row_index = loop.index0 %}
+                {% set row_id = 'row' + row_index|string %}
+                {% set row_values = rows[row_index] if row_index < rows_number else {} %}
+
+                {# Create an empty (hidden) row that will be used as template when adding new ones #}
+                <tr id="template-row" style="display: none;">
+                    <td>
+                        <label class="be-checkbox custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input row-checkbox"><span class="custom-control-label"></span>
+                        </label>
+                    </td>
+                {% for column in columns %}
+                    {% set col_index = loop.index0 %}
+                        {% set col_id = column['id'] %}
+                        {% set param_id = 'row-%d-col-%d'|format(row_index, col_index) %}
+                        {% set id_name = 'name=%s'|format(param_id) %}
+                        {% set data_key = ' data-key=%s '|format(col_id) %}
+                        {% set param = column %}
+                        {% set value = ''  %}
+                        {% set selectpicker = False %}
+                    <td>
+
+                        {% include "dynamic_param.html" %}
+                    </td>
+                {% endfor %}
+                </tr>
+                
+                <tr class="data-row" id="{{ row_id }}">
+                    <td>
+                        <label class="be-checkbox custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input  row-checkbox" data-row="{{ row_id }}"><span class="custom-control-label"></span>
+                        </label>
+                    </td>
+                {% for column in columns %}
+                    {% set col_index = loop.index0 %}
+                        {% set col_id = column['id'] %}
+                        {% set param_id = 'row-%d-col-%d'|format(row_index, col_index) %}
+                        {% set id_name = 'name=%s'|format(param_id) %}
+                        {% set data_key = ' data-key=%s '|format(col_id) %}
+                        {% set param = column %}
+                        {% set value = row_values.get(col_id, '')  %}
+                        {% set selectpicker = True %}
+                    <td>
+                        {% include "dynamic_param.html" %}
+                    </td>
+                {% endfor %}
+
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 <!-- ============================================================== -->
 <!-- end dynamic table  -->
 <!-- ============================================================== -->
 
+<script>
+    var nrows = {{ nrows|tojson }};
+    var values = null;
+
+    function createNewRow(){
+        var rowElement = document.getElementById('template-row');
+        var newRow = rowElement.cloneNode(true);
+        newRow.id = null;
+        newRow.className = "data-row";
+        newRow.style.display = "table-row";
+        return newRow;
+    }
+
+    function addRow(){
+        var rowElement = document.getElementById('template-row');
+        rowElement.parentNode.appendChild(createNewRow());
+        $('.data-row select').selectpicker('refresh');
+
+    }
+
+    function getSelectedRows(){
+        var rows = []
+        $('.row-checkbox').each(function () {
+            if ($(this).prop('checked'))  // get row id
+                rows.push(this.parentElement.parentElement.parentElement);
+        });
+        return rows;
+    }
+
+    function deleteRows(){
+        var rows = getSelectedRows();
+        if (rows.length > 0) {
+            for (var row of rows)
+                row.remove();
+        }
+        else
+            showError("Select rows to Remove");
+    }
+
+    function copyRows(){
+        var rows = getSelectedRows();
+        if (rows.length > 0) {
+            for (var row of rows){
+                var newRow = createNewRow();
+                values = getRowValues(row);
+                row.parentElement.insertBefore(newRow, row.nextSibling);
+                $('.data-row select').each(function () {
+                $(this).addClass('selectpicker');
+                });
+                setRowValues(newRow, values);
+            }
+
+            $('.selectpicker').selectpicker('render');
+
+
+        }
+        else
+            showError("Select rows to Clone");
+    }
+
+</script>

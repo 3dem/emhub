@@ -1,0 +1,86 @@
+
+{% macro title_text(title, text) -%}
+    <div class="col-12"><h3 class="pb-0 mb-0 mt-3">{{ title }}</h3><p>{{ text }}</p></div>
+{%- endmacro %}
+
+{% macro header_card(title, date, pages, break=True) -%}
+
+    {% if break %}
+        <p class="html2pdf__page-break"></p>
+    {% endif %}
+
+      <div class="card">
+          <div class="card-header">
+              <div class="row">
+                   <div class="col-4 mb-3">
+                        <img src="data:image/png;base64,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" width="200px">
+                    </div>
+                    <div class="col-8 mt-3">
+                        <h3>Experimental Protocol: {{ title }}</h3>
+                    </div>
+              </div>
+
+              <div class="row">
+                <div class="col-4">
+                    {{ title_text('Issuer', 'Cryo-EM Facility') }}
+                </div>
+                <div class="col-4">
+                    {{ title_text('Date', date|pretty_date) }}
+                </div>
+                <div class="col-4">
+                    {{ title_text('Page', '%s of %s'|format(pages[0], pages[1])) }}
+                </div>
+              </div>
+
+        </div>
+
+      </div>
+
+{%- endmacro  %}
+
+
+{% macro table_card(title, rows) -%}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="mb-1">{{ title }}</h3>
+        </div>
+
+        <div class="card-body">
+
+            <div class="table-responsive-sm">
+                <table class="table table-striped" id="details-table">
+                <tbody>
+                    {% for row in rows %}
+                        <tr class="row">
+                            {% set n = row|length %}
+                            {% set w = 12 // n %}
+                            {% set r = w + 12 % n %}
+                            <td class="col-{{ r }}"><strong>{{ row[0] }}</strong></td>
+                            {% for value in row[1:] %}
+                                <td class="col-{{ w }}">{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+
+                </tbody>
+                </table>
+            </div>
+
+        </div> <!-- end of card-body -->
+    </div> <!-- end of card -->
+
+{%- endmacro %}
+
+
+{% macro image_card(title, imgSource) -%}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="mb-1">{{ title }}</h3>
+        </div>
+
+        <div class="card-body p-0">
+            <img src="{{ imgSource }}" width="100%" class="m-0">
+        </div> <!-- end of card-body -->
+    </div> <!-- end of card -->
+
+{%- endmacro %}

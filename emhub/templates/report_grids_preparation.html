@@ -1,0 +1,72 @@
+
+{% set N = data['gridboxes']|length + 1%}
+
+{% include "report_header.html" %}
+
+{% import "entry_macros.html" as macros %}
+
+{% for label, gridbox in data['gridboxes'].items() %}
+
+    {% set info = [
+         ['Grid Box Slots'],
+         ['Sample(s)'],
+         ['Grid Type'],
+         ['Additional Grid Info'],
+         ['Glow Discharge'],
+         ['Device, Temp., RH (%)'],
+         ['Blot Time, Wait Time, Drain Time (s)'],
+         ['Blot Force, Blot Total, No. Applications'],
+         ['Manual Blot / Backside Blot'],
+         ['Additional Freezing Info']
+        ]
+    %}
+
+    {% for i in range(1, 5) %}
+        {% do info[0].append(i) %}
+
+        {% if i in gridbox %}
+            {% set row = gridbox[i] %}
+            
+            {% set film = {'Carbon': 'C', 'Gold': 'Au', 'Other': 'Other'}[row['film_material']] %}
+            {% set hole_size = row['hole_size'] %}
+            {% set hole_size_prefix = '' if hole_size in ['Lacey', 'Multihole'] else 'R'  %}
+            {% set mesh = 'Other' if row['mesh'] == 'Other' else row['mesh'][0] %}
+            {% set grid_material = {'Copper': 'Cu', 'Gold': 'Au', 'Nickel': 'Ni', "Molybdenum": "Mo", 'Other': 'Other'}[row['grid_material']] %}
+            {% set grid_type = '%s-%s %s-%s%s%s'|format(row['grid_manufacturer'], film, hole_size_prefix, hole_size, mesh, grid_material) %}
+            {% do info[1].append(row['sample']) %}
+            {% do info[2].append(grid_type) %}
+            {% do info[3].append(row['grid_info']) %}
+            {% do info[4].append('%s %smA %ss'|format(row['glow_device'], row['glow_current'], row['glow_time'])) %}
+            {% do info[5].append('%s %s°C %s%%'|format(row['device'], row['temperature'], row['humidity'])) %}
+            {% do info[6].append('%ss, %ss, %ss'|format(row['blot_time'], row['wait_time'], row['drain_time'])) %}
+            {% do info[7].append('%s, %s, %s'|format(row['blot_force'], row['blot_total'], row['applications_number'])) %}
+            {% do info[8].append('%s %s°C %s%%'|format(row['device'], row['temperature'], row['humidity'])) %}
+
+        {% else %}
+            {% for l in info[1:] %}
+                {% do l.append('') %}
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+
+    {{ macros.header_card(entry_type['label'], entry.date, (loop.index + 1, N)) }}
+    {{ macros.table_card('Grid Box: ' + label, info) }}
+
+{% endfor %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

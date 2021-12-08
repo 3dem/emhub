@@ -59,8 +59,18 @@ function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val();
 
     if (timeId)
-        dateVal += ' ' + $(timeId).val();
-    return new Date(dateVal);
+        dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
+
+    console.log(dateVal);
+
+    var date = new Date(dateVal);
+
+    // If the parsing fails with date separator /, let's try with spaces
+    if (isNaN(date)){
+        dateVal = dateVal.replace(/\//g, ' ');
+        date = new Date(dateVal);
+    }
+    return date;
 }
 
 function dateIsoFromValue(dateId, timeId) {
@@ -162,8 +172,8 @@ function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
           '      <div class="modal-body" id="yesno-body">' + question +
           '      </div>\n' +
           '      <div class="modal-footer">\n' +
-          '        <button type="button" class="btn"  data-dismiss="modal">' + cancelButtonTxt + '</button>\n' +
-          '        <button type="button" class="btn btn-primary" id="okButton" data-dismiss="modal">' + okButtonTxt + '</button>\n' +
+          '        <button type="button" class="btn btn-outline-secondary"  data-dismiss="modal">' + cancelButtonTxt + '</button>\n' +
+          '        <button type="button" class="btn btn-outline-dark" id="okButton" data-dismiss="modal">' + okButtonTxt + '</button>\n' +
           '      </div>\n' +
           '    </div>\n' +
           '  </div>\n' +
@@ -183,30 +193,104 @@ function notImplemented(msg) {
 }
 
 
+function getInputValue(element) {
+    var type = $(element).prop('type');
+    var value = null;
+
+    if (type == 'checkbox')
+        value = $(element).prop('checked');
+    else if (type == 'radio')
+        value = $('input[name="' + element.name + '"]:checked').val();
+    else
+        value = $(element).val();
+
+    return value;
+}
+
+
+function setInputValue(element, value) {
+    var type = $(element).prop('type');
+
+    if (type == 'checkbox')
+        value = $(element).prop('checked', Boolean(value));
+    else if (type == 'radio')
+        value = $('input[name="' + element.name + '"]:checked').val();
+    else if ($(element).hasClass('selectpicker'))
+        $(element).selectpicker('val', value);
+    else
+        value = $(element).val(value);
+
+    return value;
+}
+
+
+function nonEmpty(value) {
+    var type = typeof value;
+
+    if (type === 'string')
+        return value.trim().length > 0;
+
+    if (type === 'number')
+        return true;
+
+    if (Array.isArray(value))
+        return value.length > 0;
+
+    if (type === 'object')
+        return Object.keys(value).length > 0;
+
+    return Boolean(value);
+}
+
+
+function setRowValues(row, values){
+    $(row).find(':input').each(function () {
+        var col = $(this).data('key');
+        if (col in values) {
+            var value = values[col];
+
+            if (nonEmpty(value))
+                setInputValue(this, value);
+        }
+    });
+}
+
+
+function getRowValues(row, includeEmpty){
+    var values = {};
+    $(row).find(':input').each(function () {
+        var value = getInputValue(this);
+        if (includeEmpty || nonEmpty(value)) {
+            var col = $(this).data('key');
+            values[col] = value;
+        }
+    });
+    return values;
+}
+
+
 function getFormAsJson(formId, includeEmpty){
     var json = {};
 
-    // $("#" + formId + ":input").each(function () {
-    //     json[this.name] = $(this).val()
-    // });
-
     $('#' + formId + ' *').filter(':input').each(function(){
-        if (!this.id.length)
-            return;
+        var key = $(this).data('key');
+        json[key] = getInputValue(this);
+    });
 
-        var type = $(this).prop('type');
+    $('#' + formId + " table").each(function () {
+        var row_list = [];
 
-        if (type == 'checkbox')
-            json[this.id] = $(this).prop('checked');
-        else if (type == 'radio') {
-            json[this.name] = $('input[name="' + this.name + '"]:checked').val();
-        }
-        else
-            json[this.id] = $(this).val()
+        $(this).find('.data-row').each(function () {
+            var values = getRowValues(this, includeEmpty);
+            if (nonEmpty(values))
+                row_list.push(values);
+        });
+        json[this.id] = row_list;
     });
 
     if (includeEmpty)
         return json;
+
     var newJson = {};
     for (var propName in json) {
         propValue = json[propName]
@@ -215,6 +299,21 @@ function getFormAsJson(formId, includeEmpty){
     }
     return newJson;
 } // function onFormOk
+
+
+
+function getFilesFromForm(formId) {
+    var json = {};
+
+    $('#' + formId + ' *').filter(':input').each(function(){
+        var key = this.id.replace('--file', '');
+        if (key && $(this).prop('type') === 'file')
+           if (this.files && this.files[0])
+                json[key] = this.files[0];
+    });
+
+    return json;
+}
 
 
 function create_sparkline(id, values, args) {

@@ -1,12 +1,13 @@
 
 
-
 <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
     <div class="card">
         <div class="card-header">
             <div class="row">
-                {% set btn_prefix = 'Hide' if group == 1 else 'Show' %}
-                <a id="show-hide-btn" class="btn btn-outline-dark" href="{{ url_for('main', content_id='invoice_period', period=period.id, tab='invoices', group=1-group) }}"> {{ btn_prefix }} Application Groups  </a>
+                {%  if hide_buttons is none %}
+                    {% set btn_prefix = 'Hide' if group == 1 else 'Show' %}
+                    <a id="show-hide-btn" class="btn btn-outline-dark" href="{{ url_for('main', content_id='invoice_period', period=period.id, tab='invoices', group=1-group) }}"> {{ btn_prefix }} Application Groups  </a>
+                {% endif %}
             </div>
         </div>
         <div class="card-body">
@@ -125,7 +126,23 @@ $('.table-invoice').DataTable({
     info: false,
     ordering: false,
     buttons: [
-        'copy', 'csv', 'excel', 'pdf', 'print'
+        {
+            extend: 'copy',
+            text: 'Copy to clipboard'
+        },
+        {
+            extend: 'csv',
+            title: '{{ table_file_prefix }}'
+        },
+        {
+            extend: 'excel',
+            title: '{{ table_file_prefix }}'
+        },
+        {
+            extend: 'pdf',
+            title: '{{ table_file_prefix }}'
+        },
+        'print'
     ]
     //ordering: false,
 });

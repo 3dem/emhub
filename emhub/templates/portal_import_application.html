@@ -1,64 +1,195 @@
+{% set is_admin = current_user.is_manager %}
 
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
-    {% set title = "Import Application from Portal" %}
+    {% set title = "Import Applications from Portal" %}
     {% include 'include_header.html' %}
 
     <div class="card-body border-top">
 
-       <form id="user-form" data-parsley-validate="" novalidate="" method="get" action="{{ url_for('main') }}">
-            <!-- Title Row -->
-            <div class="form-group row">
-                <div class="col-12 col-sm-3 col-form-label text-sm-right">
-                    <input type="hidden" id="content_id" name="content_id" value="portal_import_application">
-                    <input type="text" required="" placeholder="Application ID" id="application_id" name="code" class="form-control" value="">
+{#       <form id="user-form" data-parsley-validate="" novalidate="" method="get" action="{{ url_for('main') }}">#}
+{#            <!-- Title Row -->#}
+{#            <div class="form-group row">#}
+{#                <div class="col-12 col-sm-3 col-form-label text-sm-right">#}
+{#                    <input type="hidden" id="content_id" name="content_id" value="portal_import_application">#}
+{#                    <input type="text" required="" placeholder="Application ID" id="application_id" name="code" class="form-control" value="">#}
+{#                </div>#}
+{#                <div class="col-12 col-sm-8 col-lg-6">#}
+{#                    <button type="submit" id="application-import-btn" class="btn btn-outline-dark">Import Application</button>#}
+{#                </div>#}
+{#            </div>#}
+{##}
+{#        </form>#}
+{##}
+{#        <div class="row">#}
+{#                <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">#}
+{#                    {% if order %}#}
+{#                        <row>#}
+{#                            <h4>Imported Application:</h4>#}
+{##}
+{#                            <div class="form-group row">#}
+{#                                <div class="col-12 col-sm-3 col-form-label text-sm-right">#}
+{#                                    <span>Title: </span>#}
+{#                                </div>#}
+{#                                <div class="col-12 col-sm-8 col-lg-6">#}
+{#                                    <span>{{ order.title }}</span>#}
+{#                                </div>#}
+{#                            </div>#}
+{#                        </row>#}
+{#                    {% endif %}#}
+{#                    {% if errors %}#}
+{#                        <row>#}
+{#                        <h4 style="color: red">Errors importing application:</h4>#}
+{#                        <ul>#}
+{#                        {% for e in errors %}#}
+{#                            <li>{{ e }}</li>#}
+{#                        {% endfor %}#}
+{#                        </ul>#}
+{#                        </row>#}
+{#                    {% endif %}#}
+{#                </div>#}
+{#        </div>#}
+
+
+            <div class="row">
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <div class="card">
+
+                    <div class="card-header">
+                    <h3>Orders from Portal in 'accepted' or 'processing' state (since {{ since|pretty_date }})</h3>
                 </div>
-                <div class="col-12 col-sm-8 col-lg-6">
-                    <button type="submit" id="application-import-btn" class="btn btn-outline-dark">Import Application</button>
+
+                    <div class="card-body">
+
+                        <div class="table-responsive">
+                            <table id="orders-table" class="table">
+                                <thead>
+                                <tr>
+                                    <th>created</th>
+                                    <th>ID</th>
+                                    <th>type</th>
+                                    <th>Title</th>
+                                    <th>Owner</th>
+                                    <th>email</th>
+                                    <th>status</th>
+                                    {% if is_admin %}
+                                        <th>actions</th>
+                                    {% endif %}
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for o in orders %}
+                                    {% set oid = o['identifier'] %}
+                                    {% set status = o['status'] %}
+                                    {% set owner = o['owner'] %}
+                                    {% set ft = o['form']['title'] %}
+                                    {% set otype = 'BAG' if ft.startswith('BAG') else 'Rapid Access' %}
+                                    <tr>
+                                        <td>{{ o['created']|pretty_date }}</td>
+                                        <td id="td-{{ oid }}-id">{{ oid }}</td>
+                                        <td>{{ otype }}</td>
+                                        <td>{{ o['title'] }}</td>
+                                        <td>{{ owner['name'] }}</td>
+                                        <td>{{ owner['email'] }}</td>
+                                        <td id="td-{{ oid }}-status">{{ status }}</td>
+
+                                        {% if is_admin %}
+                                            <td  id="td-{{ oid }}-actions">
+                                                <a href="javascript:importApplication('{{ o['identifier'] }}')" class="btn btn-primary">
+                                                    Import</a>
+                                            </td>
+                                        {% endif %}
+                                    </tr>
+                                {% endfor %}
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-        </form>
-
-        <div class="row">
-                <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                    {% if order %}
-                        <row>
-                            <h4>Imported Application:</h4>
-
-                            <div class="form-group row">
-                                <div class="col-12 col-sm-3 col-form-label text-sm-right">
-                                    <span>Title: </span>
-                                </div>
-                                <div class="col-12 col-sm-8 col-lg-6">
-                                    <span>{{ order.title }}</span>
-                                </div>
-                            </div>
-                        </row>
-                    {% endif %}
-                    {% if errors %}
-                        <row>
-                        <h4 style="color: red">Errors importing application:</h4>
-                        <ul>
-                        {% for e in errors %}
-                            <li>{{ e }}</li>
-                        {% endfor %}
-                        </ul>
-                        </row>
-                    {% endif %}
-                </div>
         </div>
+        <!-- end table row -->
 
     </div>
+
 </div>
+
+
+
 
 <!-- javascript  -->
 <script>
 
+
 (function(window, document, $, undefined) {
     "use strict";
 
+    $('#orders-table').DataTable({
+    sDom: 'lrtip',
+    paging: true,
+    info: true,
+    order: [[ 0, "desc" ]],
+    pageLength: 25
+    //ordering: false
+});
 }
 )(window, document, window.jQuery);
+
+
+function importApplication(code) {
+
+    var ajaxContent = $.ajax({
+        url: "{{ url_for('api.import_application') }}",
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({code: code}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(function(jsonResponse) {
+        var td = document.getElementById("td-" + code + "-status");
+
+        if ('error' in jsonResponse) {
+            showError(jsonResponse['error']);
+            td.innerHTML = "<span class=\"badge badge-danger mr-1\"> failed </span>";
+        }
+        else {
+            var app_id = jsonResponse['application']['id'];
+            // Set status as imported
+            td.innerHTML = '<a href="javascript:showApplication(' + app_id + ')" class="badge badge-success mr-1"> imported</a>';
+
+            // Remove import button
+            td = document.getElementById("td-" + code + "-actions");
+            td.innerHTML = "";
+
+            // Add link to imported Application
+            td = document.getElementById("td-" + code + "-id");
+            td.innerHTML = '<a href="javascript:showApplication(' + app_id + ')" class="badge badge-success mr-1">' + code + '</a>';
+        }
+
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
+    });
+}
+
+
+/* Show the Application Form, either for a new booking or an existing one */
+function showApplication(applicationId) {
+    ajaxContent = get_ajax_content("application_form", {application_id: applicationId});
+
+    ajaxContent.done(function(html) {
+        $("#application-modal").html(html);
+        // Show the form after setting html content
+        $('#application-modal').modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
+    });
+
+}  // function showApplication
 
 </script>

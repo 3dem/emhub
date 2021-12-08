@@ -47,6 +47,7 @@ class DataManager(DbManager):
                  user=None, cleanDb=False, create=True):
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
+        self._entryFiles = os.path.join(dataPath, 'entry_files')
 
         # Initialize main database
         dbPath = os.path.join(dataPath, dbName)
@@ -119,6 +120,11 @@ class DataManager(DbManager):
     def update_form(self, **attrs):
         return self.__update_item(self.Form, **attrs)
 
+    def delete_form(self, **attrs):
+        form = self.__item_by(self.Form, id=attrs['id'])
+        self.delete(form)
+        return form
+
     def get_forms(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Form,
                                        condition=condition,
@@ -128,6 +134,16 @@ class DataManager(DbManager):
     def get_form_by(self, **kwargs):
         """ This should return a single Form or None. """
         return self.__item_by(self.Form, **kwargs)
+
+    def get_form_by_name(self, formName):
+        """ Shortcut method to load a form from db given its name.
+        If the form does not exist, an Exception is thrown.
+        """
+        form = self.get_form_by(name=formName)
+        if form is None:
+            raise Exception("Missing Form '%s' from the database!!!" % formName)
+
+        return form
 
     # ---------------------------- RESOURCES ---------------------------------
     def create_resource(self, **attrs):
@@ -177,8 +193,84 @@ class DataManager(DbManager):
         """ This should return a single user or None. """
         return self.__item_by(self.Application, **kwargs)
 
+    def __update_application_pi(self, application, **kwargs):
+        pi_to_add = []
+        pi_to_remove = []
+
+        errorMsg = ""
+        pi_list = application.pi_list
+
+        def _get_pi(pid):
+            pi = self.get_user_by(id=int(pid))
+
+            if pi is None:
+                errorMsg += "\nInvalid user id: %s" % pid
+            elif not pi.is_pi:
+                errorMsg += "\nUser %s is not " % pid
+            else:
+                return pi
+            return None
+
+        for pid in kwargs.get('pi_to_add', []):
+            pi = _get_pi(pid)
+
+            if pi is None:
+                continue
+
+            if pi in pi_list:
+                errorMsg += "\nPI %s is already in the Application" % pi.name
+                continue
+
+            pi_to_add.append(pi)
+
+        for pid in kwargs.get('pi_to_remove', []):
+            pi = _get_pi(pid)
+
+            if pi is None:
+                continue
+
+            if pi not in pi_list:
+                errorMsg += "\nPI %s is not in the Application" % pi.name
+                continue
+
+            pi_to_remove.append(pi)
+
+        if errorMsg:
+            raise Exception(errorMsg)
+
+        for pi in pi_to_remove:
+            application.users.remove(pi)
+
+        for pi in pi_to_add:
+            application.users.append(pi)
+
     def update_application(self, **attrs):
-        return self.__update_item(self.Application, **attrs)
+        """ Update a given Application with new attributes.
+        Special case are:
+            pi_to_add: ids of PI users to add to the Application.
+            pi_to_remove: ids of PI users to remove from the Application
+        """
+        # We don't use the self__update_item method due to the
+        # treatment of the pi_to_add/remove lists
+
+        application = self.get_application_by(id=attrs['id'])
+
+        if application is None:
+            raise Exception("Application not found with id %s"
+                            % (attrs['id']))
+
+        self.__update_application_pi(application, **attrs)
+
+        # Update application properties
+        for attr, value in attrs.items():
+            if attr not in ['id', 'pi_to_add', 'pi_to_remove']:
+                setattr(application, attr, value)
+
+        self.commit()
+        self.log('operation', 'update_Application',
+                 **self.json_from_dict(attrs))
+
+        return application
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self,
@@ -332,6 +424,84 @@ class DataManager(DbManager):
         return count_dict
 
     # ---------------------------- SESSIONS -----------------------------------
+    def __get_section(self, sectionName):
+        formDef = self.get_form_by_name('sessions_config').definition
+        for s in formDef['sections']:
+            if s['label'] == sectionName:
+                return formDef, s
+        return None
+
+    def __iter_config_params(self, configName):
+        _, section = self.__get_section(configName)
+        for p in section['params']:
+            yield p
+
+    def __get_session_dict(self, section):
+        return {p['label']: p['value']
+                for p in self.__iter_config_params(section)}
+
+    def get_session_counter(self, group_code):
+        return int(self.__get_session_dict('counters').get(group_code, 1))
+
+    def update_session_counter(self, group_code, new_counter):
+        # Update counter for this session group
+        formDef, section = self.__get_section('counters')
+
+        found = False
+        for p in section['params']:
+            if p['label'] == group_code:
+                p['value'] = new_counter
+                found = True
+        if not found:
+            section['params'].append({'label': group_code,
+                                      'value': new_counter})
+
+        form = self.get_form_by_name('sessions_config')
+        self.update_form(id=form.id, definition=formDef)
+
+    def get_session_cameras(self, resourceId):
+        cameras = []
+        for p in self.__iter_config_params('cameras'):
+            if int(p['id']) == resourceId:
+                cameras = p['enum']['choices']
+
+        return cameras
+
+    def get_session_folders(self):
+        return self.__get_session_dict('folders')
+
+    def get_session_data_deletion(self, group_code):
+        return int(self.__get_session_dict('data_deletion')[group_code])
+
+    def get_session_processing(self):
+        # Load processing options from the 'processing' Form
+        form_proc = self.get_form_by_name('processing')
+
+        processing = []
+        for section in form_proc.definition['sections']:
+            steps = []
+            processing.append({'name': section['label'], 'steps': steps})
+            for param in section['params']:
+                steps.append({'name': param['label'], 'options': param['enum']['choices']})
+
+        return processing
+
+    def get_new_session_info(self, booking_id):
+        """ Return the name for the new session, base on the booking and
+        the previous sessions counter (stored in Form 'counters').
+        """
+        b = self.get_bookings(condition="id=%s" % booking_id)[0]
+        a = b.application
+        code = 'fac' if a is None else a.code.lower()
+        sep = '' if len(code) == 3 else '_'
+        c = self.get_session_counter(code)
+
+        return {
+            'code': code,
+            'counter': c,
+            'name': '%s%s%05d' % (code, sep, c)
+        }
+
     def get_sessions(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
         condition example: text("id<:value and name=:name")
@@ -341,29 +511,73 @@ class DataManager(DbManager):
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_session_by(self, **kwargs):
+        """ This should return a single Session or None. """
+        return self.__item_by(self.Session, **kwargs)
+
     def create_session(self, **attrs):
         """ Add a new session row. """
+        create_data = attrs.pop('create_data', False)
+        b = self.get_bookings(condition="id=%s" % attrs['booking_id'])[0]
+        attrs['resource_id'] = b.resource.id
+        attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
+
+        if 'start' not in attrs:
+            attrs['start'] = self.now()
+
+        if 'status' not in attrs:
+            attrs['status'] = 'pending'
+
+        session_info = self.get_new_session_info(b.id)
+        attrs['name'] = session_info['name']
+
         session = self.__create_item(self.Session, **attrs)
+
         # Let's update the data path after we know the id
         session.data_path = 'session_%06d.h5' % session.id
+
         self.commit()
+
         # Create empty hdf5 file
-        data = H5SessionData(self._session_data_path(session), mode='a')
-        data.close()
+        if create_data:
+            data = H5SessionData(self._session_data_path(session), mode='a')
+            data.close()
+
+        # Update counter for this session group
+        self.update_session_counter(session_info['code'],
+                                    session_info['counter'] + 1)
 
         return session
 
     def update_session(self, **attrs):
         """ Update session attrs. """
-        return self.__update_item(self.Session, **attrs)
+        session = self.__update_item(self.Session, **attrs)
+
+        # Update the session counter if it was modified
+        name = session.name
+
+        if '_' in name:
+            code, counterStr = name.split('_')
+        else:
+            code = name[:3]
+            counterStr = name[3:]
+
+        c = self.get_session_counter(code)
+        counter = int(counterStr)
+        if c < counter:
+            self.update_session_counter(code, counter + 1)
+
+        return session
 
     def delete_session(self, **attrs):
         """ Remove a session row. """
         sessionId = attrs['id']
         session = self.Session.query.get(sessionId)
-        data_path = os.path.join(self._sessionsPath, session.data_path)
+        data_path = self._session_data_path(session)
         self.delete(session)
-        os.remove(data_path)
+
+        if os.path.exists(data_path):
+            os.remove(data_path)
 
         self.log("operation", "delete_Session",
                  attrs=self.json_from_dict(attrs))
@@ -400,14 +614,7 @@ class DataManager(DbManager):
 
     def delete_invoice_period(self, **attrs):
         """ Remove a session row. """
-        periodId = attrs['id']
-        period = self.InvoicePeriod.query.get(periodId)
-        self.delete(period)
-
-        self.log("operation", "delete_InvoicePeriod",
-                 attrs=self.json_from_dict(attrs))
-
-        return period
+        return self.__delete_item(self.InvoicePeriod, **attrs)
 
     def get_invoice_period_by(self, **kwargs):
         """ This should return a single user or None. """
@@ -433,18 +640,123 @@ class DataManager(DbManager):
 
     def delete_transaction(self, **attrs):
         """ Remove a session row. """
-        transactionId = attrs['id']
-        transaction = self.Transaction.query.get(transactionId)
-        self.delete(transaction)
-
-        self.log("operation", "delete_Transaction",
-                 attrs=self.json_from_dict(attrs))
-
-        return transaction
+        return self.__delete_item(self.Transaction, **attrs)
 
     def get_transaction_by(self, **kwargs):
         """ This should return a single user or None. """
         return self.__item_by(self.Transaction, **kwargs)
+
+
+    # ---------------------------- PROJECTS ---------------------------------
+    def __check_project(self, **attrs):
+        if 'title' in attrs:
+            if not attrs['title'].strip():
+                raise Exception("Project title can not be empty")
+
+        if 'user_id' in attrs:
+            if not attrs['user_id']:
+                raise Exception("Provide a valid User ID for the Project.")
+
+        if 'status' in attrs:
+            if not attrs['status'].strip() in self.Project.STATUS:
+                raise Exception("Provide a valid status: active/inactive")
+
+    def create_project(self, **attrs):
+        self.__check_project(**attrs)
+
+        now = self.now()
+        attrs.update({
+            'date': now,
+            'creation_date': now,
+            'creation_user_id': self._user.id,
+            'last_update_date': now,
+            'last_update_user_id': self._user.id,
+        })
+        return self.__create_item(self.Project, **attrs)
+
+    def update_project(self, **attrs):
+        self.__check_project(**attrs)
+
+        attrs.update({
+            'last_update_date': self.now(),
+            'last_update_user_id': self._user.id,
+        })
+        return self.__update_item(self.Project, **attrs)
+
+    def delete_project(self, **attrs):
+        """ Remove a session row. """
+        return self.__delete_item(self.Project, **attrs)
+
+    def get_projects(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Project,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def get_project_by(self, **kwargs):
+        """ This should return a single Resource or None. """
+        return self.__item_by(self.Project, **kwargs)
+
+        # ---------------------------- ENTRIES ---------------------------------
+    def __check_entry(self, **attrs):
+        if 'title' in attrs:
+            if not attrs['title'].strip():
+                raise Exception("Entry title can not be empty")
+
+        # if 'type' in attrs:
+        #     entry_types = self.get_entry_types()
+        #     if not attrs['type'].strip() in entry_types:
+        #         raise Exception("Please provide a valid entry type: %s"
+        #                         % entry_types)
+
+    def create_entry(self, **attrs):
+        self.__check_entry(**attrs)
+
+        now = self.now()
+        attrs.update({
+            'date': now,
+            'creation_date': now,
+            'creation_user_id': self._user.id,
+            'last_update_date': now,
+            'last_update_user_id': self._user.id,
+        })
+        return self.__create_item(self.Entry, **attrs)
+
+    def update_entry(self, **attrs):
+        self.__check_entry(**attrs)
+
+        attrs.update({
+            'last_update_date': self.now(),
+            'last_update_user_id': self._user.id,
+        })
+        return self.__update_item(self.Entry, **attrs)
+
+    def delete_entry(self, **attrs):
+        """ Remove a session row. """
+        return self.__delete_item(self.Entry, **attrs)
+
+    def get_entries(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Entry,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def get_entry_by(self, **kwargs):
+        """ This should return a single Resource or None. """
+        return self.__item_by(self.Entry, **kwargs)
+
+    def get_entry_file(self, entry, file_key, source=None):
+        """ Return the filename associated with a given entry. """
+        filename = source or entry.extra['data'].get(file_key, None)
+
+        if filename is None:
+            raise Exception("Can not retrieve filename without source or '%s' "
+                            "entry. " % file_key)
+
+        _, ext = os.path.splitext(filename)
+
+        return os.path.join(self._entryFiles,
+                            'entry-file-%06d-%s%s' % (entry.id, file_key, ext))
 
     # --------------- Internal implementation methods -------------------------
     def __create_item(self, ModelClass, **attrs):
@@ -484,6 +796,16 @@ class DataManager(DbManager):
                 setattr(item, attr, value)
         self.commit()
         self.log('operation', 'update_%s' % ModelClass.__name__,
+                 **self.json_from_dict(kwargs))
+
+        return item
+
+    def __delete_item(self, ModelClass, **kwargs):
+        """ Remove an item from a Db model table. """
+        item = self.__item_by(ModelClass, id=kwargs['id'])
+        self.delete(item)
+
+        self.log("operation", "delete_%s" % ModelClass.__name__,
                  **self.json_from_dict(kwargs))
 
         return item
@@ -556,15 +878,15 @@ class DataManager(DbManager):
             overlap_slots = [b for b in overlap
                              if b.is_slot and b.id != booking.id]
 
-            # FIXME: Check when it make sense to use application_id if coming
-            app_id = None  # booking.application_id
+            # Always try to find the Application to set in the booking unless
+            # the owner is a manager
+            owner = self.get_user_by(id=booking.owner_id)
 
-            if app_id is None:
-                owner = self.get_user_by(id=booking.owner_id)
+            if not owner.is_manager:
                 apps = owner.get_applications()
                 n = len(apps)
 
-                if n == 0 and not owner.is_manager and r.requires_application:
+                if n == 0 and r.requires_application:
                     raise Exception("User %s has no active application"
                                     % owner.name)
 
@@ -595,20 +917,20 @@ class DataManager(DbManager):
                     raise Exception("You do not have permission to book "
                                     "outside slots for this resource or have not "
                                     "access to the given slot. ")
-            else:
-                app = self.get_application_by(id=app_id)
 
         if app is not None:
             booking.application_id = app.id
-            count = self.count_booking_resources([app_id],
+            count = self.count_booking_resources([app.id],
                                                  resource_tags=r.tags.split())
-            for tagKey, tagCount in count[app_id].items():
+            for tagKey, tagCount in count[app.id].items():
                 alloc = app.get_quota(tagKey)
                 if alloc:  # if different from None or 0, then check
                     if tagCount + booking.days > alloc:
                         raise Exception("Exceeded number of allocated days "
                                         "for application %s on resource tag '%s'"
                                         % (app.code, tagKey))
+        else:
+            booking.application_id = None
 
     def __check_cancellation(self, booking):
         """ Check if this booking can be updated or deleted.

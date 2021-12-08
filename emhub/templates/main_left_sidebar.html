@@ -15,32 +15,34 @@
 
                         <ul class="nav flex-column submenu">
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='dashboard') }}">
+                                <a class="nav-link" href="{{ url_for_content('dashboard') }}">
                                     <i class="fas fa-tachometer-alt"></i>Dashboard</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='booking_calendar') }}">
+                                <a class="nav-link" href="{{ url_for_content('booking_calendar') }}">
                                     <i class="fas fa-calendar-alt"></i>Booking Calendar</a>
                             </li>
 
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='applications') }}">
+                                <a class="nav-link" href="{{ url_for_content('projects_list') }}">
+                                    <i class="fas fa-book"></i>Projects</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('sessions_list') }}">
+                                    <i class="fas fa-clipboard-list"></i>Sessions</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('applications') }}">
                                     <i class="fas fa-rocket"></i>Applications</a>
                             </li>
 
-
-                            {% if current_user.is_manager %}
-                                <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='invoice_periods_list') }}">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('invoice_periods_list') }}">
                                     <i class="far fa-money-bill-alt"></i>Invoices</a>
-                                </li>
-                            {% elif current_user.is_pi %}
-                                <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='reports_invoices_lab') }}">
-                                    <i class="far fa-money-bill-alt"></i>Invoices</a>
-                                </li>
-                            {% endif %}
+                            </li>
 
                             <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-pages" aria-controls="submenu-pages">
                                 <i class="fas fa-f fa-folder"></i>Pages</a>
@@ -76,19 +78,19 @@
 
                             <!-- Users -->
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='users_list') }}">
+                                <a class="nav-link" href="{{ url_for_content('users_list') }}">
                                     <i class="fas fa-f fa-users"></i>All Users List</a>
                             </li>
 
                             <!-- Resources -->
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('main', content_id='resources_list') }}">
+                                <a class="nav-link" href="{{ url_for_content('resources_list') }}">
                                     <i class="fas fa-boxes"></i>Resources</a>
                             </li>
 
                             <!-- Logs -->
                             <li class="nav-item">
-                                 <a class="nav-link" href="{{ url_for('main', content_id='logs') }}">
+                                 <a class="nav-link" href="{{ url_for_content('logs') }}">
                                     <i class="fas fa-list-alt"></i>Logs</a>
                             </li>
 
@@ -98,10 +100,10 @@
                             <div id="submenu-reports" class="collapse submenu" style="">
                             <ul class="nav flex-column">
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ url_for('main', content_id='reports_time_distribution') }}">Overall Time Distribution</a>
+                                    <a class="nav-link" href="{{ url_for_content('reports_time_distribution') }}">Overall Time Distribution</a>
                                 </li>
                                 <li class="nav-item">
-                                    <a class="nav-link" href="{{ url_for('main', content_id='reports_invoices') }}">Invoices</a>
+                                    <a class="nav-link" href="{{ url_for_content('reports_invoices') }}">Invoices</a>
                                 </li>
                             </ul>
                             </div>
@@ -113,10 +115,10 @@
                             <div id="submenu-portal" class="collapse submenu" style="">
                                 <ul class="nav flex-column">
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_users_list') }}">Import Users</a>
+                                        <a class="nav-link" href="{{ url_for_content('portal_users_list') }}">Import Users</a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='portal_import_application') }}">Import Application</a>
+                                        <a class="nav-link" href="{{ url_for_content('portal_import_application') }}">Import Applications</a>
                                     </li>
                                 </ul>
                             </div>
@@ -144,27 +146,31 @@
                                 <ul class="nav flex-column">
 
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='raw_booking_list') }}">Bookings</a>
+                                        <a class="nav-link" href="{{ url_for_content('raw_booking_list') }}">Bookings</a>
                                     </li>
 
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='raw_sessions_list') }}"> Sessions</a>
+                                        <a class="nav-link" href="{{ url_for_content('raw_applications_list') }}">Applications</a>
                                     </li>
 
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='raw_applications_list') }}">Applications</a>
+                                        <a class="nav-link" href="{{ url_for_content('raw_forms_list') }}"> Forms</a>
                                     </li>
 
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='raw_forms_list') }}"> Forms</a>
+                                        <a class="nav-link" href="{{ url_for_content('invoice_periods_list') }}"> Invoice Periods</a>
                                     </li>
 
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='invoice_periods_list') }}"> Invoice Periods</a>
+                                        <a class="nav-link" href="{{ url_for_content('raw_transactions_list') }}"> Transactions</a>
                                     </li>
 
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('main', content_id='raw_transactions_list') }}"> Transactions</a>
+                                        <a class="nav-link" href="{{ url_for_content('raw_entries_list') }}"> Entries</a>
+                                    </li>
+
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('raw_user_issues') }}">User Issues</a>
                                     </li>
 
                                 </ul>

@@ -1,0 +1,34 @@
+
+{% import "entry_macros.html" as macros %}
+{% set user = entry.project.user %}
+{% set pi = user.get_pi() %}
+{% set application = None if not pi else pi.get_applications()[0] %}
+{% set application_id = 'None' if not application else application.code %}
+
+
+<div class="modal-dialog modal-dialog-centered modal-xl" role="document" data-backdrop="static" data-keyboard="false">
+<div class="modal-content">
+  <div class="modal-header">
+
+      <div class="row col-12">
+          <div class="col-9"></div>
+          <div class="col-3">
+              <button type="button" class="btn btn-outline-dark ml-5" onclick="javascript:saveReportPdf()">Save PDF</button>
+              <button type="button" class="btn btn-outline-secondary ml-2" data-dismiss="modal" aria-label="Close">Close</button>
+          </div>
+      </div>
+
+  </div>
+  <div class="modal-body" id="report-content">
+
+      {% include entry_type['report'] %}
+
+  </div>
+
+</div>
+</div>
+
+
+
+
+

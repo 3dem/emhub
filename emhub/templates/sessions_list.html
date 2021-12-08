@@ -1,0 +1,135 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Sessions List" %}
+    {% set navigation = [('Sessions', '')] %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+    {% set is_admin = current_user.is_admin %}
+
+    <!-- table row -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Sessions List</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="sessions-table" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>id</th>
+                                <th>name</th>
+                                <th>start</th>
+                                <th>status</th>
+
+                                {% if is_admin %}
+                                    <td>extra</td>
+                                    <th>data_path</th>
+                                {% endif %}
+
+                                <th>booking_id</th>
+                                <th>owner</th>
+                                <th>operator</th>
+
+                                {% if current_user.is_manager %}
+                                    <th>actions</th>
+                                {% endif %}
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for s in sessions %}
+                                {% set booking = s.booking %}
+                                {% if booking %}
+                                    {% set owner_pi = s.booking.owner.get_pi() %}
+                                    {% set owner_name = s.booking.owner.name %}
+                                {% else %}
+                                    {% set owner_pi = None %}
+                                    {% set owner_name = None %}
+                                {% endif %}
+
+                                {% if is_manager or current_user.same_pi(owner_pi) %}
+                                    <tr>
+                                        <td>{{ s.id }}</td>
+                                        <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
+                                        <td>{{ s.start|pretty_date }} </td>
+                                        <td>{{ s.status }}</td>
+                                        {% if is_admin %}
+                                            <td>{{ s.extra }}</td>
+                                            <td>{{ s.data_path }}</td>
+                                        {% endif %}
+                                            <td><a href="javascript:showBooking({{ s.booking_id }})">{{ s.booking_id }}</a></td>
+
+
+                                        <td>{{ owner_name }}</td>
+                                        <td>{{ s.operator.name }}</td>
+
+                                        {% if is_manager %}
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
+                                                        <i class="far fa-trash-alt"></i></button>
+                                                </td>
+                                        {% endif %}
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<!-- Modal with  Booking Form -->
+{% include 'booking_form.html' %}
+
+<script>
+
+    var bookingDict = {{ bookingDict|tojson }};
+
+    $('#sessions-table').DataTable({
+        order: [[0, "desc"]]
+    });
+
+function deleteSession(session_id) {
+    confirm("Delete Session",
+            "Do you want to DELETE session with id=" + session_id + "?",
+             "Cancel", "Delete",
+            function () {
+                    var ajaxContent = $.ajax({
+                        url: "{{ url_for('api.delete_session') }}",
+                        type: "POST",
+                        contentType: 'application/json; charset=utf-8',
+                        data: JSON.stringify({attrs: {id: session_id}}),
+                        dataType: "json"
+                    });
+
+                    ajaxContent.done(function(jsonResponse) {
+                        if ('error' in jsonResponse)
+                            showError(jsonResponse['error']);
+                        else
+                            window.location.reload();
+                    });
+
+                    ajaxContent.fail(function(jqXHR, textStatus) {
+                        showError( "Request failed: " + textStatus );
+                    });
+            }
+            );
+} // function deleteSession
+
+function showBooking(bookingId) {
+    last_booking = bookingDict[bookingId];
+    last_booking.title = last_booking.booking_title;
+    last_booking.start = new Date(last_booking.start);
+    last_booking.end = new Date(last_booking.end);
+    has_calendar = false;
+    showBookingForm(last_booking);
+}
+</script>

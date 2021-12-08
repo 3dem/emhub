@@ -1,0 +1,64 @@
+
+{% set n = data['gridboxes']|length %}
+{% set N = 1 + n // 2 + n % 2 %}
+
+{% include "report_header.html" %}
+
+{% import "entry_macros.html" as macros %}
+
+{% for label, gridbox in data['gridboxes'].items() %}
+
+    {% set info = [
+         ['Location'],
+         ['Grid Box Slots'],
+         ['Sample(s)'],
+         ['Session(s)'],
+         ['Atlas / EPU  ']
+        ]
+    %}
+
+    {% for i in range(1, 5) %}
+        {% do info[1].append(i) %}
+
+        {% if i in gridbox %}
+            {% set row = gridbox[i] %}
+            {% set atlas = 'Yes' if row['atlas'] else 'No' %}
+            {% set epu = 'Yes' if row['EPU'] else 'No' %}
+
+            {% if info[0]|length == 1 %}
+                {% do info[0].append('Dewar: %s, Cane: %s, Puck: %s (%s - %s), Position: %s'|format(row['dewar_number'], row['cane_number'], row['puck_number'], row['puck_color'], row['puck_label'], row['puck_position'])) %}
+            {% endif %}
+            {% do info[2].append(row['sample']) %}
+            {% do info[3].append(row['sessions']) %}
+            {% do info[4].append('%s / %s'|format(atlas, epu)) %}
+
+        {% else %}
+            {% for l in info[1:] %}
+                {% do l.append('') %}
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+
+    {% if loop.index % 2 == 1 %}
+        {{ macros.header_card(entry_type['label'], entry.date, (loop.index // 2 + 2, N)) }}
+    {% endif %}
+    {{ macros.table_card('Grid Box: ' + label, info) }}
+
+{% endfor %}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

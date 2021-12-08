@@ -148,13 +148,6 @@
 <!-- ============================================================== -->
 
 
-<!-- ============================================================== -->
-<!-- Application Modal -->
-<!-- ============================================================== -->
-<div class="modal fade" id="application-modal" tabindex="-1" role="dialog" aria-labelledby="applicationModal" aria-hidden="true">
-</div>
-
-
 <script>
   $('#deleteModal').on('show.bs.modal', function (event) {
       var button = $(event.relatedTarget); // Button that triggered the modal
@@ -188,6 +181,10 @@
     templates = {{ templates|tojson }};
     for (var t of templates)
         templateDict[t.id] = t;
+
+    application_config.on_update = function () {
+            load_main_content("applications", {});
+        }
 
 })(window, document, window.jQuery);
 
@@ -228,22 +225,6 @@ function showTemplate(templateId) {
     $('#template-modal').modal('show');
 }  // function showTemplate
 
-
-/* Show the Application Form, either for a new booking or an existing one */
-function showApplication(applicationId) {
-    ajaxContent = get_ajax_content("application_form", {application_id: applicationId});
-
-    ajaxContent.done(function(html) {
-        $("#application-modal").html(html);
-        // Show the form after setting html content
-        $('#application-modal').modal('show');
-    });
-
-    ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
-    });
-
-}  // function showApplication
 
 /** Helper functions to handle Template AJAX response or failure */
 function handleAjaxDone(jsonResponse) {
@@ -303,94 +284,6 @@ function onTemplateOkButtonClick() {
     ajaxContent.fail(handleAjaxFail);
 }  // function onTemplateOkButtonClick
 
-/** Helper functions to handle Application AJAX response or failure */
-function handleApplicationAjaxDone(jsonResponse) {
-    var error = null;
 
-    if ('application' in jsonResponse || 'OK' in jsonResponse) {
-    }
-    else if ('error' in jsonResponse) {
-        error = jsonResponse.error;
-    }
-    else {
-        error = 'Unexpected response from server.'
-    }
-
-    if (error)
-        showError(error);
-    else {
-        $('#application-modal').on('hidden.bs.modal', function () {
-            var params = {}
-            load_main_content("applications", params);
-        });
-        $('#application-modal').modal('hide');
-    }
-}
-
-/** This function will be called when the OK button in the Application form
- * is clicked. It can be either Create or Update action.
- */
-function onApplicationOkButtonClick() {
-    // Update template values
-    var application = {
-        id: parseInt($('#application-id').val()),
-        title: $('#application-title').val(),
-        alias: $('#application-alias').val(),
-        description: $('#application-description').val(),
-        resource_allocation: {
-            quota: {
-                krios: parseInt($('#quota-krios').val()),
-                talos: parseInt($('#quota-talos').val())
-            },
-            noslot: []  // FIXME: Create the proper list
-        }
-    };
-
-    $( ".noslot" ).each( function( i, el ) {
-        var elem = $( el );
-        if (elem.prop("checked"))
-            application.resource_allocation.noslot.push(parseInt(elem.val()));
-        //alert("checked: " + elem.prop('checked') + " value: " + elem.val());
-    });
-
-    var endpoint = null;
-
-    if (application.id != null) {
-        endpoint = "{{ url_for('api.update_application') }}";
-    }
-    else {
-        endpoint = "{{ url_for('api.create_application') }}";
-    }
-
-    var ajaxContent = $.ajax({
-        url: endpoint,
-        type: "POST",
-        contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify({attrs: application}),
-        dataType: "json"
-    });
-
-    ajaxContent.done(handleApplicationAjaxDone);
-    ajaxContent.fail(handleAjaxFail);
-}  // function onTemplateOkButtonClick
-    
-function onAddPiClick() {
-        // Update template values
-    var params = {
-        application_id: parseInt($('#application-id').val()),
-        users: $('#application-add-users').val(),
-    };
-
-    var ajaxContent = $.ajax({
-        url: "{{ url_for('api.add_application_users') }}",
-        type: "POST",
-        contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify(params),
-        dataType: "json"
-    });
-
-    ajaxContent.done(handleApplicationAjaxDone);
-    ajaxContent.fail(handleAjaxFail);
-}
 
 </script>

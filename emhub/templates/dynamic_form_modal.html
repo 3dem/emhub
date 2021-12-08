@@ -1,0 +1,28 @@
+<!-- ============================================================== -->
+<!-- Dynamic Form -->
+<!-- ============================================================== -->
+{% set definition = form.definition %}
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content" style="background-color: #f5f5f5">
+      <div class="modal-body">
+        <h3 class="row" id="dynamic-modal-title" style="margin-left: 5px;"> {{ definition['title'] }} </h3>
+        <div class="row">
+
+            <div class="simple-outline-card col-11 ml-4">
+                {% include "dynamic_form.html" %}
+            </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="dynamic-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" id="dynamic-btn-ok" class="btn btn-outline-dark">Ok</button>
+      </div>
+    </div>
+  </div>
+{#</div>#}
+<!-- ============================================================== -->
+<!-- End of Dynamic Form Content -->
+<!-- ============================================================== -->

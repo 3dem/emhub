@@ -1,0 +1,177 @@
+
+<!-- Modal to with a Form to create a new Session -->
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+
+      <div class="modal-content">
+        <!-- Modal header -->
+        <div class="modal-header">
+            <h3 class="modal-title" id="booking-modal-title"> Create Session:  </h3>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <!-- End of Modal header -->
+
+        <!-- Modal body -->
+        <div class="modal-body">
+            <input type="hidden" id="booking-id" value="{{ booking.id }}">
+        <!-- Create Session Form -->
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <form id="session-form" data-parsley-validate="" novalidate="">
+                <!-- Owner Row -->
+                <div class="form-group row">
+                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
+                    <div class="col-12 col-sm-8 col-lg-6">
+                        <h3 class="col-12 text-sm-left">{{ session_name }}*</h3>
+                        <label class="col-12 col-form-label text-sm-left">(* can change after folders creation)</label>
+                    </div>
+                </div>
+
+                <!-- Owner Row -->
+                <div class="form-group row">
+                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
+                    <div class="col-12 col-sm-8 col-lg-6">
+                        <h4 class="col-12 text-sm-left">{{ booking.owner.name }}</h4>
+                    </div>
+                </div>
+
+                <!-- Creator Row -->
+                <div class="form-group row">
+                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Creator</label>
+                    <div class="col-12 col-sm-8 col-lg-6">
+                        <label class="col-12 col-form-label text-sm-left">{{ booking.creator.name }}</label>
+                    </div>
+                </div>
+
+                <!-- Operator Row -->
+                <div class="form-group row">
+                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Operator</label>
+                    <div class="col-12 col-sm-8 col-lg-6">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.operator.name }}</label>
+                    </div>
+                </div>
+
+                <!-- Microscope Row -->
+                <div class="form-group row">
+                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Microscope</label>
+                    <div class="col-12 col-sm-8 col-lg-6">
+{#                        <label id="application-label" class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.resource.name }}</label>#}
+
+                        <div class="row align-items-center justify-content-start">
+                        <div class="col">
+                            <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
+
+                        </div>
+                        <div class="col-10 text-sm-left">
+                            <h5>{{ booking.resource.name }}</h5>
+                        </div>
+                    </div>
+
+                    </div>
+                </div>
+
+                <!-- Camera Row -->
+                <div class="form-group row">
+                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Camera</label>
+                    <div class="col-12 col-sm-8 col-lg-6">
+                        {% for c in cameras %}
+                            {% set checked = 'checked' if loop.index == 1 else '' %}
+                            <label class="custom-control custom-radio custom-control-inline">
+                                <input type="radio" name="cameras" id="camera-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ c }}"><span class="custom-control-label">{{ c }}</span>
+                            </label>
+                        {% endfor %}
+
+                    </div>
+                </div>
+
+                <!-- Processing Row -->
+{#                <div class="form-group row">#}
+{#                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Processing</label>#}
+{#                    <div class="col-12 col-sm-8 col-lg-6">#}
+{#                        {% for p in processing %}#}
+{#                            {% set checked = 'checked' if loop.index == 1 else '' %}#}
+{#                            <label class="custom-control custom-radio custom-control-inline">#}
+{#                                <input type="radio" name="processing" id="processing-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ p['name'] }}" onclick="javascript:onProcessingClick(this)"><span class="custom-control-label">{{ p['name'] }}</span>#}
+{#                            </label>#}
+{#                        {% endfor %}#}
+{##}
+{#                        {% for p in processing %}#}
+{#                            <div class="row processing-row" id="row-{{ p['name'] }}">#}
+{#                                <div class="col">#}
+{#                                    {% for step_options in p['steps'] %}#}
+{#                                        <div class="row">#}
+{#                                            <div class="col-4">{{ step_options['name'] }}:</div>#}
+{#                                        {% for o in step_options['options'] %}#}
+{#                                            {% set checked = 'checked' if loop.index == 1 else '' %}#}
+{#                                            <label class="custom-control custom-radio custom-control-inline">#}
+{#                                                <input type="radio" name="{{ step_options['name'] }}" id="{{ step_options['name'] }}-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>#}
+{#                                            </label>#}
+{#                                        {% endfor %}#}
+{#                                        </div>#}
+{#                                    {% endfor %}#}
+{#                                </div>#}
+{#                            </div>#}
+{#                        {% endfor %}#}
+{##}
+{#                    </div>#}
+{#                </div>#}
+
+            </form>
+        </div>
+        <!-- end Booking Form -->
+
+    </div>
+    <!-- End of Modal body -->
+
+    <!-- Modal footer -->
+    <div class="modal-footer">
+        <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="onCreateClick()">Create</button>
+    </div>
+    <!-- End of Modal footer -->
+  </div>
+
+</div>
+
+<!-- javascript  -->
+<script>
+    function onProcessingClick(inputRadio) {
+        var rows = document.getElementsByClassName("processing-row");
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            r.style.display = r.id === "row-" + inputRadio.value ? "block" : "none";
+        }
+    }
+
+    function onCreateClick(){
+        var jsonData = {
+            attrs: {
+                booking_id: parseInt(document.getElementById('booking-id').value),
+                extra: getFormAsJson('session-form')
+            },
+        }
+        //alert(JSON.stringify(jsonData, null, 4));
+
+        var ajaxContent = $.ajax({
+            url: "{{ url_for('api.create_session') }}",
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify(jsonData),
+            dataType: "json"
+        });
+
+        ajaxContent.done(function(jsonResponse) {
+            //alert(JSON.stringify(jsonResponse, null, 4));
+
+            if ('error' in jsonResponse)
+                showError(jsonResponse['error']);
+            else
+                window.location.reload();
+        });
+
+        ajaxContent.fail(function(jqXHR, textStatus) {
+            alert( "Request failed: " + textStatus );
+        });
+    }
+</script>

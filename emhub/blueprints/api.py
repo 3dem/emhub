@@ -27,13 +27,17 @@
 # **************************************************************************
 
 import os
+import time
+import json
+from glob import glob
 
 import flask
 from flask import request
 from flask import current_app as app
 import flask_login
 
-from emhub.utils import datetime_from_isoformat, send_json_data, send_error
+from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
+                         send_json_data, send_error)
 from emhub.data import DataContent
 
 
@@ -48,7 +52,7 @@ def login():
 
     user = app.dm.get_user_by(username=username)
     if user is None or not user.check_password(password):
-        send_error('Invalid username or password')
+        return send_error('Invalid username or password')
 
     flask_login.login_user(user)
 
@@ -77,21 +81,19 @@ def update_user():
         f = request.form
 
         attrs = {'id': f['user-id'],
-                 #'username': f['user-username'],
                  'name': f['user-name'],
-                 'phone': f['user-phone'],
-                 'roles': [v.replace('role-', '')
-                           for v in f if v.startswith('role-')]
+                 'phone': f['user-phone']
                  }
+
+        roles = [v.replace('role-', '') for v in f if v.startswith('role-')]
+        if roles:
+            attrs['roles'] = roles
 
         if 'user-pi-select' in f:
             attrs['pi_id'] = int(f['user-pi-select'])
             # TODO: Validate if a user is not longer PI
             # check that there are not other users referencing this one as pi
             # still this will not be a very common case
-
-        for v in f:
-            print(v, '=', f[v])
 
         password = f['user-password'].strip()
         if password:
@@ -169,44 +171,93 @@ def update_application():
     return handle_application(app.dm.update_application)
 
 
-@api_bp.route('/add_application_users', methods=['POST'])
+@api_bp.route('/import_application', methods=['POST'])
 @flask_login.login_required
-def add_application_users():
+def import_application():
     try:
         if not request.json:
             raise Exception("Expecting JSON request.")
 
-        app_id = request.json['application_id']
-        users = request.json['users']
-        if isinstance(users, str):
-            users = map(int, users.split())
+        orderCode = request.json['code'].upper()
 
-        application = app.dm.get_application_by(id=app_id)
+        dm = app.dm
 
-        errorMsg = ''
+        application = dm.get_application_by(code=orderCode)
 
-        if application is None:
-            errorMsg += "Invalid application id: %s" % app_id
+        if application is not None:
+            raise Exception('Application %s already exist' % orderCode)
 
-        for u in users:
-            user = app.dm.get_user_by(id=u)
-            if user is None:
-                errorMsg += "\nInvalid user id: %s" % u
-            else:
-                application.users.append(user)
+        orderJson = app.sll_pm.fetchOrderDetailsJson(orderCode)
 
-        if errorMsg:
-            raise Exception(errorMsg)
+        if orderJson is None:
+            raise Exception('Invalid application ID %s' % orderCode)
 
-        app.dm.commit()
-        return send_json_data({'OK': True})
+        piEmail = orderJson['owner']['email'].lower()
+        # orderId = orderJson['identifier']
+
+        pi = dm.get_user_by(email=piEmail)
+
+        if pi is None:
+            raise Exception("Order owner email (%s) not found as PI" % piEmail)
+
+        if orderJson['status'] not in ['accepted', 'processing']:
+            raise Exception("Only applications with status 'accepted' or "
+                            "'processing' can be imported. ")
+
+        fields = orderJson['fields']
+        description = fields.get('project_des', None)
+        invoiceRef = fields.get('project_invoice_addess', None)
+
+        created = datetime_from_isoformat(orderJson['created'])
+        pi_list = fields.get('pi_list', [])
+
+        form = orderJson['form']
+        iuid = form['iuid']
+
+        # Check if the given form (here templates) already exist
+        # or we need to create a new one
+        orderTemplate = None
+        templates = dm.get_templates()
+        for t in templates:
+            if t.extra.get('portal_iuid', None) == iuid:
+                orderTemplate = t
+                break
+
+        if orderTemplate is None:
+            orderTemplate = dm.create_template(
+                title=form['title'],
+                status='active',
+                extra={'portal_iuid': iuid}
+            )
+            dm.commit()
+
+        application = dm.create_application(
+            code=orderCode,
+            title=orderJson['title'],
+            created=created,  # datetime_from_isoformat(o['created']),
+            status='active',
+            description=description,
+            creator_id=pi.id,
+            template_id=orderTemplate.id,
+            invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
+        )
+
+        for piTuple in pi_list:
+            piEmail = piTuple[1].lower()
+            pi = dm.get_user_by(email=piEmail)
+            if pi is not None:
+                application.users.append(pi)
+
+        dm.commit()
+
+        return send_json_data({'application': application.json()})
 
     except Exception as e:
         print(e)
         import traceback
         traceback.print_exc()
-        return send_error('ERROR from Server: %s' % e)
 
+        return send_error('ERROR from Server: %s' % e)
 
 
 # ---------------------------- RESOURCES ---------------------------------------
@@ -279,6 +330,39 @@ def delete_booking():
 def get_sessions():
     return filter_request(app.dm.get_sessions)
 
+
+@api_bp.route('/poll_sessions', methods=['POST'])
+@flask_login.login_required
+def poll_sessions():
+    session_folders = app.dm.get_session_folders()
+
+    def _user(u):
+        if not u:
+            return {}
+        else:
+            return {'name': u.name,
+                    'email': u.email
+                    }
+
+    while True:
+        sessions = app.dm.get_sessions(condition='status=="pending"')
+        if sessions:
+            for s in sessions:
+                b = s.booking
+                e = app.dc.booking_to_event(b)
+                data = [{
+                    'id': s.id,
+                    'name': s.name,
+                    'booking_id': s.booking_id,
+                    'start': datetime_to_isoformat(s.start),
+                    'user': _user(b.owner),
+                    'pi': _user(b.owner.get_pi()),
+                    'operator': _user(b.operator),
+                    'folder': session_folders[s.name[:3]],
+                    'title': e['title']
+                 }]
+                return send_json_data(data)
+        time.sleep(3)
 
 @api_bp.route('/create_session', methods=['POST'])
 @flask_login.login_required
@@ -424,6 +508,82 @@ def delete_transaction():
     return handle_transaction(app.dm.delete_transaction)
 
 
+# ------------------------------ FORMS ---------------------------------
+
+@api_bp.route('/get_forms', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_forms():
+    return send_json_data([f.json() for f in app.dm.get_forms()])
+
+
+@api_bp.route('/create_form', methods=['POST'])
+@flask_login.login_required
+def create_form():
+    return handle_form(app.dm.create_form)
+
+
+@api_bp.route('/update_form', methods=['POST'])
+@flask_login.login_required
+def update_form():
+    return handle_form(app.dm.update_form)
+
+
+@api_bp.route('/delete_form', methods=['POST'])
+@flask_login.login_required
+def delete_form():
+    return handle_form(app.dm.delete_form)
+
+
+# ------------------------------ PROJECTS ---------------------------------
+
+@api_bp.route('/get_projects', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_projects():
+    return send_json_data([p.json() for p in app.dm.get_projects()])
+
+
+@api_bp.route('/create_project', methods=['POST'])
+@flask_login.login_required
+def create_project():
+    return handle_project(app.dm.create_project)
+
+
+@api_bp.route('/update_project', methods=['POST'])
+@flask_login.login_required
+def update_project():
+    return handle_project(app.dm.update_project)
+
+
+@api_bp.route('/delete_project', methods=['POST'])
+@flask_login.login_required
+def delete_project():
+    return handle_project(app.dm.delete_project)
+
+# ------------------------------ ENTRIES ---------------------------------
+
+@api_bp.route('/get_entries', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_entries():
+    return send_json_data([p.json() for p in app.dm.get_entries()])
+
+
+@api_bp.route('/create_entry', methods=['POST'])
+@flask_login.login_required
+def create_entry():
+    return handle_entry(app.dm.create_entry, copy_entry_files)
+
+
+@api_bp.route('/update_entry', methods=['POST'])
+@flask_login.login_required
+def update_entry():
+    return handle_entry(app.dm.update_entry, copy_entry_files)
+
+
+@api_bp.route('/delete_entry', methods=['POST'])
+@flask_login.login_required
+def delete_entry():
+    return handle_entry(app.dm.delete_entry)
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
@@ -443,12 +603,23 @@ def filter_request(func):
 
     return send_json_data(items)
 
+def fix_dates(attrs, *date_keys):
+    """ Convert the values from UTC string to datetime
+    for some keys that might be present in the attrs dict. """
+    for date_key in date_keys:
+        if date_key in attrs:
+            attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+
 
 def _handle_item(handle_func, result_key):
     try:
-        if not request.json:
-            raise Exception("Expecting JSON request.")
-        result = handle_func(**request.json['attrs'])
+        if request.json:
+            attrs = request.json['attrs']
+        elif request.form:
+            attrs = json.loads(request.form['attrs'])
+        else:
+            raise Exception("Expecting JSON or Form request.")
+        result = handle_func(**attrs)
         return send_json_data({result_key: result})
     except Exception as e:
         print(e)
@@ -459,15 +630,12 @@ def _handle_item(handle_func, result_key):
 
 def handle_booking(result_key, booking_func, booking_transform=None):
     def handle(**attrs):
-        def _fix_date(date_key):
-            if date_key in attrs:
-                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
-
-        _fix_date('start')
-        _fix_date('end')
+        dates = ['start', 'end']
 
         if attrs.get('repeat_value', 'no') != 'no':
-            _fix_date('repeat_stop')
+            dates.append('repeat_stop')
+
+        fix_dates(attrs, *dates)
 
         bt = booking_transform or app.dc.booking_to_event
         return [bt(b) for b in booking_func(**attrs)]
@@ -498,12 +666,7 @@ def handle_resource(resource_func):
 
 def handle_session(session_func):
     def handle(**attrs):
-        def _fix_date(date_key):
-            if date_key in attrs:
-                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
-
-        _fix_date('start')
-        _fix_date('end')
+        fix_dates(attrs, 'start', 'end')
         return session_func(**attrs).json()
 
     return _handle_item(handle, 'session')
@@ -522,12 +685,7 @@ def handle_session_data(handle, mode="r"):
 
 def handle_invoice_period(invoice_period_func):
     def handle(**attrs):
-        def _fix_date(date_key):
-            if date_key in attrs:
-                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
-
-        _fix_date('start')
-        _fix_date('end')
+        fix_dates(attrs, 'start', 'end')
         return invoice_period_func(**attrs).json()
 
     return _handle_item(handle, 'invoice_period')
@@ -535,14 +693,73 @@ def handle_invoice_period(invoice_period_func):
 
 def handle_transaction(transaction_func):
     def handle(**attrs):
-        def _fix_date(date_key):
-            if date_key in attrs:
-                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
-
-        _fix_date('date')
+        fix_dates(attrs, 'date')
         return transaction_func(**attrs).json()
 
     return _handle_item(handle, 'transaction')
+
+
+def handle_form(form_func):
+    def handle(**attrs):
+        return form_func(**attrs).json()
+
+    return _handle_item(handle, 'form')
+
+
+def handle_project(project_func):
+    def handle(**attrs):
+        fix_dates(attrs, 'date')
+        return project_func(**attrs).json()
+
+    return _handle_item(handle, 'project')
+
+
+def copy_entry_files(attrs):
+    """ Function used when creating or updating an Entry.
+    It will handle the upload of new files.
+    """
+    data = attrs['extra']['data']
+
+    from pprint import pprint
+    pprint(data)
+
+    def _path(key):
+        base = 'entry-file-%06d-%s' % (int(attrs['id']), key)
+        return os.path.join(app.config['ENTRY_FILES'], base)
+
+    def _file(key, fn):
+        _, ext = os.path.splitext(fn)
+        return _path(key) + ext
+
+    def _clean(key):
+        """ Clean all previous files starting with that key. """
+        for fn in glob(_path(key) + '.*'):
+            os.remove(fn)
+
+    for f in request.files:
+        file = request.files[f]
+
+        fn = file.filename
+        if fn:
+            _clean(f)
+            data[f] = fn
+            file.save(_file(f, fn))
+
+    for key in data:
+        if isinstance(data[key], str) and data[key].startswith('DELETE:'):
+            _clean(key)
+            data[key] = ''
+
+
+def handle_entry(entry_func, files_func=None):
+    def handle(**attrs):
+        fix_dates(attrs, 'date')
+        if files_func:
+            files_func(attrs)
+
+        return entry_func(**attrs).json()
+
+    return _handle_item(handle, 'entry')
 
 
 def create_item(name):

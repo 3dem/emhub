@@ -29,6 +29,24 @@
 import os
 import json
 import requests
+from contextlib import contextmanager
+
+
+class config:
+    EMHUB_SOURCE = os.environ['EMHUB_SOURCE']
+    EMHUB_SERVER_URL = os.environ['EMHUB_SERVER_URL']
+    EMHUB_USER = os.environ['EMHUB_USER']
+    EMHUB_PASSWORD = os.environ['EMHUB_PASSWORD']
+
+
+@contextmanager
+def open_client():
+    dc = DataClient(server_url=config.EMHUB_SERVER_URL)
+    try:
+        dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+        yield dc
+    finally:
+        dc.logout()
 
 
 class DataClient:

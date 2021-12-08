@@ -54,7 +54,7 @@
                     <h3 class="font-16">Applications</h3>
                     <div>
                         {% for a in current_user.get_applications() %}
-                            <a href="#" class="badge badge-light mr-1">{{ a.code     }}</a>
+                            <a href="#" class="badge badge-success mr-1">{{ a.code     }}</a>
                         {% endfor %}
                     </div>
                 </div>
@@ -77,28 +77,33 @@
                         <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 col-12">
                         <div class="card">
                             <div class="card-header">
-                                <div class="row align-items-center justify-content-start">
+                                <div class="row align-items-left justify-content-start">
                                     <div class="col-2" style="padding-left: 0">
                                         <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
                                     </div>
                                     <div class="col-9" style="padding-left: 7px;">
                                         <h5>{{ r['name'] }}</h5>
                                     </div>
+                                    <a href="{{ url_for('main', content_id='booking_calendar', resource_id=r['id']) }}">
+                                             <i class="fas fa-calendar-alt"></i>   </a>
                                 </div>
+
                             </div>
                             <div class="card-body">
                                 <div class="row">
-                                    <div class="col-10">
-{#                                        TODO: Activate a link to either create to session or see the associated one. #}
-{#                                        {% if r['microscope'] %}#}
-{#                                            <a href="#"><i class="fas fa-external-link-alt"></i> Session</a>#}
-{##}
-{#                                        {%  endif %}#}
-                                    </div>
-                                    <div class="col-2">
-                                         <a href="{{ url_for('main', content_id='booking_calendar', resource_id=r['id']) }}">
-                                             <i class="fas fa-calendar-alt"></i>   </a>
-                                    </div>
+                                    {% if r['id'] in resource_bookings %}
+                                        {% set booking = resource_bookings[r['id']] %}
+                                        {% set sessions = booking.session %}
+                                        <div class="col-7 mr-0">
+                                             <a href="javascript:createSession({{ booking.id }}, {{ sessions|length }})" class="btn btn-primary mr-0">
+                                                    <i class="fas fa-plus-circle"></i>  New Session</a>
+                                        </div>
+                                        <div class="col-5 pl-0">
+                                            {% for s in sessions %}
+                                                <a href="{{ url_for_content('session_details', session_id=s.id) }}" class="badge badge-success mr-1 mt-1" >{{ s.name }}</a>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
 
@@ -153,10 +158,53 @@
 
     </div>
 </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- Session Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="session-modal" tabindex="-1" role="dialog" aria-labelledby="sessionModal" aria-hidden="true">
+</div>
 
 <!-- javascript  -->
 <script>
     function load_calendar(resource_id) {
         return load_main_content('booking_calendar', {resource_id:resource_id});
+    }
+
+    function showCreateSession(bookingId) {
+        ajaxContent = get_ajax_content("create_session_form", {booking_id: bookingId});
+
+            ajaxContent.done(function(html) {
+                //alert(html);
+                $("#session-modal").html(html);
+                // Show the form after setting html content
+                $('#session-modal').modal('show');
+            });
+
+            ajaxContent.fail(function(jqXHR, textStatus) {
+                showError("Request failed: " + textStatus );
+            });
+    } // function showCreateSession
+
+    /* Show the Resource Form, either for a new booking or an existing one */
+    function createSession(bookingId, totalSessions) {
+        if (totalSessions === 0)
+            showCreateSession(bookingId);
+        else
+            confirm("Create Session", "There are already created sessions, " +
+                    "Do you want to create another one?", 'No', 'Yes', function () {
+                    showCreateSession(bookingId);
+            });
+
+    }  // function showResource
+
+    function toggle_display(elementId){
+        var x = document.getElementById(elementId);
+          if (x.style.display === "none") {
+            x.style.display = "block";
+          } else {
+            x.style.display = "none";
+          }
     }
 </script>

@@ -1,0 +1,205 @@
+
+<!-- Session details Card -->
+
+{% set booking = session.booking %}
+{% set is_manager = current_user.is_manager %}
+
+{% if not booking %}
+    <div>
+        <h2 style="color: red">Error: This Session does not have a booking</h2>
+        <p>This should not happen, please report this issue to the administrator. </p>
+    </div>
+
+{% else %}
+    {% set owner = booking.owner %}
+    {% set pi = owner.get_pi() %}
+
+    {% if is_manager or current_user == owner or current_user == pi %}
+
+    <div class="row ">
+
+        <div class="col-12 col-xl-6">
+            <div class="card">
+            <!-- Modal header -->
+            <div class="card-header">
+                <h3 class="card-header-title" id="booking-modal-title"> Overview </h3>
+            </div>
+
+            <div class="card-body">
+
+                <!-- Create Session Form -->
+                <div class="col-12">
+                    <form id="session-form" data-parsley-validate="" novalidate="">
+
+                        <!-- Session Name Row -->
+                        <div class="row">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Session Name</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <h4 class="col-12 text-sm-left">{{ session.name }}</h4>
+                            </div>
+                        </div>
+
+                        <!-- Owner Row -->
+                        <div class="row">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Owner</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <h4 class="col-12 text-sm-left">{{ booking.owner.name }}</h4>
+                            </div>
+                        </div>
+
+                        <!-- Creator Row -->
+                        <div class="row">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Creator</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <label class="col-12 col-form-label text-sm-left">{{ booking.creator.name }}</label>
+                            </div>
+                        </div>
+
+                        <!-- Operator Row -->
+                        <div class="row">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Operator</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <label class="col-12 col-form-label text-sm-left">{{ booking.operator.name }}</label>
+                            </div>
+                        </div>
+
+                        <!-- Date Row -->
+                        <div class="row">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Date</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <label class="col-12 col-form-label text-sm-left">{{ session.start|pretty_date }}</label>
+                            </div>
+                        </div>
+
+                        <!-- Status Row -->
+                        <div class="row">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Status</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <label class="col-12 col-form-label text-sm-left">{{ session.status }}</label>
+                            </div>
+                        </div>
+
+                        <!-- Microscope Row -->
+                        <div class="row">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Microscope</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <div class="row align-items-center justify-content-start">
+                                <div class="col">
+                                    <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
+
+                                </div>
+                                <div class="col-10 text-sm-left">
+                                    <h5>{{ booking.resource.name }}</h5>
+                                </div>
+                            </div>
+
+                            </div>
+                        </div>
+
+                    </form>
+                </div>
+                <!-- end Session Card -->
+
+            </div>
+        </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card">
+            <!-- Modal header -->
+            <div class="card-header">
+                <h3 class="card-header-title" id="booking-modal-title"> Data Download </h3>
+            </div>
+
+            <div class="card-body">
+
+                <!-- Create Session Form -->
+                <div class="col-12">
+                    <form id="session-form" data-parsley-validate="" novalidate="">
+                    {% if not errors %}
+                        {% set username = session.name %}
+                        {%  set extra = session.extra %}
+                        {% set password = extra['data_user_password'] %}
+
+
+                        <!-- Owner Row -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="row">
+                                    <h4 class="col-3">Data Path: </h4>
+                                    <div class="col-9">
+                                        <p>
+                                            <strong>{{ extra['data_folder'] }}</strong>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <h4 class="col-3">Credentials: </h4>
+                                    <div class="col-9">
+                                        <p>
+                                            username: <strong>{{ username }}</strong> <br/>
+                                            password: <strong>{{ password }}</strong>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <h4>Instructions: </h4>
+                                <p>
+                                    You can use the terminal / command line with rsync to download your data such as:
+                                </p>
+
+                                <p>
+                                    <strong>rsync -rltv {{ username }}@data.cryoem.se:data/  /your/local/storage/path</strong>
+                                </p>
+                                <p>
+                                    or you can use a GUI based program such as FileZilla and then use </p>
+                                <p>
+                                    Host: sftp://data.cryoem.se <br/>
+                                    Username: {{ username }} <br/>
+                                    Password: {{ password }} <br/>
+                                    Port: (can be left blank) <br/>
+                                </p>
+                                <div class="alert alert-danger" role="alert">
+                                  <h4 class="alert-heading">Data Deletion</h4>
+                                  <hr>
+                                    <p class="mb-0">Please download the data as soon as possible! It will be <strong>DELETED in {{ deletion_days }} days</strong>!!!.</p>
+                                </div>
+
+                                {% include "facility_acknoledgements.html" %}
+
+                            </div>
+                        </div>
+
+                        {% else %}
+                        <div class="alert alert-danger" role="alert">
+                          <h4 class="alert-heading">Errors</h4>
+                          <hr>
+                            <ul>
+                                {% for e in errors %}
+                                    <li>{{ e }}</li>
+                                {% endfor %}
+                            </ul>
+
+                        </div>
+
+                    {% endif %}
+                    </form>
+                </div>
+                <!-- end Session Card -->
+
+            </div>
+        </div>
+        </div>
+
+    </div> <!-- end of row -->
+
+    {% else %}
+        <div>
+        <h2>You do not have access to this information.</h2>
+        <p>A session is only visible to the owner user or the principal investigator. </p>
+        </div>
+    {% endif %}
+
+{% endif %}
+
+

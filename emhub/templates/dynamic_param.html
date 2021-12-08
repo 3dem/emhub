@@ -1,0 +1,57 @@
+
+{# Single dynamic param: it can be different types of inputs #}
+{# It can be included from forms or tables. #}
+
+{# PARAMS:  #}
+{#     param: the param dict. #}
+{#     value: the value of this param #}
+{#     data_key: the key that will be used to storey this value. #}
+
+
+{% if 'enum' in param %}
+    {% set enum = param['enum'] %}
+    {% set is_multiple = 'multiple' in enum %}
+    {% set values = value if is_multiple else [value] %}
+    {% if enum['display'] == 'combo' %}
+        {% set multipleStr = 'multiple' if is_multiple else '' %}
+        {% set classStr = 'selectpicker show-tick' if selectpicker else '' %}
+        <select class="{{ classStr }}" data-width="auto"  {{ multipleStr }} title="None"  data-live-search="true" {{ data_key }}>
+        {% for o in enum['choices'] %}
+            {% set selected = 'selected' if o|string in values else '' %}
+            <option value="{{ o }}" {{ selected }}>{{ o }}</option>'
+        {% endfor %}
+        </select>
+    {% else %}
+        {% for o in enum['choices'] %}
+            {% set checked = 'checked' if value == o else '' %}
+            {# TODO: Multiple is not currently supported with non-combo  #}
+            <label class="custom-control custom-radio custom-control-inline">
+                <input type="radio" name="{{ param['id'] }}" id="{{ param['id'] }}-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ o }}" {{ data_key }}><span class="custom-control-label">{{ o }}</span>
+            </label>
+        {% endfor %}
+    {% endif %}
+{% else %}
+    {% set type = param.get('type', 'string') %}
+    {% if type == 'bool' %}
+        <label class="be-checkbox custom-control custom-checkbox">
+            {% set checked = 'checked' if value else '' %}
+            <input type="checkbox" class="custom-control-input"  {{ checked }} {{ data_key }}><span class="custom-control-label"></span>
+        </label>
+    {% elif type == 'text' %}
+        <textarea required="" class="form-control"   style="min-width: 100px;" {{ data_key }}>{{ value }}</textarea>
+    {% elif type in ['number', 'int', 'float'] %}
+        <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
+    {% elif type == 'file_image' %}
+        <div class="row ml-1">
+            <input type="text" required="" placeholder="{{ help }}"  readonly class="form-control col-9" value="{{ value }}" id="{{ param_id }}--text" {{ data_key }}>
+            <div ><a class="btn btn-sm btn-outline-light ml-2" href="javascript:onClear('{{ param_id }}')"><i class="far fa-trash-alt"></i>   </a></div>
+            <div ><a class="btn btn-sm btn-outline-light ml-2" href="javascript:onBrowse('{{ param_id }}')"><i class="far fa-folder-open"></i>   </a></div>
+{#            <button class="btn-outline-light ml-3 file-browse-button" id="{{ param_id }}--button" onclick="javascript:onBrowse(this)"></button>#}
+            <input type="file" required="" capture id="{{ param_id }}--file" class="browser-file-input" hidden>
+        </div>
+
+    {% else %}
+        <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 200px;" {{ data_key }}>
+    {% endif %}
+{% endif %}
+
