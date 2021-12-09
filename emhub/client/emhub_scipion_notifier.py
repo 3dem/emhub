@@ -38,21 +38,10 @@ from contextlib import contextmanager
 
 from pyworkflow.project import Manager
 import pyworkflow.utils as pwutils
-
 from pwem.objects import SetOfCTF
 
 
-class config:
-    EMHUB_SOURCE = os.environ['EMHUB_SOURCE']
-    EMHUB_SERVER_URL = os.environ['EMHUB_SERVER_URL']
-    EMHUB_USER = os.environ['EMHUB_USER']
-    EMHUB_PASSWORD = os.environ['EMHUB_PASSWORD']
-
-
-# add emhub source code to the path and import client submodule
-sys.path.append(config.EMHUB_SOURCE)
-
-from emhub.client import DataClient
+from emhub.client import open_client
 from emhub.utils.image import mrc_to_base64, array_to_base64
 
 
@@ -60,16 +49,6 @@ def usage(error):
     print("ERROR: %s" % error)
     get_parser().print_usage()
     sys.exit(1)
-
-
-@contextmanager
-def open_client():
-    dc = DataClient(server_url=config.EMHUB_SERVER_URL)
-    try:
-        dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
-        yield dc
-    finally:
-        dc.logout()
 
 
 class SetMonitor:
@@ -110,23 +89,11 @@ def get_parser():
     parser = argparse.ArgumentParser()
     add = parser.add_argument  # shortcut
 
-    # add('projName', metavar='PROJECT_NAME',
-    #     help="Name of the Scipion project")
-    #
-    # add('protId', metavar='PROTOCOL_ID',
-    #     help="ID of the CTF protocol. ")
-
     g = parser.add_mutually_exclusive_group()
     g.add_argument('--list', action='store_true',
                    help="List existing sessions in the server.")
-    g.add_argument('--create', action='store_true',
-                   help="Create a new session")
     g.add_argument('--update', action='store_true',
                    help="Update an existing session")
-    g.add_argument(
-        '--delete', metavar='SESSION_ID', type=int, nargs='+',
-        help='Delete one or several sessions.')
-
     add('-p', '--project', metavar='PROJECT_NAME',
         help='Project name.')
 
@@ -142,111 +109,81 @@ def get_parser():
     add('--prot_2d', type=int, default=0,
         help='Id of the classify 2d protocol.')
 
-    #
-    # add('datasets', metavar='DATASET', nargs='*', help='Name of a dataset.')
-    # add('--delete', action='store_true',
-    #     help=('When uploading, delete any remote files in the dataset not '
-    #           'present in local. It leaves the remote scipion data directory '
-    #           'as it is in the local one. Dangerous, use with caution.'))
-    # add('-u', '--url', default=pw.Config.SCIPION_URL_TESTDATA,
-    #     help='URL where remote datasets will be looked for.')
-    # add('--check-all', action='store_true',
-    #     help='See if there is any remote dataset not in sync with locals.')
-    # add('-l', '--login', default='scipion@scipion.cnb.csic.es', help='ssh login string. For upload')
-    # add('-rf', '--remotefolder', default='scipionfiles/downloads/scipion/data/tests',
-    #     help='remote folder to put the dataset there. For upload.')
-    # add('-v', '--verbose', action='store_true', help='Print more details.')
-
     return parser
 
 
-def load_project(projName, protIdList):
-    """ Load a project by name and a list of protocols given their ids. """
-    manager = Manager()
+class ProjectSession:
+    def __init__(self, projName, sessionId, protIds):
+        self._sessionId = sessionId
+        manager = Manager()
 
-    if not manager.hasProject(projName):
-        usage("Unexistent project: %s" % pwutils.red(projName))
+        if not manager.hasProject(projName):
+            usage("No project found with name '%s'" % pwutils.red(projName))
 
-    project = manager.loadProject(projName)
+        if not 'ctf' in protIds:
+            usage("Please provide a valid CTF-protocol ID.")
 
-    def load_protocol(protId):
+        self._project = manager.loadProject(projName)
+        self._protocols = {key: self._load_protocol(protId)
+                           for key, protId in protIds.items()}
+
+
+    def _get_path(self, *paths):
+        return os.path.join(self._project.path, *paths)
+
+    def _load_protocol(self, protId):
         try:
-            return project.getProtocol(protId)
+            return self._project.getProtocol(protId)
         except:
-            usage("Unexistent protocol with ID: %s" % pwutils.red(protId))
+            usage("No protocol found with ID '%s'" % pwutils.red(protId))
 
-    return project, [load_protocol(protId) for protId in protIdList]
+    def _update_mics_ctfs(self):
+        protCtf = self._protocols['ctf']
+        outputCTF = getattr(protCtf, 'outputCTF', None)
 
+        micSet = protCtf.inputMicrographs.get()
+        self._micSetId = 'Micrographs_%06d' % micSet.getObjId()
+        acq = micSet.getAcquisition()
 
-def notify_session(projName, protIdList):
-    now = dt.datetime.now()
-    stamp = now.strftime("%y%m%d%H%M")
-
-    project, protocols = load_project(projName, protIdList)
-    protId = protIdList[0]
-    prot = protocols[0]
-
-    outputCTF = getattr(prot, 'outputCTF', None)
-    #outputCTF.printAll()
-    micSet = prot.inputMicrographs.get()
-
-    micParents = project.getSourceParents(micSet)
-
-    for p in micParents:
-        p.printAll()
-
-    #micSet.printAll()
-    acq = micSet.getAcquisition()
-
-    stats = {
-        'numOfCls2D': 0,
-        'numOfCtfs': outputCTF.getSize(),
-        'numOfMics': micSet.getSize(),
-        'numOfMovies': 0,
-        'numOfPtcls': 0,
-        'ptclSizeMax': 0,
-        'ptclSizeMin': 0
-    }
-
-    session_attrs = {
-        'acquisition': {'dosePerFrame': acq.getDosePerFrame(),
-                        'exposureTime': -999,
-                        'numberOfFrames': 1000,
-                        'totalDose': 40,
-                        'voltage': acq.getVoltage()},
-        'booking_id': None,
-        'end': '2021-02-23T08:00:00+00:00',
-        'extra': {},
-        'name': '%s-%s-%s' % (projName, protId, stamp),
-        'operator_id': 8,
-        'resource_id': None,
-        'start': '2021-02-22T08:00:00+00:00',
-        'stats': stats,
-        'status': 'running'
-    }
-
-    sessionId = None
-
-    with open_client() as dc:
-        sessionDict = dc.create_session(session_attrs)
-        sessionId = sessionDict['id']
-
-        setId = 'Micrographs_%06d' % micSet.getObjId()
         attrs = {
-            'session_id': sessionId,
-            'set_id': setId
+            'session_id': self._sessionId,
+            'set_id': self._micSetId
         }
-        dc.create_session_set(attrs)
-        pprint(sessionDict)
 
-    lastId = 0
-    ctfMonitor = SetMonitor(outputCTF)
-    micMonitor = SetMonitor(micSet)
+        stats = {
+            'numOfCls2D': 0,
+            'numOfCtfs': outputCTF.getSize(),
+            'numOfMics': micSet.getSize(),
+            'numOfMovies': 0,
+            'numOfPtcls': 0,
+            'ptclSizeMax': 0,
+            'ptclSizeMin': 0
+        }
 
-    while True:
+        # session_attrs = {
+        #     'acquisition': {'dosePerFrame': acq.getDosePerFrame(),
+        #                     'exposureTime': -999,
+        #                     'numberOfFrames': 1000,
+        #                     'totalDose': 40,
+        #                     'voltage': acq.getVoltage()},
+        #     'booking_id': None,
+        #     'end': '2021-02-23T08:00:00+00:00',
+        #     'extra': {},
+        #     'name': '%s-%s-%s' % (projName, protId, stamp),
+        #     'operator_id': 8,
+        #     'resource_id': None,
+        #     'start': '2021-02-22T08:00:00+00:00',
+        #     'stats': stats,
+        #     'status': 'running'
+        # }
+
+        micMonitor = SetMonitor(micSet)
+        # ctfMonitor = SetMonitor(outputCTF)
+
         found_new_mics = False
         ctfSet = SetOfCTF(filename=outputCTF.getFileName())
         ctfSet.loadAllProperties()
+        lastId = 0
 
         with open_client() as dc:
 
@@ -271,14 +208,13 @@ def notify_session(projName, protIdList):
                 })
 
                 print("Adding item %06d" % ctfId)
-                psdPath = os.path.join(project.path, ctf.getPsdFile())
+                psdPath = os.path.join(self._project.path, ctf.getPsdFile())
 
                 if os.path.exists(psdPath):
                     print("  PSD: ", psdPath)
-                    attrs['psdData'] = mrc_to_base64(psdPath,
-                                                     contrast_factor=5)
+                    attrs['psdData'] = mrc_to_base64(psdPath, contrast_factor=5)
 
-                micPath = os.path.join(project.path, ctf.getMicrograph().getFileName())
+                micPath = os.path.join(self._project.path, ctf.getMicrograph().getFileName())
                 if os.path.exists(micPath):
                     print("  MIC: ", micPath)
                     attrs['micThumbData'] = mrc_to_base64(micPath,
@@ -305,45 +241,24 @@ def notify_session(projName, protIdList):
                 print("   Mics: ", micMonitor.count)
                 print("   CTFs: ", ctfSet.getSize())
 
-                dc.update_session({'id': sessionId, 'stats': stats})
+                dc.run({'id': self._sessionId, 'stats': stats})
             else:
                 time.sleep(10)
 
-        ctfSet.close()
+            ctfSet.close()
 
-        print("lastId: ", lastId)
+            print("lastId: ", lastId)
+            #
+            # if ctfSet.isStreamClosed():
+            #     with open_client() as dc:
+            #         dc.update_session({'id': self._sessionId, 'status': 'finished'})
+            #     break
 
-        if ctfSet.isStreamClosed():
-            with open_client() as dc:
-                dc.update_session({'id': sessionId, 'status': 'finished'})
-            break
-
-
-class ProjectSession:
-    def __init__(self, projName, sessionId):
-        self._sessionId = sessionId
-        manager = Manager()
-
-        if not manager.hasProject(projName):
-            usage("Unexistent project: %s" % pwutils.red(projName))
-
-        self._project = manager.loadProject(projName)
-
-    def _get_path(self, *paths):
-        return os.path.join(self._project.path, *paths)
-
-    def _load_protocol(self, protId):
-        try:
-            return self._project.getProtocol(protId)
-        except:
-            usage("Unexistent protocol with ID: %s" % pwutils.red(protId))
-
-    def _update_coords(self, dc, protCoordsId, micSetDict):
-        protPicking = self._load_protocol(protCoordsId)
+    def _update_coords(self, dc, protPicking):
         coordsSet = getattr(protPicking, 'outputCoordinates', None)
         attrs = {
             'session_id': self._sessionId,
-            'set_id': micSetDict['id'],
+            'set_id': self._sessionId
         }
         coordList = []
         lastMicId = None
@@ -406,33 +321,26 @@ class ProjectSession:
                     print("                      Trying again in 3 seconds.")
                     time.sleep(3)
 
-    def update_session(self, protCoordsId, protClass2DId):
+    def run(self):
+        self._update_mics_ctfs()
+        self._update_coords()
 
         with open_client() as dc:
             sessionDict = dc.get_session(self._sessionId)
             pprint(sessionDict)
             sets = dc.get_session_sets({'session_id': self._sessionId})
 
-            print("\n>>> Sets:")
-            for s in sets:
-                pprint(s)
 
-            if protCoordsId:
-                print("\n>>> Updating coordinates...")
-                self._update_coords(dc, protCoordsId, sets[0])
-
-            if protClass2DId:
-                print("\n>>> Updating classes...")
-                print("- Using protocol id=%d" % protClass2DId)
-
-
-                self._update_classes(dc, protClass2DId, sets)
-
-
-
-
-
-
+            # if protCoordsId:
+            #     print("\n>>> Updating coordinates...")
+            #     self._update_coords(dc, protCoordsId, sets[0])
+            #
+            # if protClass2DId:
+            #     print("\n>>> Updating classes...")
+            #     print("- Using protocol id=%d" % protClass2DId)
+            #
+            #
+            #     self._update_classes(dc, protClass2DId, sets)
 
 
 def main():
@@ -445,18 +353,15 @@ def main():
             for session in r.json():
                 pprint(session)
 
-    elif args.delete:
-        with open_client() as dc:
-            for session_id in args.delete:
-                json = dc.delete_session({'id': session_id})
-                print("Deleted: ", json['name'])
+    elif args.prot_ctf:
 
-    elif args.create:
-        notify_session(args.project, [args.prot_ctf])
+        protocols = {'ctf': args.prot_ctf}
+        if args.prot_picking:
+            protocols['picking'] = args.prot_picking
+        if args.prot_2d:
+            protocols['2d'] = args.prot_2d
 
-    elif args.update:
-        ps = ProjectSession(args.project, args.session_id)
-        ps.update_session(args.prot_picking, args.prot_2d)
+        ProjectSession(args.project, args.session_id, protocols).run()
 
     else:
         print("Please provide some arguments")
