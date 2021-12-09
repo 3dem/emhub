@@ -884,6 +884,49 @@ class DataContent:
                 'since': since
                 }
 
+    def get_report_pis_usage(self, **kwargs):
+
+        bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
+
+        pi_dict = {}
+        univ_dict = self.app.dm.get_universities_dict()
+
+        def _get_univ(email, default=None):
+            for k, v in univ_dict.items():
+                if email.endswith(k):
+                    return v
+            return default
+
+
+        for b in bookings:
+            pi = b.owner.get_pi()
+            if pi:
+                parts = pi.name.split()
+                first_name = ' '.join(parts[:-1])
+                last_name = parts[-1]
+                if not pi.email in pi_dict:
+                    pi_dict[pi.email] = {
+                        'first_name': first_name,
+                        'last_name': last_name,
+                        'email': pi.email,
+                        #'email_rev': pi.email[::-1],  # reverse email for sorting
+                        'university': _get_univ(pi.email, 'z-Unknown'),
+                        'bookings': 0,
+                        'days': 0,
+                        'users': set()
+                    }
+                pi_entry = pi_dict[pi.email]
+                pi_entry['bookings'] += 1
+                pi_entry['days'] += b.days
+                pi_entry['users'].add(b.owner.email)
+
+        data = {
+            'pi_list': sorted(pi_dict.values(), key=lambda pi: pi['university'].lower())
+        }
+        data.update(range_dict)
+
+        return data
+
     # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
