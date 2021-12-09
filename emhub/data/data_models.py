@@ -516,6 +516,9 @@ def create_data_models(dm):
         """Model for user accounts."""
         __tablename__ = 'bookings'
 
+        MAINTENANCE_LIST = ['cycle', 'installation', 'maintenance', 'afis']
+        DEVELOPMENT_LIST = ['method', 'research', 'test', 'mikroed', 'microed', 'devel']
+
         id = Column(Integer, primary_key=True)
 
         title = Column(String(256), nullable=False)
@@ -524,7 +527,7 @@ def create_data_models(dm):
 
         end = Column(UtcDateTime, nullable=False)
 
-        # booking, slot or downtime
+        # booking, slot, downtime or maintenance
         type = Column(String(16), nullable=False)
 
         # slot authorization, who can book within this slot
