@@ -1325,8 +1325,11 @@ class DataContent:
         application_label = 'None'
 
         if booking.type == 'downtime':
-            color = 'red'
+            color = 'rgba(181,4,0,1.0)'
             title = "%s (DOWNTIME): %s" % (resource.name, b_title)
+        if booking.type == 'maintenance' or any(k in b_title for k in ['cycle', 'installation', 'maintenance', 'afis']):
+            color = 'rgba(255,107,53,1.0)'
+            title = "%s (MAINTENANCE): %s" % (resource.name, b_title)
         elif booking.type == 'slot':
             color = color.replace('1.0', '0.5')  # transparency for slots
             title = "%s (SLOT): %s" % (resource.name,
