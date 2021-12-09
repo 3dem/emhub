@@ -373,7 +373,7 @@ def create_session():
 @api_bp.route('/update_session', methods=['POST'])
 @flask_login.login_required
 def update_session():
-    return handle_session(app.dm.update_session)
+    return handle_session(app.dm.run)
 
 
 @api_bp.route('/delete_session', methods=['POST'])

@@ -145,7 +145,7 @@ class H5SessionData(SessionData):
 
     def get_set_item(self, setId, itemId, attrList=None):
         itemAttrs = self._file[self._getItemPath(setId, itemId)].attrs
-        return {a: itemAttrs[a] for a in attrList}
+        return {a: itemAttrs[a] for a in attrList if a in itemAttrs}
 
     def get_set_items(self, setId, attrList=None, condition=None):
         print(">>> Getting items from ", self._getSetPath(setId))
@@ -169,7 +169,7 @@ class H5SessionData(SessionData):
         for item in setGroup.values():
             print("  item: ", item.name)
 
-            values = {a: item.attrs[a] for a in attrs}
+            values = {a: item.attrs[a] for a in attrs if a in item.attrs}
             itemsList.append(values)
 
         return itemsList

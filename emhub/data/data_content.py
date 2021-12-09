@@ -120,8 +120,11 @@ class DataContent:
         micSetId = None
         sets = session.data.get_sets()
         for s in sets:
-           if s['id'].startswith('Micrographs'):
-               micSetId = s['id']
+            if not 'id' in s:
+                print("ERROR, set without id: ", s)
+                continue
+            if s['id'].startswith('Micrographs'):
+                micSetId = s['id']
 
         if micSetId is None:
             raise Exception("Not micrograph set found in '%s'"

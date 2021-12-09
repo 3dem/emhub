@@ -137,7 +137,7 @@ class ProjectSession:
         except:
             usage("No protocol found with ID '%s'" % pwutils.red(protId))
 
-    def _update_mics_ctfs(self):
+    def _update_mics_ctfs(self, dc):
         protCtf = self._protocols['ctf']
         outputCTF = getattr(protCtf, 'outputCTF', None)
 
@@ -185,76 +185,76 @@ class ProjectSession:
         ctfSet.loadAllProperties()
         lastId = 0
 
-        with open_client() as dc:
+        new_stats = {}
 
-            new_stats = {}
+        for ctf in ctfSet.iterItems(where="id>%s" % lastId):
+            u, v, a = ctf.getDefocus()
+            lastId = ctfId = ctf.getObjId()
+            mic = ctf.getMicrograph()
 
-            for ctf in ctfSet.iterItems(where="id>%s" % lastId):
-                u, v, a = ctf.getDefocus()
-                lastId = ctfId = ctf.getObjId()
-                mic = ctf.getMicrograph()
+            attrs.update({
+                'item_id': ctfId,
+                'ctfDefocus': (u + v) * 0.5,
+                'ctfDefocusU': u,
+                'ctfDefocusV': v,
+                'ctfDefocusAngle': a,
+                'ctfResolution': ctf.getResolution(),
+                'ctfFit': ctf.getFitQuality(),
+                'location': mic.getFileName(),
+                'ctfFitData': '',
+                'shiftPlotData': ''
+            })
 
-                attrs.update({
-                    'item_id': ctfId,
-                    'ctfDefocus': (u + v) * 0.5,
-                    'ctfDefocusU': u,
-                    'ctfDefocusV': v,
-                    'ctfDefocusAngle': a,
-                    'ctfResolution': ctf.getResolution(),
-                    'ctfFit': ctf.getFitQuality(),
-                    'location': mic.getFileName(),
-                    'ctfFitData': '',
-                    'shiftPlotData': ''
-                })
+            print("Adding item %06d" % ctfId)
+            psdPath = os.path.join(self._project.path, ctf.getPsdFile())
 
-                print("Adding item %06d" % ctfId)
-                psdPath = os.path.join(self._project.path, ctf.getPsdFile())
+            if os.path.exists(psdPath):
+                print("  PSD: ", psdPath)
+                attrs['psdData'] = mrc_to_base64(psdPath, contrast_factor=5)
 
-                if os.path.exists(psdPath):
-                    print("  PSD: ", psdPath)
-                    attrs['psdData'] = mrc_to_base64(psdPath, contrast_factor=5)
+            micPath = os.path.join(self._project.path, ctf.getMicrograph().getFileName())
+            if os.path.exists(micPath):
+                print("  MIC: ", micPath)
+                attrs['micThumbData'] = mrc_to_base64(micPath,
+                                                      contrast_factor=10)
 
-                micPath = os.path.join(self._project.path, ctf.getMicrograph().getFileName())
-                if os.path.exists(micPath):
-                    print("  MIC: ", micPath)
-                    attrs['micThumbData'] = mrc_to_base64(micPath,
-                                                          contrast_factor=10)
+            for i in range(3):  # try 3 times
+                try:
+                    dc.add_session_item(attrs)
+                    break
+                except Exception as e:
+                    print("dc.add_session_item:: Error: %s" % e)
+                    print("                      Trying again in 3 seconds.")
+                    time.sleep(3)
 
-                for i in range(3):  # try 3 times
-                    try:
-                        dc.add_session_item(attrs)
-                        break
-                    except Exception as e:
-                        print("dc.add_session_item:: Error: %s" % e)
-                        print("                      Trying again in 3 seconds.")
-                        time.sleep(3)
+        new_stats['numOfCtfs'] = ctfSet.getSize()
 
-                new_stats['numOfCtfs'] = ctfSet.getSize()
+        # Check if there are new micrographs
+        if micMonitor.update_count():
+            new_stats['numOfMics'] = micMonitor.count
 
-            # Check if there are new micrographs
-            if micMonitor.update_count():
-                new_stats['numOfMics'] = micMonitor.count
+        if new_stats:
+            stats.update(new_stats)
+            print("Updating session stats: ")
+            print("   Mics: ", micMonitor.count)
+            print("   CTFs: ", ctfSet.getSize())
 
-            if new_stats:
-                stats.update(new_stats)
-                print("Updating session stats: ")
-                print("   Mics: ", micMonitor.count)
-                print("   CTFs: ", ctfSet.getSize())
+            dc.update_session({'id': self._sessionId, 'stats': stats})
+        else:
+            time.sleep(10)
 
-                dc.run({'id': self._sessionId, 'stats': stats})
-            else:
-                time.sleep(10)
+        ctfSet.close()
 
-            ctfSet.close()
-
-            print("lastId: ", lastId)
+        print("lastId: ", lastId)
             #
             # if ctfSet.isStreamClosed():
             #     with open_client() as dc:
             #         dc.update_session({'id': self._sessionId, 'status': 'finished'})
             #     break
 
-    def _update_coords(self, dc, protPicking):
+    def _update_coords(self, dc):
+        protPicking = self._protocols['picking']
+
         coordsSet = getattr(protPicking, 'outputCoordinates', None)
         attrs = {
             'session_id': self._sessionId,
@@ -322,8 +322,9 @@ class ProjectSession:
                     time.sleep(3)
 
     def run(self):
-        self._update_mics_ctfs()
-        self._update_coords()
+        with open_client() as dc:
+            self._update_mics_ctfs(dc)
+            self._update_coords(dc)
 
         with open_client() as dc:
             sessionDict = dc.get_session(self._sessionId)

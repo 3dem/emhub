@@ -82,7 +82,12 @@ def get_mic_data():
     ]
 
     mic = session.data.get_set_item(micSetId, micId, attrList=attrs)
-    mic['coordinates'] = mic['coordinates'].tolist()
+
+    if 'coordinates' in mic:
+        mic['coordinates'] = mic['coordinates'].tolist()
+    else:
+        mic['coordinates'] = []
+
     session.data.close()
 
     return send_json_data(mic)
