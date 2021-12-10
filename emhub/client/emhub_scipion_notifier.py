@@ -160,23 +160,6 @@ class ProjectSession:
             'ptclSizeMin': 0
         }
 
-        # session_attrs = {
-        #     'acquisition': {'dosePerFrame': acq.getDosePerFrame(),
-        #                     'exposureTime': -999,
-        #                     'numberOfFrames': 1000,
-        #                     'totalDose': 40,
-        #                     'voltage': acq.getVoltage()},
-        #     'booking_id': None,
-        #     'end': '2021-02-23T08:00:00+00:00',
-        #     'extra': {},
-        #     'name': '%s-%s-%s' % (projName, protId, stamp),
-        #     'operator_id': 8,
-        #     'resource_id': None,
-        #     'start': '2021-02-22T08:00:00+00:00',
-        #     'stats': stats,
-        #     'status': 'running'
-        # }
-
         micMonitor = SetMonitor(micSet)
         # ctfMonitor = SetMonitor(outputCTF)
 
@@ -218,14 +201,16 @@ class ProjectSession:
                 attrs['micThumbData'] = mrc_to_base64(micPath,
                                                       contrast_factor=10)
 
-            for i in range(3):  # try 3 times
-                try:
-                    dc.add_session_item(attrs)
-                    break
-                except Exception as e:
-                    print("dc.add_session_item:: Error: %s" % e)
-                    print("                      Trying again in 3 seconds.")
-                    time.sleep(3)
+            dc.add_session_item(attrs)
+
+            # for i in range(1):  # try 3 times
+            #     try:
+            #         dc.add_session_item(attrs)
+            #         break
+            #     except Exception as e:
+            #         print("dc.add_session_item:: Error: %s" % e)
+            #         print("                      Trying again in 3 seconds.")
+            #         time.sleep(3)
 
         new_stats['numOfCtfs'] = ctfSet.getSize()
 
@@ -253,12 +238,19 @@ class ProjectSession:
             #     break
 
     def _update_coords(self, dc):
-        protPicking = self._protocols['picking']
+        protCtf = self._protocols['ctf']
+        outputCTF = getattr(protCtf, 'outputCTF', None)
+        micSet = protCtf.inputMicrographs.get()
+
+        protPicking = self._protocols.get('picking', None)
+
+        if protPicking is None:
+            return
 
         coordsSet = getattr(protPicking, 'outputCoordinates', None)
         attrs = {
             'session_id': self._sessionId,
-            'set_id': self._sessionId
+            'set_id': 'Micrographs_%06d' % micSet.getObjId()
         }
         coordList = []
         lastMicId = None
@@ -276,11 +268,16 @@ class ProjectSession:
                 coordList = []
             coordList.append(coord.getPosition())
 
-    def _update_classes(self, dc, protClass2DId, sets):
-        prot2D = self._load_protocol(protClass2DId)
+    def _update_classes(self, dc):
+        prot2D = self._protocols.get('2d', None)
+
+        if prot2D is None:
+            return
+
+        sets = dc.get_session_sets({'session_id': self._sessionId})
         outputClasses = getattr(prot2D, 'outputClasses', None)
         outputClasses.printAll()
-        setId = 'Class2D_%06d' % protClass2DId
+        setId = 'Class2D_%06d' % outputClasses.getObjId()
         attrs = {
             'session_id': self._sessionId,
             'set_id': setId,
@@ -323,25 +320,12 @@ class ProjectSession:
 
     def run(self):
         with open_client() as dc:
-            self._update_mics_ctfs(dc)
-            self._update_coords(dc)
-
-        with open_client() as dc:
             sessionDict = dc.get_session(self._sessionId)
             pprint(sessionDict)
-            sets = dc.get_session_sets({'session_id': self._sessionId})
 
-
-            # if protCoordsId:
-            #     print("\n>>> Updating coordinates...")
-            #     self._update_coords(dc, protCoordsId, sets[0])
-            #
-            # if protClass2DId:
-            #     print("\n>>> Updating classes...")
-            #     print("- Using protocol id=%d" % protClass2DId)
-            #
-            #
-            #     self._update_classes(dc, protClass2DId, sets)
+            self._update_mics_ctfs(dc)
+            self._update_coords(dc)
+            self._update_classes(dc)
 
 
 def main():
@@ -367,6 +351,7 @@ def main():
     else:
         print("Please provide some arguments")
         sys.exit(1)
+
 
 
 if __name__ == '__main__':

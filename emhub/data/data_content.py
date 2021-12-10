@@ -156,7 +156,6 @@ class DataContent:
         else:
             classes2d = []
 
-
         session.data.close()
 
         return {
@@ -197,13 +196,17 @@ class DataContent:
         }
 
     def get_sessions_list(self, **kwargs):
-        sessions = self.app.dm.get_sessions()
+        dm = self.app.dm  # shortcut
+        sessions = dm.get_sessions()
         bookingDict = {}
+
         for s in sessions:
             if s.booking:
                 b = self.booking_to_event(s.booking,
                                           prettyDate=True, piApp=True)
                 bookingDict[s.booking.id] = b
+            if not os.path.exists(dm.get_session_data_path(s)):
+                s.data_path = ''
 
         return {
             'sessions': sessions,

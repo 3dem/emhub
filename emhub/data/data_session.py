@@ -117,15 +117,14 @@ class H5SessionData(SessionData):
         self._file = h5py.File(h5File, mode)
 
     def get_sets(self, attrList=None, condition=None):
-        if attrList is not None and len(attrList) == 0:
-            attrList = ['id']
         setList = []
         for k, v in self._file[self._getSetPath('')].items():
-            print("set: ", v.name)
-            if attrList is None:
-                setList.append(dict(v.attrs))
+            if not attrList:
+                setAttrs = dict(v.attrs)
             else:
-                setList.append({a: v.attrs[a] for a in attrList})
+                setAttrs = {a: v.attrs[a] for a in attrList}
+            setAttrs['id'] = k
+            setList.append(setAttrs)
 
         return setList
 
@@ -193,6 +192,7 @@ class H5SessionData(SessionData):
             #         print("   >>> Value is None")
 
     def update_set_item(self, setId, itemId, attrDict):
+        print("update_set_item:  Getting H5 path: " + self._getItemPath(setId, itemId));
         micAttrs = self._file[self._getItemPath(setId, itemId)].attrs
         micAttrs.update(**attrDict)
 

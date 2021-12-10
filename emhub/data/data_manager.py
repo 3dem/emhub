@@ -486,6 +486,9 @@ class DataManager(DbManager):
 
         return processing
 
+    def get_session_data_path(self, session):
+        return os.path.join(self._sessionsPath, session.data_path)
+
     def get_new_session_info(self, booking_id):
         """ Return the name for the new session, base on the booking and
         the previous sessions counter (stored in Form 'counters').

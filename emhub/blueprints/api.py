@@ -373,7 +373,7 @@ def create_session():
 @api_bp.route('/update_session', methods=['POST'])
 @flask_login.login_required
 def update_session():
-    return handle_session(app.dm.run)
+    return handle_session(app.dm.update_session)
 
 
 @api_bp.route('/delete_session', methods=['POST'])
@@ -676,9 +676,11 @@ def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
     set_id = attrs.pop("set_id", None)
-    session = app.dm.load_session(sessionId=session_id, mode=mode)
-    result = handle(session, set_id, **attrs)
-    session.data.close()
+    try:
+        session = app.dm.load_session(sessionId=session_id, mode=mode)
+        result = handle(session, set_id, **attrs)
+    finally:
+        session.data.close()
 
     return send_json_data(result)
 
