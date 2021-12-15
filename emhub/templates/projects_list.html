@@ -129,10 +129,13 @@ function deleteProject(project_id) {
  */
 function onProjectOkButtonClick() {
     // Update template values
+    var checkBox = document.getElementById("user_can_edit-checkbox");
+
     var project = {
         id: parseInt($('#project-id').val()),
         status: $('#project-status').val(),
         user_id: $('#project-user-select').selectpicker('val'),
+        user_can_edit: (checkBox.checked == true),
         title: $('#project-title').val(),
         description: $('#project-description').val(),
         date: dateIsoFromValue('#project-date', '#hour_id'),

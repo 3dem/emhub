@@ -43,15 +43,24 @@
                         </label>
                         <div class="col-12 col-sm-8 col-lg-6">
                             {% if possible_owners %}
-                                <select id="project-user-select" class="selectpicker show-tick" data-width="100%" data-live-search="true" value="{{ project.user.id }}">
-                                {% for lab in possible_owners %}
-                                    <option data-divider="true"></option>
-                                    <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
-                                    {% for u in lab[1:] %}
-                                        <option value="{{u['id']}}">{{u['name']}}</option>
+                                <div class="row">
+                                    <select id="project-user-select" class="selectpicker show-tick col-9" data-width="100%" data-live-search="true" value="{{ project.user.id }}">
+                                    {% for lab in possible_owners %}
+                                        <option data-divider="true"></option>
+                                        <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
+                                        {% for u in lab[1:] %}
+                                            <option value="{{u['id']}}">{{u['name']}}</option>
+                                        {% endfor %}
                                     {% endfor %}
-                                {% endfor %}
-                                </select>
+                                    </select>
+
+                                    {% set checked = 'checked' if project.user_can_edit else '' %}
+                                    <label class="be-checkbox custom-control custom-checkbox mt-1">
+                                        <input type="checkbox" class="custom-control-input  row-checkbox" id="user_can_edit-checkbox" {{ checked }}><span class="custom-control-label">Can edit</span>
+                                    </label>
+
+                                </div>
+
                             {% else %}
                                 <input type="text" required="" placeholder="Owner" id="project-user-text" class="form-control">
                             {% endif %}

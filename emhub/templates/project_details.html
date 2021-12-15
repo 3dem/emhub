@@ -10,7 +10,7 @@
     {% set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
     {# TODO: Maybe in the future we consider other edit permissions/rules. #}
-    {% set can_edit = is_manager %}
+    {% set can_edit = is_manager or (project.user_can_edit and current_user == project.user) %}
 
     <input type="hidden" value="09:00:00.000", id="hour_id">
 
