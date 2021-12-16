@@ -9,7 +9,8 @@
     {% include 'include_header.html' %}
     {% set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
-    {% set can_edit = is_manager or (project.user_can_edit and current_user == project.creation_user) %}
+
+    {% set can_edit = is_manager or (project.user_can_edit and current_user == project.user) or current_user == project.creation_user %}
 
     <input type="hidden" value="09:00:00.000", id="hour_id">
 
@@ -176,8 +177,8 @@ function deleteEntry(entry_id, entry_title) {
     confirm("Delete Entry",
             "Do you want to DELETE Entry '" + entry_title + "' ?",
              "Cancel", "Delete", function () {
-            sendAjax("{{ url_for('api.delete_entry') }}",
-                     {id: entry_id});
+            send_ajax_json("{{ url_for('api.delete_entry') }}",
+                     {id: entry_id}, handleAjaxDone, handleAjaxFail);
         });
 } // function deleteEntry
 
@@ -228,13 +229,7 @@ function onEntryOkButtonClick() {
     ajaxContent.fail(handleAjaxFail);
 }  // function onTemplateOkButtonClick
 
-
-function sendAjax(endpoint, attrs) {
-
-} // function sendAjax
-
-
-    /** Helper functions to handle Template AJAX response or failure */
+/** Helper functions to handle Template AJAX response or failure */
 function handleAjaxDone(jsonResponse) {
     var error = null;
 
@@ -302,16 +297,6 @@ function saveReportPdf() {
     };
 
     html2pdf(elementHTML, opt);
-
-{#    var doc = new jsPDF();#}
-{#    doc.fromHTML(elementHTML, 15, 15, {#}
-{#        'width': 600#}
-{#    }, function(bla){doc.save('saveInCallback.pdf');}#}
-{#     ,10);#}
-
-
-    // Save the PDF
-    //doc.save('sample-document.pdf');
 }
 
 </script>

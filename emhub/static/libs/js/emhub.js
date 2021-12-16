@@ -375,3 +375,23 @@ function load_html_from_ajax(container_id, ajaxContent) {
         alert( "Request failed: " + textStatus );
     });
 }
+
+/**
+ * Make an AJAX request sending json data to some url in the server
+ * @param url: URL to send the ajax request
+ * @param attrs: json data to send
+ * @param done: callback when the request is done
+ * @param fail: callback when the request failed
+ */
+function send_ajax_json(url, attrs, done, fail){
+    var ajaxContent = $.ajax({
+        url: url,
+        type: "POST",
+        data: JSON.stringify({attrs: attrs}),
+        contentType: 'application/json; charset=utf-8',
+        dataType: "json"
+    });
+
+    ajaxContent.done(done);
+    ajaxContent.fail(fail);
+}
