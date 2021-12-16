@@ -14,7 +14,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    {% if is_manager %}
+                    {% if is_manager or current_user.is_independent %}
                         <div class="col-12 mb-3">
                             <a href="javascript:showProjectForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Project</a>
                         </div>
@@ -57,12 +57,11 @@
                                             <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
                                                 <i class="fa fa-eye"></i></a>
 
-                                            {% if is_manager %}
+                                            {% if is_manager or current_user == p.creation_user %}
                                                  <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
                                                      <i class="far fa-edit"></i></a>
                                                  <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
                                                      <i class="far fa-trash-alt"></i></a>
-
                                             {% endif %}
                                         </td>
 
@@ -85,7 +84,7 @@
 <!-- ============================================================== -->
 <!-- Project Modal -->
 <!-- ============================================================== -->
-<div class="modal fade" id="project-modal" tabindex="-1" role="dialog" aria-labelledby="projectModal" aria-hidden="true" >
+<div class="modal fade" id="project-modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
 </div>
 
 
@@ -128,14 +127,27 @@ function deleteProject(project_id) {
  * is clicked. It can be either Create or Update action.
  */
 function onProjectOkButtonClick() {
-    // Update template values
-    var checkBox = document.getElementById("user_can_edit-checkbox");
+    // If this variable exists, it means that the creation user is not manager
+    var user_id = null;
+    var user_can_edit = null;
+
+    var userIdElem = document.getElementById("project-user-id");
+    if (userIdElem) {
+         user_id = userIdElem.value;
+         user_can_edit = true;
+    }
+    else {
+        user_id = $('#project-user-select').selectpicker('val');
+        var checkBox = document.getElementById("user_can_edit-checkbox");
+        user_can_edit = checkBox.checked;
+    }
+
 
     var project = {
         id: parseInt($('#project-id').val()),
         status: $('#project-status').val(),
-        user_id: $('#project-user-select').selectpicker('val'),
-        user_can_edit: (checkBox.checked == true),
+        user_id: user_id,
+        user_can_edit: user_can_edit,
         title: $('#project-title').val(),
         description: $('#project-description').val(),
         date: dateIsoFromValue('#project-date', '#hour_id'),

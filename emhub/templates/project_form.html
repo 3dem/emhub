@@ -1,11 +1,13 @@
 <!-- ============================================================== -->
 <!-- Project Form Modal Content -->
 <!-- ============================================================== -->
-{% set can_edit = current_user.is_manager %}
+{% set is_manager = current_user.is_manager %}
+{% set can_edit = is_manager or current_user == project.creation_user %}
 {% set readonly = '' if can_edit else 'readonly' %}
+{% set status_readonly = '' if is_manager else 'readonly' %}
 {% set disabled = '' if can_edit else 'disabled' %}
 
-  <div class="modal-dialog modal-dialog-centered modal-xl" role="document" data-backdrop="static" data-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h3 class="modal-title" id="project-modal-title"> Project (id = {{ project.id }}) </h3>
@@ -24,7 +26,7 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Status</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" required="" placeholder="Enter status" id="project-status" name="project-status" class="form-control" value="{{ project.status }}">
+                            <input type="text" required="" placeholder="Enter status" id="project-status" name="project-status" class="form-control" value="{{ project.status }}" {{ status_readonly }}>
                         </div>
                     </div>
 
@@ -42,7 +44,7 @@
 
                         </label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            {% if possible_owners %}
+                            {% if possible_owners and can_edit %}
                                 <div class="row">
                                     <select id="project-user-select" class="selectpicker show-tick col-9" data-width="100%" data-live-search="true" value="{{ project.user.id }}">
                                     {% for lab in possible_owners %}
@@ -62,7 +64,8 @@
                                 </div>
 
                             {% else %}
-                                <input type="text" required="" placeholder="Owner" id="project-user-text" class="form-control">
+                                <input type="hidden" id="project-user-id" value="{{ project.user.id }}">
+                                <input type="text" required="" placeholder="Owner" id="project-user-text" class="form-control" value="{{ project.user.name }}" readonly>
                             {% endif %}
                         </div>
                     </div>
@@ -93,7 +96,7 @@
 
           <button type="button" id="project-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
 
-          {% if current_user.is_manager %}
+          {% if can_edit %}
               {% set btnOkText = "Update" if project.id else "Create" %}
                <button class="btn btn-outline-dark" onclick="onProjectOkButtonClick()">{{ btnOkText }}</button>
           {% else %}

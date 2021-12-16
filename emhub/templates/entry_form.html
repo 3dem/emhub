@@ -1,11 +1,13 @@
 <!-- ============================================================== -->
 <!-- Project Form Modal Content -->
 <!-- ============================================================== -->
-{% set can_edit = current_user.is_manager %}
+{% set project = entry.project %}
+{% set is_manager = current_user.is_manager %}
+{% set can_edit = is_manager or (project.user_can_edit and current_user == project.creation_user) %}
 {% set readonly = '' if can_edit else 'readonly' %}
 {% set disabled = '' if can_edit else 'disabled' %}
 
-  <div class="modal-dialog modal-dialog-centered modal-xl" role="document" data-backdrop="static" data-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
         <h3 class="modal-title" id="entry-modal-title"> {{ entry_type_label }} </h3>
@@ -21,7 +23,7 @@
                 <form id="entry-form" data-parsley-validate="" novalidate="">
                     <input type="hidden" id="entry-id" name="entry-id" value="{{ entry.id }}">
                     <input type="hidden" id="entry-type" name="entry-type" value="{{ entry.type }}">
-                    <input type="hidden" id="entry-project-id" name="entry-project-id" value="{{ entry.project_id }}">
+                    <input type="hidden" id="entry-project-id" name="entry-project-id" value="{{ project.id }}">
 
                     <!-- Date -->
                     <div class="form-group row">

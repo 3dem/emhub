@@ -1052,13 +1052,16 @@ class DataContent:
         if project_id:
             project = dm.get_project_by(id=project_id)
         else:
+            user = self.app.user
             now = dm.now()
             project = dm.Project(status='active',
                                  date=now,
                                  last_update_date=now,
-                                 last_update_user_id=self.app.user.id,
+                                 last_update_user_id=user.id,
                                  title='',
                                  description='')
+            if not self.app.user.is_manager:
+                project.creation_user = project.user = user
 
         return {
             'project': project,
@@ -1138,13 +1141,15 @@ class DataContent:
                 entry.last_update_user_id = self.app.user.id
         else:
             project_id = kwargs['entry_project_id']
+            project = dm.get_project_by(id=project_id)
+
             entry = dm.Entry(date=now,
                              creation_date=now,
                              creation_user_id=self.app.user.id,
                              last_update_date=now,
                              last_update_user_id=self.app.user.id,
                              type=kwargs['entry_type'],
-                             project_id=project_id,
+                             project=project,
                              title='',
                              description='',
                              extra={})

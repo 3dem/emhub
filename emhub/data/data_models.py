@@ -82,7 +82,7 @@ def create_data_models(dm):
             return self.extra.get(key, default)
 
         def __setExtra(self, key, value):
-            extra = dict(self.extra)
+            extra = dict(self.extra or {})
             extra[key] = value
             self.extra = extra
 
@@ -889,7 +889,7 @@ def create_data_models(dm):
             return self.extra.get(key, default)
 
         def __setExtra(self, key, value):
-            extra = dict(self.extra)
+            extra = dict(self.extra or {})
             extra[key] = value
             self.extra = extra
 
@@ -952,7 +952,7 @@ def create_data_models(dm):
             return self.extra.get(key, default)
 
         def __setExtra(self, key, value):
-            extra = dict(self.extra)
+            extra = dict(self.extra or {})
             extra[key] = value
             self.extra = extra
 
