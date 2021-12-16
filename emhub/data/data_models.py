@@ -174,7 +174,7 @@ def create_data_models(dm):
     class User(UserMixin, Base):
         """Model for user accounts."""
         __tablename__ = 'users'
-        ROLES = ['user', 'admin', 'manager', 'head', 'pi']
+        ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent']
 
         id = Column(Integer,
                     primary_key=True)
@@ -303,6 +303,10 @@ def create_data_models(dm):
         @property
         def is_pi(self):
             return 'pi' in self.roles
+
+        @property
+        def is_independent(self):
+            return 'independent' in self.roles
 
         @property
         def is_application_manager(self):
