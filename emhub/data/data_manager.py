@@ -685,6 +685,12 @@ class DataManager(DbManager):
 
     def delete_project(self, **attrs):
         """ Remove a session row. """
+        project = self.get_project_by(id=attrs['id'])
+        # Delete all entries of this project
+        # (since I haven't configured cascade-delete in SqlAlchemy models)
+        for e in project.entries:
+            self.delete(e, commit=False)
+
         return self.__delete_item(self.Project, **attrs)
 
     def get_projects(self, condition=None, orderBy=None, asJson=False):

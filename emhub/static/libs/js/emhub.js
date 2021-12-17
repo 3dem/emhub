@@ -368,11 +368,22 @@ function get_ajax_content(content_id, params) {
  */
 function load_html_from_ajax(container_id, ajaxContent) {
     ajaxContent.done(function(html) {
-        $(container_id).html(html);
+        $('#' + container_id).html(html);
     });
 
     ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
+        showError( "Request failed: " + textStatus );
+    });
+}
+
+function show_modal_from_ajax(container_id, ajaxContent) {
+    ajaxContent.done(function(html) {
+        $('#' + container_id).html(html);
+        $('#' + container_id).modal('show');
+    });
+
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
     });
 }
 
@@ -393,5 +404,12 @@ function send_ajax_json(url, attrs, done, fail){
     });
 
     ajaxContent.done(done);
+    if (!fail)
+        fail = ajax_request_failed;
     ajaxContent.fail(fail);
+}
+
+
+function ajax_request_failed(jqXHR, textStatus) {
+    showError("Ajax Request FAILED: " + textStatus );
 }

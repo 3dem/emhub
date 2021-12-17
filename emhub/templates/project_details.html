@@ -99,27 +99,26 @@
         </div>
         <div class="cd-timeline__content js-cd-content">
 
-       <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
-                    <div class="col-11 align-items-center justify-content-start"> <h3>Project Creation</h3></div>
-{#                    <div class="col-1"><a href="javascript:showProjectForm({{ project.id }})"><i class="fas fa-edit"></i></a></div>#}
-                </div>
+            <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
+                <div class="col-11 align-items-center justify-content-start"> <h3>Project Creation</h3></div>
+                <div class="col-1"><a href="javascript:showProjectForm({{ project.id }}, 'entry-modal')"><i class="fas fa-edit"></i></a></div>
+            </div>
 
-                <hr class="mt-0"/>
+            <hr class="mt-0"/>
 
-                <div class="row col-12  justify-content-start">
-                    <h4 style="color: gray">{{ project.title }}</h4>
-                </div>
+            <div class="row col-12  justify-content-start">
+                <h4 style="color: gray">{{ project.title }}</h4>
+            </div>
 
-                <br/>
-                <div class="row col-12  justify-content-start pr-0">
-                    Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.last_update_user.name }}</span>, {{ project.last_update_date|pretty_datetime }}
-                </div>
-                <div class="row col-12  justify-content-start pr-0">
-                    Creation: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.creation_user.name }}</span>, {{ project.creation_date|pretty_datetime }}
-                </div>
+            <br/>
+            <div class="row col-12  justify-content-start pr-0">
+                Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.last_update_user.name }}</span>, {{ project.last_update_date|pretty_datetime }}
+            </div>
+            <div class="row col-12  justify-content-start pr-0">
+                Creation: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.creation_user.name }}</span>, {{ project.creation_date|pretty_datetime }}
+            </div>
 
-
-        <span class="cd-timeline__date">{{ project.date|pretty_date }}</span>
+            <span class="cd-timeline__date">{{ project.date|pretty_date }}</span>
 
         </div>
     </div>
@@ -134,7 +133,7 @@
 </div>
 
 <!-- ============================================================== -->
-<!-- Project Modal -->
+<!-- Entry Modal -->
 <!-- ============================================================== -->
 <div class="modal fade" id="entry-modal" tabindex="-1" role="dialog" aria-labelledby="entryModal" aria-hidden="true" data-backdrop="static" data-keyboard="false">
 </div>
