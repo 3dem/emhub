@@ -409,7 +409,62 @@ function send_ajax_json(url, attrs, done, fail){
     ajaxContent.fail(fail);
 }
 
+function send_ajax_form(url, formData, done, fail){
+    var ajaxContent = $.ajax({
+        url: url,
+        type: "POST",
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: "json"
+    });
+
+    ajaxContent.done(done);
+    if (!fail)
+        fail = ajax_request_failed;
+    ajaxContent.fail(fail);
+}
+
+function ajax_request_done(jsonResponse, expectedKey){
+    var error = null;
+
+    if (expectedKey in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showError(error);
+    else {
+        location.reload();
+    }
+}
 
 function ajax_request_failed(jqXHR, textStatus) {
     showError("Ajax Request FAILED: " + textStatus );
+}
+
+function savePdf(contentId) {
+
+    var elementHTML = $('#' + contentId).html();
+
+    var opt = {
+        margin:       10,
+        filename:     'myfile.pdf',
+        //pagebreak:  { mode: '', before: '.before', after: '.after', avoid: '.avoid' },
+        pagebreak: {mode: 'legacy'},
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            dpi: 192,
+            scale:4,
+            letterRendering: true,
+            useCORS: true
+        },
+    };
+
+    html2pdf(elementHTML, opt);
 }

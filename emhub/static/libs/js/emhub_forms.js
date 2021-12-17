@@ -47,39 +47,76 @@ function onProjectOkButtonClick() {
         date: dateIsoFromValue('#project-date', '#hour_id'),
     };
 
-    var endpoint = null;
+    var url = project.id != null && !Number.isNaN(project.id) ?
+              api_urls.update_project : api_urls.create_project;
 
-    if (project.id != null && !Number.isNaN(project.id)) {
-        endpoint = api_urls.update_project;
-    }
-    else {
-        endpoint = api_urls.create_project;
-    }
-
-    send_ajax_json(endpoint, project, projectAjaxDone);
+    send_ajax_json(url, project, projectAjaxDone);
 }  // function onTemplateOkButtonClick
 
 
 /** Helper functions to handle Template AJAX response or failure */
 function projectAjaxDone(jsonResponse) {
-    var error = null;
-
-    if ('project' in jsonResponse) {
-    }
-    else if ('error' in jsonResponse) {
-        error = jsonResponse.error;
-    }
-    else {
-        error = 'Unexpected response from server.'
-    }
-
-    if (error)
-        showError(error);
-    else {
-        // $('#project-modal').on('hidden.bs.modal', function () {
-        // });
-        $('#project-modal').modal('hide');
-        location.reload();
-    }
+    ajax_request_done(jsonResponse, 'project');
 }
+
+/* --------------------- ENTRIES ------------------------------ */
+function showEntryForm(entry_id, entry_type, copy_entry) {
+    var project_id = document.getElementById('project-id').value;
+    show_modal_from_ajax('entry-modal',
+                         get_ajax_content("entry_form",
+                                   {entry_id: entry_id,
+                                    entry_type: entry_type,
+                                    entry_project_id: project_id,
+                                    copy_entry: copy_entry
+                                   }));
+}  // function showEntryForm
+
+function deleteEntry(entry_id, entry_title) {
+    confirm("Delete Entry",
+            "Do you want to DELETE Entry '" + entry_title + "' ?",
+             "Cancel", "Delete", function () {
+            send_ajax_json("{{ url_for('api.delete_entry') }}",
+                     {id: entry_id}, entryAjaxDone);
+        });
+} // function deleteEntry
+
+    /** This function will be called when the OK button in the Application form
+ * is clicked. It can be either Create or Update action.
+ */
+function onEntryOkButtonClick() {
+    // Update template values
+    var entry = {
+        id: parseInt($('#entry-id').val()),
+        type: $('#entry-type').val(),
+        project_id: $('#entry-project-id').val(),
+        title: $('#entry-title').val(),
+        description: $('#entry-description').val(),
+        date: dateIsoFromValue('#entry-date', '#hour_id'),
+        extra: {data: getFormAsJson('dynamic-form')}
+    };
+
+    var url = entry.id != null && !Number.isNaN(entry.id) ?
+              api_urls.update_entry : api_urls.create_entry;
+    var formData = new FormData();
+    formData.append('attrs', JSON.stringify(entry));
+
+     var files = getFilesFromForm('dynamic-form');
+     Object.keys(files).forEach(function(key) {
+        formData.append(key, files[key]);
+     });
+
+     send_ajax_form(url, formData, entryAjaxDone);
+}  // function onTemplateOkButtonClick
+
+/** Helper functions to handle Template AJAX response or failure */
+function entryAjaxDone(jsonResponse) {
+    ajax_request_done(jsonResponse, 'entry');
+}
+
+
+function showEntryReport(entry_id) {
+    show_modal_from_ajax('entry-modal',
+        get_ajax_content("entry_report", {entry_id: entry_id})
+    );
+}  // function showEntryReport
 

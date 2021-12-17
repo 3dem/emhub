@@ -146,7 +146,11 @@
 
         create_project: "{{ url_for('api.create_project') }}",
         update_project: "{{ url_for('api.update_project') }}",
-        delete_project: "{{ url_for('api.delete_project') }}"
+        delete_project: "{{ url_for('api.delete_project') }}",
+
+        create_entry: "{{ url_for('api.create_entry') }}",
+        update_entry: "{{ url_for('api.update_entry') }}",
+        delete_entry: "{{ url_for('api.delete_entry') }}",
     };
     var application_config = {
         on_update: null,
