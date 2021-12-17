@@ -14,11 +14,6 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    {% if is_manager %}
-                        <div class="col-12 mb-3">
-                            <a href="javascript:showProjectForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Project</a>
-                        </div>
-                    {% endif %}
                     <div class="table-responsive">
                         <table id="projects-table" class="table">
                             <thead>
@@ -34,6 +29,9 @@
                                 <th>created by</th>
                                 <th>last updated</th>
                                 <th>last updated by</th>
+                                {% if is_admin %}
+                                    <th>actions</th>
+                                {% endif %}
                             </tr>
                             </thead>
                             <tbody>
@@ -50,8 +48,15 @@
                                     <td>{{ e.creation_user.name }}</td>
                                     <td>{{ e.last_update_date|pretty_datetime }}</td>
                                     <td>{{ e.last_update_user.name }}</td>
+                                    <td>
+                                    {% if is_admin %}
+                                        <div class="col-1"><a href="javascript:showEntryForm({{ e.id }}, {{ e.project_id }})"><i class="fas fa-edit"></i>   </a></div>
+                                        <div class="col-1"><a href="javascript:deleteEntry({{ e.id }}, '{{ e.title }}')"><i class="fas fa-trash-alt"></i></a></div>
+                                    {% endif %}
+                                    </td>
                                 </tr>
                             {% endfor %}
+
 
                             </tbody>
                         </table>
@@ -74,7 +79,7 @@
 <script>
 
 $('#projects-table').DataTable({
-    sDom: 'lrtip',
+    sDom: 'lfrtip',
     paging: false,
     info: false,
     order: [[ 0, "desc" ]]

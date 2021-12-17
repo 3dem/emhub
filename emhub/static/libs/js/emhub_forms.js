@@ -60,8 +60,7 @@ function projectAjaxDone(jsonResponse) {
 }
 
 /* --------------------- ENTRIES ------------------------------ */
-function showEntryForm(entry_id, entry_type, copy_entry) {
-    var project_id = document.getElementById('project-id').value;
+function showEntryForm(entry_id, project_id, entry_type, copy_entry) {
     show_modal_from_ajax('entry-modal',
                          get_ajax_content("entry_form",
                                    {entry_id: entry_id,
