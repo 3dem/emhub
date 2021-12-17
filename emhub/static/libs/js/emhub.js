@@ -371,9 +371,7 @@ function load_html_from_ajax(container_id, ajaxContent) {
         $('#' + container_id).html(html);
     });
 
-    ajaxContent.fail(function(jqXHR, textStatus) {
-        showError( "Request failed: " + textStatus );
-    });
+    ajaxContent.fail(ajax_request_failed);
 }
 
 function show_modal_from_ajax(container_id, ajaxContent) {

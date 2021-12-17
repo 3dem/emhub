@@ -1,0 +1,78 @@
+
+{% if not dewar or not cane %}
+
+    <div class="col-12">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Select a valid Cane from a Dewar</h5>
+        </div>
+    </div>
+    </div>
+
+{% else %}
+
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Dewar {{ dewar }} - Cane {{ cane }} </h5>
+            </div>
+            <div class="card-body">
+
+                <div class="row">
+                <div class="table-responsive col-3">
+                    <table id="sessions-table" class="table table-striped table-bordered" style="width:100%">
+                        <thead>
+                        <tr>
+                            <th>pos</th>
+                            <th>color</th>
+                            <th>label</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% set pucks = dewars[dewar][cane] %}
+                        {% for p in pucks.values()|sort(attribute='position') %}
+                            <tr>
+                                <td>{{ p.position }}</td>
+                                <td  style="background-color: {{ p.color }}"></td>
+                                <td>{{ p.label }}</td>
+                            </tr>
+                        {% endfor %}
+
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-responsive col-9 ml-0 pl-0">
+                    <table id="sessions-table" class="table table-striped table-bordered" style="width:100%">
+                        <thead>
+                        <tr>
+                            <th>pos</th>
+                            {% for i in range(1, 13) %}
+                                <th>Slot {{ i }}</th>
+                            {% endfor %}
+
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% set pucks = dewars[dewar][cane] %}
+                        {% for p in pucks.values()|sort(attribute='position') %}
+                            <tr>
+                                <td>{{ p.position }}</td>
+                               {% for i in range(1, 13) %}
+                                    <td></td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            </div>
+
+            </div>
+        </div>
+    </div>
+
+{% endif %}

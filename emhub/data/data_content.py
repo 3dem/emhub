@@ -1218,6 +1218,33 @@ class DataContent:
             'pi_info': pi_info
         }
 
+    def get_grids_storage(self, **kwargs):
+        return self.get_grids_cane(**kwargs)
+
+    def get_grids_cane(self, **kwargs):
+        dewars = {}
+        dewar = int(kwargs.get('dewar', 0))
+        cane = int(kwargs.get('cane', 0))
+
+        for puck in self.app.dm.get_pucks():
+            d = puck.dewar
+            c = puck.cane
+            p = puck.position
+
+            if d not in dewars:
+                dewars[d] = {}
+            canes = dewars[d]
+            if c not in canes:
+                canes[c] = {}
+            pucks = canes[c]
+            pucks[p] = puck
+
+        return {
+            'dewars': dewars,
+            'dewar': dewar if dewar in dewars else None,
+            'cane': cane if dewar and cane in dewars[dewar] else None
+        }
+
     def get_raw_user_issues(self, **kwargs):
         users = self.get_users_list()['users']
         filterKey = kwargs.get('filter', 'noroles')
