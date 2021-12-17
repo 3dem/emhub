@@ -697,7 +697,7 @@ class DataManager(DbManager):
         """ This should return a single Resource or None. """
         return self.__item_by(self.Project, **kwargs)
 
-        # ---------------------------- ENTRIES ---------------------------------
+    # ---------------------------- ENTRIES ---------------------------------
     def __check_entry(self, **attrs):
         if 'title' in attrs:
             if not attrs['title'].strip():
@@ -757,6 +757,25 @@ class DataManager(DbManager):
 
         return os.path.join(self._entryFiles,
                             'entry-file-%06d-%s%s' % (entry.id, file_key, ext))
+
+    # ---------------------------- PUCKS ---------------------------------
+    def create_puck(self, **attrs):
+        return self.__create_item(self.Puck, **attrs)
+
+    def update_puck(self, **attrs):
+        return self.__update_item(self.Puck, **attrs)
+
+    def delete_puck(self, **attrs):
+        return self.__delete_item(self.Puck, **attrs)
+
+    def get_pucks(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Puck,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def get_puck_by(self, **kwargs):
+        return self.__item_by(self.Entry, **kwargs)
 
     # --------------- Internal implementation methods -------------------------
     def get_universities_dict(self):

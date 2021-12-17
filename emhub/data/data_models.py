@@ -960,6 +960,42 @@ def create_data_models(dm):
             return dm.json_from_object(self)
 
 
+    class Puck(Base):
+        """ Puck entity for Grids Storage table.
+        """
+        __tablename__ = 'pucks'
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        code = Column(String(64), unique=True, index=True)
+
+        label = Column(String(64),
+                      unique=True,
+                      nullable=False)
+
+        color = Column(String(16))
+
+        # Locations properties
+        dewar = Column(Integer)
+        cane = Column(Integer)
+        position = Column(Integer)
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
+        def json(self):
+            return dm.json_from_object(self)
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra or {})
+            extra[key] = value
+            self.extra = extra
+
+
     dm.Form = Form
     dm.User = User
     dm.Resource = Resource
@@ -971,3 +1007,4 @@ def create_data_models(dm):
     dm.InvoicePeriod = InvoicePeriod
     dm.Project = Project
     dm.Entry = Entry
+    dm.Puck = Puck

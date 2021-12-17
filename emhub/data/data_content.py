@@ -1251,6 +1251,11 @@ class DataContent:
             'entries': self.app.dm.get_entries()
         }
 
+    def get_raw_pucks_list(self, **kwargs):
+        return {
+            'pucks': self.app.dm.get_pucks()
+        }
+
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut
         booking_id = kwargs['booking_id']
