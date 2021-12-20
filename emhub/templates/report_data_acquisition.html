@@ -41,9 +41,9 @@
      ('Selection Type', data['selection_type']),
      ('Acquisition Mode', data['acquisition_mode'])
      ])
-}}
+}}i
 
-{% set apertures = "%s µm, %s µm, %s µm"|format(data['aperture_c1'], data['aperture_c1'], data['aperture_c1'])%}
+{% set apertures = "%s µm, %s µm, %s µm"|format(data['aperture_c1'], data['aperture_c2'], data['aperture_c3'])%}
 {% set objective_aperture = "%s µm"|format(data['objective_aperture']) %}
 {% set pixel_size = data.get('pixel_size', 'nan')|float %}
 {% set dose_rate = data.get('dose_rate', 'nan')| float %}
