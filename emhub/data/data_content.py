@@ -29,6 +29,7 @@
 import os
 import datetime as dt
 import json
+from collections import defaultdict
 
 import flask
 import flask_login
@@ -1222,28 +1223,47 @@ class DataContent:
         return self.get_grids_cane(**kwargs)
 
     def get_grids_cane(self, **kwargs):
-        dewars = {}
-        dewar = int(kwargs.get('dewar', 0))
-        cane = int(kwargs.get('cane', 0))
+
+        dewars = defaultdict(lambda :defaultdict(dict))
+
+        dewar = int(kwargs.get('dewar', 0) or 0)
+        cane = int(kwargs.get('cane', 0) or 0)
 
         for puck in self.app.dm.get_pucks():
-            d = puck.dewar
-            c = puck.cane
-            p = puck.position
+            d, c, p = puck.dewar, puck.cane, puck.position
+            pucks = dewars[d][c]
+            pucks[p] = {
+                'position': p,
+                'label': puck.label,
+                'color': puck.color,
+                'gridboxes': defaultdict(dict)
+            }
 
-            if d not in dewars:
-                dewars[d] = {}
-            canes = dewars[d]
-            if c not in canes:
-                canes[c] = {}
-            pucks = canes[c]
-            pucks[p] = puck
+        cond = "type=='grids_storage'"
+        for entry in self.app.dm.get_entries(condition=cond):
+            print(entry.type, entry.title)
+            storage = entry.extra['data']['grids_storage_table']
+            for row in storage:
+                d = int(row['dewar_number'])
+                c = int(row['cane_number'])
+                p = int(row['puck_number'])
+                slot = int(row['puck_position'])
+                puck = dewars[d][c][p]
+                slot_key = ','.join(row['gridbox_slot'])
+                row['entry'] = entry
+                puck['gridboxes'][slot][slot_key] = row
+                print("  ", row['dewar_number'], row['cane_number'], row['puck_number'], '-', row['puck_position'], ":", row['gridbox_slot'])
 
         return {
             'dewars': dewars,
             'dewar': dewar if dewar in dewars else None,
             'cane': cane if dewar and cane in dewars[dewar] else None
         }
+
+    def get_grids_puck(self, **kwargs):
+        data = self.get_grids_cane(**kwargs)
+        data['puck'] = int(kwargs.get('puck', 0) or 0)
+        return data
 
     def get_raw_user_issues(self, **kwargs):
         users = self.get_users_list()['users']
