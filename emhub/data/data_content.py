@@ -1244,15 +1244,18 @@ class DataContent:
             print(entry.type, entry.title)
             storage = entry.extra['data']['grids_storage_table']
             for row in storage:
-                d = int(row['dewar_number'])
-                c = int(row['cane_number'])
-                p = int(row['puck_number'])
-                slot = int(row['puck_position'])
-                puck = dewars[d][c][p]
-                slot_key = ','.join(row['gridbox_slot'])
-                row['entry'] = entry
-                puck['gridboxes'][slot][slot_key] = row
-                print("  ", row['dewar_number'], row['cane_number'], row['puck_number'], '-', row['puck_position'], ":", row['gridbox_slot'])
+                try:
+                    d = int(row['dewar_number'])
+                    c = int(row['cane_number'])
+                    p = int(row['puck_number'])
+                    slot = int(row['puck_position'])
+                    puck = dewars[d][c][p]
+                    slot_key = ','.join(row['gridbox_slot'])
+                    row['entry'] = entry
+                    puck['gridboxes'][slot][slot_key] = row
+                    print("  ", row['dewar_number'], row['cane_number'], row['puck_number'], '-', row['puck_position'], ":", row['gridbox_slot'])
+                except:
+                    pass
 
         return {
             'dewars': dewars,

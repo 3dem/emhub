@@ -761,10 +761,12 @@ def copy_entry_files(attrs):
 def handle_entry(entry_func, files_func=None):
     def handle(**attrs):
         fix_dates(attrs, 'date')
+        entry = entry_func(**attrs).json()
+        attrs['id'] = entry['id']
         if files_func:
             files_func(attrs)
 
-        return entry_func(**attrs).json()
+        return entry
 
     return _handle_item(handle, 'entry')
 
