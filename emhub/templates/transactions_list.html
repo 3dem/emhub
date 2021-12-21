@@ -92,8 +92,9 @@ function deleteTransaction(transactionId) {
              "Cancel", "Delete", function () {
             sendAjax("{{ url_for('api.delete_transaction') }}",
                      {id: transactionId});
-            ajax = get_ajax_content('transactions_list', {period: period.id});
-            load_html_from_ajax('#transactions-container', ajax);
+            load_html_from_ajax(
+                'transactions-container',
+                get_ajax_content('transactions_list', {period: period.id}));
         });
 } // function deleteTransaction
 
@@ -168,8 +169,8 @@ function handleAjaxDone(jsonResponse) {
         showError(error);
     else {
         $('#transaction-modal').on('hidden.bs.modal', function () {
-            ajax = get_ajax_content('transactions_list', {period: period.id});
-            load_html_from_ajax('#transactions-container', ajax);
+            load_html_from_ajax('transactions-container',
+                                get_ajax_content('transactions_list', {period: period.id}));
         });
         $('#transaction-modal').modal('hide');
 

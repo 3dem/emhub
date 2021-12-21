@@ -566,6 +566,31 @@ def update_entry():
 def delete_entry():
     return handle_entry(app.dm.delete_entry)
 
+# ------------------------------ ENTRIES ---------------------------------
+
+@api_bp.route('/get_entries', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_pucks():
+    return send_json_data([p.json() for p in app.dm.get_pucks()])
+
+
+@api_bp.route('/create_puck', methods=['POST'])
+@flask_login.login_required
+def create_puck():
+    return handle_puck(app.dm.create_puck,)
+
+
+@api_bp.route('/update_puck', methods=['POST'])
+@flask_login.login_required
+def update_puck():
+    return handle_puck(app.dm.update_puck)
+
+
+@api_bp.route('/delete_puck', methods=['POST'])
+@flask_login.login_required
+def delete_puck():
+    return handle_puck(app.dm.delete_puck)
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
@@ -739,6 +764,13 @@ def handle_entry(entry_func, files_func=None):
         if files_func:
             files_func(attrs)
 
+        return entry_func(**attrs).json()
+
+    return _handle_item(handle, 'entry')
+
+
+def handle_puck(entry_func):
+    def handle(**attrs):
         return entry_func(**attrs).json()
 
     return _handle_item(handle, 'entry')

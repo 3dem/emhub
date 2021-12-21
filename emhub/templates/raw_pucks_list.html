@@ -1,0 +1,67 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Raw Pucks List" %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+    {% set is_admin = current_user.is_admin %}
+
+    <!-- table row -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Puck List</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="sessions-table" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>id</th>
+                                <th>code</th>
+                                <th>label</th>
+                                <th>color</th>
+
+                                <th>dewar</th>
+                                <th>cane</th>
+                                <th>position</th>
+                                <td>extra</td>
+
+                                {% if current_user.is_manager %}
+                                    <th>actions</th>
+                                {% endif %}
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for p in pucks %}
+                                <tr>
+                                    <td>{{ p.id }}</td>
+                                    <td>{{ p.code }}</td>
+                                    <td style="background-color: {{ p.color }}">{{ p.label }}</td>
+                                    <td>{{ p.color }}</td>
+                                    <td>{{ p.dewar }}</td>
+                                    <td>{{ p.cane }}</td>
+                                    <td>{{ p.position }}</td>
+                                    <td>{{ p.extra|tojson }}</td>
+
+                                    {% if is_manager %}
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ p.id }})">
+                                                <i class="far fa-trash-alt"></i></button>
+                                        </td>
+                                    {% endif %}
+                                </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+

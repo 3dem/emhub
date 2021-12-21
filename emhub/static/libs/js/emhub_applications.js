@@ -84,7 +84,6 @@ function createPiRows() {
     }
 }
 
-
 /* Show the Application Form, either for a new booking or an existing one */
 function showApplication(applicationId) {
 

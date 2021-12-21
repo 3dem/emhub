@@ -81,14 +81,19 @@ class CounterList:
             print(b['title'])
 
 
-def is_maintainance(b):
+MAINTENANCE_LIST = ['cycle', 'installation', 'maintenance', 'afis']
+DEVELOPMENT_LIST = ['method', 'research', 'test', 'mikroed', 'microed', 'devel']
+
+def _match_title(b, keywords):
     t = b['title'].lower()
-    return any(k in t for k in ['cycle', 'installation', 'maintenance', 'afis'])
+    return any(k in t for k in keywords)
+
+def is_maintenance(b):
+    return b['type'] == 'maintenance' or _match_title(b, MAINTENANCE_LIST)
 
 
 def is_development(b):
-    t = b['title'].lower()
-    return any(k in t for k in ['method', 'research', 'test', 'mikroed', 'microed', 'devel'])
+    return _match_title(b, DEVELOPMENT_LIST)
 
 
 def get_cem(b):
@@ -118,11 +123,11 @@ class CemCounter(Counter):
 
 
 def get_booking_counters(bookings):
-    maintainance = Counter('Maintenance', is_maintainance)
+    maintenance = Counter('Maintenance', is_maintenance)
     development = Counter('Development', is_development)
     CEM = Counter('CEM', filter=lambda b: get_cem(b) is not None)
 
-    counters = CounterList('Downtime', maintainance, 'DBB', CEM, development)
+    counters = CounterList('Downtime', maintenance, 'DBB', CEM, development)
     cem_counters = CounterList()
 
     cem_dict = {}

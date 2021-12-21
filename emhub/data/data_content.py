@@ -29,6 +29,7 @@
 import os
 import datetime as dt
 import json
+from collections import defaultdict
 
 import flask
 import flask_login
@@ -861,6 +862,49 @@ class DataContent:
                 'since': since
                 }
 
+    def get_report_pis_usage(self, **kwargs):
+
+        bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
+
+        pi_dict = {}
+        univ_dict = self.app.dm.get_universities_dict()
+
+        def _get_univ(email, default=None):
+            for k, v in univ_dict.items():
+                if email.endswith(k):
+                    return v
+            return default
+
+
+        for b in bookings:
+            pi = b.owner.get_pi()
+            if pi:
+                parts = pi.name.split()
+                first_name = ' '.join(parts[:-1])
+                last_name = parts[-1]
+                if not pi.email in pi_dict:
+                    pi_dict[pi.email] = {
+                        'first_name': first_name,
+                        'last_name': last_name,
+                        'email': pi.email,
+                        #'email_rev': pi.email[::-1],  # reverse email for sorting
+                        'university': _get_univ(pi.email, 'z-Unknown'),
+                        'bookings': 0,
+                        'days': 0,
+                        'users': set()
+                    }
+                pi_entry = pi_dict[pi.email]
+                pi_entry['bookings'] += 1
+                pi_entry['days'] += b.days
+                pi_entry['users'].add(b.owner.email)
+
+        data = {
+            'pi_list': sorted(pi_dict.values(), key=lambda pi: pi['university'].lower())
+        }
+        data.update(range_dict)
+
+        return data
+
     # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
@@ -1009,13 +1053,16 @@ class DataContent:
         if project_id:
             project = dm.get_project_by(id=project_id)
         else:
+            user = self.app.user
             now = dm.now()
             project = dm.Project(status='active',
                                  date=now,
                                  last_update_date=now,
-                                 last_update_user_id=self.app.user.id,
+                                 last_update_user_id=user.id,
                                  title='',
                                  description='')
+            if not self.app.user.is_manager:
+                project.creation_user = project.user = user
 
         return {
             'project': project,
@@ -1095,13 +1142,15 @@ class DataContent:
                 entry.last_update_user_id = self.app.user.id
         else:
             project_id = kwargs['entry_project_id']
+            project = dm.get_project_by(id=project_id)
+
             entry = dm.Entry(date=now,
                              creation_date=now,
                              creation_user_id=self.app.user.id,
                              last_update_date=now,
                              last_update_user_id=self.app.user.id,
                              type=kwargs['entry_type'],
-                             project_id=project_id,
+                             project=project,
                              title='',
                              description='',
                              extra={})
@@ -1170,6 +1219,52 @@ class DataContent:
             'pi_info': pi_info
         }
 
+    def get_grids_storage(self, **kwargs):
+        return self.get_grids_cane(**kwargs)
+
+    def get_grids_cane(self, **kwargs):
+
+        dewars = defaultdict(lambda :defaultdict(dict))
+
+        dewar = int(kwargs.get('dewar', 0) or 0)
+        cane = int(kwargs.get('cane', 0) or 0)
+
+        for puck in self.app.dm.get_pucks():
+            d, c, p = puck.dewar, puck.cane, puck.position
+            pucks = dewars[d][c]
+            pucks[p] = {
+                'position': p,
+                'label': puck.label,
+                'color': puck.color,
+                'gridboxes': defaultdict(dict)
+            }
+
+        cond = "type=='grids_storage'"
+        for entry in self.app.dm.get_entries(condition=cond):
+            print(entry.type, entry.title)
+            storage = entry.extra['data']['grids_storage_table']
+            for row in storage:
+                d = int(row['dewar_number'])
+                c = int(row['cane_number'])
+                p = int(row['puck_number'])
+                slot = int(row['puck_position'])
+                puck = dewars[d][c][p]
+                slot_key = ','.join(row['gridbox_slot'])
+                row['entry'] = entry
+                puck['gridboxes'][slot][slot_key] = row
+                print("  ", row['dewar_number'], row['cane_number'], row['puck_number'], '-', row['puck_position'], ":", row['gridbox_slot'])
+
+        return {
+            'dewars': dewars,
+            'dewar': dewar if dewar in dewars else None,
+            'cane': cane if dewar and cane in dewars[dewar] else None
+        }
+
+    def get_grids_puck(self, **kwargs):
+        data = self.get_grids_cane(**kwargs)
+        data['puck'] = int(kwargs.get('puck', 0) or 0)
+        return data
+
     def get_raw_user_issues(self, **kwargs):
         users = self.get_users_list()['users']
         filterKey = kwargs.get('filter', 'noroles')
@@ -1201,6 +1296,11 @@ class DataContent:
     def get_raw_entries_list(self, **kwargs):
         return {
             'entries': self.app.dm.get_entries()
+        }
+
+    def get_raw_pucks_list(self, **kwargs):
+        return {
+            'pucks': self.app.dm.get_pucks()
         }
 
     def get_create_session_form(self, **kwargs):
@@ -1259,8 +1359,11 @@ class DataContent:
         application_label = 'None'
 
         if booking.type == 'downtime':
-            color = 'red'
+            color = 'rgba(181,4,0,1.0)'
             title = "%s (DOWNTIME): %s" % (resource.name, b_title)
+        if booking.type == 'maintenance' or any(k in b_title for k in ['cycle', 'installation', 'maintenance', 'afis']):
+            color = 'rgba(255,107,53,1.0)'
+            title = "%s (MAINTENANCE): %s" % (resource.name, b_title)
         elif booking.type == 'slot':
             color = color.replace('1.0', '0.5')  # transparency for slots
             title = "%s (SLOT): %s" % (resource.name,

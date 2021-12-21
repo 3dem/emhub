@@ -68,3 +68,19 @@ A Dockerfile has been include to create Docker images.
     cd emhub
     docker build . -t emhub
     docker run --rm -p 8080:8080 --name=emhub -v $PWD/instance:/instance
+
+
+Upgrading Database model with Alembic
+-------------------------------------
+
+If we modify the database models, then an update/migration is required.
+
+.. code-block:: bash
+
+    # Do changes in the model (data_models.py)
+
+    alembic revision --autogenerate
+
+    # Review the generated script
+
+    alembic upgrade head  # or use first the --sql option to see the commands
