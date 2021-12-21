@@ -82,7 +82,7 @@ def create_data_models(dm):
             return self.extra.get(key, default)
 
         def __setExtra(self, key, value):
-            extra = dict(self.extra)
+            extra = dict(self.extra or {})
             extra[key] = value
             self.extra = extra
 
@@ -174,7 +174,7 @@ def create_data_models(dm):
     class User(UserMixin, Base):
         """Model for user accounts."""
         __tablename__ = 'users'
-        ROLES = ['user', 'admin', 'manager', 'head', 'pi']
+        ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent']
 
         id = Column(Integer,
                     primary_key=True)
@@ -303,6 +303,10 @@ def create_data_models(dm):
         @property
         def is_pi(self):
             return 'pi' in self.roles
+
+        @property
+        def is_independent(self):
+            return 'independent' in self.roles
 
         @property
         def is_application_manager(self):
@@ -885,9 +889,19 @@ def create_data_models(dm):
             return self.extra.get(key, default)
 
         def __setExtra(self, key, value):
-            extra = dict(self.extra)
+            extra = dict(self.extra or {})
             extra[key] = value
             self.extra = extra
+
+        @property
+        def user_can_edit(self):
+            """ True if the user of the project can edit it (add/modify/delete notes)
+            """
+            return  self.__getExtra('user_can_edit', False)
+
+        @user_can_edit.setter
+        def user_can_edit(self, value):
+            self.__setExtra('user_can_edit', value)
 
         def json(self):
             return dm.json_from_object(self)
@@ -938,12 +952,48 @@ def create_data_models(dm):
             return self.extra.get(key, default)
 
         def __setExtra(self, key, value):
-            extra = dict(self.extra)
+            extra = dict(self.extra or {})
             extra[key] = value
             self.extra = extra
 
         def json(self):
             return dm.json_from_object(self)
+
+
+    class Puck(Base):
+        """ Puck entity for Grids Storage table.
+        """
+        __tablename__ = 'pucks'
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        code = Column(String(64), unique=True, index=True)
+
+        label = Column(String(64),
+                      unique=True,
+                      nullable=False)
+
+        color = Column(String(16))
+
+        # Locations properties
+        dewar = Column(Integer)
+        cane = Column(Integer)
+        position = Column(Integer)
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
+        def json(self):
+            return dm.json_from_object(self)
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra or {})
+            extra[key] = value
+            self.extra = extra
 
 
     dm.Form = Form
@@ -957,3 +1007,4 @@ def create_data_models(dm):
     dm.InvoicePeriod = InvoicePeriod
     dm.Project = Project
     dm.Entry = Entry
+    dm.Puck = Puck

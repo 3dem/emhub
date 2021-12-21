@@ -1,0 +1,95 @@
+
+{% if not dewar or not cane %}
+
+    <div class="col-12">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Select a valid Cane from a Dewar</h5>
+        </div>
+    </div>
+    </div>
+
+{% else %}
+
+    <div class="col-12">
+
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0" id="location-title">Dewar {{ dewar }} - Cane {{ cane }} </h5>
+            </div>
+            <div class="card-body">
+
+                <div class="row">
+                <div class="table-responsive col-2">
+                    <table id="sessions-table" class="table table-striped table-bordered" style="width:100%">
+                        <thead>
+                        <tr>
+                            <th>pos</th>
+                            <th>color</th>
+                            <th>label</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% set pucks = dewars[dewar][cane] %}
+                        {% for p in pucks.values()|sort(attribute='position') %}
+                            <tr>
+                                <td>{{ p['position'] }}</td>
+                                <td  style="background-color: {{ p['color'] }}"></td>
+                                <td><a href="javascript:loadPuck({{ dewar }}, {{ cane }}, {{ p['position'] }})">{{ p['label'] }}</a></td>
+                            </tr>
+                        {% endfor %}
+
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="puck-content" class="col-10  ml-0 pl-0">
+                    <div class="table-responsive col-12 ml-0 pl-0">
+                        <table id="sessions-table" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>pos</th>
+                                {% for i in range(1, 13) %}
+                                    <th>Slot {{ i }}</th>
+                                {% endfor %}
+
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% set pucks = dewars[dewar][cane] %}
+                            {% for p in pucks.values()|sort(attribute='position') %}
+                                <tr>
+                                    <td>{{ p['position'] }}</td>
+                                   {% for i in range(1, 13) %}
+                                       {% set gridboxes = p['gridboxes'][i] %}
+                                        <td>
+                                            {% for k, row in gridboxes.items() %}
+                                                {% set entry = row['entry'] %}
+                                                <a href="javascript:showEntryForm({{ entry.id }}, {{ entry.project.id }})"><span class="badge badge-pill badge-success">{{ k }}</span></a>
+                                            {% endfor %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            </div>
+
+            </div>
+
+        </div>
+    </div>
+
+<!-- ============================================================== -->
+<!-- Entry Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="entry-modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+</div>
+
+{% endif %}

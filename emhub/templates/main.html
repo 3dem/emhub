@@ -126,6 +126,7 @@
 <!-- emhub -->
 <script src="{{ url_for('static', filename='libs/js/emhub.js') }}"></script>
 <script src="{{ url_for('static', filename='libs/js/emhub_applications.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/js/emhub_forms.js') }}"></script>
 
 
 <script type="text/javascript">
@@ -141,7 +142,15 @@
     var content_url = "{{ url_for('get_content') }}";
     var api_urls = {
         create_application: "{{ url_for('api.create_application') }}",
-        update_application: "{{ url_for('api.update_application') }}"
+        update_application: "{{ url_for('api.update_application') }}",
+
+        create_project: "{{ url_for('api.create_project') }}",
+        update_project: "{{ url_for('api.update_project') }}",
+        delete_project: "{{ url_for('api.delete_project') }}",
+
+        create_entry: "{{ url_for('api.create_entry') }}",
+        update_entry: "{{ url_for('api.update_entry') }}",
+        delete_entry: "{{ url_for('api.delete_entry') }}",
     };
     var application_config = {
         on_update: null,
@@ -176,9 +185,7 @@
 
 
     function load_main_content(content_id, params) {
-        load_html_from_ajax("#main-content",
-            get_ajax_content(content_id, params)
-        );
+        load_html_from_ajax("main-content", get_ajax_content(content_id, params));
     }
 
     function load_content_fromlink(e) {

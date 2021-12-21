@@ -368,10 +368,101 @@ function get_ajax_content(content_id, params) {
  */
 function load_html_from_ajax(container_id, ajaxContent) {
     ajaxContent.done(function(html) {
-        $(container_id).html(html);
+        $('#' + container_id).html(html);
+    });
+
+    ajaxContent.fail(ajax_request_failed);
+}
+
+function show_modal_from_ajax(container_id, ajaxContent) {
+    ajaxContent.done(function(html) {
+        $('#' + container_id).html(html);
+        $('#' + container_id).modal('show');
     });
 
     ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
+        showError( "Request failed: " + textStatus );
     });
+}
+
+/**
+ * Make an AJAX request sending json data to some url in the server
+ * @param url: URL to send the ajax request
+ * @param attrs: json data to send
+ * @param done: callback when the request is done
+ * @param fail: callback when the request failed
+ */
+function send_ajax_json(url, attrs, done, fail){
+    var ajaxContent = $.ajax({
+        url: url,
+        type: "POST",
+        data: JSON.stringify({attrs: attrs}),
+        contentType: 'application/json; charset=utf-8',
+        dataType: "json"
+    });
+
+    ajaxContent.done(done);
+    if (!fail)
+        fail = ajax_request_failed;
+    ajaxContent.fail(fail);
+}
+
+function send_ajax_form(url, formData, done, fail){
+    var ajaxContent = $.ajax({
+        url: url,
+        type: "POST",
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: "json"
+    });
+
+    ajaxContent.done(done);
+    if (!fail)
+        fail = ajax_request_failed;
+    ajaxContent.fail(fail);
+}
+
+function ajax_request_done(jsonResponse, expectedKey){
+    var error = null;
+
+    if (expectedKey in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showError(error);
+    else {
+        location.reload();
+    }
+}
+
+function ajax_request_failed(jqXHR, textStatus) {
+    showError("Ajax Request FAILED: " + textStatus );
+}
+
+function savePdf(contentId) {
+
+    var elementHTML = $('#' + contentId).html();
+
+    var opt = {
+        margin:       10,
+        filename:     'myfile.pdf',
+        //pagebreak:  { mode: '', before: '.before', after: '.after', avoid: '.avoid' },
+        pagebreak: {mode: 'legacy'},
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            dpi: 192,
+            scale:4,
+            letterRendering: true,
+            useCORS: true
+        },
+    };
+
+    html2pdf(elementHTML, opt);
 }

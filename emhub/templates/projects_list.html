@@ -14,7 +14,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    {% if is_manager %}
+                    {% if is_manager or current_user.is_independent %}
                         <div class="col-12 mb-3">
                             <a href="javascript:showProjectForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Project</a>
                         </div>
@@ -57,12 +57,11 @@
                                             <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
                                                 <i class="fa fa-eye"></i></a>
 
-                                            {% if is_manager %}
+                                            {% if is_manager or current_user == p.creation_user %}
                                                  <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
                                                      <i class="far fa-edit"></i></a>
                                                  <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
                                                      <i class="far fa-trash-alt"></i></a>
-
                                             {% endif %}
                                         </td>
 
@@ -85,7 +84,7 @@
 <!-- ============================================================== -->
 <!-- Project Modal -->
 <!-- ============================================================== -->
-<div class="modal fade" id="project-modal" tabindex="-1" role="dialog" aria-labelledby="projectModal" aria-hidden="true" >
+<div class="modal fade" id="project-modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
 </div>
 
 
@@ -99,99 +98,5 @@ $('#projects-table').DataTable({
     //ordering: false
 });
 
-/* Show the Application Form, either for a new booking or an existing one */
-function showProjectForm(project_id) {
-    ajaxContent = get_ajax_content("project_form", {project_id: project_id});
-
-    ajaxContent.done(function(html) {
-        $("#project-modal").html(html);
-        // Show the form after setting html content
-        $('#project-modal').modal('show');
-    });
-
-    ajaxContent.fail(function(jqXHR, textStatus) {
-        showError( "Request failed: " + textStatus );
-    });
-
-}  // function showProjectForm
-
-function deleteProject(project_id) {
-    confirm("Delete Project",
-            "Do you want to DELETE Project with id=" + project_id + "?",
-             "Cancel", "Delete", function () {
-            sendAjax("{{ url_for('api.delete_project') }}",
-                     {id: project_id});
-        });
-} // function deleteProject
-
-    /** This function will be called when the OK button in the Application form
- * is clicked. It can be either Create or Update action.
- */
-function onProjectOkButtonClick() {
-    // Update template values
-    var project = {
-        id: parseInt($('#project-id').val()),
-        status: $('#project-status').val(),
-        user_id: $('#project-user-select').selectpicker('val'),
-        title: $('#project-title').val(),
-        description: $('#project-description').val(),
-        date: dateIsoFromValue('#project-date', '#hour_id'),
-    };
-
-    var endpoint = null;
-
-    if (project.id != null && !Number.isNaN(project.id)) {
-        endpoint = "{{ url_for('api.update_project') }}";
-    }
-    else {
-        endpoint = "{{ url_for('api.create_project') }}";
-    }
-
-    sendAjax(endpoint, project);
-}  // function onTemplateOkButtonClick
-
-
-function sendAjax(endpoint, attrs) {
-    var ajaxContent = $.ajax({
-        url: endpoint,
-        type: "POST",
-        contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify({attrs: attrs}),
-        dataType: "json"
-    });
-
-    ajaxContent.done(handleAjaxDone);
-    ajaxContent.fail(handleAjaxFail);
-} // function sendAjax
-
-
-    /** Helper functions to handle Template AJAX response or failure */
-function handleAjaxDone(jsonResponse) {
-    var error = null;
-
-    if ('project' in jsonResponse) {
-    }
-    else if ('error' in jsonResponse) {
-        error = jsonResponse.error;
-    }
-    else {
-        error = 'Unexpected response from server.'
-    }
-
-    if (error)
-        showError(error);
-    else {
-        $('#project-modal').on('hidden.bs.modal', function () {
-            //location.reload();
-        });
-        $('#project-modal').modal('hide');
-        location.reload();
-    }
-}
-
-
-function handleAjaxFail(jqXHR, textStatus) {
-    showError("Request failed: " + textStatus );
-}
 
 </script>

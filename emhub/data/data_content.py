@@ -29,6 +29,7 @@
 import os
 import datetime as dt
 import json
+from collections import defaultdict
 
 import flask
 import flask_login
@@ -1081,13 +1082,16 @@ class DataContent:
         if project_id:
             project = dm.get_project_by(id=project_id)
         else:
+            user = self.app.user
             now = dm.now()
             project = dm.Project(status='active',
                                  date=now,
                                  last_update_date=now,
-                                 last_update_user_id=self.app.user.id,
+                                 last_update_user_id=user.id,
                                  title='',
                                  description='')
+            if not self.app.user.is_manager:
+                project.creation_user = project.user = user
 
         return {
             'project': project,
@@ -1167,13 +1171,15 @@ class DataContent:
                 entry.last_update_user_id = self.app.user.id
         else:
             project_id = kwargs['entry_project_id']
+            project = dm.get_project_by(id=project_id)
+
             entry = dm.Entry(date=now,
                              creation_date=now,
                              creation_user_id=self.app.user.id,
                              last_update_date=now,
                              last_update_user_id=self.app.user.id,
                              type=kwargs['entry_type'],
-                             project_id=project_id,
+                             project=project,
                              title='',
                              description='',
                              extra={})
@@ -1242,6 +1248,55 @@ class DataContent:
             'pi_info': pi_info
         }
 
+    def get_grids_storage(self, **kwargs):
+        return self.get_grids_cane(**kwargs)
+
+    def get_grids_cane(self, **kwargs):
+
+        dewars = defaultdict(lambda :defaultdict(dict))
+
+        dewar = int(kwargs.get('dewar', 0) or 0)
+        cane = int(kwargs.get('cane', 0) or 0)
+
+        for puck in self.app.dm.get_pucks():
+            d, c, p = puck.dewar, puck.cane, puck.position
+            pucks = dewars[d][c]
+            pucks[p] = {
+                'position': p,
+                'label': puck.label,
+                'color': puck.color,
+                'gridboxes': defaultdict(dict)
+            }
+
+        cond = "type=='grids_storage'"
+        for entry in self.app.dm.get_entries(condition=cond):
+            print(entry.type, entry.title)
+            storage = entry.extra['data']['grids_storage_table']
+            for row in storage:
+                try:
+                    d = int(row['dewar_number'])
+                    c = int(row['cane_number'])
+                    p = int(row['puck_number'])
+                    slot = int(row['puck_position'])
+                    puck = dewars[d][c][p]
+                    slot_key = ','.join(row['gridbox_slot'])
+                    row['entry'] = entry
+                    puck['gridboxes'][slot][slot_key] = row
+                    print("  ", row['dewar_number'], row['cane_number'], row['puck_number'], '-', row['puck_position'], ":", row['gridbox_slot'])
+                except:
+                    pass
+
+        return {
+            'dewars': dewars,
+            'dewar': dewar if dewar in dewars else None,
+            'cane': cane if dewar and cane in dewars[dewar] else None
+        }
+
+    def get_grids_puck(self, **kwargs):
+        data = self.get_grids_cane(**kwargs)
+        data['puck'] = int(kwargs.get('puck', 0) or 0)
+        return data
+
     def get_raw_user_issues(self, **kwargs):
         users = self.get_users_list()['users']
         filterKey = kwargs.get('filter', 'noroles')
@@ -1273,6 +1328,11 @@ class DataContent:
     def get_raw_entries_list(self, **kwargs):
         return {
             'entries': self.app.dm.get_entries()
+        }
+
+    def get_raw_pucks_list(self, **kwargs):
+        return {
+            'pucks': self.app.dm.get_pucks()
         }
 
     def get_create_session_form(self, **kwargs):
