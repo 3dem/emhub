@@ -45,6 +45,7 @@ api_bp = flask.Blueprint('api', __name__)
 
 
 # ---------------------------- AUTH  ------------------------------------------
+
 @api_bp.route('/login', methods=['POST'])
 def login():
     username = request.json['username']
@@ -68,6 +69,7 @@ def logout():
 
 
 # ---------------------------- USERS ------------------------------------------
+
 @api_bp.route('/create_user', methods=['POST'])
 @flask_login.login_required
 def create_user():
@@ -129,6 +131,7 @@ def get_users():
 
 
 # ---------------------------- APPLICATIONS -----------------------------------
+
 @api_bp.route('/create_template', methods=['POST'])
 @flask_login.login_required
 def create_template():
@@ -261,6 +264,7 @@ def import_application():
 
 
 # ---------------------------- RESOURCES ---------------------------------------
+
 @api_bp.route('/get_resources', methods=['POST'])
 @flask_login.login_required
 def get_resources():
@@ -271,6 +275,7 @@ def get_resources():
 @flask_login.login_required
 def update_resource():
     return handle_resource(app.dm.update_resource)
+
 
 # ---------------------------- BOOKINGS ---------------------------------------
 
@@ -363,6 +368,7 @@ def poll_sessions():
                  }]
                 return send_json_data(data)
         time.sleep(3)
+
 
 @api_bp.route('/create_session', methods=['POST'])
 @flask_login.login_required
@@ -559,6 +565,7 @@ def update_project():
 def delete_project():
     return handle_project(app.dm.delete_project)
 
+
 # ------------------------------ ENTRIES ---------------------------------
 
 @api_bp.route('/get_entries', methods=['GET', 'POST'])
@@ -570,19 +577,44 @@ def get_entries():
 @api_bp.route('/create_entry', methods=['POST'])
 @flask_login.login_required
 def create_entry():
-    return handle_entry(app.dm.create_entry, copy_entry_files)
+    def handle(**attrs):
+        fix_dates(attrs, 'date')
+        entry = app.dm.create_entry(**attrs)
+        save_entry_files(entry, entry.extra['data'])
+        entry = app.dm.update_entry(id=entry.id, extra=entry.extra)
+        return entry.json()
+
+    return _handle_item(handle, 'entry')
 
 
 @api_bp.route('/update_entry', methods=['POST'])
 @flask_login.login_required
 def update_entry():
-    return handle_entry(app.dm.update_entry, copy_entry_files)
+    def handle(**attrs):
+        fix_dates(attrs, 'date')
+        entry = app.dm.get_entry_by(id=attrs['id'])
+        old_files = set(app.dm.get_entry_files(entry))
+        save_entry_files(entry, attrs['extra']['data'])
+        entry = app.dm.update_entry(**attrs)
+        new_files = set(app.dm.get_entry_files(entry))
+        clean_files(old_files - new_files)
+        return entry.json()
+
+    return _handle_item(handle, 'entry')
 
 
 @api_bp.route('/delete_entry', methods=['POST'])
 @flask_login.login_required
 def delete_entry():
-    return handle_entry(app.dm.delete_entry)
+    def handle(**attrs):
+        entry = app.dm.get_entry_by(id=attrs['id'])
+        old_files = set(app.dm.get_entry_files(entry))
+        entry = app.dm.delete_entry(**attrs)
+        clean_files(old_files)
+        return entry.json()
+
+    return _handle_item(handle, 'entry')
+
 
 # ------------------------------ ENTRIES ---------------------------------
 
@@ -609,6 +641,7 @@ def update_puck():
 def delete_puck():
     return handle_puck(app.dm.delete_puck)
 
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
@@ -627,6 +660,7 @@ def filter_request(func):
         items = [_filter(s) for s in items]
 
     return send_json_data(items)
+
 
 def fix_dates(attrs, *date_keys):
     """ Convert the values from UTC string to datetime
@@ -741,54 +775,25 @@ def handle_project(project_func):
     return _handle_item(handle, 'project')
 
 
-def copy_entry_files(attrs):
+def save_entry_files(entry, data):
     """ Function used when creating or updating an Entry.
     It will handle the upload of new files.
     """
-    data = attrs['extra']['data']
-
-    from pprint import pprint
-    pprint(data)
-
-    def _path(key):
-        base = 'entry-file-%06d-%s' % (int(attrs['id']), key)
-        return os.path.join(app.config['ENTRY_FILES'], base)
-
-    def _file(key, fn):
-        _, ext = os.path.splitext(fn)
-        return _path(key) + ext
-
-    def _clean(key):
-        """ Clean all previous files starting with that key. """
-        for fn in glob(_path(key) + '.*'):
-            os.remove(fn)
-
     for f in request.files:
         file = request.files[f]
 
         fn = file.filename
         if fn:
-            _clean(f)
             data[f] = fn
-            file.save(_file(f, fn))
-
-    for key in data:
-        if isinstance(data[key], str) and data[key].startswith('DELETE:'):
-            _clean(key)
-            data[key] = ''
+            print(">>>DEBUG: Saving file: " + app.dm.get_entry_file(entry, f, fn))
+            file.save(app.dm.get_entry_file(entry, f, fn))
 
 
-def handle_entry(entry_func, files_func=None):
-    def handle(**attrs):
-        fix_dates(attrs, 'date')
-        entry = entry_func(**attrs).json()
-        attrs['id'] = entry['id']
-        if files_func:
-            files_func(attrs)
-
-        return entry
-
-    return _handle_item(handle, 'entry')
+def clean_files(paths):
+    for p in paths:
+        if os.path.exists(p):
+            print(">>>DEBUG: Removing file: " + p)
+            os.remove(p)
 
 
 def handle_puck(entry_func):
