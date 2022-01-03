@@ -74,7 +74,7 @@ function deleteEntry(entry_id, entry_title) {
     confirm("Delete Entry",
             "Do you want to DELETE Entry '" + entry_title + "' ?",
              "Cancel", "Delete", function () {
-            send_ajax_json("{{ url_for('api.delete_entry') }}",
+            send_ajax_json(api_urls.delete_entry,
                      {id: entry_id}, entryAjaxDone);
         });
 } // function deleteEntry
