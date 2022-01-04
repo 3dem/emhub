@@ -1,0 +1,33 @@
+
+{% set n = data['gridboxes']|length %}
+{% set N = 1 + n // 2 + n % 2 %}
+
+{% include "report_header.html" %}
+
+{% import "entry_macros.html" as macros %}
+
+{% set table = [] %}
+
+{% for row in data['grids_storage_table'] %}
+    {% do table.append([row['gridbox_label'], row['comments']])  %}
+{% endfor %}
+
+{{ macros.table_card('Grids Comments ', table) }}
+
+{% for row in images %}
+    {{ macros.header_card(entry_type['label'], entry.date, (4 + loop.index0, N)) }}
+    {{ macros.image_card(row['image_title'], row['image_data']) }}
+{% endfor %}
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -778,6 +778,9 @@ class DataManager(DbManager):
         files = []
 
         def _add_from_dict(d):
+            if not isinstance(d, dict):
+                return
+
             for k, v in d.items():
                 if isinstance(v, list):
                     for row in v:

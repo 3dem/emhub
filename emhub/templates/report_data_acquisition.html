@@ -82,18 +82,3 @@
     {{ macros.image_card(row['image_title'], row['image_data']) }}
 {% endfor %}
 
-{#{% if 'atlas_image' in images %}#}
-{#    {{ macros.header_card(entry_type['label'], entry.date, (4, N)) }}#}
-{#    {{ macros.image_card("Atlas Image", images['atlas_image']) }}#}
-{#{% endif %}#}
-{##}
-{#{% if 'micrograph_image' in images %}#}
-{#    {{ macros.header_card(entry_type['label'], entry.date, (5, N)) }}#}
-{#    {{ macros.image_card("Sample Micrograph", images['micrograph_image']) }}#}
-{##}
-{#{% endif %}#}
-{##}
-{#{% if '2dclasses_image' in images %}#}
-{#    {{ macros.header_card(entry_type['label'], entry.date, (6, N)) }}#}
-{#    {{ macros.image_card("2D Classes", images['2dclasses_image']) }}#}
-{#{% endif %}#}

@@ -1139,7 +1139,8 @@ class DataContent:
                 {'label': 'Screening',
                  'group': 2,
                  'iconClass': "fas fa-search fa-inverse",
-                 'imageClass': "img--location"
+                 'imageClass': "img--location",
+                 'report': "report_screening.html"
                  },
             'data_acquisition':
                 {'label': 'Data Acquisition',
