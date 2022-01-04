@@ -775,8 +775,19 @@ class DataManager(DbManager):
                 return True
             return False
 
-        return [self._entry_file_path(entry, v)
-                for k, v in data.items() if _is_file(k)]
+        files = []
+
+        def _add_from_dict(d):
+
+            for k, v in d.items():
+                if isinstance(v, list):
+                    for row in v:
+                        _add_from_dict(row)
+                elif _is_file(k):
+                    files.append(self._entry_file_path(entry, v))
+
+        _add_from_dict(data)
+        return files
 
     # ---------------------------- PUCKS ---------------------------------
     def create_puck(self, **attrs):
