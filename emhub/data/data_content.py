@@ -1209,14 +1209,13 @@ class DataContent:
         if not 'report' in entry_type:
             raise Exception("There is no Report associated with this Entry. ")
 
-        images = {}
+        images = []
 
-        for key, value in data.items():
-            if key.endswith('_image'):
-                fn = dm.get_entry_file(entry, key)
-                if os.path.exists(fn):
-                    _, ext = os.path.splitext(fn)
-                    images[key] = 'data:image/%s;base64, ' + image.fn_to_base64(fn)
+        for row in data.get('images_table', []):
+            if 'image_file' in row:
+                fn = dm.get_entry_path(entry, row['image_file'])
+                row['image_data'] = 'data:image/%s;base64, ' + image.fn_to_base64(fn)
+                images.append(row)
 
         # Group data rows by gridboxes (label)
         if entry.type in ['grids_preparation', 'grids_storage']:

@@ -785,14 +785,12 @@ def save_entry_files(entry, data):
         fn = file.filename
         if fn:
             data[f] = fn
-            print(">>>DEBUG: Saving file: " + app.dm.get_entry_file(entry, f, fn))
-            file.save(app.dm.get_entry_file(entry, f, fn))
+            file.save(app.dm.get_entry_path(entry, fn))
 
 
 def clean_files(paths):
     for p in paths:
         if os.path.exists(p):
-            print(">>>DEBUG: Removing file: " + p)
             os.remove(p)
 
 

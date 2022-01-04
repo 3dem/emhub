@@ -753,38 +753,37 @@ class DataManager(DbManager):
         """ This should return a single Resource or None. """
         return self.__item_by(self.Entry, **kwargs)
 
-    def _entry_file_path(self, entry, filename):
+    def get_entry_path(self, entry, filename):
         return os.path.join(self._entryFiles,
                             'entry-file-%06d-%s' % (entry.id, filename))
 
-    def get_entry_file(self, entry, file_key, filename=None):
+    def get_entry_file(self, entry, file_key):
         """ Return the fn associated with a given entry. """
-        fn = filename or entry.extra['data'].get(file_key, None)
+        fn = entry.extra['data'].get(file_key, None)
 
         if fn is None:
             raise Exception("Can not retrieve file for key '%s'" % file_key)
 
-        return self._entry_file_path(entry, fn)
+        return self.get_entry_path(entry, fn)
 
     def get_entry_files(self, entry):
         """ Return all values from the extra dict that are files. """
         data = entry.extra['data']
 
         def _is_file(k):
-            if k.endswith('_image'):
+            if k.endswith('_file'):
                 return True
             return False
 
         files = []
 
         def _add_from_dict(d):
-
             for k, v in d.items():
                 if isinstance(v, list):
                     for row in v:
                         _add_from_dict(row)
                 elif _is_file(k):
-                    files.append(self._entry_file_path(entry, v))
+                    files.append(self.get_entry_path(entry, v))
 
         _add_from_dict(data)
         return files
