@@ -29,34 +29,35 @@
         </thead>
         <tbody name="table-body">
 
+            {# Create an empty (hidden) row that will be used as template when adding new ones #}
+            <tr id="template-row" style="display: none;">
+                <td>
+                    <label class="be-checkbox custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input row-checkbox"><span class="custom-control-label"></span>
+                    </label>
+                </td>
+            {% for column in columns %}
+                {% set col_index = loop.index0 %}
+                {% set col_id = column['id'] %}
+                {% set row_id = 'row' + row_index|string %}
+                {% set param_id = 'row-col-%d'|format(col_index) %}
+                {% set id_name = 'name=%s'|format(param_id) %}
+                {% set data_key = ' data-key=%s '|format(col_id) %}
+                {% set param = column %}
+                {% set value = ''  %}
+                {% set selectpicker = False %}
+                <td>
+
+                    {% include "dynamic_param.html" %}
+                </td>
+            {% endfor %}
+            </tr>
+
             {% for i in range(nrows) %}
                 {% set row_index = loop.index0 %}
                 {% set row_id = 'row' + row_index|string %}
                 {% set row_values = rows[row_index] if row_index < rows_number else {} %}
 
-                {# Create an empty (hidden) row that will be used as template when adding new ones #}
-                <tr id="template-row" style="display: none;">
-                    <td>
-                        <label class="be-checkbox custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input row-checkbox"><span class="custom-control-label"></span>
-                        </label>
-                    </td>
-                {% for column in columns %}
-                    {% set col_index = loop.index0 %}
-                        {% set col_id = column['id'] %}
-                        {% set param_id = 'row-%d-col-%d'|format(row_index, col_index) %}
-                        {% set id_name = 'name=%s'|format(param_id) %}
-                        {% set data_key = ' data-key=%s '|format(col_id) %}
-                        {% set param = column %}
-                        {% set value = ''  %}
-                        {% set selectpicker = False %}
-                    <td>
-
-                        {% include "dynamic_param.html" %}
-                    </td>
-                {% endfor %}
-                </tr>
-                
                 <tr class="data-row" id="{{ row_id }}">
                     <td>
                         <label class="be-checkbox custom-control custom-checkbox">
@@ -65,13 +66,13 @@
                     </td>
                 {% for column in columns %}
                     {% set col_index = loop.index0 %}
-                        {% set col_id = column['id'] %}
-                        {% set param_id = 'row-%d-col-%d'|format(row_index, col_index) %}
-                        {% set id_name = 'name=%s'|format(param_id) %}
-                        {% set data_key = ' data-key=%s '|format(col_id) %}
-                        {% set param = column %}
-                        {% set value = row_values.get(col_id, '')  %}
-                        {% set selectpicker = True %}
+                    {% set col_id = column['id'] %}
+                    {% set param_id = 'row-%d-col-%d'|format(row_index, col_index) %}
+                    {% set id_name = 'name=%s'|format(param_id) %}
+                    {% set data_key = ' data-key=%s '|format(col_id) %}
+                    {% set param = column %}
+                    {% set value = row_values.get(col_id, '')  %}
+                    {% set selectpicker = True %}
                     <td>
                         {% include "dynamic_param.html" %}
                     </td>

@@ -84,6 +84,10 @@ class DataClient:
         """
         return self._method('create_session', 'session', attrs)
 
+    def get_session(self, sessionId, attrs=None):
+        return self._method('get_sessions', 0, attrs,
+                            condition='id=%d' % sessionId)
+
     def update_session(self, attrs):
         """ Request the server to update existing session.
         Mandatory in attrs:
@@ -106,6 +110,21 @@ class DataClient:
         """
         return self._method('create_session_set', 'session_set', attrs)
 
+    def update_session_set(self, attrs):
+        """ Request the server to update a set within a session.
+        Mandatory in attrs:
+            session_id: the id of the session
+            set_id: the id of the set that will be created
+        """
+        return self._method('update_session_set', 'session_set', attrs)
+
+    def get_session_sets(self, attrs):
+        """ Retrieve all sets associated to a given session.
+        Mandatory in attrs:
+            session_id: the id of the session
+        """
+        return self._method('get_session_sets', 'session_sets', attrs)
+
     def add_session_item(self, attrs):
         """ Add new item to a set in the session.
         Mandatory in attrs:
@@ -125,13 +144,15 @@ class DataClient:
         return self._method('update_session_item', 'item', attrs)
 
     #---------------------- Internal functions ------------------------------
-    def _method(self, method, resultKey, attrs):
-        r = self.request(method, jsonData={'attrs': attrs})
+    def _method(self, method, resultKey, attrs, condition=None):
+        r = self.request(method,
+                         jsonData={'attrs': attrs,
+                                   'condition': condition})
         json = r.json()
         if 'error' in json:
             raise Exception("ERROR from Server: ", json['error'])
 
-        return json[resultKey]
+        return json if resultKey is None else json[resultKey]
 
     def request(self, method, jsonData=None, bp='api'):
         """ Make a request to this method passing the json data.

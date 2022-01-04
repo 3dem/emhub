@@ -23,16 +23,14 @@
                                 <th>name</th>
                                 <th>start</th>
                                 <th>status</th>
-
-                                {% if is_admin %}
-                                    <td>extra</td>
-                                    <th>data_path</th>
-                                {% endif %}
-
+                                <th>preprocessing</th>
                                 <th>booking_id</th>
                                 <th>owner</th>
                                 <th>operator</th>
 
+                                {% if is_admin %}
+                                    <td>extra</td>
+                                {% endif %}
                                 {% if current_user.is_manager %}
                                     <th>actions</th>
                                 {% endif %}
@@ -55,21 +53,20 @@
                                         <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
                                         <td>{{ s.start|pretty_date }} </td>
                                         <td>{{ s.status }}</td>
-                                        {% if is_admin %}
-                                            <td>{{ s.extra }}</td>
-                                            <td>{{ s.data_path }}</td>
-                                        {% endif %}
-                                            <td><a href="javascript:showBooking({{ s.booking_id }})">{{ s.booking_id }}</a></td>
-
-
+                                        <td><a href="{{ url_for_content('session_live', session_id=s.id) }}">{{ s.data_path }}</a></td>
+                                        <td><a href="javascript:showBooking({{ s.booking_id }})">{{ s.booking_id }}</a></td>
                                         <td>{{ owner_name }}</td>
                                         <td>{{ s.operator.name }}</td>
 
+                                        {% if is_admin %}
+                                            <td>{{ s.extra }}</td>
+                                        {% endif %}
+
                                         {% if is_manager %}
-                                                <td>
-                                                    <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
-                                                        <i class="far fa-trash-alt"></i></button>
-                                                </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
+                                                    <i class="far fa-trash-alt"></i></button>
+                                            </td>
                                         {% endif %}
                                     </tr>
                                 {% endif %}

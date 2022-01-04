@@ -393,7 +393,7 @@ class DataManager(DbManager):
         self.log('operation', 'delete_Booking',
                  attrs=self.json_from_dict(attrs))
 
-        return  result
+        return result
 
     def get_application_bookings(self, applications,
                                 resource_ids=None, resource_tags=None):
@@ -485,6 +485,9 @@ class DataManager(DbManager):
                 steps.append({'name': param['label'], 'options': param['enum']['choices']})
 
         return processing
+
+    def get_session_data_path(self, session):
+        return os.path.join(self._sessionsPath, session.data_path)
 
     def get_new_session_info(self, booking_id):
         """ Return the name for the new session, base on the booking and
@@ -646,7 +649,6 @@ class DataManager(DbManager):
         """ This should return a single user or None. """
         return self.__item_by(self.Transaction, **kwargs)
 
-
     # ---------------------------- PROJECTS ---------------------------------
     def __check_project(self, **attrs):
         if 'title' in attrs:
@@ -751,18 +753,43 @@ class DataManager(DbManager):
         """ This should return a single Resource or None. """
         return self.__item_by(self.Entry, **kwargs)
 
-    def get_entry_file(self, entry, file_key, source=None):
-        """ Return the filename associated with a given entry. """
-        filename = source or entry.extra['data'].get(file_key, None)
-
-        if filename is None:
-            raise Exception("Can not retrieve filename without source or '%s' "
-                            "entry. " % file_key)
-
-        _, ext = os.path.splitext(filename)
-
+    def get_entry_path(self, entry, filename):
         return os.path.join(self._entryFiles,
-                            'entry-file-%06d-%s%s' % (entry.id, file_key, ext))
+                            'entry-file-%06d-%s' % (entry.id, filename))
+
+    def get_entry_file(self, entry, file_key):
+        """ Return the fn associated with a given entry. """
+        fn = entry.extra['data'].get(file_key, None)
+
+        if fn is None:
+            raise Exception("Can not retrieve file for key '%s'" % file_key)
+
+        return self.get_entry_path(entry, fn)
+
+    def get_entry_files(self, entry):
+        """ Return all values from the extra dict that are files. """
+        data = entry.extra['data']
+
+        def _is_file(k):
+            if k.endswith('_file'):
+                return True
+            return False
+
+        files = []
+
+        def _add_from_dict(d):
+            if not isinstance(d, dict):
+                return
+
+            for k, v in d.items():
+                if isinstance(v, list):
+                    for row in v:
+                        _add_from_dict(row)
+                elif _is_file(k):
+                    files.append(self.get_entry_path(entry, v))
+
+        _add_from_dict(data)
+        return files
 
     # ---------------------------- PUCKS ---------------------------------
     def create_puck(self, **attrs):

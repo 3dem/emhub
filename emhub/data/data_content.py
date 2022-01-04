@@ -118,10 +118,22 @@ class DataContent:
         return {'sessions': sessions}
 
     def get_session_data(self, session):
-        firstSetId = session.data.get_sets()[0]['id']
+        micSetId = None
+        sets = session.data.get_sets()
+        for s in sets:
+            if not 'id' in s:
+                print("ERROR, set without id: ", s)
+                continue
+            if s['id'].startswith('Micrographs'):
+                micSetId = s['id']
+
+        if micSetId is None:
+            raise Exception("Not micrograph set found in '%s'"
+                            % session.data_path)
+
         attrList = ['location', 'ctfDefocus', 'ctfResolution']
-        mics = session.data.get_set_items(firstSetId, attrList=attrList)
-        session.data.close()
+        mics = session.data.get_set_items(micSetId, attrList=attrList)
+
 
         def _get_hist(label, inputList):
             import numpy as np
@@ -136,6 +148,17 @@ class DataContent:
         resolutionList = [m['ctfResolution'] for m in mics]
         stats = session.stats
 
+        # Load classes
+        classesSet = [s for s in sets if s['id'].startswith('Class2D')]
+        if classesSet:
+            class2DSetId = classesSet[-1]['id']
+            classes2d = session.data.get_set_items(class2DSetId, attrList=['size', 'average'])
+            classes2d.sort(key=lambda c: c['size'], reverse=True)
+        else:
+            classes2d = []
+
+        session.data.close()
+
         return {
             'defocus_plot': ['Defocus'] + defocusList,
             'ctf_defocus_hist': _get_hist('CTF Defocus', defocusList),
@@ -147,7 +170,9 @@ class DataContent:
                 'aligned': stats['numOfMics'],
                 'ctf': stats['numOfCtfs'],
                 'picked': 0
-            }}
+            },
+            'classes2d': classes2d
+        }
 
     def get_session_live(self, **kwargs):
         session_id = kwargs['session_id']
@@ -172,13 +197,17 @@ class DataContent:
         }
 
     def get_sessions_list(self, **kwargs):
-        sessions = self.app.dm.get_sessions()
+        dm = self.app.dm  # shortcut
+        sessions = dm.get_sessions()
         bookingDict = {}
+
         for s in sessions:
             if s.booking:
                 b = self.booking_to_event(s.booking,
                                           prettyDate=True, piApp=True)
                 bookingDict[s.booking.id] = b
+            if not os.path.exists(dm.get_session_data_path(s)):
+                s.data_path = ''
 
         return {
             'sessions': sessions,
@@ -1110,7 +1139,8 @@ class DataContent:
                 {'label': 'Screening',
                  'group': 2,
                  'iconClass': "fas fa-search fa-inverse",
-                 'imageClass': "img--location"
+                 'imageClass': "img--location",
+                 'report': "report_screening.html"
                  },
             'data_acquisition':
                 {'label': 'Data Acquisition',
@@ -1180,14 +1210,13 @@ class DataContent:
         if not 'report' in entry_type:
             raise Exception("There is no Report associated with this Entry. ")
 
-        images = {}
+        images = []
 
-        for key, value in data.items():
-            if key.endswith('_image'):
-                fn = dm.get_entry_file(entry, key)
-                if os.path.exists(fn):
-                    _, ext = os.path.splitext(fn)
-                    images[key] = 'data:image/%s;base64, ' + image.fn_to_base64(fn)
+        for row in data.get('images_table', []):
+            if 'image_file' in row:
+                fn = dm.get_entry_path(entry, row['image_file'])
+                row['image_data'] = 'data:image/%s;base64, ' + image.fn_to_base64(fn)
+                images.append(row)
 
         # Group data rows by gridboxes (label)
         if entry.type in ['grids_preparation', 'grids_storage']:

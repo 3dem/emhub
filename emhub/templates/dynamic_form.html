@@ -56,9 +56,11 @@
 
     function onClear(rootId){
         var textId = '#' + rootId + '--text';
-        var textValue = $(textId).val();
-        if (!textValue.startsWith('DELETE: '))
-            $(textId).val('DELETE: ' + $(textId).val());
+        $(textId).val('');
+
+        // var textValue = $(textId).val();
+        // if (!textValue.startsWith('DELETE: '))
+        //     $(textId).val('DELETE: ' + $(textId).val());
     }
 
     function updateFilePath(fileUpload) {

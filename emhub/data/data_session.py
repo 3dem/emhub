@@ -64,6 +64,18 @@ class SessionData:
         """
         pass
 
+    def update_set(self, setId, attrsDict):
+        """ Update existing set attributes.
+
+        Args:
+            setId: The id of the new set that will be created.
+            attrsDict: Dict-like object with keys and values
+
+        Return:
+            True if the set was successfully created, False otherwise.
+        """
+        pass
+
     def get_set_items(self, setId, attrList=None, condition=None):
         """ Return a list with all or some items from this set.
 
@@ -94,6 +106,8 @@ class H5SessionData(SessionData):
     """
     def __init__(self, h5File, mode='r'):
         #h5py.get_config().track_order = True
+        print("H5SessionData: mode: ", mode)
+
         if mode == 'r':
             print("Reading file: ", h5File)
         elif mode in ['w', 'a']:
@@ -103,29 +117,39 @@ class H5SessionData(SessionData):
         self._file = h5py.File(h5File, mode)
 
     def get_sets(self, attrList=None, condition=None):
-        if attrList is not None and len(attrList) == 0:
-            attrList = ['id']
         setList = []
         for k, v in self._file[self._getSetPath('')].items():
-            if attrList is None:
-                setList.append(dict(v.attrs))
+            if not attrList:
+                setAttrs = dict(v.attrs)
             else:
-                setList.append({a: v[a] for a in attrList})
+                setAttrs = {a: v.attrs[a] for a in attrList}
+            setAttrs['id'] = k
+            setList.append(setAttrs)
 
         return setList
 
-    def create_set(self, setId, attrDict):
-        group = self._file.create_group(self._getSetPath(setId))
+    def _set_group_attrs(self, group, setId, attrDict):
         attrs = {'id': setId}
         attrs.update(attrDict)
         for k, v in attrs.items():
             group.attrs[k] = v
 
+    def create_set(self, setId, attrDict):
+        group = self._file.create_group(self._getSetPath(setId))
+        self._set_group_attrs(group, setId, attrDict)
+
+    def update_set(self, setId, attrDict):
+        group = self._file[self._getSetPath(setId)]
+        self._set_group_attrs(group, setId, attrDict)
+
     def get_set_item(self, setId, itemId, attrList=None):
         itemAttrs = self._file[self._getItemPath(setId, itemId)].attrs
-        return {a: itemAttrs[a] for a in attrList}
+        return {a: itemAttrs[a] for a in attrList if a in itemAttrs}
 
     def get_set_items(self, setId, attrList=None, condition=None):
+        print(">>> Getting items from ", self._getSetPath(setId))
+        print(self.get_sets())
+
         if attrList is None:
             attrs = list(ImageSessionData.MIC_ATTRS.keys())
         elif 'id' not in attrList:
@@ -134,16 +158,17 @@ class H5SessionData(SessionData):
             attrs = attrList
 
         # Check that all requested attributes in attrList are valid for Micrograph
-        if any(a not in ImageSessionData.MIC_ALL_ATTRS for a in attrs):
-            raise Exception("Invalid attribute for micrograph")
+        # if any(a not in ImageSessionData.MIC_ALL_ATTRS for a in attrs):
+        #     raise Exception("Invalid attribute for micrograph")
 
         itemsList = []
 
         setGroup = self._file[self._getSetPath(setId)]
-        print(self._getSetPath(setId))
 
         for item in setGroup.values():
-            values = {a: item.attrs[a] for a in attrs}
+            print("  item: ", item.name)
+
+            values = {a: item.attrs[a] for a in attrs if a in item.attrs}
             itemsList.append(values)
 
         return itemsList
@@ -167,7 +192,8 @@ class H5SessionData(SessionData):
             #         print("   >>> Value is None")
 
     def update_set_item(self, setId, itemId, attrDict):
-        micAttrs = self._file[self._getMicPath(setId, itemId)].attrs
+        print("update_set_item:  Getting H5 path: " + self._getItemPath(setId, itemId));
+        micAttrs = self._file[self._getItemPath(setId, itemId)].attrs
         micAttrs.update(**attrDict)
 
     def close(self):
@@ -178,10 +204,6 @@ class H5SessionData(SessionData):
 
     def _getSetPath(self, setId):
         return '/Sets/%s' % setId
-
-    def _getMicPath(self, setId, itemId=None):
-        return ('/Micrographs/set%03d%s'
-                % (setId, '' if itemId is None else '/item%05d' % itemId))
 
 
 class ImageSessionData(SessionData):
@@ -206,7 +228,11 @@ class ImageSessionData(SessionData):
         'micThumbData', 'psdData', 'ctfFitData', 'shiftPlotData'
     ]
 
-    MIC_ALL_ATTRS = list(MIC_ATTRS.keys()) + MIC_DATA_ATTRS
+    MIC_EXTRA_ATTRS = [
+        'coordinates'
+    ]
+
+    MIC_ALL_ATTRS = list(MIC_ATTRS.keys()) + MIC_DATA_ATTRS + MIC_EXTRA_ATTRS
 
     def __init__(self, useBase64=True):
         self._useBase64 = useBase64

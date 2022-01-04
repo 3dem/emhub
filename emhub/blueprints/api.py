@@ -45,6 +45,7 @@ api_bp = flask.Blueprint('api', __name__)
 
 
 # ---------------------------- AUTH  ------------------------------------------
+
 @api_bp.route('/login', methods=['POST'])
 def login():
     username = request.json['username']
@@ -68,6 +69,7 @@ def logout():
 
 
 # ---------------------------- USERS ------------------------------------------
+
 @api_bp.route('/create_user', methods=['POST'])
 @flask_login.login_required
 def create_user():
@@ -129,6 +131,7 @@ def get_users():
 
 
 # ---------------------------- APPLICATIONS -----------------------------------
+
 @api_bp.route('/create_template', methods=['POST'])
 @flask_login.login_required
 def create_template():
@@ -261,6 +264,7 @@ def import_application():
 
 
 # ---------------------------- RESOURCES ---------------------------------------
+
 @api_bp.route('/get_resources', methods=['POST'])
 @flask_login.login_required
 def get_resources():
@@ -271,6 +275,7 @@ def get_resources():
 @flask_login.login_required
 def update_resource():
     return handle_resource(app.dm.update_resource)
+
 
 # ---------------------------- BOOKINGS ---------------------------------------
 
@@ -364,6 +369,7 @@ def poll_sessions():
                 return send_json_data(data)
         time.sleep(3)
 
+
 @api_bp.route('/create_session', methods=['POST'])
 @flask_login.login_required
 def create_session():
@@ -394,10 +400,32 @@ def create_session_set():
     """ Create a set file without actual session. """
     def handle(session, set_id, **attrs):
         session.data.create_set(set_id, attrs)
-        session.data.close()
         return {'session_set': {}}
 
     return handle_session_data(handle, mode="a")
+
+
+@api_bp.route('/update_session_set', methods=['POST'])
+@flask_login.login_required
+def update_session_set():
+    """ Create a set file without actual session. """
+    def handle(session, set_id, **attrs):
+        session.data.update_set(set_id, attrs)
+        return {'session_set': {}}
+
+    return handle_session_data(handle, mode="a")
+
+
+@api_bp.route('/get_session_sets', methods=['POST'])
+@flask_login.login_required
+def get_session_sets():
+    """ Return all sets' name of this session. """
+    def handle(session, set_id, **attrs):
+        # set_id is not used here, but passed by default to the handle
+        sets = session.data.get_sets(attrList=attrs)
+        return {'session_sets': sets}
+
+    return handle_session_data(handle, mode="r")
 
 
 @api_bp.route('/add_session_item', methods=['POST'])
@@ -407,7 +435,6 @@ def add_session_item():
     def handle(session, set_id, **attrs):
         itemId = attrs.pop("item_id")
         session.data.add_set_item(set_id, itemId, attrs)
-        session.data.close()
         return {'item': {}}
 
     return handle_session_data(handle, mode="a")
@@ -419,8 +446,7 @@ def update_session_item():
     """ Update existing item. """
     def handle(session, set_id, **attrs):
         itemId = attrs.pop("item_id")
-        session.data.update_item(set_id, itemId, attrs)
-        session.data.close()
+        session.data.update_set_item(set_id, int(itemId), attrs)
         return {'item': {}}
 
     return handle_session_data(handle, mode="a")
@@ -431,9 +457,7 @@ def update_session_item():
 def get_session_data():
     """ Return some information related to session (e.g CTF values, etc). """
     def handle(session, set_id, **attrs):
-        result = DataContent(app).get_session_data(session)
-        session.data.close()
-        return result
+        return DataContent(app).get_session_data(session)
 
     return handle_session_data(handle, mode="r")
 
@@ -541,6 +565,7 @@ def update_project():
 def delete_project():
     return handle_project(app.dm.delete_project)
 
+
 # ------------------------------ ENTRIES ---------------------------------
 
 @api_bp.route('/get_entries', methods=['GET', 'POST'])
@@ -552,19 +577,44 @@ def get_entries():
 @api_bp.route('/create_entry', methods=['POST'])
 @flask_login.login_required
 def create_entry():
-    return handle_entry(app.dm.create_entry, copy_entry_files)
+    def handle(**attrs):
+        fix_dates(attrs, 'date')
+        entry = app.dm.create_entry(**attrs)
+        save_entry_files(entry, entry.extra['data'])
+        entry = app.dm.update_entry(id=entry.id, extra=entry.extra)
+        return entry.json()
+
+    return _handle_item(handle, 'entry')
 
 
 @api_bp.route('/update_entry', methods=['POST'])
 @flask_login.login_required
 def update_entry():
-    return handle_entry(app.dm.update_entry, copy_entry_files)
+    def handle(**attrs):
+        fix_dates(attrs, 'date')
+        entry = app.dm.get_entry_by(id=attrs['id'])
+        old_files = set(app.dm.get_entry_files(entry))
+        save_entry_files(entry, attrs['extra']['data'])
+        entry = app.dm.update_entry(**attrs)
+        new_files = set(app.dm.get_entry_files(entry))
+        clean_files(old_files - new_files)
+        return entry.json()
+
+    return _handle_item(handle, 'entry')
 
 
 @api_bp.route('/delete_entry', methods=['POST'])
 @flask_login.login_required
 def delete_entry():
-    return handle_entry(app.dm.delete_entry)
+    def handle(**attrs):
+        entry = app.dm.get_entry_by(id=attrs['id'])
+        old_files = set(app.dm.get_entry_files(entry))
+        entry = app.dm.delete_entry(**attrs)
+        clean_files(old_files)
+        return entry.json()
+
+    return _handle_item(handle, 'entry')
+
 
 # ------------------------------ ENTRIES ---------------------------------
 
@@ -591,6 +641,7 @@ def update_puck():
 def delete_puck():
     return handle_puck(app.dm.delete_puck)
 
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
@@ -609,6 +660,7 @@ def filter_request(func):
         items = [_filter(s) for s in items]
 
     return send_json_data(items)
+
 
 def fix_dates(attrs, *date_keys):
     """ Convert the values from UTC string to datetime
@@ -682,10 +734,12 @@ def handle_session(session_func):
 def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
-    set_id = attrs.pop("set_id", 1)
-
-    session = app.dm.load_session(sessionId=session_id, mode=mode)
-    result = handle(session, set_id, **attrs)
+    set_id = attrs.pop("set_id", None)
+    try:
+        session = app.dm.load_session(sessionId=session_id, mode=mode)
+        result = handle(session, set_id, **attrs)
+    finally:
+        session.data.close()
 
     return send_json_data(result)
 
@@ -721,54 +775,23 @@ def handle_project(project_func):
     return _handle_item(handle, 'project')
 
 
-def copy_entry_files(attrs):
+def save_entry_files(entry, data):
     """ Function used when creating or updating an Entry.
     It will handle the upload of new files.
     """
-    data = attrs['extra']['data']
-
-    from pprint import pprint
-    pprint(data)
-
-    def _path(key):
-        base = 'entry-file-%06d-%s' % (int(attrs['id']), key)
-        return os.path.join(app.config['ENTRY_FILES'], base)
-
-    def _file(key, fn):
-        _, ext = os.path.splitext(fn)
-        return _path(key) + ext
-
-    def _clean(key):
-        """ Clean all previous files starting with that key. """
-        for fn in glob(_path(key) + '.*'):
-            os.remove(fn)
-
     for f in request.files:
         file = request.files[f]
 
         fn = file.filename
         if fn:
-            _clean(f)
             data[f] = fn
-            file.save(_file(f, fn))
-
-    for key in data:
-        if isinstance(data[key], str) and data[key].startswith('DELETE:'):
-            _clean(key)
-            data[key] = ''
+            file.save(app.dm.get_entry_path(entry, fn))
 
 
-def handle_entry(entry_func, files_func=None):
-    def handle(**attrs):
-        fix_dates(attrs, 'date')
-        entry = entry_func(**attrs).json()
-        attrs['id'] = entry['id']
-        if files_func:
-            files_func(attrs)
-
-        return entry
-
-    return _handle_item(handle, 'entry')
+def clean_files(paths):
+    for p in paths:
+        if os.path.exists(p):
+            os.remove(p)
 
 
 def handle_puck(entry_func):
