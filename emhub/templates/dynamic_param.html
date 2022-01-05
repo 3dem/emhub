@@ -7,8 +7,12 @@
 {#     value: the value of this param #}
 {#     data_key: the key that will be used to storey this value. #}
 
+{% set type = param.get('type', 'string') %}
 
-{% if 'enum' in param %}
+{% if type == 'custom' %}
+    {% include param['template'] %}
+
+{% elif 'enum' in param %}
     {% set enum = param['enum'] %}
     {% set is_multiple = 'multiple' in enum %}
     {% set values = value if is_multiple else [value] %}
@@ -30,8 +34,8 @@
             </label>
         {% endfor %}
     {% endif %}
+
 {% else %}
-    {% set type = param.get('type', 'string') %}
     {% if type == 'bool' %}
         <label class="be-checkbox custom-control custom-checkbox">
             {% set checked = 'checked' if value else '' %}
