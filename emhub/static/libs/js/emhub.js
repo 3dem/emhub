@@ -243,7 +243,7 @@ function nonEmpty(value) {
 }
 
 
-function setRowValues(row, values){
+function row_setValues(row, values){
     $(row).find(':input').each(function () {
         var col = $(this).data('key');
         if (col in values) {
@@ -256,7 +256,7 @@ function setRowValues(row, values){
 }
 
 
-function getRowValues(row, includeEmpty){
+function row_getValues(row, includeEmpty){
     var values = {};
     $(row).find(':input').each(function () {
         var value = getInputValue(this);
@@ -281,7 +281,7 @@ function getFormAsJson(formId, includeEmpty){
         var row_list = [];
 
         $(this).find('.data-row').each(function () {
-            var values = getRowValues(this, includeEmpty);
+            var values = row_getValues(this, includeEmpty);
             if (nonEmpty(values))
                 row_list.push(values);
         });
@@ -519,12 +519,12 @@ function table_copyRows(table_id){
     if (rows.length > 0) {
         for (var row of rows){
             var newRow = table_createNewRow(table_id);
-            var values = getRowValues(row);
+            var values = row_getValues(row);
             row.parentElement.insertBefore(newRow, row.nextSibling);
             $('#' + table_id).find('.data-row select').each(function () {
                 $(this).addClass('selectpicker');
             });
-            setRowValues(newRow, values);
+            row_setValues(newRow, values);
         }
 
         $('.selectpicker').selectpicker('render');
