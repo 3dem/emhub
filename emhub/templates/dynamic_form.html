@@ -50,34 +50,9 @@
 
 <script>
 
-    function onBrowse(rootId){
-        $('#' + rootId + '--file').click();
-    }
-
-    function onClear(rootId){
-        var textId = '#' + rootId + '--text';
-        $(textId).val('');
-
-        // var textValue = $(textId).val();
-        // if (!textValue.startsWith('DELETE: '))
-        //     $(textId).val('DELETE: ' + $(textId).val());
-    }
-
-    function updateFilePath(fileUpload) {
-        if ( fileUpload.files && fileUpload.files[0] ){
-            var textId = fileUpload.id.replace("--file", "--text");
-            $('#' + textId).val(fileUpload.files[0].name);
-        }
-    }
-
     (function(window, document, $, undefined) {
     "use strict";
-
     $('.selectpicker').selectpicker();
-
-    $(".browser-file-input").change(function(){
-        updateFilePath( this );
-    });
 
 })(window, document, window.jQuery);
 </script>

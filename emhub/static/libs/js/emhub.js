@@ -466,3 +466,92 @@ function savePdf(contentId) {
 
     html2pdf(elementHTML, opt);
 }
+
+//----------------------------- Table related functions --------------------------
+function table_getTemplateRow(table_id){
+    return document.getElementById(table_id + '-ROW-TEMPLATE');
+}
+
+function table_createNewRow(table_id){
+    var rowElement = table_getTemplateRow(table_id);
+
+    var newRow = rowElement.cloneNode(true);
+    var nextid = rowElement.parentNode.dataset.nextid;
+    newRow.id = table_id + "-row-" + nextid;
+    newRow.className = "data-row";
+    newRow.style.display = "table-row";
+    $(newRow).find('*').each(function () {
+        if (this.id) {
+            this.id = this.id.replace(table_id + '-ROW-TEMPLATE', newRow.id);
+        }
+    });
+    rowElement.parentNode.dataset.nextid = parseInt(nextid) + 1;
+    return newRow;
+}
+
+function table_addRow(table_id){
+    var rowElement = table_getTemplateRow(table_id);
+    rowElement.parentNode.appendChild(table_createNewRow(table_id));
+    $('.data-row select').selectpicker('refresh');
+}
+
+function table_getSelectedRows(table_id){
+    var rows = []
+    $('#' + table_id).find('.row-checkbox').each(function () {
+        if ($(this).prop('checked'))  // get row id
+            rows.push(this.parentElement.parentElement.parentElement);
+    });
+    return rows;
+}
+
+function table_deleteRows(table_id){
+    var rows = table_getSelectedRows(table_id);
+    if (rows.length > 0) {
+        for (var row of rows)
+            row.remove();
+    }
+    else
+        showError("Select rows to Remove");
+}
+
+function table_copyRows(table_id){
+    var rows = table_getSelectedRows(table_id);
+    if (rows.length > 0) {
+        for (var row of rows){
+            var newRow = table_createNewRow(table_id);
+            var values = getRowValues(row);
+            row.parentElement.insertBefore(newRow, row.nextSibling);
+            $('#' + table_id).find('.data-row select').each(function () {
+                $(this).addClass('selectpicker');
+            });
+            setRowValues(newRow, values);
+        }
+
+        $('.selectpicker').selectpicker('render');
+    }
+    else
+        showError("Select rows to Clone");
+}
+
+
+//----------------------------- FileBrowser related functions --------------------------
+
+function filebrowser_onBrowse(element){
+    var fileId = element.id.replace('--browse', '--file');
+    $('#' + fileId).change(function(){
+    filebrowser_updateFilePath( this );
+});
+    $('#' + fileId).click();
+}
+
+function filebrowser_onClear(element){
+    var textId = element.id.replace('--clear', '--text');
+    $('#' + textId).val('');
+}
+
+function filebrowser_updateFilePath(fileUpload) {
+    if ( fileUpload.files && fileUpload.files[0] ){
+        var textId = fileUpload.id.replace("--file", "--text");
+        $('#' + textId).val(fileUpload.files[0].name);
+    }
+}

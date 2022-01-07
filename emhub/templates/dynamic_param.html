@@ -48,8 +48,8 @@
     {% elif type == 'file_image' %}
         <div class="row ml-1">
             <input type="text" required="" placeholder="{{ help }}"  readonly class="form-control col-9" value="{{ value }}" id="{{ param_id }}--text" {{ data_key }}>
-            <div ><a class="btn btn-sm btn-outline-light ml-2" href="javascript:onClear('{{ param_id }}')"><i class="far fa-trash-alt"></i>   </a></div>
-            <div ><a class="btn btn-sm btn-outline-light ml-2" href="javascript:onBrowse('{{ param_id }}')"><i class="far fa-folder-open"></i>   </a></div>
+            <div ><button type="button" class="btn btn-sm btn-outline-light ml-2" onclick="filebrowser_onClear(this)" id="{{ param_id }}--clear"><i class="far fa-trash-alt"></i>   </button></div>
+            <div ><button type="button" class="btn btn-sm btn-outline-light ml-2" onclick="filebrowser_onBrowse(this)" id="{{ param_id }}--browse"><i class="far fa-folder-open"></i>   </button></div>
             <input type="file" required="" capture id="{{ param_id }}--file" class="browser-file-input" hidden>
         </div>
 

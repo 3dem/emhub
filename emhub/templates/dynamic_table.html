@@ -1,19 +1,21 @@
 
 {# PARAMS:  #}
 {# id_name: should be set if one want to distinguish this table from others. #}
+{% set table_id = param_id %}
 
 <div class="row mb-2">
 <div class="col-12">
     <div class="row">
-        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:addRow()"><i class="fas fa-plus-circle"></i>   </a></div>
-        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:copyRows()"><i class="fas fa-copy"></i>   </a></div>
-        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:deleteRows()"><i class="fas fa-trash-alt"></i> </a></div>
+        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:table_addRow('{{ table_id }}')"><i class="fas fa-plus-circle"></i>   </a></div>
+        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:table_copyRows('{{ table_id }}')"><i class="fas fa-copy"></i>   </a></div>
+        <div ><a class="btn btn-sm btn-outline-light ml-3" href="javascript:table_deleteRows('{{ table_id }}')"><i class="fas fa-trash-alt"></i> </a></div>
     </div>
 </div>
 </div>
 
 <div class="table-responsive">
     <table class="table" {{ id_name  }}>
+    <h1>{{ table_id }}</h1>
         <thead class="bg-light">
             <tr class="border-0">
             {% set columns = table['columns'] %}
@@ -27,10 +29,11 @@
             {% endfor %}
             </tr>
         </thead>
-        <tbody name="table-body">
+        <tbody name="table-body" data-nextid="{{ nrows }}">
 
             {# Create an empty (hidden) row that will be used as template when adding new ones #}
-            <tr id="template-row" style="display: none;">
+            {% set row_id = table_id + '-ROW-TEMPLATE' %}
+            <tr id="{{ row_id }}" style="display: none;">
                 <td>
                     <label class="be-checkbox custom-control custom-checkbox">
                         <input type="checkbox" class="custom-control-input row-checkbox"><span class="custom-control-label"></span>
@@ -39,15 +42,13 @@
             {% for column in columns %}
                 {% set col_index = loop.index0 %}
                 {% set col_id = column['id'] %}
-                {% set row_id = 'row' + row_index|string %}
-                {% set param_id = 'row-col-%d'|format(col_index) %}
+                {% set param_id = '%s-col-%d'|format(row_id, col_index) %}
                 {% set id_name = 'name=%s'|format(param_id) %}
                 {% set data_key = ' data-key=%s '|format(col_id) %}
                 {% set param = column %}
                 {% set value = ''  %}
                 {% set selectpicker = False %}
                 <td>
-
                     {% include "dynamic_param.html" %}
                 </td>
             {% endfor %}
@@ -55,7 +56,7 @@
 
             {% for i in range(nrows) %}
                 {% set row_index = loop.index0 %}
-                {% set row_id = 'row' + row_index|string %}
+                {% set row_id = table_id + '-row-' + row_index|string %}
                 {% set row_values = rows[row_index] if row_index < rows_number else {} %}
 
                 <tr class="data-row" id="{{ row_id }}">
@@ -87,64 +88,3 @@
 <!-- end dynamic table  -->
 <!-- ============================================================== -->
 
-<script>
-    var nrows = {{ nrows|tojson }};
-    var values = null;
-
-    function createNewRow(){
-        var rowElement = document.getElementById('template-row');
-        var newRow = rowElement.cloneNode(true);
-        newRow.id = null;
-        newRow.className = "data-row";
-        newRow.style.display = "table-row";
-        return newRow;
-    }
-
-    function addRow(){
-        var rowElement = document.getElementById('template-row');
-        rowElement.parentNode.appendChild(createNewRow());
-        $('.data-row select').selectpicker('refresh');
-
-    }
-
-    function getSelectedRows(){
-        var rows = []
-        $('.row-checkbox').each(function () {
-            if ($(this).prop('checked'))  // get row id
-                rows.push(this.parentElement.parentElement.parentElement);
-        });
-        return rows;
-    }
-
-    function deleteRows(){
-        var rows = getSelectedRows();
-        if (rows.length > 0) {
-            for (var row of rows)
-                row.remove();
-        }
-        else
-            showError("Select rows to Remove");
-    }
-
-    function copyRows(){
-        var rows = getSelectedRows();
-        if (rows.length > 0) {
-            for (var row of rows){
-                var newRow = createNewRow();
-                values = getRowValues(row);
-                row.parentElement.insertBefore(newRow, row.nextSibling);
-                $('.data-row select').each(function () {
-                $(this).addClass('selectpicker');
-                });
-                setRowValues(newRow, values);
-            }
-
-            $('.selectpicker').selectpicker('render');
-
-
-        }
-        else
-            showError("Select rows to Clone");
-    }
-
-</script>
