@@ -1243,10 +1243,15 @@ class DataContent:
         # TODO: We should store some properties in EMhub and avoid this request
         pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
 
+        # Create a default dict based on data to avoid missing key errors in report
+        ddata = defaultdict(lambda : 'UNKNOWN')
+        ddata.update(data)
+
+
         return {
             'entry': entry,
             'entry_type': entry_type,
-            'data': data,
+            'data': ddata,
             'images': images,
             'pi_info': pi_info
         }
