@@ -335,7 +335,6 @@ class DataContent:
 
         return dataDict
 
-
     def get_application_form(self, **kwargs):
         dm = self.app.dm  # shortcut
         app = self.app.dm.get_application_by(id=kwargs['application_id'])
@@ -1190,11 +1189,15 @@ class DataContent:
         form = dm.get_form_by(name=form_id)
         if form:
             self.set_form_values(form, entry.extra.get('data', {}))
-        return {
+
+        data = {
             'entry': entry,
             'entry_type_label': entry_type['label'],
             'definition': None if form is None else form.definition
         }
+        data.update(self.get_grids_storage())
+
+        return data
 
     def get_entry_report(self, **kwargs):
         dm = self.app.dm
@@ -1270,7 +1273,7 @@ class DataContent:
 
         cond = "type=='grids_storage'"
         for entry in self.app.dm.get_entries(condition=cond):
-            print(entry.type, entry.title)
+            #print(entry.type, entry.title)
             storage = entry.extra['data']['grids_storage_table']
             for row in storage:
                 try:
@@ -1282,7 +1285,7 @@ class DataContent:
                     slot_key = ','.join(row['gridbox_slot'])
                     row['entry'] = entry
                     puck['gridboxes'][slot][slot_key] = row
-                    print("  ", row['dewar_number'], row['cane_number'], row['puck_number'], '-', row['puck_position'], ":", row['gridbox_slot'])
+                    #print("  ", row['dewar_number'], row['cane_number'], row['puck_number'], '-', row['puck_position'], ":", row['gridbox_slot'])
                 except:
                     pass
 
