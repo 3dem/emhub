@@ -6,6 +6,7 @@
                          (session.name, url_for_content('session_details', session_id=session.id)),
                          ('Live', '')] %}
     {% include 'include_header.html' %}
+    {% import "entry_macros.html" as macros %}
 
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
@@ -134,18 +135,36 @@
 
                 <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
                     <div class="row">
-                    <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
-                        <div class="card card-figure">
+                    <div class="col-12">
+                        <div class="card card-figure" id="image-container">
                             <!-- .card-figure -->
                             <figure class="figure">
-{#                                <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">#}
+<!--                                <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">-->
                                 <canvas id="canvas_micrograph"></canvas>
                                 <!-- .figure-caption -->
                                 <figcaption class="figure-caption">
-                                    <h4 class="figure-title" id="mic_id"> Micrograph </h4>
-                                    <p class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </p>
-                                    <p class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </p>
-                                    <p class="text-muted mb-0" id="mic_resolution"> Resolution: </p>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <h4 class="figure-title" id="mic_id"> Micrograph </h4>
+                                            <p class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </p>
+                                            <p class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </p>
+                                            <p class="text-muted mb-0" id="mic_resolution"> Resolution: </p>
+                                        </div>
+                                        <div class="col-6">
+                                            <h4 class="figure-title"> Coordinates </h4>
+                                            {{ macros.radiogroup('coords-radio', ['Dot', 'Circle', 'None']) }}
+
+<!--                                                <label class="custom-control custom-radio custom-control-inline">-->
+<!--                                                    <input type="radio" name="radio-inline" checked="" class="custom-control-input"><span class="custom-control-label">Option 1</span>-->
+<!--                                                </label>-->
+<!--                                                <label class="custom-control custom-radio custom-control-inline">-->
+<!--                                                    <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Option 2</span>-->
+<!--                                                </label>-->
+<!--                                                <label class="custom-control custom-radio custom-control-inline">-->
+<!--                                                    <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Option 3</span>-->
+<!--                                                </label>-->
+                                        </div>
+                                    </div>
                                 </figcaption>
                                 <!-- /.figure-caption -->
                             </figure>
@@ -153,8 +172,8 @@
                             <!-- /.card -->
                         </div>
                     </div>
-                    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
-                        <div class="row">
+
+                    <div class="col-6">
 
                         <div class="card card-figure">
                             <!-- .card-figure -->
@@ -172,6 +191,7 @@
                         </div>
                     </div>
 
+                    <div class="col-6">
                         <div class="card card-figure">
                             <!-- .card-figure -->
                             <figure class="figure">
@@ -201,19 +221,74 @@
 
 <script>
     // Global variables
-        var defocus_plot_column = null;
-        var defocus_plot_chart = null;
+    var defocus_plot_column = null;
+    var defocus_plot_chart = null;
 
-        var resolution_plot_column = null;
-        var resolution_plot_chart = null;
+    var resolution_plot_column = null;
+    var resolution_plot_chart = null;
 
-        var ctf_defocus_hist = null;
-        var ctf_defocus_hist_chart = null;
+    var ctf_defocus_hist = null;
+    var ctf_defocus_hist_chart = null;
 
-        var ctf_resolution_hist = null;
-        var ctf_resolution_hist_chart = null;
-        var session = {{ session|tojson }};
+    var ctf_resolution_hist = null;
+    var ctf_resolution_hist_chart = null;
+    var session = {{ session|tojson }};
 
+    var canvas_ratio = null;
+    var micThumb = null;
+    var micCoords = null;
+    var coordsDisplay = null;
+
+
+    /* Draw the micrograph images with coordinates(optional) */
+    function drawMicrograph(micThumb, micCoords) {
+        var canvas = document.getElementById("canvas_micrograph");
+        var ctx = canvas.getContext("2d");
+
+        var image = new Image();
+        function getRandomX() {
+            return Math.floor(Math.random() * image.width);
+        }
+        function getRandomY() {
+            return Math.floor(Math.random() * image.height);
+        }
+        image.onload = function() {
+            if (canvas.height != image.height) {
+                canvas.height = image.height;
+                canvas.width = image.width;
+                canvas_ratio = canvas.width / parseFloat(canvas.height);
+            }
+            // console.log("canvas.width: " + canvas.width);
+            // console.log("canvas.height: " + canvas.height);
+            //
+            console.log("image.width: " + image.width);
+            console.log("image.height: " + image.height);
+            //
+            // var ratio = image.width / parseFloat(canvas.width);
+            //
+            // console.log("ratio: " + ratio);
+            // //ctx.drawImage(image, 0, 0, image.width, image.height, 0, 0, image.width, image.height);
+            // canvas.height = Math.round(image.height / ratio);
+            // console.log("canvas.height 2: " + canvas.height);
+
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+            if (coordsDisplay === 'None')
+                return;
+
+            ctx.fillStyle = '#00ff00';
+
+            for (var i = 0; i < micCoords.length; ++i){
+                var x = Math.round(micCoords[i][0] * 0.1334);
+                var y = Math.round(micCoords[i][1] * 0.1334);
+                ctx.beginPath();
+                ctx.arc(x, y, 2, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        };
+
+        image.src = 'data:image/png;base64,' + micThumb;
+    }
 
     function request_micrograph_images(sessionId, micId) {
         var requestMicThumb = $.ajax({
@@ -226,44 +301,13 @@
 
         requestMicThumb.done(function(data) {
             //alert("length: " + $("#img_micrograph").length);
-            var canvas = document.getElementById("canvas_micrograph");
-            var ctx = canvas.getContext("2d");
 
-            var image = new Image();
-            function getRandomX() {
-                return Math.floor(Math.random() * image.width);
-            }
-            function getRandomY() {
-                return Math.floor(Math.random() * image.height);
-            }
-            image.onload = function() {
-                if (canvas.height != image.height) {
-                    canvas.height = image.height;
-                    canvas.width = image.width;
-                }
-                ctx.drawImage(image, 0, 0, image.width, image.height, 0, 0, image.width, image.height);
-                ctx.fillStyle = '#00ff00';
+            micThumb = data['micThumbData'];
+            micCoords = data['coordinates'];
 
-                var coords = data['coordinates'];
-                for (var i = 0; i < coords.length; ++i){
-                    var x = Math.round(coords[i][0] * 0.1334);
-                    var y = Math.round(coords[i][1] * 0.1334);
-                    ctx.beginPath();
-                    ctx.arc(x, y, 2, 0, 2 * Math.PI);
-                    ctx.fill();
-                }
-{#                for (var i = 0; i < 350; ++i) {#}
-{#                    var x = getRandomX();#}
-{#                    var y = getRandomY();#}
-{#                    ctx.beginPath();#}
-{#                    ctx.arc(x, y, 2, 0, 2 * Math.PI);#}
-{#                    ctx.fill();#}
-{#                }#}
-            };
+            drawMicrograph(micThumb, micCoords);
 
-            image.src = 'data:image/png;base64,' + data['micThumbData'];
-
-{#            $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);#}
+            // $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
             $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
             $("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);
             document.getElementById('mic_id').innerHTML = "Micrograph " + micId;
@@ -373,42 +417,48 @@
         }
     } // function create_hist_chart
 
+    function fixDimensions(){
+        var canvas = document.getElementById("canvas_micrograph");
+        console.log("canvas.width: " + canvas.width);
+        console.log("canvas.height: " + canvas.height);
+        var w = $("#canvas_micrograph").width();
+        var h = Math.round(w / canvas_ratio);
+        $("#canvas_micrograph").height(h);
+        console.log("w:" + w  + "  h: " + $("#canvas_micrograph").height());
+    }
+
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
 
-        defocus_plot_column = {{ defocus_plot|tojson }};
-        defocus_plot_chart = create_c3_chart('#defocus_plot', [defocus_plot_column], 'line', '#5969ff');
+    defocus_plot_column = {{ defocus_plot|tojson }};
+    defocus_plot_chart = create_c3_chart('#defocus_plot', [defocus_plot_column], 'line', '#5969ff');
 
-        resolution_plot_column = {{ resolution_plot|tojson }};
-        resolution_plot_chart = create_c3_chart('#resolution_plot', [resolution_plot_column], 'scatter', 'rgba(255, 64, 123,0.5)');
+    resolution_plot_column = {{ resolution_plot|tojson }};
+    resolution_plot_chart = create_c3_chart('#resolution_plot', [resolution_plot_column], 'scatter', 'rgba(255, 64, 123,0.5)');
 
-        ctf_defocus_hist = {{ ctf_defocus_hist|tojson }};
-        ctf_defocus_hist_chart = create_hist_chart('defocus_hist', ctf_defocus_hist, "rgba(89, 105, 255,0.5)", "rgba(89, 105, 255,0.7)");
+    ctf_defocus_hist = {{ ctf_defocus_hist|tojson }};
+    ctf_defocus_hist_chart = create_hist_chart('defocus_hist', ctf_defocus_hist, "rgba(89, 105, 255,0.5)", "rgba(89, 105, 255,0.7)");
 
-        ctf_resolution_hist = {{ ctf_resolution_hist|tojson }};
-        ctf_resolution_hist_chart = create_hist_chart("resolution_hist", ctf_resolution_hist, "rgba(255, 64, 123,0.5)", "rgba(255, 64, 123,0.7)");
+    ctf_resolution_hist = {{ ctf_resolution_hist|tojson }};
+    ctf_resolution_hist_chart = create_hist_chart("resolution_hist", ctf_resolution_hist, "rgba(255, 64, 123,0.5)", "rgba(255, 64, 123,0.7)");
 
-    // ==============================================================
-    // Use sparkline to plot time-base plots on number of items
-    // ==============================================================
-{#    create_sparkline("#sparkline-revenue", [5, 5, 7, 7, 9, 5, 3, 5, 2, 4, 6, 7]);#}
-{#    create_sparkline("#sparkline-revenue2", [3, 7, 6, 4, 5, 4, 3, 5, 5, 2, 3, 1], {#}
-{#        lineColor: '#ff407b', fillColor: '#ffdbe6'#}
-{#    });#}
-{#    create_sparkline("#sparkline-revenue3", [5, 3, 4, 6, 5, 7, 9, 4, 3, 5, 6, 1], {#}
-{#        lineColor: '#25d5f2', fillColor: '#dffaff'#}
-{#    });#}
-{#    create_sparkline("#sparkline-revenue4",#}
-{#        [6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1, 6, 5, 3, 4, 2, 5, 3, 8, 6, 4, 5, 1], {#}
-{#        lineColor: '#fec957', fillColor: '#fff2d5'#}
-{#    });#}
+    /* Register when the display coordinates changes */
+    $('input[type=radio][name=coords-radio]').change(function() {
+        coordsDisplay = this.dataset.option;
+        drawMicrograph(micThumb, micCoords);
+
+    });
 
     request_micrograph_images({{ session['id'] }}, 1);
 
     //setTimeout(requestSessionData, 10000);
 
+    $(window).resize(fixDimensions);
+
     });
+
+
 
 })(window, document, window.jQuery);
 

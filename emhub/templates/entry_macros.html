@@ -3,6 +3,16 @@
     <div class="col-12"><h3 class="pb-0 mb-0 mt-3">{{ title }}</h3><p>{{ text }}</p></div>
 {%- endmacro %}
 
+
+{% macro radiogroup(radioname, options) -%}
+    {% for opt in options %}
+        <label class="custom-control custom-radio custom-control-inline">
+            <input type="radio" name="{{radioname}}" checked="" class="custom-control-input" data-option="{{opt}}"><span class="custom-control-label">{{ opt }}</span>
+        </label>
+    {% endfor %}
+{%- endmacro %}
+
+
 {% macro header_card(title, date, pages, break=True) -%}
 
     {% if break %}
