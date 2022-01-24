@@ -78,7 +78,7 @@ def get_mic_data():
     attrs = [
         'micThumbData', 'psdData', 'shiftPlotData',
         'ctfDefocusU', 'ctfDefocusV', 'ctfResolution',
-        'coordinates'
+        'coordinates', 'micThumbPixelSize', 'pixelSize'
     ]
 
     mic = session.data.get_set_item(micSetId, micId, attrList=attrs)

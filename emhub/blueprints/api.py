@@ -394,6 +394,13 @@ def load_session():
     return handle_session(app.dm.load_session)
 
 
+@api_bp.route('/clear_session_data', methods=['POST'])
+@flask_login.login_required
+def clear_session_data():
+    print("SERVER: received request to clear data")
+    return handle_session(app.dm.clear_session_data)
+
+
 @api_bp.route('/create_session_set', methods=['POST'])
 @flask_login.login_required
 def create_session_set():

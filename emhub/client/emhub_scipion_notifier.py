@@ -95,6 +95,7 @@ def get_parser():
                    help="List existing sessions in the server.")
     g.add_argument('--update', action='store_true',
                    help="Update an existing session")
+
     add('-p', '--project', metavar='PROJECT_NAME',
         help='Project name.')
 
@@ -109,6 +110,9 @@ def get_parser():
 
     add('--prot_2d', type=int, default=0,
         help='Id of the classify 2d protocol.')
+
+    add('--clear', action='store_true',
+        help="Clear existing data associated with the session.")
 
     return parser
 
@@ -127,7 +131,6 @@ class ProjectSession:
         self._project = manager.loadProject(projName)
         self._protocols = {key: self._load_protocol(protId)
                            for key, protId in protIds.items()}
-
 
     def _get_path(self, *paths):
         return os.path.join(self._project.path, *paths)
@@ -177,6 +180,7 @@ class ProjectSession:
             u, v, a = ctf.getDefocus()
             lastId = ctfId = ctf.getObjId()
             mic = ctf.getMicrograph()
+            pixelSize = mic.getSamplingRate()
 
             attrs.update({
                 'item_id': ctfId,
@@ -188,7 +192,8 @@ class ProjectSession:
                 'ctfFit': ctf.getFitQuality(),
                 'location': mic.getFileName(),
                 'ctfFitData': '',
-                'shiftPlotData': ''
+                'shiftPlotData': '',
+                'pixelSize': pixelSize
             })
 
             print("Adding item %06d" % ctfId)
@@ -202,17 +207,9 @@ class ProjectSession:
             if os.path.exists(micPath):
                 print("  MIC: ", micPath)
                 attrs['micThumbData'] = micBase64.from_mrc(micPath)
+                attrs['micThumbPixelSize'] = pixelSize * micBase64.scale
 
             dc.add_session_item(attrs)
-
-            # for i in range(1):  # try 3 times
-            #     try:
-            #         dc.add_session_item(attrs)
-            #         break
-            #     except Exception as e:
-            #         print("dc.add_session_item:: Error: %s" % e)
-            #         print("                      Trying again in 3 seconds.")
-            #         time.sleep(3)
 
         new_stats['numOfCtfs'] = ctfSet.getSize()
 
@@ -322,8 +319,6 @@ class ProjectSession:
     def run(self):
         with open_client() as dc:
             sessionDict = dc.get_session(self._sessionId)
-            pprint(sessionDict)
-
             self._update_mics_ctfs(dc)
             self._update_coords(dc)
             self._update_classes(dc)
@@ -331,6 +326,11 @@ class ProjectSession:
 
 def main():
     args = get_parser().parse_args()
+
+    if args.clear:
+        with open_client() as dc:
+            print("Clearing session data: ")
+            dc.request('clear_session_data', jsonData={'attrs': {'id': args.session_id}})
 
     if args.list:
         with open_client() as dc:
