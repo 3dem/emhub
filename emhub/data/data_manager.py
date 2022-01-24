@@ -597,6 +597,13 @@ class DataManager(DbManager):
         session.data = H5SessionData(self._session_data_path(session), mode)
         return session
 
+    def clear_session_data(self, **attrs):
+        session = self.get_session_by(id=attrs['id'])
+        data_path = self._session_data_path(session)
+        if os.path.exists(data_path):
+            os.remove(data_path)
+        return session
+
     # -------------------------- INVOICE PERIODS ------------------------------
     def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
@@ -890,7 +897,6 @@ class DataManager(DbManager):
         r = self.get_resource_by(id=booking.resource_id)
         check_min_booking = kwargs.get('check_min_booking', True)
         check_max_booking = kwargs.get('check_max_booking', True)
-
 
         if booking.start >= booking.end:
             raise Exception("The booking 'end' should be after the 'start'. ")

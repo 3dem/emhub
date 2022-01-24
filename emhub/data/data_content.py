@@ -134,7 +134,6 @@ class DataContent:
         attrList = ['location', 'ctfDefocus', 'ctfResolution']
         mics = session.data.get_set_items(micSetId, attrList=attrList)
 
-
         def _get_hist(label, inputList):
             import numpy as np
             hist, bins = np.histogram(inputList)
