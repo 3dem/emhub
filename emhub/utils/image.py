@@ -36,15 +36,21 @@ class Base64Converter:
     def __init__(self, **kwargs):
         self.max_size = kwargs.get('max_size', (512, 512))
         self.contrast_factor = kwargs.get('contrast_factor', None)
+        self.scale = 1.0
 
     def from_pil(self, pil_img):
         """ Convert a PIL image into Base64. """
         if self.contrast_factor is not None:
             pil_img = ImageOps.autocontrast(pil_img, self.contrast_factor)
 
+        scale = 1.0
+        w1, _ = pil_img.size
         if self.max_size is not None:
             pil_img.thumbnail(self.max_size)
+            w2, _ = pil_img.size
+            scale = w1 / w2
 
+        self.scale = scale
         img_io = io.BytesIO()
         pil_img.save(img_io, format='PNG')
 

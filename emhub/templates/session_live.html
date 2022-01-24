@@ -235,41 +235,23 @@
     var session = {{ session|tojson }};
 
     var canvas_ratio = null;
-    var micThumb = null;
-    var micCoords = null;
+    var micrograph = null;
     var coordsDisplay = null;
 
 
     /* Draw the micrograph images with coordinates(optional) */
-    function drawMicrograph(micThumb, micCoords) {
+    function drawMicrograph(micrograph) {
         var canvas = document.getElementById("canvas_micrograph");
         var ctx = canvas.getContext("2d");
 
         var image = new Image();
-        function getRandomX() {
-            return Math.floor(Math.random() * image.width);
-        }
-        function getRandomY() {
-            return Math.floor(Math.random() * image.height);
-        }
+
         image.onload = function() {
             if (canvas.height != image.height) {
                 canvas.height = image.height;
                 canvas.width = image.width;
                 canvas_ratio = canvas.width / parseFloat(canvas.height);
             }
-            // console.log("canvas.width: " + canvas.width);
-            // console.log("canvas.height: " + canvas.height);
-            //
-            console.log("image.width: " + image.width);
-            console.log("image.height: " + image.height);
-            //
-            // var ratio = image.width / parseFloat(canvas.width);
-            //
-            // console.log("ratio: " + ratio);
-            // //ctx.drawImage(image, 0, 0, image.width, image.height, 0, 0, image.width, image.height);
-            // canvas.height = Math.round(image.height / ratio);
-            // console.log("canvas.height 2: " + canvas.height);
 
             ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
@@ -278,16 +260,19 @@
 
             ctx.fillStyle = '#00ff00';
 
-            for (var i = 0; i < micCoords.length; ++i){
-                var x = Math.round(micCoords[i][0] * 0.1334);
-                var y = Math.round(micCoords[i][1] * 0.1334);
+            var scale = parseFloat(micrograph.pixelSize) / micrograph.thumbnailPixelSize;
+            var coords = micrograph.coordinates;
+
+            for (var i = 0; i < coords.length; ++i){
+                var x = Math.round(coords[i][0] * scale);
+                var y = Math.round(coords[i][1] * scale);
                 ctx.beginPath();
                 ctx.arc(x, y, 2, 0, 2 * Math.PI);
                 ctx.fill();
             }
         };
 
-        image.src = 'data:image/png;base64,' + micThumb;
+        image.src = 'data:image/png;base64,' + micrograph.thumbnail;
     }
 
     function request_micrograph_images(sessionId, micId) {
@@ -302,10 +287,14 @@
         requestMicThumb.done(function(data) {
             //alert("length: " + $("#img_micrograph").length);
 
-            micThumb = data['micThumbData'];
-            micCoords = data['coordinates'];
+            micrograph = {
+                thumbnail: data['micThumbData'],
+                coordinates: data['coordinates'],
+                pixelSize: data['pixelSize'],
+                thumbnailPixelSize: data['micThumbPixelSize']
+            };
 
-            drawMicrograph(micThumb, micCoords);
+            drawMicrograph(micrograph);
 
             // $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
             $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
@@ -419,12 +408,9 @@
 
     function fixDimensions(){
         var canvas = document.getElementById("canvas_micrograph");
-        console.log("canvas.width: " + canvas.width);
-        console.log("canvas.height: " + canvas.height);
         var w = $("#canvas_micrograph").width();
         var h = Math.round(w / canvas_ratio);
         $("#canvas_micrograph").height(h);
-        console.log("w:" + w  + "  h: " + $("#canvas_micrograph").height());
     }
 
 (function(window, document, $, undefined) {
@@ -446,7 +432,7 @@
     /* Register when the display coordinates changes */
     $('input[type=radio][name=coords-radio]').change(function() {
         coordsDisplay = this.dataset.option;
-        drawMicrograph(micThumb, micCoords);
+        drawMicrograph(micrograph);
 
     });
 
@@ -473,7 +459,6 @@ function handleAjaxDone(jsonResponse) {
         session = jsonResponse.session;
         printObject(session, "Session");
         var counters = jsonResponse.counters;
-        printObject(counters, "counters");
         document.getElementById('counter_imported').innerHTML = counters['imported'];
         document.getElementById('counter_aligned').innerHTML = counters['aligned'];
         document.getElementById('diff_aligned').innerHTML = (counters['aligned'] - counters['imported']).toString();
