@@ -84,9 +84,14 @@ function createPiRows() {
     }
 }
 
-/* Show the Application Form, either for a new booking or an existing one */
-function showApplication(applicationId) {
+function createApplication(applicationCode) {
+    showApplication(null, applicationCode);
+}
 
+/* Show the Application Form, either for a new booking or an existing one */
+function showApplication(applicationId, applicationCode) {
+    var params = (applicationId != null) ? {}
+        params
     ajaxContent = get_ajax_content("application_form", {application_id: applicationId});
 
     ajaxContent.done(function(html) {
@@ -104,95 +109,95 @@ function showApplication(applicationId) {
 
 /** Helper functions to handle Application AJAX response or failure */
 function handleApplicationAjaxDone(jsonResponse) {
-var error = null;
+    var error = null;
 
-if ('application' in jsonResponse || 'OK' in jsonResponse) {
-}
-else if ('error' in jsonResponse) {
-    error = jsonResponse.error;
-}
-else {
-    error = 'Unexpected response from server.'
-}
+    if ('application' in jsonResponse || 'OK' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
 
-if (error)
-    showError(error);
-else {
-    application_config.modal_status = "update";
+    if (error)
+        showError(error);
+    else {
+        application_config.modal_status = "update";
 
-    $('#application-modal').on('hidden.bs.modal', function () {
+        $('#application-modal').on('hidden.bs.modal', function () {
 
-        if (application_config.on_update != null && application_config.modal_status == "update") {
-            application_config.on_update();
-            application_config.modal_status = "done";
-        }
-    });
+            if (application_config.on_update != null && application_config.modal_status == "update") {
+                application_config.on_update();
+                application_config.modal_status = "done";
+            }
+        });
 
-    // $('#application-modal').on('hidden.bs.modal', function () {
-    // var params = {};
-    // alert("loading main content");
-    // load_main_content("applications", params);
-    // });
+        // $('#application-modal').on('hidden.bs.modal', function () {
+        // var params = {};
+        // alert("loading main content");
+        // load_main_content("applications", params);
+        // });
 
-    $('#application-modal').modal('hide');
-}
+        $('#application-modal').modal('hide');
+    }
 }
 
 /** This function will be called when the OK button in the Application form
 * is clicked. It can be either Create or Update action.
 */
 function onApplicationOkButtonClick() {
-// Update template values
-var application = {
-    id: parseInt($('#application-id').val()),
-    status: $('#application-status-select').selectpicker('val'),
-    title: $('#application-title').val(),
-    alias: $('#application-alias').val(),
-    description: $('#application-description').val(),
-    resource_allocation: {
-        quota: {
-            krios: parseInt($('#quota-krios').val()),
-            talos: parseInt($('#quota-talos').val())
+    // Update application values
+    var application = {
+        id: parseInt($('#application-id').val()),
+        status: $('#application-status-select').selectpicker('val'),
+        title: $('#application-title').val(),
+        alias: $('#application-alias').val(),
+        description: $('#application-description').val(),
+        resource_allocation: {
+            quota: {
+                krios: parseInt($('#quota-krios').val()),
+                talos: parseInt($('#quota-talos').val())
+            },
+            noslot: []  // FIXME: Create the proper list
         },
-        noslot: []  // FIXME: Create the proper list
-    },
-    pi_to_add: [],
-    pi_to_remove: []
-};
+        pi_to_add: [],
+        pi_to_remove: []
+    };
 
-$( ".noslot" ).each( function( i, el ) {
-    var elem = $( el );
-    if (elem.prop("checked"))
-        application.resource_allocation.noslot.push(parseInt(elem.val()));
-    //alert("checked: " + elem.prop('checked') + " value: " + elem.val());
-});
+    $( ".noslot" ).each( function( i, el ) {
+        var elem = $( el );
+        if (elem.prop("checked"))
+            application.resource_allocation.noslot.push(parseInt(elem.val()));
+        //alert("checked: " + elem.prop('checked') + " value: " + elem.val());
+    });
 
-// Update list of PI users to add or remove to the Application
-for (var pi of pi_list)
-    if (pi.status == "to add")
-        application.pi_to_add.push(pi.id);
-    else if (pi.status == "to remove")
-        application.pi_to_remove.push(pi.id);
+    // Update list of PI users to add or remove to the Application
+    for (var pi of pi_list)
+        if (pi.status == "to add")
+            application.pi_to_add.push(pi.id);
+        else if (pi.status == "to remove")
+            application.pi_to_remove.push(pi.id);
 
-var endpoint = null;
+    var endpoint = null;
 
-if (application.id != null) {
-    endpoint = api_urls.update_application;
-}
-else {
-    endpoint = api_urls.create_application;
-}
+    if (application.id != null) {
+        endpoint = api_urls.update_application;
+    }
+    else {
+        endpoint = api_urls.create_application;
+    }
 
-var ajaxContent = $.ajax({
-    url: endpoint,
-    type: "POST",
-    contentType: 'application/json; charset=utf-8',
-    data: JSON.stringify({attrs: application}),
-    dataType: "json"
-});
+    var ajaxContent = $.ajax({
+        url: endpoint,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: application}),
+        dataType: "json"
+    });
 
-ajaxContent.done(handleApplicationAjaxDone);
-ajaxContent.fail(function(jqXHR, textStatus) {
-    showError( "Request failed: " + textStatus );
-});
-}  // function onTemplateOkButtonClick
+    ajaxContent.done(handleApplicationAjaxDone);
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
+    });
+}  // function onApplicationOkButtonClick

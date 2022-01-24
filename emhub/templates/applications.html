@@ -208,6 +208,7 @@ function showTemplate(templateId) {
     // Setup fields with template values
     $('#template-title').val(template.title);
     $('#template-description').val(template.description);
+    $('#template-codes').val(template.codes);
 
     // Set possible status options depending on the current status
     $('#template-status-select').selectpicker('val', template.status);
@@ -264,6 +265,7 @@ function onTemplateOkButtonClick() {
     template.title = $('#template-title').val();
     template.description = $('#template-description').val();
     template.status = $('#template-status-select').selectpicker('val');
+    template.codes = $('#template-codes').val();
 
     if (template.id) {
         endpoint = "{{ url_for('api.update_template') }}";

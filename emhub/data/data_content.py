@@ -328,7 +328,8 @@ class DataContent:
                                   'title': t.title,
                                   'description': t.description,
                                   'status': t.status,
-                                  'iuid': t.extra.get('portal_iuid', 'no')
+                                  'iuid': t.extra.get('portal_iuid', 'no'),
+                                  'codes': t.codes
                                   }
                                  for t in self.app.dm.get_templates()]
 
@@ -336,7 +337,12 @@ class DataContent:
 
     def get_application_form(self, **kwargs):
         dm = self.app.dm  # shortcut
-        app = self.app.dm.get_application_by(id=kwargs['application_id'])
+
+        if 'application_id' in kwargs:
+            app = dm.get_application_by(id=kwargs['application_id'])
+        else:  # New Application
+            code = kwargs['application_code']
+            app = dm.Application(code=code)
 
         # Microscopes info to setup some permissions on the Application form
         mics = [{'id': r.id,
