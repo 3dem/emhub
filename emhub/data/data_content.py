@@ -329,7 +329,8 @@ class DataContent:
                                   'title': t.title,
                                   'description': t.description,
                                   'status': t.status,
-                                  'iuid': t.extra.get('portal_iuid', 'no')
+                                  'iuid': t.extra.get('portal_iuid', 'no'),
+                                  'codes': t.codes
                                   }
                                  for t in self.app.dm.get_templates()]
 

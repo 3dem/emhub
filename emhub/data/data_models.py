@@ -398,6 +398,25 @@ def create_data_models(dm):
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
 
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def codes(self):
+            """ Application Codes that are allow for this Template
+            (e.g CEM, EXT, etc)
+            """
+            return  self.__getExtra('codes', [])
+
+        @codes.setter
+        def codes(self, value):
+            self.__setExtra('codes', value)
+
         def json(self):
             return dm.json_from_object(self)
 
@@ -509,7 +528,13 @@ def create_data_models(dm):
             # Since we are importing data now from the Portal, some application
             # have the creator of the application as one of the users, so we want
             # to avoid duplicated entries
-            pi_list = [self.creator]
+            pi_list = []
+
+            # Applications can also be created by facility staff, so only if the
+            # creator is a pi we reported in the "pi_list"
+            if self.creator.is_pi:
+                pi_list.append(self.creator)
+
             for u in self.users:
                 if u.id != self.creator.id:
                     pi_list.append(u)
