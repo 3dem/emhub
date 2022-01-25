@@ -159,7 +159,7 @@ def delete_template():
 @api_bp.route('/create_application', methods=['POST'])
 @flask_login.login_required
 def create_application():
-    return send_error('create_application NOT IMPLEMENTED')
+    return handle_template(app.dm.create_application)
 
 
 @api_bp.route('/get_applications', methods=['POST'])

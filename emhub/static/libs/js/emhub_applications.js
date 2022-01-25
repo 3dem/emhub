@@ -149,8 +149,11 @@ function handleApplicationAjaxDone(jsonResponse) {
 */
 function onApplicationOkButtonClick() {
     // Update application values
+    var application_id = parseInt($('#application-id').val());
+
     var application = {
-        id: parseInt($('#application-id').val()),
+
+
         status: $('#application-status-select').selectpicker('val'),
         title: $('#application-title').val(),
         alias: $('#application-alias').val(),
@@ -182,11 +185,15 @@ function onApplicationOkButtonClick() {
 
     var endpoint = null;
 
-    if (application.id != null) {
+    if (!isNaN(application_id)) {
+        application.id = application_id;
         endpoint = api_urls.update_application;
     }
     else {
+        application.code = $('#application-code').val();
+        application.template_id = $('#application-template_id').val();
         endpoint = api_urls.create_application;
+
     }
 
     var ajaxContent = $.ajax({
@@ -219,7 +226,7 @@ function showTemplate(template) {
     $('#template-id').val(template.id);
     $('#template-title').val(template.title);
     $('#template-description').val(template.description);
-    $('#template-codes').val(template.codes);
+    $('#template-code_prefix').val(template.code_prefix);
 
     // Set possible status options depending on the current status
     $('#template-status-select').selectpicker('val', template.status);
@@ -262,7 +269,6 @@ function templateAjaxDone(jsonResponse) {
     }
 }
 
-
 /** This function will be called when the OK button in the Template form
  * is clicked. It can be either Create or Update action.
  */
@@ -274,7 +280,7 @@ function onTemplateOkButtonClick() {
         title : $('#template-title').val(),
         description : $('#template-description').val(),
         status : $('#template-status-select').selectpicker('val'),
-        extra: {codes : $('#template-codes').val()}
+        extra: {code_prefix : $('#template-code_prefix').val()}
     };
 
     if (template_id)

@@ -7,7 +7,7 @@
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="application-modal-title"> Application: {{ application.code }} </h3>
+        <h3 class="modal-title" id="application-modal-title"> Application: {{ application.code }}{{ '*' if not application.id else '' }} </h3>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -18,6 +18,8 @@
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                 <form id="validationform" data-parsley-validate="" novalidate="">
                     <input type="hidden" id="application-id" name="application-id" value="{{ application.id }}">
+                    <input type="hidden" id="application-template_id" name="application-template_id" value="{{ template_id }}">
+                    <input type="hidden" id="application-code" name="application-code" value="{{ application.code }}">
 
                     <!-- Created Row -->
                     <div class="form-group row">

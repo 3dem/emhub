@@ -329,7 +329,7 @@ class DataContent:
                                   'description': t.description,
                                   'status': t.status,
                                   'iuid': t.extra.get('portal_iuid', 'no'),
-                                  'codes': t.codes
+                                  'code_prefix': t.code_prefix
                                   }
                                  for t in self.app.dm.get_templates()]
 
@@ -338,18 +338,24 @@ class DataContent:
     def get_application_form(self, **kwargs):
         dm = self.app.dm  # shortcut
 
-        # Possible application codes when creating a new Application
-        application_codes = []
-
         if 'application_id' in kwargs:
             app = dm.get_application_by(id=kwargs['application_id'])
         else:  # New Application
             template = dm.get_template_by(id=kwargs['template_id'])
-            application_codes = template.codes.split()
-            if not application_codes:
+            if not template.code_prefix:
                 raise Exception("It is not possible to create Applications from this template. \n"
                                 "Maybe they need to be imported from the Portal. ")
-            app = dm.Application(code='',
+
+            max_code = 0
+            for a in dm.get_applications():
+                code = a.code
+                if code.startswith(template.code_prefix):
+                    try:
+                        max_code = max(max_code, int(code[3:]))
+                    except:
+                        pass
+
+            app = dm.Application(code='%s%05d' % (template.code_prefix.upper(), max_code + 1),
                                  title='', alias='', description='',
                                  creator=self.app.user,
                                  resource_allocation=dm.Application.DEFAULT_ALLOCATION)
@@ -366,7 +372,7 @@ class DataContent:
         return {'application': app,
                 'application_statuses': ['preparation', 'review', 'accepted',
                                          'active', 'closed'],
-                'application_codes': application_codes,
+                'template_id': kwargs.get('template_id', None),
                 'microscopes': mics,
                 'pi_list': [{'id': u.id,
                              'name': u.name,

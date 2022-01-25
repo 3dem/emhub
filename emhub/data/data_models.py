@@ -407,15 +407,15 @@ def create_data_models(dm):
             self.extra = extra
 
         @property
-        def codes(self):
-            """ Application Codes that are allow for this Template
+        def code_prefix(self):
+            """ Prefix for numbering Application Codes
             (e.g CEM, EXT, etc)
             """
-            return  self.__getExtra('codes', [])
+            return  self.__getExtra('code_prefix', [])
 
-        @codes.setter
+        @code_prefix.setter
         def codes(self, value):
-            self.__setExtra('codes', value)
+            self.__setExtra('code_prefix', value)
 
         def json(self):
             return dm.json_from_object(self)
@@ -532,7 +532,7 @@ def create_data_models(dm):
 
             # Applications can also be created by facility staff, so only if the
             # creator is a pi we reported in the "pi_list"
-            if self.creator.is_pi:
+            if self.creator is not None and self.creator.is_pi:
                 pi_list.append(self.creator)
 
             for u in self.users:
