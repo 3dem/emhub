@@ -151,7 +151,11 @@
         create_entry: "{{ url_for('api.create_entry') }}",
         update_entry: "{{ url_for('api.update_entry') }}",
         delete_entry: "{{ url_for('api.delete_entry') }}",
+
+        create_template: "{{ url_for('api.create_template') }}",
+        update_template: "{{ url_for('api.update_template') }}",
     };
+
     var application_config = {
         on_update: null,
         modal_status: null

@@ -90,9 +90,9 @@ function createApplication(applicationCode) {
 
 /* Show the Application Form, either for a new booking or an existing one */
 function showApplication(applicationId, applicationCode) {
-    var params = (applicationId != null) ? {}
-        params
-    ajaxContent = get_ajax_content("application_form", {application_id: applicationId});
+    var params = (applicationId != null) ? {application_id: applicationId} : {application_code: applicationCode};
+
+    ajaxContent = get_ajax_content("application_form", params);
 
     ajaxContent.done(function(html) {
         $("#application-modal").html(html);
@@ -201,3 +201,92 @@ function onApplicationOkButtonClick() {
         showError( "Request failed: " + textStatus );
     });
 }  // function onApplicationOkButtonClick
+
+
+function createTemplate() {
+    showTemplate({id: null, status: 'preparation'});
+}
+
+/* Show the Template Form, either for a new booking or an existing one */
+function showTemplate(template) {
+    if (template == null) {
+        showError("Invalid Template id: " + templateId);
+        return
+    }
+
+    // Setup fields with template values
+    $('#template-id').val(template.id);
+    $('#template-title').val(template.title);
+    $('#template-description').val(template.description);
+    $('#template-codes').val(template.codes);
+
+    // Set possible status options depending on the current status
+    $('#template-status-select').selectpicker('val', template.status);
+    $('#template-status-select').find("[value='closed']").prop('disabled', false);
+    $('#template-status-select').find("[value='preparation']").prop('disabled', false);
+
+    if (template.status == 'preparation')
+        $('#template-status-select').find("[value='closed']").prop('disabled', true);
+    else
+        $('#template-status-select').find("[value='preparation']").prop('disabled', true);
+
+    $('#template-status-select').selectpicker('refresh');
+
+    // Show the form
+    $('#template-modal').modal('show');
+}  // function showTemplate
+
+
+/** Helper functions to handle Template AJAX response or failure */
+function handleAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('template' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showError(error);
+    else {
+        $('#template-modal').on('hidden.bs.modal', function () {
+            var params = {template_selected_status: 'active'};
+            load_main_content("applications", params);
+        });
+        $('#template-modal').modal('hide');
+    }
+}
+
+
+/** This function will be called when the OK button in the Template form
+ * is clicked. It can be either Create or Update action.
+ */
+function onTemplateOkButtonClick() {
+    // Update template values
+    var template = {
+        id: $('#template-id').val(),
+        title : $('#template-title').val(),
+        description : $('#template-description').val(),
+        status : $('#template-status-select').selectpicker('val'),
+        codes : $('#template-codes').val()
+    };
+
+    var url = template.id ? api_urls.update_template : api_urls.create_template;
+
+    var ajaxContent = $.ajax({
+        url: url,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: template}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleAjaxDone);
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
+    });
+}  // function onTemplateOkButtonClick

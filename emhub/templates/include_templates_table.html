@@ -13,11 +13,11 @@
         {% if t['status'] == status %}
         <tr>
             <td>{{ t['id'] }}</td>
-            <td><a href="javascript:showTemplate({{ t['id'] }})">{{ t['title'] }}</a></td>
+            <td><a href="javascript:showTemplateFromId({{ t['id'] }})">{{ t['title'] }}</a></td>
             <td>{{ t.description }}</td>
             <td>{{ t['iuid'] }}</td>
             <td style="width: 105px;">
-                <button class="btn btn-sm btn-outline-light" onclick="javascript:showTemplate({{ t['id'] }})"><i class="far fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-light" onclick="javascript:showTemplateFromId({{ t['id'] }})"><i class="far fa-edit"></i></button>
                 <button class="btn btn-sm btn-outline-light"><i class="far fa-trash-alt"></i></button>
             </td>
         </tr>
