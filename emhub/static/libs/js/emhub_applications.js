@@ -84,13 +84,13 @@ function createPiRows() {
     }
 }
 
-function createApplication(applicationCode) {
-    showApplication(null, applicationCode);
+function createApplication(templateId) {
+    showApplication(null, templateId);
 }
 
 /* Show the Application Form, either for a new booking or an existing one */
-function showApplication(applicationId, applicationCode) {
-    var params = (applicationId != null) ? {application_id: applicationId} : {application_code: applicationCode};
+function showApplication(applicationId, templateId) {
+    var params = (applicationId != null) ? {application_id: applicationId} : {template_id: templateId};
 
     ajaxContent = get_ajax_content("application_form", params);
 
@@ -120,8 +120,9 @@ function handleApplicationAjaxDone(jsonResponse) {
         error = 'Unexpected response from server.'
     }
 
-    if (error)
+    if (error) {
         showError(error);
+    }
     else {
         application_config.modal_status = "update";
 
@@ -210,7 +211,7 @@ function createTemplate() {
 /* Show the Template Form, either for a new booking or an existing one */
 function showTemplate(template) {
     if (template == null) {
-        showError("Invalid Template id: " + templateId);
+        showError("Invalid Template, received null");
         return
     }
 
@@ -238,7 +239,7 @@ function showTemplate(template) {
 
 
 /** Helper functions to handle Template AJAX response or failure */
-function handleAjaxDone(jsonResponse) {
+function templateAjaxDone(jsonResponse) {
     var error = null;
 
     if ('template' in jsonResponse) {
@@ -267,13 +268,17 @@ function handleAjaxDone(jsonResponse) {
  */
 function onTemplateOkButtonClick() {
     // Update template values
+    var template_id = $('#template-id').val();
+
     var template = {
-        id: $('#template-id').val(),
         title : $('#template-title').val(),
         description : $('#template-description').val(),
         status : $('#template-status-select').selectpicker('val'),
-        codes : $('#template-codes').val()
+        extra: {codes : $('#template-codes').val()}
     };
+
+    if (template_id)
+        template.id = parseInt(template_id);
 
     var url = template.id ? api_urls.update_template : api_urls.create_template;
 
@@ -285,8 +290,18 @@ function onTemplateOkButtonClick() {
         dataType: "json"
     });
 
-    ajaxContent.done(handleAjaxDone);
+    ajaxContent.done(templateAjaxDone);
     ajaxContent.fail(function(jqXHR, textStatus) {
         showError( "Request failed: " + textStatus );
     });
 }  // function onTemplateOkButtonClick
+
+
+function deleteTemplate(template_id, template_title) {
+    confirm("Delete Template",
+            "Do you want to DELETE Entry '" + template_title + "' ?",
+             "Cancel", "Delete", function () {
+            send_ajax_json(api_urls.delete_template,
+                     {id: template_id}, templateAjaxDone);
+        });
+} // function deleteEntry

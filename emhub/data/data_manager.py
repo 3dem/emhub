@@ -172,6 +172,10 @@ class DataManager(DbManager):
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_template_by(self, **kwargs):
+        """ Return a single Template or None. """
+        return self.__item_by(self.Template, **kwargs)
+
     def update_template(self, **attrs):
         return self.__update_item(self.Template, **attrs)
 
@@ -190,7 +194,7 @@ class DataManager(DbManager):
                                        asJson=asJson)
 
     def get_application_by(self, **kwargs):
-        """ This should return a single user or None. """
+        """ Return a single Application or None. """
         return self.__item_by(self.Application, **kwargs)
 
     def __update_application_pi(self, application, **kwargs):
@@ -849,17 +853,25 @@ class DataManager(DbManager):
         return query.filter_by(**kwargs).one_or_none()
 
     def __update_item(self, ModelClass, **kwargs):
-        item = self.__item_by(ModelClass, id=kwargs['id'])
+        jsonArgs = self.json_from_dict(kwargs)
+
+        item_id = kwargs.pop('id')
+        extra_replace = kwargs.pop('extra_replace', False)
+
+        item = self.__item_by(ModelClass, id=item_id)
         if item is None:
             raise Exception("Not found item %s with id %s"
                             % (ModelClass.__name__, kwargs['id']))
 
         for attr, value in kwargs.items():
-            if attr != 'id':
-                setattr(item, attr, value)
+            if attr == 'extra' and not extra_replace:
+                if not extra_replace:
+                    extra = dict(item.extra)
+                    extra.update(value)
+                    value = extra
+            setattr(item, attr, value)
         self.commit()
-        self.log('operation', 'update_%s' % ModelClass.__name__,
-                 **self.json_from_dict(kwargs))
+        self.log('operation', 'update_%s' % ModelClass.__name__, **jsonArgs)
 
         return item
 

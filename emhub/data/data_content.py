@@ -338,11 +338,21 @@ class DataContent:
     def get_application_form(self, **kwargs):
         dm = self.app.dm  # shortcut
 
+        # Possible application codes when creating a new Application
+        application_codes = []
+
         if 'application_id' in kwargs:
             app = dm.get_application_by(id=kwargs['application_id'])
         else:  # New Application
-            code = kwargs['application_code']
-            app = dm.Application(code=code)
+            template = dm.get_template_by(id=kwargs['template_id'])
+            application_codes = template.codes.split()
+            if not application_codes:
+                raise Exception("It is not possible to create Applications from this template. \n"
+                                "Maybe they need to be imported from the Portal. ")
+            app = dm.Application(code='',
+                                 title='', alias='', description='',
+                                 creator=self.app.user,
+                                 resource_allocation=dm.Application.DEFAULT_ALLOCATION)
 
         # Microscopes info to setup some permissions on the Application form
         mics = [{'id': r.id,
@@ -356,6 +366,7 @@ class DataContent:
         return {'application': app,
                 'application_statuses': ['preparation', 'review', 'accepted',
                                          'active', 'closed'],
+                'application_codes': application_codes,
                 'microscopes': mics,
                 'pi_list': [{'id': u.id,
                              'name': u.name,
