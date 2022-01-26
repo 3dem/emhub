@@ -165,6 +165,7 @@ function onApplicationOkButtonClick() {
             },
             noslot: []  // FIXME: Create the proper list
         },
+        extra: {confidential: $('#application-confidential').prop('checked')},
         pi_to_add: [],
         pi_to_remove: []
     };

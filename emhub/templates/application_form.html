@@ -30,13 +30,21 @@
                     <!-- Created Row -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Status ({{ application.status }})</label>
-                        <label class="col-12 col-sm-8 col-form-label text-sm-left">
+                        <label class="col-12 col-sm-4 col-form-label text-sm-left">
                             <select id="application-status-select" class="selectpicker">
                                 {% for s in application_statuses %}
                                     <option value="{{ s }}">{{ s }} </option>
                                 {% endfor %}
                             </select>
                         </label>
+
+                        <div class="col-12 col-sm-4 col-lg-4">
+                            <label class="custom-control custom-checkbox col-2">
+                                {% set checked = 'checked' if application.confidential else '' %}
+                                <input type="checkbox" {{ disabled }} {{ checked }} class="custom-control-input" id="application-confidential">
+                                    <span class="custom-control-label">Confidential</span>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Alias Row -->
@@ -45,6 +53,7 @@
                         <div class="col-12 col-sm-8 col-lg-6">
                             <input type="text" {{ readonly }} required="" placeholder="Enter Alias" id="application-alias" class="form-control" value="{{ application.alias }}">
                         </div>
+
                     </div>
 
                     <!-- Title Row -->

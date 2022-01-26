@@ -494,6 +494,24 @@ def create_data_models(dm):
         def __repr__(self):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
 
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def confidential(self):
+            """ Return extra costs associated with this Booking
+            """
+            return  self.__getExtra('confidential', False)
+
+        @confidential.setter
+        def costs(self, value):
+            self.__setExtra('confidential', value)
+
         def json(self):
             json = dm.json_from_object(self)
             json['pi_list'] = [pi.id for pi in self.pi_list]
