@@ -26,7 +26,7 @@
 # **************************************************************************
 
 """ 
-This script will compute the statistics of the SetOfCTFs in a given project.
+This script will monitors the pre-processing progress in Scipion and notify to EMhub.
 """
 
 import sys, os

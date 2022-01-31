@@ -27,6 +27,9 @@
 # **************************************************************************
 
 import os
+import io
+import base64
+from PIL import Image, ImageEnhance, ImageOps, ImageFilter
 
 import flask
 from flask import request
@@ -87,6 +90,19 @@ def get_mic_data():
         mic['coordinates'] = mic['coordinates'].tolist()
     else:
         mic['coordinates'] = []
+
+    if 'micThumbData' in mic:
+        msg = base64.b64decode(mic['micThumbData'])
+        #msg = mic['micThumbData']
+        buf = io.BytesIO(msg)
+        img = Image.open(buf)
+        img = ImageOps.autocontrast(img, cutoff=2)
+        img = img.filter(ImageFilter.GaussianBlur(radius=1))
+        # enhancer = ImageEnhance.Brightness(img)
+        # img = enhancer.enhance(0.15)
+        img_io = io.BytesIO()
+        img.save(img_io, format='PNG')
+        mic['micThumbData'] = base64.b64encode(img_io.getvalue()).decode("utf-8")
 
     session.data.close()
 
