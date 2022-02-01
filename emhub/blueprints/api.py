@@ -741,11 +741,19 @@ def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
     set_id = attrs.pop("set_id", None)
-    try:
-        session = app.dm.load_session(sessionId=session_id, mode=mode)
-        result = handle(session, set_id, **attrs)
-    finally:
-        session.data.close()
+    tries = 0
+
+    while tries < 3:
+        try:
+            session = app.dm.load_session(sessionId=session_id, mode=mode)
+            result = handle(session, set_id, **attrs)
+            session.data.close()
+            break
+        except OSError:
+            print("Error with session data, sleeping 3 secs")
+            time.sleep(3)
+            result = {}
+            tries += 1
 
     return send_json_data(result)
 

@@ -97,7 +97,7 @@ class CSLiveSession:
         return os.path.join(self._projectPath, *paths)
 
     def _update_mics_ctfs(self, dc):
-        files = glob(self._get_path('extract', '*.cs'))
+        files = glob(self._get_path('import_movies', '*.tiff'))
         self._micSetId = 'Micrographs_%06d' % 1  # FIXME: give a proper id
 
         attrs = {
@@ -107,8 +107,8 @@ class CSLiveSession:
 
         stats = {
             'numOfCls2D': 0,
-            'numOfCtfs': len(files),
-            'numOfMics': len(files),
+            'numOfCtfs': 0,
+            'numOfMics': 0,
             'numOfMovies': 0,
             'numOfPtcls': 0,
             'ptclSizeMax': 0,
@@ -120,16 +120,32 @@ class CSLiveSession:
 
         idset = set()
         idcount = 0
+        mics_count = 0
+        parts_count = 0
+
+        def _get(folder, movieRoot, suffix):
+            pattern = self._get_path(folder, movieRoot + '*' + suffix)
+            matched = glob(pattern)
+            print('pattern: ', pattern, 'matched: ', len(matched))
+            return matched[0] if matched else None
 
         for fn in files:
-            a = np.load(fn)
-            row = a[0]
-            u = float(row['ctf/df1_A'])
-            v = float(row['ctf/df2_A'])
-            a = float(row['ctf/df_angle_rad'])
+            movieRoot, movieExt = os.path.splitext(os.path.basename(fn))
+            extractFn = _get('extract', movieRoot, '.cs')
+            micArray = np.load(extractFn)
+            row = micArray[0]
+            micId = int(row['location/micrograph_uid'])
+
+            try:
+                u = float(row['ctf/df1_A'])
+                v = float(row['ctf/df2_A'])
+                a = float(row['ctf/df_angle_rad'])
+            except:
+                print('Missing CTF value for Micrograph id "%s", ignoring.' % micId)
+                continue
+
             mic = row['location/micrograph_path'].decode("utf-8")
             pixelSize = float(row['blob/psize_A'])
-            micId = int(row['location/micrograph_uid'])
 
             if micId in idset:
                 print('Micrograph id "%s" seems duplicated, ignoring.' % micId)
@@ -152,27 +168,45 @@ class CSLiveSession:
             })
 
             print("\nAdding item %06d: \n   -> %s" % (micId, mic))
-            psdPath = ''
+            psdPath = _get('ctfestimated', movieRoot, 'diag_2D.mrc')
 
+            print("  PSD: ", psdPath, "exists: ", os.path.exists(psdPath))
             if os.path.exists(psdPath):
-                print("  PSD: ", psdPath)
                 attrs['psdData'] = psdBase64.from_mrc(psdPath)
 
-
             micPath = self._get_path(mic.replace('S1/', ''))
-            print("  micPath: ", micPath, "exists: ", os.path.exists(micPath))
+            print("  MIC: ", micPath, "exists: ", os.path.exists(micPath))
             if os.path.exists(micPath):
-                print("  MIC: ", micPath)
                 attrs['micThumbData'] = micBase64.from_mrc(micPath)
                 attrs['micThumbPixelSize'] = pixelSize * micBase64.scale
+                w, h = row['location/micrograph_shape']
+                attrs['coordinates'] = [
+                    (r['location/center_x_frac'] * h,
+                     r['location/center_y_frac'] * w) for r in micArray]
 
             try:
                 dc.add_session_item(attrs)
                 idset.add(micId)
+                mics_count += 1
+                parts_count += len(attrs.get('coordinates', []))
             except Exception as e:
                 print(">>> FAILED: id exists: ", micId in idset)
                 pprint(attrs)
                 raise e
+
+            stats = {
+                'numOfCls2D': 0,
+                'numOfCtfs': mics_count,
+                'numOfMics': mics_count,
+                'numOfMovies': mics_count,
+                'numOfPtcls': parts_count,
+                'ptclSizeMax': 0,
+                'ptclSizeMin': 0
+            }
+
+            if mics_count % 10 == 0:
+                dc.update_session({'id': self._sessionId, 'stats': stats})
+                time.sleep(10)  # FIXME
 
         dc.update_session({'id': self._sessionId, 'stats': stats})
 

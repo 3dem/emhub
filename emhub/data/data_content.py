@@ -168,7 +168,7 @@ class DataContent:
                 'imported': stats['numOfMics'],
                 'aligned': stats['numOfMics'],
                 'ctf': stats['numOfCtfs'],
-                'picked': 0
+                'picked': stats['numOfPtcls']
             },
             'classes2d': classes2d
         }

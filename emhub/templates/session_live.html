@@ -438,7 +438,7 @@
 
     request_micrograph_images({{ session['id'] }}, 1);
 
-    //setTimeout(requestSessionData, 10000);
+    setTimeout(requestSessionData, 10000);
 
     $(window).resize(fixDimensions);
 
@@ -530,7 +530,7 @@ function requestSessionData() {
     ajaxContent.done(handleAjaxDone);
     ajaxContent.fail(handleAjaxFail);
 
-    if (session.status === "running") {
+    if (session.status != "finished") {
         setTimeout(requestSessionData, 10000);
     }
 }  // function onTemplateOkButtonClick

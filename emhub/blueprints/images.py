@@ -91,9 +91,9 @@ def get_mic_data():
     else:
         mic['coordinates'] = []
 
-    if 'micThumbData' in mic:
-        msg = base64.b64decode(mic['micThumbData'])
-        #msg = mic['micThumbData']
+    def _enhance(base64Str, cutoff=2, radius=1):
+        msg = base64.b64decode(base64Str)
+        # msg = mic['micThumbData']
         buf = io.BytesIO(msg)
         img = Image.open(buf)
         img = ImageOps.autocontrast(img, cutoff=2)
@@ -102,7 +102,15 @@ def get_mic_data():
         # img = enhancer.enhance(0.15)
         img_io = io.BytesIO()
         img.save(img_io, format='PNG')
-        mic['micThumbData'] = base64.b64encode(img_io.getvalue()).decode("utf-8")
+        return base64.b64encode(img_io.getvalue()).decode("utf-8")
+
+    config = {
+        'micThumbData': {'cutoff': 2, 'radius': 1},
+        'psdData': {'cutoff': 0.5, 'radius': 1}
+    }
+    for key, args in config.items():
+        if key in mic:
+            mic[key] = _enhance(mic[key], **args)
 
     session.data.close()
 
