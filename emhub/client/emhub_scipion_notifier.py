@@ -173,8 +173,8 @@ class ProjectSession:
         lastId = 0
 
         new_stats = {}
-        micBase64 = Base64Converter(contrast_factor=10)
-        psdBase64 = Base64Converter(contrast_factor=5)
+        micBase64 = Base64Converter()
+        psdBase64 = Base64Converter()
 
         for ctf in ctfSet.iterItems(where="id>%s" % lastId):
             u, v, a = ctf.getDefocus()

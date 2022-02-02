@@ -115,8 +115,8 @@ class CSLiveSession:
             'ptclSizeMin': 0
         }
 
-        micBase64 = Base64Converter(contrast_factor=30)
-        psdBase64 = Base64Converter(contrast_factor=5)
+        micBase64 = Base64Converter()
+        psdBase64 = Base64Converter()
 
         idset = set()
         idcount = 0
