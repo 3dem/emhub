@@ -1237,10 +1237,11 @@ class DataContent:
 
         images = []
 
+        base64 = image.Base64Converter(max_size=(1024, 1024))
         for row in data.get('images_table', []):
             if 'image_file' in row:
                 fn = dm.get_entry_path(entry, row['image_file'])
-                row['image_data'] = 'data:image/%s;base64, ' + image.fn_to_base64(fn)
+                row['image_data'] = 'data:image/%s;base64, ' + base64.from_path(fn)
                 images.append(row)
 
         # Group data rows by gridboxes (label)
@@ -1261,6 +1262,11 @@ class DataContent:
 
             data['gridboxes'] = gridboxes
 
+        session = None
+        if entry.type == 'data_acquisition':
+            session_name = data.get('session_name', '').strip().lower()
+            session = dm.get_session_by(name=session_name)
+
         pi = entry.project.user.get_pi()
         # TODO: We should store some properties in EMhub and avoid this request
         pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
@@ -1270,7 +1276,8 @@ class DataContent:
             'entry_type': entry_type,
             'data': data,
             'images': images,
-            'pi_info': pi_info
+            'pi_info': pi_info,
+            'session': session
         }
 
     def get_grids_storage(self, **kwargs):
