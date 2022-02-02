@@ -40,15 +40,8 @@ class Base64Converter:
 
     def from_pil(self, pil_img):
         """ Convert a PIL image into Base64. """
-        # if self.contrast_factor is not None:
-        #     print("autocontrast: ", self.contrast_factor)
-        #     pil_img = ImageOps.autocontrast(pil_img, cutoff=self.contrast_factor)
-
-
-            # enhancer = ImageEnhance.Brightness(pil_img)
-            # #enhancer = ImageEnhance.Sharpness(pil_img)
-            # pil_img = enhancer.enhance(0.55)
-            # pil_img = ImageOps.autocontrast(pil_img, cutoff=self.contrast_factor)
+        if self.contrast_factor is not None:
+            pil_img = ImageOps.autocontrast(pil_img, cutoff=self.contrast_factor)
 
         scale = 1.0
         w1, _ = pil_img.size
