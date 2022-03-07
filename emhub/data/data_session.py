@@ -147,8 +147,8 @@ class H5SessionData(SessionData):
         return {a: itemAttrs[a] for a in attrList if a in itemAttrs}
 
     def get_set_items(self, setId, attrList=None, condition=None):
-        print(">>> Getting items from ", self._getSetPath(setId))
-        print(self.get_sets())
+        # print(">>> Getting items from ", self._getSetPath(setId))
+        # print(self.get_sets())
 
         if attrList is None:
             attrs = list(ImageSessionData.MIC_ATTRS.keys())
@@ -166,8 +166,7 @@ class H5SessionData(SessionData):
         setGroup = self._file[self._getSetPath(setId)]
 
         for item in setGroup.values():
-            print("  item: ", item.name)
-
+            #print("  item: ", item.name)
             values = {a: item.attrs[a] for a in attrs if a in item.attrs}
             itemsList.append(values)
 
