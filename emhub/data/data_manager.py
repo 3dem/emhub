@@ -172,6 +172,10 @@ class DataManager(DbManager):
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_template_by(self, **kwargs):
+        """ Return a single Template or None. """
+        return self.__item_by(self.Template, **kwargs)
+
     def update_template(self, **attrs):
         return self.__update_item(self.Template, **attrs)
 
@@ -181,6 +185,18 @@ class DataManager(DbManager):
         return template
 
     def create_application(self, **attrs):
+        def __create(attrs):
+            pi_to_add = attrs.pop('pi_to_add', [])
+            pi_to_remove = attrs.pop('pi_to_remove', [])
+            application = self.Application(**attrs)
+            self.__update_application_pi(application, pi_to_add, pi_to_remove)
+            return application
+
+        attrs['special_create'] = __create
+        attrs['created'] = self.now()
+        attrs['invoice_reference'] = ''  #FIXME
+        if 'creator' not in attrs:
+            attrs['creator_id'] = self._user.id
         return self.__create_item(self.Application, **attrs)
 
     def get_applications(self, condition=None, orderBy=None, asJson=False):
@@ -190,13 +206,10 @@ class DataManager(DbManager):
                                        asJson=asJson)
 
     def get_application_by(self, **kwargs):
-        """ This should return a single user or None. """
+        """ Return a single Application or None. """
         return self.__item_by(self.Application, **kwargs)
 
-    def __update_application_pi(self, application, **kwargs):
-        pi_to_add = []
-        pi_to_remove = []
-
+    def __update_application_pi(self, application, pi_to_add, pi_to_remove):
         errorMsg = ""
         pi_list = application.pi_list
 
@@ -211,7 +224,8 @@ class DataManager(DbManager):
                 return pi
             return None
 
-        for pid in kwargs.get('pi_to_add', []):
+        to_add = []
+        for pid in pi_to_add:
             pi = _get_pi(pid)
 
             if pi is None:
@@ -221,9 +235,10 @@ class DataManager(DbManager):
                 errorMsg += "\nPI %s is already in the Application" % pi.name
                 continue
 
-            pi_to_add.append(pi)
+            to_add.append(pi)
 
-        for pid in kwargs.get('pi_to_remove', []):
+        to_remove = []
+        for pid in pi_to_remove:
             pi = _get_pi(pid)
 
             if pi is None:
@@ -233,16 +248,21 @@ class DataManager(DbManager):
                 errorMsg += "\nPI %s is not in the Application" % pi.name
                 continue
 
-            pi_to_remove.append(pi)
+            to_remove.append(pi)
 
         if errorMsg:
             raise Exception(errorMsg)
 
-        for pi in pi_to_remove:
+        for pi in to_remove:
             application.users.remove(pi)
 
-        for pi in pi_to_add:
+        for pi in to_add:
             application.users.append(pi)
+
+    def __preprocess_application(self, application, attrs):
+        pi_to_add = attrs.pop('pi_to_add', [])
+        pi_to_remove = attrs.pop('pi_to_remove', [])
+        self.__update_application_pi(application, pi_to_add, pi_to_remove)
 
     def update_application(self, **attrs):
         """ Update a given Application with new attributes.
@@ -250,27 +270,29 @@ class DataManager(DbManager):
             pi_to_add: ids of PI users to add to the Application.
             pi_to_remove: ids of PI users to remove from the Application
         """
+        attrs['special_update'] = self.__preprocess_application
+        return self.__update_item(self.Application, **attrs)
         # We don't use the self__update_item method due to the
         # treatment of the pi_to_add/remove lists
-
-        application = self.get_application_by(id=attrs['id'])
-
-        if application is None:
-            raise Exception("Application not found with id %s"
-                            % (attrs['id']))
-
-        self.__update_application_pi(application, **attrs)
-
-        # Update application properties
-        for attr, value in attrs.items():
-            if attr not in ['id', 'pi_to_add', 'pi_to_remove']:
-                setattr(application, attr, value)
-
-        self.commit()
-        self.log('operation', 'update_Application',
-                 **self.json_from_dict(attrs))
-
-        return application
+        #
+        # application = self.get_application_by(id=attrs['id'])
+        #
+        # if application is None:
+        #     raise Exception("Application not found with id %s"
+        #                     % (attrs['id']))
+        #
+        # self.__update_application_pi(application, **attrs)
+        #
+        # # Update application properties
+        # for attr, value in attrs.items():
+        #     if attr not in ['id', 'pi_to_add', 'pi_to_remove']:
+        #         setattr(application, attr, value)
+        #
+        # self.commit()
+        # self.log('operation', 'update_Application',
+        #          **self.json_from_dict(attrs))
+        #
+        # return application
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self,
@@ -597,6 +619,13 @@ class DataManager(DbManager):
         session.data = H5SessionData(self._session_data_path(session), mode)
         return session
 
+    def clear_session_data(self, **attrs):
+        session = self.get_session_by(id=attrs['id'])
+        data_path = self._session_data_path(session)
+        if os.path.exists(data_path):
+            os.remove(data_path)
+        return session
+
     # -------------------------- INVOICE PERIODS ------------------------------
     def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
@@ -816,11 +845,14 @@ class DataManager(DbManager):
         return {p['label']: p['value'] for p in formDef['params']}
 
     def __create_item(self, ModelClass, **attrs):
-        new_item = ModelClass(**attrs)
+        special_create = attrs.pop('special_create', None)
+        jsonArgs = self.json_from_dict(attrs)
+
+        new_item = special_create(attrs) if special_create else ModelClass(**attrs)
+
         self._db_session.add(new_item)
         self.commit()
-        self.log('operation', 'create_%s' % ModelClass.__name__,
-                 attrs=self.json_from_dict(attrs))
+        self.log('operation', 'create_%s' % ModelClass.__name__, attrs=jsonArgs)
 
         return new_item
 
@@ -842,17 +874,30 @@ class DataManager(DbManager):
         return query.filter_by(**kwargs).one_or_none()
 
     def __update_item(self, ModelClass, **kwargs):
-        item = self.__item_by(ModelClass, id=kwargs['id'])
+        special_update = kwargs.pop('special_update', None)
+
+        jsonArgs = self.json_from_dict(kwargs)
+
+        item_id = kwargs.pop('id')
+        extra_replace = kwargs.pop('extra_replace', False)
+
+        item = self.__item_by(ModelClass, id=item_id)
         if item is None:
             raise Exception("Not found item %s with id %s"
                             % (ModelClass.__name__, kwargs['id']))
 
+        if special_update:
+            special_update(item, kwargs)
+
         for attr, value in kwargs.items():
-            if attr != 'id':
-                setattr(item, attr, value)
+            if attr == 'extra' and not extra_replace:
+                if not extra_replace:
+                    extra = dict(item.extra)
+                    extra.update(value)
+                    value = extra
+            setattr(item, attr, value)
         self.commit()
-        self.log('operation', 'update_%s' % ModelClass.__name__,
-                 **self.json_from_dict(kwargs))
+        self.log('operation', 'update_%s' % ModelClass.__name__, attrs=jsonArgs)
 
         return item
 
@@ -862,7 +907,7 @@ class DataManager(DbManager):
         self.delete(item)
 
         self.log("operation", "delete_%s" % ModelClass.__name__,
-                 **self.json_from_dict(kwargs))
+                 attrs=self.json_from_dict(kwargs))
 
         return item
 
@@ -890,7 +935,6 @@ class DataManager(DbManager):
         r = self.get_resource_by(id=booking.resource_id)
         check_min_booking = kwargs.get('check_min_booking', True)
         check_max_booking = kwargs.get('check_max_booking', True)
-
 
         if booking.start >= booking.end:
             raise Exception("The booking 'end' should be after the 'start'. ")

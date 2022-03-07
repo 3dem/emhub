@@ -134,7 +134,6 @@ class DataContent:
         attrList = ['location', 'ctfDefocus', 'ctfResolution']
         mics = session.data.get_set_items(micSetId, attrList=attrList)
 
-
         def _get_hist(label, inputList):
             import numpy as np
             hist, bins = np.histogram(inputList)
@@ -169,7 +168,7 @@ class DataContent:
                 'imported': stats['numOfMics'],
                 'aligned': stats['numOfMics'],
                 'ctf': stats['numOfCtfs'],
-                'picked': 0
+                'picked': stats['numOfPtcls']
             },
             'classes2d': classes2d
         }
@@ -329,7 +328,8 @@ class DataContent:
                                   'title': t.title,
                                   'description': t.description,
                                   'status': t.status,
-                                  'iuid': t.extra.get('portal_iuid', 'no')
+                                  'iuid': t.extra.get('portal_iuid', 'no'),
+                                  'code_prefix': t.code_prefix
                                   }
                                  for t in self.app.dm.get_templates()]
 
@@ -337,7 +337,28 @@ class DataContent:
 
     def get_application_form(self, **kwargs):
         dm = self.app.dm  # shortcut
-        app = self.app.dm.get_application_by(id=kwargs['application_id'])
+
+        if 'application_id' in kwargs:
+            app = dm.get_application_by(id=kwargs['application_id'])
+        else:  # New Application
+            template = dm.get_template_by(id=kwargs['template_id'])
+            if not template.code_prefix:
+                raise Exception("It is not possible to create Applications from this template. \n"
+                                "Maybe they need to be imported from the Portal. ")
+
+            max_code = 0
+            for a in dm.get_applications():
+                code = a.code
+                if code.startswith(template.code_prefix):
+                    try:
+                        max_code = max(max_code, int(code[3:]))
+                    except:
+                        pass
+
+            app = dm.Application(code='%s%05d' % (template.code_prefix.upper(), max_code + 1),
+                                 title='', alias='', description='',
+                                 creator=self.app.user,
+                                 resource_allocation=dm.Application.DEFAULT_ALLOCATION)
 
         # Microscopes info to setup some permissions on the Application form
         mics = [{'id': r.id,
@@ -351,6 +372,7 @@ class DataContent:
         return {'application': app,
                 'application_statuses': ['preparation', 'review', 'accepted',
                                          'active', 'closed'],
+                'template_id': kwargs.get('template_id', None),
                 'microscopes': mics,
                 'pi_list': [{'id': u.id,
                              'name': u.name,
@@ -1215,10 +1237,11 @@ class DataContent:
 
         images = []
 
+        base64 = image.Base64Converter(max_size=(1024, 1024))
         for row in data.get('images_table', []):
             if 'image_file' in row:
                 fn = dm.get_entry_path(entry, row['image_file'])
-                row['image_data'] = 'data:image/%s;base64, ' + image.fn_to_base64(fn)
+                row['image_data'] = 'data:image/%s;base64, ' + base64.from_path(fn)
                 images.append(row)
 
         # Group data rows by gridboxes (label)
@@ -1239,6 +1262,11 @@ class DataContent:
 
             data['gridboxes'] = gridboxes
 
+        session = None
+        if entry.type == 'data_acquisition':
+            session_name = data.get('session_name', '').strip().lower()
+            session = dm.get_session_by(name=session_name)
+
         pi = entry.project.user.get_pi()
         # TODO: We should store some properties in EMhub and avoid this request
         pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
@@ -1253,7 +1281,8 @@ class DataContent:
             'entry_type': entry_type,
             'data': ddata,
             'images': images,
-            'pi_info': pi_info
+            'pi_info': pi_info,
+            'session': session
         }
 
     def get_grids_storage(self, **kwargs):

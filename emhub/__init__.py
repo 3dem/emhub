@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.2.10'
+__version__ = '0.3.0'
 
 
 def create_app(test_config=None):
@@ -252,9 +252,14 @@ def create_app(test_config=None):
             except Exception as e:
                 import traceback
                 tb = traceback.format_exc()
-                result = "<h1><span style='color: red'>Error</span> </br>%s</h1>" % e
-                result += "<pre>%s</pre>" % tb
-                return result
+                error = {
+                    'message': str(e),
+                    'body': tb
+                }
+                return flask.render_template('error_dialog.html', error=error)
+                # result = "<div><h1><span style='color: red'>Error</span> </br>%s</h1>" % e
+                # result += "<pre>%s</pre></div>" % tb
+                # return result
         else:
             kwargs = {'next_content': content_id}
             content_id = 'user_login'
@@ -265,7 +270,10 @@ def create_app(test_config=None):
             kwargs['is_devel'] = app.is_devel
             return flask.render_template(content_template, **kwargs)
 
-        return "<h1>Template '%s' not found</h1>" % content_template
+        error = {
+            "message": "Template '%s' not found." % content_template
+        }
+        return flask.render_template('error_dialog.html', error=error)
 
 
     @app.template_filter('basename')

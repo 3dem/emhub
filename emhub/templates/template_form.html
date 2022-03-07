@@ -19,6 +19,7 @@
             <!-- Template Form -->
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                 <form id="validationform" data-parsley-validate="" novalidate="">
+                    <input type="hidden" id="template-id" name="template-id" value="">
 
                     <!-- Title Row -->
                     <div class="form-group row">
@@ -44,6 +45,14 @@
                               <option value="active">Active</option>
                               <option value="closed">Closed</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <!-- Codes Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Codes</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" {{ readonly }} required="" placeholder="Enter code prefix" id="template-code_prefix" class="form-control">
                         </div>
                     </div>
 

@@ -27,6 +27,9 @@
 # **************************************************************************
 
 import os
+import io
+import base64
+from PIL import Image, ImageEnhance, ImageOps, ImageFilter
 
 import flask
 from flask import request
@@ -78,7 +81,7 @@ def get_mic_data():
     attrs = [
         'micThumbData', 'psdData', 'shiftPlotData',
         'ctfDefocusU', 'ctfDefocusV', 'ctfResolution',
-        'coordinates'
+        'coordinates', 'micThumbPixelSize', 'pixelSize'
     ]
 
     mic = session.data.get_set_item(micSetId, micId, attrList=attrs)
@@ -87,6 +90,27 @@ def get_mic_data():
         mic['coordinates'] = mic['coordinates'].tolist()
     else:
         mic['coordinates'] = []
+
+    def _enhance(base64Str, cutoff=2, radius=1):
+        msg = base64.b64decode(base64Str)
+        # msg = mic['micThumbData']
+        buf = io.BytesIO(msg)
+        img = Image.open(buf)
+        img = ImageOps.autocontrast(img, cutoff=2)
+        img = img.filter(ImageFilter.GaussianBlur(radius=1))
+        # enhancer = ImageEnhance.Brightness(img)
+        # img = enhancer.enhance(0.15)
+        img_io = io.BytesIO()
+        img.save(img_io, format='PNG')
+        return base64.b64encode(img_io.getvalue()).decode("utf-8")
+
+    config = {
+        'micThumbData': {'cutoff': 2, 'radius': 1},
+        'psdData': {'cutoff': 0.5, 'radius': 1}
+    }
+    for key, args in config.items():
+        if key in mic:
+            mic[key] = _enhance(mic[key], **args)
 
     session.data.close()
 

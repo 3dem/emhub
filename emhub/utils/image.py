@@ -32,77 +32,80 @@ import mrcfile
 from PIL import Image, ImageEnhance, ImageOps
 
 
-def fn_to_base64(filename):
-    """ Read the image filename as a PIL image
-    and encode it as base64.
-    """
-    try:
-        img = Image.open(filename)
-        encoded = pil_to_base64(img)
-        img.close()
-    except:
-        encoded = ''
-    return encoded
+class Base64Converter:
+    def __init__(self, **kwargs):
+        self.max_size = kwargs.get('max_size', (512, 512))
+        self.contrast_factor = kwargs.get('contrast_factor', None)
+        self.scale = 1.0
+
+    def from_pil(self, pil_img):
+        """ Convert a PIL image into Base64. """
+        if self.contrast_factor is not None:
+            pil_img = ImageOps.autocontrast(pil_img, cutoff=self.contrast_factor)
+
+        scale = 1.0
+        w1, _ = pil_img.size
+        if self.max_size is not None:
+            pil_img.thumbnail(self.max_size)
+            w2, _ = pil_img.size
+            scale = w1 / w2
+
+        self.scale = scale
+        img_io = io.BytesIO()
+        pil_img.save(img_io, format='PNG')
+
+        return base64.b64encode(img_io.getvalue()).decode("utf-8")
+
+    def from_path(self, path):
+        """ Read the image path as a PIL image and encode it as base64.
+        """
+        try:
+            img = Image.open(path)
+            encoded = self.from_pil(img)
+            img.close()
+        except:
+            encoded = ''
+
+        return encoded
+
+    def from_array(self, imageArray):
+        # imean = imageArray.mean()
+        # isd = imageArray.std()
+        iMax = imageArray.max()  # min(imean + 10 * isd, imageArray.max())
+        iMin = imageArray.min()  # max(imean - 10 * isd, imageArray.min())
+        im255 = ((imageArray - iMin) / (iMax - iMin) * 255).astype(np.uint8)
+
+        pil_img = Image.fromarray(im255)
+
+        return self.from_pil(pil_img)
+
+    def from_mrc(self, mrc_path):
+        """ Convert real float32 mrc to base64.
+        Convert to int8 first, then scale with Pillow.
+        """
+        mrc_img = mrcfile.open(mrc_path, permissive=True)
+
+        if mrc_img.is_volume():
+            imfloat = mrc_img.data[0, :, :]
+        else:
+            imfloat = mrc_img.data
+
+        result = self.from_array(imfloat)
+        mrc_img.close()
+
+        return result
+
+#
+# def fn_to_blob(filename):
+#     """ Read the image filename as a PIL image
+#     and encode it as base64.
+#     """
+#     try:
+#         with open(filename, 'rb') as img_f:
+#             binary_data = img_f.read()  # read the image as python binary
+#
+#         return np.asarray(binary_data)
+#     except:
+#         return np.array(0)
 
 
-def pil_to_base64(pil_img):
-    """ Encode as base64 the PIL image to be
-    returned as an AJAX response.
-    """
-    img_io = io.BytesIO()
-    pil_img.save(img_io, format='PNG')
-    return base64.b64encode(img_io.getvalue()).decode("utf-8")
-
-
-def fn_to_blob(filename):
-    """ Read the image filename as a PIL image
-    and encode it as base64.
-    """
-    try:
-        with open(filename, 'rb') as img_f:
-            binary_data = img_f.read()  # read the image as python binary
-
-        return np.asarray(binary_data)
-    except:
-        return np.array(0)
-
-
-def array_to_base64(imageArray, MAX_SIZE=(512,512), contrast_factor=None):
-    imean = imageArray.mean()
-    isd = imageArray.std()
-
-    iMax = imageArray.max() # min(imean + 10 * isd, imageArray.max())
-    iMin = imageArray.min() # max(imean - 10 * isd, imageArray.min())
-    im255 = ((imageArray - iMin) / (iMax - iMin) * 255).astype(np.uint8)
-
-
-    pil_img = Image.fromarray(im255)
-
-    if contrast_factor is not None:
-        pil_img = ImageOps.autocontrast(pil_img, contrast_factor)
-
-    if MAX_SIZE is not None:
-        pil_img.thumbnail(MAX_SIZE)
-
-    img_io = io.BytesIO()
-    pil_img.save(img_io, format='PNG')
-
-    return base64.b64encode(img_io.getvalue()).decode("utf-8")
-
-
-def mrc_to_base64(filename, MAX_SIZE=(512,512), contrast_factor=None):
-    """ Convert real float32 mrc to base64.
-    Convert to int8 first, then scale with Pillow.
-    """
-    mrc_img = mrcfile.open(filename, permissive=True)
-
-    if mrc_img.is_volume():
-        imfloat = mrc_img.data[0, :, :]
-    else:
-        imfloat = mrc_img.data
-
-    result = array_to_base64(imfloat,
-                             MAX_SIZE=MAX_SIZE,
-                             contrast_factor=contrast_factor)
-    mrc_img.close()
-    return result

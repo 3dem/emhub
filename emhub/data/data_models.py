@@ -398,6 +398,25 @@ def create_data_models(dm):
         # General JSON dict to store extra attributes
         extra = Column(JSON, default={})
 
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def code_prefix(self):
+            """ Prefix for numbering Application Codes
+            (e.g CEM, EXT, etc)
+            """
+            return  self.__getExtra('code_prefix', [])
+
+        @code_prefix.setter
+        def codes(self, value):
+            self.__setExtra('code_prefix', value)
+
         def json(self):
             return dm.json_from_object(self)
 
@@ -475,6 +494,24 @@ def create_data_models(dm):
         def __repr__(self):
             return '<Application code=%s, alias=%s>' % (self.code, self.alias)
 
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def confidential(self):
+            """ Return extra costs associated with this Booking
+            """
+            return  self.__getExtra('confidential', False)
+
+        @confidential.setter
+        def costs(self, value):
+            self.__setExtra('confidential', value)
+
         def json(self):
             json = dm.json_from_object(self)
             json['pi_list'] = [pi.id for pi in self.pi_list]
@@ -509,7 +546,13 @@ def create_data_models(dm):
             # Since we are importing data now from the Portal, some application
             # have the creator of the application as one of the users, so we want
             # to avoid duplicated entries
-            pi_list = [self.creator]
+            pi_list = []
+
+            # Applications can also be created by facility staff, so only if the
+            # creator is a pi we reported in the "pi_list"
+            if self.creator is not None and self.creator.is_pi:
+                pi_list.append(self.creator)
+
             for u in self.users:
                 if u.id != self.creator.id:
                     pi_list.append(u)

@@ -26,6 +26,7 @@
 
 import json
 import datetime as dt
+import numpy as np
 
 from . import image
 
@@ -94,9 +95,20 @@ def get_quarter(date=None):
     return _dt(start), _dt(end)
 
 
+class NpJsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpJsonEncoder, self).default(obj)
+
+
 def send_json_data(data):
     import flask
-    resp = flask.make_response(json.dumps(data))
+    resp = flask.make_response(json.dumps(data, cls=NpJsonEncoder))
     resp.status_code = 200
     resp.headers['Access-Control-Allow-Origin'] = '*'
     return resp

@@ -26,7 +26,7 @@
 # **************************************************************************
 
 """ 
-This script will compute the statistics of the SetOfCTFs in a given project.
+This script will monitors the pre-processing progress in Scipion and notify to EMhub.
 """
 
 import sys, os
@@ -36,13 +36,14 @@ import argparse
 from pprint import pprint
 from contextlib import contextmanager
 
+import mrcfile
 from pyworkflow.project import Manager
 import pyworkflow.utils as pwutils
 from pwem.objects import SetOfCTF
 
 
 from emhub.client import open_client
-from emhub.utils.image import mrc_to_base64, array_to_base64
+from emhub.utils.image import Base64Converter
 
 
 def usage(error):
@@ -94,6 +95,7 @@ def get_parser():
                    help="List existing sessions in the server.")
     g.add_argument('--update', action='store_true',
                    help="Update an existing session")
+
     add('-p', '--project', metavar='PROJECT_NAME',
         help='Project name.')
 
@@ -108,6 +110,9 @@ def get_parser():
 
     add('--prot_2d', type=int, default=0,
         help='Id of the classify 2d protocol.')
+
+    add('--clear', action='store_true',
+        help="Clear existing data associated with the session.")
 
     return parser
 
@@ -126,7 +131,6 @@ class ProjectSession:
         self._project = manager.loadProject(projName)
         self._protocols = {key: self._load_protocol(protId)
                            for key, protId in protIds.items()}
-
 
     def _get_path(self, *paths):
         return os.path.join(self._project.path, *paths)
@@ -169,11 +173,14 @@ class ProjectSession:
         lastId = 0
 
         new_stats = {}
+        micBase64 = Base64Converter()
+        psdBase64 = Base64Converter()
 
         for ctf in ctfSet.iterItems(where="id>%s" % lastId):
             u, v, a = ctf.getDefocus()
             lastId = ctfId = ctf.getObjId()
             mic = ctf.getMicrograph()
+            pixelSize = mic.getSamplingRate()
 
             attrs.update({
                 'item_id': ctfId,
@@ -185,7 +192,8 @@ class ProjectSession:
                 'ctfFit': ctf.getFitQuality(),
                 'location': mic.getFileName(),
                 'ctfFitData': '',
-                'shiftPlotData': ''
+                'shiftPlotData': '',
+                'pixelSize': pixelSize
             })
 
             print("Adding item %06d" % ctfId)
@@ -193,24 +201,15 @@ class ProjectSession:
 
             if os.path.exists(psdPath):
                 print("  PSD: ", psdPath)
-                attrs['psdData'] = mrc_to_base64(psdPath, contrast_factor=5)
+                attrs['psdData'] = psdBase64.from_mrc(psdPath)
 
             micPath = os.path.join(self._project.path, ctf.getMicrograph().getFileName())
             if os.path.exists(micPath):
                 print("  MIC: ", micPath)
-                attrs['micThumbData'] = mrc_to_base64(micPath,
-                                                      contrast_factor=10)
+                attrs['micThumbData'] = micBase64.from_mrc(micPath)
+                attrs['micThumbPixelSize'] = pixelSize * micBase64.scale
 
             dc.add_session_item(attrs)
-
-            # for i in range(1):  # try 3 times
-            #     try:
-            #         dc.add_session_item(attrs)
-            #         break
-            #     except Exception as e:
-            #         print("dc.add_session_item:: Error: %s" % e)
-            #         print("                      Trying again in 3 seconds.")
-            #         time.sleep(3)
 
         new_stats['numOfCtfs'] = ctfSet.getSize()
 
@@ -295,9 +294,9 @@ class ProjectSession:
         print("- %s set %s" % (label, setId))
         set_func(attrs)
 
-        import mrcfile
         fn = outputClasses.getFirstItem().getRepresentative().getFileName()
         mrc_stack = mrcfile.open(fn, permissive=True)
+        stackBase64 = Base64Converter(max_size=None)
 
         for class2d in outputClasses:
             rep = class2d.getRepresentative()
@@ -306,8 +305,7 @@ class ProjectSession:
             attrs.update({
                 'item_id': class2d.getObjId(),
                 'size': class2d.getSize(),
-                'average': array_to_base64(mrc_stack.data[i,:,:],
-                                           MAX_SIZE=None)
+                'average': stackBase64.from_array(mrc_stack.data[i, :, :])
             })
             for i in range(3):  # try 3 times
                 try:
@@ -321,8 +319,6 @@ class ProjectSession:
     def run(self):
         with open_client() as dc:
             sessionDict = dc.get_session(self._sessionId)
-            pprint(sessionDict)
-
             self._update_mics_ctfs(dc)
             self._update_coords(dc)
             self._update_classes(dc)
@@ -330,6 +326,11 @@ class ProjectSession:
 
 def main():
     args = get_parser().parse_args()
+
+    if args.clear:
+        with open_client() as dc:
+            print("Clearing session data: ")
+            dc.request('clear_session_data', jsonData={'attrs': {'id': args.session_id}})
 
     if args.list:
         with open_client() as dc:
@@ -351,7 +352,6 @@ def main():
     else:
         print("Please provide some arguments")
         sys.exit(1)
-
 
 
 if __name__ == '__main__':

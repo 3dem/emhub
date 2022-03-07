@@ -159,7 +159,7 @@ def delete_template():
 @api_bp.route('/create_application', methods=['POST'])
 @flask_login.login_required
 def create_application():
-    return send_error('create_application NOT IMPLEMENTED')
+    return handle_template(app.dm.create_application)
 
 
 @api_bp.route('/get_applications', methods=['POST'])
@@ -392,6 +392,12 @@ def delete_session():
 @flask_login.login_required
 def load_session():
     return handle_session(app.dm.load_session)
+
+
+@api_bp.route('/clear_session_data', methods=['POST'])
+@flask_login.login_required
+def clear_session_data():
+    return handle_session(app.dm.clear_session_data)
 
 
 @api_bp.route('/create_session_set', methods=['POST'])
@@ -735,11 +741,19 @@ def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
     set_id = attrs.pop("set_id", None)
-    try:
-        session = app.dm.load_session(sessionId=session_id, mode=mode)
-        result = handle(session, set_id, **attrs)
-    finally:
-        session.data.close()
+    tries = 0
+
+    while tries < 3:
+        try:
+            session = app.dm.load_session(sessionId=session_id, mode=mode)
+            result = handle(session, set_id, **attrs)
+            session.data.close()
+            break
+        except OSError:
+            print("Error with session data, sleeping 3 secs")
+            time.sleep(3)
+            result = {}
+            tries += 1
 
     return send_json_data(result)
 

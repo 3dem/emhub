@@ -6,10 +6,17 @@
 
 {% import "entry_macros.html" as macros %}
 
+{% if session %}
+    {% set session_name = session.name %}
+    {% set start_date = session.start|pretty_datetime %}
+{% else %}
+    {% set session_name = 'Invalid session name: %s'|format(data['session_name']) %}
+    {% set start_date = 'Unknown' %}
+{% endif %}
+
 {{ macros.table_card('Session Details',
-    [('Session ID', 'CEM00046'),
-     ('Start Date', '2021-11-30'),
-     ('Number of Days', '2')
+    [('Session ID', session_name),
+     ('Start Date', start_date)
      ])
 }}
 

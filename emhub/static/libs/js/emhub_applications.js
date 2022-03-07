@@ -84,10 +84,15 @@ function createPiRows() {
     }
 }
 
-/* Show the Application Form, either for a new booking or an existing one */
-function showApplication(applicationId) {
+function createApplication(templateId) {
+    showApplication(null, templateId);
+}
 
-    ajaxContent = get_ajax_content("application_form", {application_id: applicationId});
+/* Show the Application Form, either for a new booking or an existing one */
+function showApplication(applicationId, templateId) {
+    var params = (applicationId != null) ? {application_id: applicationId} : {template_id: templateId};
+
+    ajaxContent = get_ajax_content("application_form", params);
 
     ajaxContent.done(function(html) {
         $("#application-modal").html(html);
@@ -104,95 +109,206 @@ function showApplication(applicationId) {
 
 /** Helper functions to handle Application AJAX response or failure */
 function handleApplicationAjaxDone(jsonResponse) {
-var error = null;
+    var error = null;
 
-if ('application' in jsonResponse || 'OK' in jsonResponse) {
-}
-else if ('error' in jsonResponse) {
-    error = jsonResponse.error;
-}
-else {
-    error = 'Unexpected response from server.'
-}
+    if ('application' in jsonResponse || 'OK' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
 
-if (error)
-    showError(error);
-else {
-    application_config.modal_status = "update";
+    if (error) {
+        showError(error);
+    }
+    else {
+        application_config.modal_status = "update";
 
-    $('#application-modal').on('hidden.bs.modal', function () {
+        $('#application-modal').on('hidden.bs.modal', function () {
 
-        if (application_config.on_update != null && application_config.modal_status == "update") {
-            application_config.on_update();
-            application_config.modal_status = "done";
-        }
-    });
+            if (application_config.on_update != null && application_config.modal_status == "update") {
+                application_config.on_update();
+                application_config.modal_status = "done";
+            }
+        });
 
-    // $('#application-modal').on('hidden.bs.modal', function () {
-    // var params = {};
-    // alert("loading main content");
-    // load_main_content("applications", params);
-    // });
+        // $('#application-modal').on('hidden.bs.modal', function () {
+        // var params = {};
+        // alert("loading main content");
+        // load_main_content("applications", params);
+        // });
 
-    $('#application-modal').modal('hide');
-}
+        $('#application-modal').modal('hide');
+    }
 }
 
 /** This function will be called when the OK button in the Application form
 * is clicked. It can be either Create or Update action.
 */
 function onApplicationOkButtonClick() {
-// Update template values
-var application = {
-    id: parseInt($('#application-id').val()),
-    status: $('#application-status-select').selectpicker('val'),
-    title: $('#application-title').val(),
-    alias: $('#application-alias').val(),
-    description: $('#application-description').val(),
-    resource_allocation: {
-        quota: {
-            krios: parseInt($('#quota-krios').val()),
-            talos: parseInt($('#quota-talos').val())
+    // Update application values
+    var application_id = parseInt($('#application-id').val());
+
+    var application = {
+
+
+        status: $('#application-status-select').selectpicker('val'),
+        title: $('#application-title').val(),
+        alias: $('#application-alias').val(),
+        description: $('#application-description').val(),
+        resource_allocation: {
+            quota: {
+                krios: parseInt($('#quota-krios').val()),
+                talos: parseInt($('#quota-talos').val())
+            },
+            noslot: []  // FIXME: Create the proper list
         },
-        noslot: []  // FIXME: Create the proper list
-    },
-    pi_to_add: [],
-    pi_to_remove: []
-};
+        extra: {confidential: $('#application-confidential').prop('checked')},
+        pi_to_add: [],
+        pi_to_remove: []
+    };
 
-$( ".noslot" ).each( function( i, el ) {
-    var elem = $( el );
-    if (elem.prop("checked"))
-        application.resource_allocation.noslot.push(parseInt(elem.val()));
-    //alert("checked: " + elem.prop('checked') + " value: " + elem.val());
-});
+    $( ".noslot" ).each( function( i, el ) {
+        var elem = $( el );
+        if (elem.prop("checked"))
+            application.resource_allocation.noslot.push(parseInt(elem.val()));
+        //alert("checked: " + elem.prop('checked') + " value: " + elem.val());
+    });
 
-// Update list of PI users to add or remove to the Application
-for (var pi of pi_list)
-    if (pi.status == "to add")
-        application.pi_to_add.push(pi.id);
-    else if (pi.status == "to remove")
-        application.pi_to_remove.push(pi.id);
+    // Update list of PI users to add or remove to the Application
+    for (var pi of pi_list)
+        if (pi.status == "to add")
+            application.pi_to_add.push(pi.id);
+        else if (pi.status == "to remove")
+            application.pi_to_remove.push(pi.id);
 
-var endpoint = null;
+    var endpoint = null;
 
-if (application.id != null) {
-    endpoint = api_urls.update_application;
+    if (!isNaN(application_id)) {
+        application.id = application_id;
+        endpoint = api_urls.update_application;
+    }
+    else {
+        application.code = $('#application-code').val();
+        application.template_id = $('#application-template_id').val();
+        endpoint = api_urls.create_application;
+
+    }
+
+    var ajaxContent = $.ajax({
+        url: endpoint,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: application}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(handleApplicationAjaxDone);
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
+    });
+}  // function onApplicationOkButtonClick
+
+
+function createTemplate() {
+    showTemplate({id: null, status: 'preparation'});
 }
-else {
-    endpoint = api_urls.create_application;
+
+/* Show the Template Form, either for a new booking or an existing one */
+function showTemplate(template) {
+    if (template == null) {
+        showError("Invalid Template, received null");
+        return
+    }
+
+    // Setup fields with template values
+    $('#template-id').val(template.id);
+    $('#template-title').val(template.title);
+    $('#template-description').val(template.description);
+    $('#template-code_prefix').val(template.code_prefix);
+
+    // Set possible status options depending on the current status
+    $('#template-status-select').selectpicker('val', template.status);
+    $('#template-status-select').find("[value='closed']").prop('disabled', false);
+    $('#template-status-select').find("[value='preparation']").prop('disabled', false);
+
+    if (template.status == 'preparation')
+        $('#template-status-select').find("[value='closed']").prop('disabled', true);
+    else
+        $('#template-status-select').find("[value='preparation']").prop('disabled', true);
+
+    $('#template-status-select').selectpicker('refresh');
+
+    // Show the form
+    $('#template-modal').modal('show');
+}  // function showTemplate
+
+
+/** Helper functions to handle Template AJAX response or failure */
+function templateAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('template' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showError(error);
+    else {
+        $('#template-modal').on('hidden.bs.modal', function () {
+            var params = {template_selected_status: 'active'};
+            load_main_content("applications", params);
+        });
+        $('#template-modal').modal('hide');
+    }
 }
 
-var ajaxContent = $.ajax({
-    url: endpoint,
-    type: "POST",
-    contentType: 'application/json; charset=utf-8',
-    data: JSON.stringify({attrs: application}),
-    dataType: "json"
-});
+/** This function will be called when the OK button in the Template form
+ * is clicked. It can be either Create or Update action.
+ */
+function onTemplateOkButtonClick() {
+    // Update template values
+    var template_id = $('#template-id').val();
 
-ajaxContent.done(handleApplicationAjaxDone);
-ajaxContent.fail(function(jqXHR, textStatus) {
-    showError( "Request failed: " + textStatus );
-});
+    var template = {
+        title : $('#template-title').val(),
+        description : $('#template-description').val(),
+        status : $('#template-status-select').selectpicker('val'),
+        extra: {code_prefix : $('#template-code_prefix').val()}
+    };
+
+    if (template_id)
+        template.id = parseInt(template_id);
+
+    var url = template.id ? api_urls.update_template : api_urls.create_template;
+
+    var ajaxContent = $.ajax({
+        url: url,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: template}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(templateAjaxDone);
+    ajaxContent.fail(function(jqXHR, textStatus) {
+        showError( "Request failed: " + textStatus );
+    });
 }  // function onTemplateOkButtonClick
+
+
+function deleteTemplate(template_id, template_title) {
+    confirm("Delete Template",
+            "Do you want to DELETE Entry '" + template_title + "' ?",
+             "Cancel", "Delete", function () {
+            send_ajax_json(api_urls.delete_template,
+                     {id: template_id}, templateAjaxDone);
+        });
+} // function deleteEntry

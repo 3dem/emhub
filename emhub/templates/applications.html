@@ -25,7 +25,7 @@
                                 <div class="card-body">
                                     <h4 class="card-title border-bottom pb-2">{{ t.title }}</h4>
                                     <p class="card-text"> {{ t.description }}</p>
-                                    <a href="#" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Application</a>
+                                    <a href="javascript:createApplication('{{ t.id }}')" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Application</a>
                                 </div>
                             </div>
                         </div>
@@ -104,7 +104,7 @@
                 </div>
             </div>
             <div class="col-xl-9 col-lg-9 col-md-9 col-sm-9 col-9  text-sm-right">
-                <a href="javascript:showTemplate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i>  Create Template</a>
+                <a href="javascript:createTemplate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i>  Create Template</a>
             </div>
         </div>
         <div class="row">
@@ -149,23 +149,6 @@
 
 
 <script>
-  $('#deleteModal').on('show.bs.modal', function (event) {
-      var button = $(event.relatedTarget); // Button that triggered the modal
-
-      // Extract info from data-* attributes
-      var id = button.data('id');
-      var name = button.data('name');
-
-      // If necessary, you could initiate an AJAX request here (and then do the updating in a callback).
-      // Update the modal's content. We'll use jQuery here, but you could use a data binding library or other methods instead.
-      var modal = $(this);
-      // modal.find('.modal-title').text('New message to ' + recipient)
-      modal.find('.modal-body').html('<p> Do you want to DELETE user <b>' + name + '</b> (id = ' + id + ') ? </p>')
-    })
-</script>
-
-
-<script>
     var applications;
     var applicationDict = {};
     var templates;
@@ -188,102 +171,9 @@
 
 })(window, document, window.jQuery);
 
-
 /* Show the Template Form, either for a new booking or an existing one */
-function showTemplate(templateId) {
-    if (templateId == null)
-        template = {
-            id: null,
-            status: 'preparation'
-        };
-    else
-        // Get the template with that id
-        template = templateDict[templateId];
-
-    if (template == null) {
-        showError("Invalid Template id: " + templateId);
-        return
-    }
-
-    // Setup fields with template values
-    $('#template-title').val(template.title);
-    $('#template-description').val(template.description);
-
-    // Set possible status options depending on the current status
-    $('#template-status-select').selectpicker('val', template.status);
-    $('#template-status-select').find("[value='closed']").prop('disabled', false);
-    $('#template-status-select').find("[value='preparation']").prop('disabled', false);
-
-    if (template.status == 'preparation')
-        $('#template-status-select').find("[value='closed']").prop('disabled', true);
-    else
-        $('#template-status-select').find("[value='preparation']").prop('disabled', true);
-
-    $('#template-status-select').selectpicker('refresh');
-
-    // Show the form
-    $('#template-modal').modal('show');
-}  // function showTemplate
-
-
-/** Helper functions to handle Template AJAX response or failure */
-function handleAjaxDone(jsonResponse) {
-    var error = null;
-
-    if ('template' in jsonResponse) {
-    }
-    else if ('error' in jsonResponse) {
-        error = jsonResponse.error;
-    }
-    else {
-        error = 'Unexpected response from server.'
-    }
-
-    if (error)
-        showError(error);
-    else {
-        $('#template-modal').on('hidden.bs.modal', function () {
-            var params = {template_selected_status: template.status};
-            load_main_content("applications", params);
-        });
-        $('#template-modal').modal('hide');
-    }
+function showTemplateFromId(templateId) {
+    showTemplate(templateDict[templateId]);
 }
-
-
-function handleAjaxFail(jqXHR, textStatus) {
-    showError("Request failed: " + textStatus );
-}
-
-
-/** This function will be called when the OK button in the Template form
- * is clicked. It can be either Create or Update action.
- */
-function onTemplateOkButtonClick() {
-    // Update template values
-    template.title = $('#template-title').val();
-    template.description = $('#template-description').val();
-    template.status = $('#template-status-select').selectpicker('val');
-
-    if (template.id) {
-        endpoint = "{{ url_for('api.update_template') }}";
-    }
-    else {
-        endpoint = "{{ url_for('api.create_template') }}"
-    }
-
-    var ajaxContent = $.ajax({
-        url: endpoint,
-        type: "POST",
-        contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify({attrs: template}),
-        dataType: "json"
-    });
-
-    ajaxContent.done(handleAjaxDone);
-    ajaxContent.fail(handleAjaxFail);
-}  // function onTemplateOkButtonClick
-
-
 
 </script>
