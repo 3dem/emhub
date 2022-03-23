@@ -65,18 +65,19 @@ class DataContent:
     def get_dashboard(self, **kwargs):
         dataDict = self.get_resources_list()
         user = self.app.user  # shortcut
+        resource_bookings = {}
 
         # Provide upcoming bookings sorted by proximity
         bookings = [('Today', []),
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
-        resource_bookings = {}
+
 
         now  = self.app.dm.now()
         next7 = now + dt.timedelta(days=7)
         next30 = now + dt.timedelta(days=30)
 
-        for b in self.app.dm.get_bookings(orderBy='start'):
+        for b in self.app.dm.get_next_bookings(user): #self.app.dm.get_bookings(orderBy='start'):
             if not user.is_manager and not user.same_pi(b.owner):
                 continue
             bDict = {'owner': b.owner.name,
