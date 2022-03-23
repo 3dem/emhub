@@ -292,7 +292,7 @@ class DataContent:
         _add('tags', 'Tags')
         _add('latest_cancellation', 'Latest cancellation (h)')
         _add('min_booking', 'Minimum booking time (h)')
-        _add('min_booking', 'Maximum booking time (h)')
+        _add('max_booking', 'Maximum booking time (h)')
         _add('daily_cost', 'Daily cost')
         _add('requires_slot', 'Requires Slot', type='bool')
         _add('requires_application', 'Requires Application', type='bool')
