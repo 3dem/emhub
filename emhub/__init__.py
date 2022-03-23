@@ -106,6 +106,15 @@ def create_app(test_config=None):
                   'params': params
                   }
 
+        if 'login_user' in params and app.is_devel:
+            user_id = params['login_user']
+            user = app.dm.get_user_by(id=user_id)
+            if user is None:
+                return send_error("Invalid user id: '%s'" % user_id)
+            elif user != app.user:
+                flask_login.logout_user()
+                flask_login.login_user(user)
+
         if app.user.is_authenticated:
             if content_id == 'user_login':  # Redirects to Dashboard by default
                 kwargs['content_id'] = 'dashboard'
