@@ -1254,7 +1254,7 @@ class DataContent:
             gridboxes = {}
 
             for row in table:
-                label = row['gridbox_label']
+                label = row.get('gridbox_label', '')
                 if label not in gridboxes:
                     gridboxes[label] = {}
                 slots = map(int, row['gridbox_slot'])
