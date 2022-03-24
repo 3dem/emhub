@@ -517,10 +517,15 @@ function table_deleteRows(table_id){
 function table_copyRows(table_id){
     var rows = table_getSelectedRows(table_id);
     if (rows.length > 0) {
+
+        var lastPosition = null;
+        for (var row of rows)
+            lastPosition = row.nextSibling;
+
         for (var row of rows){
             var newRow = table_createNewRow(table_id);
             var values = row_getValues(row);
-            row.parentElement.insertBefore(newRow, row.nextSibling);
+            row.parentElement.insertBefore(newRow, lastPosition);
             $('#' + table_id).find('.data-row select').each(function () {
                 $(this).addClass('selectpicker');
             });
