@@ -61,8 +61,6 @@ function dateFromValue(dateId, timeId) {
     if (timeId)
         dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
 
-    console.log(dateVal);
-
     var date = new Date(dateVal);
 
     // If the parsing fails with date separator /, let's try with spaces
@@ -262,7 +260,8 @@ function row_getValues(row, includeEmpty){
         var value = getInputValue(this);
         if (includeEmpty || nonEmpty(value)) {
             var col = $(this).data('key');
-            values[col] = value;
+            if (col)
+                values[col] = value;
         }
     });
     return values;
@@ -490,9 +489,11 @@ function table_createNewRow(table_id){
 }
 
 function table_addRow(table_id){
-    var rowElement = table_getTemplateRow(table_id);
-    rowElement.parentNode.appendChild(table_createNewRow(table_id));
+    var rowTemplate = table_getTemplateRow(table_id);
+    var newRow = table_createNewRow(table_id);
+    rowTemplate.parentNode.appendChild(newRow);
     $('.data-row select').selectpicker('refresh');
+    return newRow;
 }
 
 function table_getSelectedRows(table_id){
@@ -546,7 +547,7 @@ function table_rowsToClipboard(table_id) {
             for (var row of rows)
                 data.push(row_getValues(row));
             var text = JSON.stringify(data);
-            console.log(text);
+            navigator.clipboard.writeText(text);
         }
         else
             showError("Select rows to Copy values");
@@ -556,6 +557,25 @@ function table_rowsToClipboard(table_id) {
     }
 }
 
+function table_clipboardToRows(table_id) {
+    if (navigator.clipboard){
+            //var text = navigator.clipboard.readText();
+            navigator.clipboard.readText().then(
+                clipText => {
+                    var rows = JSON.parse(clipText);
+                    for (var row of rows){
+                        var newRow = table_addRow(table_id);
+                        row_setValues(newRow, row);
+                    }
+            }).catch(err => {
+                showError('Something went wrong' + err);
+            });
+            //var rows = JSON.parse(text);
+    }
+    else {
+        showError("Clipboard API is not supported.")
+    }
+}
 
 //----------------------------- FileBrowser related functions --------------------------
 
