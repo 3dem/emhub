@@ -538,6 +538,24 @@ function table_copyRows(table_id){
         showError("Select rows to Clone");
 }
 
+function table_rowsToClipboard(table_id) {
+    if (navigator.clipboard){
+        var rows = table_getSelectedRows(table_id);
+        if (rows.length > 0) {
+            var data = [];
+            for (var row of rows)
+                data.push(row_getValues(row));
+            var text = JSON.stringify(data);
+            console.log(text);
+        }
+        else
+            showError("Select rows to Copy values");
+    }
+    else {
+        showError("Clipboard API not supported to copy row values.")
+    }
+}
+
 
 //----------------------------- FileBrowser related functions --------------------------
 
