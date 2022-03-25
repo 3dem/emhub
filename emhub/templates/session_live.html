@@ -285,8 +285,6 @@
         });
 
         requestMicThumb.done(function(data) {
-            //alert("length: " + $("#img_micrograph").length);
-
             micrograph = {
                 thumbnail: data['micThumbData'],
                 coordinates: data['coordinates'],

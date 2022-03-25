@@ -65,12 +65,13 @@ class DataContent:
     def get_dashboard(self, **kwargs):
         dataDict = self.get_resources_list()
         user = self.app.user  # shortcut
+        resource_bookings = {}
 
         # Provide upcoming bookings sorted by proximity
         bookings = [('Today', []),
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
-        resource_bookings = {}
+
 
         now  = self.app.dm.now()
         next7 = now + dt.timedelta(days=7)
@@ -292,7 +293,7 @@ class DataContent:
         _add('tags', 'Tags')
         _add('latest_cancellation', 'Latest cancellation (h)')
         _add('min_booking', 'Minimum booking time (h)')
-        _add('min_booking', 'Maximum booking time (h)')
+        _add('max_booking', 'Maximum booking time (h)')
         _add('daily_cost', 'Daily cost')
         _add('requires_slot', 'Requires Slot', type='bool')
         _add('requires_application', 'Requires Application', type='bool')
@@ -1253,7 +1254,7 @@ class DataContent:
             gridboxes = {}
 
             for row in table:
-                label = row['gridbox_label']
+                label = row.get('gridbox_label', '')
                 if label not in gridboxes:
                     gridboxes[label] = {}
                 slots = map(int, row['gridbox_slot'])

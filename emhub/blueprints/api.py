@@ -283,8 +283,8 @@ def update_resource():
 @flask_login.login_required
 def create_booking():
     def create(**attrs):
-        check_min = request.json.get('check_min_booking')
-        check_max = request.json.get('check_max_booking')
+        check_min = request.json.get('check_min_booking', True)
+        check_max = request.json.get('check_max_booking', True)
         return app.dm.create_booking(check_min_booking=check_min,
                                      check_max_booking=check_max,
                                      **attrs)

@@ -10,11 +10,12 @@
     {% set address = '%s, %s, %s'|format(ia['address'], ia['city'], ia['country']) %}
 {% endif %}
 
-{{ macros.table_card('User Details',
+{{ macros.table_card('General Info',
 [('Application ID', application_id),
  ('PI / User', '%s / %s'|format(pi.name, user.name)),
  ('Invoice Address', address),
  ('Responsible Staff', entry.creation_user.name),
+ ('Description', entry.description),
  ])
 }}
 

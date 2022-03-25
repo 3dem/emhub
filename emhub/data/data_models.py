@@ -121,7 +121,7 @@ def create_data_models(dm):
 
         @property
         def max_booking(self):
-            """ Minimum amount of hours that should be used for
+            """ Maximum amount of hours that can be used in a booking for
             booking this resource.
             """
             return self.__getExtra('max_booking', 0)

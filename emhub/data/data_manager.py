@@ -398,6 +398,14 @@ class DataManager(DbManager):
         return [b for b in self.get_bookings(condition=conditionStr, orderBy='start')
                 if in_range(b)]
 
+    def get_next_bookings(self, user):
+        """ Retrieve upcoming (from now) bookings for this user. """
+        conditionStr = "start>='%s'" % datetime_to_isoformat(self.now())
+        if user:
+            conditionStr += " AND owner_id=%s" % user.id
+
+        return self.get_bookings(condition=conditionStr, orderBy='start')
+
     def delete_booking(self, **attrs):
         """ Delete one or many bookings (in case of repeating events)
 
@@ -930,12 +938,11 @@ class DataManager(DbManager):
         return b
 
     def __validate_booking(self, booking, **kwargs):
-        # Check the booking time is bigger than the minimum booking time
-        # specified in the resource settings
         r = self.get_resource_by(id=booking.resource_id)
         check_min_booking = kwargs.get('check_min_booking', True)
         check_max_booking = kwargs.get('check_max_booking', True)
 
+        # Booking starting date should be before ending date
         if booking.start >= booking.end:
             raise Exception("The booking 'end' should be after the 'start'. ")
 
@@ -943,23 +950,43 @@ class DataManager(DbManager):
 
         # The following validations do not apply for managers
         if not user.is_manager:
+            # Selected resource should be active
             if not r.is_active:
                 raise Exception("Selected resource is inactive now. ")
 
+            # Booking can not be made in the past
             if booking.start.date() < self.now().date():
                 raise Exception("The booking 'start' can not be in the past. ")
 
+            # Booking time should be bigger than the minimum for this resource
             if check_min_booking and r.min_booking > 0:
                 mm = dt.timedelta(minutes=int(r.min_booking * 60))
                 if booking.duration < mm:
                     raise Exception("The duration of the booking is less that "
                                     "the minimum specified for the resource. ")
 
+            # Booking time should be less than the maximum for this resource
             if booking.type == 'booking' and check_max_booking and r.max_booking > 0:
                 mm = dt.timedelta(minutes=int(r.max_booking * 60))
                 if booking.duration > mm:
                     raise Exception("The duration of the booking is greater that "
                                     "the maximum allowed for the resource. ")
+
+            # Validate if there are restrictions in max number of bookings for
+            # this type of resource or similar ones (same tags)
+            pending = self.__get_session_dict('pending_bookings')
+            nextBookings = None
+            for tagName, maxPending in pending.items():
+                m = int(maxPending)
+                if m > 0 and tagName in r.tags:
+                    # Only retrieve the next bookings when it is required
+                    if nextBookings is None:
+                        nextBookings = self.get_next_bookings(user)
+                    count = sum(1 for b in nextBookings if tagName in b.resource.tags)
+                    if count >= m:
+                        raise Exception("You already reached the maximum number"
+                                        " of pending bookings for resource tag "
+                                        "'%s'" % tagName)
 
         overlap = self.get_bookings_range(booking.start,
                                           booking.end,
