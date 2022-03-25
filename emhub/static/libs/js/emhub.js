@@ -505,6 +505,17 @@ function table_getSelectedRows(table_id){
     return rows;
 }
 
+function table_getEmptyRows(table_id){
+    var rows = []
+    $('#' + table_id).find('.data-row').each(function () {
+        var values = row_getValues(this, false);
+
+        if (jQuery.isEmptyObject(values))
+            rows.push(this);
+    });
+    return rows;
+}
+
 function table_deleteRows(table_id){
     var rows = table_getSelectedRows(table_id);
     if (rows.length > 0) {
@@ -562,11 +573,16 @@ function table_clipboardToRows(table_id) {
             //var text = navigator.clipboard.readText();
             navigator.clipboard.readText().then(
                 clipText => {
-                    var rows = JSON.parse(clipText);
-                    for (var row of rows){
-                        var newRow = table_addRow(table_id);
-                        row_setValues(newRow, row);
+                    var rowValues = JSON.parse(clipText);
+                    var emptyRows = table_getEmptyRows(table_id);
+
+                    for (var i = 0; i < rowValues.length; ++i){
+                        var values = rowValues[i];
+
+                        var row = i < emptyRows.length ? emptyRows[i] : table_addRow(table_id);
+                        row_setValues(row, values);
                     }
+
             }).catch(err => {
                 showError('Something went wrong' + err);
             });
