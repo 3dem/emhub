@@ -273,7 +273,8 @@ function getFormAsJson(formId, includeEmpty){
 
     $('#' + formId + ' *').filter(':input').each(function(){
         var key = $(this).data('key');
-        json[key] = getInputValue(this);
+        if (key)
+            json[key] = getInputValue(this);
     });
 
     $('#' + formId + " table").each(function () {
