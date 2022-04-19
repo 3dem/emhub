@@ -85,7 +85,8 @@
                                     {% if current_user.is_manager %}
                                     <td>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id'] }})"><i class="far fa-edit"></i></button>
-                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:notImplemented('Can not DELETE Resource. ')"
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id'] }}, true)"><i class="far fa-copy"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:deleteResource({{ r['id'] }})"
                                                 data-id="{{ r['id'] }}" data-name="{{ r['name'] }}"><i class="far fa-trash-alt"></i></button>
                                     </td>
                                     {% endif %}
@@ -115,74 +116,8 @@
 (function(window, document, $, undefined) {
 "use strict";
 
-$('select').selectpicker();
+    $('select').selectpicker();
 
 })(window, document, window.jQuery);
-
-
-/* Show the Resource Form, either for a new booking or an existing one */
-function showResource(resourceId) {
-    ajaxContent = get_ajax_content("resource_form", {resource_id: resourceId});
-
-    ajaxContent.done(function(html) {
-        $("#resource-modal").html(html);
-        // Show the form after setting html content
-        $('#resource-modal').modal('show');
-    });
-
-    ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
-    });
-
-}  // function showResource
-
-/** Helper functions to handle Template AJAX response or failure */
-function handleAjaxDone(jsonResponse) {
-    var error = null;
-
-    if ('resource' in jsonResponse) {
-    }
-    else if ('error' in jsonResponse) {
-        error = jsonResponse.error;
-    }
-    else {
-        error = 'Unexpected response from server.'
-    }
-
-    if (error)
-        showError(error);
-    else {
-        $('#resource-modal').on('hidden.bs.modal', function () {
-            load_main_content("resources_list");
-        });
-        $('#resource-modal').modal('hide');
-    }
-}
-
-
-function handleAjaxFail(jqXHR, textStatus) {
-    showError("Request failed: " + textStatus );
-}
-
-/** This function will be called when the OK button in the Application form
- * is clicked. It can be either Create or Update action.
- */
-function onResourceOkButtonClick() {
-    // Update template values
-    var resource = getFormAsJson('resource-form', true);
-    resource.id = parseInt($('#resource-id').val());
-    const url = resource.id ? "{{ url_for('api.update_resource') }}" : "{{ url_for('api.create_resource') }}";
-
-    var ajaxContent = $.ajax({
-        url: url,
-        type: "POST",
-        contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify({attrs: resource}),
-        dataType: "json"
-    });
-
-    ajaxContent.done(handleAjaxDone);
-    ajaxContent.fail(handleAjaxFail);
-}  // function onTemplateOkButtonClick
 
 </script>

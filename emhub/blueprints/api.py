@@ -281,6 +281,10 @@ def create_resource():
 def update_resource():
     return handle_resource(app.dm.update_resource)
 
+@api_bp.route('/delete_resource', methods=['POST'])
+@flask_login.login_required
+def delete_resource():
+    return handle_resource(app.dm.delete_resource)
 
 # ---------------------------- BOOKINGS ---------------------------------------
 
@@ -729,7 +733,17 @@ def handle_application(application_func):
 
 def handle_resource(resource_func):
     def handle(**attrs):
-        return resource_func(**attrs).json()
+        r = resource_func(**attrs)
+
+        for f in request.files:
+            file = request.files[f]
+            fn = file.filename
+            if fn:
+                # Clean up previous image files
+                old_files = glob(app.dm.get_resource_image_path(r, '*'))
+                clean_files(old_files)
+                file.save(app.dm.get_resource_image_path(r, fn))
+        return r.json()
 
     return _handle_item(handle, 'resource')
 

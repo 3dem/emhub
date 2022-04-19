@@ -168,9 +168,10 @@ class DataManager(DbManager):
         self.delete(resource)
         return resource
 
-    def get_resource_path(self, resource, filename):
+    def get_resource_image_path(self, resource, filename=None):
+        fn = filename or resource.image
         return os.path.join(self._resourceFiles,
-                            'resource-file-%06d-%s' % (resource.id, filename))
+                            'resource-image-%06d-%s' % (resource.id, fn))
 
     # ---------------------------- APPLICATIONS --------------------------------
     def create_template(self, **attrs):

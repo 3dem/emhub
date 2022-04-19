@@ -254,6 +254,14 @@ class DataContent:
         if not user.is_authenticated:
             return  {'resources': []}
 
+        def _image(r):
+            fn = self.app.dm.get_resource_image_path(r)
+            if os.path.exists(fn):
+                base64 = image.Base64Converter(max_size=(1024, 1024))
+                return 'data:image/%s;base64, ' + base64.from_path(fn)
+            else:
+                return flask.url_for('images.static', filename=r.image)
+
         resource_list = [
             {'id': r.id,
              'name': r.name,
@@ -262,7 +270,7 @@ class DataContent:
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
-             'image': flask.url_for('images.static', filename=r.image),
+             'image': _image(r),
              'user_can_book': user.can_book_resource(r),
              'is_microscope': r.is_microscope,
              'min_booking': r.min_booking,
@@ -274,6 +282,8 @@ class DataContent:
         return {'resources': resource_list}
 
     def get_resource_form(self, **kwargs):
+        copy_resource = json.loads(kwargs.pop('copy_resource', 'false'))
+
         r = self.app.dm.get_resource_by(id=kwargs['resource_id'])
 
         if r is None:
@@ -284,6 +294,10 @@ class DataContent:
                 image='',
                 color='rgba(256, 256, 256, 1.0)',
                 extra={})
+
+        if copy_resource:
+            r.id = None
+            r.name = 'COPY ' + r.name
 
         params = []
 

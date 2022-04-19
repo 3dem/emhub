@@ -152,7 +152,7 @@ function onEntryUpdate() {
     };
     var formData = new FormData();
     formData.append('attrs', JSON.stringify(entry));
-     send_ajax_form(api_urls.update_entry, formData, entryAjaxDone);
+     send_ajax_form(Api.urls.entry.update, formData, entryAjaxDone);
 }  // function showApplication
 
 </script>
