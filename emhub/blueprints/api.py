@@ -271,6 +271,11 @@ def get_resources():
     return filter_request(app.dm.get_resources)
 
 
+@api_bp.route('/create_resource', methods=['POST'])
+@flask_login.login_required
+def create_resource():
+    return handle_resource(app.dm.create_resource)
+
 @api_bp.route('/update_resource', methods=['POST'])
 @flask_login.login_required
 def update_resource():

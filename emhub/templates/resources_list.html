@@ -37,10 +37,18 @@
         <!--  resources table  -->
         <!-- ============================================================== -->
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+            {% if current_user.is_manager %}
+                <div class="col-12 mb-3 ml-0 pl-0">
+                    <a href="javascript:showResource(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Resource</a>
+                </div>
+            {% endif %}
+
             <div class="card">
                 <h5 class="card-header">Resources List</h5>
                 <div class="card-body p-0">
                     <div class="table-responsive">
+
                         <table class="table">
                             <thead class="bg-light">
                                 <tr class="border-0">
@@ -163,9 +171,10 @@ function onResourceOkButtonClick() {
     // Update template values
     var resource = getFormAsJson('resource-form', true);
     resource.id = parseInt($('#resource-id').val());
+    const url = resource.id ? "{{ url_for('api.update_resource') }}" : "{{ url_for('api.create_resource') }}";
 
     var ajaxContent = $.ajax({
-        url: "{{ url_for('api.update_resource') }}",
+        url: url,
         type: "POST",
         contentType: 'application/json; charset=utf-8',
         data: JSON.stringify({attrs: resource}),

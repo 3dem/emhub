@@ -276,6 +276,15 @@ class DataContent:
     def get_resource_form(self, **kwargs):
         r = self.app.dm.get_resource_by(id=kwargs['resource_id'])
 
+        if r is None:
+            r = self.app.dm.Resource(
+                name='',
+                status='inactive',
+                tags='',
+                image='',
+                color='rgba(256, 256, 256, 1.0)',
+                extra={})
+
         params = []
 
         def _add(attr, label, **kwargs):
@@ -291,6 +300,8 @@ class DataContent:
              enum={'display': 'combo',
                    'choices': ['active', 'inactive']})
         _add('tags', 'Tags')
+        _add('image', 'Icon image', type='file_image')
+        _add('color', 'Color')
         _add('latest_cancellation', 'Latest cancellation (h)')
         _add('min_booking', 'Minimum booking time (h)')
         _add('max_booking', 'Maximum booking time (h)')
