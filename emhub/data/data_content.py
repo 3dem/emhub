@@ -1391,8 +1391,9 @@ class DataContent:
         } for f in self.app.dm.get_forms()]}
 
     def get_raw_entries_list(self, **kwargs):
+        cond = ['%s="%s"' % (k, kwargs[k]) for k in ['id', 'type'] if k in kwargs]
         return {
-            'entries': self.app.dm.get_entries()
+            'entries': self.app.dm.get_entries(condition=' and '.join(cond))
         }
 
     def get_raw_pucks_list(self, **kwargs):
