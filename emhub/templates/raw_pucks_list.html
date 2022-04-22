@@ -6,7 +6,20 @@
     {% set is_manager = current_user.is_manager %}
     {% set is_admin = current_user.is_admin %}
 
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        <div class="card">
+            <div class="card-body">
+
+                {% include 'param_select_puck.html' %}
+
+            </div>
+
+
+        </div>
+    </div>
+
     <!-- table row -->
+
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
@@ -65,3 +78,25 @@
 
 </div>
 
+
+<script>
+
+(function(window, document, $, undefined) {
+"use strict";
+
+    $('select').selectpicker();
+
+})(window, document, window.jQuery);
+
+
+function addOption() {
+    options = ['Premium', 'Extended', 'Basic', 'Essential'];
+
+    for (var opt of options) {
+        $('#select').append(`<option value="${opt}">${opt}</option>`);
+    }
+    $('#select').selectpicker('refresh')
+
+}
+
+</script>

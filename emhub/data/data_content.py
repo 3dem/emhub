@@ -1325,6 +1325,8 @@ class DataContent:
             d, c, p = puck.dewar, puck.cane, puck.position
             pucks = dewars[d][c]
             pucks[p] = {
+                'id': puck.id,
+                'code': puck.code,
                 'position': p,
                 'label': puck.label,
                 'color': puck.color,
@@ -1394,9 +1396,11 @@ class DataContent:
         }
 
     def get_raw_pucks_list(self, **kwargs):
-        return {
+        data = {
             'pucks': self.app.dm.get_pucks()
         }
+        data.update(self.get_grids_cane(**kwargs))
+        return data
 
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut

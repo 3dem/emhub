@@ -8,18 +8,15 @@
 {#     data_key: the key that will be used to storey this value. #}
 
 
-{% set options = ['one', 'two', 'three'] %}
+<select class="selectpicker show-tick" data-width="auto"  title="None"  data-live-search="true" {{ data_key }}  data-dropup-auto="true">
 
-<select class="selectpicker show-tick dropup" data-width="auto"  title="None"  data-live-search="true" {{ data_key }}  data-dropup-auto="false">
-
-    {% for d in dewars %}
-        {% set cane = dewars[d] %}
-        {% for c in cane %}
-            {% set dc = "Dewar %s - Cane %s"|format(d, c) %}
+    {% for d, canes in dewars.items() %}
+{#        {% set canes = dewars[d] %}#}
+        {% for c, cane in canes.items() %}
             <optgroup label="{{dc}}">
-                {% for p in cane[c] %}
+                {% for p, puck in cane.items() %}
                     {% set selected = 'selected' if p|string == value else '' %}
-                     <option value="{{ p }}" title="D{{d}} - C{{c}} - Puck {{p}}" {{ selected }}>Puck {{ p }}</option>'
+                     <option value="{{ puck['id'] }}" {{ selected }}>{{ puck['code'] }}</option>
                 {% endfor %}
             </optgroup>
 
@@ -27,4 +24,5 @@
     {% endfor %}
 
 </select>
+
 
