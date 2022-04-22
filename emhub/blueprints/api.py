@@ -606,7 +606,7 @@ def create_entry():
 @flask_login.login_required
 def update_entry():
     def handle(**attrs):
-        fix_dates(attrs, 'date')
+        fix_dates(attrs, 'date', 'creation_date', 'last_update_date')
         entry = app.dm.get_entry_by(id=attrs['id'])
         old_files = set(app.dm.get_entry_files(entry))
         save_entry_files(entry, attrs['extra']['data'])
@@ -633,7 +633,7 @@ def delete_entry():
 
 # ------------------------------ ENTRIES ---------------------------------
 
-@api_bp.route('/get_entries', methods=['GET', 'POST'])
+@api_bp.route('/get_pucks', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_pucks():
     return send_json_data([p.json() for p in app.dm.get_pucks()])
