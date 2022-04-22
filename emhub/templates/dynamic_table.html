@@ -48,6 +48,7 @@
                 {% set data_key = ' data-key=%s '|format(col_id) %}
                 {% set param = column %}
                 {% set value = ''  %}
+                {% set row_values = {} %}
                 {% set selectpicker = False %}
                 <td>
                     {% include "dynamic_param.html" %}
@@ -59,6 +60,7 @@
                 {% set row_index = loop.index0 %}
                 {% set row_id = table_id + '-row-' + row_index|string %}
                 {% set row_values = rows[row_index] if row_index < rows_number else {} %}
+                {% set fake_value = ['odd', 'even'] %}
 
                 <tr class="data-row" id="{{ row_id }}">
                     <td>

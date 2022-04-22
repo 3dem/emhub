@@ -5,21 +5,20 @@
 {# PARAMS:  #}
 {#     param: the param dict. #}
 {#     value: the value of this param #}
-{#     data_key: the key that will be used to storey this value. #}
+{#     data_key: the key that will be used to store this value. #}
+{#     row_values: defined if used in a table with all values for that row #}
 
+{% set puck_id = row_values.get('puck_id', None) %}
 
 <select class="selectpicker show-tick" data-width="auto"  title="None"  data-live-search="true" {{ data_key }}  data-dropup-auto="true">
 
     {% for d, canes in dewars.items() %}
 {#        {% set canes = dewars[d] %}#}
         {% for c, cane in canes.items() %}
-            <optgroup label="{{dc}}">
-                {% for p, puck in cane.items() %}
-                    {% set selected = 'selected' if p|string == value else '' %}
-                     <option value="{{ puck['id'] }}" {{ selected }}>{{ puck['code'] }}</option>
-                {% endfor %}
-            </optgroup>
-
+            {% for p, puck in cane.items() %}
+                {% set selected = 'selected' if puck_id|int == puck_id else '' %}
+                 <option value="{{ puck['id'] }}" {{ selected }}>{{ puck['label'] }}</option>
+            {% endfor %}
         {% endfor %}
     {% endfor %}
 
