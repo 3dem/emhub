@@ -1282,7 +1282,7 @@ class DataContent:
                 label = row.get('gridbox_label', '')
                 if label not in gridboxes:
                     gridboxes[label] = {}
-                slots = map(int, row['gridbox_slot'])
+                slots = map(int, row['grid_position'])
                 for s in slots:
                     gridboxes[label][s] = row
 
@@ -1301,7 +1301,6 @@ class DataContent:
         ddata = defaultdict(lambda : 'UNKNOWN')
         ddata.update(data)
 
-
         return {
             'entry': entry,
             'entry_type': entry_type,
@@ -1315,46 +1314,44 @@ class DataContent:
         return self.get_grids_cane(**kwargs)
 
     def get_grids_cane(self, **kwargs):
+        range = kwargs.get('pucks_range', '')
+
+        if range:
+            min_id, max_id = range.split('-')
+            condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        else:
+            condStr = None
+
+        pucks = self.app.dm.get_pucks(condition=condStr)
 
         dewars = defaultdict(lambda :defaultdict(dict))
 
         dewar = int(kwargs.get('dewar', 0) or 0)
         cane = int(kwargs.get('cane', 0) or 0)
 
-        for puck in self.app.dm.get_pucks():
-            d, c, p = puck.dewar, puck.cane, puck.position
-            pucks = dewars[d][c]
-            pucks[p] = {
-                'id': puck.id,
-                'code': puck.code,
-                'position': p,
-                'label': puck.label,
-                'color': puck.color,
-                'gridboxes': defaultdict(dict)
-            }
+        storage = self.app.dm.PuckStorage(pucks)
+
+        for puck in storage.pucks():
+            puck['gridboxes'] = defaultdict(dict)
 
         cond = "type=='grids_storage'"
         for entry in self.app.dm.get_entries(condition=cond):
-            #print(entry.type, entry.title)
-            storage = entry.extra['data']['grids_storage_table']
-            for row in storage:
+            table = entry.extra['data']['grids_storage_table']
+            for row in table:
                 try:
-                    d = int(row['dewar_number'])
-                    c = int(row['cane_number'])
-                    p = int(row['puck_number'])
-                    slot = int(row['puck_position'])
-                    puck = dewars[d][c][p]
-                    slot_key = ','.join(row['gridbox_slot'])
+                    slot = int(row['box_position'])
+                    puck = storage.get_puck(int(row['puck_id']))
+                    slot_key = ','.join(row['grid_position'])
                     row['entry'] = entry
                     puck['gridboxes'][slot][slot_key] = row
-                    #print("  ", row['dewar_number'], row['cane_number'], row['puck_number'], '-', row['puck_position'], ":", row['gridbox_slot'])
                 except:
                     pass
 
         return {
-            'dewars': dewars,
-            'dewar': dewar if dewar in dewars else None,
-            'cane': cane if dewar and cane in dewars[dewar] else None
+            'storage': storage,
+            'pucks_range': range,
+            'dewar': storage.get_dewar(dewar),
+            'cane': storage.get_cane(dewar, cane)
         }
 
     def get_grids_puck(self, **kwargs):
@@ -1397,11 +1394,7 @@ class DataContent:
         }
 
     def get_raw_pucks_list(self, **kwargs):
-        data = {
-            'pucks': self.app.dm.get_pucks()
-        }
-        data.update(self.get_grids_cane(**kwargs))
-        return data
+        return self.get_grids_cane(**kwargs)
 
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut
