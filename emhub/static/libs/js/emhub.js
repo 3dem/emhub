@@ -2,6 +2,18 @@
  * Created by josem on 6/3/20.
  */
 
+/** Singleton class to manage the application URL for the data model.
+ * It will automatically select 'create' or 'update' based on the provided id.
+ */
+class Api {
+    static urls = null;
+
+    static get(key, id) {
+        const url = Api.urls[key];
+        return id != null && !Number.isNaN(id) ? url.update : url.create;
+    }
+}
+
 /* Helper function to print object properties */
 function printObject(obj, label) {
     var propValue;
@@ -273,7 +285,8 @@ function getFormAsJson(formId, includeEmpty){
 
     $('#' + formId + ' *').filter(':input').each(function(){
         var key = $(this).data('key');
-        json[key] = getInputValue(this);
+        if (key)
+            json[key] = getInputValue(this);
     });
 
     $('#' + formId + " table").each(function () {

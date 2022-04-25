@@ -140,21 +140,32 @@
     var repeat_value = null;
     var has_calendar = true;
     var content_url = "{{ url_for('get_content') }}";
-    var api_urls = {
-        create_application: "{{ url_for('api.create_application') }}",
-        update_application: "{{ url_for('api.update_application') }}",
 
-        create_project: "{{ url_for('api.create_project') }}",
-        update_project: "{{ url_for('api.update_project') }}",
-        delete_project: "{{ url_for('api.delete_project') }}",
-
-        create_entry: "{{ url_for('api.create_entry') }}",
-        update_entry: "{{ url_for('api.update_entry') }}",
-        delete_entry: "{{ url_for('api.delete_entry') }}",
-
-        create_template: "{{ url_for('api.create_template') }}",
-        update_template: "{{ url_for('api.update_template') }}",
-        delete_template: "{{ url_for('api.delete_template') }}",
+    Api.urls = {
+        application: {
+            create: "{{ url_for('api.create_application') }}",
+            update: "{{ url_for('api.update_application') }}"
+        },
+        project: {
+            create: "{{ url_for('api.create_project') }}",
+            update: "{{ url_for('api.update_project') }}",
+            delete: "{{ url_for('api.delete_project') }}"
+        },
+        entry: {
+            create: "{{ url_for('api.create_entry') }}",
+            update: "{{ url_for('api.update_entry') }}",
+            delete: "{{ url_for('api.delete_entry') }}"
+        },
+        template: {
+            create: "{{ url_for('api.create_template') }}",
+            update: "{{ url_for('api.update_template') }}",
+            delete: "{{ url_for('api.delete_template') }}",
+        },
+        resource: {
+            create: "{{ url_for('api.create_resource') }}",
+            update: "{{ url_for('api.update_resource') }}",
+            delete: "{{ url_for('api.delete_resource') }}",
+        }
     };
 
     var application_config = {

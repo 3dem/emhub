@@ -88,6 +88,12 @@
                                     <i class="fas fa-boxes"></i>Resources</a>
                             </li>
 
+                            <!-- Pucks -->
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('grids_storage') }}">
+                                    <i class="fas fa-bowling-ball"></i>Pucks</a>
+                            </li>
+
                             <!-- Logs -->
                             <li class="nav-item">
                                  <a class="nav-link" href="{{ url_for_content('logs') }}">
@@ -136,8 +142,6 @@
 
                     <ul class="nav flex-column submenu">
 
-
-
                         <!-- DATA tables -->
                         <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-data-tables" aria-controls="submenu-data-tables">
                                     <i class="fas fa-table"></i>Raw Data Tables</a>
@@ -145,20 +149,16 @@
                             <div id="submenu-data-tables" class="collapse submenu" style="">
                                 <ul class="nav flex-column">
 
+{#                                    <li class="nav-item">#}
+{#                                        <a class="nav-link" href="{{ url_for_content('raw_booking_list') }}">Bookings</a>#}
+{#                                    </li>#}
+
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('raw_booking_list') }}">Bookings</a>
+                                        <a class="nav-link" href="{{ url_for_content('raw_pucks_list') }}">Pucks</a>
                                     </li>
 
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ url_for_content('raw_applications_list') }}">Applications</a>
-                                    </li>
-
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('raw_forms_list') }}"> Forms</a>
-                                    </li>
-
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('invoice_periods_list') }}"> Invoice Periods</a>
                                     </li>
 
                                     <li class="nav-item">
@@ -169,13 +169,19 @@
                                         <a class="nav-link" href="{{ url_for_content('raw_entries_list') }}"> Entries</a>
                                     </li>
 
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('raw_user_issues') }}">User Issues</a>
-                                    </li>
-
                                 </ul>
+
+
+
                             </div>
+
+                        <a class="nav-link" href="{{ url_for_content('raw_forms_list') }}"> Forms</a>
+
+                        <a class="nav-link" href="{{ url_for_content('raw_user_issues') }}">User Issues</a>
+
                     </ul>
+
+
                     {% endif %}
 
                 </div>

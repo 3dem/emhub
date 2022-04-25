@@ -37,10 +37,18 @@
         <!--  resources table  -->
         <!-- ============================================================== -->
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+            {% if current_user.is_manager %}
+                <div class="col-12 mb-3 ml-0 pl-0">
+                    <a href="javascript:showResource(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Resource</a>
+                </div>
+            {% endif %}
+
             <div class="card">
                 <h5 class="card-header">Resources List</h5>
                 <div class="card-body p-0">
                     <div class="table-responsive">
+
                         <table class="table">
                             <thead class="bg-light">
                                 <tr class="border-0">
@@ -77,7 +85,8 @@
                                     {% if current_user.is_manager %}
                                     <td>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id'] }})"><i class="far fa-edit"></i></button>
-                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:notImplemented('Can not DELETE Resource. ')"
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id'] }}, true)"><i class="far fa-copy"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:deleteResource({{ r['id'] }})"
                                                 data-id="{{ r['id'] }}" data-name="{{ r['name'] }}"><i class="far fa-trash-alt"></i></button>
                                     </td>
                                     {% endif %}
@@ -101,79 +110,3 @@
 <!-- ============================================================== -->
 <div class="modal fade" id="resource-modal" tabindex="-1" role="dialog" aria-labelledby="resourceModal" aria-hidden="true">
 </div>
-
-<script>
-
-(function(window, document, $, undefined) {
-"use strict";
-
-$('select').selectpicker();
-
-})(window, document, window.jQuery);
-
-
-/* Show the Resource Form, either for a new booking or an existing one */
-function showResource(resourceId) {
-    ajaxContent = get_ajax_content("resource_form", {resource_id: resourceId});
-
-    ajaxContent.done(function(html) {
-        $("#resource-modal").html(html);
-        // Show the form after setting html content
-        $('#resource-modal').modal('show');
-    });
-
-    ajaxContent.fail(function(jqXHR, textStatus) {
-        alert( "Request failed: " + textStatus );
-    });
-
-}  // function showResource
-
-/** Helper functions to handle Template AJAX response or failure */
-function handleAjaxDone(jsonResponse) {
-    var error = null;
-
-    if ('resource' in jsonResponse) {
-    }
-    else if ('error' in jsonResponse) {
-        error = jsonResponse.error;
-    }
-    else {
-        error = 'Unexpected response from server.'
-    }
-
-    if (error)
-        showError(error);
-    else {
-        $('#resource-modal').on('hidden.bs.modal', function () {
-            load_main_content("resources_list");
-        });
-        $('#resource-modal').modal('hide');
-    }
-}
-
-
-function handleAjaxFail(jqXHR, textStatus) {
-    showError("Request failed: " + textStatus );
-}
-
-/** This function will be called when the OK button in the Application form
- * is clicked. It can be either Create or Update action.
- */
-function onResourceOkButtonClick() {
-    // Update template values
-    var resource = getFormAsJson('resource-form', true);
-    resource.id = parseInt($('#resource-id').val());
-
-    var ajaxContent = $.ajax({
-        url: "{{ url_for('api.update_resource') }}",
-        type: "POST",
-        contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify({attrs: resource}),
-        dataType: "json"
-    });
-
-    ajaxContent.done(handleAjaxDone);
-    ajaxContent.fail(handleAjaxFail);
-}  // function onTemplateOkButtonClick
-
-</script>

@@ -48,6 +48,7 @@ class DataManager(DbManager):
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
         self._entryFiles = os.path.join(dataPath, 'entry_files')
+        self._resourceFiles = os.path.join(dataPath, 'resource_files')
 
         # Initialize main database
         dbPath = os.path.join(dataPath, dbName)
@@ -161,6 +162,16 @@ class DataManager(DbManager):
     def get_resource_by(self, **kwargs):
         """ This should return a single Resource or None. """
         return self.__item_by(self.Resource, **kwargs)
+
+    def delete_resource(self, **attrs):
+        resource = self.__item_by(self.Resource, id=attrs['id'])
+        self.delete(resource)
+        return resource
+
+    def get_resource_image_path(self, resource, filename=None):
+        fn = filename or resource.image
+        return os.path.join(self._resourceFiles,
+                            'resource-image-%06d-%s' % (resource.id, fn))
 
     # ---------------------------- APPLICATIONS --------------------------------
     def create_template(self, **attrs):

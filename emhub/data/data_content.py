@@ -254,6 +254,14 @@ class DataContent:
         if not user.is_authenticated:
             return  {'resources': []}
 
+        def _image(r):
+            fn = self.app.dm.get_resource_image_path(r)
+            if os.path.exists(fn):
+                base64 = image.Base64Converter(max_size=(1024, 1024))
+                return 'data:image/%s;base64, ' + base64.from_path(fn)
+            else:
+                return flask.url_for('images.static', filename=r.image)
+
         resource_list = [
             {'id': r.id,
              'name': r.name,
@@ -262,7 +270,7 @@ class DataContent:
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
-             'image': flask.url_for('images.static', filename=r.image),
+             'image': _image(r),
              'user_can_book': user.can_book_resource(r),
              'is_microscope': r.is_microscope,
              'min_booking': r.min_booking,
@@ -274,7 +282,22 @@ class DataContent:
         return {'resources': resource_list}
 
     def get_resource_form(self, **kwargs):
+        copy_resource = json.loads(kwargs.pop('copy_resource', 'false'))
+
         r = self.app.dm.get_resource_by(id=kwargs['resource_id'])
+
+        if r is None:
+            r = self.app.dm.Resource(
+                name='',
+                status='inactive',
+                tags='',
+                image='',
+                color='rgba(256, 256, 256, 1.0)',
+                extra={})
+
+        if copy_resource:
+            r.id = None
+            r.name = 'COPY ' + r.name
 
         params = []
 
@@ -291,6 +314,8 @@ class DataContent:
              enum={'display': 'combo',
                    'choices': ['active', 'inactive']})
         _add('tags', 'Tags')
+        _add('image', 'Icon image', type='file_image')
+        _add('color', 'Color')
         _add('latest_cancellation', 'Latest cancellation (h)')
         _add('min_booking', 'Minimum booking time (h)')
         _add('max_booking', 'Maximum booking time (h)')
@@ -1257,7 +1282,7 @@ class DataContent:
                 label = row.get('gridbox_label', '')
                 if label not in gridboxes:
                     gridboxes[label] = {}
-                slots = map(int, row['gridbox_slot'])
+                slots = map(int, row['grid_position'])
                 for s in slots:
                     gridboxes[label][s] = row
 
@@ -1276,7 +1301,6 @@ class DataContent:
         ddata = defaultdict(lambda : 'UNKNOWN')
         ddata.update(data)
 
-
         return {
             'entry': entry,
             'entry_type': entry_type,
@@ -1290,44 +1314,44 @@ class DataContent:
         return self.get_grids_cane(**kwargs)
 
     def get_grids_cane(self, **kwargs):
+        range = kwargs.get('pucks_range', '')
+
+        if range:
+            min_id, max_id = range.split('-')
+            condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        else:
+            condStr = None
+
+        pucks = self.app.dm.get_pucks(condition=condStr)
 
         dewars = defaultdict(lambda :defaultdict(dict))
 
         dewar = int(kwargs.get('dewar', 0) or 0)
         cane = int(kwargs.get('cane', 0) or 0)
 
-        for puck in self.app.dm.get_pucks():
-            d, c, p = puck.dewar, puck.cane, puck.position
-            pucks = dewars[d][c]
-            pucks[p] = {
-                'position': p,
-                'label': puck.label,
-                'color': puck.color,
-                'gridboxes': defaultdict(dict)
-            }
+        storage = self.app.dm.PuckStorage(pucks)
+
+        for puck in storage.pucks():
+            puck['gridboxes'] = defaultdict(dict)
 
         cond = "type=='grids_storage'"
         for entry in self.app.dm.get_entries(condition=cond):
-            #print(entry.type, entry.title)
-            storage = entry.extra['data']['grids_storage_table']
-            for row in storage:
+            table = entry.extra['data']['grids_storage_table']
+            for row in table:
                 try:
-                    d = int(row['dewar_number'])
-                    c = int(row['cane_number'])
-                    p = int(row['puck_number'])
-                    slot = int(row['puck_position'])
-                    puck = dewars[d][c][p]
-                    slot_key = ','.join(row['gridbox_slot'])
+                    slot = int(row['box_position'])
+                    puck = storage.get_puck(int(row['puck_id']))
+                    slot_key = ','.join(row['grid_position'])
                     row['entry'] = entry
                     puck['gridboxes'][slot][slot_key] = row
-                    #print("  ", row['dewar_number'], row['cane_number'], row['puck_number'], '-', row['puck_position'], ":", row['gridbox_slot'])
                 except:
                     pass
 
         return {
-            'dewars': dewars,
-            'dewar': dewar if dewar in dewars else None,
-            'cane': cane if dewar and cane in dewars[dewar] else None
+            'storage': storage,
+            'pucks_range': range,
+            'dewar': storage.get_dewar(dewar),
+            'cane': storage.get_cane(dewar, cane)
         }
 
     def get_grids_puck(self, **kwargs):
@@ -1364,14 +1388,13 @@ class DataContent:
         } for f in self.app.dm.get_forms()]}
 
     def get_raw_entries_list(self, **kwargs):
+        cond = ['%s="%s"' % (k, kwargs[k]) for k in ['id', 'type'] if k in kwargs]
         return {
-            'entries': self.app.dm.get_entries()
+            'entries': self.app.dm.get_entries(condition=' and '.join(cond))
         }
 
     def get_raw_pucks_list(self, **kwargs):
-        return {
-            'pucks': self.app.dm.get_pucks()
-        }
+        return self.get_grids_cane(**kwargs)
 
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut

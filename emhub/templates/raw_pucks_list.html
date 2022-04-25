@@ -7,6 +7,7 @@
     {% set is_admin = current_user.is_admin %}
 
     <!-- table row -->
+
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
@@ -34,14 +35,15 @@
                             </tr>
                             </thead>
                             <tbody>
-                            {% for p in pucks %}
+                            {% for p in storage.pucks() %}
+                                {% set cane = storage.get_cane(p.dewar, p.cane) %}
                                 <tr>
-                                    <td>{{ p.id }}</td>
+                                    <td>{{ p['id'] }}</td>
                                     <td>{{ p.code }}</td>
-                                    <td style="background-color: {{ p.color }}">{{ p.label }}</td>
+                                    <td style="background-color: {{ p.color }}; color: white;">{{ p.label }}</td>
                                     <td>{{ p.color }}</td>
                                     <td>{{ p.dewar }}</td>
-                                    <td>{{ p.cane }}</td>
+                                    <td style="background-color: {{ cane['color'] }}; color: white;">{{ cane['label'] }}</td>
                                     <td>{{ p.position }}</td>
                                     <td>{{ p.extra|tojson }}</td>
 
@@ -65,3 +67,13 @@
 
 </div>
 
+
+<script>
+
+(function(window, document, $, undefined) {
+"use strict";
+
+
+})(window, document, window.jQuery);
+
+</script>

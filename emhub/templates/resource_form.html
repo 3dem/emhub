@@ -30,7 +30,8 @@
       <div class="modal-footer">
           {% if current_user.is_manager %}
             <button type="button" id="resource-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
-            <button type="button" id="resource-btn-ok" class="btn btn-outline-dark" onclick="javascript: onResourceOkButtonClick()">Update</button>
+              {% set buttonLabel = 'Update' if resource.id else 'Create'  %}
+            <button type="button" id="resource-btn-ok" class="btn btn-outline-dark" onclick="javascript: onResourceOkButtonClick()">{{ buttonLabel }}</button>
           {% else %}
               <button type="button" id="resource-btn-ok"  class="btn btn-outline-secondary" data-dismiss="modal">OK</button>
           {% endif %}
@@ -46,7 +47,7 @@
 (function(window, document, $, undefined) {
 "use strict";
 
-$('select').selectpicker();
+    $('select').selectpicker();
 
 })(window, document, window.jQuery);
 
