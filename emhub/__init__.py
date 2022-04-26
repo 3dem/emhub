@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.3.0'
+__version__ = '0.4.0'
 
 
 def create_app(test_config=None):
@@ -65,6 +65,7 @@ def create_app(test_config=None):
     app.config["IMAGES"] = os.path.join(app.instance_path, 'images')
     app.config["USER_IMAGES"] = os.path.join(app.config["IMAGES"], 'user')
     app.config["ENTRY_FILES"] = os.path.join(app.instance_path, 'entry_files')
+    app.config["RESOURCE_FILES"] = os.path.join(app.instance_path, 'resource_files')
     app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
     app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
     app.config["PAGES"] = os.path.join(app.instance_path, 'pages')
@@ -84,6 +85,7 @@ def create_app(test_config=None):
     # ensure the instance folder exists
     os.makedirs(app.config['USER_IMAGES'], exist_ok=True)
     os.makedirs(app.config['ENTRY_FILES'], exist_ok=True)
+    os.makedirs(app.config['RESOURCE_FILES'], exist_ok=True)
     os.makedirs(app.config['SESSIONS'], exist_ok=True)
     os.makedirs(app.config['PAGES'], exist_ok=True)
 
@@ -105,6 +107,15 @@ def create_app(test_config=None):
         kwargs = {'content_id': content_id,
                   'params': params
                   }
+
+        if 'login_user' in params and app.is_devel:
+            user_id = params['login_user']
+            user = app.dm.get_user_by(id=user_id)
+            if user is None:
+                return send_error("Invalid user id: '%s'" % user_id)
+            elif user != app.user:
+                flask_login.logout_user()
+                flask_login.login_user(user)
 
         if app.user.is_authenticated:
             if content_id == 'user_login':  # Redirects to Dashboard by default

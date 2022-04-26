@@ -27,6 +27,7 @@
 # **************************************************************************
 
 import datetime as dt
+from collections import OrderedDict
 import jwt
 
 from sqlalchemy import (Column, Integer, String, JSON,
@@ -121,7 +122,7 @@ def create_data_models(dm):
 
         @property
         def max_booking(self):
-            """ Minimum amount of hours that should be used for
+            """ Maximum amount of hours that can be used in a booking for
             booking this resource.
             """
             return self.__getExtra('max_booking', 0)
@@ -1039,6 +1040,70 @@ def create_data_models(dm):
             self.extra = extra
 
 
+    class PuckStorage:
+        """ Simple class to organize pucks access. """
+
+        def __init__(self, pucks):
+            self._locDict = OrderedDict()
+            self._idDict = OrderedDict()
+            self._dewars = OrderedDict()
+
+            def _locKey(p):
+                return p.dewar * 10000 + p.cane * 100 + p.position
+
+            last_dewar = 0
+            last_cane = 0
+            for puck in sorted(pucks, key=lambda p: _locKey(p)):
+                puckJson = puck.json()
+                d, c, p = loc = self.__puckLoc(puckJson)
+                self._idDict[puck.id] = self._locDict[loc] = puckJson
+
+                # Register dewar info (from first puck)
+                if d != last_dewar:
+                    dewar = dict(puck.extra.get('dewar', {}))
+                    last_dewar = dewar['id'] = d
+                    dewar['canes'] = OrderedDict()
+                    self._dewars[d] = dewar
+
+                if c != last_cane:
+                    cane = dict(puck.extra.get('cane', {}))
+                    last_cane = cane['id'] = c
+                    dewar['canes'][c] = cane
+
+        def __puckLoc(self, puck):
+            return puck['dewar'], puck['cane'], puck['position']
+
+        def __matchLoc(self, puck, loc):
+            def _match(v1, v2):
+                return v2 is None or v1 == v2
+
+            pLoc = self.__puckLoc(puck)
+            return all(_match(pLoc[i], loc[i]) for i in range(3))
+
+        def pucks(self, dewar=None, cane=None, position=None):
+            loc = (dewar, cane, position)
+
+            for p in self._locDict.values():
+                if self.__matchLoc(p, loc):
+                    yield p
+
+        def get_puck(self, id_or_loc):
+            """ Retrieve puck by id or by location. """
+            d = self._locDict if isinstance(id_or_loc, tuple) else self._idDict
+            return d[id_or_loc]
+
+        def dewars(self):
+            return self._dewars.values()
+
+        def get_dewar(self, d):
+            return self._dewars.get(d, None)
+
+        def get_cane(self, d, c):
+            cane = self._dewars[d]['canes'].get(c, None) if d in self._dewars else None
+            return cane
+
+
+
     dm.Form = Form
     dm.User = User
     dm.Resource = Resource
@@ -1051,3 +1116,4 @@ def create_data_models(dm):
     dm.Project = Project
     dm.Entry = Entry
     dm.Puck = Puck
+    dm.PuckStorage = PuckStorage

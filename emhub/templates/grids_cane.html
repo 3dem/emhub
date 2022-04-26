@@ -12,10 +12,12 @@
 {% else %}
 
     <div class="col-12">
+        {% set d = dewar['id'] %}
+        {% set c = cane['id'] %}
 
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0" id="location-title">Dewar {{ dewar }} - Cane {{ cane }} </h5>
+                <h5 class="mb-0" id="location-title">Dewar {{ d }} - Cane {{ c }} </h5>
             </div>
             <div class="card-body">
 
@@ -25,17 +27,14 @@
                         <thead>
                         <tr>
                             <th>pos</th>
-                            <th>color</th>
                             <th>label</th>
                         </tr>
                         </thead>
                         <tbody>
-                        {% set pucks = dewars[dewar][cane] %}
-                        {% for p in pucks.values()|sort(attribute='position') %}
+                        {% for p in storage.pucks(d, c) %}
                             <tr>
                                 <td>{{ p['position'] }}</td>
-                                <td  style="background-color: {{ p['color'] }}"></td>
-                                <td><a href="javascript:loadPuck({{ dewar }}, {{ cane }}, {{ p['position'] }})">{{ p['label'] }}</a></td>
+                                <td style="background-color: {{ p['color'] }}"><a style="color: white;" href="javascript:loadPuck({{ d }}, {{ c }}, {{ p['position'] }})">{{ p['label'] }}</a></td>
                             </tr>
                         {% endfor %}
 
@@ -56,8 +55,7 @@
                             </tr>
                             </thead>
                             <tbody>
-                            {% set pucks = dewars[dewar][cane] %}
-                            {% for p in pucks.values()|sort(attribute='position') %}
+                            {% for p in storage.pucks(d, c) %}
                                 <tr>
                                     <td>{{ p['position'] }}</td>
                                    {% for i in range(1, 13) %}

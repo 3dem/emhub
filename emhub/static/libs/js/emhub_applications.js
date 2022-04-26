@@ -184,21 +184,16 @@ function onApplicationOkButtonClick() {
         else if (pi.status == "to remove")
             application.pi_to_remove.push(pi.id);
 
-    var endpoint = null;
-
     if (!isNaN(application_id)) {
         application.id = application_id;
-        endpoint = api_urls.update_application;
     }
     else {
         application.code = $('#application-code').val();
         application.template_id = $('#application-template_id').val();
-        endpoint = api_urls.create_application;
-
     }
 
     var ajaxContent = $.ajax({
-        url: endpoint,
+        url: Api.get('application', application_id),
         type: "POST",
         contentType: 'application/json; charset=utf-8',
         data: JSON.stringify({attrs: application}),
@@ -287,10 +282,8 @@ function onTemplateOkButtonClick() {
     if (template_id)
         template.id = parseInt(template_id);
 
-    var url = template.id ? api_urls.update_template : api_urls.create_template;
-
     var ajaxContent = $.ajax({
-        url: url,
+        url: Api.get('template', template.id),
         type: "POST",
         contentType: 'application/json; charset=utf-8',
         data: JSON.stringify({attrs: template}),
@@ -308,7 +301,7 @@ function deleteTemplate(template_id, template_title) {
     confirm("Delete Template",
             "Do you want to DELETE Entry '" + template_title + "' ?",
              "Cancel", "Delete", function () {
-            send_ajax_json(api_urls.delete_template,
+            send_ajax_json(Api.urls.template.delete,
                      {id: template_id}, templateAjaxDone);
         });
 } // function deleteEntry

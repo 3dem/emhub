@@ -13,7 +13,7 @@ function deleteProject(project_id) {
     confirm("Delete Project",
             "Do you want to DELETE Project with id=" + project_id + "?",
              "Cancel", "Delete", function () {
-            send_ajax_json(api_urls.delete_project,
+            send_ajax_json(Api.urls.project.delete,
                            {id: project_id}, projectAjaxDone);
         });
 } // function deleteProject
@@ -47,10 +47,7 @@ function onProjectOkButtonClick() {
         date: dateIsoFromValue('#project-date', '#hour_id'),
     };
 
-    var url = project.id != null && !Number.isNaN(project.id) ?
-              api_urls.update_project : api_urls.create_project;
-
-    send_ajax_json(url, project, projectAjaxDone);
+    send_ajax_json(Api.get('project', project.id), project, projectAjaxDone);
 }  // function onTemplateOkButtonClick
 
 
@@ -74,8 +71,7 @@ function deleteEntry(entry_id, entry_title) {
     confirm("Delete Entry",
             "Do you want to DELETE Entry '" + entry_title + "' ?",
              "Cancel", "Delete", function () {
-            send_ajax_json(api_urls.delete_entry,
-                     {id: entry_id}, entryAjaxDone);
+            send_ajax_json(Api.urls.entry.delete, {id: entry_id}, entryAjaxDone);
         });
 } // function deleteEntry
 
@@ -94,8 +90,7 @@ function onEntryOkButtonClick() {
         extra: {data: getFormAsJson('dynamic-form')}
     };
 
-    var url = entry.id != null && !Number.isNaN(entry.id) ?
-              api_urls.update_entry : api_urls.create_entry;
+    var url = Api.get('entry', entry.id);
     var formData = new FormData();
     formData.append('attrs', JSON.stringify(entry));
 
@@ -112,10 +107,53 @@ function entryAjaxDone(jsonResponse) {
     ajax_request_done(jsonResponse, 'entry');
 }
 
-
 function showEntryReport(entry_id) {
     show_modal_from_ajax('entry-modal',
-        get_ajax_content("entry_report", {entry_id: entry_id})
-    );
+        get_ajax_content("entry_report", {entry_id: entry_id}));
 }  // function showEntryReport
 
+
+/* --------------------- ENTRIES ------------------------------ */
+
+/* Show the Resource Form, either for a new booking or an existing one */
+function showResource(resourceId, copyResource) {
+    var params = {
+        resource_id: resourceId,
+        copy_resource: Boolean(copyResource)
+    };
+    show_modal_from_ajax('resource-modal',
+                         get_ajax_content("resource_form", params));
+}  // function showResource
+
+/** This function will be called when the OK button in the Application form
+ * is clicked. It can be either Create or Update action.
+ */
+function onResourceOkButtonClick() {
+    // Update template values
+    var resource = getFormAsJson('resource-form', true);
+    resource.id = parseInt($('#resource-id').val());
+
+    var url = Api.get('resource', resource.id)
+    var formData = new FormData();
+    formData.append('attrs', JSON.stringify(resource));
+
+     var files = getFilesFromForm('resource-form');
+     Object.keys(files).forEach(function(key) {
+        formData.append(key, files[key]);
+     });
+
+     send_ajax_form(url, formData, resourceAjaxDone);
+}  // function onTemplateOkButtonClick
+
+function resourceAjaxDone(jsonResponse) {
+    ajax_request_done(jsonResponse, 'resource');
+}
+
+function deleteResource(resource_id) {
+    confirm("Delete Project",
+            "Do you want to DELETE Resource with id=" + resource_id + "?",
+             "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.resource.delete,
+                           {id: resource_id}, resourceAjaxDone);
+        });
+} // function deleteProject

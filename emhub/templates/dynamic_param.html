@@ -42,7 +42,7 @@
             <input type="checkbox" class="custom-control-input"  {{ checked }} {{ data_key }}><span class="custom-control-label"></span>
         </label>
     {% elif type == 'text' %}
-        <textarea required="" class="form-control"   style="min-width: 100px;" {{ data_key }}>{{ value }}</textarea>
+        <textarea required="" class="form-control"  rows="5" style="min-width: 250px;" {{ data_key }}>{{ value }}</textarea>
     {% elif type in ['number', 'int', 'float'] %}
         <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
     {% elif type == 'file_image' %}
@@ -54,7 +54,7 @@
         </div>
 
     {% else %}
-        <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 200px;" {{ data_key }}>
+        <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
     {% endif %}
 {% endif %}
 

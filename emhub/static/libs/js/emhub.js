@@ -2,6 +2,18 @@
  * Created by josem on 6/3/20.
  */
 
+/** Singleton class to manage the application URL for the data model.
+ * It will automatically select 'create' or 'update' based on the provided id.
+ */
+class Api {
+    static urls = null;
+
+    static get(key, id) {
+        const url = Api.urls[key];
+        return id != null && !Number.isNaN(id) ? url.update : url.create;
+    }
+}
+
 /* Helper function to print object properties */
 function printObject(obj, label) {
     var propValue;
@@ -60,8 +72,6 @@ function dateFromValue(dateId, timeId) {
 
     if (timeId)
         dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
-
-    console.log(dateVal);
 
     var date = new Date(dateVal);
 
@@ -262,7 +272,8 @@ function row_getValues(row, includeEmpty){
         var value = getInputValue(this);
         if (includeEmpty || nonEmpty(value)) {
             var col = $(this).data('key');
-            values[col] = value;
+            if (col)
+                values[col] = value;
         }
     });
     return values;
@@ -274,7 +285,8 @@ function getFormAsJson(formId, includeEmpty){
 
     $('#' + formId + ' *').filter(':input').each(function(){
         var key = $(this).data('key');
-        json[key] = getInputValue(this);
+        if (key)
+            json[key] = getInputValue(this);
     });
 
     $('#' + formId + " table").each(function () {
@@ -490,9 +502,11 @@ function table_createNewRow(table_id){
 }
 
 function table_addRow(table_id){
-    var rowElement = table_getTemplateRow(table_id);
-    rowElement.parentNode.appendChild(table_createNewRow(table_id));
+    var rowTemplate = table_getTemplateRow(table_id);
+    var newRow = table_createNewRow(table_id);
+    rowTemplate.parentNode.appendChild(newRow);
     $('.data-row select').selectpicker('refresh');
+    return newRow;
 }
 
 function table_getSelectedRows(table_id){
@@ -500,6 +514,17 @@ function table_getSelectedRows(table_id){
     $('#' + table_id).find('.row-checkbox').each(function () {
         if ($(this).prop('checked'))  // get row id
             rows.push(this.parentElement.parentElement.parentElement);
+    });
+    return rows;
+}
+
+function table_getEmptyRows(table_id){
+    var rows = []
+    $('#' + table_id).find('.data-row').each(function () {
+        var values = row_getValues(this, false);
+
+        if (jQuery.isEmptyObject(values))
+            rows.push(this);
     });
     return rows;
 }
@@ -517,10 +542,15 @@ function table_deleteRows(table_id){
 function table_copyRows(table_id){
     var rows = table_getSelectedRows(table_id);
     if (rows.length > 0) {
+
+        var lastPosition = null;
+        for (var row of rows)
+            lastPosition = row.nextSibling;
+
         for (var row of rows){
             var newRow = table_createNewRow(table_id);
             var values = row_getValues(row);
-            row.parentElement.insertBefore(newRow, row.nextSibling);
+            row.parentElement.insertBefore(newRow, lastPosition);
             $('#' + table_id).find('.data-row select').each(function () {
                 $(this).addClass('selectpicker');
             });
@@ -533,6 +563,48 @@ function table_copyRows(table_id){
         showError("Select rows to Clone");
 }
 
+function table_rowsToClipboard(table_id) {
+    if (navigator.clipboard){
+        var rows = table_getSelectedRows(table_id);
+        if (rows.length > 0) {
+            var data = [];
+            for (var row of rows)
+                data.push(row_getValues(row));
+            var text = JSON.stringify(data);
+            navigator.clipboard.writeText(text);
+        }
+        else
+            showError("Select rows to Copy values");
+    }
+    else {
+        showError("Clipboard API not supported to copy row values.")
+    }
+}
+
+function table_clipboardToRows(table_id) {
+    if (navigator.clipboard){
+            //var text = navigator.clipboard.readText();
+            navigator.clipboard.readText().then(
+                clipText => {
+                    var rowValues = JSON.parse(clipText);
+                    var emptyRows = table_getEmptyRows(table_id);
+
+                    for (var i = 0; i < rowValues.length; ++i){
+                        var values = rowValues[i];
+
+                        var row = i < emptyRows.length ? emptyRows[i] : table_addRow(table_id);
+                        row_setValues(row, values);
+                    }
+
+            }).catch(err => {
+                showError('Something went wrong' + err);
+            });
+            //var rows = JSON.parse(text);
+    }
+    else {
+        showError("Clipboard API is not supported.")
+    }
+}
 
 //----------------------------- FileBrowser related functions --------------------------
 
