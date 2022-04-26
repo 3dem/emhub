@@ -6,8 +6,16 @@
     {% set is_manager = current_user.is_manager %}
     {% set is_admin = current_user.is_admin %}
 
-    <!-- table row -->
+    <div class="row">
 
+        <h3>Testing select puck id (range {{ pucks_range }}): </h3>
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+                {% include 'param_select_puck.html' %}
+            </div>
+    </div>
+
+    <!-- table row -->
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
@@ -73,6 +81,7 @@
 (function(window, document, $, undefined) {
 "use strict";
 
+    $('.selectpicker').selectpicker();
 
 })(window, document, window.jQuery);
 

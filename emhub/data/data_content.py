@@ -1314,15 +1314,12 @@ class DataContent:
         return self.get_grids_cane(**kwargs)
 
     def get_grids_cane(self, **kwargs):
-        range = kwargs.get('pucks_range', '')
+        range = kwargs.get('pucks_range', '1-9999')  # by default all
 
-        if range:
-            min_id, max_id = range.split('-')
-            condStr = 'id>=%s and id<=%s' % (min_id, max_id)
-        else:
-            condStr = None
+        min_id, max_id = range.split('-')
+        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
 
-        pucks = self.app.dm.get_pucks(condition=condStr)
+        pucks = self.app.dm.get_pucks(condition=condStr, orderBy='id')
 
         dewars = defaultdict(lambda :defaultdict(dict))
 
