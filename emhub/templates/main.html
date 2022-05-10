@@ -517,7 +517,7 @@
         if (last_booking.experiment)
             params.form_values = JSON.stringify(last_booking.experiment);
 
-        ajaxContent = get_ajax_content("dynamic_form_modal", params);
+        ajaxContent = get_ajax_content("experiment_form", params);
 
         ajaxContent.done(function(html) {
             $("#experiment-modal").html(html);

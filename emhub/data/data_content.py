@@ -431,6 +431,11 @@ class DataContent:
                 for p in section['params']:
                     set_value(p)
 
+    def get_experiment_form(self, **kwargs):
+        data = self.get_dynamic_form_modal(**kwargs)
+        data.update(self.get_grids_storage())
+        return data
+
     def get_dynamic_form_modal(self, **kwargs):
         form_id = int(kwargs.get('form_id', 1))
         form_values_str = kwargs.get('form_values', None) or '{}'
