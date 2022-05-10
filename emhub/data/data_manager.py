@@ -360,7 +360,7 @@ class DataManager(DbManager):
         repeater = RepeatRanges(repeat, attrs) if repeat != 'no' else None
 
         def update(b):
-            self.__check_cancellation(b)
+            self.__check_cancellation(b, attrs)
 
             for attr, value in attrs.items():
                 if attr != 'id':
@@ -1070,7 +1070,7 @@ class DataManager(DbManager):
         else:
             booking.application_id = None
 
-    def __check_cancellation(self, booking):
+    def __check_cancellation(self, booking, attrs=None):
         """ Check if this booking can be updated or deleted.
         Normal users can only delete or modify the booking up to X hours
         before the starting time. The amount of hours is defined by the
@@ -1086,10 +1086,19 @@ class DataManager(DbManager):
         now = self.now()
         latest = booking.resource.latest_cancellation
 
+        def _error(action):
+            raise Exception('This booking can not be %s. \n'
+                            'Should be %d hours in advance. '
+                            % (action, latest))
+
+        start, end = booking.start, booking.end
         if (not self._user.is_manager
-            and booking.start - dt.timedelta(hours=latest) < now):
-            raise Exception('This booking can not be updated/deleted. \n'
-                            'Should be %d hours in advance. ' % latest)
+            and start - dt.timedelta(hours=latest) < now):
+            if attrs:  # Update case, where we allow modification except dates
+                if start != attrs['start'] or end != attrs['end']:
+                   _error('updated')
+            else:  # Delete case
+                _error('deleted')
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
