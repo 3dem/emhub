@@ -107,11 +107,15 @@ class DataContent:
         return dataDict
 
     def get_lab_members(self, user):
-        if user.is_manager:
-            return [u.json() for u in self._get_facility_staff()]
+        if user.is_staff:
+            return [u.json() for u in self._get_facility_staff(user.staff_unit)]
 
         pi = user.get_pi()
-        return [] if pi is None else [u.json() for u in pi.get_lab_members()]
+        if pi is None:
+            return []
+        members = [u.json() for u in pi.get_lab_members()]
+        members.insert(0, pi.json())
+        return members
 
     def get_sessions_overview(self, **kwargs):
         sessions = self.app.dm.get_sessions(condition=self._get_display_condition(),
@@ -1523,14 +1527,14 @@ class DataContent:
         else:
             return flask.url_for('images.static', filename='user-icon.png')
 
-    def _get_facility_staff(self):
+    def _get_facility_staff(self, unit):
         """ Return the list of facility personnel.
         First users in the list should  be the facility Head.
         """
         staff = []
 
         for u in self.app.dm.get_users():
-            if u.is_manager:
+            if u.is_staff and u.staff_unit == unit:
                 if 'head' in u.roles:
                     staff.insert(0, u)
                 else:
@@ -1624,8 +1628,8 @@ class DataContent:
                 lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
                 labs.append(lab)
 
-        if user.is_manager:
-            labs.append([_userjson(u) for u in self._get_facility_staff()])
+        if user.is_staff:
+            labs.append([_userjson(u) for u in self._get_facility_staff(user.staff_unit)])
 
         return labs
 

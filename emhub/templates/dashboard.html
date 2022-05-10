@@ -39,15 +39,22 @@
                     </div>
                 </div>
                 <div class="card-body border-top">
-                    <h3 class="font-16">Lab Members</h3>
-                    <div class="">
-                    <ul class="mb-0 list-unstyled">
-                        {% for u in lab_members %}
+                    {% set head_label = 'Facility Head' if current_user.is_staff else 'PI' %}
+                    {% set members_label = 'Facility Staff' if current_user.is_staff else 'Lab Members' %}
+                    {% set head = lab_members[0] %}
+                    <div class="row">
+                        <h3 class="font-16 pl-3">{{ head_label }}</h3> <a class="pl-3" href="javascript:showUser({{ head['id'] }})">{{ head['name'] }}</a>
+                    </div>
 
-                        <li class="mb-1"><a href="javascript:showUser({{ u['id'] }})">{{ u['name'] }}</a></li>
-
-                        {% endfor %}
-                    </ul>
+                    <div>
+                        <h3 class="font-16">{{ members_label }} ({{ lab_members|length - 1 }})</h3>
+                        <div>
+                            <ul class="mb-0 list-unstyled">
+                                {% for u in lab_members[1:] %}
+                                    <li class="mb-1"><a href="javascript:showUser({{ u['id'] }})">{{ u['name'] }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body border-top">

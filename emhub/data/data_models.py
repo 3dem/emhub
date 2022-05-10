@@ -144,8 +144,7 @@ def create_data_models(dm):
 
         @property
         def requires_application(self):
-            """ Minimum amount of hours that should be used for
-            booking this resource.
+            """ True if the user should belongs to an Application to book this resource.
             """
             return self.__getExtra('requires_application', True)
 
@@ -175,7 +174,8 @@ def create_data_models(dm):
     class User(UserMixin, Base):
         """Model for user accounts."""
         __tablename__ = 'users'
-        ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent']
+        ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent',
+                 'staff-solna', 'staff-umea']
 
         id = Column(Integer,
                     primary_key=True)
@@ -300,6 +300,17 @@ def create_data_models(dm):
         @property
         def is_manager(self):
             return 'manager' in self.roles or self.is_admin
+
+        @property
+        def is_staff(self):
+            return any(r.startswith('staff-') for r in self.roles)
+
+        @property
+        def staff_unit(self):
+            for r in self.roles:
+                if r.startswith('staff-'):
+                    return r.replace('staff-', '')
+            return None
 
         @property
         def is_pi(self):
