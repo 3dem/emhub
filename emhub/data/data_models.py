@@ -356,6 +356,11 @@ def create_data_models(dm):
 
             return [a for a in applications if _filter(a)]
 
+        def has_application(self, applicationCode):
+            """ Return True if the user has the given application. """
+            return any(a.code == applicationCode
+                       for a in self.get_applications(status='all'))
+
         def get_lab_members(self, onlyActive=True):
             """ Return lab members, filtering or not by active status. """
             if onlyActive:

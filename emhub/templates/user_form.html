@@ -217,7 +217,7 @@ function onUserOkButtonClick() {
     }
 
     var ajaxContent = $.ajax({
-        url: "{{ url_for('api.update_user') }}",
+        url: "{{ url_for('api.update_user_form') }}",
         type: "POST",
         data: formData,
         processData: false,

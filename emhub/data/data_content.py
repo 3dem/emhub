@@ -228,6 +228,48 @@ class DataContent:
 
         return {'users': users}
 
+    def get_users_groups(self, **kwargs):
+        # Retrieve all pi labs that belong to a given application
+        appCode = kwargs['application'].upper()
+
+        user = self.app.user  # shortcut
+
+        piList = [u for u in self.app.dm.get_users()
+                  if u.is_pi and u.has_application(appCode)]
+
+        # if user.is_manager:
+        #     piList = [u for u in self.app.dm.get_users() if u.is_pi]
+        # elif user.is_application_manager:
+        #     apps = [a for a in user.created_applications if a.is_active]
+        #     piSet = {user.get_id()}
+        #     piList = [user]
+        #     for a in apps:
+        #         for pi in a.users:
+        #             if pi.get_id() not in piSet:
+        #                 piList.append(pi)
+        # elif user.is_pi:
+        #     piList = [user]
+        # else:
+        #     piList = []
+
+        def _userjson(u):
+            return {'id': u.id, 'name': u.name}
+
+        # Group users by PI
+        labs = []
+        for u in piList:
+            if u.is_pi:
+                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
+                labs.append(lab)
+
+        # if user.is_staff:
+        #     labs.append([_userjson(u) for u in self._get_facility_staff(user.staff_unit)])
+
+        return {
+            'labs': sorted(labs, key=lambda lab: len(lab), reverse=True),
+            'applications': self.app.dm.get_applications(asJson=True)
+        }
+
     def get_user_form(self, **kwargs):
         user = self.app.dm.get_user_by(id=kwargs['user_id'])
         user.image = self.user_profile_image(user)

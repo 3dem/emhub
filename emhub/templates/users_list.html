@@ -1,7 +1,7 @@
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
-    {% set title = "Users Management" %}
+    {% set title = "Users List" %}
     {% set navigation = [('Admin', ''), ('Users', '')] %}
     {% include 'include_header.html' %}
 
@@ -9,9 +9,6 @@
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Users List</h5>
-                </div>
                 <div class="card-body">
                     <div class="table-responsive">
                         <table id="users-table" class="table table-striped table-bordered" style="width:100%">

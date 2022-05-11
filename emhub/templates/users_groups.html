@@ -1,0 +1,71 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Users Groups" %}
+    {% set navigation = [('Admin', ''), ('Users', '')] %}
+    {% include 'include_header.html' %}
+
+    <!-- table row -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+<!--            <div class="row mr-3">-->
+<!--                -->
+<!--            </div>-->
+
+            <div class="row">
+
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="row">
+                                <h3 class="m-2">Application: </h3>
+                                <select id="application-select" class="selectpicker" data-live-search="true">
+                                    {% for a in applications %}
+                                        <option value="{{ a['code'] }}">{{ a['code'] }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% for users in labs %}
+
+                    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>{{ users[0]['name'] }}</h3>
+
+                        </div>
+                        <div class="card-body">
+                            <ul>
+                                {% for user in users[1:] %}
+                                    <li>{{ user['name'] }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+
+
+                    </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+
+<script>
+
+(function(window, document, $, undefined) {
+"use strict";
+
+   $('select').selectpicker();
+
+})(window, document, window.jQuery);
+
+</script>
+
