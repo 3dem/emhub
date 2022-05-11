@@ -230,12 +230,10 @@ class DataContent:
 
     def get_users_groups(self, **kwargs):
         # Retrieve all pi labs that belong to a given application
-        appCode = kwargs['application'].upper()
+
+        appCode = kwargs.get('application', '').upper()
 
         user = self.app.user  # shortcut
-
-        piList = [u for u in self.app.dm.get_users()
-                  if u.is_pi and u.has_application(appCode)]
 
         # if user.is_manager:
         #     piList = [u for u in self.app.dm.get_users() if u.is_pi]
@@ -257,17 +255,29 @@ class DataContent:
 
         # Group users by PI
         labs = []
-        for u in piList:
-            if u.is_pi:
-                lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
-                labs.append(lab)
+
+        if appCode:
+            piList = [u for u in self.app.dm.get_users()
+                      if u.is_pi and u.has_application(appCode)]
+
+            for u in piList:
+                if u.is_pi:
+                    lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
+                    labs.append(lab)
+
+            labs = sorted(labs, key=lambda lab: len(lab), reverse=True)
+
+        apps = sorted(self.app.dm.get_applications(),
+                      key=lambda a: len(a.users), reverse=True)
+        applications = [a.json() for a in apps if a.is_active]
 
         # if user.is_staff:
         #     labs.append([_userjson(u) for u in self._get_facility_staff(user.staff_unit)])
 
         return {
-            'labs': sorted(labs, key=lambda lab: len(lab), reverse=True),
-            'applications': self.app.dm.get_applications(asJson=True)
+            'labs': labs,
+            'applications': applications,
+            'application_code': appCode,
         }
 
     def get_user_form(self, **kwargs):

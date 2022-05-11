@@ -19,9 +19,12 @@
                         <div class="card-body">
                             <div class="row">
                                 <h3 class="m-2">Application: </h3>
-                                <select id="application-select" class="selectpicker" data-live-search="true">
+
+                                <select id="application-select" class="selectpicker" data-live-search="true" data-width="auto">
                                     {% for a in applications %}
-                                        <option value="{{ a['code'] }}">{{ a['code'] }}</option>
+                                        {% set selected = 'selected' if a['code'] == application_code else '' %}
+                                        {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None else '' %}
+                                        <option value="{{ a['code'] }}" {{selected}}>{{ a['code'] }} {{ alias }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -64,6 +67,12 @@
 "use strict";
 
    $('select').selectpicker();
+
+   $("select").on("changed.bs.select",
+      function(e, clickedIndex, newValue, oldValue) {
+        //console.log(this.value, clickedIndex, newValue, oldValue)
+        window.location.href = "{{ url_for('main', content_id='users_groups')}}" + '&application=' + this.value;
+        });
 
 })(window, document, window.jQuery);
 

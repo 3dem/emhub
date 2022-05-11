@@ -523,7 +523,7 @@ def create_data_models(dm):
         def confidential(self):
             """ Return extra costs associated with this Booking
             """
-            return  self.__getExtra('confidential', False)
+            return self.__getExtra('confidential', False)
 
         @confidential.setter
         def costs(self, value):
