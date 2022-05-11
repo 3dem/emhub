@@ -1083,7 +1083,7 @@ def create_data_models(dm):
         def pucks(self, dewar=None, cane=None, position=None):
             loc = (dewar, cane, position)
 
-            for p in self._locDict.values():
+            for p in sorted(self._idDict.values(), key=lambda p: p['id']):
                 if self.__matchLoc(p, loc):
                     yield p
 

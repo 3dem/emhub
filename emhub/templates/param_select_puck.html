@@ -8,13 +8,10 @@
 {#     data_key: the key that will be used to store this value. #}
 {#     row_values: defined if used in a table with all values for that row #}
 
-{% set row_values = row_values|default({}) %}
-{% set puck_id = row_values.get('puck_id', None) %}
-
 <select class="selectpicker show-tick" data-width="auto"  title="None"  data-live-search="true" {{ data_key }}  data-dropup-auto="true">
 
     {% for puck in storage.pucks() %}
-        {% set selected = 'selected' if puck_id|int == puck['id'] else '' %}
+        {% set selected = 'selected' if value|default(0)|int == puck['id'] else '' %}
          <option value="{{ puck['id'] }}" {{ selected }}>{{ puck['label'] }}</option>
     {% endfor %}
 
