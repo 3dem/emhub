@@ -73,12 +73,18 @@ def logout():
 @api_bp.route('/create_user', methods=['POST'])
 @flask_login.login_required
 def create_user():
-    return create_item('user')
+    return handle_user(app.dm.create_user)
 
 
 @api_bp.route('/update_user', methods=['POST'])
 @flask_login.login_required
 def update_user():
+    return handle_user(app.dm.update_user)
+
+
+@api_bp.route('/update_user_form', methods=['POST'])
+@flask_login.login_required
+def update_user_form():
     try:
         f = request.form
 
@@ -642,7 +648,7 @@ def get_pucks():
 @api_bp.route('/create_puck', methods=['POST'])
 @flask_login.login_required
 def create_puck():
-    return handle_puck(app.dm.create_puck,)
+    return handle_puck(app.dm.create_puck)
 
 
 @api_bp.route('/update_puck', methods=['POST'])
@@ -715,6 +721,14 @@ def handle_booking(result_key, booking_func, booking_transform=None):
         return [bt(b) for b in booking_func(**attrs)]
 
     return _handle_item(handle, result_key)
+
+
+def handle_user(user_func):
+    def handle(**attrs):
+        fix_dates(attrs, 'created')
+        return user_func(**attrs).json()
+
+    return _handle_item(handle, 'user')
 
 
 def handle_template(template_func):
@@ -827,9 +841,9 @@ def clean_files(paths):
             os.remove(p)
 
 
-def handle_puck(entry_func):
+def handle_puck(puck_func):
     def handle(**attrs):
-        return entry_func(**attrs).json()
+        return puck_func(**attrs).json()
 
     return _handle_item(handle, 'entry')
 
