@@ -35,23 +35,23 @@ from emhub.data import DataManager
 from emhub.data.imports import TestDataBase
 
 
-class PortalData(TestDataBase):
+class CalpendoData(TestDataBase):
     """ Class to import data (users, templates, applications) from the
      Application Portal at SciLifeLab.
     """
 
-    def __init__(self, dm, dataJsonPath, bookingsJsonPath):
+    def __init__(self, dm, dataCsvPath, bookingsJsonPath):
         """
         Args:
             dm: DataManager with db to create test data
-            dataJsonPath: file path to the JSON file with the data from the Portal.
+            dataCsvPath: file path to the CSV file with the data from the Calpendo.
                 It is expected as a Dict with the following entries:
                 * users
                 * forms (Templates here)
                 * orders (Applications here)
         """
         dm.create_admin()
-        self.__importData(dm, dataJsonPath, bookingsJsonPath)
+        self.__importData(dm, dataCsvPath, bookingsJsonPath)
 
     def __importData(self, dm, dataCsvPath, bookingsJsonPath):
         #print("Populating forms...")
@@ -62,7 +62,7 @@ class PortalData(TestDataBase):
 
         with open(dataCsvPath) as csvFile:
             self._dictUsers = {}
-            self._jsonUsers = csv.DictReader(csvFile)
+            self._jsonUsers = list(csv.DictReader(csvFile))
             self.__importUsers(dm)
 
         #print("Populating resources...")
@@ -80,31 +80,19 @@ class PortalData(TestDataBase):
         #    self.__importBookings(dm, bookingsData)
 
     def __importUsers(self, dm):
-        # Create user table
-        def ignoreUser(u):
-            if 'em-facility@mrc-lmb.cam.ac.uk' in u['email']:
-                return True
-            return False
 
+        # Create user
         def createUser(u, **kwargs):
-            if ignoreUser(u):
-                return
-
             status = 'inactive' if u['status'] == 'Expired' else 'active'
-
             roles = kwargs.get('roles', ['user'])
-            pi = None
-            if u['groupLeader'] != '':
-                roles.append('pi')
-            else:
-                pi = kwargs.get('pi', None)
+            pi = kwargs.get('pi', None)
 
             user = dm.create_user(
                 username=u['email'],
                 email=u['email'],
                 phone='',
                 password=u['email'],
-                name="%(givenNname)s %(familyName)s" % u,
+                name="%(givenName)s %(familyName)s" % u,
                 roles=roles,
                 pi_id=pi,
                 status=status
@@ -119,28 +107,39 @@ class PortalData(TestDataBase):
             'gsharov@mrc-lmb.cam.ac.uk': ['admin', 'manager'],
             'ayeates@mrc-lmb.cam.ac.uk': ['admin', 'manager'],
             'bahsan@mrc-lmb.cam.ac.uk': ['admin', 'manager'],
-            'rh15@mrc-lmb.cam.ac.uk': ['admin'],
         }
 
-        #  Create first facility staff
-        for u in self._jsonUsers:
+        #  Create first facility staff, iterate over list copy to remove
+        for u in list(self._jsonUsers):
             if u['email'] in staff and u['status'] != 'Expired':
                 createUser(u, roles=staff[u['email']])
+                self._jsonUsers.remove(u)
 
         # Insert first PI users, so we store their Ids for other users
         piDict = {}
         for u in self._jsonUsers:
-            if u['groupLeader'] != '' and u['status'] != 'Expired' and (u['email'] not in piDict):
-                createUser(u)
-                piDict[u['email']] = u
+            fullName = u['givenName'] + ' ' + u['familyName']
+            if u['groupLeader'] == fullName:
+                print("Adding PI: ", fullName)
+                # if PI has two accounts, use not Expired one
+                if fullName in piDict and u['status'] != 'Expired':
+                    piDict[fullName] = u
+                    continue
+                piDict[fullName] = u
 
-        for u in self._jsonUsers:
-            if not ignoreUser(u) and not u['email'] in staff and not u['email'] in piDict:
-                piEmail = u['email']
-                if piEmail in piDict:
-                    createUser(u, pi=piDict[piEmail]['emhub_item'].id)
-                else:
-                    print("Skipping user (Missing PI): ", u['email'])
+        for u in piDict:
+            createUser(piDict[u], roles=['pi'])
+            self._jsonUsers.remove(piDict[u])
+
+        # Insert other users
+        for u in list(self._jsonUsers):
+            piName = u['groupLeader']
+            if piName in piDict:
+                createUser(u, pi=piDict[piName]['emhub_item'].id)
+                self._jsonUsers.remove(u)
+            else:
+                print("Skipping user: ", u['givenName'], u['familyName'],
+                      "- missing PI: ", piName)
 
     def __importApplications(self, dm, jsonData):
         statuses = {'disabled': 'closed',
@@ -485,19 +484,19 @@ if __name__ == '__main__':
     if not os.path.exists(instance_path):
         raise Exception("Instance folder '%s' not found!!!" % instance_path)
 
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         print("\nUSAGE:\n"
-              "    python -m emhub.data.imports.scilifelab portal-data.json booked-data.json\n")
+              "\tpython -m emhub.data.imports.calpendo users-data.csv booked-data.json\n")
         sys.exit(1)
 
-    portalDataJson = sys.argv[1]
-    bookingsJson = sys.argv[2]
+    calpendolDataCsv = sys.argv[1]
+    bookingsJson = "" #sys.argv[2]
 
-    if not os.path.exists(portalDataJson):
-        print("JSON data file '%s' does not exists. " % portalDataJson)
+    if not os.path.exists(calpendolDataCsv):
+        print("JSON data file '%s' does not exists. " % calpendolDataCsv)
 
     if not os.path.exists(bookingsJson):
         print("JSON bookings file '%s' does not exists. " % bookingsJson)
 
     dm = DataManager(instance_path, cleanDb=True)
-    PortalData(dm, portalDataJson, bookingsJson)
+    CalpendoData(dm, calpendolDataCsv, bookingsJson)
