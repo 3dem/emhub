@@ -134,12 +134,6 @@ function handleApplicationAjaxDone(jsonResponse) {
             }
         });
 
-        // $('#application-modal').on('hidden.bs.modal', function () {
-        // var params = {};
-        // alert("loading main content");
-        // load_main_content("applications", params);
-        // });
-
         $('#application-modal').modal('hide');
     }
 }
@@ -152,8 +146,6 @@ function onApplicationOkButtonClick() {
     var application_id = parseInt($('#application-id').val());
 
     var application = {
-
-
         status: $('#application-status-select').selectpicker('val'),
         title: $('#application-title').val(),
         alias: $('#application-alias').val(),
@@ -174,7 +166,6 @@ function onApplicationOkButtonClick() {
         var elem = $( el );
         if (elem.prop("checked"))
             application.resource_allocation.noslot.push(parseInt(elem.val()));
-        //alert("checked: " + elem.prop('checked') + " value: " + elem.val());
     });
 
     // Update list of PI users to add or remove to the Application
@@ -299,7 +290,7 @@ function onTemplateOkButtonClick() {
 
 function deleteTemplate(template_id, template_title) {
     confirm("Delete Template",
-            "Do you want to DELETE Entry '" + template_title + "' ?",
+            "Do you want to DELETE Template '" + template_title + "' ?",
              "Cancel", "Delete", function () {
             send_ajax_json(Api.urls.template.delete,
                      {id: template_id}, templateAjaxDone);

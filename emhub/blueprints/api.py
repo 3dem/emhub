@@ -165,7 +165,7 @@ def delete_template():
 @api_bp.route('/create_application', methods=['POST'])
 @flask_login.login_required
 def create_application():
-    return handle_template(app.dm.create_application)
+    return handle_application(app.dm.create_application)
 
 
 @api_bp.route('/get_applications', methods=['POST'])
@@ -177,6 +177,12 @@ def get_applications():
 @api_bp.route('/update_application', methods=['POST'])
 @flask_login.login_required
 def update_application():
+    return handle_application(app.dm.update_application)
+
+
+@api_bp.route('/delete_application', methods=['POST'])
+@flask_login.login_required
+def delete_application():
     return handle_application(app.dm.update_application)
 
 

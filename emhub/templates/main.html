@@ -144,7 +144,8 @@
     Api.urls = {
         application: {
             create: "{{ url_for('api.create_application') }}",
-            update: "{{ url_for('api.update_application') }}"
+            update: "{{ url_for('api.update_application') }}",
+            delete: "{{ url_for('api.delete_application') }}"
         },
         project: {
             create: "{{ url_for('api.create_project') }}",
@@ -159,12 +160,12 @@
         template: {
             create: "{{ url_for('api.create_template') }}",
             update: "{{ url_for('api.update_template') }}",
-            delete: "{{ url_for('api.delete_template') }}",
+            delete: "{{ url_for('api.delete_template') }}"
         },
         resource: {
             create: "{{ url_for('api.create_resource') }}",
             update: "{{ url_for('api.update_resource') }}",
-            delete: "{{ url_for('api.delete_resource') }}",
+            delete: "{{ url_for('api.delete_resource') }}"
         }
     };
 
