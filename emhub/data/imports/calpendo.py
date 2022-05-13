@@ -28,7 +28,6 @@ import os
 import sys
 import json
 import requests
-import csv
 
 from emhub.utils import datetime_from_isoformat
 from emhub.data import DataManager
@@ -37,53 +36,37 @@ from emhub.data.imports import TestDataBase
 
 class CalpendoData(TestDataBase):
     """ Class to import data (users, templates, applications) from the
-     Application Portal at SciLifeLab.
+     Calpendo application at LMB.
     """
 
-    def __init__(self, dm, dataCsvPath, bookingsJsonPath):
+    def __init__(self, dm, dataJsonPath):
         """
         Args:
             dm: DataManager with db to create test data
-            dataCsvPath: file path to the CSV file with the data from the Calpendo.
+            dataJsonPath: file path to the JSON file with the data from the Calpendo.
                 It is expected as a Dict with the following entries:
                 * users
-                * forms (Templates here)
-                * orders (Applications here)
         """
         dm.create_admin()
-        self.__importData(dm, dataCsvPath, bookingsJsonPath)
+        self.__importData(dm, dataJsonPath)
 
-    def __importData(self, dm, dataCsvPath, bookingsJsonPath):
-        #print("Populating forms...")
-        #self._populateForms(dm)
-
+    def __importData(self, dm, dataJsonPath):
         # Create tables with test data for each database model
         print("Importing users...")
 
-        with open(dataCsvPath) as csvFile:
+        with open(dataJsonPath) as jsonFile:
             self._dictUsers = {}
-            self._jsonUsers = list(csv.DictReader(csvFile))
+            self._jsonUsers = json.load(jsonFile)["biskits"]
             self.__importUsers(dm)
 
-        #print("Populating resources...")
-        #self._populateResources(dm)
-
-        #print("Importing applications...")
-        #self.__importApplications(dm, jsonData)
-
-        #with open(bookingsJsonPath) as bookingsFile:
-        #    bookingsData = json.load(bookingsFile)
-
-            # print("Populating sessions...")
-            # self._populateSessions(dm)
-        #    print("Populating bookings")
-        #    self.__importBookings(dm, bookingsData)
+        print("Populating resources...")
+        self._populateResources(dm)
 
     def __importUsers(self, dm):
 
         # Create user
         def createUser(u, **kwargs):
-            status = 'inactive' if u['status'] == 'Expired' else 'active'
+            status = 'active' if u['status'] == 'Normal' else 'inactive'
             roles = kwargs.get('roles', ['user'])
             pi = kwargs.get('pi', None)
 
@@ -141,285 +124,39 @@ class CalpendoData(TestDataBase):
                 print("Skipping user: ", u['givenName'], u['familyName'],
                       "- missing PI: ", piName)
 
-    def __importApplications(self, dm, jsonData):
-        statuses = {'disabled': 'closed',
-                    'review': 'review',
-                    'preparation': 'preparation',
-                    'enabled': 'active',
-                    'rejected': 'rejected'
-                    }
+    def _populateResources(self, dm):
+        resources = [
+            {'name': 'Krios 1', 'tags': 'microscope krios',
+             'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)'},
+            {'name': 'Krios 2', 'tags': 'microscope krios',
+             'image': 'titan-krios.png', 'color': 'rgba(60, 90, 190, 1.0)'},
+            {'name': 'Krios 3', 'tags': 'microscope krios',
+             'image': 'titan-krios.png', 'color': 'rgba(43, 84, 36, 1.0)'},
+            {'name': 'Glacios', 'tags': 'microscope talos',
+             'image': 'glacios.png', 'color': 'rgba(15, 40, 130, 1.0)'},
+            {'name': 'F20', 'tags': 'microscope tecnai',
+             'image': 'F20.png', 'color': 'rgba(43, 84, 36, 1.0)'},
+            {'name': 'G-Spirit', 'tags': 'microscope tecnai',
+             'image': 'tecnai.png', 'color': 'rgba(43, 84, 36, 1.0)'},
+            {'name': 'C-Spirit', 'tags': 'microscope tecnai',
+             'image': 'tecnai.png', 'color': 'rgba(43, 84, 36, 1.0)'},
 
-        def createTemplate(f):
-            return dm.create_template(
-                title=f['title'],
-                description=f['description'],
-                status=statuses[f['status']]
-            )
+            {'name': 'Vitrobot 1', 'tags': 'instrument',
+             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
+            {'name': 'Vitrobot 2', 'tags': 'instrument',
+             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
+            {'name': 'Vitrobot 3', 'tags': 'instrument',
+             'image': 'vitrobot.png', 'color': 'rgba(48, 41, 40, 1.0)'},
+            {'name': 'Vitrobot 4', 'tags': 'instrument',
+             'image': 'vitrobot.png', 'color': 'rgba(68, 16, 105, 1.0)'},
+        ]
 
-        formsDict = {}
-
-        internalTemplate = dm.create_template(
-            title='Template for internal applications (DBB or FAC)',
-            description='Special template for internal applications',
-            status='closed')
-
-        for f in jsonData['forms'].values():
-            f['emhub_item'] = createTemplate(f)
-            formsDict[f['iuid']] = f
-
-        now = dm.now()
-
-        def _internalPi(u):
-            return (u['pi'] and 'emhub_item' in u and
-                    (u['email'].endswith('dbb.su.se')
-                     or u['email'].endswith('scilifelab.se')
-                     or u['email'].endswith('mmk.su.se')))
-
-        # Insert first PI users, so we store their Ids for other users
-        dbbPis = [u['emhub_item'] for u in self._jsonUsers if _internalPi(u)]
-
-        gunnar = self._dictUsers['gunnar@dbb.su.se']
-
-        # Create special bag for internal DBB PIs
-        internalApp = dm.create_application(
-            code='DBB',
-            title='Internal DBB Bag',
-            created=now,  # datetime_from_isoformat(o['created']),
-            alias='DBB',
-            status='active',
-            description='Internal application for DBB users',
-            creator_id=gunnar.id,
-            template_id=internalTemplate.id,
-            invoice_reference='DBB invoice',
-            resource_allocation={'quota': {'krios': 0, 'talos': 0},
-                                 'noslot': [1, 2, 3]}  # allow to book scopes
-        )
-
-        for pi in dbbPis:
-            internalApp.users.append(pi)
-
-        import_date = now.replace(year=2018, month=6, day=1)
-
-        def _alias(email):
-            """ Try to guess the Application alias from PI email. """
-            if email.endswith('kth.se'):
-                return 'KTH Bag'
-            if email.endswith('ki.se'):
-                return 'KI Bag'
-            if email.endswith('uu.se'):
-                return 'Uppsala Bag'
-            if email.endswith('umu.se'):
-                return 'Umeå Bag'
-            if email.endswith('gu.se'):
-                return 'Gotherborg Bag'
-            if email.endswith('.fi'):
-                return 'Finland Bag'
-            if email.endswith('.no'):
-                return 'Norway Bag'
-
-            return ''
-
-        for o in jsonData['orders']:
-            piEmail = o['owner']['email']
-            orderId = o['identifier']
-
-            pi = self._dictUsers.get(piEmail, None)
-
-            if pi is None:
-                print("Ignoring ORDER '%s', owner email (%s) not found as PI"
-                      % (orderId, piEmail))
-                continue
-
-            status = o['status']
-            # Set some accepted as 'active' and other as 'closed'
-            # created = dt.datetime.strptime(o['created'], '%Y-%m-%d')
-            created = datetime_from_isoformat(o['created'])
-
-            # Skip too old applications
-            if import_date > created:
-                continue
-
-            if status == 'accepted' or status == 'enabled':
-                if created.year == now.year:
-                    status = 'active'
-                else:
-                    status = 'closed'
-            else:
-                status = statuses[status]
-
-            fields = o['fields']
-            description = fields.get('project_des', None)
-            invoiceRef = fields.get('project_invoice_addess', None)
-
-            try:
-                pi_list = fields.get('pi_list', [])
-                alias = _alias(pi.email) if pi_list else ''
-
-                app = dm.create_application(
-                    code=orderId,
-                    title=o['title'],
-                    created=created,  # datetime_from_isoformat(o['created']),
-                    alias=alias,
-                    status=status,
-                    description=description,
-                    creator_id=pi.id,
-                    template_id=formsDict[o['form']['iuid']]['emhub_item'].id,
-                    invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
-                )
-
-                for piTuple in pi_list:
-                    piEmail = piTuple[1]
-                    pi = self._dictUsers.get(piEmail, None)
-                    if pi is not None:
-                        app.users.append(pi)
-
-            except Exception as e:
-                print("Exception when creating Application: %s. IGNORING..." % e)
-
-        dm.commit()
-
-    def __importBookings(self, dm, bookingsJson):
-        now = dm.now().replace(minute=0, second=0)
-        month = now.month
-
-        resourcesDict = {
-            'Titan Krios': 1,
-            'Talos Arctica': 3,
-            'Vitrobot': 4,
-            'Carbon Coater': 6
-        }
-
-        # f = open('users-missing-PORTAL.csv', 'w')
-        missing = set()
-
-        for b in bookingsJson:
-            name = b['user']['name']
-            email = b['user']['email']
-            resource = b['resourceName']
-
-            if email not in self._dictUsers:
-                if not email in missing:
-                    missing.add(email)
-                    # f.write('"%s", \t"%s"\n' % (name, email))
-
-            if email not in self._dictUsers or resource not in resourcesDict:
-                print(b['startDate'], b['endDate'], b['resourceName'],
-                      b['title'], name)
-                continue
-
-            title = b['title']
-            titleLow = title.lower()
-
-            type = 'booking'
-            if 'downtime' in titleLow:
-                type = 'downtime'
-
-            user = self._dictUsers[email]
-
-            try:
-                dm.create_booking(
-                    check_min_booking=False,
-                    check_max_booking=False,
-                    title=b['title'],
-                    start=datetime_from_isoformat(b['startDate']),
-                    end=datetime_from_isoformat(b['endDate']),
-                    type=type,
-                    resource_id=resourcesDict[resource],
-                    creator_id=user.id,  # first user for now
-                    owner_id=user.id,  # first user for now
-                    description="")
-            except Exception as e:
-                print("Exception when creating Booking: %s. IGNORING..." % e)
-
-        # f.close()
-
-        # create a repeating event
-        dm.create_booking(title='Dropin',
-                          start=now.replace(day=6, hour=9),
-                          end=now.replace(day=6, hour=13),
-                          type='slot',
-                          repeat_value='bi-weekly',
-                          repeat_stop=now.replace(month=month + 2),
-                          resource_id=7,
-                          creator_id=1,  # first user for now
-                          owner_id=1,  # first user for now
-                          description="Recurrent bi-weekly DROPIN slot. ")
-
-    def _populateSessions(self, dm):
-        users = [1, 2, 2]
-        session_names = ['supervisor_23423452_20201223_123445',
-                         'epu-mysession_20122310_234542',
-                         'mysession_very_long_name']
-
-        testData = os.environ.get('EMHUB_TESTDATA')
-        fns = [os.path.join(testData, 'hdf5/20181108_relion30_tutorial.h5'),
-               os.path.join(testData, 'hdf5/t20s_pngs.h5'), 'non-existing-file']
-
-        scopes = ['Krios 1', 'Krios 2', 'Krios 3']
-        numMovies = [423, 234, 2543]
-        numMics = [0, 234, 2543]
-        numCtfs = [0, 234, 2543]
-        numPtcls = [0, 2, 2352534]
-        status = ['Running', 'Error', 'Finished']
-
-        for f, u, s, st, sc, movies, mics, ctfs, ptcls in zip(fns, users, session_names,
-                                                              status, scopes, numMovies,
-                                                              numMics, numCtfs, numPtcls):
-            dm.create_session(
-                sessionData=f,
-                userid=u,
-                sessionName=s,
-                dateStarted=dm.now(),
-                description='Long description goes here.....',
-                status=st,
-                microscope=sc,
-                voltage=300,
-                cs=2.7,
-                phasePlate=False,
-                detector='Falcon',
-                detectorMode='Linear',
-                pixelSize=1.1,
-                dosePerFrame=1.0,
-                totalDose=35.0,
-                exposureTime=1.2,
-                numOfFrames=48,
-                numOfMovies=movies,
-                numOfMics=mics,
-                numOfCtfs=ctfs,
-                numOfPtcls=ptcls,
-                numOfCls2D=0,
-                ptclSizeMin=140,
-                ptclSizeMax=160,
-            )
-
-        dm.create_session(sessionData='dfhgrth',
-                          userid=2,
-                          sessionName='dfgerhsrth_NAME',
-                          dateStarted=dm.now(),
-                          description='Long description goes here.....',
-                          status='Running',
-                          microscope='KriosX',
-                          voltage=300,
-                          cs=2.7,
-                          phasePlate=False,
-                          detector='Falcon',
-                          detectorMode='Linear',
-                          pixelSize=1.1,
-                          dosePerFrame=1.0,
-                          totalDose=35.0,
-                          exposureTime=1.2,
-                          numOfFrames=48,
-                          numOfMovies=0,
-                          numOfMics=0,
-                          numOfCtfs=0,
-                          numOfPtcls=0,
-                          numOfCls2D=0,
-                          ptclSizeMin=140,
-                          ptclSizeMax=160, )
+        for rDict in resources:
+            dm.create_resource(**rDict)
 
 
-class PortalManager:
-    """ Helper class to interact with the Application Portal system.
+class CalpendoManager:
+    """ Helper class to interact with the Calpendo system.
     """
     def __init__(self, apiJson, cache=True):
         self._headers = apiJson['headers']
@@ -456,25 +193,9 @@ class PortalManager:
     def _fetchJsonFromUrlSuffix(self, suffix):
         return self._fetchJsonFromUrl(self._getUrl(suffix))
 
-    def fetchOrdersJson(self):
-        """ Fetch orders from the Portal. """
-        return self._fetchJsonFromUrlSuffix('orders?recent=False')['items']
-
-    def fetchOrderDetailsJson(self, orderCEM):
-        return self._fetchJsonFromUrlSuffix('order/%s' % orderCEM.upper())
-        #orderUrl = orderJson['links']['api']['href']
-        #return self._fetchJsonFromUrl(orderUrl)
-
-    def fetchFormDetailsJson(self, formId):
-        """ Return  the JSON data about a given form. """
-        return self._fetchJsonFromUrlSuffix('form/%s' % formId)
-
     def fetchAccountsJson(self):
         """ Retrieve the users list from the portal system. """
-        return self._fetchJsonFromUrlSuffix('accounts')['items']
-
-    def fetchAccountDetailsJson(self, userEmail):
-        return self._fetchJsonFromUrlSuffix('account/%s' % userEmail)
+        return self._fetchJsonFromUrlSuffix('Calpendo.CalpendoUser?paths=id,givenName,familyName,email,groupLeader,roles,status')
 
 
 if __name__ == '__main__':
@@ -486,17 +207,13 @@ if __name__ == '__main__':
 
     if len(sys.argv) != 2:
         print("\nUSAGE:\n"
-              "\tpython -m emhub.data.imports.calpendo users-data.csv booked-data.json\n")
+              "\tpython -m emhub.data.imports.calpendo users-data.json\n")
         sys.exit(1)
 
-    calpendolDataCsv = sys.argv[1]
-    bookingsJson = "" #sys.argv[2]
+    calpendolDataJson = sys.argv[1]
 
-    if not os.path.exists(calpendolDataCsv):
-        print("JSON data file '%s' does not exists. " % calpendolDataCsv)
-
-    if not os.path.exists(bookingsJson):
-        print("JSON bookings file '%s' does not exists. " % bookingsJson)
+    if not os.path.exists(calpendolDataJson):
+        print("JSON data file '%s' does not exists. " % calpendolDataJson)
 
     dm = DataManager(instance_path, cleanDb=True)
-    CalpendoData(dm, calpendolDataCsv, bookingsJson)
+    CalpendoData(dm, calpendolDataJson)

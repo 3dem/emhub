@@ -82,6 +82,11 @@ def create_app(test_config=None):
         from .data.imports.scilifelab import PortalManager
         app.sll_pm = PortalManager(portalAPI, cache=False)
 
+    calpendoAPI = app.config.get('CALPENDO_API', None)
+    if calpendoAPI is not None:
+        from .data.imports.calpendo import CalpendoManager
+        app.lmb_cm = CalpendoManager(calpendoAPI, cache=False)
+
     # ensure the instance folder exists
     os.makedirs(app.config['USER_IMAGES'], exist_ok=True)
     os.makedirs(app.config['ENTRY_FILES'], exist_ok=True)
