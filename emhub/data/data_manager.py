@@ -220,6 +220,11 @@ class DataManager(DbManager):
         """ Return a single Application or None. """
         return self.__item_by(self.Application, **kwargs)
 
+    def delete_application(self, **attrs):
+        application = self.__item_by(self.Application, id=attrs['id'])
+        self.delete(application)
+        return application
+
     def __update_application_pi(self, application, pi_to_add, pi_to_remove):
         errorMsg = ""
         pi_list = application.pi_list
@@ -283,27 +288,6 @@ class DataManager(DbManager):
         """
         attrs['special_update'] = self.__preprocess_application
         return self.__update_item(self.Application, **attrs)
-        # We don't use the self__update_item method due to the
-        # treatment of the pi_to_add/remove lists
-        #
-        # application = self.get_application_by(id=attrs['id'])
-        #
-        # if application is None:
-        #     raise Exception("Application not found with id %s"
-        #                     % (attrs['id']))
-        #
-        # self.__update_application_pi(application, **attrs)
-        #
-        # # Update application properties
-        # for attr, value in attrs.items():
-        #     if attr not in ['id', 'pi_to_add', 'pi_to_remove']:
-        #         setattr(application, attr, value)
-        #
-        # self.commit()
-        # self.log('operation', 'update_Application',
-        #          **self.json_from_dict(attrs))
-        #
-        # return application
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self,

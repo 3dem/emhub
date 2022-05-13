@@ -107,6 +107,15 @@ function showApplication(applicationId, templateId) {
 
 }  // function showApplication
 
+function deleteApplication(application_id, application_code) {
+    confirm("Delete Application",
+            "Do you want to DELETE Application '" + application_code + "' ?",
+             "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.application.delete,
+                     {id: application_id}, handleApplicationAjaxDone);
+        });
+} // function deleteEntry
+
 /** Helper functions to handle Application AJAX response or failure */
 function handleApplicationAjaxDone(jsonResponse) {
     var error = null;

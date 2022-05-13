@@ -183,7 +183,7 @@ def update_application():
 @api_bp.route('/delete_application', methods=['POST'])
 @flask_login.login_required
 def delete_application():
-    return handle_application(app.dm.update_application)
+    return handle_application(app.dm.delete_application)
 
 
 @api_bp.route('/import_application', methods=['POST'])

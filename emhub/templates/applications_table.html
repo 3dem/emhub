@@ -33,7 +33,9 @@
             </td>
             <td style="width: 105px;">
                 <button class="btn btn-sm btn-outline-light" onclick="javascript:showApplication({{ a.id }})"><i class="far fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-light" onclick="javascript:deleteApplication({{ a.id }}, '{{ a.code }}')"><i class="far fa-trash-alt"></i></button>
             </td>
+
         </tr>
         {% endif %}
     {% endfor %}
