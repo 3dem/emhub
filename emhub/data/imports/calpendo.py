@@ -1,8 +1,10 @@
 # **************************************************************************
 # *
 # * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
+# *              Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [2]
 # *
 # * [1] SciLifeLab, Stockholm University
+# * [2] MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -29,7 +31,6 @@ import sys
 import json
 import requests
 
-from emhub.utils import datetime_from_isoformat
 from emhub.data import DataManager
 from emhub.data.imports import TestDataBase
 
@@ -135,11 +136,17 @@ class CalpendoData(TestDataBase):
             {'name': 'Glacios', 'tags': 'microscope talos',
              'image': 'glacios.png', 'color': 'rgba(15, 40, 130, 1.0)'},
             {'name': 'F20', 'tags': 'microscope tecnai',
-             'image': 'F20.png', 'color': 'rgba(43, 84, 36, 1.0)'},
+             'image': 'f20.png', 'color': 'rgba(43, 84, 36, 1.0)'},
             {'name': 'G-Spirit', 'tags': 'microscope tecnai',
              'image': 'tecnai.png', 'color': 'rgba(43, 84, 36, 1.0)'},
             {'name': 'C-Spirit', 'tags': 'microscope tecnai',
              'image': 'tecnai.png', 'color': 'rgba(43, 84, 36, 1.0)'},
+            {'name': 'Polara 1', 'tags': 'microscope tecnai',
+             'image': 'polara.png', 'color': 'rgba(43, 84, 36, 1.0)'},
+            {'name': 'Polara 2', 'tags': 'microscope tecnai',
+             'image': 'polara.png', 'color': 'rgba(43, 84, 36, 1.0)'},
+            {'name': 'Scios', 'tags': 'microscope fib-sem',
+             'image': 'scios.png', 'color': 'rgba(43, 84, 36, 1.0)'},
 
             {'name': 'Vitrobot 1', 'tags': 'instrument',
              'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
@@ -210,10 +217,10 @@ if __name__ == '__main__':
               "\tpython -m emhub.data.imports.calpendo users-data.json\n")
         sys.exit(1)
 
-    calpendolDataJson = sys.argv[1]
+    calpendoDataJson = sys.argv[1]
 
-    if not os.path.exists(calpendolDataJson):
-        print("JSON data file '%s' does not exists. " % calpendolDataJson)
+    if not os.path.exists(calpendoDataJson):
+        print("JSON data file '%s' does not exists. " % calpendoDataJson)
 
     dm = DataManager(instance_path, cleanDb=True)
-    CalpendoData(dm, calpendolDataJson)
+    CalpendoData(dm, calpendoDataJson)
