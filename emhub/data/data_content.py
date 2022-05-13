@@ -452,8 +452,7 @@ class DataContent:
         in_app = set(pi.id for pi in app.pi_list)
 
         return {'application': app,
-                'application_statuses': ['preparation', 'review', 'accepted',
-                                         'active', 'closed'],
+                'application_statuses': dm.Application.STATUSES,
                 'template_id': kwargs.get('template_id', None),
                 'microscopes': mics,
                 'pi_list': [{'id': u.id,
@@ -462,7 +461,8 @@ class DataContent:
                              'in_app': u.id in in_app,
                              'status': 'creator' if u.id == app.creator.id else ''
                              }
-                            for u in dm.get_users() if u.is_pi]
+                            for u in dm.get_users() if u.is_pi],
+                'users': [u for u in dm.get_users() if u.is_staff]
                 }
 
     def set_form_values(self, form, values):

@@ -467,6 +467,7 @@ def create_data_models(dm):
         #   - accepted: the application has been accepted after evaluation
         #   - active: it has been activated for operation
         #   - closed: it has been closed and it becomes inactive
+        STATUSES = ['preparation', 'review', 'accepted', 'active', 'closed']
         status = Column(String(32), default='preparation')
 
         title = Column(String(256),
