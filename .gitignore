@@ -22,4 +22,5 @@ emhub/static/images/user-profile*
 *.csv
 
 NOTES.txt
+config.py
 

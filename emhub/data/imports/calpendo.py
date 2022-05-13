@@ -99,25 +99,45 @@ class CalpendoData(TestDataBase):
                 createUser(u, roles=staff[u['email']])
                 self._jsonUsers.remove(u)
 
+        # Clean up PI list
+        piList = [u['groupLeader'] for u in self._jsonUsers if u['status'] != 'Expired']
+        piList = filter(None, piList)
+        piList = filter(len, piList)
+        piList = sorted(set(piList))
+        piList.remove('EM Facility')
+
         # Insert first PI users, so we store their Ids for other users
         piDict = {}
         for u in self._jsonUsers:
-            fullName = u['givenName'] + ' ' + u['familyName']
+            fullName = str(u['givenName']) + ' ' + str(u['familyName'])
             if u['groupLeader'] == fullName:
-                print("Adding PI: ", fullName)
                 # if PI has two accounts, use not Expired one
                 if fullName in piDict and u['status'] != 'Expired':
                     piDict[fullName] = u
                     continue
                 piDict[fullName] = u
 
-        for u in piDict:
-            createUser(piDict[u], roles=['pi'])
-            self._jsonUsers.remove(piDict[u])
+        # Add PIs that do not have Calpendo account
+        for pi in piList:
+            if pi.strip() not in piDict and len(pi.split()) == 2:
+                piDict[pi] = {'givenName': pi.split()[0],
+                              'familyName': pi.split()[1],
+                              'email': pi.split()[1],
+                              'status': 'Normal'}
 
-        # Insert other users
+        for u in piDict:
+            print("Adding PI: ", u)
+            createUser(piDict[u], roles=['pi'])
+            try:
+                self._jsonUsers.remove(piDict[u])
+            except ValueError:  # PI has no account
+                pass
+
+        # Insert normal non-expired users
         for u in list(self._jsonUsers):
-            piName = u['groupLeader']
+            if u['status'] != 'Normal':
+                continue
+            piName = u['groupLeader'].strip()
             if piName in piDict:
                 createUser(u, pi=piDict[piName]['emhub_item'].id)
                 self._jsonUsers.remove(u)
@@ -166,8 +186,8 @@ class CalpendoManager:
     """ Helper class to interact with the Calpendo system.
     """
     def __init__(self, apiJson, cache=True):
-        self._headers = apiJson['headers']
         self._baseUrl = apiJson['baseUrl']
+        self._auth = apiJson['auth']
 
         # Create a cached dict with json files for url
         # to avoid make unnecessary queries in the same session
@@ -186,7 +206,7 @@ class CalpendoManager:
             return cachedJson
 
         print("Retrieving url: %s" % url)
-        response = requests.get(url, headers=self._headers)
+        response = requests.get(url, auth=self._auth)
 
         if response.status_code != 200:
             print(response.status_code)
