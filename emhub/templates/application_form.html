@@ -40,11 +40,7 @@
                         </label>
 
                         <div class="col-12 col-sm-4 col-lg-4">
-                            <label class="custom-control custom-checkbox col-2">
-                                {% set checked = 'checked' if application.confidential else '' %}
-                                <input type="checkbox" {{ disabled }} {{ checked }} class="custom-control-input" id="application-confidential">
-                                    <span class="custom-control-label">Confidential</span>
-                            </label>
+
                         </div>
                     </div>
 
@@ -100,6 +96,7 @@
                         </div>
                     </div>
 
+                    <!-- PI list row -->
                     <div class="form-group row">
                         <label class="col-sm-3 col-form-label text-sm-right">PI List</label>
 
@@ -128,11 +125,36 @@
                                     </div>
                                 </div>
 
+
+
                             {% endif %}
 
                         </div>
 
-                    </div>
+                    </div> <!-- End of PI list row -->
+
+                    <!-- Confidential row -->
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label text-sm-right">Confidentially and Access</label>
+
+                        <div class="col-9">
+                                <label class="custom-control custom-checkbox col-2">
+                                    {% set checked = 'checked' if application.confidential else '' %}
+                                    <input type="checkbox" {{ disabled }} {{ checked }} class="custom-control-input" id="application-confidential">
+                                        <span class="custom-control-label">Is confidential</span>
+                                </label>
+
+                                    <div class="row">
+                                        <span class="ml-3">Allowed access</span>
+                                        <select id="application-user-access" class="selectpicker show-tick col-8" data-width="100%" data-live-search="true" multiple>
+                                            {% for u in users %}
+                                                <option value="{{u['id']}}">{{u['name']}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                        </div>
+                    </div> <!-- End of Confidential row -->
+
 
                 </form>
             </div>
@@ -160,12 +182,18 @@
 <script>
 
     var pi_list = {{ pi_list|tojson }};
+    var access = {{ application.extra.get('access', [])|tojson }};
+    var access_list = [];
+    for (var a of access)
+        access_list.push(a.user_id);
+
     var pi_dict = {};
     for (var pi of pi_list)
         pi_dict[pi.id] = pi;
 
     $('select').selectpicker();
     $('#application-status-select').selectpicker('val', '{{ application.status }}');
+    $('#application-user-access').selectpicker('val', access_list);
 
     createPiRows();
 

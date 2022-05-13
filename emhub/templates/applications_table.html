@@ -17,7 +17,8 @@
         {% if a.status in status %}
         <tr>
             <td>
-                <a href="javascript:showApplication({{ a.id }})" class="badge badge-success mr-1">{{ a.code }}</a>
+                {% set badge_type = 'success' if not a.confidential else 'info' %}
+                <a href="javascript:showApplication({{ a.id }})" class="badge badge-{{ badge_type }} mr-1">{{ a.code }}</a>
             </td>
 
             <td>{{ a.status }}</td>

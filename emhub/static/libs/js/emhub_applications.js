@@ -154,6 +154,10 @@ function onApplicationOkButtonClick() {
     // Update application values
     var application_id = parseInt($('#application-id').val());
 
+    var access = [];
+    for (var user_id of $('#application-user-access').selectpicker('val'))
+        access.push({user_id: parseInt(user_id)});
+
     var application = {
         status: $('#application-status-select').selectpicker('val'),
         title: $('#application-title').val(),
@@ -166,7 +170,10 @@ function onApplicationOkButtonClick() {
             },
             noslot: []  // FIXME: Create the proper list
         },
-        extra: {confidential: $('#application-confidential').prop('checked')},
+        extra: {
+            confidential: $('#application-confidential').prop('checked'),
+            access: access
+        },
         pi_to_add: [],
         pi_to_remove: []
     };
