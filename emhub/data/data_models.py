@@ -164,7 +164,6 @@ def create_data_models(dm):
             self.__setExtra('daily_cost', int(value))
 
 
-
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
                                    ForeignKey('applications.id')),
@@ -232,6 +231,9 @@ def create_data_models(dm):
 
         created_applications = relationship("Application",
                                             back_populates="creator")
+
+        trainings = relationship("Training",
+                                 back_populates="trainee")
 
         # many to many relation with Application
         applications = relationship("Application",
@@ -558,6 +560,61 @@ def create_data_models(dm):
                 if u.id != self.creator.id:
                     pi_list.append(u)
             return pi_list
+
+
+    class Training(Base):
+        """ Training application. One user can have multiple training
+        applications.
+        """
+        __tablename__ = "trainings"
+
+        id = Column(Integer,
+                    primary_key=True)
+
+        created = Column(UtcDateTime,
+                         index=False,
+                         unique=False,
+                         nullable=False,
+                         default=utcnow())
+
+        completed = Column(UtcDateTime)
+
+        num_sessions = Column(Integer, default=0)
+
+        # Possible statuses of a Training:
+        #   - review: the application has been submitted for review
+        #   - rejected: if for some reason the application is rejected
+        #   - accepted: the application has been accepted after evaluation
+        #   - active: training in progress
+        #   - completed: training finished
+        status = Column(String(32), default='review')
+
+        trainee_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+        trainee = relationship('User', foreign_keys=[trainee_id],
+                               back_populates='trainings')
+
+        trainer_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+        trainer = relationship("User", foreign_keys=[trainer_id])
+
+        resource_id = Column(Integer, ForeignKey('resources.id'), nullable=False)
+        resource = relationship("Resource")
+
+        # Possible routes:
+        #   - basic
+        #   - advanced (requires an existing basic route training completed)
+        #   - collaboration
+        route = Column(String(32), default='basic', nullable=False)
+
+        # General JSON dict to store extra attributes
+        extra = Column(JSON, default={})
+
+        def json(self):
+            return dm.json_from_object(self)
+
+        def __repr__(self):
+            return '<Training id {} for user {} on resource {}>'.format(self.id,
+                                                                        self.trainee_id,
+                                                                        self.resource_id)
 
 
     class Booking(Base):
@@ -1109,6 +1166,7 @@ def create_data_models(dm):
     dm.Resource = Resource
     dm.Template = Template
     dm.Application = Application
+    dm.Training = Training
     dm.Booking = Booking
     dm.Session = Session
     dm.Transaction = Transaction

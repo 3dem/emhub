@@ -63,6 +63,9 @@ class CalpendoData(TestDataBase):
         print("Populating resources...")
         self._populateResources(dm)
 
+        print("Populate trainings...")
+        self._populateTrainings(dm)
+
     def __importUsers(self, dm):
 
         # Create user
@@ -79,7 +82,8 @@ class CalpendoData(TestDataBase):
                 name="%(givenName)s %(familyName)s" % u,
                 roles=roles,
                 pi_id=pi,
-                status=status
+                status=status,
+                extra={'calpendo_id': u.get('id', None)}
             )
 
             u['emhub_item'] = user
@@ -180,6 +184,15 @@ class CalpendoData(TestDataBase):
 
         for rDict in resources:
             dm.create_resource(**rDict)
+
+    def _populateTrainings(self, dm):
+        resources = [r.id for r in dm.get_resources() if r.is_microscope]
+        users = [u.id for u in dm.get_users() if u.is_pi][:2]
+
+        print("Debug:",len(resources), len(users))
+
+        for u in users:
+            dm.create_training(resources=resources, user_id=u)
 
 
 class CalpendoManager:

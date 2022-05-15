@@ -305,6 +305,30 @@ class DataManager(DbManager):
         #
         # return application
 
+    # ---------------------------- TRAININGS ----------------------------------
+    def create_training(self, **attrs):
+        resources = attrs.pop('resources', [])
+        for res in resources:
+            self.__create_item(self.Training, resource_id=res, **attrs)
+
+    def get_trainings(self, condition=None, orderBy=None, asJson=False):
+        return self.__items_from_query(self.Training,
+                                       condition=condition,
+                                       orderBy=orderBy,
+                                       asJson=asJson)
+
+    def get_training_by(self, **kwargs):
+        """ Return a single Training or None. """
+        return self.__item_by(self.Training, **kwargs)
+
+    def update_training(self, **attrs):
+        return self.__update_item(self.Training, **attrs)
+
+    def delete_training(self, **attrs):
+        training = self.__item_by(self.Training, id=attrs['id'])
+        self.delete(training)
+        return training
+
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self,
                        check_min_booking=True,
