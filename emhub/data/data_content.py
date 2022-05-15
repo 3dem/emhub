@@ -1390,7 +1390,22 @@ class DataContent:
         }
 
     def get_raw_trainings_list(self, **kwargs):
-        return {'entries': self.app.dm.get_trainings()}
+        dm = self.app.dm
+        user = self.app.user
+
+        if not user.is_manager:
+            items = dm.get_trainings(condition='user_id==%d' % user.id,
+                                     orderBy='resource_id')
+        else:
+            items = dm.get_trainings(orderBy='resource_id')
+
+        resources = set(r.resource for r in items)
+        result = {}
+        for r in resources:
+            result[r] = [i for i in items if i.resource_id == r.id]
+
+        return {'resources': resources,
+                'entries': result}
 
     def get_raw_pucks_list(self, **kwargs):
         return self.get_grids_cane(**kwargs)
