@@ -189,8 +189,6 @@ class CalpendoData(TestDataBase):
         resources = [r.id for r in dm.get_resources() if r.is_microscope]
         users = [u.id for u in dm.get_users() if u.is_pi][:2]
 
-        print("Debug:",len(resources), len(users))
-
         for u in users:
             dm.create_training(resources=resources, user_id=u)
 
