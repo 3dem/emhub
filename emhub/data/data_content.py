@@ -1118,7 +1118,6 @@ class DataContent:
 
         return data
 
-
     def get_projects_list(self, **kwargs):
         # FIXME Define access/permissions for other users
         return {'projects': self.app.dm.get_projects()}
@@ -1389,6 +1388,9 @@ class DataContent:
         return {
             'entries': self.app.dm.get_entries(condition=' and '.join(cond))
         }
+
+    def get_raw_trainings_list(self, **kwargs):
+        return {'entries': self.app.dm.get_trainings()}
 
     def get_raw_pucks_list(self, **kwargs):
         return self.get_grids_cane(**kwargs)
