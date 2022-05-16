@@ -1144,6 +1144,8 @@ class DataContent:
             'possible_owners': self.get_pi_labs()
         }
 
+    get_training_form = get_project_form
+
     def get_project_details(self, **kwargs):
         # FIXME Define access/permissions for other users
         user = self.app.user  # shortchut
@@ -1390,22 +1392,10 @@ class DataContent:
         }
 
     def get_raw_trainings_list(self, **kwargs):
-        dm = self.app.dm
-        user = self.app.user
+        # FIXME Define access/permissions for other users
+        result = [p for p in self.app.dm.get_projects() if p.extra.get("is_training", True)]
 
-        if not user.is_manager:
-            items = dm.get_trainings(condition='user_id==%d' % user.id,
-                                     orderBy='resource_id')
-        else:
-            items = dm.get_trainings(orderBy='resource_id')
-
-        resources = set(r.resource for r in items)
-        result = {}
-        for r in resources:
-            result[r] = [i for i in items if i.resource_id == r.id]
-
-        return {'resources': resources,
-                'entries': result}
+        return {'trainings': result}
 
     def get_raw_pucks_list(self, **kwargs):
         return self.get_grids_cane(**kwargs)

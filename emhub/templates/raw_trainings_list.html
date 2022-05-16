@@ -1,40 +1,71 @@
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
-    {% set title = "Raw Trainings List" %}
+    {% set title = "Trainings List" %}
+    {% set navigation = [('Trainigs', '')] %}
     {% include 'include_header.html' %}
+    {%  set is_admin = current_user.is_admin %}
+    {% set is_manager = current_user.is_manager %}
 
     <!-- table row -->
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+
     <div class="row">
-        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        <div class="col-12">
             <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Training queue</h5>
-                </div>
                 <div class="card-body">
-                    <input type="checkbox" id="show_all" value="show_all">
-                    <label for="show_all"> Show completed</label>
+                    <div class="col-12 mb-5">
+                        <a href="javascript:showTrainingForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Submit Training application</a>
+                    </div>
                     <div class="table-responsive">
-                        <table id="sessions-table" class="table table-striped table-bordered" style="width:100%">
+                        <table id="trainings-table" class="table">
                             <thead>
                             <tr>
-                                {% for r in resources %}
-                                <th>{{ r.name }}</th>
-                                {% endfor %}
+                                <th>id</th>
+                                <th>created</th>
+                                <th>status</th>
+                                <th>user/pi</th>
+                                <th>route</th>
+                                <th>last updated</th>
+                                <th>last updated by</th>
+                                <th>actions</th>
                             </tr>
                             </thead>
                             <tbody>
-                            <tr>
-                                {% for r in resources %}
-                                <td>
-                                    <ul>
-                                        {% for e in entries[r] %}
-                                        <li>{{ e.user.name }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </td>
-                                {% endfor %}
-                            </tr>
+                            {% for p in trainings %}
+                                {% if is_manager or current_user.get_pi == p.user.get_pi or current_user == p.user %}
+                                    {% set status = p['status'] %}
+                                    {% set badge_type = 'success' if status == 'active' else 'light' %}
+                                    {% set color = 'black' if status == 'active' else 'gray' %}
+                                    <tr style="color: {{ color }}">
+                                        <td>
+                                            {% set badge_type = 'success' if status == 'active' else 'light' %}
+    {#                                        if status == 'disabled' else 'info') %}#}
+                                            <a href="{{ url_for_content('training_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Training {{ p.id }}</a>
+                                        </td>
+
+                                        <td>{{ p.date|pretty_date }}</td>
+                                        <td>{{ p.status }}</td>
+                                        <td>{{ p.user.name }}/{{ p.user.get_pi().name }}</td>
+                                        <td>{{ p.title }}</td>
+                                        <td>{{ p.last_update_date|pretty_date }}</td>
+                                        <td>{{ p.last_update_user.name }}</td>
+                                        <td>
+                                            <a href="{{ url_for_content('training_details', project_id=p.id) }}" class="btn btn-outline-light">
+                                                <i class="fa fa-eye"></i></a>
+
+                                            {% if is_manager %}
+                                                 <a href="javascript:showTrainingForm({{ p['id'] }})" class="btn btn-outline-light">
+                                                     <i class="far fa-edit"></i></a>
+                                                 <a href="javascript:deleteTraining({{ p['id'] }})" class="btn btn-outline-light">
+                                                     <i class="far fa-trash-alt"></i></a>
+                                            {% endif %}
+                                        </td>
+
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+
                             </tbody>
                         </table>
                     </div>
@@ -46,14 +77,23 @@
 
 </div>
 
+<!-- ============================================================== -->
+<!-- training Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="training-modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+</div>
+
 
 <script>
 
-(function(window, document, $, undefined) {
-"use strict";
+$('#trainings-table').DataTable({
+    sDom: 'lfrtip',
+    paging: true,
+    info: false,
+    order: [[ 5, "desc" ]],
+    pageLength: 25
+    //ordering: false
+});
 
-    $('.selectpicker').selectpicker();
-
-})(window, document, window.jQuery);
 
 </script>

@@ -157,3 +157,22 @@ function deleteResource(resource_id) {
                            {id: resource_id}, resourceAjaxDone);
         });
 } // function deleteProject
+
+
+/* ---------------------- TRAININGS ------------------------------------ */
+
+/* Show the Training Form, either new booking or existing one */
+function showTrainingForm(training_id, modalId) {
+    if (!modalId)
+        modalId = 'training-modal';
+    show_modal_from_ajax(modalId, get_ajax_content("training_form", {project_id: training_id}));
+}  // function showTrainingForm
+
+function deleteTraining(training_id) {
+    confirm("Delete Training",
+            "Do you want to DELETE Training with id=" + training_id + "?",
+             "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.project.delete,
+                           {id: training_id}, projectAjaxDone);
+        });
+} // function deleteTraining
