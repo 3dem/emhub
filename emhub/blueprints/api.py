@@ -76,10 +76,41 @@ def create_user():
     return handle_user(app.dm.create_user)
 
 
+@api_bp.route('/register_user', methods=['POST'])
+@flask_login.login_required
+def register_user():
+    def register(**attrs):
+        user = app.dm.create_user(
+            username=attrs['email'],
+            email=attrs['email'],
+            phone='',
+            password=os.urandom(24).hex(),
+            name=attrs['name'],
+            roles=attrs['roles'],
+            pi_id=attrs['pi_id'],
+            status='pending'
+        )
+        # TODO: send notification email
+        # app.mm.send_mail(
+        #     [user.email],
+        #     "emhub: New account registered",
+        #     flask.render_template('email/account_registered.txt',
+        #                           user=user))
+        return user
+
+    return handle_user(register)
+
+
 @api_bp.route('/update_user', methods=['POST'])
 @flask_login.login_required
 def update_user():
     return handle_user(app.dm.update_user)
+
+
+@api_bp.route('/delete_user', methods=['POST'])
+@flask_login.login_required
+def delete_user():
+    return handle_user(app.dm.delete_user)
 
 
 @api_bp.route('/update_user_form', methods=['POST'])

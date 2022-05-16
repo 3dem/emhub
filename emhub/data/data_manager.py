@@ -104,6 +104,12 @@ class DataManager(DbManager):
 
         return self.__update_item(self.User, **attrs)
 
+    def delete_user(self, **attrs):
+        """ Delete a given user. """
+        user = self.__item_by(self.User, id=attrs['id'])
+        self.delete(user)
+        return user
+
     def get_users(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.User,
                                        condition=condition,

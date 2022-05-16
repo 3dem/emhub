@@ -166,6 +166,12 @@
             create: "{{ url_for('api.create_resource') }}",
             update: "{{ url_for('api.update_resource') }}",
             delete: "{{ url_for('api.delete_resource') }}"
+        },
+        user: {
+            create: "{{ url_for('api.create_user') }}",
+            update: "{{ url_for('api.update_user') }}",
+            delete: "{{ url_for('api.delete_user') }}",
+            register: "{{ url_for('api.register_user') }}"
         }
     };
 

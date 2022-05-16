@@ -160,6 +160,28 @@ function deleteResource(resource_id) {
 
 
 /* --------------------- USERS ------------------------------ */
+/** Helper functions to handle User AJAX response or failure */
+function handleUserAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('user' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showMessage('ERROR', error);
+    else {
+        showMessage('SUCCESS', 'User registered successfully.');
+        $('#user-modal').modal('hide');
+    }
+}
+
+
 function showResource(resourceId, copyResource) {
     var params = {
         resource_id: resourceId,
@@ -181,3 +203,19 @@ function showRegisterUser() {
     var content = get_ajax_content("register_user_form", {});
     show_modal_from_ajax('user-modal', content);
 }  // function showUser
+
+function onRegisterUser() {
+    var roles = [];
+    $(".user-role:checked").each(function(){
+        roles.push(this.name.replace('role-', ''));
+    });
+    var user = {
+        email: $('#user-email').val(),
+        name: $('#user-name').val(),
+        roles: roles,
+        pi_id: null
+    };
+
+    send_ajax_json(Api.urls.user.register, user, handleUserAjaxDone);
+    //alert(JSON.stringify(user, null, 4));
+}  // function onRegisterUser

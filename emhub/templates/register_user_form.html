@@ -49,7 +49,7 @@
                         <div class="col-12 col-sm-8 col-lg-6">
                             {% for role in roles %}
                                 <label class="custom-control custom-checkbox custom-control-inline">
-                                    <input type="checkbox" name="role-{{ role }}" class="custom-control-input">
+                                    <input type="checkbox" name="role-{{ role }}" class="custom-control-input user-role">
                                     <span class="custom-control-label">{{ role }}</span>
                                 </label>
                             {% endfor %}
@@ -101,68 +101,4 @@
 
 })(window, document, window.jQuery);
 
-
-/** Helper functions to handle User AJAX response or failure */
-function handleUserAjaxDone(jsonResponse) {
-    var error = null;
-
-    if ('user' in jsonResponse) {
-    }
-    else if ('error' in jsonResponse) {
-        error = jsonResponse.error;
-    }
-    else {
-        error = 'Unexpected response from server.'
-    }
-
-    if (error)
-        showMessage('ERROR', error);
-    else {
-        showMessage('SUCCESS', 'User registered successfully.');
-        $('#user-modal').modal('hide');
-    }
-}
-
-
-function handleAjaxFail(jqXHR, textStatus) {
-    showMessage("ERROR", "Request failed: " + textStatus );
-}
-
-
-/** This function will be called when the OK button in the User form
- * is clicked. It can be either Create or Update action.
- */
-function onRegisterUser() {
-    var frm = $('#user-form');
-    var formData = new FormData(frm[0]);
-    var uploader = $('input[type=file]')[0];
-    if ( uploader.files && uploader.files[0] ){
-        formData.append('user-profile-image', uploader.files[0]);
-    }
-
-    // Validate passwords match
-    password = $('#user-password').val();
-    repeat_password = $('#user-repeat-password').val();
-
-    if (password !== repeat_password) {
-        showMessage('ERROR', 'Please type same password twice!');
-        return;
-    }
-
-    if (/\s/g.test(password)){
-        showMessage('ERROR', 'Password can not contains spaces');
-        return;
-    }
-
-    var ajaxContent = $.ajax({
-        url: "{{ url_for('api.update_user_form') }}",
-        type: "POST",
-        data: formData,
-        processData: false,
-        contentType: false,
-        dataType: "json"
-    });
-    ajaxContent.done(handleUserAjaxDone);
-    ajaxContent.fail(handleAjaxFail);
-}  // function onRegisterUser
 </script>
