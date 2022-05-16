@@ -291,6 +291,16 @@ class DataContent:
 
         return data
 
+    def get_register_user_form(self, **kwargs):
+        dm = self.app.dm  # shortcut
+
+        return {
+            'possible_pis': [{'id': u.id, 'name': u.name}
+                             for u in dm.get_users() if u.is_pi],
+            'pi_label': None,
+            'roles': dm.User.ROLES
+        }
+
     def get_resources_list(self, **kwargs):
         user = self.app.user
         if not user.is_authenticated:

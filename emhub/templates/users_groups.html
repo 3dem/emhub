@@ -21,6 +21,7 @@
                                 <h3 class="m-2">Application: </h3>
 
                                 <select id="application-select" class="selectpicker" data-live-search="true" data-width="auto">
+                                    <option value=""></option>
                                     {% for a in applications %}
                                         {% set selected = 'selected' if a['code'] == application_code else '' %}
                                         {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None else '' %}

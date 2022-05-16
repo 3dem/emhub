@@ -175,3 +175,9 @@ function showUser(userId) {
     var content = get_ajax_content("user_form", {user_id: userId});
     show_modal_from_ajax('user-modal', content);
 }  // function showUser
+
+/* Show the User Form */
+function showRegisterUser() {
+    var content = get_ajax_content("register_user_form", {});
+    show_modal_from_ajax('user-modal', content);
+}  // function showUser
