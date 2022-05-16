@@ -113,7 +113,7 @@ function showEntryReport(entry_id) {
 }  // function showEntryReport
 
 
-/* --------------------- ENTRIES ------------------------------ */
+/* --------------------- RESOURCES ------------------------------ */
 
 /* Show the Resource Form, either for a new booking or an existing one */
 function showResource(resourceId, copyResource) {
@@ -157,3 +157,21 @@ function deleteResource(resource_id) {
                            {id: resource_id}, resourceAjaxDone);
         });
 } // function deleteProject
+
+
+/* --------------------- USERS ------------------------------ */
+function showResource(resourceId, copyResource) {
+    var params = {
+        resource_id: resourceId,
+        copy_resource: Boolean(copyResource)
+    };
+    show_modal_from_ajax('resource-modal',
+                         get_ajax_content("resource_form", params));
+}  // function showResource
+
+
+/* Show the User Form */
+function showUser(userId) {
+    var content = get_ajax_content("user_form", {user_id: userId});
+    show_modal_from_ajax('user-modal', content);
+}  // function showUser

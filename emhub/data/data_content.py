@@ -228,27 +228,10 @@ class DataContent:
 
         return {'users': users}
 
-    def get_users_groups(self, **kwargs):
+    def get_users_groups_cards(self, **kwargs):
         # Retrieve all pi labs that belong to a given application
 
         appCode = kwargs.get('application', '').upper()
-
-        user = self.app.user  # shortcut
-
-        # if user.is_manager:
-        #     piList = [u for u in self.app.dm.get_users() if u.is_pi]
-        # elif user.is_application_manager:
-        #     apps = [a for a in user.created_applications if a.is_active]
-        #     piSet = {user.get_id()}
-        #     piList = [user]
-        #     for a in apps:
-        #         for pi in a.users:
-        #             if pi.get_id() not in piSet:
-        #                 piList.append(pi)
-        # elif user.is_pi:
-        #     piList = [user]
-        # else:
-        #     piList = []
 
         def _userjson(u):
             return {'id': u.id, 'name': u.name}
@@ -279,6 +262,9 @@ class DataContent:
             'applications': applications,
             'application_code': appCode,
         }
+
+    def get_users_groups(self, **kwargs):
+        return self.get_users_groups_cards(**kwargs)
 
     def get_user_form(self, **kwargs):
         user = self.app.dm.get_user_by(id=kwargs['user_id'])

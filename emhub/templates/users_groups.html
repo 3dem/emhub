@@ -32,26 +32,9 @@
                     </div>
                 </div>
 
-                {% for users in labs %}
-
-                    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 col-12 mb-4">
-                        <div class="card h-100">
-                            <div class="card-header">
-                                <h3>{{ users[0]['name'] }}</h3>
-
-                            </div>
-                            <div class="card-body">
-                                <ul>
-                                    {% for user in users[1:] %}
-                                        <li>{{ user['name'] }}</li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-
-
-                        </div>
-                    </div>
-                {% endfor %}
+                <div id="groups-cards" class="row col-12">
+                    {% include 'users_groups_cards.html' %}
+                </div>
             </div>
 
         </div>
@@ -71,8 +54,11 @@
    $("select").on("changed.bs.select",
       function(e, clickedIndex, newValue, oldValue) {
         //console.log(this.value, clickedIndex, newValue, oldValue)
-        window.location.href = "{{ url_for('main', content_id='users_groups')}}" + '&application=' + this.value;
-        });
+        //window.location.href = "{{ url_for('main', content_id='users_groups')}}" + '&application=' + this.value;
+        //var url = "{{ url_for('main', content_id='users_groups')}}" + '&application=' + this.value;
+        var content = get_ajax_content('users_groups_cards', {application: this.value});
+        load_html_from_ajax('groups-cards', content);
+       });
 
 })(window, document, window.jQuery);
 

@@ -215,21 +215,6 @@
         load_main_content("{{ content_id }}", {{ params|tojson }});
     });
 
-    /* Show the User Form */
-    function showUser(userId) {
-        ajaxContent = get_ajax_content("user_form", {user_id: userId});
-
-        ajaxContent.done(function(html) {
-            $("#user-modal").html(html);
-            // Show the form after setting html content
-            $('#user-modal').modal('show');
-        });
-
-        ajaxContent.fail(function(jqXHR, textStatus) {
-            alert( "Request failed: " + textStatus );
-        });
-    }  // function showUser
-
     /* ---------------- RESOURCE functions ------------------*/
     /** Get the resource object from its id */
     function getResource(resourceId) {
