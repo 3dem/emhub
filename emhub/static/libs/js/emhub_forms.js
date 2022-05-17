@@ -182,6 +182,10 @@ function handleUserAjaxDone(jsonResponse) {
 }
 
 
+function userAjaxDone(jsonResponse) {
+    ajax_request_done(jsonResponse, 'user');
+}
+
 function showResource(resourceId, copyResource) {
     var params = {
         resource_id: resourceId,
@@ -213,9 +217,18 @@ function onRegisterUser() {
         email: $('#user-email').val(),
         name: $('#user-name').val(),
         roles: roles,
-        pi_id: null
+        pi_id: $('#user-pi-select').selectpicker('val')
     };
 
     send_ajax_json(Api.urls.user.register, user, handleUserAjaxDone);
     //alert(JSON.stringify(user, null, 4));
 }  // function onRegisterUser
+
+function deleteUser(user_id) {
+    confirm("Delete Project",
+            "Do you want to DELETE User with id=" + user_id + "?",
+             "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.user.delete,
+                           {id: user_id}, userAjaxDone);
+        });
+} // function deleteProject

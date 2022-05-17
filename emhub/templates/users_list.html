@@ -42,9 +42,19 @@
                                 <td>{{ user.roles }}</td>
                                 <td>{{ user.pi_id}}</td>
                                 <td>{{ user.project_codes}}</td>
-                                <td>{{ user.extra }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-light" onclick="showUser({{ user.id }})"><i class="far fa-edit"></i></button>
+                                    <div style="max-width: 300px; overflow: auto">
+                                        {{ user.extra }}
+                                    </div>
+
+                                </td>
+                                <td>
+                                    {% if current_user.is_manager %}
+                                        <button class="btn btn-sm btn-outline-light" onclick="showUser({{ user.id }})"><i class="far fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="deleteUser({{ user.id }})"><i class="far fa-trash-alt"></i></button>
+                                    {% endif %}
+
+
                                     {% if current_user.is_admin %}
                                         <button class="btn btn-sm btn-outline-light"
                                                 onclick="switchUser('{{ user.username }}', '{{ user.name }}')">

@@ -121,7 +121,8 @@ def update_user_form():
 
         attrs = {'id': f['user-id'],
                  'name': f['user-name'],
-                 'phone': f['user-phone']
+                 'phone': f['user-phone'],
+                 'status': f['user-status-select']
                  }
 
         roles = [v.replace('role-', '') for v in f if v.startswith('role-')]
@@ -129,7 +130,9 @@ def update_user_form():
             attrs['roles'] = roles
 
         if 'user-pi-select' in f:
-            attrs['pi_id'] = int(f['user-pi-select'])
+            pi_id = int(f['user-pi-select'])
+            if pi_id:
+                attrs['pi_id'] = pi_id
             # TODO: Validate if a user is not longer PI
             # check that there are not other users referencing this one as pi
             # still this will not be a very common case

@@ -47,6 +47,19 @@
                         <label class="col-12 col-sm-8 col-form-label text-sm-left">{{ user.email }}</label>
                     </div>
 
+                    <!-- Status Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Status</label>
+                        <div class="col-12 col-sm-8 col-form-label text-sm-left">
+                            <select id="user-status-select" name="user-status-select", class="selectpicker">
+                                {% for s in user_statuses %}
+                                    {% set selected = 'selected' if user.status == s else '' %}
+                                    <option value="{{ s }}" {{ selected }}>{{ s }} </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
                     <!-- Name Row -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
@@ -99,10 +112,11 @@
                         <div class="col-12 col-sm-8 col-lg-6">
                             {% if possible_pis %}
                                 <select id="user-pi-select" name="user-pi-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
-                                {% for pi in possible_pis %}
-                                    {% set selected = 'selected' if pi['id'] == user.pi.id else '' %}
-                                    <option value="{{pi['id']}}" {{ selected }}>{{pi['name']}}</option>
-                                {% endfor %}
+                                    <option value="0"></option>
+                                    {% for pi in possible_pis %}
+                                        {% set selected = 'selected' if pi['id'] == user.pi.id else '' %}
+                                        <option value="{{pi['id']}}" {{ selected }}>{{pi['name']}}</option>
+                                    {% endfor %}
                                 </select>
                             {% else %}
                                 <input type="text" id="user-pi-text" class="form-control" value="{{ pi_label }}" readonly>
