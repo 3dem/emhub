@@ -288,6 +288,7 @@ class DataContent:
             pi_label = 'Unknown' if pi is None else pi.name
 
         data['pi_label'] = pi_label
+        data['user_statuses'] = self.app.dm.User.STATUSES
 
         return data
 

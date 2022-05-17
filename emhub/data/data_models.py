@@ -177,6 +177,8 @@ def create_data_models(dm):
         ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent',
                  'staff-solna', 'staff-umea']
 
+        STATUSES = ['pending', 'active', 'inactive']
+
         id = Column(Integer,
                     primary_key=True)
         username = Column(String(64),
