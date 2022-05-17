@@ -103,7 +103,8 @@
                         <div class="col-9">
 
                             <table class="table">
-                                <tbody id="application-pi-list-body">
+                                {% set can_edit = current_user.is_manager %}
+                                <tbody id="application-pi-list-body" data-editable={{ can_edit|tojson }}>
                                     {# Rows will be populated via javascript #}
                                 </tbody>
                             </table>
@@ -124,8 +125,6 @@
                                         <a href="javascript:addPis()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add PI </a>
                                     </div>
                                 </div>
-
-
 
                             {% endif %}
 

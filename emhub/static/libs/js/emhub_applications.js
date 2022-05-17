@@ -39,6 +39,8 @@ function setPiRowHtml(row, pi){
     var html = '<td>' + pi.name + '</td><td>' + pi.email + '</td>';
     var statusHtml = '';
     var actionsHtml = '';
+    var body = document.getElementById('application-pi-list-body');
+    console.log("editable: " + body.dataset.editable)
 
     if (pi.status == "creator")
         statusHtml = "representative";
@@ -51,7 +53,8 @@ function setPiRowHtml(row, pi){
         actionsHtml = '<button class="btn btn-sm btn-outline-light" onclick="javascript:undoPi(' + pi.id + ')"><i class="fas fa-history"></i></button>';
     }
     else {
-        actionsHtml = '<button class="btn btn-sm btn-outline-light" onclick="javascript:removePi(' + pi.id + ')"><i class="far fa-trash-alt"></i></button>';
+        if (body.dataset.editable === 'true')
+            actionsHtml = '<button class="btn btn-sm btn-outline-light" onclick="javascript:removePi(' + pi.id + ')"><i class="far fa-trash-alt"></i></button>';
     }
 
     html += '<td>' + statusHtml + '</td>';
@@ -77,7 +80,6 @@ function addPiRow(body, pi) {
 
 function createPiRows() {
     var body = document.getElementById('application-pi-list-body');
-
     for (var pi of pi_list){
         if (pi.in_app)
             addPiRow(body, pi);

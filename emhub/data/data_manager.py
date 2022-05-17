@@ -222,6 +222,10 @@ class DataManager(DbManager):
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_visible_applications(self):
+        return [a for a in self.get_applications()
+                if a.allows_access(self._user)]
+
     def get_application_by(self, **kwargs):
         """ Return a single Application or None. """
         return self.__item_by(self.Application, **kwargs)

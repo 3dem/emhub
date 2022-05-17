@@ -163,7 +163,6 @@ def create_data_models(dm):
             self.__setExtra('daily_cost', int(value))
 
 
-
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
                                    ForeignKey('applications.id')),
@@ -301,7 +300,11 @@ def create_data_models(dm):
 
         @property
         def is_manager(self):
-            return 'manager' in self.roles or self.is_admin
+            return 'manager' in self.roles or self.is_admin or self.is_head
+
+        @property
+        def is_head(self):
+            return 'head' in self.roles
 
         @property
         def is_staff(self):
@@ -351,7 +354,10 @@ def create_data_models(dm):
             pi = self.get_pi()
             if pi is not None:
                 applications = list(pi.created_applications)
-                applications.extend(pi.applications)
+                for a in pi.applications:
+                    if a not in applications:
+                        applications.append(a)
+                #applications.extend(pi.applications)
 
             def _filter(a):
                 return status == 'all' or a.status == status
@@ -531,6 +537,23 @@ def create_data_models(dm):
         @confidential.setter
         def costs(self, value):
             self.__setExtra('confidential', value)
+
+        @property
+        def access_list(self):
+            """ Return a list of IDs with managers that
+            can access this application. """
+            return [ad['user_id'] for ad in self.__getExtra('access', [])]
+
+        def allows_access(self, user):
+            """ Return True if this user has access to the application. """
+            if self.creator_id == user.id or user.is_admin:
+                return True
+
+            if user.is_manager:
+                return not self.confidential or user.id in self.access_list
+
+            user_apps = self._user.get_applications(status='all')
+            return any(self.id == a.id for a in user_apps)
 
         def json(self):
             json = dm.json_from_object(self)

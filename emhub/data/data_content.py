@@ -250,7 +250,7 @@ class DataContent:
 
             labs = sorted(labs, key=lambda lab: len(lab), reverse=True)
 
-        apps = sorted(self.app.dm.get_applications(),
+        apps = sorted(self.app.dm.get_visible_applications(),
                       key=lambda a: len(a.users), reverse=True)
         applications = [a.json() for a in apps if a.is_active]
 
@@ -1045,14 +1045,7 @@ class DataContent:
         return {'bookings': [self.booking_to_event(b) for b in bookings]}
 
     def get_raw_applications_list(self, **kwargs):
-        user = self.app.user
-
-        if user.is_manager:
-            applications = self.app.dm.get_applications()
-        else:
-            applications = user.get_applications(status='all')
-
-        return {'applications': applications}
+        return {'applications': self.app.dm.get_visible_applications()}
 
     def get_forms_list(self, **kwargs):
         return  {'forms': self.app.dm.get_forms()}
