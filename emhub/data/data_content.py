@@ -186,6 +186,11 @@ class DataContent:
     def get_session_details(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.get_session_by(id=session_id)
+        if session.booking:
+            a = session.booking.application
+            if not (a is None or a.allows_access(self.app.user)):
+                raise Exception("You do not have access to this session information. ")
+
         days = self.app.dm.get_session_data_deletion(session.name[:3])
         td = (session.start + dt.timedelta(days=days)) - self.app.dm.now()
         errors = []
@@ -202,16 +207,21 @@ class DataContent:
 
     def get_sessions_list(self, **kwargs):
         dm = self.app.dm  # shortcut
-        sessions = dm.get_sessions()
+        all_sessions = dm.get_sessions()
+        sessions = []
         bookingDict = {}
 
-        for s in sessions:
+        for s in all_sessions:
             if s.booking:
-                b = self.booking_to_event(s.booking,
-                                          prettyDate=True, piApp=True)
-                bookingDict[s.booking.id] = b
-            if not os.path.exists(dm.get_session_data_path(s)):
-                s.data_path = ''
+                a = s.booking.application
+                if a is None or a.allows_access(self.app.user):
+                    sessions.append(s)
+                    b = self.booking_to_event(s.booking,
+                                              prettyDate=True, piApp=True)
+                    bookingDict[s.booking.id] = b
+
+                    if not os.path.exists(dm.get_session_data_path(s)):
+                        s.data_path = ''
 
         return {
             'sessions': sessions,
