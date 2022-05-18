@@ -1469,7 +1469,6 @@ class DataContent:
                              }
         owner = booking.owner
         owner_name = owner.name
-        pi = owner.get_pi()
         o = booking.operator  #  shortcut
         if o:
             operator_dict = {'id': o.id, 'name': o.name}
@@ -1477,7 +1476,7 @@ class DataContent:
             operator_dict = {'id': None, 'name': ''}
 
         creator = booking.creator
-        application = booking.application
+        a = booking.application
         user = self.app.user
         b_title = booking.title
         b_description = booking.description
@@ -1488,12 +1487,18 @@ class DataContent:
         # - application creators
         # - the owner and pi of the owner
         can_modify_list = [owner.id]
-        if application is not None:
-            can_modify_list.append(application.creator.id)
+
+        if a is not None:
+            can_modify_list.append(a.creator.id)
+
+        if user.is_manager and (a is None or a.allows_access(user)):
+            can_modify_list.append(user.id)
+
+        pi = owner.get_pi()
         if pi is not None:
             can_modify_list.append(pi.id)
 
-        user_can_modify = user.is_manager or user.id in can_modify_list
+        user_can_modify = user.id in can_modify_list
         user_can_view = user_can_modify or user.same_pi(owner)
         color = resource.color if resource else 'grey'
 
@@ -1511,16 +1516,15 @@ class DataContent:
                                        booking.slot_auth.get('applications', ''))
             user_can_book = user.can_book_slot(booking)
         else:
-
             # Show all booking information in title in some cases only
-            appStr = '' if application is None else ', %s' % application.code
+            appStr = '' if a is None else ', %s' % a.code
             extra = "%s%s" % (owner.name, appStr)
             if user_can_view:
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
-                if application:
-                    application_label = application.code
-                    if application.alias:
-                        application_label += "  (%s)" % application.alias
+                if a:
+                    application_label = a.code
+                    if a.alias:
+                        application_label += "  (%s)" % a.alias
             else:
                 title = "%s (%s)" % (resource_info['name'], extra)
                 b_title = "Hidden title"
