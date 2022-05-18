@@ -44,60 +44,6 @@ def create_data_models(dm):
 
     Base = dm.Base
 
-    class Training(Base):
-        """ Training application. One user can have multiple training
-        applications.
-        """
-        __tablename__ = "trainings"
-
-        id = Column(Integer,
-                    primary_key=True)
-
-        created = Column(UtcDateTime,
-                         index=False,
-                         unique=False,
-                         nullable=False,
-                         default=utcnow())
-
-        completed = Column(UtcDateTime)
-
-        num_sessions = Column(Integer, default=0)
-
-        # Possible statuses of a Training:
-        #   - review: the application has been submitted for review
-        #   - rejected: if for some reason the application is rejected
-        #   - accepted: the application has been accepted after evaluation
-        #   - active: training in progress
-        #   - completed: training finished
-        status = Column(String(32), default='review')
-
-        user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-        user = relationship('User', foreign_keys=[user_id],
-                            back_populates='trainings')
-
-        trainer_id = Column(Integer, ForeignKey('users.id'), nullable=True)
-        trainer = relationship('User', foreign_keys=[trainer_id])
-
-        resource_id = Column(Integer, ForeignKey('resources.id'), nullable=False)
-        resource = relationship('Resource')
-
-        # Possible routes:
-        #   - basic
-        #   - advanced (requires an existing basic route training completed)
-        #   - collaboration
-        route = Column(String(32), default='basic', nullable=False)
-
-        # General JSON dict to store extra attributes
-        extra = Column(JSON, default={})
-
-        def json(self):
-            return dm.json_from_object(self)
-
-        def __repr__(self):
-            return '<Training id {} for user {} on resource {}>'.format(self.id,
-                                                                        self.trainee_id,
-                                                                        self.resource_id)
-
 
     class Resource(Base):
         """ Representation of different type of Resources.
@@ -285,10 +231,6 @@ def create_data_models(dm):
 
         created_applications = relationship("Application",
                                             back_populates="creator")
-
-        trainings = relationship("Training",
-                                 foreign_keys=Training.user_id,
-                                 back_populates="user")
 
         # many to many relation with Application
         applications = relationship("Application",
@@ -1166,7 +1108,6 @@ def create_data_models(dm):
     dm.Resource = Resource
     dm.Template = Template
     dm.Application = Application
-    dm.Training = Training
     dm.Booking = Booking
     dm.Session = Session
     dm.Transaction = Transaction

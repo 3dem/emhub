@@ -64,7 +64,7 @@ class CalpendoData(TestDataBase):
         self._populateResources(dm)
 
         print("Populate trainings...")
-        self._populateTrainings(dm)
+        #self._populateTrainings(dm)
 
     def __importUsers(self, dm):
 
