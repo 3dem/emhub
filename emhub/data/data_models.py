@@ -144,8 +144,7 @@ def create_data_models(dm):
 
         @property
         def requires_application(self):
-            """ Minimum amount of hours that should be used for
-            booking this resource.
+            """ True if the user should belongs to an Application to book this resource.
             """
             return self.__getExtra('requires_application', True)
 
@@ -164,7 +163,6 @@ def create_data_models(dm):
             self.__setExtra('daily_cost', int(value))
 
 
-
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
                                    ForeignKey('applications.id')),
@@ -175,7 +173,10 @@ def create_data_models(dm):
     class User(UserMixin, Base):
         """Model for user accounts."""
         __tablename__ = 'users'
-        ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent']
+        ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent',
+                 'staff-solna', 'staff-umea']
+
+        STATUSES = ['pending', 'active', 'inactive']
 
         id = Column(Integer,
                     primary_key=True)
@@ -299,7 +300,22 @@ def create_data_models(dm):
 
         @property
         def is_manager(self):
-            return 'manager' in self.roles or self.is_admin
+            return 'manager' in self.roles or self.is_admin or self.is_head
+
+        @property
+        def is_head(self):
+            return 'head' in self.roles
+
+        @property
+        def is_staff(self):
+            return any(r.startswith('staff-') for r in self.roles)
+
+        @property
+        def staff_unit(self):
+            for r in self.roles:
+                if r.startswith('staff-'):
+                    return r.replace('staff-', '')
+            return None
 
         @property
         def is_pi(self):
@@ -338,12 +354,20 @@ def create_data_models(dm):
             pi = self.get_pi()
             if pi is not None:
                 applications = list(pi.created_applications)
-                applications.extend(pi.applications)
+                for a in pi.applications:
+                    if a not in applications:
+                        applications.append(a)
+                #applications.extend(pi.applications)
 
             def _filter(a):
                 return status == 'all' or a.status == status
 
             return [a for a in applications if _filter(a)]
+
+        def has_application(self, applicationCode):
+            """ Return True if the user has the given application. """
+            return any(a.code == applicationCode
+                       for a in self.get_applications(status='all'))
 
         def get_lab_members(self, onlyActive=True):
             """ Return lab members, filtering or not by active status. """
@@ -451,6 +475,7 @@ def create_data_models(dm):
         #   - accepted: the application has been accepted after evaluation
         #   - active: it has been activated for operation
         #   - closed: it has been closed and it becomes inactive
+        STATUSES = ['preparation', 'review', 'accepted', 'active', 'closed']
         status = Column(String(32), default='preparation')
 
         title = Column(String(256),
@@ -507,11 +532,28 @@ def create_data_models(dm):
         def confidential(self):
             """ Return extra costs associated with this Booking
             """
-            return  self.__getExtra('confidential', False)
+            return self.__getExtra('confidential', False)
 
         @confidential.setter
         def costs(self, value):
             self.__setExtra('confidential', value)
+
+        @property
+        def access_list(self):
+            """ Return a list of IDs with managers that
+            can access this application. """
+            return [ad['user_id'] for ad in self.__getExtra('access', [])]
+
+        def allows_access(self, user):
+            """ Return True if this user has access to the application. """
+            if self.creator_id == user.id or user.is_admin:
+                return True
+
+            if user.is_manager:
+                return not self.confidential or user.id in self.access_list
+
+            user_apps = self._user.get_applications(status='all')
+            return any(self.id == a.id for a in user_apps)
 
         def json(self):
             json = dm.json_from_object(self)

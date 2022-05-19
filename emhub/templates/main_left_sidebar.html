@@ -77,10 +77,19 @@
                         <ul class="nav flex-column submenu">
 
                             <!-- Users -->
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for_content('users_list') }}">
-                                    <i class="fas fa-f fa-users"></i>All Users List</a>
-                            </li>
+                            <!-- Reports -->
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-users" aria-controls="submenu-users">
+                                    <i class="fas fa-f fa-users"></i>Users</a>
+                            <div id="submenu-users" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('users_list') }}">All Users List</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('users_groups') }}">User Groups</a>
+                                    </li>
+                                </ul>
+                            </div>
 
                             <!-- Resources -->
                             <li class="nav-item">
@@ -104,14 +113,14 @@
                             <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-reports" aria-controls="submenu-reports">
                                     <i class="fas fa-chart-bar"></i>Reports</a>
                             <div id="submenu-reports" class="collapse submenu" style="">
-                            <ul class="nav flex-column">
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{{ url_for_content('reports_time_distribution') }}">Overall Time Distribution</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{{ url_for_content('report_pis_usage') }}">All PIs Usage</a>
-                                </li>
-                            </ul>
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('reports_time_distribution') }}">Overall Time Distribution</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('report_pis_usage') }}">All PIs Usage</a>
+                                    </li>
+                                </ul>
                             </div>
 
                             <!-- Import from Portal -->

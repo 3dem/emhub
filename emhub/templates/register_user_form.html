@@ -1,0 +1,102 @@
+<!-- ============================================================== -->
+<!-- Register User Modal Content -->
+<!-- ============================================================== -->
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="user-modal-title"> Register New User </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+
+            <!-- User Form -->
+            <form id="register-user-form" data-parsley-validate="" novalidate="">
+            <div class="row">
+
+            <div class="col-xl-10 col-lg-10 col-md-10 col-sm-10 col-10">
+
+                    <!-- Email Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Email</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Enter email" id="user-email" name="user-email" class="form-control">
+                        </div>
+                    </div>
+
+                    <!-- Name Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Enter username" id="user-name" name="user-name" class="form-control">
+                        </div>
+                    </div>
+
+                    <!-- Phone Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Phone</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Enter phone" id="user-phone" name="user-phone" class="form-control">
+                        </div>
+                    </div>
+
+                    <!-- Roles -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Roles</label>
+
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            {% for role in roles %}
+                                <label class="custom-control custom-checkbox custom-control-inline">
+                                    <input type="checkbox" name="role-{{ role }}" class="custom-control-input user-role">
+                                    <span class="custom-control-label">{{ role }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- PI -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">PI</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            {% if possible_pis %}
+                                <select id="user-pi-select" name="user-pi-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
+                                <option value=""></option>
+                                {% for pi in possible_pis %}
+                                    <option value="{{pi['id']}}">{{pi['name']}}</option>
+                                {% endfor %}
+                                </select>
+                            {% else %}
+                                <input type="text" id="user-pi-text" class="form-control" value="{{ pi_label }}" readonly>
+                            {% endif %}
+                        </div>
+                    </div>
+            </div>
+
+                </div>
+            </form>
+
+        <!-- end User Form -->
+      </div>
+
+      <div class="modal-footer">
+            <button type="button" id="user-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+            <button type="button" id="user-btn-ok" class="btn btn-outline-dark" onclick="javascript: onRegisterUser()">Register</button>
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of User Modal Content -->
+<!-- ============================================================== -->
+
+<script>
+
+(function(window, document, $, undefined) {
+"use strict";
+
+    $('select').selectpicker();
+
+})(window, document, window.jQuery);
+
+</script>

@@ -1,0 +1,64 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Users Groups" %}
+    {% set navigation = [('Admin', ''), ('Users', '')] %}
+    {% include 'include_header.html' %}
+
+    <!-- table row -->
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+            <div class="row">
+
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="row">
+                                <h3 class="m-2">Application: </h3>
+
+                                <select id="application-select" class="selectpicker" data-live-search="true" data-width="auto">
+                                    <option value=""></option>
+                                    {% for a in applications %}
+                                        {% set selected = 'selected' if a['code'] == application_code else '' %}
+                                        {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None else '' %}
+                                        <option value="{{ a['code'] }}" {{selected}}>{{ a['code'] }} {{ alias }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="groups-cards" class="row col-12">
+                    {% include 'users_groups_cards.html' %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+
+<script>
+
+(function(window, document, $, undefined) {
+"use strict";
+
+   $('select').selectpicker();
+
+   $("select").on("changed.bs.select",
+      function(e, clickedIndex, newValue, oldValue) {
+        //console.log(this.value, clickedIndex, newValue, oldValue)
+        //window.location.href = "{{ url_for('main', content_id='users_groups')}}" + '&application=' + this.value;
+        //var url = "{{ url_for('main', content_id='users_groups')}}" + '&application=' + this.value;
+        var content = get_ajax_content('users_groups_cards', {application: this.value});
+        load_html_from_ajax('groups-cards', content);
+       });
+
+})(window, document, window.jQuery);
+
+</script>
+

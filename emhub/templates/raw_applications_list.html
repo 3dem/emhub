@@ -20,6 +20,7 @@
                                 <th>id</th>
                                 <th>code</th>
                                 <th>created</th>
+                                <th>status</th>
                                 <th>alias</th>
                                 <th>title</th>
                                 <th>creator</th>
@@ -27,6 +28,7 @@
                                 <th>invoice reference</th>
                                 <th>pi-list</th>
                                 <th>resource_allocation</th>
+                                <th>extra</th>
                                 <th>actions</th>
                             </tr>
                             </thead>
@@ -36,6 +38,7 @@
                                 <td>{{ a.id }}</td>
                                 <td>{{ a.code }}</td>
                                 <td>{{ a.created }}</td>
+                                <td>{{ a.status }}</td>
                                 <td>{{ a.alias }}</td>
                                 <td>{{ a.title }}</td>
                                 <td>{{ a.creator.name }}</td>
@@ -43,6 +46,7 @@
                                 <td>{{ a.invoice_reference }}</td>
                                 <td>{{ a.users }}</td>
                                 <td>{{ a.resource_allocation }}</td>
+                                <td>{{ a.extra|tojson }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-light"><i class="far fa-edit"></i></button>
                                     <button class="btn btn-sm btn-outline-light"><i class="far fa-copy"></i></button>

@@ -39,6 +39,8 @@ function setPiRowHtml(row, pi){
     var html = '<td>' + pi.name + '</td><td>' + pi.email + '</td>';
     var statusHtml = '';
     var actionsHtml = '';
+    var body = document.getElementById('application-pi-list-body');
+    console.log("editable: " + body.dataset.editable)
 
     if (pi.status == "creator")
         statusHtml = "representative";
@@ -51,7 +53,8 @@ function setPiRowHtml(row, pi){
         actionsHtml = '<button class="btn btn-sm btn-outline-light" onclick="javascript:undoPi(' + pi.id + ')"><i class="fas fa-history"></i></button>';
     }
     else {
-        actionsHtml = '<button class="btn btn-sm btn-outline-light" onclick="javascript:removePi(' + pi.id + ')"><i class="far fa-trash-alt"></i></button>';
+        if (body.dataset.editable === 'true')
+            actionsHtml = '<button class="btn btn-sm btn-outline-light" onclick="javascript:removePi(' + pi.id + ')"><i class="far fa-trash-alt"></i></button>';
     }
 
     html += '<td>' + statusHtml + '</td>';
@@ -77,7 +80,6 @@ function addPiRow(body, pi) {
 
 function createPiRows() {
     var body = document.getElementById('application-pi-list-body');
-
     for (var pi of pi_list){
         if (pi.in_app)
             addPiRow(body, pi);
@@ -107,6 +109,15 @@ function showApplication(applicationId, templateId) {
 
 }  // function showApplication
 
+function deleteApplication(application_id, application_code) {
+    confirm("Delete Application",
+            "Do you want to DELETE Application '" + application_code + "' ?",
+             "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.application.delete,
+                     {id: application_id}, handleApplicationAjaxDone);
+        });
+} // function deleteEntry
+
 /** Helper functions to handle Application AJAX response or failure */
 function handleApplicationAjaxDone(jsonResponse) {
     var error = null;
@@ -134,12 +145,6 @@ function handleApplicationAjaxDone(jsonResponse) {
             }
         });
 
-        // $('#application-modal').on('hidden.bs.modal', function () {
-        // var params = {};
-        // alert("loading main content");
-        // load_main_content("applications", params);
-        // });
-
         $('#application-modal').modal('hide');
     }
 }
@@ -151,9 +156,11 @@ function onApplicationOkButtonClick() {
     // Update application values
     var application_id = parseInt($('#application-id').val());
 
+    var access = [];
+    for (var user_id of $('#application-user-access').selectpicker('val'))
+        access.push({user_id: parseInt(user_id)});
+
     var application = {
-
-
         status: $('#application-status-select').selectpicker('val'),
         title: $('#application-title').val(),
         alias: $('#application-alias').val(),
@@ -165,7 +172,10 @@ function onApplicationOkButtonClick() {
             },
             noslot: []  // FIXME: Create the proper list
         },
-        extra: {confidential: $('#application-confidential').prop('checked')},
+        extra: {
+            confidential: $('#application-confidential').prop('checked'),
+            access: access
+        },
         pi_to_add: [],
         pi_to_remove: []
     };
@@ -174,7 +184,6 @@ function onApplicationOkButtonClick() {
         var elem = $( el );
         if (elem.prop("checked"))
             application.resource_allocation.noslot.push(parseInt(elem.val()));
-        //alert("checked: " + elem.prop('checked') + " value: " + elem.val());
     });
 
     // Update list of PI users to add or remove to the Application
@@ -299,7 +308,7 @@ function onTemplateOkButtonClick() {
 
 function deleteTemplate(template_id, template_title) {
     confirm("Delete Template",
-            "Do you want to DELETE Entry '" + template_title + "' ?",
+            "Do you want to DELETE Template '" + template_title + "' ?",
              "Cancel", "Delete", function () {
             send_ajax_json(Api.urls.template.delete,
                      {id: template_id}, templateAjaxDone);

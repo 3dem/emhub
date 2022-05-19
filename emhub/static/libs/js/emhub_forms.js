@@ -113,7 +113,7 @@ function showEntryReport(entry_id) {
 }  // function showEntryReport
 
 
-/* --------------------- ENTRIES ------------------------------ */
+/* --------------------- RESOURCES ------------------------------ */
 
 /* Show the Resource Form, either for a new booking or an existing one */
 function showResource(resourceId, copyResource) {
@@ -155,5 +155,80 @@ function deleteResource(resource_id) {
              "Cancel", "Delete", function () {
             send_ajax_json(Api.urls.resource.delete,
                            {id: resource_id}, resourceAjaxDone);
+        });
+} // function deleteProject
+
+
+/* --------------------- USERS ------------------------------ */
+/** Helper functions to handle User AJAX response or failure */
+function handleUserAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('user' in jsonResponse) {
+    }
+    else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    }
+    else {
+        error = 'Unexpected response from server.'
+    }
+
+    if (error)
+        showMessage('ERROR', error);
+    else {
+        showMessage('SUCCESS', 'User registered successfully.');
+        $('#user-modal').modal('hide');
+    }
+}
+
+
+function userAjaxDone(jsonResponse) {
+    ajax_request_done(jsonResponse, 'user');
+}
+
+function showResource(resourceId, copyResource) {
+    var params = {
+        resource_id: resourceId,
+        copy_resource: Boolean(copyResource)
+    };
+    show_modal_from_ajax('resource-modal',
+                         get_ajax_content("resource_form", params));
+}  // function showResource
+
+
+/* Show the User Form */
+function showUser(userId) {
+    var content = get_ajax_content("user_form", {user_id: userId});
+    show_modal_from_ajax('user-modal', content);
+}  // function showUser
+
+/* Show the User Form */
+function showRegisterUser() {
+    var content = get_ajax_content("register_user_form", {});
+    show_modal_from_ajax('user-modal', content);
+}  // function showUser
+
+function onRegisterUser() {
+    var roles = [];
+    $(".user-role:checked").each(function(){
+        roles.push(this.name.replace('role-', ''));
+    });
+    var user = {
+        email: $('#user-email').val(),
+        name: $('#user-name').val(),
+        roles: roles,
+        pi_id: $('#user-pi-select').selectpicker('val')
+    };
+
+    send_ajax_json(Api.urls.user.register, user, handleUserAjaxDone);
+    //alert(JSON.stringify(user, null, 4));
+}  // function onRegisterUser
+
+function deleteUser(user_id) {
+    confirm("Delete Project",
+            "Do you want to DELETE User with id=" + user_id + "?",
+             "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.user.delete,
+                           {id: user_id}, userAjaxDone);
         });
 } // function deleteProject
