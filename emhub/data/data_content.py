@@ -1179,10 +1179,20 @@ class DataContent:
 
         return data
 
-
     def get_projects_list(self, **kwargs):
         # FIXME Define access/permissions for other users
-        return {'projects': self.app.dm.get_projects()}
+        projects = []
+        for p in self.app.dm.get_projects():
+            pi = p.user.get_pi()
+            if pi:
+                apps = pi.get_applications()
+                # skip this project from the list if the application is confidential
+                # and the user has not access to it
+                if apps and not apps[0].allows_access(self.app.user):
+                    continue
+            projects.append(p)
+
+        return {'projects': projects}
 
     def get_project_form(self, **kwargs):
         dm = self.app.dm
