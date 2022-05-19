@@ -90,12 +90,11 @@ def register_user():
             pi_id=attrs['pi_id'],
             status='pending'
         )
-        # TODO: send notification email
-        # app.mm.send_mail(
-        #     [user.email],
-        #     "emhub: New account registered",
-        #     flask.render_template('email/account_registered.txt',
-        #                           user=user))
+        app.mm.send_mail(
+            [user.email],
+            "emhub: New account registered",
+            flask.render_template('email/account_registered.txt',
+                                  user=user))
         return user
 
     return handle_user(register)
