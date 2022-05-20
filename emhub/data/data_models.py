@@ -552,7 +552,7 @@ def create_data_models(dm):
             if user.is_manager:
                 return not self.confidential or user.id in self.access_list
 
-            user_apps = self._user.get_applications(status='all')
+            user_apps = user.get_applications(status='all')
             return any(self.id == a.id for a in user_apps)
 
         def json(self):
