@@ -107,11 +107,15 @@ class DataContent:
         return dataDict
 
     def get_lab_members(self, user):
-        if user.is_manager:
-            return [u.json() for u in self._get_facility_staff()]
+        if user.is_staff:
+            return [u.json() for u in self._get_facility_staff(user.staff_unit)]
 
         pi = user.get_pi()
-        return [] if pi is None else [u.json() for u in pi.get_lab_members()]
+        if pi is None:
+            return []
+        members = [u.json() for u in pi.get_lab_members()]
+        members.insert(0, pi.json())
+        return members
 
     def get_sessions_overview(self, **kwargs):
         sessions = self.app.dm.get_sessions(condition=self._get_display_condition(),
@@ -182,6 +186,11 @@ class DataContent:
     def get_session_details(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.get_session_by(id=session_id)
+        if session.booking:
+            a = session.booking.application
+            if not (a is None or a.allows_access(self.app.user)):
+                raise Exception("You do not have access to this session information. ")
+
         days = self.app.dm.get_session_data_deletion(session.name[:3])
         td = (session.start + dt.timedelta(days=days)) - self.app.dm.now()
         errors = []
@@ -198,16 +207,21 @@ class DataContent:
 
     def get_sessions_list(self, **kwargs):
         dm = self.app.dm  # shortcut
-        sessions = dm.get_sessions()
+        all_sessions = dm.get_sessions()
+        sessions = []
         bookingDict = {}
 
-        for s in sessions:
+        for s in all_sessions:
             if s.booking:
-                b = self.booking_to_event(s.booking,
-                                          prettyDate=True, piApp=True)
-                bookingDict[s.booking.id] = b
-            if not os.path.exists(dm.get_session_data_path(s)):
-                s.data_path = ''
+                a = s.booking.application
+                if a is None or a.allows_access(self.app.user):
+                    sessions.append(s)
+                    b = self.booking_to_event(s.booking,
+                                              prettyDate=True, piApp=True)
+                    bookingDict[s.booking.id] = b
+
+                    if not os.path.exists(dm.get_session_data_path(s)):
+                        s.data_path = ''
 
         return {
             'sessions': sessions,
@@ -223,6 +237,44 @@ class DataContent:
             u.project_codes = [p.code for p in u.get_applications()]
 
         return {'users': users}
+
+    def get_users_groups_cards(self, **kwargs):
+        # Retrieve all pi labs that belong to a given application
+
+        appCode = kwargs.get('application', '').upper()
+
+        def _userjson(u):
+            return {'id': u.id, 'name': u.name}
+
+        # Group users by PI
+        labs = []
+
+        if appCode:
+            piList = [u for u in self.app.dm.get_users()
+                      if u.is_pi and u.has_application(appCode)]
+
+            for u in piList:
+                if u.is_pi:
+                    lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
+                    labs.append(lab)
+
+            labs = sorted(labs, key=lambda lab: len(lab), reverse=True)
+
+        apps = sorted(self.app.dm.get_visible_applications(),
+                      key=lambda a: len(a.users), reverse=True)
+        applications = [a.json() for a in apps if a.is_active]
+
+        # if user.is_staff:
+        #     labs.append([_userjson(u) for u in self._get_facility_staff(user.staff_unit)])
+
+        return {
+            'labs': labs,
+            'applications': applications,
+            'application_code': appCode,
+        }
+
+    def get_users_groups(self, **kwargs):
+        return self.get_users_groups_cards(**kwargs)
 
     def get_user_form(self, **kwargs):
         user = self.app.dm.get_user_by(id=kwargs['user_id'])
@@ -246,8 +298,19 @@ class DataContent:
             pi_label = 'Unknown' if pi is None else pi.name
 
         data['pi_label'] = pi_label
+        data['user_statuses'] = self.app.dm.User.STATUSES
 
         return data
+
+    def get_register_user_form(self, **kwargs):
+        dm = self.app.dm  # shortcut
+
+        return {
+            'possible_pis': [{'id': u.id, 'name': u.name}
+                             for u in dm.get_users() if u.is_pi],
+            'pi_label': None,
+            'roles': dm.User.ROLES
+        }
 
     def get_resources_list(self, **kwargs):
         user = self.app.user
@@ -396,8 +459,7 @@ class DataContent:
         in_app = set(pi.id for pi in app.pi_list)
 
         return {'application': app,
-                'application_statuses': ['preparation', 'review', 'accepted',
-                                         'active', 'closed'],
+                'application_statuses': dm.Application.STATUSES,
                 'template_id': kwargs.get('template_id', None),
                 'microscopes': mics,
                 'pi_list': [{'id': u.id,
@@ -406,7 +468,8 @@ class DataContent:
                              'in_app': u.id in in_app,
                              'status': 'creator' if u.id == app.creator.id else ''
                              }
-                            for u in dm.get_users() if u.is_pi]
+                            for u in dm.get_users() if u.is_pi],
+                'users': [u for u in dm.get_users() if u.is_staff]
                 }
 
     def set_form_values(self, form, values):
@@ -426,6 +489,11 @@ class DataContent:
             for section in definition['sections']:
                 for p in section['params']:
                     set_value(p)
+
+    def get_experiment_form(self, **kwargs):
+        data = self.get_dynamic_form_modal(**kwargs)
+        data.update(self.get_grids_storage())
+        return data
 
     def get_dynamic_form_modal(self, **kwargs):
         form_id = int(kwargs.get('form_id', 1))
@@ -987,14 +1055,7 @@ class DataContent:
         return {'bookings': [self.booking_to_event(b) for b in bookings]}
 
     def get_raw_applications_list(self, **kwargs):
-        user = self.app.user
-
-        if user.is_manager:
-            applications = self.app.dm.get_applications()
-        else:
-            applications = user.get_applications(status='all')
-
-        return {'applications': applications}
+        return {'applications': self.app.dm.get_visible_applications()}
 
     def get_forms_list(self, **kwargs):
         return  {'forms': self.app.dm.get_forms()}
@@ -1118,10 +1179,20 @@ class DataContent:
 
         return data
 
-
     def get_projects_list(self, **kwargs):
         # FIXME Define access/permissions for other users
-        return {'projects': self.app.dm.get_projects()}
+        projects = []
+        for p in self.app.dm.get_projects():
+            pi = p.user.get_pi()
+            if pi:
+                apps = pi.get_applications()
+                # skip this project from the list if the application is confidential
+                # and the user has not access to it
+                if apps and not apps[0].allows_access(self.app.user):
+                    continue
+            projects.append(p)
+
+        return {'projects': projects}
 
     def get_project_form(self, **kwargs):
         dm = self.app.dm
@@ -1418,7 +1489,6 @@ class DataContent:
                              }
         owner = booking.owner
         owner_name = owner.name
-        pi = owner.get_pi()
         o = booking.operator  #  shortcut
         if o:
             operator_dict = {'id': o.id, 'name': o.name}
@@ -1426,7 +1496,7 @@ class DataContent:
             operator_dict = {'id': None, 'name': ''}
 
         creator = booking.creator
-        application = booking.application
+        a = booking.application
         user = self.app.user
         b_title = booking.title
         b_description = booking.description
@@ -1437,12 +1507,18 @@ class DataContent:
         # - application creators
         # - the owner and pi of the owner
         can_modify_list = [owner.id]
-        if application is not None:
-            can_modify_list.append(application.creator.id)
+
+        if a is not None:
+            can_modify_list.append(a.creator.id)
+
+        if user.is_manager and (a is None or a.allows_access(user)):
+            can_modify_list.append(user.id)
+
+        pi = owner.get_pi()
         if pi is not None:
             can_modify_list.append(pi.id)
 
-        user_can_modify = user.is_manager or user.id in can_modify_list
+        user_can_modify = user.id in can_modify_list
         user_can_view = user_can_modify or user.same_pi(owner)
         color = resource.color if resource else 'grey'
 
@@ -1460,16 +1536,15 @@ class DataContent:
                                        booking.slot_auth.get('applications', ''))
             user_can_book = user.can_book_slot(booking)
         else:
-
             # Show all booking information in title in some cases only
-            appStr = '' if application is None else ', %s' % application.code
+            appStr = '' if a is None else ', %s' % a.code
             extra = "%s%s" % (owner.name, appStr)
             if user_can_view:
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
-                if application:
-                    application_label = application.code
-                    if application.alias:
-                        application_label += "  (%s)" % application.alias
+                if a:
+                    application_label = a.code
+                    if a.alias:
+                        application_label += "  (%s)" % a.alias
             else:
                 title = "%s (%s)" % (resource_info['name'], extra)
                 b_title = "Hidden title"
@@ -1523,14 +1598,14 @@ class DataContent:
         else:
             return flask.url_for('images.static', filename='user-icon.png')
 
-    def _get_facility_staff(self):
+    def _get_facility_staff(self, unit):
         """ Return the list of facility personnel.
         First users in the list should  be the facility Head.
         """
         staff = []
 
         for u in self.app.dm.get_users():
-            if u.is_manager:
+            if u.is_staff and u.staff_unit == unit:
                 if 'head' in u.roles:
                     staff.insert(0, u)
                 else:
@@ -1624,8 +1699,8 @@ class DataContent:
                 lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
                 labs.append(lab)
 
-        if user.is_manager:
-            labs.append([_userjson(u) for u in self._get_facility_staff()])
+        if user.is_staff:
+            labs.append([_userjson(u) for u in self._get_facility_staff(user.staff_unit)])
 
         return labs
 

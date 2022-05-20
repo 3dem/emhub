@@ -1,0 +1,13 @@
+
+Dear {{ user.name }},
+
+An account for you has been created in the EMhub system.
+
+Please reset your EMhub password using the following link:
+
+{{ url_for('reset_password', _external=True) }}
+
+
+Sincerely,
+
+The CryoEM Facility Staff

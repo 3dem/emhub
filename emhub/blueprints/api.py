@@ -73,18 +73,55 @@ def logout():
 @api_bp.route('/create_user', methods=['POST'])
 @flask_login.login_required
 def create_user():
-    return create_item('user')
+    return handle_user(app.dm.create_user)
+
+
+@api_bp.route('/register_user', methods=['POST'])
+@flask_login.login_required
+def register_user():
+    def register(**attrs):
+        user = app.dm.create_user(
+            username=attrs['email'],
+            email=attrs['email'],
+            phone='',
+            password=os.urandom(24).hex(),
+            name=attrs['name'],
+            roles=attrs['roles'],
+            pi_id=attrs['pi_id'],
+            status='pending'
+        )
+        app.mm.send_mail(
+            [user.email],
+            "emhub: New account registered",
+            flask.render_template('email/account_registered.txt',
+                                  user=user))
+        return user
+
+    return handle_user(register)
 
 
 @api_bp.route('/update_user', methods=['POST'])
 @flask_login.login_required
 def update_user():
+    return handle_user(app.dm.update_user)
+
+
+@api_bp.route('/delete_user', methods=['POST'])
+@flask_login.login_required
+def delete_user():
+    return handle_user(app.dm.delete_user)
+
+
+@api_bp.route('/update_user_form', methods=['POST'])
+@flask_login.login_required
+def update_user_form():
     try:
         f = request.form
 
         attrs = {'id': f['user-id'],
                  'name': f['user-name'],
-                 'phone': f['user-phone']
+                 'phone': f['user-phone'],
+                 'status': f['user-status-select']
                  }
 
         roles = [v.replace('role-', '') for v in f if v.startswith('role-')]
@@ -92,7 +129,9 @@ def update_user():
             attrs['roles'] = roles
 
         if 'user-pi-select' in f:
-            attrs['pi_id'] = int(f['user-pi-select'])
+            pi_id = int(f['user-pi-select'])
+            if pi_id:
+                attrs['pi_id'] = pi_id
             # TODO: Validate if a user is not longer PI
             # check that there are not other users referencing this one as pi
             # still this will not be a very common case
@@ -159,7 +198,7 @@ def delete_template():
 @api_bp.route('/create_application', methods=['POST'])
 @flask_login.login_required
 def create_application():
-    return handle_template(app.dm.create_application)
+    return handle_application(app.dm.create_application)
 
 
 @api_bp.route('/get_applications', methods=['POST'])
@@ -172,6 +211,12 @@ def get_applications():
 @flask_login.login_required
 def update_application():
     return handle_application(app.dm.update_application)
+
+
+@api_bp.route('/delete_application', methods=['POST'])
+@flask_login.login_required
+def delete_application():
+    return handle_application(app.dm.delete_application)
 
 
 @api_bp.route('/import_application', methods=['POST'])
@@ -642,7 +687,7 @@ def get_pucks():
 @api_bp.route('/create_puck', methods=['POST'])
 @flask_login.login_required
 def create_puck():
-    return handle_puck(app.dm.create_puck,)
+    return handle_puck(app.dm.create_puck)
 
 
 @api_bp.route('/update_puck', methods=['POST'])
@@ -715,6 +760,14 @@ def handle_booking(result_key, booking_func, booking_transform=None):
         return [bt(b) for b in booking_func(**attrs)]
 
     return _handle_item(handle, result_key)
+
+
+def handle_user(user_func):
+    def handle(**attrs):
+        fix_dates(attrs, 'created')
+        return user_func(**attrs).json()
+
+    return _handle_item(handle, 'user')
 
 
 def handle_template(template_func):
@@ -827,9 +880,9 @@ def clean_files(paths):
             os.remove(p)
 
 
-def handle_puck(entry_func):
+def handle_puck(puck_func):
     def handle(**attrs):
-        return entry_func(**attrs).json()
+        return puck_func(**attrs).json()
 
     return _handle_item(handle, 'entry')
 

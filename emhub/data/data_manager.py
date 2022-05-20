@@ -104,6 +104,12 @@ class DataManager(DbManager):
 
         return self.__update_item(self.User, **attrs)
 
+    def delete_user(self, **attrs):
+        """ Delete a given user. """
+        user = self.__item_by(self.User, id=attrs['id'])
+        self.delete(user)
+        return user
+
     def get_users(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.User,
                                        condition=condition,
@@ -216,9 +222,18 @@ class DataManager(DbManager):
                                        orderBy=orderBy,
                                        asJson=asJson)
 
+    def get_visible_applications(self):
+        return [a for a in self.get_applications()
+                if a.allows_access(self._user)]
+
     def get_application_by(self, **kwargs):
         """ Return a single Application or None. """
         return self.__item_by(self.Application, **kwargs)
+
+    def delete_application(self, **attrs):
+        application = self.__item_by(self.Application, id=attrs['id'])
+        self.delete(application)
+        return application
 
     def __update_application_pi(self, application, pi_to_add, pi_to_remove):
         errorMsg = ""
@@ -283,27 +298,6 @@ class DataManager(DbManager):
         """
         attrs['special_update'] = self.__preprocess_application
         return self.__update_item(self.Application, **attrs)
-        # We don't use the self__update_item method due to the
-        # treatment of the pi_to_add/remove lists
-        #
-        # application = self.get_application_by(id=attrs['id'])
-        #
-        # if application is None:
-        #     raise Exception("Application not found with id %s"
-        #                     % (attrs['id']))
-        #
-        # self.__update_application_pi(application, **attrs)
-        #
-        # # Update application properties
-        # for attr, value in attrs.items():
-        #     if attr not in ['id', 'pi_to_add', 'pi_to_remove']:
-        #         setattr(application, attr, value)
-        #
-        # self.commit()
-        # self.log('operation', 'update_Application',
-        #          **self.json_from_dict(attrs))
-        #
-        # return application
 
     # ---------------------------- BOOKINGS -----------------------------------
     def create_booking(self,
@@ -360,7 +354,7 @@ class DataManager(DbManager):
         repeater = RepeatRanges(repeat, attrs) if repeat != 'no' else None
 
         def update(b):
-            self.__check_cancellation(b)
+            self.__check_cancellation(b, attrs)
 
             for attr, value in attrs.items():
                 if attr != 'id':
@@ -1070,7 +1064,7 @@ class DataManager(DbManager):
         else:
             booking.application_id = None
 
-    def __check_cancellation(self, booking):
+    def __check_cancellation(self, booking, attrs=None):
         """ Check if this booking can be updated or deleted.
         Normal users can only delete or modify the booking up to X hours
         before the starting time. The amount of hours is defined by the
@@ -1086,10 +1080,19 @@ class DataManager(DbManager):
         now = self.now()
         latest = booking.resource.latest_cancellation
 
+        def _error(action):
+            raise Exception('This booking can not be %s. \n'
+                            'Should be %d hours in advance. '
+                            % (action, latest))
+
+        start, end = booking.start, booking.end
         if (not self._user.is_manager
-            and booking.start - dt.timedelta(hours=latest) < now):
-            raise Exception('This booking can not be updated/deleted. \n'
-                            'Should be %d hours in advance. ' % latest)
+            and start - dt.timedelta(hours=latest) < now):
+            if attrs:  # Update case, where we allow modification except dates
+                if start != attrs['start'] or end != attrs['end']:
+                   _error('updated')
+            else:  # Delete case
+                _error('deleted')
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
