@@ -1,0 +1,179 @@
+<!-- ============================================================== -->
+<!-- Training Form Modal Content -->
+<!-- ============================================================== -->
+{% set is_manager = current_user.is_manager %}
+{% set readonly = '' if is_manager else 'readonly' %}
+{% set disabled = '' if is_manager else 'disabled' %}
+{% set new = False if project.id else True%}
+{% set active = 'checked' if project.status == 'active' else '' %}
+
+<div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="training-modal-title">
+                {% if new %}
+                    New EM Training
+                {% else %}
+                    EM Training (id={{ project.id }})
+                {% endif %}
+            </h3>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <!-- Application Form -->
+            <form id="training-form" class="needs-validation" novalidate>
+                <input type="hidden" id="project-id" name="project-id" value="{{ project.id }}">
+            <!-- Status -->
+                {% if new %}
+                    <input type="hidden" id="project-status" name="project-status" value="active">
+                {% else %}
+                    <div class="row">
+                        <div class="col-md-12 mb-0 form-group">
+                            <label class="col-form-label">Active</label>
+                            <div class="switch-button switch-button-success">
+                                <input type="checkbox" name="project-status" id="project-status" {{ active }}>
+                                <span>
+                                    <label for="project-status"></label>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                <div class="row">
+                    <!-- User Column -->
+                    <div class="col-md-6 mb-3 form-group">
+                        <label for="project-user-select" class="col-form-label">User</label>
+                        {% if is_manager %}
+                            <select required id="project-user-select" class="selectpicker show-tick form-control" data-live-search="true" value="{{ project.user.id }}">
+                                {% for lab in possible_owners %}
+                                    <option data-divider="true"></option>
+                                    <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
+                                    {% for u in lab[1:] %}
+                                        <option value="{{u['id']}}">{{u['name']}}</option>
+                                    {% endfor %}
+                                {% endfor %}
+                            </select>
+                        {% else %}
+                            <select required id="project-user-select" class="selectpicker form-control" disabled value="{{ project.user.id }}">
+                                <option value="{{ current_user.id }}">{{ current_user.name }}</option>
+                            </select>
+                        {% endif %}
+                    </div>
+                    <!-- Route Column -->
+                    <div class="col-md-6 mb-3 form-group">
+                        <label for="project-title" class="col-form-label">Training route</label>
+                        <select required id="project-title" class="selectpicker show-tick form-control" value="{{ project.title }}">
+                            <option value="basic" selected="{{ project.title }}">Basic</option>
+                            <option value="advanced">Advanced</option>
+                            <option value="collaboration">Collaboration</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <!-- Resources Column -->
+                    <div class="col-md-6 mb-3 form-group">
+                        <label for="project-resources" class="col-form-label">Microscopes</label>
+                        <select required id="project-resources" class="selectpicker show-tick form-control" data-live-search="true" multiple value="{{ project.extra['resources'] }}">
+                            {% for r in resources %}
+                                <option value="{{r['id']}}">{{r['name']}}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <!-- Samples Column -->
+                    <div class="col-md-6 mb-3 form-group">
+                        <label class="col-form-label">Samples ready</label>
+                        <div class="form-control" style="border: none">
+                            <label class="custom-control custom-checkbox custom-control-inline">
+                                <input type="checkbox" class="custom-control-input" id="has_samples_rt" checked="{{ project.extra['samples']['rt'] }}">
+                                <span class="custom-control-label">Negatively stained</span>
+                            </label>
+                            <label class="custom-control custom-checkbox custom-control-inline">
+                                <input type="checkbox" class="custom-control-input" id="has_samples_cryo" checked="{{ project.extra['samples']['cryo'] }}">
+                                <span class="custom-control-label">Cryo</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Description Row -->
+                <div class="form-group" id="description-row" style="display: none">
+                    <label for="project-description" class="col-form-label">Project description</label>
+                    <textarea class="form-control" id="project-description">{{ project.description }}</textarea>
+                </div>
+
+                <!-- Experience Row -->
+                <div class="form-group">
+                    <label for="project-experience" class="col-form-label">Previous experience</label>
+                    <textarea required class="form-control" id="project-experience">{{ project.extra['experience'] }}</textarea>
+                    <div class="invalid-feedback">Field cannot be empty</div>
+                </div>
+
+                <!-- Acknowledgement boxes -->
+                {% if new %}
+                    <div class="custom-control custom-checkbox">
+                        <input required type="checkbox" class="custom-control-input" id="ack0">
+                        <label for="ack0" class="custom-control-label">I have 12 months or more remaining at LMB</label>
+                        <div class="invalid-feedback">You must agree before submitting</div>
+                    </div>
+                    <div class="custom-control custom-checkbox">
+                        <input required type="checkbox" class="custom-control-input" id="ack1">
+                        <label for="ack1" class="custom-control-label">I agree to follow the rules of the facility and to use it in a way that is respectful to the staff and other users</label>
+                        <div class="invalid-feedback">You must agree before submitting</div>
+                    </div>
+                    <div class="custom-control custom-checkbox">
+                        <input required type="checkbox" class="custom-control-input" id="ack2">
+                        <label for="ack2" class="custom-control-label">I agree to include the following statement in the acknowledgement section of any publications that result from use of the facility for sample preparation, screening or data collection: <b>"We acknowledge the MRC - Laboratory of Molecular Biology Electron Microscopy Facility for access and support of electron microscopy sample preparation and data collection."</b></label>
+                        <div class="invalid-feedback">You must agree before submitting</div>
+                    </div>
+                    <div class="custom-control custom-checkbox">
+                        <input required type="checkbox" class="custom-control-input" id="ack3">
+                        <label for="ack3" class="custom-control-label">If any staff member contributes intellectually or with a large investment of their time, I agree I will acknowledge that contribution appropriately</label>
+                        <div class="invalid-feedback">You must agree before submitting</div>
+                    </div>
+                {% endif %}
+            </form>
+            <!-- end Application Form -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="project-btn-cancel" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+            {% if is_manager %}
+                {% set btnOkText = "Update" if project.id else "Create" %}
+                <button class="btn btn-outline-dark" onclick="validateAndSubmit()">{{ btnOkText }}</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<!-- ============================================================== -->
+<!-- End of Training Form Modal Content -->
+<!-- ============================================================== -->
+
+<script>
+    (function(window, document, $, undefined) {
+        "use strict";
+
+        $('select').selectpicker();
+        $('#project-user-select').selectpicker('val', {{ project.user.id }});
+
+        $('#project-title').on('changed.bs.select', function (e, clickedIndex, isSelected, previousValue) {
+            var selected = e.target.value;
+            if(selected === "basic")
+            {
+                $('#description-row').remove();
+            }
+            else {
+                $('#description-row').show();
+            }
+        });
+
+    })(window, document, window.jQuery);
+
+    function validateAndSubmit() {
+        var form = document.getElementById('training-form');
+        check = form.checkValidity();
+        form.classList.add('was-validated');
+
+        if(check) {onTrainingOkButtonClick()}
+    }
+</script>

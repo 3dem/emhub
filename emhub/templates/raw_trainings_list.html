@@ -4,7 +4,7 @@
     {% set title = "Trainings List" %}
     {% set navigation = [('Trainigs', '')] %}
     {% include 'include_header.html' %}
-    {%  set is_admin = current_user.is_admin %}
+    {% set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
 
     <!-- table row -->
@@ -15,7 +15,7 @@
             <div class="card">
                 <div class="card-body">
                     <div class="col-12 mb-5">
-                        <a href="javascript:showTrainingForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Submit Training application</a>
+                        <a href="javascript:showTrainingForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i>Submit Training application</a>
                     </div>
                     <div class="table-responsive">
                         <table id="trainings-table" class="table">

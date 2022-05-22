@@ -940,7 +940,7 @@ def create_data_models(dm):
         def user_can_edit(self):
             """ True if the user of the project can edit it (add/modify/delete notes)
             """
-            return  self.__getExtra('user_can_edit', False)
+            return self.__getExtra('user_can_edit', False)
 
         @user_can_edit.setter
         def user_can_edit(self, value):

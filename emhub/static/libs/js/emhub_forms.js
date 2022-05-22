@@ -176,3 +176,30 @@ function deleteTraining(training_id) {
                            {id: training_id}, projectAjaxDone);
         });
 } // function deleteTraining
+
+function onTrainingOkButtonClick() {
+    var extraJson = '{"is_training": true,' +
+        '"resources": [],' +
+        '"samples": {"rt": false, "cryo": false},' +
+        '"experience": ""' +
+        '}';
+    var extra = JSON.parse(extraJson);
+
+    extra.resources = $('#project-resources').val();
+    extra.experience = $('#project-experience').val();
+    extra.samples.rt = document.getElementById('has_samples_rt').checked;
+    extra.samples.cryo = document.getElementById('has_samples_cryo').checked;
+
+    var project = {
+        id: parseInt($('#project-id').val()),
+        status: $('#project-status').val(),
+        user_id: $('#project-user-select').selectpicker('val'),
+        title: $('#project-title').val(), // route
+        description: $('#project-description').val(),
+        extra: extra
+    };
+
+    console.log(project);
+
+    send_ajax_json(Api.get('project', project.id), project, projectAjaxDone);
+}  // function onTrainingOkButtonClick

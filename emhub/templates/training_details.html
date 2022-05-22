@@ -1,0 +1,141 @@
+
+<div class="container-fluid  dashboard-content">
+    <!-- Header -->
+    {% set pi = project.user.get_pi() %}
+    {% set project_prefix = 'Project ' + project.id|string %}
+    {% set pi_prefix = (pi.name + '/ ') if pi else ' '  %}
+    {% set title = project_prefix + ": " + pi_prefix + project.user.name %}
+    {% set navigation = [('Projects', url_for_content('projects_list')), (project_prefix, '')] %}
+    {% include 'include_header.html' %}
+    {% set is_admin = current_user.is_admin %}
+    {% set is_manager = current_user.is_manager %}
+
+    {% set can_edit = is_manager or (project.user_can_edit and current_user == project.user) or current_user == project.creation_user %}
+
+    <input type="hidden" value="{{ project.id }}", id="project-id">
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+
+    <div class="row">
+        <div class="col-12">
+            {% if can_edit %}
+            <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <i class="fas fa-plus-circle"></i> Add Entry </a>
+            <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
+                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'grids_preparation')">Grid Preparation</a>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'grids_storage')">Grid Storage</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'screening')">Screening</a>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'data_acquisition')">Data Acquisition</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'note')">Note</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+    <section class="cd-timeline js-cd-timeline">
+
+<div class="cd-timeline__container">
+
+        <!-- Block 1 -->
+    {% for entry in entries %}
+        {% set entry_type = entry_types[entry.type] %}
+        <div class="cd-timeline__block js-cd-block">
+            <div class="cd-timeline__img cd-timeline__{{ entry_type['imageClass'] }} js-cd-img">
+                <div class="fa-2x ml-3 mt-2">
+                <i class="{{ entry_type['iconClass'] }}" data-fa-transform="grow-6 right-2 down-2"></i>
+                </div>
+            </div>
+
+            <div class="cd-timeline__content js-cd-content pr-0">
+
+                <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
+                    <div class="col-8 align-items-center justify-content-start"> <h3>{{ entry_type['label'] }}</h3></div>
+                    {% if can_edit %}
+                        <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-edit"></i>   </a></div>
+                        <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
+                        <div class="col-1">
+                            {% if is_manager or current_user == entry.creation_user %}
+                                <a href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i></a>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="col-2"></div>
+                        <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-eye"></i>   </a></div>
+                    {% endif %}
+                    {% if 'report' in entry_type %}
+                        <div class="col-1"><a href="javascript:showEntryReport({{ entry.id }})"><i class="fas fa-file-alt"></i> </a></div>
+                    {% endif %}
+                </div>
+
+                <hr class="mt-0"/>
+
+                <div class="row col-12  justify-content-start">
+                    <h4 style="color: gray">{{ entry.title }}</h4>
+                </div>
+
+                <br/>
+                <div class="row col-12  justify-content-start pr-0">
+                    Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.last_update_user.name }}</span>, {{ entry.last_update_date|pretty_datetime }}
+                </div>
+                <div class="row col-12  justify-content-start pr-0">
+                    Created: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.creation_user.name }}</span>, {{ entry.creation_date|pretty_datetime }}
+                </div>
+
+            <span class="cd-timeline__date">{{ entry.date|pretty_date }}</span>
+            </div>
+        </div>
+
+    {% endfor %}
+
+    <!-- Project Block -->
+    <div class="cd-timeline__block js-cd-block">
+        <div class="cd-timeline__img cd-timeline__img--movie js-cd-img">
+            <div class="fa-2x ml-3 mt-2">
+            <i class="fas fa-book fa-inverse" data-fa-transform="grow-6 right-2 down-2"></i>
+            </div>
+        </div>
+        <div class="cd-timeline__content js-cd-content">
+
+            <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
+                <div class="col-11 align-items-center justify-content-start"> <h3>Project Creation</h3></div>
+                <div class="col-1"><a href="javascript:showProjectForm({{ project.id }}, 'entry-modal')"><i class="fas fa-edit"></i></a></div>
+            </div>
+
+            <hr class="mt-0"/>
+
+            <div class="row col-12  justify-content-start">
+                <h4 style="color: gray">{{ project.title }}</h4>
+            </div>
+
+            <br/>
+            <div class="row col-12  justify-content-start pr-0">
+                Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.last_update_user.name }}</span>, {{ project.last_update_date|pretty_datetime }}
+            </div>
+            <div class="row col-12  justify-content-start pr-0">
+                Creation: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ project.creation_user.name }}</span>, {{ project.creation_date|pretty_datetime }}
+            </div>
+
+            <span class="cd-timeline__date">{{ project.date|pretty_date }}</span>
+
+        </div>
+    </div>
+
+</div>
+
+    </section>
+
+    </div>
+    </div>
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Entry Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="entry-modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+</div>
+

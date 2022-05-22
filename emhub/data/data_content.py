@@ -1139,9 +1139,14 @@ class DataContent:
             if not self.app.user.is_manager:
                 project.creation_user = project.user = user
 
+        mics = [{'id': r.id,
+                 'name': r.name,
+                 } for r in dm.get_resources() if r.is_microscope]
+
         return {
             'project': project,
-            'possible_owners': self.get_pi_labs()
+            'possible_owners': self.get_pi_labs(),
+            'resources': mics
         }
 
     get_training_form = get_project_form
@@ -1393,7 +1398,7 @@ class DataContent:
 
     def get_raw_trainings_list(self, **kwargs):
         # FIXME Define access/permissions for other users
-        result = [p for p in self.app.dm.get_projects() if p.extra.get("is_training", True)]
+        result = [p for p in self.app.dm.get_projects() if p.extra.get("is_training", False)]
 
         return {'trainings': result}
 
