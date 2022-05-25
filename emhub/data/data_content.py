@@ -447,7 +447,8 @@ class DataContent:
             app = dm.Application(code='%s%05d' % (template.code_prefix.upper(), max_code + 1),
                                  title='', alias='', description='',
                                  creator=self.app.user,
-                                 resource_allocation=dm.Application.DEFAULT_ALLOCATION)
+                                 resource_allocation=dm.Application.DEFAULT_ALLOCATION,
+                                 extra={})
 
         # Microscopes info to setup some permissions on the Application form
         mics = [{'id': r.id,

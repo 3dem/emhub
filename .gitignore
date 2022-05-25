@@ -11,6 +11,8 @@ htmlcov/
 
 dist/
 build/
+_build/
+html/
 *.egg-info/
 
 .idea/*

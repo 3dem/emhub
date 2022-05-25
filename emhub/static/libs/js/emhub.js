@@ -505,7 +505,12 @@ function table_addRow(table_id){
     var rowTemplate = table_getTemplateRow(table_id);
     var newRow = table_createNewRow(table_id);
     rowTemplate.parentNode.appendChild(newRow);
-    $('.data-row select').selectpicker('refresh');
+    //$('.data-row select').selectpicker('refresh');
+    $(newRow).find(' select').each(function () {
+         $(this).addClass('selectpicker');
+            $(this).selectpicker('refresh');
+     });
+
     return newRow;
 }
 
@@ -541,23 +546,16 @@ function table_deleteRows(table_id){
 
 function table_copyRows(table_id){
     var rows = table_getSelectedRows(table_id);
+
     if (rows.length > 0) {
-
-        var lastPosition = null;
-        for (var row of rows)
-            lastPosition = row.nextSibling;
-
-        for (var row of rows){
-            var newRow = table_createNewRow(table_id);
+        var rowValues = []
+        for (var row of rows) {
             var values = row_getValues(row);
-            row.parentElement.insertBefore(newRow, lastPosition);
-            $('#' + table_id).find('.data-row select').each(function () {
-                $(this).addClass('selectpicker');
-            });
-            row_setValues(newRow, values);
+            console.log(values);
+            if (!jQuery.isEmptyObject(values))
+                rowValues.push(values);
         }
-
-        $('.selectpicker').selectpicker('render');
+        table_setRowValues(table_id, rowValues);
     }
     else
         showError("Select rows to Clone");
@@ -581,20 +579,27 @@ function table_rowsToClipboard(table_id) {
     }
 }
 
+/* Set row values, filling empty rows or adding new ones
+* Used from clipboard or duplicating rows.
+*/
+function table_setRowValues(table_id, rowValues) {
+    var emptyRows = table_getEmptyRows(table_id);
+    console.log(rowValues);
+    for (var i = 0; i < rowValues.length; ++i){
+        var values = rowValues[i];
+
+        var row = i < emptyRows.length ? emptyRows[i] : table_addRow(table_id);
+        row_setValues(row, values);
+    }
+    $('.selectpicker').selectpicker('render');
+}
+
 function table_clipboardToRows(table_id) {
     if (navigator.clipboard){
             //var text = navigator.clipboard.readText();
             navigator.clipboard.readText().then(
                 clipText => {
-                    var rowValues = JSON.parse(clipText);
-                    var emptyRows = table_getEmptyRows(table_id);
-
-                    for (var i = 0; i < rowValues.length; ++i){
-                        var values = rowValues[i];
-
-                        var row = i < emptyRows.length ? emptyRows[i] : table_addRow(table_id);
-                        row_setValues(row, values);
-                    }
+                    table_setRowValues(table_id, JSON.parse(clipText));
 
             }).catch(err => {
                 showError('Something went wrong' + err);
