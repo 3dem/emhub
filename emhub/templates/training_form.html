@@ -65,9 +65,10 @@
                     <div class="col-md-6 mb-3 form-group">
                         <label for="project-title" class="col-form-label">Training route</label>
                         <select required id="project-title" class="selectpicker show-tick form-control" value="{{ project.title }}">
-                            <option value="basic" selected="{{ project.title }}">Basic</option>
-                            <option value="advanced">Advanced</option>
-                            <option value="collaboration">Collaboration</option>
+                            {% for opt in ["basic", "advanced", "collaboration"] %}
+                            {% set selected = "selected" if project.title == opt else "" %}
+                            <option value="{{ opt }}" {{ selected }}>{{ opt.capitalize() }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </div>
@@ -77,7 +78,8 @@
                         <label for="project-resources" class="col-form-label">Microscopes</label>
                         <select required id="project-resources" class="selectpicker show-tick form-control" data-live-search="true" multiple value="{{ project.extra['resources'] }}">
                             {% for r in resources %}
-                                <option value="{{r['id']}}">{{r['name']}}</option>
+                                {% set selected = "selected" if r['id'] in project.extra['resources'] else "" %}
+                                <option value="{{r['id']}}" {{ selected }}>{{r['name']}}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -86,11 +88,13 @@
                         <label class="col-form-label">Samples ready</label>
                         <div class="form-control" style="border: none">
                             <label class="custom-control custom-checkbox custom-control-inline">
-                                <input type="checkbox" class="custom-control-input" id="has_samples_rt" checked="{{ project.extra['samples']['rt'] }}">
+                                {% set checked="checked" if (not new and project.extra['samples']['rt'] == true) else "" %}
+                                <input type="checkbox" class="custom-control-input" id="has_samples_rt" {{ checked }}>
                                 <span class="custom-control-label">Negatively stained</span>
                             </label>
                             <label class="custom-control custom-checkbox custom-control-inline">
-                                <input type="checkbox" class="custom-control-input" id="has_samples_cryo" checked="{{ project.extra['samples']['cryo'] }}">
+                                {% set checked="checked" if (not new and project.extra['samples']['cryo'] == true) else "" %}
+                                <input type="checkbox" class="custom-control-input" id="has_samples_cryo" {{ checked }}>
                                 <span class="custom-control-label">Cryo</span>
                             </label>
                         </div>

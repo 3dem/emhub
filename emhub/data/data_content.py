@@ -1172,6 +1172,8 @@ class DataContent:
             'entry_types': self.get_entry_types()
         }
 
+    get_training_details = get_project_details
+
     def get_entry_types(self):
         return {
             'grids_preparation':

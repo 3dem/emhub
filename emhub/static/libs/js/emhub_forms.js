@@ -185,7 +185,7 @@ function onTrainingOkButtonClick() {
         '}';
     var extra = JSON.parse(extraJson);
 
-    extra.resources = $('#project-resources').val();
+    extra.resources = $('#project-resources').val().map(Number);
     extra.experience = $('#project-experience').val();
     extra.samples.rt = document.getElementById('has_samples_rt').checked;
     extra.samples.cryo = document.getElementById('has_samples_cryo').checked;
@@ -198,8 +198,6 @@ function onTrainingOkButtonClick() {
         description: $('#project-description').val(),
         extra: extra
     };
-
-    console.log(project);
 
     send_ajax_json(Api.get('project', project.id), project, projectAjaxDone);
 }  // function onTrainingOkButtonClick

@@ -1,15 +1,11 @@
-
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = "Trainings List" %}
-    {% set navigation = [('Trainigs', '')] %}
+    {% set navigation = [('Trainings', '')] %}
     {% include 'include_header.html' %}
-    {% set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
 
     <!-- table row -->
-    <input type="hidden" value="09:00:00.000", id="hour_id">
-
     <div class="row">
         <div class="col-12">
             <div class="card">
@@ -21,14 +17,14 @@
                         <table id="trainings-table" class="table">
                             <thead>
                             <tr>
-                                <th>id</th>
-                                <th>created</th>
-                                <th>status</th>
-                                <th>user/pi</th>
-                                <th>route</th>
-                                <th>last updated</th>
-                                <th>last updated by</th>
-                                <th>actions</th>
+                                <th>Id</th>
+                                <th>Created</th>
+                                <th>Status</th>
+                                <th>User/PI</th>
+                                <th>Route</th>
+                                <th>Last updated</th>
+                                <th>Last updated by</th>
+                                <th>Actions</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -40,10 +36,8 @@
                                     <tr style="color: {{ color }}">
                                         <td>
                                             {% set badge_type = 'success' if status == 'active' else 'light' %}
-    {#                                        if status == 'disabled' else 'info') %}#}
                                             <a href="{{ url_for_content('training_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Training {{ p.id }}</a>
                                         </td>
-
                                         <td>{{ p.date|pretty_date }}</td>
                                         <td>{{ p.status }}</td>
                                         <td>{{ p.user.name }}/{{ p.user.get_pi().name }}</td>
@@ -53,19 +47,16 @@
                                         <td>
                                             <a href="{{ url_for_content('training_details', project_id=p.id) }}" class="btn btn-outline-light">
                                                 <i class="fa fa-eye"></i></a>
-
                                             {% if is_manager %}
-                                                 <a href="javascript:showTrainingForm({{ p['id'] }})" class="btn btn-outline-light">
-                                                     <i class="far fa-edit"></i></a>
-                                                 <a href="javascript:deleteTraining({{ p['id'] }})" class="btn btn-outline-light">
-                                                     <i class="far fa-trash-alt"></i></a>
+                                                <a href="javascript:showTrainingForm({{ p['id'] }})" class="btn btn-outline-light">
+                                                    <i class="far fa-edit"></i></a>
+                                                <a href="javascript:deleteTraining({{ p['id'] }})" class="btn btn-outline-light">
+                                                    <i class="far fa-trash-alt"></i></a>
                                             {% endif %}
                                         </td>
-
                                     </tr>
                                 {% endif %}
                             {% endfor %}
-
                             </tbody>
                         </table>
                     </div>
@@ -74,7 +65,6 @@
         </div>
     </div>
     <!-- end table row -->
-
 </div>
 
 <!-- ============================================================== -->
@@ -86,14 +76,13 @@
 
 <script>
 
-$('#trainings-table').DataTable({
-    sDom: 'lfrtip',
-    paging: true,
-    info: false,
-    order: [[ 5, "desc" ]],
-    pageLength: 25
-    //ordering: false
-});
-
+    $('#trainings-table').DataTable({
+        sDom: 'lfrtip',
+        paging: true,
+        info: false,
+        order: [[ 5, "desc" ]],
+        pageLength: 25
+        //ordering: false
+    });
 
 </script>
