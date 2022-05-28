@@ -1166,10 +1166,15 @@ class DataContent:
 
         entries = sorted(project.entries, key=lambda e: e.date, reverse=True)
 
+        mics = [{'id': r.id,
+                 'name': r.name,
+                 } for r in self.app.dm.get_resources() if r.is_microscope]
+
         return {
             'project': project,
             'entries': entries,
-            'entry_types': self.get_entry_types()
+            'entry_types': self.get_entry_types(),
+            'resources': mics
         }
 
     get_training_details = get_project_details
@@ -1204,6 +1209,11 @@ class DataContent:
                  'imageClass': "img--location",
                  'report': "report_data_acquisition.html"
                  },
+            'training_module':
+                {'label': 'Training module',
+                 'group': 2,
+                 'iconClass': "fas fa-th fa-inverse",
+                 'imageClass': "img--picture"},
             'note':
                 {'label': 'Note',
                  'group': 3,

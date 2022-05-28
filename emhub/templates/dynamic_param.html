@@ -52,9 +52,18 @@
             <div ><button type="button" class="btn btn-sm btn-outline-light ml-2" onclick="filebrowser_onBrowse(this)" id="{{ param_id }}--browse"><i class="far fa-folder-open"></i>   </button></div>
             <input type="file" required="" capture id="{{ param_id }}--file" class="browser-file-input" hidden>
         </div>
-
+    {% elif type == 'date' %}
+        {% set date_param = data_key.split("=")[1].strip() %}
+        <input type="text" required="" class="form-control datetimepicker-input" data-target="#{{ date_param }}" id="{{ date_param }}" data-toggle="datetimepicker" />
     {% else %}
         <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
     {% endif %}
 {% endif %}
 
+<script>
+
+    $('.datetimepicker-input').datetimepicker({
+        format: 'YYYY/MM/DD'
+    });
+
+</script>

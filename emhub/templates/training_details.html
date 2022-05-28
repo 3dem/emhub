@@ -2,17 +2,17 @@
     <!-- Header -->
     {% set pi = project.user.get_pi() %}
     {% set project_prefix = 'Training ' + project.id|string %}
-    {% set pi_prefix = (pi.name + '/ ') if pi else ' '  %}
+    {% set pi_prefix = (pi.name + ' / PI ') if pi else ' '  %}
     {% set title = project_prefix + ": " + pi_prefix + project.user.name %}
     {% set navigation = [('Trainings', url_for_content('raw_trainings_list')), (project_prefix, '')] %}
     {% include 'include_header.html' %}
     {% set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
 
-    {% set can_edit = is_manager or (project.user_can_edit and current_user == project.user) or current_user == project.creation_user %}
+    {% set can_edit = is_manager %}
 
-    <input type="hidden" value="{{ project.id }}", id="project-id">
-    <input type="hidden" value="09:00:00.000", id="hour_id">
+    <input type="hidden" value="{{ project.id }}" id="project-id">
+    <input type="hidden" value="09:00:00.000" id="hour_id">
 
     <div class="row">
         <div class="col-12">
@@ -20,11 +20,7 @@
                 <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                     <i class="fas fa-plus-circle"></i> Add Entry </a>
                 <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
-                    <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'grids_preparation')">Grid Preparation</a>
-                    <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'grids_storage')">Grid Storage</a>
-                    <div class="dropdown-divider"></div>
-                    <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'screening')">Screening</a>
-                    <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'data_acquisition')">Data Acquisition</a>
+                    <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'training_module')">Training session</a>
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'note')">Note</a>
                 </div>
@@ -85,7 +81,6 @@
                                 <span class="cd-timeline__date">{{ entry.date|pretty_date }}</span>
                             </div>
                         </div>
-
                     {% endfor %}
 
                     <!-- Project Block -->
@@ -97,14 +92,28 @@
                         </div>
                         <div class="cd-timeline__content js-cd-content">
                             <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
-                                <div class="col-11 align-items-center justify-content-start"> <h3>New application</h3></div>
-                                <div class="col-1"><a href="javascript:showProjectForm({{ project.id }}, 'entry-modal')"><i class="fas fa-edit"></i></a></div>
+                                <div class="col-11 align-items-center justify-content-start"><h3>Application submitted</h3></div>
+                                <div class="col-1"><a href="javascript:showTrainingForm({{ project.id }}, 'entry-modal')"><i class="fas fa-edit"></i></a></div>
                             </div>
 
                             <hr class="mt-0"/>
 
-                            <div class="row col-12  justify-content-start">
-                                <h4 style="color: gray">Route: {{ project.title }}</h4>
+                            <div class="row col-12 justify-content-start">
+                                <h4 style="color: gray">
+                                    Training route: {{ project.title }}
+                                    <br/>
+                                    Samples ready: {{ "room temp" if project.extra['samples']['rt'] }} {{ ", cryo" if project.extra['samples']['cryo'] }}
+                                    {{ "None" if project.extra['samples']['rt'] == project.extra['samples']['cryo'] == False }}
+                                    <br/>
+                                    Microscopes:
+                                    <ul>
+                                        {% for r in resources %}
+                                            {% if r['id'] in project.extra['resources'] %}
+                                                <li>{{ r['name'] }}</li>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </ul>
+                                </h4>
                             </div>
 
                             <br/>
