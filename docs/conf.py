@@ -1,3 +1,5 @@
+import datetime as dt
+
 extensions = ['sphinx.ext.autodoc', 'jaraco.packaging.sphinx', 'rst.linker']
 
 master_doc = "index"
@@ -37,7 +39,14 @@ default_role = 'any'
 html_theme = 'furo'
 html_logo = "images/emhub-logo-top.svg"
 
+html_context = {
+    'last_updated': dt.datetime.now()
+}
+
+templates_path = ["templates"]
+
 html_theme_options = {
+
     "sidebar_hide_name": True,
     "light_css_variables": {
         "color-brand-primary": "#336790",  # "blue"
