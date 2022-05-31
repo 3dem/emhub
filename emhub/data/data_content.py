@@ -584,29 +584,19 @@ class DataContent:
 
         result = {'since': since}
 
-        app_code = None
-        if app_code is not None:
-            try:
-                app_code = app_code.upper()
-                app = self._import_order_from_portal(app_code)
-                result['order'] = app
-            except Exception as e:
-                result['errors'] = [str(e)]
+        ordersJson = self.app.sll_pm.fetchOrdersJson()
 
-        else:
-            ordersJson = self.app.sll_pm.fetchOrdersJson()
+        def _filter(o):
+            s = o['status']
+            code = o['identifier'].upper()
+            app = self.app.dm.get_application_by(code=code)
+            o['app'] = app.id if app else 'None'
+            modified = datetime_from_isoformat(o['modified'])
 
-            def _filter(o):
-                s = o['status']
-                code = o['identifier'].upper()
-                app = self.app.dm.get_application_by(code=code)
-                created = datetime_from_isoformat(o['created'])
+            return ((s == 'accepted' or s == 'processing')
+                    and app is None and modified >= since)
 
-                return ((s == 'accepted' or s == 'processing') and
-                        app is None and created >= since)
-                        #created.year == self.app.dm.now().year)
-
-            result['orders'] = [o for o in ordersJson if _filter(o)]
+        result['orders'] = [o for o in ordersJson if _filter(o)]
 
         return result
 
