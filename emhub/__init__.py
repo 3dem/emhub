@@ -132,6 +132,7 @@ def create_app(test_config=None):
         kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
         kwargs['possible_owners'] = app.dc.get_pi_labs()
         kwargs['possible_operators'] = app.dc.get_possible_operators()
+        kwargs['booking_types'] = app.dm.Booking.TYPES
         kwargs.update(app.dc.get_resources_list())
 
         return flask.render_template('main.html', **kwargs)
@@ -279,6 +280,7 @@ def create_app(test_config=None):
 
         if content_template in templates:
             kwargs['is_devel'] = app.is_devel
+            kwargs['booking_types'] = app.dm.Booking.TYPES
             return flask.render_template(content_template, **kwargs)
 
         error = {

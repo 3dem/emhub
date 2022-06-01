@@ -705,12 +705,16 @@ class DataContent:
                 print(">>>  None pi, user: ", b.owner.name)
                 continue
 
+            # Only take into account booking type (i.e no slot, downtime, etc)
+            if not b.is_booking:
+                continue
+
             try:
                 update_pi_info(apps_dict[app_id][pi.id], b)
                 update_pi_info(pi_dict[pi.id], b)
 
                 if b.total_cost == 0:
-                    print(">>> 0 cost booking1!!!")
+                    print(">>> 0 cost booking!!!")
                     print(b.json())
 
             except KeyError:
@@ -814,7 +818,7 @@ class DataContent:
             pi = b.owner.get_pi()
             return (b.resource.daily_cost > 0 and
                     b.start <= dm.now() and
-                    not b.is_slot and pi and pi.id == pi_user.id)
+                    b.is_booking and pi and pi.id == pi_user.id)
 
         entries = []
 
@@ -876,7 +880,7 @@ class DataContent:
         apps_dict = {a.id: [] for a in pi_user.get_applications()}
         all_bookings = []
         for b in bookings:
-            if b.get('pi_id', None) != pi_user.id:
+            if b.get('pi_id', None) != pi_user.id or b['type'] != 'booking':
                 continue
 
             app_id = b.get('app_id', None)
