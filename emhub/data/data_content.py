@@ -1519,6 +1519,9 @@ class DataContent:
 
         application_label = 'None'
 
+        if booking.type == 'special':
+            color = 'rgba(98,50,45,1.0)'
+            title = "%s (SPECIAL): %s" % (resource.name, b_title)
         if booking.type == 'downtime':
             color = 'rgba(181,4,0,1.0)'
             title = "%s (DOWNTIME): %s" % (resource.name, b_title)
