@@ -30,7 +30,8 @@
             {% set film = {'Carbon': 'C', 'Gold': 'Au', 'Other': 'Other'}[row['film_material']] %}
             {% set hole_size = row['hole_size'] %}
             {% set hole_size_prefix = '' if hole_size in ['Lacey', 'Multihole'] else 'R'  %}
-            {% set mesh = 'Other' if row['mesh'] == 'Other' else row['mesh'][0] %}
+            {% set m = row.get('mesh', 'No-mesh') %}
+            {% set mesh = m if m in ['Other', 'No-mesh'] else m[0] %}
             {% set grid_material = {'Copper': 'Cu', 'Gold': 'Au', 'Nickel': 'Ni', "Molybdenum": "Mo", 'Other': 'Other'}[row['grid_material']] %}
             {% set grid_type = '%s-%s %s-%s%s%s'|format(row['grid_manufacturer'], film, hole_size_prefix, hole_size, mesh, grid_material) %}
             {% do info[1].append(row['sample']) %}
