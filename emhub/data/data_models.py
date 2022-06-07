@@ -606,6 +606,8 @@ def create_data_models(dm):
         """Model for user accounts."""
         __tablename__ = 'bookings'
 
+        TYPES = ['booking', 'slot', 'downtime', 'maintenance', 'special']
+
         MAINTENANCE_LIST = ['cycle', 'installation', 'maintenance', 'afis']
         DEVELOPMENT_LIST = ['method', 'research', 'test', 'mikroed', 'microed', 'devel']
 
@@ -674,6 +676,10 @@ def create_data_models(dm):
             """
             td = self.end.date() - self.start.date() + dt.timedelta(days=1)
             return td.days
+
+        @property
+        def is_booking(self):
+            return self.type == 'booking'
 
         @property
         def is_slot(self):

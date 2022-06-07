@@ -143,18 +143,11 @@
                             <label class="col-sm-3 col-form-label text-sm-right">Booking Type</label>
                             <div class="col-sm-6">
                                 <div class="custom-controls-stacked">
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="booking-type-radio" checked="" class="custom-control-input" value="booking"><span class="custom-control-label">Booking </span>
-                                    </label>
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="booking-type-radio" class="custom-control-input" value="slot"><span class="custom-control-label">Slot</span>
-                                    </label>
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="booking-type-radio" class="custom-control-input" value="downtime"><span class="custom-control-label">Downtime</span>
-                                    </label>
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="booking-type-radio" class="custom-control-input" value="maintenance"><span class="custom-control-label">Maintenance</span>
-                                    </label>
+                                    {% for t in booking_types %}
+                                        <label class="custom-control custom-radio custom-control-inline">
+                                            <input type="radio" name="booking-type-radio" checked="" class="custom-control-input" value="{{ t }}"><span class="custom-control-label">{{ t }}</span>
+                                        </label>
+                                    {% endfor %}
                                 </div>
                             </div>
                         </div>
@@ -213,9 +206,9 @@
                         </div>
                     </div>
 
-                    <div class="form-group row" id="div-costs">
-                        <a href="javascript: showBookingCosts()" class="col-12 col-sm-3 col-form-label text-sm-right"><i class="far fa-money-bill-alt"></i> Booking Costs</a>
-                    </div>
+{#                    <div class="form-group row" id="div-costs">#}
+{#                        <a href="javascript: showBookingCosts()" class="col-12 col-sm-3 col-form-label text-sm-right"><i class="far fa-money-bill-alt"></i> Booking Costs</a>#}
+{#                    </div>#}
 
                 </div>
 
