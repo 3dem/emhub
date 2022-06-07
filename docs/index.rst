@@ -11,6 +11,8 @@ users,  applications, resource bookings, data collection sessions, monitoring, a
    Overview <overview>
    User Manual <user_manual/index>
    Developer Guide <developer_guide/index>
+   Installations <installations/index>
+
 
 
 

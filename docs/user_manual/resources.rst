@@ -3,91 +3,52 @@
 Resources
 =========
 
-User Types
-==========
+Resources in EMhub define "bookable items" with different properties and rules.
+Resources can represent instruments that are available and which use is coordinated via bookings.
+Different rules can be configured for different instruments. Resources can also be services
+that are offered to the facility users in some defined time slots.
 
-In EMhub there are four main types of users:
+Resource List
+=============
 
-#. Principal investigators
-#. Lab members
-#. Facility staff
-#. Admin/developers
+The list of resources can be reached from the ``Resources`` link in the left sidebar. The following
+table shows the resources in a table where the main properties are listed. This page requires
+to have admin or manager roles. Resource properties can not be changed by other users.
 
-Principal investigators
------------------------
-
-Principal investigator users are independent researchers that run a lab. In the system they should:
-
-* Have the **admin** role
-* Their PI field should be **None** (no one else is their PI)
-* Have a non-empty **Invoice reference** field in the portal
-* Belong to an existing Application in the Portal/EMhub (also called Bags)
-
-Lab members
------------
-
-Lab members should basically be associated with a given PI. Then, they will
-inherit the booking rights that their PI has (i.e associated Applications,
-booking slots, resources allocation quota, etc)
-
-Facility staff
---------------
-
-These users are **managers** or **admin** in the application and have the rights to
-do administrative tasks (eg. create or modify users, make special bookings,
-handle applications, etc)
-
-Admin/Developers
-----------------
-
-These users are **managers** or **admin** in the application and have the rights to
-do administrative tasks (eg. create or modify users, make special bookings,
-handle applications, etc)
-
-
-Registering new users
-=====================
-
-First of all, users need to register in the Application Portal as stated in `Booking Guideline
-<https://emhub.cryoem.se/pages/?page_id=guidelines>`_.
-
-Then, we (CryoEM-Sweden staff) should do:
-
-In the Portal:
---------------
-
-1. Check if it is PI, in which case it should mark **Yes** in the corresponding
-checkbox and provided a non-empty **Invoice Reference** field.
-2. If the user is not a PI, then provide the PI's email in the **Invoice Reference** field.
-
-In EMhub:
----------
-
-Import users page can be reached from the left panel in:
-
-ADMIN > Import from Portal > Import Users
-
-.. image:: https://github.com/delarosatrevin/scipion-session/wiki/images/import_users.png
+.. image:: https://github.com/3dem/emhub/wiki/images/resources-list.png
    :width: 100%
 
+From this page a new resource can be created. Also existing resources can be modified as shown in
+the next image. A new resource can be created as a copy of an existing one if they share some
+properties and only some need to be modified.
 
-If the is an error **error: Missing PI**, it means that the field for the **Invoice Reference**
-of this user is not properly set to a valid email of an existing PI in EMhub. This needs to be
- fixed in the Application Portal by editing the user information before importing the user.
-
-After there are some users for whom their PI has been detected, the "Show Ready Users" button
-can be clicked. Then it will show only the list of ready users and the button will change to
-"Import Users (X ready)".
-
-
-Adding PIs to an Application
-============================
-
-For PI users, one must also check that they belong to an exiting Application and if not, add them.
-For adding a PI to an Application, one must open the application and add the PI using its ID in the
-system.
-
-.. image:: https://github.com/delarosatrevin/scipion-session/wiki/images/adding_pi_application.png
+.. image:: https://github.com/3dem/emhub/wiki/images/resources-edit.png
    :width: 100%
 
+Basic Properties
+================
 
+.. csv-table:: **Basic Resource Parameters**
+   :widths: 10, 50
+
+   "**Name**", "Name of the resource that will be mainly used for display."
+   "**Status**", "*active* or *inactive*, in which case that resource can not be booked or used."
+   "**Tags**", "Free list of tag names that allows to group resources by categories. "
+   "**Icon image**", "Image file used as icon for the resource."
+   "**Color**", "Color to display the bookings related to this resource."
+
+
+Booking properties
+==================
+
+.. csv-table:: **Booking related Parameters**
+   :widths: 10, 50
+
+   "**Latest cancellation**", "Number of hours in advance that allows users to cancel a booking for this resource.
+   For example, a value of 48, means that bookings of this resources can be cancel just two days (48h) in advance.
+   A value of 0 means no restriction."
+   "**Minimum Booking time**", "Minimum amount of hours for bookings of this resources. Value 0 means no minimum. "
+   "**Maximum Booking time**", "Maximum amount of hours for bookings of this resources. Value 0 means no maximum. "
+   "**Daily cost**", "Cost of the usage of this resource in a one-day booking. This value is used for invoicing."
+   "**Requires Slot**", "If *Yes* all bookings of this resource should within an allowed `Slots`."
+   "**Requires Application**", "If *Yes* the user that is the `Owner` of the booking should have a valid `Application`."
