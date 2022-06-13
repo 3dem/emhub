@@ -1,4 +1,6 @@
 
+.. _scilifelab-users:
+
 =====
 Users
 =====
