@@ -80,15 +80,16 @@ def create_user():
 @flask_login.login_required
 def register_user():
     def register(**attrs):
+        email = attrs['email'].strip()
         user = app.dm.create_user(
-            username=attrs['email'],
-            email=attrs['email'],
+            username=email,
+            email=email,
             phone='',
             password=os.urandom(24).hex(),
             name=attrs['name'],
             roles=attrs['roles'],
             pi_id=attrs['pi_id'],
-            status='pending'
+            status='active'
         )
         app.mm.send_mail(
             [user.email],
