@@ -37,43 +37,18 @@ from pprint import pprint
 from emhub.client import open_client, config
 
 
-def list_entries():
+def list_forms(name=None):
     with open_client() as dc:
-        r = dc.request('get_entries', jsonData={})
-        for entry in r.json():
-            t = entry['type']
-            if t == 'grids_preparation':
-                extra = entry['extra']
-                table = extra.get('data', {}).get('grids_preparation_table', [])
-
-                if table:
-                    print('\n>>>>> Entry ', entry['id'])
-                    for row in table:
-                        pprint(row)
-
-
-def rename_col(row, old_col, new_col):
-    if old_col in row:
-        row[new_col] = row[old_col]
-        del row[old_col]
-
-def remove_key(obj, key):
-    if key in obj:
-        del obj[key]
+        r = dc.request('get_forms', jsonData={})
+        for form in r.json():
+            if not name or name == form['name']:
+                pprint(form)
 
 
 def update_universites():
     """
     Chalmers University of Technology
-    Karolinska Institutet
-    KTH Royal Institute of Technology
-    Linköping University
-    Lund University
-    Stockholm University
     Swedish University of Agricultural Sciences
-    Umeå University
-    University of Gothenburg
-    Uppsala University
     Örebro University
     Other Swedish University
     International University
@@ -83,8 +58,56 @@ def update_universites():
     Other Swedish organization
     Other international organization
     """
+    form = {
+        'definition': {
+            "params": [
+                    {
+                        "label": "Karolinska Institutet",
+                        "value": "ki.se"
+                    },
+                    {
+                        "label": "KTH Royal Institute of Technology",
+                        "value": "kth.se"
+                    },
+                    {
+                        "label": "Linköping University",
+                        "value": "liu.se"
+                    },
+                    {
+                        "label": "Lund University",
+                        "value": "lu.se"
+                    },
+                    {
+                        "label": "Stockholm University",
+                        "value": "su.se"
+                    },
+                    {
+                        "label": "Umeå University",
+                        "value": "umu.se"
+                    },
+                    {
+                        "label": "University of Gothenburg",
+                        "value": "gu.se"
+                    },
+                    {
+                        "label": "Uppsala University",
+                        "value": "uu.se"
+                    }
+                ],
+            'title': 'Universities'
+        },
+        'name': 'universities'
+    }
+    endpoint = 'create_form'
     with open_client() as dc:
-        pass
+        r = dc.request('get_forms', jsonData={})
+        for f in r.json():
+            if f['name'] == 'universities':
+                endpoint = 'update_form'
+                form['id'] = f['id']
+
+        r2 = dc.request(endpoint, jsonData={'attrs': form})
+        print(endpoint, ':', r2)
 
 
 def main():
@@ -100,7 +123,7 @@ def main():
     if update:
         update_universites()
     else:
-        list_entries()
+        list_forms('experiment')
 
 
 if __name__ == '__main__':
