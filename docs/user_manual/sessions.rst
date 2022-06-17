@@ -3,91 +3,64 @@
 Sessions
 ========
 
-User Types
-==========
+Sessions are related to the data acquisition in one of the microscopes. All sessions are related to a
+booking for the given microscope. A session stores information about where the acquired image files are
+stored and how the user can access them. In some cases, on-the-fly pre-processing of the data can also be
+available to a session.
 
-In EMhub there are four main types of users:
+A new session can be created from the ``New Session`` button that is shown in the microscope (in the Dashboard page)
+if there is a booking for it. After clicking the button, a new dialog will appear to confirm the session
+information and its creation (see image below).
 
-#. Principal investigators
-#. Lab members
-#. Facility staff
-#. Admin/developers
-
-Principal investigators
------------------------
-
-Principal investigator users are independent researchers that run a lab. In the system they should:
-
-* Have the **admin** role
-* Their PI field should be **None** (no one else is their PI)
-* Have a non-empty **Invoice reference** field in the portal
-* Belong to an existing Application in the Portal/EMhub (also called Bags)
-
-Lab members
------------
-
-Lab members should basically be associated with a given PI. Then, they will
-inherit the booking rights that their PI has (i.e associated Applications,
-booking slots, resources allocation quota, etc)
-
-Facility staff
---------------
-
-These users are **managers** or **admin** in the application and have the rights to
-do administrative tasks (eg. create or modify users, make special bookings,
-handle applications, etc)
-
-Admin/Developers
-----------------
-
-These users are **managers** or **admin** in the application and have the rights to
-do administrative tasks (eg. create or modify users, make special bookings,
-handle applications, etc)
-
-
-Registering new users
-=====================
-
-First of all, users need to register in the Application Portal as stated in `Booking Guideline
-<https://emhub.cryoem.se/pages/?page_id=guidelines>`_.
-
-Then, we (CryoEM-Sweden staff) should do:
-
-In the Portal:
---------------
-
-1. Check if it is PI, in which case it should mark **Yes** in the corresponding
-checkbox and provided a non-empty **Invoice Reference** field.
-2. If the user is not a PI, then provide the PI's email in the **Invoice Reference** field.
-
-In EMhub:
----------
-
-Import users page can be reached from the left panel in:
-
-ADMIN > Import from Portal > Import Users
-
-.. image:: https://github.com/delarosatrevin/scipion-session/wiki/images/import_users.png
+.. image:: https://github.com/3dem/emhub/wiki/images/session-new.png
    :width: 100%
 
+After the session is created, a green box will appears with the session id. Sometimes, more than one data acquisition
+can be done for the same booking, so more than one session can be created. One can click on the ``New Session`` button
+again and click `Yes` to the warning dialog. After created another session, more green boxes will be shown as in the
+following image.
 
-If the is an error **error: Missing PI**, it means that the field for the **Invoice Reference**
-of this user is not properly set to a valid email of an existing PI in EMhub. This needs to be
- fixed in the Application Portal by editing the user information before importing the user.
-
-After there are some users for whom their PI has been detected, the "Show Ready Users" button
-can be clicked. Then it will show only the list of ready users and the button will change to
-"Import Users (X ready)".
+.. image:: https://github.com/3dem/emhub/wiki/images/session-pills.png
+   :width: 50%
 
 
-Adding PIs to an Application
-============================
+Sessions List
+=============
 
-For PI users, one must also check that they belong to an exiting Application and if not, add them.
-For adding a PI to an Application, one must open the application and add the PI using its ID in the
-system.
+Facility staff can see all sessions in the ``Sessions List`` page (accessible from the ``Sessions`` link in the left
+toolbar). For non-staff users, only the sessions related to them will appear in the list.
 
-.. image:: https://github.com/delarosatrevin/scipion-session/wiki/images/adding_pi_application.png
+.. image:: https://github.com/3dem/emhub/wiki/images/sessions-list.png
    :width: 100%
 
+In this list, one can easily access the related booking to the session or go the :ref:`session details <session-details>`.
+Staff users can also delete sessions.
 
+
+.. _session-details:
+
+Session Details
+===============
+
+.. image:: https://github.com/3dem/emhub/wiki/images/session-details.png
+   :width: 100%
+
+This page contains two main panels. The `Overview` panels displays basic information about the session
+and the associated booking. The `Data Download` panels have useful information for users about how to
+access the data generated for this session. Moreover, it displays a reminder about how many days are left
+before the data is deleted from the facility servers.
+
+
+Session Live Pre-processing (under development)
+===============================================
+
+EMhub can receive notifications from other programs performing on-the-fly pre-processing for a given session
+(via a REST API). This feature is still under development and not fully stable. The idea is that one could
+use different software programs for the pre-processing (e.g Scipion, Relion, CryoSparc, etc) and then visualize
+and monitor the progress via EMhub, with the information linked to the session and its user.
+
+.. image:: https://github.com/3dem/emhub/wiki/images/session-preprocessing.png
+   :width: 100%
+
+This feature can also be used as a session "summary" archival for a better bookkeeping and future statistics
+of the microscopes and processed samples.
