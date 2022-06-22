@@ -1,9 +1,14 @@
 
 .. _scilifelab-users:
 
-=====
-Users
-=====
+==================
+ScilifeLab - Users
+==================
+
+Most users of EMhub at SciLifeLab must first be registered in the
+`CryoEM Portal <https://cryoem.scilifelab.se/>`_. After the users are registered
+and their account are enabled, then it can be imported into EMhub.
+
 
 Registering new users
 =====================
@@ -18,7 +23,7 @@ In the Portal:
 
 1. Check if it is PI, in which case it should mark **Yes** in the corresponding
 checkbox and provided a non-empty **Invoice Reference** field.
-2. If the user is not a PI, then provide the PI's email in the **Invoice Reference** field.
+1. If the user is not a PI, then provide the PI's email in the **Invoice Reference** field.
 
 In EMhub:
 ---------

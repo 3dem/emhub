@@ -17,7 +17,7 @@ information and its creation (see image below).
 
 After the session is created, a green box will appears with the session id. Sometimes, more than one data acquisition
 can be done for the same booking, so more than one session can be created. One can click on the ``New Session`` button
-again and click `Yes` to the warning dialog. After created another session, more green boxes will be shown as in the
+again and click **Yes** to the warning dialog. After created another session, more green boxes will be shown as in the
 following image.
 
 .. image:: https://github.com/3dem/emhub/wiki/images/session-pills.png
@@ -45,8 +45,8 @@ Session Details
 .. image:: https://github.com/3dem/emhub/wiki/images/session-details.png
    :width: 100%
 
-This page contains two main panels. The `Overview` panels displays basic information about the session
-and the associated booking. The `Data Download` panels have useful information for users about how to
+This page contains two main panels. The ``Overview`` panels displays basic information about the session
+and the associated booking. The ``Data Download`` panels have useful information for users about how to
 access the data generated for this session. Moreover, it displays a reminder about how many days are left
 before the data is deleted from the facility servers.
 
