@@ -69,6 +69,7 @@ def create_app(test_config=None):
     app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
     app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
     app.config["PAGES"] = os.path.join(app.instance_path, 'pages')
+    app.config["MAIN"] = os.environ.get('EMHUB_MAIN', 'main.html')
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -135,7 +136,7 @@ def create_app(test_config=None):
         kwargs['booking_types'] = app.dm.Booking.TYPES
         kwargs.update(app.dc.get_resources_list())
 
-        return flask.render_template('main.html', **kwargs)
+        return flask.render_template(app.config['MAIN'], **kwargs)
 
     def _redirect(endpoint, **kwargs):
         return flask.redirect(flask.url_for(endpoint, **kwargs))

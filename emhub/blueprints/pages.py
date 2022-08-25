@@ -60,7 +60,7 @@ def index():
     if app.user.is_authenticated:
         app.user.image = app.dc.user_profile_image(app.user)
 
-    return flask.render_template('main.html',
+    return flask.render_template(app.config['MAIN'],
                                  content_id='pages',
                                  params=params,
                                  is_devel=app.is_devel,
