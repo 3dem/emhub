@@ -748,6 +748,14 @@ class DataManager(DbManager):
         return self.__item_by(self.Project, **kwargs)
 
     # ---------------------------- ENTRIES ---------------------------------
+
+    def get_entries_config(self):
+        formDef = self.get_form_by_name('entries_config').definition
+        section = formDef['sections'][0]  # use first section for now
+
+        return [{"id": p['label'], "label": p.get('value', '')}
+                for p in section['params']]
+
     def __check_entry(self, **attrs):
         if 'title' in attrs:
             if not attrs['title'].strip():

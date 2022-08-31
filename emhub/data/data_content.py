@@ -1229,7 +1229,8 @@ class DataContent:
         return {
             'project': project,
             'entries': entries,
-            'entry_types': self.get_entry_types()
+            'entry_types': self.get_entry_types(),
+            'entries_config': self.app.dm.get_entries_config()
         }
 
     def get_entry_types(self):
@@ -1361,7 +1362,10 @@ class DataContent:
 
         pi = entry.project.user.get_pi()
         # TODO: We should store some properties in EMhub and avoid this request
-        pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
+        try:
+            pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
+        except:
+            pi_info = None
 
         # Create a default dict based on data to avoid missing key errors in report
         ddata = defaultdict(lambda : 'UNKNOWN')

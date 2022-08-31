@@ -10,7 +10,7 @@
     {% set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
 
-    {% set can_edit = is_manager or (project.user_can_edit and current_user == project.user) or current_user == project.creation_user %}
+    {% set can_edit = is_manager or (project.user_can_edit and (current_user == project.user or current_user == pi)) or current_user == project.creation_user %}
 
     <input type="hidden" value="{{ project.id }}", id="project-id">
     <input type="hidden" value="09:00:00.000", id="hour_id">
@@ -21,13 +21,13 @@
             <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <i class="fas fa-plus-circle"></i> Add Entry </a>
             <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'grids_preparation')">Grid Preparation</a>
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'grids_storage')">Grid Storage</a>
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'screening')">Screening</a>
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'data_acquisition')">Data Acquisition</a>
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'note')">Note</a>
+                {% for entry in entries_config %}
+                    {% if entry['id'] == 'divider' %}
+                        <div class="dropdown-divider"></div>
+                    {% else %}
+                        <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, '{{ entry['id'] }}')">{{ entry['label'] }}</a>
+                    {% endif %}
+                {% endfor %}
             </div>
             {% endif %}
         </div>
