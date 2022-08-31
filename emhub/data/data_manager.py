@@ -749,12 +749,35 @@ class DataManager(DbManager):
 
     # ---------------------------- ENTRIES ---------------------------------
 
+    def __get_project_config_section(self, sectionName):
+        formDef = self.get_form_by_name('projects_config').definition
+        for section in formDef['sections']:
+            if section['label'] == sectionName:
+                return section['params']
+        return None
+
     def get_entries_config(self):
-        formDef = self.get_form_by_name('entries_config').definition
-        section = formDef['sections'][0]  # use first section for now
+        section = self.__get_project_config_section('entries')
 
         return [{"id": p['label'], "label": p.get('value', '')}
                 for p in section['params']]
+
+    def get_projects_config_permissions(self):
+        return {e['label']: e['value']
+                for e in self.__get_project_config_section('permissions')}
+
+    def user_can_create_projects(self, user):
+        if user.is_manager:
+            return True
+
+        permissions = self.get_projects_config_permissions()
+        value = permissions['user_can_create_projects']
+
+        if (value == 'all'
+            or (value == 'independent' and user.is_independent)):
+            return True
+
+        return False
 
     def __check_entry(self, **attrs):
         if 'title' in attrs:

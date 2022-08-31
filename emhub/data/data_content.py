@@ -1187,7 +1187,10 @@ class DataContent:
                     continue
             projects.append(p)
 
-        return {'projects': projects}
+        can_create = self.app.dm.user_can_create_projects(self.app.user)
+        return {'projects': projects,
+                'user_can_create_projects': can_create
+                }
 
     def get_project_form(self, **kwargs):
         dm = self.app.dm
@@ -1268,6 +1271,34 @@ class DataContent:
                  'group': 3,
                  'iconClass': "fas fa-sticky-note fa-inverse",
                  'imageClass': "img--picture"
+                 },
+            'sample_description':
+                {'label': 'Sample Description',
+                 'group': 1,
+                 'iconClass': "fas fa-box fa-inverse",
+                 'imageClass': "img--picture",
+                 'report': "report_sample_description.html"
+                 },
+            'access_negstain':
+                {'label': 'Access Negative Stain',
+                 'group': 2,
+                 'iconClass': "fas fa-search fa-inverse",
+                 'imageClass': "img--location",
+                 'report': "report_access_negstain.html"
+                 },
+            'access_screening':
+                {'label': 'Access Screening',
+                 'group': 2,
+                 'iconClass': "fas fa-search fa-inverse",
+                 'imageClass': "img--location",
+                 'report': "report_access_screening.html"
+                 },
+            'access_krios':
+                {'label': 'Access Krios',
+                 'group': 2,
+                 'iconClass': "far fa-image fa-inverse",
+                 'imageClass': "img--location",
+                 'report': "report_access_krios.html"
                  },
         }
 
