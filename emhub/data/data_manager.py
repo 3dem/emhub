@@ -756,11 +756,14 @@ class DataManager(DbManager):
                 return section['params']
         return None
 
-    def get_entries_config(self):
-        section = self.__get_project_config_section('entries')
-
+    def get_entries_menu(self):
+        section = self.__get_project_config_section('entries_menu')
         return [{"id": p['label'], "label": p.get('value', '')}
-                for p in section['params']]
+                for p in section]
+
+    def get_entry_types(self):
+        section = self.__get_project_config_section('entries')
+        return {p['id']: p for p in section}
 
     def get_projects_config_permissions(self):
         return {e['label']: e['value']

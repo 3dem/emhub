@@ -21,7 +21,7 @@
             <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <i class="fas fa-plus-circle"></i> Add Entry </a>
             <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
-                {% for entry in entries_config %}
+                {% for entry in entries_menu %}
                     {% if entry['id'] == 'divider' %}
                         <div class="dropdown-divider"></div>
                     {% else %}

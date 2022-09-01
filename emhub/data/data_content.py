@@ -1217,8 +1217,9 @@ class DataContent:
     def get_project_details(self, **kwargs):
         # FIXME Define access/permissions for other users
         user = self.app.user  # shortchut
+        dm = self.app.dm  # shortcut
 
-        project = self.app.dm.get_project_by(id=kwargs['project_id'])
+        project = dm.get_project_by(id=kwargs['project_id'])
 
         if project is None:
             raise Exception("Invalid Project Id %s" % kwargs['project_id'])
@@ -1226,80 +1227,13 @@ class DataContent:
         if not user.is_manager and not user.same_pi(project.user):
             raise Exception("You do not have permissions to see this project")
 
-
         entries = sorted(project.entries, key=lambda e: e.date, reverse=True)
 
         return {
             'project': project,
             'entries': entries,
-            'entry_types': self.get_entry_types(),
-            'entries_config': self.app.dm.get_entries_config()
-        }
-
-    def get_entry_types(self):
-        return {
-            'grids_preparation':
-                {'label': 'Grids Preparation',
-                 'group': 1,
-                 'iconClass': "fas fa-th fa-inverse",
-                 'imageClass': "img--picture",
-                 'report': "report_grids_preparation.html"
-                 },
-            'grids_storage':
-                {'label': 'Grids Storage',
-                 'group': 1,
-                 'iconClass': "fas fa-box fa-inverse",
-                 'imageClass': "img--picture",
-                 'report': "report_grids_storage.html"
-                 },
-            'screening':
-                {'label': 'Screening',
-                 'group': 2,
-                 'iconClass': "fas fa-search fa-inverse",
-                 'imageClass': "img--location",
-                 'report': "report_screening.html"
-                 },
-            'data_acquisition':
-                {'label': 'Data Acquisition',
-                 'group': 2,
-                 'iconClass': "far fa-image fa-inverse",
-                 'imageClass': "img--location",
-                 'report': "report_data_acquisition.html"
-                 },
-            'note':
-                {'label': 'Note',
-                 'group': 3,
-                 'iconClass': "fas fa-sticky-note fa-inverse",
-                 'imageClass': "img--picture"
-                 },
-            'sample_description':
-                {'label': 'Sample Description',
-                 'group': 1,
-                 'iconClass': "fas fa-box fa-inverse",
-                 'imageClass': "img--picture",
-                 'report': "report_sample_description.html"
-                 },
-            'access_negstain':
-                {'label': 'Access Negative Stain',
-                 'group': 2,
-                 'iconClass': "fas fa-search fa-inverse",
-                 'imageClass': "img--location",
-                 'report': "report_access_negstain.html"
-                 },
-            'access_screening':
-                {'label': 'Access Screening',
-                 'group': 2,
-                 'iconClass': "fas fa-search fa-inverse",
-                 'imageClass': "img--location",
-                 'report': "report_access_screening.html"
-                 },
-            'access_krios':
-                {'label': 'Access Krios',
-                 'group': 2,
-                 'iconClass': "far fa-image fa-inverse",
-                 'imageClass': "img--location",
-                 'report': "report_access_krios.html"
-                 },
+            'entry_types': dm.get_entry_types(),
+            'entries_menu': dm.get_entries_menu()
         }
 
     def get_entry_form(self, **kwargs):
@@ -1330,7 +1264,7 @@ class DataContent:
                              description='',
                              extra={})
 
-        entry_type = self.get_entry_types()[entry.type]
+        entry_type = dm.get_entry_types()[entry.type]
         form_id = "entry_form:%s" % entry.type
         form = dm.get_form_by(name=form_id)
         if form:
@@ -1353,7 +1287,7 @@ class DataContent:
         if entry is None:
             raise Exception("Please provide a valid Entry id. ")
 
-        entry_type = self.get_entry_types()[entry.type]
+        entry_type = dm.get_entry_types()[entry.type]
         data = entry.extra['data']
 
         if not 'report' in entry_type:
@@ -1361,7 +1295,14 @@ class DataContent:
 
         images = []
 
+        # Convert images in data form to base64
         base64 = image.Base64Converter(max_size=(1024, 1024))
+
+        for k, v in data.items():
+            if k.endswith('_image') and v:
+                fn = dm.get_entry_path(entry, v)
+                data[k] = 'data:image/%s;base64, ' + base64.from_path(fn)
+
         for row in data.get('images_table', []):
             if 'image_file' in row:
                 fn = dm.get_entry_path(entry, row['image_file'])
