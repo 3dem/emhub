@@ -1300,7 +1300,7 @@ class DataContent:
         base64 = image.Base64Converter(max_size=(1024, 1024))
 
         for k, v in data.items():
-            if k.endswith('_image') and v:
+            if k.endswith('_image') and v.strip():
                 fn = dm.get_entry_path(entry, v)
                 data[k] = 'data:image/%s;base64, ' + base64.from_path(fn)
 

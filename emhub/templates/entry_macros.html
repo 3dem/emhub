@@ -119,6 +119,8 @@
 
 
 {% macro image_card(title, imgSource, with=100) -%}
+
+    {% if imgSource %}
     <div class="card">
         <div class="card-header">
             <h3 class="mb-1">{{ title }}</h3>
@@ -128,5 +130,36 @@
             <img src="{{ imgSource }}" width="{{ with }}%" class="m-0">
         </div> <!-- end of card-body -->
     </div> <!-- end of card -->
+    {% endif %}
 
+{%- endmacro %}
+
+{% macro image2_card(title1, imgSource1, title2, imgSource2) -%}
+    <div class="row col-12">
+
+        {% if imgSource1 %}
+        <div class="card col-6 m-0">
+            <div class="card-header">
+                <h3 class="mb-1">{{ title1 }}</h3>
+            </div>
+
+            <div class="card-body p-0">
+                <img src="{{ imgSource1 }}" width="100%" class="m-0">
+            </div> <!-- end of card-body -->
+        </div> <!-- end of card -->
+        {% endif %}
+
+        {% if imgSource2 %}
+        <div class="card col-6">
+            <div class="card-header">
+                <h3 class="mb-1">{{ title2 }}</h3>
+            </div>
+
+            <div class="card-body p-0">
+                <img src="{{ imgSource2 }}" width="100%" class="m-0">
+            </div> <!-- end of card-body -->
+        </div> <!-- end of card -->
+        {% endif %}
+
+    </div>
 {%- endmacro %}
