@@ -1227,7 +1227,8 @@ class DataContent:
         if not user.is_manager and not user.same_pi(project.user):
             raise Exception("You do not have permissions to see this project")
 
-        entries = sorted(project.entries, key=lambda e: e.date, reverse=True)
+        entries = sorted(project.entries, key=lambda e: (e.date, e.creation_date),
+                         reverse=True)
 
         return {
             'project': project,
