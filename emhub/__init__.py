@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.5.3'
+__version__ = '0.5.5'
 
 
 def create_app(test_config=None):
@@ -207,7 +207,7 @@ def create_app(test_config=None):
     @app.route('/reset_password_request', methods=['POST'])
     def reset_password_request():
         """ This view will called as POST from the user login page. """
-        email = flask.request.form['user-email']
+        email = flask.request.form['user-email'].strip()
         user = app.dm.get_user_by(email=email)
 
         if not email:

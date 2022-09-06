@@ -889,7 +889,7 @@ class DataManager(DbManager):
     # --------------- Internal implementation methods -------------------------
     def get_universities_dict(self):
         formDef = self.get_form_by_name('universities').definition
-        return {p['label']: p['value'] for p in formDef['params']}
+        return {p['value']: p['label'] for p in formDef['params']}
 
     def __create_item(self, ModelClass, **attrs):
         special_create = attrs.pop('special_create', None)
