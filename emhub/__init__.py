@@ -69,7 +69,6 @@ def create_app(test_config=None):
     app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
     app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
     app.config["PAGES"] = os.path.join(app.instance_path, 'pages')
-    app.config["MAIN"] = os.environ.get('EMHUB_MAIN', 'main.html')
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -77,6 +76,9 @@ def create_app(test_config=None):
     else:
         # load the test config if passed in
         app.config.from_mapping(test_config)
+
+    if not "MAIN" in app.config:
+        app.config["MAIN"] = 'main.html'
 
     portalAPI = app.config.get('SLL_PORTAL_API', None)
     if portalAPI is not None:

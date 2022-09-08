@@ -748,6 +748,10 @@ class DataManager(DbManager):
         return self.__item_by(self.Project, **kwargs)
 
     # ---------------------------- ENTRIES ---------------------------------
+    def get_config(self, configName):
+        """ Find a form named config:configName and return
+        the associated JSON definition. """
+        return self.get_form_by_name(f'config:{configName}').definition
 
     def __get_project_config_section(self, sectionName):
         formDef = self.get_form_by_name('projects_config').definition

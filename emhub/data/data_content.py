@@ -1461,15 +1461,16 @@ class DataContent:
                              }
         owner = booking.owner
         owner_name = owner.name
-        o = booking.operator  #  shortcut
-        if o:
-            operator_dict = {'id': o.id, 'name': o.name}
+        operator = booking.operator  #  shortcut
+        if operator:
+            operator_dict = {'id': operator.id, 'name': operator.name}
         else:
             operator_dict = {'id': None, 'name': ''}
 
         creator = booking.creator
         a = booking.application
         user = self.app.user
+        dm = self.app.dm
         b_title = booking.title
         b_description = booking.description
 
@@ -1512,8 +1513,12 @@ class DataContent:
             user_can_book = user.can_book_slot(booking)
         else:
             # Show all booking information in title in some cases only
-            appStr = '' if a is None else ', %s' % a.code
-            extra = "%s%s" % (owner.name, appStr)
+            display = dm.get_config('bookings')['display']
+            emptyApp = a is None or display['show_application'] == 'no'
+            appStr = ''  if emptyApp else ', %s' % a.code
+            emptyOp = operator is None or display['show_operator'] == 'no'
+            opStr = '' if emptyOp else ' -> ' + operator.name
+            extra = "%s%s%s" % (owner.name, appStr, opStr)
             if user_can_view:
                 title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
                 if a:
