@@ -712,6 +712,16 @@ def create_data_models(dm):
             self.__setExtra('costs', value)
 
         @property
+        def project_id(self):
+            """ Return the Project ID associated to this booking.
+            """
+            return  self.__getExtra('project_id', [])
+
+        @costs.setter
+        def project_id(self, value):
+            self.__setExtra('project_id', value)
+
+        @property
         def total_cost(self):
             """ Return all costs associated with this Booking
             """

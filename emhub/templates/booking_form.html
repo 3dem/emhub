@@ -35,11 +35,21 @@
                     <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                         <form id="validationform" data-parsley-validate="" novalidate="">
 
+                            <!-- Resource Row -->
+                            <div class="form-group row">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Resource</label>
+                                <div class="col-12 col-sm-8 col-lg-6">
+                                    <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" title="Select Resource to book...">
+                                    {% for r in resources %}#}
+                                      <option value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                                    {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
                             <!-- Owner Row -->
                             <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner
-
-                                </label>
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
                                 <div class="col-12 col-sm-8 col-lg-6">
                                     {% if possible_owners %}
                                         <select id="booking-owner-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
@@ -57,7 +67,7 @@
                                 </div>
                             </div>
 
-                            <!-- Operator Row -->
+                        <!-- Operator Row -->
                             <div class="form-group row">
                                 <label class="col-12 col-sm-3 col-form-label text-sm-right">Operator
 
@@ -76,6 +86,17 @@
                                 </div>
                             </div>
 
+
+                            <!-- Project Id Row -->
+                            <div class="form-group row">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Project ID</label>
+                                <div class="col-12 col-sm-8 col-lg-6">
+                                    <input type="text" required="" placeholder="Enter project ID" id="project_id" class="form-control">
+                                </div>
+                            </div>
+
+
+                            {% if booking_display_application %}
                             <!-- Application Row -->
                             <div class="form-group row">
                                 <label class="col-12 col-sm-3 col-form-label text-sm-right">Application</label>
@@ -83,6 +104,7 @@
                                     <label id="application-label" class="col-12 col-sm-3 col-form-label text-sm-left"></label>
                                 </div>
                             </div>
+                            {% endif %}
 
                             <!-- Title Row -->
                             <div class="form-group row">
@@ -117,6 +139,8 @@
                                 </div>
 
                             </div>
+
+
 
                             <div class="form-group row">
                                 <label class="col-12 col-sm-3 col-form-label text-sm-right">Description (Optional)</label>

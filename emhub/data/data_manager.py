@@ -371,6 +371,10 @@ class DataManager(DbManager):
 
         return result
 
+    def get_booking_by(self, **kwargs):
+        """ Return a single Application or None. """
+        return self.__item_by(self.Booking, **kwargs)
+
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,
                                        condition=condition,

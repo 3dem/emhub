@@ -49,6 +49,15 @@
         showError("Request failed: " + textStatus );
     }
 
+    /* Show the Booking Form from a given id */
+    function showBookingFromId(booking_id, modalId)
+    {
+        if (!modalId)
+            modalId = 'booking-modal-new';
+        show_modal_from_ajax(modalId, get_ajax_content("booking_form_new",
+                                                        {booking_id: booking_id}));
+    }
+
     /* Show the Booking Form, either for a new booking or an existing one */
     function showBookingForm(booking) {
         booking_type = booking.type;

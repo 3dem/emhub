@@ -409,6 +409,21 @@ class DataContent:
         dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
 
+    def get_booking_form_new(self, **kwargs):
+        dm = self.app.dm  # shortcut
+
+        if 'booking_id' in kwargs:
+            booking = dm.get_booking_by(id=kwargs['booking_id'])
+
+        else:  # New Application
+            raise Exception("It is not possible to create Bookings now. ")
+
+        return {'booking': booking,
+                'resources': self.get_resources_list()['resources'],
+                'possible_owners': self.get_pi_labs(),
+                'possible_operators': self.get_possible_operators(),
+                }
+
     def get_applications(self, **kwargs):
         dataDict = self.get_raw_applications_list()
         dataDict['template_statuses'] = ['preparation', 'active', 'closed']

@@ -2,8 +2,8 @@
 
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
-    {% set title = "Booking Calendar" %}
-    {% include 'include_header.html' %}
+{#    {% set title = "Booking Calendar" %}#}
+{#    {% include 'include_header.html' %}#}
 
     <!-- ============================================================== -->
     <!-- events calendar -->
@@ -17,14 +17,10 @@
                     <!-- Calendar selection header row -->
                     <div class="row" style="margin-bottom: 20px;">
                         <div class="col col-auto" style="margin-top: 7px;">
-                            <h3> Book Resource </h3>
+                            <h3> Booking Calendar </h3>
                         </div>
                         <div class="col nopadding">
-                            <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" title="Select Resource to book..." onchange="selectResource(this)">
-                            {% for r in resources %}#}
-                              <option value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
-                            {% endfor %}
-                            </select>
+
                         </div>
                         <div class="col text-right" style="margin-top: 7px;">
                             <h5> Display </h5>
@@ -65,6 +61,7 @@
 <!-- Modal with  Booking Form -->
 {% include 'booking_form.html' %}
 
+<!-- New modal for Booking -->
 
 
 <!-- Modal Message -->
@@ -210,10 +207,6 @@
             return ok;
         },
         selectAllow: function(info) {
-            if (selected_resource == null) {
-                showError("Please select Resource to book first.")
-                return false;
-            }
             let booking = bookingFromSelection(info, selected_resource)
             var error = validateBooking(booking, false);
             var ok = error  == '';
@@ -226,13 +219,15 @@
         // },
         select: function(info) {
             last_booking = bookingFromSelection(info, selected_resource);
-            showBookingForm(last_booking);
+            showBookingFromId(last_booking.id);
         },
         eventClick: function(info) {
+            console.log('eventClick');
             onBookingSelected(info.event);
         },
         eventDrop: function(info) {
-            onBookingSelected(info.event, original_range);
+            console.log("eventDrop: " + info.toString())
+            //onBookingSelected(info.event, original_range);
         },
 
         viewRender: function (view, element) {
@@ -342,29 +337,28 @@ function bookingFromSelection(info, resource) {
 
 /* This function is called when an existing Booking event is clicked */
 function onBookingSelected(event, original_range) {
-    let props = event.extendedProps;
-    repeat_value = props.repeat_value;
-    booking_type = props.type;
-
-    last_booking = {
-        id: event.id,
-        start: event.start,
-        end: event.end,
-        resource: props.resource,
-        type: booking_type,
-        title: props.booking_title,
-        description: props.description,
-        repeat_value: props.repeat_value,
-        owner: props.owner,
-        operator: props.operator,
-        slot_auth: props.slot_auth,
-        user_can_modify: props.user_can_modify,
-        original_range: original_range,
-        experiment: props.experiment,
-        application_label: props.application_label,
-        costs: props.costs
-    };
-    showBookingForm(last_booking);
+    {#let props = event.extendedProps;#}
+    {#repeat_value = props.repeat_value;#}
+    {#booking_type = props.type;#}
+    {##}
+    {#last_booking = {#}
+    {#    id: event.id,#}
+    {#    start: event.start,#}
+    {#    end: event.end,#}
+    {#    resource: props.resource,#}
+    {#    type: booking_type,#}
+    {#    title: props.booking_title,#}
+    {#    description: props.description,#}
+    {#    repeat_value: props.repeat_value,#}
+    {#    owner: props.owner,#}
+    {#    operator: props.operator,#}
+    {#    slot_auth: props.slot_auth,#}
+    {#    user_can_modify: props.user_can_modify,#}
+    {#    original_range: original_range,#}
+    {#    experiment: props.experiment,#}
+    {#    application_label: props.application_label,#}
+    {#    costs: props.costs#}
+    showBookingFromId(event.id);
 }
 
 function hasVisibleResource(visibleResourcesId, erid) {
