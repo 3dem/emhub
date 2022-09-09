@@ -136,6 +136,10 @@ def create_app(test_config=None):
         kwargs['possible_owners'] = app.dc.get_pi_labs()
         kwargs['possible_operators'] = app.dc.get_possible_operators()
         kwargs['booking_types'] = app.dm.Booking.TYPES
+
+        display = app.dm.get_config('bookings')['display']
+        kwargs['booking_display_application'] = display['show_application'] != 'no'
+
         kwargs.update(app.dc.get_resources_list())
 
         return flask.render_template(app.config['MAIN'], **kwargs)
