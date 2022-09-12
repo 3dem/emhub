@@ -58,8 +58,6 @@
     <!-- ============================================================== -->
     </div>
 
-<!-- Modal with  Booking Form -->
-{% include 'booking_form.html' %}
 
 <!-- New modal for Booking -->
 
@@ -105,10 +103,6 @@
     "use strict";
 
     $('select').selectpicker();
-
-    $('.datetimepicker-input').datetimepicker({
-        format: 'YYYY/MM/DD'
-    });
 
     /* Register when the Booking type change */
     $('input[type=radio][name=booking-type-radio]').change(function() {
@@ -226,8 +220,8 @@
             onBookingSelected(info.event);
         },
         eventDrop: function(info) {
-            console.log("eventDrop: " + info.toString())
-            //onBookingSelected(info.event, original_range);
+            console.log("eventDrop: ")
+            onBookingSelected(info.event);
         },
 
         viewRender: function (view, element) {
@@ -336,7 +330,7 @@ function bookingFromSelection(info, resource) {
 
 
 /* This function is called when an existing Booking event is clicked */
-function onBookingSelected(event, original_range) {
+function onBookingSelected(event) {
     {#let props = event.extendedProps;#}
     {#repeat_value = props.repeat_value;#}
     {#booking_type = props.type;#}

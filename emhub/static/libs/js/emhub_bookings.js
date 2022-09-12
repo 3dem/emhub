@@ -271,13 +271,7 @@
      * is clicked. It can be either Create or Update action.
      */
     function onCancelButtonClick() {
-        let range = last_booking.original_range;
-
-        if (range != null) {
-            var event = calendar.getEventById( last_booking.id );
-            event.setDates(range.start, range.end);
-            calendar.render();
-        }
+        calendar.render();
     }
 
     function showExperimentForm() {
