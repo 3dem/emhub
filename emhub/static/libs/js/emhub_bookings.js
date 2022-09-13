@@ -1,5 +1,5 @@
 /* ---------------- BOOKING functions ------------------ */
-    /** Return how many days this booking expands.
+/** Return how many days this booking expands.
      * (Used to calculate costs based on daily costs of the
      * used resource.)
      **/
@@ -44,22 +44,23 @@
         }
     }
 
-
     function handleAjaxFail(jqXHR, textStatus) {
         showError("Request failed: " + textStatus );
     }
 
     /* Show the Booking Form from a given id */
-    function showBookingFromId(booking_id, modalId)
+    function showBookingForm(booking_params, modalId)
     {
         if (!modalId)
             modalId = 'booking-modal-new';
-        show_modal_from_ajax(modalId, get_ajax_content("booking_form_new",
-                                                        {booking_id: booking_id}));
+        show_modal_from_ajax(modalId, get_ajax_content("booking_form",
+                                                        booking_params));
     }
 
-    /* Show the Booking Form, either for a new booking or an existing one */
-    function showBookingForm(booking) {
+    /* Show the Booking Form, either for a new booking or an existing one
+    * TO-REMOVE
+    * */
+    function showBookingFormOld(booking) {
         booking_type = booking.type;
         repeat_value = booking.repeat_value;
 
@@ -271,7 +272,12 @@
      * is clicked. It can be either Create or Update action.
      */
     function onCancelButtonClick() {
-        calendar.render();
+        if (last_event != null) {
+            var event = calendar.getEventById( last_event.id );
+            event.setDates(last_event.start, last_event.end);
+            last_event = null;
+            calendar.render();
+        }
     }
 
     function showExperimentForm() {
@@ -319,3 +325,156 @@
         });
 
     }  // function showBookingCosts
+
+
+/*------------  Calendar related functions --------------- */
+
+    function createCalender() {
+        var Calendar = FullCalendar.Calendar;
+        var calendarEl = document.getElementById('booking_calendar');
+
+        return new Calendar(calendarEl, {
+            plugins: [ 'interaction', 'dayGrid', 'timeGrid' ],
+            header: {
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            editable: true,
+            droppable: true, // this allows things to be dropped onto the calendar
+            selectable: true, // allows to select dates
+            eventSources: [
+                {
+                  url: Api.urls.booking.range,
+                  method: 'POST'
+                }
+            ],
+            eventSourceSuccess: function(all_events, xhr) {
+                var sel = document.getElementById("selectpicker-resource-display");
+
+                var visibleResourcesId = getSelectedValues(sel);
+
+                hidden_events = [];
+                var visible_events = [];
+                var i;
+                var e;
+
+                calendar.removeAllEvents();
+
+                var all_ids = [];
+                for (i = 0; i < all_events.length; i++) {
+                    e = all_events[i];
+                    if (all_ids.indexOf(e.id) == -1){
+                        all_ids.push(e.id);
+                        if (hasVisibleResource(visibleResourcesId,
+                                           e.resource.id))
+                            visible_events.push(e);
+                        else {
+                            e.extendedProps = {resource: e.resource};
+                            hidden_events.push(e);
+                        }
+                    }
+                }
+
+                return visible_events;
+            },
+            eventReceive: function(info) {
+           },
+            eventAllow: function(info, draggedEvent) {
+                last_event = {
+                    id: draggedEvent.id,
+                    start: new Date(draggedEvent.start),
+                    end: new Date(draggedEvent.end)
+                };
+                return true;
+            },
+            // Return True if the selection of dates is allowed
+            selectAllow: function(info) {
+                return true;
+            },
+            select: function(info) {
+                showBookingForm(paramsFromSelection(info));
+            },
+            eventClick: function(info) {
+                showBookingForm({booking_id: info.event.id});
+            },
+            eventDrop: function(info) {
+                showBookingForm({booking_id: info.event.id});
+            },
+            viewRender: function (view, element) {
+                alert('The new title of the view is ' + view.title);
+            }
+      });
+    } // function createCalendar
+
+/** Function called when new dates are selected for a given Resource.
+ * It creates a new booking and shows the Booking Form. **/
+function paramsFromSelection(info) {
+    if (info.allDay) {
+        info.end.setDate(info.end.getDate() - 1);
+        info.start.setHours(9);
+        info.start.setMinutes(0);
+        info.end.setHours(23);
+        info.end.setMinutes(59);
+    }
+
+    return {
+        start: info.start.toISOString(),
+        end: info.end.toISOString()
+    };
+}
+
+function hasVisibleResource(visibleResourcesId, erid) {
+    if (visibleResourcesId.length == 0)
+        return true;
+
+    for (const rid of visibleResourcesId)
+            if (erid == rid)
+                return true;
+        return false;
+}
+
+function filterBookingsByResources(){
+    var sel = document.getElementById("selectpicker-resource-display");
+    var visibleResourcesId = getSelectedValues(sel);
+
+    // Always show the selected resource
+    if (selected_resource)
+        visibleResourcesId.push(selected_resource.id);
+
+    var all_events = hidden_events.concat(calendar.getEvents());
+    hidden_events = [];
+
+    calendar.batchRendering(function(){
+        calendar.removeAllEvents();
+        var all_ids = [];
+        for (e of all_events) {
+            if (all_ids.indexOf(e.id) == -1) {
+                all_ids.push(e.id);
+                if (hasVisibleResource(visibleResourcesId,
+                        e.extendedProps.resource.id))
+                    calendar.addEvent(e);
+                else
+                    hidden_events.push(e);
+            }
+        }
+    });
+}
+
+/** Remove bookings events from calendar and from booking list */
+function remove_bookings(deleted) {
+    // Remove events from Calendar
+    var event;
+    for (var booking of deleted) {
+       event = calendar.getEventById(booking.id);
+       if (event)
+           event.remove();
+    }
+}
+
+/** Add new bookings to the calendar and to the list */
+function add_bookings(added) {
+    for (var booking of added) {
+        event = calendar.addEvent(booking);
+    }
+}

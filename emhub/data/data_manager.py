@@ -310,9 +310,10 @@ class DataManager(DbManager):
         bookings = []
 
         def _add_booking(attrs):
-            b = self.__create_booking(attrs,
-                                      check_min_booking=check_min_booking,
-                                      check_max_booking=check_max_booking)
+            b = self.create_basic_booking(attrs)
+            self.__validate_booking(b,
+                                    check_min_booking=check_min_booking,
+                                    check_max_booking=check_max_booking)
             bookings.append(b)
 
         if repeat_value == 'no':
@@ -976,12 +977,12 @@ class DataManager(DbManager):
         return any(p.code in json_codes for p in applications)
 
     # ------------------- BOOKING helper functions -----------------------------
-    def __create_booking(self, attrs, **kwargs):
+    def create_basic_booking(self, attrs, **kwargs):
         if 'creator_id' not in attrs:
             attrs['creator_id'] = self._user.id
 
-        b = self.Booking(**attrs)
-        self.__validate_booking(b, **kwargs)
+        return self.Booking(**attrs)
+
         return b
 
     def __validate_booking(self, booking, **kwargs):

@@ -1,268 +1,271 @@
 
 <!-- Modal with the Booking Form -->
 
-<div class="modal fade" id="booking-modal" tabindex="-1" role="dialog" aria-labelledby="bookingModal" aria-hidden="true" data-backdrop="static" data-keyboard="false">
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
 
         <!-- Modal header -->
         <div class="modal-header">
-            <h3 class="modal-title" id="booking-modal-title"> TITLE </h3>
+            <h3 class="modal-title"> Booking </h3>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="onCancelButtonClick()">
               <span aria-hidden="true">&times;</span>
             </button>
-        </div>
-        <!-- End of Modal header -->
+        </div> <!-- End of Modal header -->
 
         <!-- Modal body -->
         <div class="modal-body">
-        <div class="tab-vertical col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
 
-            <ul class="nav nav-tabs" id="booking-tab" role="tablist">
-                <li class="nav-item">
-                <a class="nav-link active" id="booking-tab" data-toggle="tab" href="#booking-content" role="tab" aria-controls="booking-content" aria-selected="true">Booking</a>
-                </li>
-                {% if current_user.is_manager %}
+            <div class="tab-vertical col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+                <ul class="nav nav-tabs" id="booking-tab" role="tablist">
                     <li class="nav-item">
-                    <a class="nav-link" id="admin-tab" data-toggle="tab" href="#admin-content" role="tab" aria-controls="admin-content" aria-selected="false">Admin</a>
+                    <a class="nav-link active" id="booking-tab" data-toggle="tab" href="#booking-content" role="tab" aria-controls="booking-content" aria-selected="true">Booking</a>
                     </li>
-                {% endif %}
-            </ul>
+                    {% if current_user.is_manager %}
+                        <li class="nav-item">
+                        <a class="nav-link" id="admin-tab" data-toggle="tab" href="#admin-content" role="tab" aria-controls="admin-content" aria-selected="false">Admin</a>
+                        </li>
+                    {% endif %}
+                </ul>
 
-            <div class="tab-content" id="myTabContent3">
-                <div class="tab-pane fade show active" id="booking-content" role="tabpanel" aria-labelledby="booking-tab">
-                    <!-- Booking Form -->
-                    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                        <form id="validationform" data-parsley-validate="" novalidate="">
+                <div class="tab-content" id="myTabContent3">
+                    <div class="tab-pane fade show active" id="booking-content" role="tabpanel" aria-labelledby="booking-tab">
+                        <!-- Booking Form -->
+                        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                            <form id="validationform" data-parsley-validate="" novalidate="">
 
-                            <!-- Resource Row -->
-                            <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Resource</label>
-                                <div class="col-12 col-sm-8 col-lg-6">
-                                    <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" title="Select Resource to book...">
-                                    {% for r in resources %}#}
-                                      <option value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
-                                    {% endfor %}
-                                    </select>
+                                <!-- Resource Row -->
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Resource</label>
+                                    <div class="col-12 col-sm-8 col-lg-6">
+                                        <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" title="Select Resource to book...">
+                                        {% for r in resources %}#}
+                                          {% set selected = 'selected' if r['id'] == booking.resource.id else '' %}
+                                            <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                                        {% endfor %}
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Owner Row -->
-                            <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
-                                <div class="col-12 col-sm-8 col-lg-6">
-                                    {% if possible_owners %}
-                                        <select id="booking-owner-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
-                                        {% for lab in possible_owners %}
-                                            <option data-divider="true"></option>
-                                            <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
-                                            {% for u in lab[1:] %}
-                                                <option value="{{u['id']}}">{{u['name']}}</option>
+                                <!-- Owner Row -->
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
+                                    <div class="col-12 col-sm-8 col-lg-6">
+                                        {% if possible_owners %}
+                                            <select id="booking-owner-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
+                                            {% for lab in possible_owners %}
+                                                <option data-divider="true"></option>
+                                                <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
+                                                {% for u in lab[1:] %}
+                                                    {% set selected = 'selected' if u['id'] == booking.owner.id else '' %}
+                                                    <option value="{{u['id']}}" {{ selected }}>{{u['name']}}</option>
+                                                {% endfor %}
                                             {% endfor %}
-                                        {% endfor %}
-                                        </select>
-                                    {% else %}
-                                        <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control">
-                                    {% endif %}
-                                </div>
-                            </div>
-
-                        <!-- Operator Row -->
-                            <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Operator
-
-                                </label>
-                                <div class="col-12 col-sm-8 col-lg-6">
-                                    {% if possible_operators %}
-                                        <select id="booking-operator-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
-                                        <option value="0">Not set</option>
-                                        {% for u in possible_operators %}
-                                            <option value="{{u['id']}}">{{u['name']}}</option>
-                                        {% endfor %}
-                                        </select>
-                                    {% else %}
-                                        <input type="text" required="" placeholder="Operator" id="booking-owner-text" class="form-control">
-                                    {% endif %}
-                                </div>
-                            </div>
-
-
-                            <!-- Project Id Row -->
-                            <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Project ID</label>
-                                <div class="col-12 col-sm-8 col-lg-6">
-                                    <input type="text" required="" placeholder="Enter project ID" id="project_id" class="form-control">
-                                </div>
-                            </div>
-
-
-                            {% if booking_display_application %}
-                            <!-- Application Row -->
-                            <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Application</label>
-                                <div class="col-12 col-sm-8 col-lg-6">
-                                    <label id="application-label" class="col-12 col-sm-3 col-form-label text-sm-left"></label>
-                                </div>
-                            </div>
-                            {% endif %}
-
-                            <!-- Title Row -->
-                            <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
-                                <div class="col-12 col-sm-8 col-lg-6">
-                                    <input type="text" required="" placeholder="Type something" id="booking-title" class="form-control">
-                                </div>
-                            </div>
-
-                            <!-- Date Start Row -->
-                            <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Start</label>
-                                <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
-                                    <input type="text" class="form-control datetimepicker-input" data-target="#booking-start-date" id="booking-start-date" data-toggle="datetimepicker"/>
-
-                                </div>
-                                <div class="col-sm-4 col-lg-3">
-                                    <input class="form-control" type="text" id="booking-start-time" value="09:00" />
+                                            </select>
+                                        {% else %}
+                                            <span>No owners</span>
+                                            <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control">
+                                        {% endif %}
+                                    </div>
                                 </div>
 
-                            </div>
+                            <!-- Operator Row -->
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Operator
 
-                            <!-- Date End Form -->
-                            <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">End</label>
-                                <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
-                                     <input type="text" class="form-control datetimepicker-input" data-target="#booking-end-date" id="booking-end-date" data-toggle="datetimepicker"/>
+                                    </label>
+                                    <div class="col-12 col-sm-8 col-lg-6">
+                                        {% if possible_operators %}
+                                            <select id="booking-operator-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
+                                            <option value="0">Not set</option>
+                                            {% for u in possible_operators %}
+                                                {% set selected = 'selected' if u['id'] == booking.operator.id else '' %}
+                                                <option {{ selected }} value="{{u['id']}}">{{u['name']}}</option>
+                                            {% endfor %}
+                                            </select>
+                                        {% else %}
+                                            <input type="text" required="" placeholder="Operator" id="booking-owner-text" class="form-control">
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Project Id Row -->
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Project ID</label>
+                                    <div class="col-12 col-sm-8 col-lg-6">
+                                        <input type="text" required="" placeholder="Enter project ID" id="project_id" class="form-control">
+                                    </div>
+                                </div>
+
+                                {% if booking_display_application %}
+                                <!-- Application Row -->
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Application</label>
+                                    <div class="col-12 col-sm-8 col-lg-6">
+                                        <label id="application-label" class="col-12 col-sm-3 col-form-label text-sm-left"></label>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Date Start Row -->
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Start</label>
+                                    <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
+                                        <input type="text" class="form-control datetimepicker-input" data-target="#booking-start-date" id="booking-start-date" data-toggle="datetimepicker"/>
+                                    </div>
+                                    <div class="col-sm-4 col-lg-3">
+                                        <input class="form-control" type="text" id="booking-start-time" value="09:00" />
+                                    </div>
 
                                 </div>
-                                <div class="col-sm-4 col-lg-3">
-                                    <input class="form-control" type="text" id="booking-end-time" value="23:59" />
+
+                                <!-- Date End Form -->
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">End</label>
+                                    <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
+                                         <input type="text" class="form-control datetimepicker-input" data-target="#booking-end-date" id="booking-end-date" data-toggle="datetimepicker"/>
+                                    </div>
+                                    <div class="col-sm-4 col-lg-3">
+                                        <input class="form-control" type="text" id="booking-end-time" value="23:59" />
+                                    </div>
                                 </div>
 
-                            </div>
-
-
-
-                            <div class="form-group row">
-                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Description (Optional)</label>
-                                <div class="col-12 col-sm-8 col-lg-6">
-                                    <textarea required="" class="form-control" id="booking-description"></textarea>
+                                <!-- Title Row -->
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Title (Optional)</label>
+                                    <div class="col-12 col-sm-8 col-lg-6">
+                                        <input type="text" required="" placeholder="Type something" id="booking-title" class="form-control" value="{{ booking.title }}">
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="form-group row" id="div-describe-experiment">
-                                <a href="javascript: showExperimentForm()" class="col-12 col-sm-3 col-form-label text-sm-right"><i class="fas fa-edit"></i> Describe Experiment</a>
-                            </div>
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Description (Optional)</label>
+                                    <div class="col-12 col-sm-8 col-lg-6">
+                                        <textarea required="" class="form-control" id="booking-description"></textarea>
+                                    </div>
+                                </div>
 
-                        </form>
+                                <div class="form-group row" id="div-describe-experiment">
+                                    <a href="javascript: showExperimentForm()" class="col-12 col-sm-3 col-form-label text-sm-right"><i class="fas fa-edit"></i> Describe Experiment</a>
+                                </div>
+
+                            </form>
+                        </div>
+                        <!-- end Booking Form -->
                     </div>
-                    <!-- end Booking Form -->
-                </div>
-            {% if current_user.is_manager %}
-                <div class="tab-pane fade" id="admin-content" role="tabpanel" aria-labelledby="admin-tab">
-                    <!-- Manager Section  -->
 
-                    <div class="modal-body">
-                        <!-- Booking type -->
-                       <div class="form-group row">
-                            <label class="col-sm-3 col-form-label text-sm-right">Booking Type</label>
-                            <div class="col-sm-6">
-                                <div class="custom-controls-stacked">
-                                    {% for t in booking_types %}
-                                        <label class="custom-control custom-radio custom-control-inline">
-                                            <input type="radio" name="booking-type-radio" checked="" class="custom-control-input" value="{{ t }}"><span class="custom-control-label">{{ t }}</span>
-                                        </label>
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
+                    {% if current_user.is_manager %}
+                        <div class="tab-pane fade" id="admin-content" role="tabpanel" aria-labelledby="admin-tab">
+                            <!-- Manager Section  -->
 
-                        <!-- Slot Auth Row -->
-                        <div class="form-group row">
-                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Sloth Authorization</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                            <select id="booking-slot-auth" class="selectpicker show-tick" multiple data-width="100%" data-selected-text-format="count > 5" data-live-search="true" data-actions-box="true" title="Select authorization...">
-                                <option value="any">Any</option>
-                                {% for a in applications %}#}
-            {#                      <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}" data-content="<span class='badge badge-light'>{{a['code']}}</span>">{{a['code']}}</option>#}
-                                  <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}">{{a['code']}}</option>
-
-                                {% endfor %}
-                            </select>
-                            </div>
-                        </div>
-
-                        <!-- Recurring -->
-                        <div class="form-group row">
-                            <label class="col-sm-3 col-form-label text-sm-right">Repeat</label>
-                            <div class="col-sm-6">
-                                <div class="custom-controls-stacked">
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="booking-repeat-radio" checked="" class="custom-control-input" value="no"><span class="custom-control-label">No</span>
-                                    </label>
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="booking-repeat-radio" class="custom-control-input" value="weekly"><span class="custom-control-label">Weekly</span>
-                                    </label>
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="booking-repeat-radio" class="custom-control-input" value="bi-weekly"><span class="custom-control-label">Bi-weekly</span>
-                                    </label>
-                                    <label> Stop Date </label>
-                                    <label>
-                                        <div class="input-group date" data-target-input="nearest">
-                                            <input type="text" class="form-control datetimepicker-input" data-target="#booking-repeat-stopdate" id="booking-repeat-stopdate" data-toggle="datetimepicker"/>
+                            <div class="modal-body">
+                                <!-- Booking type -->
+                               <div class="form-group row">
+                                    <label class="col-sm-3 col-form-label text-sm-right">Booking Type</label>
+                                    <div class="col-sm-6">
+                                        <div class="custom-controls-stacked">
+                                            {% for t in booking_types %}
+                                                <label class="custom-control custom-radio custom-control-inline">
+                                                    <input type="radio" name="booking-type-radio" checked="" class="custom-control-input" value="{{ t }}"><span class="custom-control-label">{{ t }}</span>
+                                                </label>
+                                            {% endfor %}
                                         </div>
-                                    </label>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
 
-                        <div class="form-group row">
-                            <label class="col-sm-3 col-form-label text-sm-right">Modify repeating</label>
-                            <div class="col-sm-6">
-                                <div class="custom-controls-stacked">
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="booking-modify-radio" checked="" class="custom-control-input" value="no"><span class="custom-control-label">Only this</span>
-                                    </label>
-                                    <label class="custom-control custom-radio custom-control-inline">
-                                        <input type="radio" name="booking-modify-radio" class="custom-control-input" value="yes"><span class="custom-control-label">All upcoming</span>
-                                    </label>
+                                <!-- Slot Auth Row -->
+                                <div class="form-group row">
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Sloth Authorization</label>
+                                    <div class="col-12 col-sm-8 col-lg-6">
+                                    <select id="booking-slot-auth" class="selectpicker show-tick" multiple data-width="100%" data-selected-text-format="count > 5" data-live-search="true" data-actions-box="true" title="Select authorization...">
+                                        <option value="any">Any</option>
+                                        {% for a in applications %}#}
+                    {#                      <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}" data-content="<span class='badge badge-light'>{{a['code']}}</span>">{{a['code']}}</option>#}
+                                          <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}">{{a['code']}}</option>
+
+                                        {% endfor %}
+                                    </select>
+                                    </div>
                                 </div>
+
+                                <!-- Recurring -->
+                                <div class="form-group row">
+                                    <label class="col-sm-3 col-form-label text-sm-right">Repeat</label>
+                                    <div class="col-sm-6">
+                                        <div class="custom-controls-stacked">
+                                            <label class="custom-control custom-radio custom-control-inline">
+                                                <input type="radio" name="booking-repeat-radio" checked="" class="custom-control-input" value="no"><span class="custom-control-label">No</span>
+                                            </label>
+                                            <label class="custom-control custom-radio custom-control-inline">
+                                                <input type="radio" name="booking-repeat-radio" class="custom-control-input" value="weekly"><span class="custom-control-label">Weekly</span>
+                                            </label>
+                                            <label class="custom-control custom-radio custom-control-inline">
+                                                <input type="radio" name="booking-repeat-radio" class="custom-control-input" value="bi-weekly"><span class="custom-control-label">Bi-weekly</span>
+                                            </label>
+                                            <label> Stop Date </label>
+                                            <label>
+                                                <div class="input-group date" data-target-input="nearest">
+                                                    <input type="text" class="form-control datetimepicker-input" data-target="#booking-repeat-stopdate" id="booking-repeat-stopdate" data-toggle="datetimepicker"/>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group row">
+                                    <label class="col-sm-3 col-form-label text-sm-right">Modify repeating</label>
+                                    <div class="col-sm-6">
+                                        <div class="custom-controls-stacked">
+                                            <label class="custom-control custom-radio custom-control-inline">
+                                                <input type="radio" name="booking-modify-radio" checked="" class="custom-control-input" value="no"><span class="custom-control-label">Only this</span>
+                                            </label>
+                                            <label class="custom-control custom-radio custom-control-inline">
+                                                <input type="radio" name="booking-modify-radio" class="custom-control-input" value="yes"><span class="custom-control-label">All upcoming</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
                             </div>
+
                         </div>
-                    </div>
-
-{#                    <div class="form-group row" id="div-costs">#}
-{#                        <a href="javascript: showBookingCosts()" class="col-12 col-sm-3 col-form-label text-sm-right"><i class="far fa-money-bill-alt"></i> Booking Costs</a>#}
-{#                    </div>#}
-
+                    {% endif %}
                 </div>
 
-            {% endif %}
-                </div>
-            </div>
-
-        </div>
-        <!-- End of Modal body -->
+            </div> <!-- End of tab-vertical -->
+        </div> <!-- End of Modal body -->
 
         <!-- Modal footer -->
         <div class="modal-footer">
             <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal" onclick="onCancelButtonClick()">Cancel</button>
             <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" onclick="onDeleteButtonClick()">Delete</button>
             <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="onOkButtonClick()">Submit</button>
-        </div>
-        <!-- End of Modal footer -->
-  </div>
+        </div> <!-- End of Modal footer -->
+
+    </div>
 
   </div>
-</div>
 
-<!-- ============================================================== -->
-<!-- Dynamic Form -->
-<!-- ============================================================== -->
-<div class="modal" id="experiment-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">
-
-</div>
 
 <script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    $('select').selectpicker();
+
+    $('#booking-start-date').datetimepicker({
+        format: 'YYYY/MM/DD',
+        date:  new Date('{{ booking.start|pretty_date }}')
+    });
+
+    $('#booking-end-date').datetimepicker({
+        format: 'YYYY/MM/DD',
+        date:  new Date('{{ booking.end|pretty_date }}')
+    });
+
+    $('#booking-repeat-stopdate').datetimepicker({
+        format: 'YYYY/MM/DD'});
 
 
+})(window, document, window.jQuery);
 </script>

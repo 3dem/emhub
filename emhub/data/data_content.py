@@ -396,7 +396,6 @@ class DataContent:
         dataDict['bookings'] = [self.booking_to_event(b)
                                 for b in dm.get_bookings()
                                 if b.resource is not None]
-        dataDict['current_user_json'] = flask_login.current_user.json()
         dataDict['applications'] = [{'id': a.id,
                                      'code': a.code,
                                      'alias': a.alias}
@@ -405,18 +404,21 @@ class DataContent:
 
         dataDict['possible_owners'] = self.get_pi_labs()
         dataDict['possible_operators'] = self.get_possible_operators()
-
-        dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
 
-    def get_booking_form_new(self, **kwargs):
+    def get_booking_form(self, **kwargs):
         dm = self.app.dm  # shortcut
 
         if 'booking_id' in kwargs:
-            booking = dm.get_booking_by(id=kwargs['booking_id'])
-
+            booking_id = kwargs['booking_id']
+            booking = dm.get_booking_by(id=booking_id)
+            if booking is None:
+                raise Exception("Booking with id %s not found." % booking_id)
         else:  # New Application
-            raise Exception("It is not possible to create Bookings now. ")
+            booking = dm.create_basic_booking({
+                'start': kwargs.get('start', None),
+                'end': kwargs.get('end', None)
+            })
 
         return {'booking': booking,
                 'resources': self.get_resources_list()['resources'],
