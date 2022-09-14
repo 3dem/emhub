@@ -416,14 +416,15 @@ class DataContent:
                 raise Exception("Booking with id %s not found." % booking_id)
         else:  # New Application
             booking = dm.create_basic_booking({
-                'start': kwargs.get('start', None),
-                'end': kwargs.get('end', None)
+                'start': datetime_from_isoformat(kwargs.get('start', None)),
+                'end': datetime_from_isoformat(kwargs.get('end', None))
             })
 
         return {'booking': booking,
                 'resources': self.get_resources_list()['resources'],
                 'possible_owners': self.get_pi_labs(),
                 'possible_operators': self.get_possible_operators(),
+                'read_only': True
                 }
 
     def get_applications(self, **kwargs):

@@ -1,12 +1,14 @@
 
 <!-- Modal with the Booking Form -->
+{% set is_new = booking.id is none %}
 
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
 
         <!-- Modal header -->
         <div class="modal-header">
-            <h3 class="modal-title"> Booking </h3>
+            {% set title_suffix = 'New' if is_new else 'Id = %s'|format(booking.id) %}
+            <h3 class="modal-title"> Booking ({{ title_suffix }}) </h3>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="onCancelButtonClick()">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -29,16 +31,18 @@
                 </ul>
 
                 <div class="tab-content" id="myTabContent3">
+
                     <div class="tab-pane fade show active" id="booking-content" role="tabpanel" aria-labelledby="booking-tab">
                         <!-- Booking Form -->
                         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-                            <form id="validationform" data-parsley-validate="" novalidate="">
+                            <form id="booking-form" data-parsley-validate="" novalidate="">
 
+                                <input type="hidden" data-key="id" value="{{ booking.id }}">
                                 <!-- Resource Row -->
                                 <div class="form-group row">
                                     <label class="col-12 col-sm-3 col-form-label text-sm-right">Resource</label>
                                     <div class="col-12 col-sm-8 col-lg-6">
-                                        <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" title="Select Resource to book...">
+                                        <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" data-key="resource_id" title="Select Resource to book...">
                                         {% for r in resources %}#}
                                           {% set selected = 'selected' if r['id'] == booking.resource.id else '' %}
                                             <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
@@ -52,7 +56,7 @@
                                     <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
                                     <div class="col-12 col-sm-8 col-lg-6">
                                         {% if possible_owners %}
-                                            <select id="booking-owner-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
+                                            <select id="booking-owner-select" class="selectpicker show-tick" data-width="100%" data-live-search="true" data-key="owner_id">
                                             {% for lab in possible_owners %}
                                                 <option data-divider="true"></option>
                                                 <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
@@ -64,7 +68,7 @@
                                             </select>
                                         {% else %}
                                             <span>No owners</span>
-                                            <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control">
+                                            <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control" data-key="owner_id" >
                                         {% endif %}
                                     </div>
                                 </div>
@@ -76,7 +80,7 @@
                                     </label>
                                     <div class="col-12 col-sm-8 col-lg-6">
                                         {% if possible_operators %}
-                                            <select id="booking-operator-select" class="selectpicker show-tick" data-width="100%" data-live-search="true">
+                                            <select id="booking-operator-select" class="selectpicker show-tick" data-width="100%" data-live-search="true" data-key="operator_id" >
                                             <option value="0">Not set</option>
                                             {% for u in possible_operators %}
                                                 {% set selected = 'selected' if u['id'] == booking.operator.id else '' %}
@@ -84,7 +88,7 @@
                                             {% endfor %}
                                             </select>
                                         {% else %}
-                                            <input type="text" required="" placeholder="Operator" id="booking-owner-text" class="form-control">
+                                            <input type="text" required="" placeholder="Operator" id="booking-owner-text" class="form-control" data-key="operator_id" >
                                         {% endif %}
                                     </div>
                                 </div>
@@ -93,7 +97,7 @@
                                 <div class="form-group row">
                                     <label class="col-12 col-sm-3 col-form-label text-sm-right">Project ID</label>
                                     <div class="col-12 col-sm-8 col-lg-6">
-                                        <input type="text" required="" placeholder="Enter project ID" id="project_id" class="form-control">
+                                        <input type="text" required="" placeholder="Enter project ID" id="project_id" class="form-control" data-key="project_id">
                                     </div>
                                 </div>
 
@@ -109,7 +113,7 @@
 
                                 <!-- Date Start Row -->
                                 <div class="form-group row">
-                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Start</label>
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right"> Start </label>
                                     <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
                                         <input type="text" class="form-control datetimepicker-input" data-target="#booking-start-date" id="booking-start-date" data-toggle="datetimepicker"/>
                                     </div>
@@ -121,7 +125,7 @@
 
                                 <!-- Date End Form -->
                                 <div class="form-group row">
-                                    <label class="col-12 col-sm-3 col-form-label text-sm-right">End</label>
+                                    <label class="col-12 col-sm-3 col-form-label text-sm-right"> End </label>
                                     <div class="col-sm-4 col-lg-3 mb-3 mb-sm-0">
                                          <input type="text" class="form-control datetimepicker-input" data-target="#booking-end-date" id="booking-end-date" data-toggle="datetimepicker"/>
                                     </div>
@@ -134,14 +138,14 @@
                                 <div class="form-group row">
                                     <label class="col-12 col-sm-3 col-form-label text-sm-right">Title (Optional)</label>
                                     <div class="col-12 col-sm-8 col-lg-6">
-                                        <input type="text" required="" placeholder="Type something" id="booking-title" class="form-control" value="{{ booking.title }}">
+                                        <input type="text" required="" placeholder="Type something" id="booking-title" class="form-control" value="{{ booking.title or ''}}" data-key="title">
                                     </div>
                                 </div>
 
                                 <div class="form-group row">
                                     <label class="col-12 col-sm-3 col-form-label text-sm-right">Description (Optional)</label>
                                     <div class="col-12 col-sm-8 col-lg-6">
-                                        <textarea required="" class="form-control" id="booking-description"></textarea>
+                                        <textarea required="" class="form-control" id="booking-description" data-key="description"></textarea>
                                     </div>
                                 </div>
 
@@ -149,6 +153,7 @@
                                     <a href="javascript: showExperimentForm()" class="col-12 col-sm-3 col-form-label text-sm-right"><i class="fas fa-edit"></i> Describe Experiment</a>
                                 </div>
 
+                            <!-- Form ends here -->
                             </form>
                         </div>
                         <!-- end Booking Form -->
@@ -157,8 +162,8 @@
                     {% if current_user.is_manager %}
                         <div class="tab-pane fade" id="admin-content" role="tabpanel" aria-labelledby="admin-tab">
                             <!-- Manager Section  -->
-
-                            <div class="modal-body">
+                            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                                <form id="booking-form-admin">
                                 <!-- Booking type -->
                                <div class="form-group row">
                                     <label class="col-sm-3 col-form-label text-sm-right">Booking Type</label>
@@ -166,7 +171,8 @@
                                         <div class="custom-controls-stacked">
                                             {% for t in booking_types %}
                                                 <label class="custom-control custom-radio custom-control-inline">
-                                                    <input type="radio" name="booking-type-radio" checked="" class="custom-control-input" value="{{ t }}"><span class="custom-control-label">{{ t }}</span>
+                                                    {% set checked = 'checked' if t == booking.type else '' %}
+                                                    <input type="radio" name="booking-type-radio" {{ checked }} class="custom-control-input" value="{{ t }}" data-key="type"><span class="custom-control-label">{{ t }}</span>
                                                 </label>
                                             {% endfor %}
                                         </div>
@@ -177,7 +183,7 @@
                                 <div class="form-group row">
                                     <label class="col-12 col-sm-3 col-form-label text-sm-right">Sloth Authorization</label>
                                     <div class="col-12 col-sm-8 col-lg-6">
-                                    <select id="booking-slot-auth" class="selectpicker show-tick" multiple data-width="100%" data-selected-text-format="count > 5" data-live-search="true" data-actions-box="true" title="Select authorization...">
+                                    <select id="booking-slot-auth" class="selectpicker show-tick" multiple data-width="100%" data-selected-text-format="count > 5" data-live-search="true" data-actions-box="true" title="Select authorization..." data-key="slot-auth">
                                         <option value="any">Any</option>
                                         {% for a in applications %}#}
                     {#                      <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}" data-content="<span class='badge badge-light'>{{a['code']}}</span>">{{a['code']}}</option>#}
@@ -205,7 +211,7 @@
                                             <label> Stop Date </label>
                                             <label>
                                                 <div class="input-group date" data-target-input="nearest">
-                                                    <input type="text" class="form-control datetimepicker-input" data-target="#booking-repeat-stopdate" id="booking-repeat-stopdate" data-toggle="datetimepicker"/>
+                                                    <input type="text" class="form-control datetimepicker-input" data-target="#booking-repeat-stop-date" id="booking-repeat-stop-date" data-toggle="datetimepicker" data-key="stopdate"/>
                                                 </div>
                                             </label>
                                         </div>
@@ -226,6 +232,7 @@
                                     </div>
                                 </div>
 
+                                </form>
                             </div>
 
                         </div>
@@ -237,9 +244,20 @@
 
         <!-- Modal footer -->
         <div class="modal-footer">
-            <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal" onclick="onCancelButtonClick()">Cancel</button>
-            <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" onclick="onDeleteButtonClick()">Delete</button>
-            <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="onOkButtonClick()">Submit</button>
+            {% if read_only %}
+                <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal" onclick="onCancelButtonClick()">Close</button>
+            {% else %}
+                <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal" onclick="onCancelButtonClick()">Cancel</button>
+                {% if is_new %}
+                    {% set submit = 'Create' %}
+                {% else %}
+                    {% set submit = 'Update' %}
+                    <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" onclick="onDeleteButtonClick()">Delete</button>
+                {% endif %}
+
+                <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="onOkButtonClick()">{{ submit }}</button>
+
+            {% endif %}
         </div> <!-- End of Modal footer -->
 
     </div>
@@ -252,20 +270,9 @@
     "use strict";
 
     $('select').selectpicker();
-
-    $('#booking-start-date').datetimepicker({
-        format: 'YYYY/MM/DD',
-        date:  new Date('{{ booking.start|pretty_date }}')
-    });
-
-    $('#booking-end-date').datetimepicker({
-        format: 'YYYY/MM/DD',
-        date:  new Date('{{ booking.end|pretty_date }}')
-    });
-
-    $('#booking-repeat-stopdate').datetimepicker({
-        format: 'YYYY/MM/DD'});
-
+    setDateAndTime('booking-start', '{{ booking.start.isoformat() }}');
+    setDateAndTime('booking-end', '{{ booking.end.isoformat() }}');
+    setDateAndTime('booking-repeat-stop', '{{ booking.end.isoformat() }}');
 
 })(window, document, window.jQuery);
 </script>

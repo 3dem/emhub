@@ -10,6 +10,20 @@
          return days_difference + 1;
     }
 
+    function setDateAndTime(idPrefix, dateIso){
+        const dateId = '#' + idPrefix + '-date';
+        const timeId = '#' + idPrefix + '-time';
+        var d = new Date(Date.parse(dateIso));
+        $(dateId).datetimepicker({format: 'YYYY/MM/DD'});
+        $(dateId).val(dateStr(d));
+        $(timeId).val(timeStr(d));
+    }
+
+    function getDateAndTime(idPrefix) {
+       return  dateFromValue('#' + idPrefix + '-date',
+                            '#' + idPrefix + '-time').toISOString();
+    }
+
     /** Helper functions to handle AJAX response or failure */
     function handleBookingAjaxDone(jsonResponse) {
         let error = null;
@@ -143,37 +157,30 @@
         //         "No", "Yes", function () { alert('clicked yes')})
         // //showMessage("Testing", "Testing");
         // return;
-        var owner_id = last_booking.owner.id;
-        var operator_id = last_booking.operator ? last_booking.operator.id : null;
 
-        if (possible_owners.length)
-            owner_id = $('#booking-owner-select').selectpicker('val');
+        booking = getFormAsJson('booking-form')
+        jQuery.extend(booking, getFormAsJson('booking-form-admin'))
 
-        if (possible_operators.length) {
-            operator_id = $('#booking-operator-select').selectpicker('val');
-        }
+        booking.start = getDateAndTime('booking-start');
+        booking.end = getDateAndTime('booking-end');
 
-        var start = dateFromValue('#booking-start-date', '#booking-start-time');
-        var end = dateFromValue('#booking-end-date', '#booking-end-time');
-        var resource = getResource(last_booking.resource.id);
-
-        var booking = {
-            id: last_booking.id,
-            title: $('#booking-title').val(),
-            start: start,
-            end: end,
-            type: booking_type,
-            description: $('#booking-description').val(),
-            owner_id: owner_id,
-            operator_id: operator_id,
-            resource_id: last_booking.resource.id,
-            modify_all: modify_all,
-            repeat_value: repeat_value,
-            resource: resource,
-            experiment: last_booking.experiment,
-            application_label: last_booking.application_label,
-            costs: last_booking.costs
-        };
+        // var booking = {
+        //     id: last_booking.id,
+        //     title: $('#booking-title').val(),
+        //     start: start,
+        //     end: end,
+        //     type: booking_type,
+        //     description: $('#booking-description').val(),
+        //     owner_id: owner_id,
+        //     operator_id: operator_id,
+        //     resource_id: last_booking.resource.id,
+        //     modify_all: modify_all,
+        //     repeat_value: repeat_value,
+        //     resource: resource,
+        //     experiment: last_booking.experiment,
+        //     application_label: last_booking.application_label,
+        //     costs: last_booking.costs
+        // };
 
         if (booking_type == 'slot') {
             booking.slot_auth = {
@@ -181,13 +188,13 @@
                 users: []
             }
         }
-        else if (booking_type == 'booking') {
-            if (resource.is_microscope && jQuery.isEmptyObject(booking.experiment)) {
-                showError("<p>Please describe your experiment!!! <br> " +
-                          "At least the fields in the <b>Basic</b> input tab.<p>");
-                return
-            }
-        }
+        // else if (booking_type == 'booking') {
+        //     if (resource.is_microscope && jQuery.isEmptyObject(booking.experiment)) {
+        //         showError("<p>Please describe your experiment!!! <br> " +
+        //                   "At least the fields in the <b>Basic</b> input tab.<p>");
+        //         return
+        //     }
+        // }
 
         let endpoint = null;
 
@@ -200,43 +207,31 @@
             }
         }
         else {
+            endpoint = Api.urls.booking.create;
             // Only take into account repeat value when creating a new booking
             if (repeat_value != 'no') {
                 try {
-                    booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
+                    booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate').toISOString();
                 }
                 catch(err) {
                     showError("<p>Please provide a valid <b>Stop date</b> for the repeating event.")
                     return
                 }
             }
-            endpoint = Api.urls.booking.create;
         }
 
-        if (has_calendar) {
-            var error = validateBooking(booking, true);
+        printObject(booking);
 
-            if (error != '') {
-                showError(error);
-                return;
-            }
-        }
-
-        delete booking.resource;  // resource_id is enough
-        // Set dates to ISO string
-        booking.start = start.toISOString();
-        booking.end = end.toISOString();
-
-        var ajaxContent = $.ajax({
-            url: endpoint,
-            type: "POST",
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify({attrs: booking}),
-            dataType: "json"
-        });
-
-        ajaxContent.done(handleBookingAjaxDone);
-        ajaxContent.fail(handleAjaxFail);
+        // var ajaxContent = $.ajax({
+        //     url: endpoint,
+        //     type: "POST",
+        //     contentType: 'application/json; charset=utf-8',
+        //     data: JSON.stringify({attrs: booking}),
+        //     dataType: "json"
+        // });
+        //
+        // ajaxContent.done(handleBookingAjaxDone);
+        // ajaxContent.fail(handleAjaxFail);
     }  // function onOkButtonClick
 
         /** This function will be called when the Delete button in the Booking form
@@ -437,11 +432,6 @@ function hasVisibleResource(visibleResourcesId, erid) {
 function filterBookingsByResources(){
     var sel = document.getElementById("selectpicker-resource-display");
     var visibleResourcesId = getSelectedValues(sel);
-
-    // Always show the selected resource
-    if (selected_resource)
-        visibleResourcesId.push(selected_resource.id);
-
     var all_events = hidden_events.concat(calendar.getEvents());
     hidden_events = [];
 
