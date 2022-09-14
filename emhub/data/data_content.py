@@ -424,7 +424,7 @@ class DataContent:
                 'resources': self.get_resources_list()['resources'],
                 'possible_owners': self.get_pi_labs(),
                 'possible_operators': self.get_possible_operators(),
-                'read_only': True
+                'read_only': False
                 }
 
     def get_applications(self, **kwargs):

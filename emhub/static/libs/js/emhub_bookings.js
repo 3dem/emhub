@@ -71,83 +71,6 @@
                                                         booking_params));
     }
 
-    /* Show the Booking Form, either for a new booking or an existing one
-    * TO-REMOVE
-    * */
-    function showBookingFormOld(booking) {
-        booking_type = booking.type;
-        repeat_value = booking.repeat_value;
-
-        var titlePrefix = null;
-        if (booking.id == null) {  // New booking
-            titlePrefix = 'Create ';
-            booking.user_can_modify = true;
-            $('#booking-btn-ok').show();
-            $('#booking-btn-delete').hide();
-            $('#application-label').html('Not set');
-        }
-        else {
-            titlePrefix = 'Update ';
-            if (booking.user_can_modify) {
-                $('#booking-btn-delete').show();
-                $('#booking-btn-ok').show();
-            }
-            else {
-                $('#booking-btn-delete').hide();
-                $('#booking-btn-ok').hide();
-            }
-            $('#application-label').html(booking.application_label);
-        }
-
-        let htmlStr = titlePrefix + ' Booking - ' + booking.resource.name;
-        if (is_devel)
-            htmlStr += ' (id=' + booking.id + ')';
-
-        $('#booking-modal-title').html(htmlStr);
-        $('#booking-btn-ok').html(titlePrefix);
-
-        if (possible_owners.length) {
-            $('#booking-owner-select').selectpicker('val', booking.owner.id);
-        }
-        else {
-            $('#booking-owner-text').val(booking.owner.name);
-            $('#booking-owner-text').prop('readonly', true);
-        }
-
-        if (possible_operators.length) {
-            if (booking.operator)
-                $('#booking-operator-select').selectpicker('val', booking.operator.id);
-        }
-        else {
-            if (booking.operator)
-                $('#booking-operator-select').val(booking.operator.name);
-            $('#booking-operator-select').prop('readonly', true);
-        }
-
-        if  (booking.type == 'booking' &&
-             booking.resource.is_microscope &&
-             booking.user_can_modify)
-            $('#div-describe-experiment').show();
-        else
-            $('#div-describe-experiment').hide();
-
-        $('#booking-start-date').val(dateStr(booking.start));
-        $('#booking-start-time').val(timeStr(booking.start));
-        $('#booking-end-date').val(dateStr(booking.end));
-        $('#booking-end-time').val(timeStr(booking.end));
-        $('#booking-slot-auth').selectpicker('val', booking.slot_auth.applications);
-
-        $('#booking-title').val(booking.title);
-        $('#booking-description').val(booking.description);
-        $("input[name=booking-type-radio][value=" + booking.type + "]").prop('checked', true);
-        $("input[name=booking-repeat-radio][value=" + booking.repeat_value + "]").prop('checked', true);
-        modify_all = null;
-        $('input[type=radio][name=booking-modify-radio]').val([]);
-        //$("input[name=booking-repeat-radio][value='no']").prop('checked', true);
-        $('#booking-title').focus();
-        $('#booking-modal').modal('show');
-    }
-
     /** This function will be called when the OK button in the Booking form
      * is clicked. It can be either Create or Update action.
      */
@@ -164,24 +87,6 @@
         booking.start = getDateAndTime('booking-start');
         booking.end = getDateAndTime('booking-end');
 
-        // var booking = {
-        //     id: last_booking.id,
-        //     title: $('#booking-title').val(),
-        //     start: start,
-        //     end: end,
-        //     type: booking_type,
-        //     description: $('#booking-description').val(),
-        //     owner_id: owner_id,
-        //     operator_id: operator_id,
-        //     resource_id: last_booking.resource.id,
-        //     modify_all: modify_all,
-        //     repeat_value: repeat_value,
-        //     resource: resource,
-        //     experiment: last_booking.experiment,
-        //     application_label: last_booking.application_label,
-        //     costs: last_booking.costs
-        // };
-
         if (booking_type == 'slot') {
             booking.slot_auth = {
                 applications: $('#booking-slot-auth').selectpicker('val'),
@@ -197,6 +102,7 @@
         // }
 
         let endpoint = null;
+        printObject(booking);
 
         if (booking.id) {
             endpoint = Api.urls.booking.update;
@@ -209,9 +115,9 @@
         else {
             endpoint = Api.urls.booking.create;
             // Only take into account repeat value when creating a new booking
-            if (repeat_value != 'no') {
+            if (booking.repeat_value != 'no') {
                 try {
-                    booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate').toISOString();
+                    booking.repeat_stop = dateFromValue('#booking-repeat-stop-date').toISOString();
                 }
                 catch(err) {
                     showError("<p>Please provide a valid <b>Stop date</b> for the repeating event.")
@@ -220,18 +126,19 @@
             }
         }
 
-        printObject(booking);
+        // User later for delete actions and updating the calendar if necessary
+        last_booking = booking;
 
-        // var ajaxContent = $.ajax({
-        //     url: endpoint,
-        //     type: "POST",
-        //     contentType: 'application/json; charset=utf-8',
-        //     data: JSON.stringify({attrs: booking}),
-        //     dataType: "json"
-        // });
-        //
-        // ajaxContent.done(handleBookingAjaxDone);
-        // ajaxContent.fail(handleAjaxFail);
+        var ajaxContent = $.ajax({
+            url: endpoint,
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify({attrs: booking}),
+            dataType: "json"
+        });
+
+        ajaxContent.done(handleBookingAjaxDone);
+        ajaxContent.fail(handleAjaxFail);
     }  // function onOkButtonClick
 
         /** This function will be called when the Delete button in the Booking form
@@ -248,7 +155,7 @@
 
         let deleteInfo = {
             id: last_booking.id,
-            modify_all: modify_all,
+            modify_all: last_booking.modify_all,
         };
 
         var ajaxContent = $.ajax({

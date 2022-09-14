@@ -981,6 +981,9 @@ class DataManager(DbManager):
         if 'creator_id' not in attrs:
             attrs['creator_id'] = self._user.id
 
+        if 'owner_id' not in attrs:
+            attrs['owner_id'] = self._user.id
+
         return self.Booking(**attrs)
 
         return b
