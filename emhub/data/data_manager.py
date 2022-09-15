@@ -986,6 +986,9 @@ class DataManager(DbManager):
         if 'owner_id' not in attrs:
             attrs['owner_id'] = self._user.id
 
+        if 'type' not in attrs:
+            attrs['type'] = 'booking'
+
         return self.Booking(**attrs)
 
         return b

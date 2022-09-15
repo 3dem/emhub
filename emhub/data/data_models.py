@@ -656,6 +656,11 @@ def create_data_models(dm):
         application = relationship("Application",
                                    back_populates="bookings")
 
+        # Project Id that this Booking is associated
+        project_id = Column(Integer, ForeignKey('projects.id'),
+                            nullable=True)
+        project = relationship("Project", back_populates="bookings")
+
         session = relationship("Session", back_populates="booking")
 
         # Experiment description
@@ -711,15 +716,15 @@ def create_data_models(dm):
         def costs(self, value):
             self.__setExtra('costs', value)
 
-        @property
-        def project_id(self):
-            """ Return the Project ID associated to this booking.
-            """
-            return  self.__getExtra('project_id', [])
-
-        @costs.setter
-        def project_id(self, value):
-            self.__setExtra('project_id', value)
+        # @property
+        # def project_id(self):
+        #     """ Return the Project ID associated to this booking.
+        #     """
+        #     return  self.__getExtra('project_id', [])
+        #
+        # @costs.setter
+        # def project_id(self, value):
+        #     self.__setExtra('project_id', value)
 
         @property
         def total_cost(self):
@@ -986,6 +991,8 @@ def create_data_models(dm):
         extra = Column(JSON, default={})
 
         entries = relationship('Entry', back_populates='project')
+
+        bookings = relationship('Booking', back_populates='project')
 
         def __getExtra(self, key, default):
             return self.extra.get(key, default)

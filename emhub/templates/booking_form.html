@@ -12,7 +12,7 @@
         <!-- Modal header -->
         <div class="modal-header">
             {% set title_suffix = 'New' if is_new else 'Id = %s'|format(booking.id) %}
-            <h3 class="modal-title"> Booking ({{ title_suffix }}) </h3>
+            <h3 class="modal-title"> Booking ({{ title_suffix }}) {{ " READ-ONLY" if read_only else '' }}</h3>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close" onclick="onCancelButtonClick()">
               <span aria-hidden="true">&times;</span>
             </button>
@@ -57,8 +57,7 @@
                                 {% endfor %}
                                 </select>
                             {% else %}
-                                <span>No owners</span>
-                                <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control" data-key="owner_id" >
+                                <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control" value="{{ booking.owner.name }}">
                             {% endif %}
                         </div>
                     </div>
@@ -67,7 +66,13 @@
                     <div class="form-group row">
                         {{ row_label('Project ID') }}
                         <div class="col-7">
-                            <input type="text" required="" placeholder="Enter project ID" id="project_id" class="form-control" data-key="project_id">
+                            <select id="booking-projectid-select" class="selectpicker show-tick" data-live-search="true" data-key="project_id" >
+                                <option value="0">Not set</option>
+                                {% for p in projects %}
+                                    {% set selected = 'selected' if p.id == booking.project.id else '' %}
+                                    <option {{ selected }} value="{{ p.id }}">{{ p.title }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                     </div>
 
@@ -115,7 +120,7 @@
                     <div class="form-group row">
                         {{ row_label('Description (Optional)') }}
                         <div class="col-7">
-                            <textarea required="" class="form-control" id="booking-description" data-key="description"></textarea>
+                            <textarea required="" class="form-control" id="booking-description" data-key="description">{{ booking.description }}</textarea>
                         </div>
                     </div>
 

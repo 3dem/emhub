@@ -60,7 +60,6 @@
         if (error)
             showError(error);
         else {
-            console.log('hiding modal...has_calendar: ' + has_calendar);
             $('#booking-modal').modal('hide');
             if (has_calendar)
                 calendar.render();
@@ -99,6 +98,20 @@
         return booking;
     }
 
+    function doRepeat(booking) {
+        const repeat = booking.repeat_value;
+        return nonEmpty(repeat) && repeat !== 'no';
+    }
+
+    function invalidRepeatParams(booking) {
+        if (doRepeat(booking) && booking.modify_all === null) {
+                showError("<p>Please select a value for input <b>Modify repeating</b>: " +
+                          "<i>Only this</i> or <i>All upcoming</i>.")
+                return true;
+            }
+        return false;
+    }
+
     /** This function will be called when the OK button in the Booking form
      * is clicked. It can be either Create or Update action.
      */
@@ -106,18 +119,17 @@
         let endpoint = null;
         var booking = getBookingParams();
 
+        printObject(booking);
+
         if (booking.id) {
             endpoint = Api.urls.booking.update;
-            if (booking.repeat_value !== 'no' && booking.modify_all === null) {
-                showError("<p>Please select a value for input <b>Modify repeating</b>: " +
-                          "<i>Only this</i> or <i>All upcoming</i>.")
-                return
-            }
+            if (invalidRepeatParams(booking))
+                return;
         }
         else {
             endpoint = Api.urls.booking.create;
             // Only take into account repeat value when creating a new booking
-            if (booking.repeat_value != 'no') {
+            if (doRepeat(booking)) {
                 try {
                     booking.repeat_stop = dateFromValue('#booking-repeat-stop-date').toISOString();
                 }
@@ -153,12 +165,8 @@
             "Are you sure to DELETE this Booking?",
              "Cancel", "Delete",
             function () {
-                //if (last_booking.repeat_id && modify_all === null) {
-                if (booking.repeat_value !== 'no' && booking.modify_all === null) {
-                        showError("<p>Please select a value for input <b>Modify repeating</b>: " +
-                                  "<i>Only this</i> or <i>All upcoming</i>.")
-                        return
-                }
+                if (invalidRepeatParams(booking))
+                return;
 
                 let deleteInfo = {
                     id: booking.id,

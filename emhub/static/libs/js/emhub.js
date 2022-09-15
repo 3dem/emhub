@@ -24,7 +24,6 @@ function printObject(obj, label) {
     }
 }
 
-
 function printArray(array, label){
     console.log("Array: ", label);
     var i = 0;
@@ -236,8 +235,6 @@ function setInputValue(element, value) {
 
 function nonEmpty(value) {
     var type = typeof value;
-
-    console.log("nonEmpty: " + type.toString());
 
     if (value === null || type === 'undefined')
         return false;
@@ -556,7 +553,6 @@ function table_copyRows(table_id){
         var rowValues = []
         for (var row of rows) {
             var values = row_getValues(row);
-            console.log(values);
             if (!jQuery.isEmptyObject(values))
                 rowValues.push(values);
         }
@@ -589,7 +585,6 @@ function table_rowsToClipboard(table_id) {
 */
 function table_setRowValues(table_id, rowValues) {
     var emptyRows = table_getEmptyRows(table_id);
-    console.log(rowValues);
     for (var i = 0; i < rowValues.length; ++i){
         var values = rowValues[i];
 

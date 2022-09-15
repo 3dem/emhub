@@ -408,6 +408,8 @@ class DataContent:
 
     def get_booking_form(self, **kwargs):
         dm = self.app.dm  # shortcut
+        user = self.app.user
+
         if 'start' in kwargs and 'end' in kwargs:
             dates = {
                 'start': datetime_from_isoformat(kwargs.get('start', None)),
@@ -416,9 +418,12 @@ class DataContent:
         else:
             dates = None
 
+        read_only = False
         if 'booking_id' in kwargs:
             booking_id = kwargs['booking_id']
             booking = dm.get_booking_by(id=booking_id)
+            read_only = not (user.is_manager or user.id == booking.owner.id)
+
             if dates:
                 booking.start = dates['start']
                 booking.end = dates['end']
@@ -427,12 +432,15 @@ class DataContent:
         else:  # New Application
             booking = dm.create_basic_booking(dates)
 
-        return {'booking': booking,
+        data = {'booking': booking,
                 'resources': self.get_resources_list()['resources'],
                 'possible_owners': self.get_pi_labs(),
                 'possible_operators': self.get_possible_operators(),
-                'read_only': False
+                'read_only': read_only
                 }
+
+        data.update(self.get_projects_list())
+        return data
 
     def get_applications(self, **kwargs):
         dataDict = self.get_raw_applications_list()
@@ -1202,14 +1210,20 @@ class DataContent:
     def get_projects_list(self, **kwargs):
         # FIXME Define access/permissions for other users
         projects = []
+        user = self.app.user  # shortcut
+
         for p in self.app.dm.get_projects():
             pi = p.user.get_pi()
             if pi:
                 apps = pi.get_applications()
                 # skip this project from the list if the application is confidential
                 # and the user has not access to it
-                if apps and not apps[0].allows_access(self.app.user):
+                if apps and not apps[0].allows_access(user):
                     continue
+
+            if not (user.is_manager or user.same_pi(p.user)):
+                continue
+
             projects.append(p)
 
         can_create = self.app.dm.user_can_create_projects(self.app.user)
