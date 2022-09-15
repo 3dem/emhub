@@ -1562,20 +1562,11 @@ class DataContent:
             'id': booking.id,
             'title': title,
             'resource': {'id': resource.id},
-            'description': b_description,
             'start': datetime_to_isoformat(booking.start),
             'end': datetime_to_isoformat(booking.end),
             'color': color,
             'textColor': 'white',
-            'creator': {'id': creator.id, 'name': creator.name},
-            'owner': {'id': owner.id, 'name': owner_name},
-            'operator': operator_dict,
-            'type': booking.type,
             'booking_title': b_title,
-
-            'application_label': application_label,
-            'costs': booking.costs,
-            'total_cost': booking.total_cost
         }
 
         if kwargs.get('prettyDate', False):

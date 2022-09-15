@@ -51,7 +51,7 @@
                                     <option data-divider="true"></option>
                                     <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
                                     {% for u in lab[1:] %}
-                                        {% set selected = 'selected' if u['id'] == booking.owner_id else '' %}
+                                        {% set selected = 'selected' if (u['id'] == booking.owner.id or u['id'] == booking.owner_id) else '' %}
                                         <option value="{{u['id']}}" {{ selected }}>{{u['name']}}</option>
                                     {% endfor %}
                                 {% endfor %}
@@ -62,8 +62,6 @@
                             {% endif %}
                         </div>
                     </div>
-
-
 
                     <!-- Project Id Row -->
                     <div class="form-group row">
@@ -210,7 +208,7 @@
                                 {{ row_label('Stop Date') }}
                                 <div class="col-7">
                                     <div class="input-group date" data-target-input="nearest">
-                                        <input type="text" class="form-control datetimepicker-input" data-target="#booking-repeat-stop-date" id="booking-repeat-stop-date" data-toggle="datetimepicker" data-key="stopdate"/>
+                                        <input type="text" class="form-control datetimepicker-input" data-target="#booking-repeat-stop-date" id="booking-repeat-stop-date" data-toggle="datetimepicker" data-key="repeat_stop"/>
                                     </div>
                                 </div>
                             </div>
@@ -221,10 +219,10 @@
                                 <div class="col-7">
                                     <div class="custom-controls-stacked">
                                         <label class="custom-control custom-radio custom-control-inline">
-                                            <input type="radio" name="booking-modify-radio" checked="" class="custom-control-input" value="no"><span class="custom-control-label">Only this</span>
+                                            <input type="radio" name="booking-modify-radio" checked="" class="custom-control-input" value="no" data-key="modify_all"><span class="custom-control-label">Only this</span>
                                         </label>
                                         <label class="custom-control custom-radio custom-control-inline">
-                                            <input type="radio" name="booking-modify-radio" class="custom-control-input" value="yes"><span class="custom-control-label">All upcoming</span>
+                                            <input type="radio" name="booking-modify-radio" class="custom-control-input" value="yes" data-key="modify_all"><span class="custom-control-label">All upcoming</span>
                                         </label>
                                     </div>
                                 </div>

@@ -1154,7 +1154,7 @@ class DataManager(DbManager):
                 returned
         """
         booking_id = attrs['id']
-        modify_all = attrs.pop('modify_all', False)
+        modify_all = attrs.pop('modify_all', 'no') == 'yes'
 
         # Get the booking with the given id
         bookings = self.get_bookings(condition='id="%s"' % booking_id)

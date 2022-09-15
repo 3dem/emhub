@@ -147,34 +147,35 @@
      * is clicked. It can be either Create or Update action.
      */
     function onDeleteButtonClick() {
-        // confirm("Delete Booking", "Do you really want to DELETE the booking?",
-        //         "No", "Yes", function () { alert('clicked yes')})
-        // //showMessage("Testing", "Testing");
-        // return;
         const booking = getBookingParams();
 
-        //if (last_booking.repeat_id && modify_all === null) {
-        if (booking.repeat_value !== 'no' && booking.modify_all === null) {
-                showError("<p>Please select a value for input <b>Modify repeating</b>: " +
-                          "<i>Only this</i> or <i>All upcoming</i>.")
-                return
-        }
+        confirm("Delete Booking",
+            "Are you sure to DELETE this Booking?",
+             "Cancel", "Delete",
+            function () {
+                //if (last_booking.repeat_id && modify_all === null) {
+                if (booking.repeat_value !== 'no' && booking.modify_all === null) {
+                        showError("<p>Please select a value for input <b>Modify repeating</b>: " +
+                                  "<i>Only this</i> or <i>All upcoming</i>.")
+                        return
+                }
 
-        let deleteInfo = {
-            id: booking.id,
-            modify_all: booking.modify_all,
-        };
+                let deleteInfo = {
+                    id: booking.id,
+                    modify_all: booking.modify_all,
+                };
 
-        var ajaxContent = $.ajax({
-            url: Api.urls.booking.delete,
-            type: "POST",
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify({attrs: deleteInfo}),
-            dataType: "json"
+                var ajaxContent = $.ajax({
+                    url: Api.urls.booking.delete,
+                    type: "POST",
+                    contentType: 'application/json; charset=utf-8',
+                    data: JSON.stringify({attrs: deleteInfo}),
+                    dataType: "json"
+                });
+
+                ajaxContent.done(handleBookingAjaxDone);
+                ajaxContent.fail(handleAjaxFail);
         });
-
-        ajaxContent.done(handleBookingAjaxDone);
-        ajaxContent.fail(handleAjaxFail);
     }
 
     /** This function will be called when the Delete button in the Booking form
