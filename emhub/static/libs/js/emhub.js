@@ -237,6 +237,11 @@ function setInputValue(element, value) {
 function nonEmpty(value) {
     var type = typeof value;
 
+    console.log("nonEmpty: " + type.toString());
+
+    if (value === null || type === 'undefined')
+        return false;
+
     if (type === 'string')
         return value.trim().length > 0;
 

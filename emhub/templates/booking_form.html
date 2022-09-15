@@ -51,7 +51,7 @@
                                     <option data-divider="true"></option>
                                     <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
                                     {% for u in lab[1:] %}
-                                        {% set selected = 'selected' if u['id'] == booking.owner.id else '' %}
+                                        {% set selected = 'selected' if u['id'] == booking.owner_id else '' %}
                                         <option value="{{u['id']}}" {{ selected }}>{{u['name']}}</option>
                                     {% endfor %}
                                 {% endfor %}
@@ -63,23 +63,7 @@
                         </div>
                     </div>
 
-                <!-- Operator Row -->
-                    <div class="form-group row">
-                        {{ row_label('Operator') }}
-                        <div class="col-7">
-                            {% if possible_operators %}
-                                <select id="booking-operator-select" class="selectpicker show-tick" data-live-search="true" data-key="operator_id" >
-                                    <option value="0">Not set</option>
-                                    {% for u in possible_operators %}
-                                        {% set selected = 'selected' if u['id'] == booking.operator.id else '' %}
-                                        <option {{ selected }} value="{{u['id']}}">{{u['name']}}</option>
-                                    {% endfor %}
-                                </select>
-                            {% else %}
-                                <input type="text" required="" placeholder="Operator" id="booking-owner-text" class="form-control" data-key="operator_id" >
-                            {% endif %}
-                        </div>
-                    </div>
+
 
                     <!-- Project Id Row -->
                     <div class="form-group row">
@@ -156,6 +140,25 @@
                             <div class="form-group row">
                                 <h4 class="col-12 text-sm-left">Admin</h4>
                             </div>
+
+                            <!-- Operator Row -->
+                            <div class="form-group row">
+                                {{ row_label('Operator') }}
+                                <div class="col-7">
+                                    {% if possible_operators %}
+                                        <select id="booking-operator-select" class="selectpicker show-tick" data-live-search="true" data-key="operator_id" >
+                                            <option value="0">Not set</option>
+                                            {% for u in possible_operators %}
+                                                {% set selected = 'selected' if u['id'] == booking.operator_id else '' %}
+                                                <option {{ selected }} value="{{u['id']}}">{{u['name']}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    {% else %}
+                                        <input type="text" required="" placeholder="Operator" id="booking-owner-text" class="form-control" data-key="operator_id" >
+                                    {% endif %}
+                                </div>
+                            </div>
+
                             <!-- Booking type -->
                            <div class="form-group row">
                                 {{ row_label('Booking Type') }}

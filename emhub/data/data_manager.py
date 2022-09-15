@@ -307,6 +307,8 @@ class DataManager(DbManager):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         modify_all = attrs.pop('modify_all', None)
+        # We should accept empty title for booking
+        attrs['title'] = attrs.get('title', None) or ''
         bookings = []
 
         def _add_booking(attrs):
@@ -990,6 +992,9 @@ class DataManager(DbManager):
 
     def __validate_booking(self, booking, **kwargs):
         r = self.get_resource_by(id=booking.resource_id)
+        if r is None:
+            raise Exception("Select a valid Resource for this booking.")
+
         check_min_booking = kwargs.get('check_min_booking', True)
         check_max_booking = kwargs.get('check_max_booking', True)
 

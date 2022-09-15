@@ -49,11 +49,9 @@
     var possible_owners = {{ possible_owners|tojson }};
     var resources = {{ resources|tojson }};
     var possible_operators = {{ possible_operators|tojson }};
+    var calendar = null;
 
     var is_devel = {{ is_devel|tojson }};
-    var booking_type = 'booking';
-    var repeat_value = null;
-    var has_calendar = true;
     var content_url = "{{ url_for('get_content') }}";
 
     Api.urls = {

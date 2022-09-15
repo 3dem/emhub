@@ -24,9 +24,17 @@
                             '#' + idPrefix + '-time').toISOString();
     }
 
+    /** Return True if there is a calendar variable defined.
+     * This is used to update the calendar after modification of the bookings.
+     */
+    function hasCalendar() {
+        return calendar !== null;
+    }
+
     /** Helper functions to handle AJAX response or failure */
     function handleBookingAjaxDone(jsonResponse) {
         let error = null;
+        const has_calendar = hasCalendar();
 
         if ('bookings_created' in jsonResponse) {
             if (has_calendar)
@@ -52,6 +60,7 @@
         if (error)
             showError(error);
         else {
+            console.log('hiding modal...has_calendar: ' + has_calendar);
             $('#booking-modal').modal('hide');
             if (has_calendar)
                 calendar.render();
@@ -66,47 +75,40 @@
     function showBookingForm(booking_params, modalId)
     {
         if (!modalId)
-            modalId = 'booking-modal-new';
+            modalId = 'booking-modal';
         show_modal_from_ajax(modalId, get_ajax_content("booking_form",
                                                         booking_params));
     }
 
-    /** This function will be called when the OK button in the Booking form
-     * is clicked. It can be either Create or Update action.
+    /**
+     * Retrieve the booking parameters from the Form
      */
-    function onOkButtonClick() {
-        // Create Event object info from
-        // confirm("Create Booking", "do you really want to create the booking?",
-        //         "No", "Yes", function () { alert('clicked yes')})
-        // //showMessage("Testing", "Testing");
-        // return;
-
+    function getBookingParams() {
         booking = getFormAsJson('booking-form')
         jQuery.extend(booking, getFormAsJson('booking-form-admin'))
 
         booking.start = getDateAndTime('booking-start');
         booking.end = getDateAndTime('booking-end');
 
-        if (booking_type == 'slot') {
+        if (booking.type == 'slot') {
             booking.slot_auth = {
                 applications: $('#booking-slot-auth').selectpicker('val'),
                 users: []
             }
         }
-        // else if (booking_type == 'booking') {
-        //     if (resource.is_microscope && jQuery.isEmptyObject(booking.experiment)) {
-        //         showError("<p>Please describe your experiment!!! <br> " +
-        //                   "At least the fields in the <b>Basic</b> input tab.<p>");
-        //         return
-        //     }
-        // }
+        return booking;
+    }
 
+    /** This function will be called when the OK button in the Booking form
+     * is clicked. It can be either Create or Update action.
+     */
+    function onOkButtonClick() {
         let endpoint = null;
-        printObject(booking);
+        var booking = getBookingParams();
 
         if (booking.id) {
             endpoint = Api.urls.booking.update;
-            if (booking.repeat_value != 'no' && modify_all === null) {
+            if (booking.repeat_value !== 'no' && booking.modify_all === null) {
                 showError("<p>Please select a value for input <b>Modify repeating</b>: " +
                           "<i>Only this</i> or <i>All upcoming</i>.")
                 return
@@ -145,17 +147,22 @@
      * is clicked. It can be either Create or Update action.
      */
     function onDeleteButtonClick() {
+        // confirm("Delete Booking", "Do you really want to DELETE the booking?",
+        //         "No", "Yes", function () { alert('clicked yes')})
+        // //showMessage("Testing", "Testing");
+        // return;
+        const booking = getBookingParams();
 
         //if (last_booking.repeat_id && modify_all === null) {
-        if (last_booking.repeat_value != 'no' && modify_all === null) {
+        if (booking.repeat_value !== 'no' && booking.modify_all === null) {
                 showError("<p>Please select a value for input <b>Modify repeating</b>: " +
                           "<i>Only this</i> or <i>All upcoming</i>.")
                 return
         }
 
         let deleteInfo = {
-            id: last_booking.id,
-            modify_all: last_booking.modify_all,
+            id: booking.id,
+            modify_all: booking.modify_all,
         };
 
         var ajaxContent = $.ajax({
@@ -174,7 +181,7 @@
      * is clicked. It can be either Create or Update action.
      */
     function onCancelButtonClick() {
-        if (last_event != null) {
+        if (nonEmpty(last_event)) {
             var event = calendar.getEventById( last_event.id );
             event.setDates(last_event.start, last_event.end);
             last_event = null;
@@ -301,7 +308,12 @@
                 showBookingForm({booking_id: info.event.id});
             },
             eventDrop: function(info) {
-                showBookingForm({booking_id: info.event.id});
+                const e = info.event;
+                showBookingForm({
+                    booking_id: e.id,
+                    start: e.start.toISOString(),
+                    end: e.end.toISOString()
+                });
             },
             viewRender: function (view, element) {
                 alert('The new title of the view is ' + view.title);

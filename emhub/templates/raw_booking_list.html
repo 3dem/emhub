@@ -23,37 +23,25 @@
                                 <th>title</th>
                                 <th>creator</th>
                                 <th>owner</th>
-                                <th>operator</th>
-                                <th>start/end</th>
-                                <th>days</th>
-                                <th>slot_auth</th>
-                                <th>IS_USER_AUTH</th>
-                                <th>repeat_id</th>
-                                <th>repeat_value</th>
-                                <th>experiment</th>
-                                <th>costs</th>
-                                <td>total_cost</td>
+                                {% if current_user.is_manager %}
+                                    <th> Edit </th>
+                                {% endif %}
                             </tr>
                             </thead>
                             <tbody>
                             {% for b in bookings %}
                             <tr>
-                                <td>{{ b['id'] }}</td>
+                                <td>{{ b.id }}</td>
                                 <td>{{ b['resource']['name'] }}</td>
-                                <td>{{ b['type'] }}</td>
-                                <td>{{ b['title'] }}</td>
-                                <td>{{ b['creator']['name'] }}</td>
-                                <td>{{ b['owner']['name'] }}</td>
-                                <td>{{ b['operator']['name'] }}</td>
-                                <td>{{ b['start'] }} / {{ b['end'] }}</td>
-                                <td>{{ b['days'] }}</td>
-                                <td>{{ b['slot_auth'] }}</td>
-                                <td>book={{b['user_can_book']}}, view={{b['user_can_view']}}, modify={{b['user_can_modify']}}</td>
-                                <td>{{ b['repeat_id'] }}</td>
-                                <td>{{ b['repeat_value'] }}</td>
-                                <td>{{ b['experiment'] }}</td>
-                                <td>{{ b['costs'] }}</td>
-                                <td>{{ b['total_cost'] }}</td>
+                                <td>{{ b.type }}</td>
+                                <td>{{ b.title }}</td>
+                                <td>{{ b.creator.name }}</td>
+                                <td>{{ b.owner.name }}</td>
+                                {% if current_user.is_manager %}
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b.id }})"><i class="far fa-edit"></i></button>
+                                    </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
 
@@ -70,4 +58,8 @@
 
 <script>
     $('#bookings-table').DataTable();
+
+    function showBooking(booking_id) {
+        showBookingForm({booking_id: booking_id});
+    }
 </script>
