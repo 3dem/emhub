@@ -1266,8 +1266,15 @@ class DataContent:
         if not user.is_manager and not user.same_pi(project.user):
             raise Exception("You do not have permissions to see this project")
 
-        entries = sorted(project.entries, key=lambda e: (e.date, e.creation_date),
-                         reverse=True)
+        def ekey(e):
+            if e.type == 'booking':
+                return (e.start, e.start)
+            else:
+                return (e.date, e.creation_date)
+
+        entries = [e for e in project.entries]
+        entries.extend([b for b in project.bookings])
+        entries.sort(key=ekey, reverse=True)
 
         return {
             'project': project,

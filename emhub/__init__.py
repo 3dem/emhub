@@ -325,6 +325,9 @@ def create_app(test_config=None):
     app.user = flask_login.current_user
     app.dm = DataManager(app.instance_path, user=app.user)
     app.dc = DataContent(app)
+
+    app.jinja_env.filters['booking_to_event'] = app.dc.booking_to_event
+
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
     app.version = __version__
 
