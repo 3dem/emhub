@@ -56,14 +56,14 @@ class DataContent:
     def get(self, **kwargs):
         content_id = kwargs['content_id']
         get_func_name = 'get_%s' % content_id.replace('-', '_')  # FIXME
-        dataDict = {}  # self.get_resources_list()
+        dataDict = {}
         get_func = getattr(self, get_func_name, None)
         if get_func is not None:
             dataDict.update(get_func(**kwargs))
         return dataDict
 
     def get_dashboard(self, **kwargs):
-        dataDict = self.get_resources_list()
+        dataDict = self.get_resources()
         user = self.app.user  # shortcut
         resource_bookings = {}
 
@@ -71,7 +71,6 @@ class DataContent:
         bookings = [('Today', []),
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
-
 
         now  = self.app.dm.now()
         next7 = now + dt.timedelta(days=7)
@@ -312,11 +311,10 @@ class DataContent:
             'roles': dm.User.ROLES
         }
 
-    def get_resources_list(self, **kwargs):
+    def get_resources(self, **kwargs):
         user = self.app.user
         if not user.is_authenticated:
-            return  {'resources': []}
-
+            return {'resources': []}
         def _image(r):
             fn = self.app.dm.get_resource_image_path(r)
             if os.path.exists(fn):
@@ -324,6 +322,10 @@ class DataContent:
                 return 'data:image/%s;base64, ' + base64.from_path(fn)
             else:
                 return flask.url_for('images.static', filename=r.image)
+
+        all = kwargs.get('all', False)
+        def _filter(r):
+            return all or r.is_active
 
         resource_list = [
             {'id': r.id,
@@ -340,9 +342,13 @@ class DataContent:
              'max_booking': r.max_booking,
              'daily_cost': r.daily_cost
              }
-            for r in self.app.dm.get_resources()
+            for r in self.app.dm.get_resources() if _filter(r)
         ]
         return {'resources': resource_list}
+
+    def get_resources_list(self, **kwargs):
+        kwargs['all'] = True  # show all resources despite status
+        return self.get_resources(**kwargs)
 
     def get_resource_form(self, **kwargs):
         copy_resource = json.loads(kwargs.pop('copy_resource', 'false'))
@@ -392,7 +398,7 @@ class DataContent:
 
     def get_booking_calendar(self, **kwargs):
         dm = self.app.dm  # shortcut
-        dataDict = self.get_resources_list()
+        dataDict = self.get_resources()
         dataDict['bookings'] = [self.booking_to_event(b)
                                 for b in dm.get_bookings()
                                 if b.resource is not None]
@@ -433,7 +439,7 @@ class DataContent:
             booking = dm.create_basic_booking(dates)
 
         data = {'booking': booking,
-                'resources': self.get_resources_list()['resources'],
+                'resources': self.get_resources()['resources'],
                 'possible_owners': self.get_pi_labs(),
                 'possible_operators': self.get_possible_operators(),
                 'read_only': read_only
