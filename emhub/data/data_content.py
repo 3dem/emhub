@@ -396,7 +396,6 @@ class DataContent:
         dataDict['bookings'] = [self.booking_to_event(b)
                                 for b in dm.get_bookings()
                                 if b.resource is not None]
-        dataDict['current_user_json'] = flask_login.current_user.json()
         dataDict['applications'] = [{'id': a.id,
                                      'code': a.code,
                                      'alias': a.alias}
@@ -405,9 +404,43 @@ class DataContent:
 
         dataDict['possible_owners'] = self.get_pi_labs()
         dataDict['possible_operators'] = self.get_possible_operators()
-
-        dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
+
+    def get_booking_form(self, **kwargs):
+        dm = self.app.dm  # shortcut
+        user = self.app.user
+
+        if 'start' in kwargs and 'end' in kwargs:
+            dates = {
+                'start': datetime_from_isoformat(kwargs.get('start', None)),
+                'end': datetime_from_isoformat(kwargs.get('end', None))
+            }
+        else:
+            dates = None
+
+        read_only = False
+        if 'booking_id' in kwargs:
+            booking_id = kwargs['booking_id']
+            booking = dm.get_booking_by(id=booking_id)
+            read_only = not (user.is_manager or user.id == booking.owner.id)
+
+            if dates:
+                booking.start = dates['start']
+                booking.end = dates['end']
+            if booking is None:
+                raise Exception("Booking with id %s not found." % booking_id)
+        else:  # New Application
+            booking = dm.create_basic_booking(dates)
+
+        data = {'booking': booking,
+                'resources': self.get_resources_list()['resources'],
+                'possible_owners': self.get_pi_labs(),
+                'possible_operators': self.get_possible_operators(),
+                'read_only': read_only
+                }
+
+        data.update(self.get_projects_list())
+        return data
 
     def get_applications(self, **kwargs):
         dataDict = self.get_raw_applications_list()
@@ -1047,7 +1080,7 @@ class DataContent:
     # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
-        return {'bookings': [self.booking_to_event(b) for b in bookings]}
+        return {'bookings': bookings}
 
     def get_raw_applications_list(self, **kwargs):
         return {'applications': self.app.dm.get_visible_applications()}
@@ -1177,14 +1210,20 @@ class DataContent:
     def get_projects_list(self, **kwargs):
         # FIXME Define access/permissions for other users
         projects = []
+        user = self.app.user  # shortcut
+
         for p in self.app.dm.get_projects():
             pi = p.user.get_pi()
             if pi:
                 apps = pi.get_applications()
                 # skip this project from the list if the application is confidential
                 # and the user has not access to it
-                if apps and not apps[0].allows_access(self.app.user):
+                if apps and not apps[0].allows_access(user):
                     continue
+
+            if not (user.is_manager or user.same_pi(p.user)):
+                continue
+
             projects.append(p)
 
         can_create = self.app.dm.user_can_create_projects(self.app.user)
@@ -1227,8 +1266,15 @@ class DataContent:
         if not user.is_manager and not user.same_pi(project.user):
             raise Exception("You do not have permissions to see this project")
 
-        entries = sorted(project.entries, key=lambda e: (e.date, e.creation_date),
-                         reverse=True)
+        def ekey(e):
+            if e.type == 'booking':
+                return (e.start, e.start)
+            else:
+                return (e.date, e.creation_date)
+
+        entries = [e for e in project.entries]
+        entries.extend([b for b in project.bookings])
+        entries.sort(key=ekey, reverse=True)
 
         return {
             'project': project,
@@ -1454,11 +1500,14 @@ class DataContent:
         resource = booking.resource
         # Bookings should have resources, just in case an erroneous one
         if resource is None:
-            resource_info = {'id': None, 'name': ''}
-        else:
-            resource_info = {'id': resource.id, 'name': resource.name,
-                             'is_microscope': resource.is_microscope
-                             }
+            resource = self.app.dm.Resource(
+                name='Error: MISSING',
+                status='inactive',
+                tags='',
+                image='',
+                color='rgba(256, 256, 256, 1.0)',
+                extra={})
+
         owner = booking.owner
         owner_name = owner.name
         operator = booking.operator  #  shortcut
@@ -1520,41 +1569,25 @@ class DataContent:
             opStr = '' if emptyOp else ' -> ' + operator.name
             extra = "%s%s%s" % (owner.name, appStr, opStr)
             if user_can_view:
-                title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
+                title = "%s (%s) %s" % (resource.name, extra, b_title)
                 if a:
                     application_label = a.code
                     if a.alias:
                         application_label += "  (%s)" % a.alias
             else:
-                title = "%s (%s)" % (resource_info['name'], extra)
+                title = "%s (%s)" % (resource.name, extra)
                 b_title = "Hidden title"
                 b_description = "Hidden description"
 
         bd = {
             'id': booking.id,
             'title': title,
-            'description': b_description,
+            'resource': {'id': resource.id},
             'start': datetime_to_isoformat(booking.start),
             'end': datetime_to_isoformat(booking.end),
             'color': color,
             'textColor': 'white',
-            'resource': resource_info,
-            'creator': {'id': creator.id, 'name': creator.name},
-            'owner': {'id': owner.id, 'name': owner_name},
-            'operator': operator_dict,
-            'type': booking.type,
             'booking_title': b_title,
-            'user_can_book': user_can_book,
-            'user_can_view': user_can_view,
-            'user_can_modify': user_can_modify,
-            'slot_auth': booking.slot_auth,
-            'repeat_id': booking.repeat_id,
-            'repeat_value': booking.repeat_value,
-            'days': booking.days,
-            'experiment': booking.experiment,
-            'application_label': application_label,
-            'costs': booking.costs,
-            'total_cost': booking.total_cost
         }
 
         if kwargs.get('prettyDate', False):

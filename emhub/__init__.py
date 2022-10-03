@@ -136,6 +136,10 @@ def create_app(test_config=None):
         kwargs['possible_owners'] = app.dc.get_pi_labs()
         kwargs['possible_operators'] = app.dc.get_possible_operators()
         kwargs['booking_types'] = app.dm.Booking.TYPES
+
+        display = app.dm.get_config('bookings')['display']
+        kwargs['booking_display_application'] = display['show_application'] != 'no'
+
         kwargs.update(app.dc.get_resources_list())
 
         return flask.render_template(app.config['MAIN'], **kwargs)
@@ -321,6 +325,9 @@ def create_app(test_config=None):
     app.user = flask_login.current_user
     app.dm = DataManager(app.instance_path, user=app.user)
     app.dc = DataContent(app)
+
+    app.jinja_env.filters['booking_to_event'] = app.dc.booking_to_event
+
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
     app.version = __version__
 

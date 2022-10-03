@@ -1,5 +1,5 @@
 /* ---------------- BOOKING functions ------------------ */
-    /** Return how many days this booking expands.
+/** Return how many days this booking expands.
      * (Used to calculate costs based on daily costs of the
      * used resource.)
      **/
@@ -10,9 +10,31 @@
          return days_difference + 1;
     }
 
+    function setDateAndTime(idPrefix, dateIso){
+        const dateId = '#' + idPrefix + '-date';
+        const timeId = '#' + idPrefix + '-time';
+        var d = new Date(Date.parse(dateIso));
+        $(dateId).datetimepicker({format: 'YYYY/MM/DD'});
+        $(dateId).val(dateStr(d));
+        $(timeId).val(timeStr(d));
+    }
+
+    function getDateAndTime(idPrefix) {
+       return  dateFromValue('#' + idPrefix + '-date',
+                            '#' + idPrefix + '-time').toISOString();
+    }
+
+    /** Return True if there is a calendar variable defined.
+     * This is used to update the calendar after modification of the bookings.
+     */
+    function hasCalendar() {
+        return calendar !== null;
+    }
+
     /** Helper functions to handle AJAX response or failure */
     function handleBookingAjaxDone(jsonResponse) {
         let error = null;
+        const has_calendar = hasCalendar();
 
         if ('bookings_created' in jsonResponse) {
             if (has_calendar)
@@ -44,178 +66,82 @@
         }
     }
 
-
     function handleAjaxFail(jqXHR, textStatus) {
         showError("Request failed: " + textStatus );
     }
 
-    /* Show the Booking Form, either for a new booking or an existing one */
-    function showBookingForm(booking) {
-        booking_type = booking.type;
-        repeat_value = booking.repeat_value;
+    /* Show the Booking Form from a given id */
+    function showBookingForm(booking_params, modalId)
+    {
+        if (!modalId)
+            modalId = 'booking-modal';
+        show_modal_from_ajax(modalId, get_ajax_content("booking_form",
+                                                        booking_params));
+    }
 
-        var titlePrefix = null;
-        if (booking.id == null) {  // New booking
-            titlePrefix = 'Create ';
-            booking.user_can_modify = true;
-            $('#booking-btn-ok').show();
-            $('#booking-btn-delete').hide();
-            $('#application-label').html('Not set');
-        }
-        else {
-            titlePrefix = 'Update ';
-            if (booking.user_can_modify) {
-                $('#booking-btn-delete').show();
-                $('#booking-btn-ok').show();
+    /**
+     * Retrieve the booking parameters from the Form
+     */
+    function getBookingParams() {
+        booking = getFormAsJson('booking-form')
+        jQuery.extend(booking, getFormAsJson('booking-form-admin'))
+
+        booking.start = getDateAndTime('booking-start');
+        booking.end = getDateAndTime('booking-end');
+
+        if (booking.type == 'slot') {
+            booking.slot_auth = {
+                applications: $('#booking-slot-auth').selectpicker('val'),
+                users: []
             }
-            else {
-                $('#booking-btn-delete').hide();
-                $('#booking-btn-ok').hide();
+        }
+        return booking;
+    }
+
+    function doRepeat(booking) {
+        const repeat = booking.repeat_value;
+        return nonEmpty(repeat) && repeat !== 'no';
+    }
+
+    function invalidRepeatParams(booking) {
+        if (doRepeat(booking) && booking.modify_all === null) {
+                showError("<p>Please select a value for input <b>Modify repeating</b>: " +
+                          "<i>Only this</i> or <i>All upcoming</i>.")
+                return true;
             }
-            $('#application-label').html(booking.application_label);
-        }
-
-        let htmlStr = titlePrefix + ' Booking - ' + booking.resource.name;
-        if (is_devel)
-            htmlStr += ' (id=' + booking.id + ')';
-
-        $('#booking-modal-title').html(htmlStr);
-        $('#booking-btn-ok').html(titlePrefix);
-
-        if (possible_owners.length) {
-            $('#booking-owner-select').selectpicker('val', booking.owner.id);
-        }
-        else {
-            $('#booking-owner-text').val(booking.owner.name);
-            $('#booking-owner-text').prop('readonly', true);
-        }
-
-        if (possible_operators.length) {
-            if (booking.operator)
-                $('#booking-operator-select').selectpicker('val', booking.operator.id);
-        }
-        else {
-            if (booking.operator)
-                $('#booking-operator-select').val(booking.operator.name);
-            $('#booking-operator-select').prop('readonly', true);
-        }
-
-        if  (booking.type == 'booking' &&
-             booking.resource.is_microscope &&
-             booking.user_can_modify)
-            $('#div-describe-experiment').show();
-        else
-            $('#div-describe-experiment').hide();
-
-        $('#booking-start-date').val(dateStr(booking.start));
-        $('#booking-start-time').val(timeStr(booking.start));
-        $('#booking-end-date').val(dateStr(booking.end));
-        $('#booking-end-time').val(timeStr(booking.end));
-        $('#booking-slot-auth').selectpicker('val', booking.slot_auth.applications);
-
-        $('#booking-title').val(booking.title);
-        $('#booking-description').val(booking.description);
-        $("input[name=booking-type-radio][value=" + booking.type + "]").prop('checked', true);
-        $("input[name=booking-repeat-radio][value=" + booking.repeat_value + "]").prop('checked', true);
-        modify_all = null;
-        $('input[type=radio][name=booking-modify-radio]').val([]);
-        //$("input[name=booking-repeat-radio][value='no']").prop('checked', true);
-        $('#booking-title').focus();
-        $('#booking-modal').modal('show');
+        return false;
     }
 
     /** This function will be called when the OK button in the Booking form
      * is clicked. It can be either Create or Update action.
      */
     function onOkButtonClick() {
-        // Create Event object info from
-        // confirm("Create Booking", "do you really want to create the booking?",
-        //         "No", "Yes", function () { alert('clicked yes')})
-        // //showMessage("Testing", "Testing");
-        // return;
-        var owner_id = last_booking.owner.id;
-        var operator_id = last_booking.operator ? last_booking.operator.id : null;
-
-        if (possible_owners.length)
-            owner_id = $('#booking-owner-select').selectpicker('val');
-
-        if (possible_operators.length) {
-            operator_id = $('#booking-operator-select').selectpicker('val');
-        }
-
-        var start = dateFromValue('#booking-start-date', '#booking-start-time');
-        var end = dateFromValue('#booking-end-date', '#booking-end-time');
-        var resource = getResource(last_booking.resource.id);
-
-        var booking = {
-            id: last_booking.id,
-            title: $('#booking-title').val(),
-            start: start,
-            end: end,
-            type: booking_type,
-            description: $('#booking-description').val(),
-            owner_id: owner_id,
-            operator_id: operator_id,
-            resource_id: last_booking.resource.id,
-            modify_all: modify_all,
-            repeat_value: repeat_value,
-            resource: resource,
-            experiment: last_booking.experiment,
-            application_label: last_booking.application_label,
-            costs: last_booking.costs
-        };
-
-        if (booking_type == 'slot') {
-            booking.slot_auth = {
-                applications: $('#booking-slot-auth').selectpicker('val'),
-                users: []
-            }
-        }
-        else if (booking_type == 'booking') {
-            if (resource.is_microscope && jQuery.isEmptyObject(booking.experiment)) {
-                showError("<p>Please describe your experiment!!! <br> " +
-                          "At least the fields in the <b>Basic</b> input tab.<p>");
-                return
-            }
-        }
-
         let endpoint = null;
+        var booking = getBookingParams();
+
+        printObject(booking);
 
         if (booking.id) {
             endpoint = Api.urls.booking.update;
-            if (booking.repeat_value != 'no' && modify_all === null) {
-                showError("<p>Please select a value for input <b>Modify repeating</b>: " +
-                          "<i>Only this</i> or <i>All upcoming</i>.")
-                return
-            }
+            if (invalidRepeatParams(booking))
+                return;
         }
         else {
+            endpoint = Api.urls.booking.create;
             // Only take into account repeat value when creating a new booking
-            if (repeat_value != 'no') {
+            if (doRepeat(booking)) {
                 try {
-                    booking.repeat_stop = dateIsoFromValue('#booking-repeat-stopdate');
+                    booking.repeat_stop = dateFromValue('#booking-repeat-stop-date').toISOString();
                 }
                 catch(err) {
                     showError("<p>Please provide a valid <b>Stop date</b> for the repeating event.")
                     return
                 }
             }
-            endpoint = Api.urls.booking.create;
         }
 
-        if (has_calendar) {
-            var error = validateBooking(booking, true);
-
-            if (error != '') {
-                showError(error);
-                return;
-            }
-        }
-
-        delete booking.resource;  // resource_id is enough
-        // Set dates to ISO string
-        booking.start = start.toISOString();
-        booking.end = end.toISOString();
+        // User later for delete actions and updating the calendar if necessary
+        last_booking = booking;
 
         var ajaxContent = $.ajax({
             url: endpoint,
@@ -233,40 +159,41 @@
      * is clicked. It can be either Create or Update action.
      */
     function onDeleteButtonClick() {
+        const booking = getBookingParams();
 
-        //if (last_booking.repeat_id && modify_all === null) {
-        if (last_booking.repeat_value != 'no' && modify_all === null) {
-                showError("<p>Please select a value for input <b>Modify repeating</b>: " +
-                          "<i>Only this</i> or <i>All upcoming</i>.")
-                return
-        }
+        confirm("Delete Booking",
+            "Are you sure to DELETE this Booking?",
+             "Cancel", "Delete",
+            function () {
+                if (invalidRepeatParams(booking))
+                return;
 
-        let deleteInfo = {
-            id: last_booking.id,
-            modify_all: modify_all,
-        };
+                let deleteInfo = {
+                    id: booking.id,
+                    modify_all: booking.modify_all,
+                };
 
-        var ajaxContent = $.ajax({
-            url: Api.urls.booking.delete,
-            type: "POST",
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify({attrs: deleteInfo}),
-            dataType: "json"
+                var ajaxContent = $.ajax({
+                    url: Api.urls.booking.delete,
+                    type: "POST",
+                    contentType: 'application/json; charset=utf-8',
+                    data: JSON.stringify({attrs: deleteInfo}),
+                    dataType: "json"
+                });
+
+                ajaxContent.done(handleBookingAjaxDone);
+                ajaxContent.fail(handleAjaxFail);
         });
-
-        ajaxContent.done(handleBookingAjaxDone);
-        ajaxContent.fail(handleAjaxFail);
     }
 
     /** This function will be called when the Delete button in the Booking form
      * is clicked. It can be either Create or Update action.
      */
     function onCancelButtonClick() {
-        let range = last_booking.original_range;
-
-        if (range != null) {
-            var event = calendar.getEventById( last_booking.id );
-            event.setDates(range.start, range.end);
+        if (nonEmpty(last_event)) {
+            var event = calendar.getEventById( last_event.id );
+            event.setDates(last_event.start, last_event.end);
+            last_event = null;
             calendar.render();
         }
     }
@@ -316,3 +243,156 @@
         });
 
     }  // function showBookingCosts
+
+
+/*------------  Calendar related functions --------------- */
+
+    function createCalender() {
+        var Calendar = FullCalendar.Calendar;
+        var calendarEl = document.getElementById('booking_calendar');
+
+        return new Calendar(calendarEl, {
+            plugins: [ 'interaction', 'dayGrid', 'timeGrid' ],
+            header: {
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            editable: true,
+            droppable: true, // this allows things to be dropped onto the calendar
+            selectable: true, // allows to select dates
+            eventSources: [
+                {
+                  url: Api.urls.booking.range,
+                  method: 'POST'
+                }
+            ],
+            eventSourceSuccess: function(all_events, xhr) {
+                var sel = document.getElementById("selectpicker-resource-display");
+
+                var visibleResourcesId = getSelectedValues(sel);
+
+                hidden_events = [];
+                var visible_events = [];
+                var i;
+                var e;
+
+                calendar.removeAllEvents();
+
+                var all_ids = [];
+                for (i = 0; i < all_events.length; i++) {
+                    e = all_events[i];
+                    if (all_ids.indexOf(e.id) == -1){
+                        all_ids.push(e.id);
+                        if (hasVisibleResource(visibleResourcesId,
+                                           e.resource.id))
+                            visible_events.push(e);
+                        else {
+                            e.extendedProps = {resource: e.resource};
+                            hidden_events.push(e);
+                        }
+                    }
+                }
+
+                return visible_events;
+            },
+            eventReceive: function(info) {
+           },
+            eventAllow: function(info, draggedEvent) {
+                last_event = {
+                    id: draggedEvent.id,
+                    start: new Date(draggedEvent.start),
+                    end: new Date(draggedEvent.end)
+                };
+                return true;
+            },
+            // Return True if the selection of dates is allowed
+            selectAllow: function(info) {
+                return true;
+            },
+            select: function(info) {
+                showBookingForm(paramsFromSelection(info));
+            },
+            eventClick: function(info) {
+                showBookingForm({booking_id: info.event.id});
+            },
+            eventDrop: function(info) {
+                const e = info.event;
+                showBookingForm({
+                    booking_id: e.id,
+                    start: e.start.toISOString(),
+                    end: e.end.toISOString()
+                });
+            },
+            viewRender: function (view, element) {
+                alert('The new title of the view is ' + view.title);
+            }
+      });
+    } // function createCalendar
+
+/** Function called when new dates are selected for a given Resource.
+ * It creates a new booking and shows the Booking Form. **/
+function paramsFromSelection(info) {
+    if (info.allDay) {
+        info.end.setDate(info.end.getDate() - 1);
+        info.start.setHours(9);
+        info.start.setMinutes(0);
+        info.end.setHours(23);
+        info.end.setMinutes(59);
+    }
+
+    return {
+        start: info.start.toISOString(),
+        end: info.end.toISOString()
+    };
+}
+
+function hasVisibleResource(visibleResourcesId, erid) {
+    if (visibleResourcesId.length == 0)
+        return true;
+
+    for (const rid of visibleResourcesId)
+            if (erid == rid)
+                return true;
+        return false;
+}
+
+function filterBookingsByResources(){
+    var sel = document.getElementById("selectpicker-resource-display");
+    var visibleResourcesId = getSelectedValues(sel);
+    var all_events = hidden_events.concat(calendar.getEvents());
+    hidden_events = [];
+
+    calendar.batchRendering(function(){
+        calendar.removeAllEvents();
+        var all_ids = [];
+        for (e of all_events) {
+            if (all_ids.indexOf(e.id) == -1) {
+                all_ids.push(e.id);
+                if (hasVisibleResource(visibleResourcesId,
+                        e.extendedProps.resource.id))
+                    calendar.addEvent(e);
+                else
+                    hidden_events.push(e);
+            }
+        }
+    });
+}
+
+/** Remove bookings events from calendar and from booking list */
+function remove_bookings(deleted) {
+    // Remove events from Calendar
+    var event;
+    for (var booking of deleted) {
+       event = calendar.getEventById(booking.id);
+       if (event)
+           event.remove();
+    }
+}
+
+/** Add new bookings to the calendar and to the list */
+function add_bookings(added) {
+    for (var booking of added) {
+        event = calendar.addEvent(booking);
+    }
+}

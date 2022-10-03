@@ -35,42 +35,40 @@
                             </thead>
                             <tbody>
                             {% for p in projects %}
-                                {% if is_manager or current_user.same_pi(p.user) %}
-                                    {% set status = p['status'] %}
-                                    {% if is_manager or status != 'disabled' %}
+                                {% set status = p['status'] %}
+                                {% if is_manager or status != 'disabled' %}
+                                    {% set badge_type = 'success' if status == 'active' else 'light' %}
+                                    {% set color = 'black' if status == 'active' else 'gray' %}
+                                <tr style="color: {{ color }}">
+                                    <td>
                                         {% set badge_type = 'success' if status == 'active' else 'light' %}
-                                        {% set color = 'black' if status == 'active' else 'gray' %}
-                                    <tr style="color: {{ color }}">
-                                        <td>
-                                            {% set badge_type = 'success' if status == 'active' else 'light' %}
-    {#                                        if status == 'disabled' else 'info') %}#}
-                                            <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ p.id }}</a>
-                                        </td>
+{#                                        if status == 'disabled' else 'info') %}#}
+                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ p.id }}</a>
+                                    </td>
 
-                                        <td>{{ p.date|pretty_date }}</td>
-                                        <td>{{ p.status }}</td>
-                                        {% set pi = p.user.get_pi() %}
-                                        {% set pi_name = ' / %s'|format(pi.name) if pi else '' %}
-                                        {% set apps = pi.get_applications() if pi else [] %}
-                                        {% set app = ' / %s'|format(apps[0].code) if apps else '' %}
-                                        <td>{{ p.user.name }} {{ pi_name }} {{ app }}</td>
-                                        <td>{{ p.title }}</td>
-                                        <td>{{ p.last_update_date|pretty_date }}</td>
-                                        <td>{{ p.last_update_user.name }}</td>
-                                        <td>
-                                            <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
-                                                <i class="fa fa-eye"></i></a>
+                                    <td>{{ p.date|pretty_date }}</td>
+                                    <td>{{ p.status }}</td>
+                                    {% set pi = p.user.get_pi() %}
+                                    {% set pi_name = ' / %s'|format(pi.name) if pi else '' %}
+                                    {% set apps = pi.get_applications() if pi else [] %}
+                                    {% set app = ' / %s'|format(apps[0].code) if apps else '' %}
+                                    <td>{{ p.user.name }} {{ pi_name }} {{ app }}</td>
+                                    <td>{{ p.title }}</td>
+                                    <td>{{ p.last_update_date|pretty_date }}</td>
+                                    <td>{{ p.last_update_user.name }}</td>
+                                    <td>
+                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
+                                            <i class="fa fa-eye"></i></a>
 
-                                            {% if is_manager or current_user == p.creation_user %}
-                                                 <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
-                                                     <i class="far fa-edit"></i></a>
-                                                 <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
-                                                     <i class="far fa-trash-alt"></i></a>
-                                            {% endif %}
-                                        </td>
+                                        {% if is_manager or current_user == p.creation_user %}
+                                             <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
+                                                 <i class="far fa-edit"></i></a>
+                                             <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
+                                                 <i class="far fa-trash-alt"></i></a>
+                                        {% endif %}
+                                    </td>
 
-                                    </tr>
-                                    {% endif %}
+                                </tr>
                                 {% endif %}
                             {% endfor %}
 

@@ -2,8 +2,8 @@
 
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
-    {% set title = "Booking Calendar" %}
-    {% include 'include_header.html' %}
+{#    {% set title = "Booking Calendar" %}#}
+{#    {% include 'include_header.html' %}#}
 
     <!-- ============================================================== -->
     <!-- events calendar -->
@@ -17,34 +17,21 @@
                     <!-- Calendar selection header row -->
                     <div class="row" style="margin-bottom: 20px;">
                         <div class="col col-auto" style="margin-top: 7px;">
-                            <h3> Book Resource </h3>
+                            <h3> Booking Calendar </h3>
                         </div>
                         <div class="col nopadding">
-                            <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" title="Select Resource to book..." onchange="selectResource(this)">
-                            {% for r in resources %}#}
-                              <option value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
-                            {% endfor %}
-                            </select>
+
                         </div>
                         <div class="col text-right" style="margin-top: 7px;">
                             <h5> Display </h5>
                         </div>
                         <div class="col col-auto nopadding">
-                            <select id="selectpicker-resource-display" class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to display..."  onchange="filterBookingsByResources()">
+                            <select id="selectpicker-resource-display" class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to display..."  data-actions-box="true"  onchange="filterBookingsByResources()">
                             {% for r in resources %}#}
                               <option value="{{r['id']}}" class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
                             {% endfor %}
                             </select>
                         </div>
-{#                        <div class="col col-auto text-right" style="margin-top: 7px;">#}
-{#                            <h5> Filter</h5>#}
-{#                        </div>#}
-{#                        <div class="col col-auto nopadding">#}
-{#                            <select class="selectpicker show-tick" data-width="auto" title="Select Resource to book...">#}
-{#                              <option>Only mine</option>#}
-{#                              <option>CEMxxx</option>#}
-{#                            </select>#}
-{#                        </div>#}
                     </div>
 
                     <div class='row'>
@@ -61,11 +48,6 @@
     <!-- end events calendar -->
     <!-- ============================================================== -->
     </div>
-
-<!-- Modal with  Booking Form -->
-{% include 'booking_form.html' %}
-
-
 
 <!-- Modal Message -->
 <div class="modal" id="message-modal" tabindex="-1" role="dialog" aria-labelledby="messageModal" aria-hidden="true">
@@ -85,170 +67,22 @@
   </div>
 </div>
 
-
 <!-- javascript  -->
 <script>
-    var calendar;
-    var selected_resource = null;
-    var selected_resource_id = {{ resource_id|tojson }};
-
     var last_booking = null;
+    var last_event = null;
     var modify_all = false;
     var original_range = null;
-
-    var resources = {{ resources|tojson }};
-    var current_user_json = {{ current_user_json|tojson }};
-    var current_user_ismanager = {{ current_user.is_manager|tojson }}
-
-
     var hidden_events = [];
-
 
 (function(window, document, $, undefined) {
     "use strict";
 
     $('select').selectpicker();
 
-    $('.datetimepicker-input').datetimepicker({
-        format: 'YYYY/MM/DD'
-    });
-
-    /* Register when the Booking type change */
-    $('input[type=radio][name=booking-type-radio]').change(function() {
-        booking_type = this.value;
-        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
-    });
-
-    $('input[type=radio][name=booking-repeat-radio]').change(function() {
-        repeat_value = this.value;
-    });
-
-    $('input[type=radio][name=booking-modify-radio]').change(function() {
-        modify_all = this.value == 'yes';
-    });
-
-   /* initialize the external events
-  -----------------------------------------------------------------*/
-
-    var Calendar = FullCalendar.Calendar;
-    var calendarEl = document.getElementById('booking_calendar');
-
-    // initialize the external events
-    // -----------------------------------------------------------------
-
-    var userName = "{{current_user.name}}";
-
-    calendar = new Calendar(calendarEl, {
-        plugins: [ 'interaction', 'dayGrid', 'timeGrid' ],
-        header: {
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        },
-        editable: true,
-        droppable: true, // this allows things to be dropped onto the calendar
-        selectable: true, // allows to select dates
-        // drop: function(info) {
-        //   // is the "remove after drop" checkbox checked?
-        //   if (checkbox.checked) {
-        //     // if so, remove the element from the "Draggable Events" list
-        //     info.draggedEl.parentNode.removeChild(info.draggedEl);
-        //   }
-        // }
-        //events: bookings,
-        eventSources: [
-            {
-              url: "{{ url_for('api.get_bookings_range') }}",
-              method: 'POST'
-            }
-        ],
-        eventSourceSuccess: function(all_events, xhr) {
-            var sel = document.getElementById("selectpicker-resource-display");
-
-            var visibleResourcesId = getSelectedValues(sel);
-
-            // Always show the selected resource
-            if (selected_resource)
-                visibleResourcesId.push(selected_resource.id);
-
-            hidden_events = [];
-            var visible_events = [];
-            var i;
-            var e;
-
-            calendar.removeAllEvents();
-
-            var all_ids = [];
-            for (i = 0; i < all_events.length; i++) {
-                e = all_events[i];
-                if (all_ids.indexOf(e.id) == -1){
-                    all_ids.push(e.id);
-                    if (hasVisibleResource(visibleResourcesId,
-                                       e.resource.id))
-                        visible_events.push(e);
-                    else {
-                        e.extendedProps = {resource: e.resource};
-                        hidden_events.push(e);
-                    }
-                }
-            }
-
-            return visible_events;
-        },
-        eventReceive: function(info) {
-            //info.event.setProp('title', 'Booking of ' + userName)
-       },
-        eventAllow: function(info, draggedEvent) {
-            let resource = getResource(draggedEvent.extendedProps.resource.id);
-            original_range = {start: draggedEvent.start, end: draggedEvent.end};
-            let booking = bookingFromSelection(info, resource);
-            booking.id = draggedEvent.id;
-            var error = validateBooking(booking, true);
-            var ok = error  == '';
-{#            if (!ok)#}
-{#                showError(error);#}
-            return ok;
-        },
-        selectAllow: function(info) {
-            if (selected_resource == null) {
-                showError("Please select Resource to book first.")
-                return false;
-            }
-            let booking = bookingFromSelection(info, selected_resource)
-            var error = validateBooking(booking, false);
-            var ok = error  == '';
-            if (!ok)
-                showError(error);
-            return ok;
-        },
-        // dateClick: function(info) {
-        //     alert('clicked ' + info.dateStr);
-        // },
-        select: function(info) {
-            last_booking = bookingFromSelection(info, selected_resource);
-            showBookingForm(last_booking);
-        },
-        eventClick: function(info) {
-            onBookingSelected(info.event);
-        },
-        eventDrop: function(info) {
-            onBookingSelected(info.event, original_range);
-        },
-
-        viewRender: function (view, element) {
-{#            var lastViewName;#}
-{#            var view = $('#calendar').fullCalendar('getView');#}
-            //var view = calendar.getView();
-            alert('The new title of the view is ' + view.title);
-        }
-  });
-
-  calendar.render();
-
-  if (selected_resource_id != null) {
-      $('#selectpicker-resource').selectpicker('val', selected_resource_id);
-      selectResource($('#selectpicker-resource')[0]);
-  }
+   /* Create Calendar */
+    calendar = createCalender();
+    calendar.render();
 
     // Hack to enable multiple modals by making sure the .modal-open class
     // is set to the <body> when there is at least one modal open left
@@ -261,177 +95,5 @@
     });
 
 })(window, document, window.jQuery);
-
-/* Validate a Booking when it is created or updated (e.g dragged) */
-function validateBooking(booking, useTime) {
-    var inside_slot = false;
-    let events = calendar.getEvents();
-
-    for (const e of events) {
-        let props = e.extendedProps;
-        let user_can_book = props.user_can_book;
-
-        // Consider only events (bookings) for this resource
-        if (booking.resource.id == props.resource.id) {
-            if (props.type == "slot") {
-                // For slots, check that the user have permission
-                // in this slot if overlap, and if so, that the date
-                // range selection is completely contained in the slot
-                if (rangesOverlap(booking, e, useTime)) {
-                    // Return false if user can not book in this slot
-                    if (!user_can_book) {
-                        return "The selected dates overlap with an existing " +
-                               "SLOT but you do not have permissions to book " +
-                               "on it.";
-                    }
-                    // Or if the range is not contained entirely in the slot
-                    else {
-                        if (rangeInside(booking, e, useTime))
-                            inside_slot = true;
-                    }
-                }
-            }
-            else {
-                // Only check other events overlapping when  using time.
-                if (useTime && e.id != booking.id && rangesOverlap(booking, e, useTime) && booking.type != "slot")
-                {
-                    return "Selected dates/time overlaps with another existing " +
-                           "booking. ";
-                }
-            }
-        }
-    }
-    if (inside_slot || booking.resource.user_can_book)
-        return '';  // Success, no errors
-    else
-        return "It seems that this booking is outside a valid SLOT " +
-               "and you do not have permissions for it."
-}
-
-/** Function called when new dates are selected for a given Resource.
- * It creates a new booking and shows the Booking Form. **/
-function bookingFromSelection(info, resource) {
-    if (info.allDay) {
-        info.end.setDate(info.end.getDate() - 1);
-        info.start.setHours(9);
-        info.start.setMinutes(0);
-        info.end.setHours(23);
-        info.end.setMinutes(59);
-    }
-
-    repeat_value = 'no';
-    booking_type = 'booking';  // Reset booking_type to default
-
-    var booking = {
-        id: null,
-        title: '',
-        start: info.start,
-        end: info.end,
-        resource: resource,
-        type: booking_type,
-        description: '',
-        owner: current_user_json,
-        repeat_value: repeat_value,
-        slot_auth: {applications: [], users: []}
-    };
-
-    return booking;
-
-}
-
-
-/* This function is called when an existing Booking event is clicked */
-function onBookingSelected(event, original_range) {
-    let props = event.extendedProps;
-    repeat_value = props.repeat_value;
-    booking_type = props.type;
-
-    last_booking = {
-        id: event.id,
-        start: event.start,
-        end: event.end,
-        resource: props.resource,
-        type: booking_type,
-        title: props.booking_title,
-        description: props.description,
-        repeat_value: props.repeat_value,
-        owner: props.owner,
-        operator: props.operator,
-        slot_auth: props.slot_auth,
-        user_can_modify: props.user_can_modify,
-        original_range: original_range,
-        experiment: props.experiment,
-        application_label: props.application_label,
-        costs: props.costs
-    };
-    showBookingForm(last_booking);
-}
-
-function hasVisibleResource(visibleResourcesId, erid) {
-    if (visibleResourcesId.length == 0)
-        return true;
-
-    for (const rid of visibleResourcesId)
-            if (erid == rid)
-                return true;
-        return false;
-}
-
-function filterBookingsByResources(){
-    var sel = document.getElementById("selectpicker-resource-display");
-    var visibleResourcesId = getSelectedValues(sel);
-
-    // Always show the selected resource
-    if (selected_resource)
-        visibleResourcesId.push(selected_resource.id);
-
-
-    var all_events = hidden_events.concat(calendar.getEvents());
-    hidden_events = [];
-
-    calendar.batchRendering(function(){
-        calendar.removeAllEvents();
-        var all_ids = [];
-        for (e of all_events) {
-            if (all_ids.indexOf(e.id) == -1) {
-                all_ids.push(e.id);
-                if (hasVisibleResource(visibleResourcesId,
-                        e.extendedProps.resource.id))
-                    calendar.addEvent(e);
-                else
-                    hidden_events.push(e);
-            }
-        }
-    });
-}
-
-
-/** This function is called when a different resource is changed. */
-function selectResource(sel) {
-    let resourceId = getSelectedValues(sel)[0];
-    selected_resource = getResource(resourceId);
-    filterBookingsByResources();
-}
-
-
-/** Remove bookings events from calendar and from booking list */
-function remove_bookings(deleted) {
-    // Remove events from Calendar
-    var event;
-    for (var booking of deleted) {
-       event = calendar.getEventById(booking.id);
-       if (event)
-           event.remove();
-    }
-}
-
-/** Add new bookings to the calendar and to the list */
-function add_bookings(added) {
-    for (var booking of added) {
-        event = calendar.addEvent(booking);
-    }
-}
-
-
 
 </script>

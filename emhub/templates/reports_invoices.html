@@ -38,21 +38,6 @@
         format: 'YYYY/MM/DD'
     });
 
-    /* Register when the Booking type change */
-    $('input[type=radio][name=booking-type-radio]').change(function() {
-        booking_type = this.value;
-        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
-    });
-
-    $('input[type=radio][name=booking-repeat-radio]').change(function() {
-        repeat_value = this.value;
-    });
-
-    $('input[type=radio][name=booking-modify-radio]').change(function() {
-        modify_all = this.value == 'yes';
-    });
-
-
     $('input[name="daterange"]').daterangepicker({
         "locale": {
             "format": "YYYY/MM/DD",
