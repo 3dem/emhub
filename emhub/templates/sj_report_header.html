@@ -1,7 +1,7 @@
 
 {% import "entry_macros.html" as macros %}
 
-{{ macros.sj_header_card(entry_type['label'], entry.date, (1, N), False) }}
+{{ macros.sj_header_card(entry_config['label'], entry.date, (1, N), False) }}
 
 {% if pi_info %}
     {% set ia = pi_info['invoice_address'] %}

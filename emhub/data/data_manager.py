@@ -760,21 +760,8 @@ class DataManager(DbManager):
         the associated JSON definition. """
         return self.get_form_by_name(f'config:{configName}').definition
 
-    def __get_project_config_section(self, sectionName):
-        formDef = self.get_form_by_name('projects_config').definition
-        for section in formDef['sections']:
-            if section['label'] == sectionName:
-                return section['params']
-        return None
-
-    def get_entries_menu(self):
-        section = self.__get_project_config_section('entries_menu')
-        return [{"id": p['label'], "label": p.get('value', '')}
-                for p in section]
-
-    def get_entry_types(self):
-        section = self.__get_project_config_section('entries')
-        return {p['id']: p for p in section}
+    def get_entry_config(self, entry_type):
+        return self.get_config('projects')['entries'][entry_type]
 
     def get_projects_config_permissions(self):
         return {e['label']: e['value']
@@ -784,7 +771,7 @@ class DataManager(DbManager):
         if user.is_manager:
             return True
 
-        permissions = self.get_projects_config_permissions()
+        permissions = self.get_config("projects")['permissions']
         value = permissions['user_can_create_projects']
 
         if (value == 'all'
@@ -797,12 +784,6 @@ class DataManager(DbManager):
         if 'title' in attrs:
             if not attrs['title'].strip():
                 raise Exception("Entry title can not be empty")
-
-        # if 'type' in attrs:
-        #     entry_types = self.get_entry_types()
-        #     if not attrs['type'].strip() in entry_types:
-        #         raise Exception("Please provide a valid entry type: %s"
-        #                         % entry_types)
 
     def create_entry(self, **attrs):
         self.__check_entry(**attrs)

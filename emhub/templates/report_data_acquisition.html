@@ -28,7 +28,7 @@
 {% set grid_type = '%s-%s %s-%s%s%s'|format(data['grid_manufacturer'], film, hole_size_prefix, hole_size, mesh, grid_material) %}
 
 
-{{ macros.header_card(entry_type['label'], entry.date, (2, N)) }}
+{{ macros.header_card(entry_config['label'], entry.date, (2, N)) }}
 
 {{ macros.table_card('Sample Details',
     [('Grid Type', grid_type),
@@ -61,7 +61,7 @@
 {% set dose_per_fractions = total_dose / dose_fractions %}
 
 
-{{ macros.header_card(entry_type['label'], entry.date, (3, N)) }}
+{{ macros.header_card(entry_config['label'], entry.date, (3, N)) }}
 
 {{ macros.table_card('Data Acquisition Details',
     [('Apertures (C1, C2, C3)', apertures),
@@ -85,7 +85,7 @@
 }}
 
 {% for row in images %}
-    {{ macros.header_card(entry_type['label'], entry.date, (4 + loop.index0, N)) }}
+    {{ macros.header_card(entry_config['label'], entry.date, (4 + loop.index0, N)) }}
     {{ macros.image_card(row['image_title'], row['image_data']) }}
 {% endfor %}
 

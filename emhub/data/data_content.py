@@ -1272,6 +1272,8 @@ class DataContent:
         if not user.is_manager and not user.same_pi(project.user):
             raise Exception("You do not have permissions to see this project")
 
+        config = dm.get_config('projects')
+
         def ekey(e):
             if e.type == 'booking':
                 return (e.start, e.start)
@@ -1285,8 +1287,7 @@ class DataContent:
         return {
             'project': project,
             'entries': entries,
-            'entry_types': dm.get_entry_types(),
-            'entries_menu': dm.get_entries_menu()
+            'config': config,
         }
 
     def get_entry_form(self, **kwargs):
@@ -1317,7 +1318,7 @@ class DataContent:
                              description='',
                              extra={})
 
-        entry_type = dm.get_entry_types()[entry.type]
+        entry_config = dm.get_entry_config(entry.type)
         form_id = "entry_form:%s" % entry.type
         form = dm.get_form_by(name=form_id)
         if form:
@@ -1325,7 +1326,7 @@ class DataContent:
 
         data = {
             'entry': entry,
-            'entry_type_label': entry_type['label'],
+            'entry_type_label': entry_config['label'],
             'definition': None if form is None else form.definition
         }
         data.update(self.get_grids_storage())
@@ -1340,10 +1341,10 @@ class DataContent:
         if entry is None:
             raise Exception("Please provide a valid Entry id. ")
 
-        entry_type = dm.get_entry_types()[entry.type]
+        entry_config = dm.get_entry_config(entry.type)
         data = entry.extra['data']
 
-        if not 'report' in entry_type:
+        if not 'report' in entry_config:
             raise Exception("There is no Report associated with this Entry. ")
 
         images = []
@@ -1398,7 +1399,7 @@ class DataContent:
 
         return {
             'entry': entry,
-            'entry_type': entry_type,
+            'entry_config': entry_config,
             'data': ddata,
             'images': images,
             'pi_info': pi_info,

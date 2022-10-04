@@ -50,7 +50,7 @@
         {% endif %}
     {% endfor %}
 
-    {{ macros.header_card(entry_type['label'], entry.date, (loop.index + 1, N)) }}
+    {{ macros.header_card(entry_config['label'], entry.date, (loop.index + 1, N)) }}
     {{ macros.table_card('Grid Box: ' + label, info) }}
 
 {% endfor %}
