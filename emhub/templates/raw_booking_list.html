@@ -23,7 +23,8 @@
                                 <th>title</th>
                                 <th>creator</th>
                                 <th>owner</th>
-                                <th>owner_id</th>
+                                <th>pi</th>
+                                <th>dates</th>
                                 {% if current_user.is_manager %}
                                     <th> Edit </th>
                                 {% endif %}
@@ -37,8 +38,11 @@
                                 <td>{{ b.type }}</td>
                                 <td>{{ b.title }}</td>
                                 <td>{{ b.creator.name }}</td>
-                                <td>{{ b.owner.name }}</td>
-                            <td>{{ b.owner_id }}</td>
+                                <td>{{ b.owner.name }} (id = {{ b.owner.id }})</td>
+                                {% set pi = b.owner.get_pi() %}
+                                {% set pi_name = pi.name if pi else '' %}
+                                <td>{{ pi_name }}</td>
+                                <td>{{ b.start|pretty_date }} - {{ b.end|pretty_date }}</td>
                                 {% if current_user.is_manager %}
                                     <td>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b.id }})"><i class="far fa-edit"></i></button>

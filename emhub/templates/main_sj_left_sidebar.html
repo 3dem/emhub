@@ -34,10 +34,22 @@
                                     <i class="fas fa-clipboard-list"></i>Sessions</a>
                             </li>
 
+                            <!-- Reports -->
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-reports" aria-controls="submenu-reports">
+                                    <i class="fas fa-chart-bar"></i>Reports</a>
+                            <div id="submenu-reports" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('report_microscopes_usage') }}">Microscopes Usage</a>
+                                    </li>
+
+                                </ul>
+                            </div>
+
                             <!-- Users -->
-                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="true" data-target="#submenu-users" aria-controls="submenu-users">
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-users" aria-controls="submenu-users">
                                     <i class="fas fa-f fa-users"></i>Users</a>
-                            <div id="submenu-users" class="submenu" style="">
+                            <div id="submenu-users" class="collapse submenu" style="">
                                 <ul class="nav flex-column">
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ url_for_content('users_list') }}">All Users List</a>
@@ -99,19 +111,7 @@
                                     <i class="fas fa-list-alt"></i>Logs</a>
                             </li>
 
-                            <!-- Reports -->
-                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-reports" aria-controls="submenu-reports">
-                                    <i class="fas fa-chart-bar"></i>Reports</a>
-                            <div id="submenu-reports" class="collapse submenu" style="">
-                                <ul class="nav flex-column">
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('reports_time_distribution') }}">Overall Time Distribution</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('report_pis_usage') }}">All PIs Usage</a>
-                                    </li>
-                                </ul>
-                            </div>
+
 
                         </ul>
                         {% endif %}

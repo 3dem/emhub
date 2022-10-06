@@ -1,0 +1,114 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Microscopes Usage" %}
+    {% set navigation = [('Reports', ''), ('Microscopes Usage', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="card card-body">
+
+    <div class="row col-12 text-left">
+
+        <div class="col-2">
+            <div class="col text-left" style="margin-top: 7px;">
+                <h5> Application: {{ selected_resources }} </h5>
+            </div>
+        </div>
+
+        <div class="col-3">
+            <div class="row">
+                <div class="col text-right" style="margin-top: 7px;">
+                    <h5> Date Range </h5>
+                </div>
+                <div class="col col-auto">
+                    <input class="form-control" type="text" id="daterange" value="{{ start }} - {{ end }}" />
+                </div>
+            </div>
+        </div>
+
+        <div class="col-5">
+            <div class="row col-12">
+                <div class="col-3 text-right" style="margin-top: 7px;">
+                        <h5> Resources: </h5>
+                    </div>
+                <div class="col-9">
+                    <select id="selectpicker-resource" class="selectpicker show-tick" data-width="100%" data-key="resource_id" title="Select Resources..." multiple style="color: white">
+                        {% for r in resources %}
+                          {% set selected = 'selected' if r['id'] in selected_resources else '' %}
+                            <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-2">
+            <div class="col text-left" style="margin-top: 7px;">
+                <a href="javascript:updateReport()" class="btn btn-primary"> Update </a>
+
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <div class="row" id="report-content">
+        {% include 'report_microscopes_usage_content.html' %}
+
+    </div> <!-- Overall and CEM row -->
+</div>
+
+
+<script>
+    var start_date = dateStr(new Date({{ start|tojson }}));
+    var end_date = dateStr(new Date({{ end|tojson }}));
+    var last_pi = 0;
+
+    $('select').selectpicker();
+
+    $('.datetimepicker-input').datetimepicker({
+        format: 'YYYY/MM/DD'
+    });
+
+    $('#daterange').daterangepicker({
+        "locale": {
+            "format": "YYYY/MM/DD",
+            "firstDay": 1
+        },
+        opens: 'left',
+        ranges: {
+           'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+            'Last 6 Months': [moment().subtract(6, 'months'), moment()],
+           'This Year': [moment().startOf('year'), moment().endOf('year')],
+           'Last Year': [moment().subtract(1, 'year').startOf('year'), moment().subtract(1, 'year').endOf('year')]
+        }
+    }, function(start, end, label) {
+        //console.log("A new date selection was made: " + start.format('YYYY/MM/DD') + ' to ' + end.format('YYYY/MM/DD'));
+        start_date = start.format('YYYY/MM/DD');
+        end_date = end.format('YYYY/MM/DD');
+        //const base_url = "{{ url_for_content('report_microscopes_usage') | safe }}";
+        //window.location.href = base_url + "&start=" + start.format('YYYY/MM/DD') + "&end=" + end.format('YYYY/MM/DD');
+    });
+
+    function updateReport() {
+        const base_url = "{{ url_for_content('report_microscopes_usage') | safe }}";
+
+        console.log();
+        const args = {
+            pi: last_pi,
+            start: start_date,
+            end: end_date,
+            selected: $('#selectpicker-resource').selectpicker('val').join(',')
+        }
+        load_html_from_ajax('report-content',
+            get_ajax_content('report_microscopes_usage_content', args));
+    }
+
+    function selectPiList(pi) {
+        last_pi = pi;
+        load_html_from_ajax('pilist-content',
+            get_ajax_content('report_microscopes_usage_pilist',
+                {pi: pi, start: start_date, end: end_date})
+        );
+    }
+
+</script>

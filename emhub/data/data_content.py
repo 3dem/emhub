@@ -63,7 +63,7 @@ class DataContent:
         return dataDict
 
     def get_dashboard(self, **kwargs):
-        dataDict = self.get_resources()
+        dataDict = self.get_resources(image=True)
         user = self.app.user  # shortcut
         resource_bookings = {}
 
@@ -315,15 +315,18 @@ class DataContent:
         user = self.app.user
         if not user.is_authenticated:
             return {'resources': []}
+
         def _image(r):
             fn = self.app.dm.get_resource_image_path(r)
             if os.path.exists(fn):
-                base64 = image.Base64Converter(max_size=(1024, 1024))
+                base64 = image.Base64Converter(max_size=(128, 128))
                 return 'data:image/%s;base64, ' + base64.from_path(fn)
             else:
                 return flask.url_for('images.static', filename=r.image)
 
         all = kwargs.get('all', False)
+        image = kwargs.get('image', False)
+
         def _filter(r):
             return all or r.is_active
 
@@ -335,7 +338,7 @@ class DataContent:
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
-             'image': _image(r),
+             'image': _image(r) if image else None,
              'user_can_book': user.can_book_resource(r),
              'is_microscope': r.is_microscope,
              'min_booking': r.min_booking,
@@ -348,6 +351,7 @@ class DataContent:
 
     def get_resources_list(self, **kwargs):
         kwargs['all'] = True  # show all resources despite status
+        kwargs['image'] = True  # load resource image
         return self.get_resources(**kwargs)
 
     def get_resource_form(self, **kwargs):
@@ -1040,12 +1044,79 @@ class DataContent:
                 'since': since
                 }
 
+    def get_report_microscopes_usage_content(self, **kwargs):
+        return self.get_report_microscopes_usage(**kwargs)
+    def get_report_microscopes_usage_pilist(self, **kwargs):
+        return self.get_report_microscopes_usage(**kwargs)
+    def get_report_microscopes_usage(self, **kwargs):
+        def _filter(b):
+            return not b.is_slot
+
+        # application = int(kwargs.get('application', 0))
+        # if not application:
+        #     raise Exception("Invalid application for this user")
+
+        bookings, range_dict = self.get_booking_in_range(kwargs,
+                                                         asJson=False,
+                                                         filter=_filter)
+        pi_dict = {}
+        pid = int(kwargs.get('pi', 0))
+        selected_pi = None
+        total_days = 0
+
+        resources = self.get_resources()['resources']
+        # selected resources
+        if 'selected' in kwargs:
+            selected = [int(p) for p in kwargs['selected'].split(',')]
+        else:
+            selected = [r['id'] for r in resources if r['is_microscope']]
+
+        for b in bookings:
+            pi = b.owner.get_pi()
+            r = b.resource.id
+            # Facility bookings or with no PI will not be counted
+            if pi and r in selected:
+                if not pi.email in pi_dict:
+                    pi_dict[pi.email] = {
+                        'id': pi.id,
+                        'name': pi.name,
+                        'email': pi.email,
+                        'bookings': [],
+                        'days': defaultdict(lambda: 0),
+                        'total_days': 0,
+                        'users': set()
+                    }
+                pi_entry = pi_dict[pi.email]
+                pi_entry['bookings'].append(b)
+                rid = b.resource.id
+                pi_entry['days'][rid] += b.days
+                pi_entry['total_days'] += b.days
+                pi_entry['users'].add(b.owner.email)
+                total_days += b.days
+                if pi.id == pid:
+                    selected_pi = pi_entry
+
+        data = {
+            'pi_list': sorted(pi_dict.values(), key=lambda pi: pi['total_days'], reverse=True),
+            'total_days': total_days,
+            'resources': resources,
+            'resources_dict': {r['id']: r for r in resources},
+            'selected_resources': selected,
+            'selected_pi': selected_pi
+        }
+        data.update(range_dict)
+        data.update()
+        return data
+
     def get_report_pis_usage(self, **kwargs):
 
         bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
 
         pi_dict = {}
-        univ_dict = self.app.dm.get_universities_dict()
+        try:
+            univ_dict = self.app.dm.get_universities_dict()
+        except:
+            univ_dict = {}
 
         def _get_univ(email, default=None):
             for k, v in univ_dict.items():
@@ -1732,12 +1803,18 @@ class DataContent:
                     for u in dm.get_users() if 'manager' in u.roles]
         return  []
 
-    def get_booking_in_range(self, kwargs, asJson=True):
+    def get_booking_in_range(self, kwargs, asJson=True, filter=None):
         """ Return the list of bookings in the given range.
          It will also attach PI information to each booking.
          This function is used from report functions.
          If 'start' and 'end' keys are not in kwargs, the current
          year quarter will be used for the range.
+         Args:
+             kwargs: dict from where to read 'start' and 'end'
+             asJson: if True return json entries for each booking
+             filter: function to filter bookings. If None, the
+                non-slot bookings with non-zero cost resource
+                will be used.
         """
 
         if 'start' in kwargs and 'end' in kwargs:
@@ -1771,6 +1848,7 @@ class DataContent:
         def _filter(b):
             return b.resource.daily_cost > 0 and not b.is_slot
 
-        bookings = [process_booking(b) for b in bookings if _filter(b)]
+        filterFunc = filter or _filter
+        bookings = [process_booking(b) for b in bookings if filterFunc(b)]
 
         return bookings, d
