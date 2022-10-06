@@ -9,10 +9,28 @@
 
     <div class="row col-12 text-left">
 
-        <div class="col-2">
-            <div class="col text-left" style="margin-top: 7px;">
-                <h5> Application: {{ selected_resources }} </h5>
+        <div class="col-3">
+
+            <div class="col-12 text-left" style="margin-top: 7px;">
+                <div class="row col-12">
+                <h5> Application: </h5>
+                    {% if applications|length == 1 %}
+                        {% set a = applications[0] %}
+                        <span class="mt-1 ml-1">{{ a.code }}</span>
+                        <input type="hidden" value="{{ a.id }}" id="application-id">
+                    {% else %}
+                        <select id="selectpicker-app" class="selectpicker" data-live-search="true" data-width="auto">
+                            <option value=""></option>
+                            {% for a in applications %}
+                                {% set selected = 'selected' if a['id'] == selected_app.id else '' %}
+                                {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None else '' %}
+                                <option value="{{ a['id'] }}" {{selected}}>{{ a['code'] }} {{ alias }}</option>
+                            {% endfor %}
+                        </select>
+                    {%  endif %}
+                </div>
             </div>
+
         </div>
 
         <div class="col-3">
@@ -42,7 +60,7 @@
             </div>
         </div>
 
-        <div class="col-2">
+        <div class="col-1">
             <div class="col text-left" style="margin-top: 7px;">
                 <a href="javascript:updateReport()" class="btn btn-primary"> Update </a>
 
@@ -92,12 +110,19 @@
     function updateReport() {
         const base_url = "{{ url_for_content('report_microscopes_usage') | safe }}";
 
-        console.log();
+        var app_id = $('#application-id').val();
+
+        if (!app_id)
+            app_id = $('#selectpicker-app').selectpicker('val');
+
+        console.log('app_id ' +  app_id.toString(), " type: ", typeof(app_id));
+
         const args = {
             pi: last_pi,
             start: start_date,
             end: end_date,
-            selected: $('#selectpicker-resource').selectpicker('val').join(',')
+            selected: $('#selectpicker-resource').selectpicker('val').join(','),
+            application: app_id
         }
         load_html_from_ajax('report-content',
             get_ajax_content('report_microscopes_usage_content', args));

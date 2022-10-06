@@ -325,7 +325,7 @@ class DataContent:
                 return flask.url_for('images.static', filename=r.image)
 
         all = kwargs.get('all', False)
-        image = kwargs.get('image', False)
+        get_image = kwargs.get('image', False)
 
         def _filter(r):
             return all or r.is_active
@@ -338,7 +338,7 @@ class DataContent:
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
-             'image': _image(r) if image else None,
+             'image': _image(r) if get_image else None,
              'user_can_book': user.can_book_resource(r),
              'is_microscope': r.is_microscope,
              'min_booking': r.min_booking,
@@ -1052,14 +1052,17 @@ class DataContent:
         def _filter(b):
             return not b.is_slot
 
-        # application = int(kwargs.get('application', 0))
-        # if not application:
-        #     raise Exception("Invalid application for this user")
+        app_id = int(kwargs.get('application', 0))
+        selected_app = self.app.dm.get_application_by(id=app_id)
+        applications = self.app.dm.get_visible_applications()
+        if not selected_app:
+            selected_app = applications[0]
 
         bookings, range_dict = self.get_booking_in_range(kwargs,
                                                          asJson=False,
                                                          filter=_filter)
         pi_dict = {}
+        pi_list = [pi.id for pi in selected_app.pi_list]
         pid = int(kwargs.get('pi', 0))
         selected_pi = None
         total_days = 0
@@ -1075,7 +1078,7 @@ class DataContent:
             pi = b.owner.get_pi()
             r = b.resource.id
             # Facility bookings or with no PI will not be counted
-            if pi and r in selected:
+            if pi and r in selected and pi.id in pi_list:
                 if not pi.email in pi_dict:
                     pi_dict[pi.email] = {
                         'id': pi.id,
@@ -1102,7 +1105,9 @@ class DataContent:
             'resources': resources,
             'resources_dict': {r['id']: r for r in resources},
             'selected_resources': selected,
-            'selected_pi': selected_pi
+            'selected_pi': selected_pi,
+            'applications': applications,
+            'selected_app': selected_app
         }
         data.update(range_dict)
         data.update()
