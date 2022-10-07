@@ -145,7 +145,7 @@ def create_app(test_config=None):
         return flask.render_template(app.config['MAIN'], **kwargs)
 
     def _redirect(endpoint, **kwargs):
-        return flask.redirect(flask.url_for(endpoint, **kwargs))
+        return flask.redirect(flask.url_for(endpoint, _external=True, **kwargs))
 
     @app.route('/', methods=['GET', 'POST'])
     @app.route('/index', methods=['GET', 'POST'])
@@ -312,7 +312,7 @@ def create_app(test_config=None):
         return "&start=%s&end=%s" % (s, e)
 
     def url_for_content(contentId, **kwargs):
-        return flask.url_for('main', content_id=contentId, **kwargs)
+        return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
 
     app.jinja_env.globals.update(url_for_content=url_for_content)
     app.jinja_env.add_extension('jinja2.ext.do')
