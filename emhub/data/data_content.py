@@ -645,7 +645,15 @@ class DataContent:
 
     def get_reports_time_distribution(self, **kwargs):
 
-        bookings, range_dict = self.get_booking_in_range(kwargs)
+        def _booking_to_json(booking, **kwargs):
+            bj = self.booking_to_event(booking, **kwargs)
+            bj.update({
+                'total_cost': booking.total_cost,
+                'days': booking.days,
+                'type': booking.type
+            })
+            return bj
+        bookings, range_dict = self.get_booking_in_range(kwargs, bookingFunc=_booking_to_json)
 
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
@@ -1808,7 +1816,8 @@ class DataContent:
                     for u in dm.get_users() if 'manager' in u.roles]
         return  []
 
-    def get_booking_in_range(self, kwargs, asJson=True, filter=None):
+    def get_booking_in_range(self, kwargs,
+                             asJson=True, filter=None, bookingFunc=None):
         """ Return the list of bookings in the given range.
          It will also attach PI information to each booking.
          This function is used from report functions.
@@ -1820,6 +1829,8 @@ class DataContent:
              filter: function to filter bookings. If None, the
                 non-slot bookings with non-zero cost resource
                 will be used.
+            bookingFunc: if asJson is True, function used to convert
+                booking into a jsonDict. If it is none, booking_to_event is used.
         """
 
         if 'start' in kwargs and 'end' in kwargs:
@@ -1845,10 +1856,11 @@ class DataContent:
             datetime_from_isoformat(d['end'].replace('/', '-'))
         )
 
+        bookingFunc = bookingFunc or self.booking_to_event
         def process_booking(b):
             if not asJson:
                 return b
-            return self.app.dc.booking_to_event(b, prettyDate=True, piApp=True)
+            return bookingFunc(b, prettyDate=True, piApp=True)
 
         def _filter(b):
             return b.resource.daily_cost > 0 and not b.is_slot
