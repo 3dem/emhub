@@ -88,6 +88,7 @@
 
         booking.start = getDateAndTime('booking-start');
         booking.end = getDateAndTime('booking-end');
+        booking.experiment = last_experiment;
 
         if (booking.type == 'slot') {
             booking.slot_auth = {
@@ -116,10 +117,9 @@
      * is clicked. It can be either Create or Update action.
      */
     function onOkButtonClick() {
+
         let endpoint = null;
         var booking = getBookingParams();
-
-        printObject(booking);
 
         if (booking.id) {
             endpoint = Api.urls.booking.update;
@@ -198,17 +198,17 @@
         }
     }
 
-    function showExperimentForm() {
-        var params = {form_id: 2};
-        if (last_booking.experiment)
-            params.form_values = JSON.stringify(last_booking.experiment);
+    function showExperimentForm(booking_id) {
+        var params = {form_id: 2, booking_id: booking_id};
+        if (last_experiment)
+            params.form_values = JSON.stringify(last_experiment);
 
         ajaxContent = get_ajax_content("experiment_form", params);
 
         ajaxContent.done(function(html) {
             $("#experiment-modal").html(html);
             $("#dynamic-btn-ok" ).click(function() {
-                last_booking.experiment = getFormAsJson('dynamic-form');
+                last_experiment = getFormAsJson('dynamic-form');
                 $('#experiment-modal').modal('hide');
             });
             // Show the form after setting html content

@@ -25,6 +25,7 @@
                                 <th>owner</th>
                                 <th>pi</th>
                                 <th>dates</th>
+                                <th>experiment</th>
                                 {% if current_user.is_manager %}
                                     <th> Edit </th>
                                 {% endif %}
@@ -43,6 +44,7 @@
                                 {% set pi_name = pi.name if pi else '' %}
                                 <td>{{ pi_name }}</td>
                                 <td>{{ b.start|pretty_date }} - {{ b.end|pretty_date }}</td>
+                                <td>{{ b.experiment }}</td>
                                 {% if current_user.is_manager %}
                                     <td>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b.id }})"><i class="far fa-edit"></i></button>

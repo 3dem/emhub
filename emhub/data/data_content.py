@@ -442,10 +442,14 @@ class DataContent:
         else:  # New Application
             booking = dm.create_basic_booking(dates)
 
+        display = dm.get_config('bookings')['display']
+        show_experiment = display['show_experiment'] == 'yes'
+
         data = {'booking': booking,
                 'resources': self.get_resources()['resources'],
                 'possible_owners': self.get_pi_labs(),
                 'possible_operators': self.get_possible_operators(),
+                'show_experiment': show_experiment,
                 'read_only': read_only
                 }
 
@@ -520,6 +524,7 @@ class DataContent:
         """ Load values to form parameters based on the ids.
         """
         definition = form.definition
+        values = values or {}  # Stored None in some booking.experiment
 
         def set_value(p):
             if 'id' not in p:
@@ -535,6 +540,13 @@ class DataContent:
                     set_value(p)
 
     def get_experiment_form(self, **kwargs):
+        booking_id = int(kwargs['booking_id'])
+        booking = self.app.dm.get_booking_by(id=booking_id)
+
+        if 'form_values' not in kwargs:
+            print(booking.experiment)
+            kwargs['form_values'] = json.dumps(booking.experiment)
+
         data = self.get_dynamic_form_modal(**kwargs)
         data.update(self.get_grids_storage())
         return data
