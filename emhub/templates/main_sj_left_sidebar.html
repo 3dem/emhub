@@ -68,26 +68,6 @@
 
                             <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-pages" aria-controls="submenu-pages">
                                 <i class="fas fa-f fa-folder"></i>Pages</a>
-
-                            <div id="submenu-pages" class="collapse submenu" style="">
-                                <ul class="nav flex-column">
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='welcome') }}">Welcome</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='guidelines') }}">Guidelines</a>
-                                    </li>
-
-                                    <!-- Some ADMIN pages -->
-                                    {% if current_user.is_manager %}
-                                        <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='admin_users') }}">Admin - Users</a>
-                                    </li>
-                                    {% endif %}
-
-                                </ul>
-                            </div>
-
                         </ul>
 
                     <!-- Start of ADMIN section -->
