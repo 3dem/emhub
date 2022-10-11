@@ -61,8 +61,11 @@
             showError(error);
         else {
             $('#booking-modal').modal('hide');
-            if (has_calendar)
+            if (has_calendar) {
+                last_event = null;
                 calendar.render();
+            }
+
         }
     }
 
