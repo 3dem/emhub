@@ -47,7 +47,7 @@
                                 <td>{{ b.experiment }}</td>
                                 {% if current_user.is_manager %}
                                     <td>
-                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b.id }})"><i class="far fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showBookingForm({booking_id: {{ b.id }}})"><i class="far fa-edit"></i></button>
                                     </td>
                                 {% endif %}
                             </tr>
@@ -66,8 +66,4 @@
 
 <script>
     $('#bookings-table').DataTable();
-
-    function showBooking(booking_id) {
-        showBookingForm({booking_id: booking_id});
-    }
 </script>

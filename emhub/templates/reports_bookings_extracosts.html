@@ -48,13 +48,13 @@
 
                             {% for b in bookings %}
                                 <tr>
-                                    <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>
+                                    <td><a href="javascript:showBookingForm({booking_id: {{ b['id'] }}})">{{ b['title'] }}</a></td>
                                     <td>{{ b['pretty_start'] }}</td>
                                     <td>{{ b['pretty_end'] }}</td>
                                     <td>{{ b['days'] }}</td>
                                     <td>{{ b['costs']|length }}</td>
                                     <td>{{ b['total_cost'] }}</td>
-                                    <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b['id'] }})"><i class="far fa-edit"></i></button>
+                                    <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBookingForm({booking_id: {{ b['id'] }}})"><i class="far fa-edit"></i></button>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -97,11 +97,6 @@
         info: false,
         ordering: false
     });
-
-    function showBooking(bookingId) {
-        has_calendar = false;
-        showBookingForm({booking_id: bookingId});
-    }
 
     $('input[name="daterange"]').daterangepicker({
         "locale": {
