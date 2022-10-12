@@ -130,12 +130,12 @@
                         {# Then the other rows with real bookings info #}
                         {% for b in bList[start_index:] %}
                         <tr>
-                            <td><a href="javascript:showBooking({{ b['id'] }})">{{ b['title'] }}</a></td>
+                            <td><a href="javascript:showBookingForm({booking_id: {{ b['id'] }}})">{{ b['title'] }}</a></td>
                             <td>{{ b['pretty_start'] }}</td>
                             <td>{{ b['pretty_end'] }}</td>
                             <td>{{ b['days'] }}</td>
                             <td>{{ b['total_cost'] }}</td>
-                            <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBooking({{ b['id'] }})"><i class="far fa-edit"></i></button>
+                            <td><button class="btn btn-sm btn-outline-light" onclick="javascript:showBookingForm({booking_id: {{ b['id'] }}})"><i class="far fa-edit"></i></button>
                                     </td>
                         </tr>
                         {% endfor %}
@@ -146,9 +146,6 @@
         </div>
     </div>
 </div> <!-- end Details table  -->
-
-<!-- Modal with  Booking Form -->
-{% include 'booking_form.html' %}
 
 
 <script>
@@ -175,19 +172,5 @@
         info: false,
         ordering: false
     });
-
-    function showBooking(bookingId) {
-        last_booking = null;
-
-        for (const b of bookings) {
-            if (b.id == bookingId)
-                last_booking = b;
-        }
-        last_booking.title = last_booking.booking_title;
-        last_booking.start = new Date(last_booking.start);
-        last_booking.end = new Date(last_booking.end);
-        has_calendar = false;
-        showBookingForm(last_booking);
-    }
 
 </script>

@@ -54,7 +54,7 @@
                                         <td>{{ s.start|pretty_date }} </td>
                                         <td>{{ s.status }}</td>
                                         <td><a href="{{ url_for_content('session_live', session_id=s.id) }}">{{ s.data_path }}</a></td>
-                                        <td><a href="javascript:showBooking({{ s.booking_id }})">{{ s.booking_id }}</a></td>
+                                        <td><a href="javascript:showBookingForm({booking_id: {{ s.booking_id }}})">{{ s.booking_id }}</a></td>
                                         <td>{{ owner_name }}</td>
                                         <td>{{ s.operator.name }}</td>
 
@@ -83,11 +83,8 @@
 
 </div>
 
-<!-- Modal with  Booking Form -->
-{% include 'booking_form.html' %}
 
 <script>
-
     var bookingDict = {{ bookingDict|tojson }};
 
     $('#sessions-table').DataTable({
@@ -121,12 +118,4 @@ function deleteSession(session_id) {
             );
 } // function deleteSession
 
-function showBooking(bookingId) {
-    last_booking = bookingDict[bookingId];
-    last_booking.title = last_booking.booking_title;
-    last_booking.start = new Date(last_booking.start);
-    last_booking.end = new Date(last_booking.end);
-    has_calendar = false;
-    showBookingForm(last_booking);
-}
 </script>

@@ -6,7 +6,8 @@
 function showProjectForm(project_id, modalId) {
     if (!modalId)
         modalId = 'project-modal';
-    show_modal_from_ajax(modalId, get_ajax_content("project_form", {project_id: project_id}));
+    show_modal_from_ajax(modalId, get_ajax_content("project_form",
+                                                    {project_id: project_id}));
 }  // function showProjectForm
 
 function deleteProject(project_id) {

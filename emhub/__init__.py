@@ -30,7 +30,7 @@ import os
 from glob import glob
 
 
-__version__ = '0.5.5'
+__version__ = '0.6.0'
 
 
 def create_app(test_config=None):
@@ -76,6 +76,9 @@ def create_app(test_config=None):
     else:
         # load the test config if passed in
         app.config.from_mapping(test_config)
+
+    if not "MAIN" in app.config:
+        app.config["MAIN"] = 'main.html'
 
     portalAPI = app.config.get('SLL_PORTAL_API', None)
     if portalAPI is not None:
@@ -133,12 +136,16 @@ def create_app(test_config=None):
         kwargs['possible_owners'] = app.dc.get_pi_labs()
         kwargs['possible_operators'] = app.dc.get_possible_operators()
         kwargs['booking_types'] = app.dm.Booking.TYPES
+
+        display = app.dm.get_config('bookings')['display']
+        kwargs['booking_display_application'] = display['show_application'] != 'no'
+
         kwargs.update(app.dc.get_resources_list())
 
-        return flask.render_template('main.html', **kwargs)
+        return flask.render_template(app.config['MAIN'], **kwargs)
 
     def _redirect(endpoint, **kwargs):
-        return flask.redirect(flask.url_for(endpoint, **kwargs))
+        return flask.redirect(flask.url_for(endpoint, _external=True, **kwargs))
 
     @app.route('/', methods=['GET', 'POST'])
     @app.route('/index', methods=['GET', 'POST'])
@@ -305,7 +312,7 @@ def create_app(test_config=None):
         return "&start=%s&end=%s" % (s, e)
 
     def url_for_content(contentId, **kwargs):
-        return flask.url_for('main', content_id=contentId, **kwargs)
+        return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
 
     app.jinja_env.globals.update(url_for_content=url_for_content)
     app.jinja_env.add_extension('jinja2.ext.do')
@@ -318,6 +325,9 @@ def create_app(test_config=None):
     app.user = flask_login.current_user
     app.dm = DataManager(app.instance_path, user=app.user)
     app.dc = DataContent(app)
+
+    app.jinja_env.filters['booking_to_event'] = app.dc.booking_to_event
+
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
     app.version = __version__
 

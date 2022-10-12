@@ -307,12 +307,15 @@ class DataManager(DbManager):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         modify_all = attrs.pop('modify_all', None)
+        # We should accept empty title for booking
+        attrs['title'] = attrs.get('title', None) or ''
         bookings = []
 
         def _add_booking(attrs):
-            b = self.__create_booking(attrs,
-                                      check_min_booking=check_min_booking,
-                                      check_max_booking=check_max_booking)
+            b = self.create_basic_booking(attrs)
+            self.__validate_booking(b,
+                                    check_min_booking=check_min_booking,
+                                    check_max_booking=check_max_booking)
             bookings.append(b)
 
         if repeat_value == 'no':
@@ -370,6 +373,10 @@ class DataManager(DbManager):
                  attrs=self.json_from_dict(attrs))
 
         return result
+
+    def get_booking_by(self, **kwargs):
+        """ Return a single Application or None. """
+        return self.__item_by(self.Booking, **kwargs)
 
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,
@@ -748,16 +755,35 @@ class DataManager(DbManager):
         return self.__item_by(self.Project, **kwargs)
 
     # ---------------------------- ENTRIES ---------------------------------
+    def get_config(self, configName):
+        """ Find a form named config:configName and return
+        the associated JSON definition. """
+        return self.get_form_by_name(f'config:{configName}').definition
+
+    def get_entry_config(self, entry_type):
+        return self.get_config('projects')['entries'][entry_type]
+
+    def get_projects_config_permissions(self):
+        return {e['label']: e['value']
+                for e in self.__get_project_config_section('permissions')}
+
+    def user_can_create_projects(self, user):
+        if user.is_manager:
+            return True
+
+        permissions = self.get_config("projects")['permissions']
+        value = permissions['user_can_create_projects']
+
+        if (value == 'all'
+            or (value == 'independent' and user.is_independent)):
+            return True
+
+        return False
+
     def __check_entry(self, **attrs):
         if 'title' in attrs:
             if not attrs['title'].strip():
                 raise Exception("Entry title can not be empty")
-
-        # if 'type' in attrs:
-        #     entry_types = self.get_entry_types()
-        #     if not attrs['type'].strip() in entry_types:
-        #         raise Exception("Please provide a valid entry type: %s"
-        #                         % entry_types)
 
     def create_entry(self, **attrs):
         self.__check_entry(**attrs)
@@ -934,16 +960,25 @@ class DataManager(DbManager):
         return any(p.code in json_codes for p in applications)
 
     # ------------------- BOOKING helper functions -----------------------------
-    def __create_booking(self, attrs, **kwargs):
+    def create_basic_booking(self, attrs, **kwargs):
         if 'creator_id' not in attrs:
             attrs['creator_id'] = self._user.id
 
-        b = self.Booking(**attrs)
-        self.__validate_booking(b, **kwargs)
+        if 'owner_id' not in attrs:
+            attrs['owner_id'] = self._user.id
+
+        if 'type' not in attrs:
+            attrs['type'] = 'booking'
+
+        return self.Booking(**attrs)
+
         return b
 
     def __validate_booking(self, booking, **kwargs):
         r = self.get_resource_by(id=booking.resource_id)
+        if r is None:
+            raise Exception("Select a valid Resource for this booking.")
+
         check_min_booking = kwargs.get('check_min_booking', True)
         check_max_booking = kwargs.get('check_max_booking', True)
 
@@ -1103,7 +1138,7 @@ class DataManager(DbManager):
                 returned
         """
         booking_id = attrs['id']
-        modify_all = attrs.pop('modify_all', False)
+        modify_all = attrs.pop('modify_all', 'no') == 'yes'
 
         # Get the booking with the given id
         bookings = self.get_bookings(condition='id="%s"' % booking_id)

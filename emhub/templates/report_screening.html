@@ -11,11 +11,11 @@
 
 {% include "report_header.html" %}
 
-{{ macros.header_card(entry_type['label'], entry.date, (2, N)) }}
+{{ macros.header_card(entry_config['label'], entry.date, (2, N)) }}
 {{ macros.table_card('Grids Comments ', table) }}
 
 {% for row in images %}
-    {{ macros.header_card(entry_type['label'], entry.date, (3 + loop.index0, N)) }}
+    {{ macros.header_card(entry_config['label'], entry.date, (3 + loop.index0, N)) }}
     {{ macros.image_card(row['image_title'], row['image_data']) }}
 {% endfor %}
 

@@ -56,14 +56,14 @@ class DataContent:
     def get(self, **kwargs):
         content_id = kwargs['content_id']
         get_func_name = 'get_%s' % content_id.replace('-', '_')  # FIXME
-        dataDict = {}  # self.get_resources_list()
+        dataDict = {}
         get_func = getattr(self, get_func_name, None)
         if get_func is not None:
             dataDict.update(get_func(**kwargs))
         return dataDict
 
     def get_dashboard(self, **kwargs):
-        dataDict = self.get_resources_list()
+        dataDict = self.get_resources(image=True)
         user = self.app.user  # shortcut
         resource_bookings = {}
 
@@ -71,7 +71,6 @@ class DataContent:
         bookings = [('Today', []),
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
-
 
         now  = self.app.dm.now()
         next7 = now + dt.timedelta(days=7)
@@ -312,18 +311,24 @@ class DataContent:
             'roles': dm.User.ROLES
         }
 
-    def get_resources_list(self, **kwargs):
+    def get_resources(self, **kwargs):
         user = self.app.user
         if not user.is_authenticated:
-            return  {'resources': []}
+            return {'resources': []}
 
         def _image(r):
             fn = self.app.dm.get_resource_image_path(r)
             if os.path.exists(fn):
-                base64 = image.Base64Converter(max_size=(1024, 1024))
+                base64 = image.Base64Converter(max_size=(128, 128))
                 return 'data:image/%s;base64, ' + base64.from_path(fn)
             else:
                 return flask.url_for('images.static', filename=r.image)
+
+        all = kwargs.get('all', False)
+        get_image = kwargs.get('image', False)
+
+        def _filter(r):
+            return all or r.is_active
 
         resource_list = [
             {'id': r.id,
@@ -333,16 +338,21 @@ class DataContent:
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
-             'image': _image(r),
+             'image': _image(r) if get_image else None,
              'user_can_book': user.can_book_resource(r),
              'is_microscope': r.is_microscope,
              'min_booking': r.min_booking,
              'max_booking': r.max_booking,
              'daily_cost': r.daily_cost
              }
-            for r in self.app.dm.get_resources()
+            for r in self.app.dm.get_resources() if _filter(r)
         ]
         return {'resources': resource_list}
+
+    def get_resources_list(self, **kwargs):
+        kwargs['all'] = True  # show all resources despite status
+        kwargs['image'] = True  # load resource image
+        return self.get_resources(**kwargs)
 
     def get_resource_form(self, **kwargs):
         copy_resource = json.loads(kwargs.pop('copy_resource', 'false'))
@@ -392,11 +402,10 @@ class DataContent:
 
     def get_booking_calendar(self, **kwargs):
         dm = self.app.dm  # shortcut
-        dataDict = self.get_resources_list()
+        dataDict = self.get_resources()
         dataDict['bookings'] = [self.booking_to_event(b)
                                 for b in dm.get_bookings()
                                 if b.resource is not None]
-        dataDict['current_user_json'] = flask_login.current_user.json()
         dataDict['applications'] = [{'id': a.id,
                                      'code': a.code,
                                      'alias': a.alias}
@@ -405,9 +414,47 @@ class DataContent:
 
         dataDict['possible_owners'] = self.get_pi_labs()
         dataDict['possible_operators'] = self.get_possible_operators()
-
-        dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
+
+    def get_booking_form(self, **kwargs):
+        dm = self.app.dm  # shortcut
+        user = self.app.user
+
+        if 'start' in kwargs and 'end' in kwargs:
+            dates = {
+                'start': datetime_from_isoformat(kwargs.get('start', None)),
+                'end': datetime_from_isoformat(kwargs.get('end', None))
+            }
+        else:
+            dates = None
+
+        read_only = False
+        if 'booking_id' in kwargs:
+            booking_id = kwargs['booking_id']
+            booking = dm.get_booking_by(id=booking_id)
+            read_only = not (user.is_manager or user.id == booking.owner.id)
+
+            if dates:
+                booking.start = dates['start']
+                booking.end = dates['end']
+            if booking is None:
+                raise Exception("Booking with id %s not found." % booking_id)
+        else:  # New Application
+            booking = dm.create_basic_booking(dates)
+
+        display = dm.get_config('bookings')['display']
+        show_experiment = display['show_experiment'] == 'yes'
+
+        data = {'booking': booking,
+                'resources': self.get_resources()['resources'],
+                'possible_owners': self.get_pi_labs(),
+                'possible_operators': self.get_possible_operators(),
+                'show_experiment': show_experiment,
+                'read_only': read_only
+                }
+
+        data.update(self.get_projects_list())
+        return data
 
     def get_applications(self, **kwargs):
         dataDict = self.get_raw_applications_list()
@@ -477,6 +524,7 @@ class DataContent:
         """ Load values to form parameters based on the ids.
         """
         definition = form.definition
+        values = values or {}  # Stored None in some booking.experiment
 
         def set_value(p):
             if 'id' not in p:
@@ -492,6 +540,13 @@ class DataContent:
                     set_value(p)
 
     def get_experiment_form(self, **kwargs):
+        booking_id = int(kwargs['booking_id'])
+        booking = self.app.dm.get_booking_by(id=booking_id)
+
+        if 'form_values' not in kwargs:
+            print(booking.experiment)
+            kwargs['form_values'] = json.dumps(booking.experiment)
+
         data = self.get_dynamic_form_modal(**kwargs)
         data.update(self.get_grids_storage())
         return data
@@ -602,7 +657,15 @@ class DataContent:
 
     def get_reports_time_distribution(self, **kwargs):
 
-        bookings, range_dict = self.get_booking_in_range(kwargs)
+        def _booking_to_json(booking, **kwargs):
+            bj = self.booking_to_event(booking, **kwargs)
+            bj.update({
+                'total_cost': booking.total_cost,
+                'days': booking.days,
+                'type': booking.type
+            })
+            return bj
+        bookings, range_dict = self.get_booking_in_range(kwargs, bookingFunc=_booking_to_json)
 
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
@@ -1001,12 +1064,84 @@ class DataContent:
                 'since': since
                 }
 
+    def get_report_microscopes_usage_content(self, **kwargs):
+        return self.get_report_microscopes_usage(**kwargs)
+    def get_report_microscopes_usage_pilist(self, **kwargs):
+        return self.get_report_microscopes_usage(**kwargs)
+    def get_report_microscopes_usage(self, **kwargs):
+        def _filter(b):
+            return not b.is_slot
+
+        app_id = int(kwargs.get('application', 0))
+        selected_app = self.app.dm.get_application_by(id=app_id)
+        applications = self.app.dm.get_visible_applications()
+        if not selected_app:
+            selected_app = applications[0]
+
+        bookings, range_dict = self.get_booking_in_range(kwargs,
+                                                         asJson=False,
+                                                         filter=_filter)
+        pi_dict = {}
+        pi_list = [pi.id for pi in selected_app.pi_list]
+        pid = int(kwargs.get('pi', 0))
+        selected_pi = None
+        total_days = 0
+
+        resources = self.get_resources()['resources']
+        # selected resources
+        if 'selected' in kwargs:
+            selected = [int(p) for p in kwargs['selected'].split(',')]
+        else:
+            selected = [r['id'] for r in resources if r['is_microscope']]
+
+        for b in bookings:
+            pi = b.owner.get_pi()
+            r = b.resource.id
+            # Facility bookings or with no PI will not be counted
+            if pi and r in selected and pi.id in pi_list:
+                if not pi.email in pi_dict:
+                    pi_dict[pi.email] = {
+                        'id': pi.id,
+                        'name': pi.name,
+                        'email': pi.email,
+                        'bookings': [],
+                        'days': defaultdict(lambda: 0),
+                        'total_days': 0,
+                        'users': set()
+                    }
+                pi_entry = pi_dict[pi.email]
+                pi_entry['bookings'].append(b)
+                rid = b.resource.id
+                pi_entry['days'][rid] += b.days
+                pi_entry['total_days'] += b.days
+                pi_entry['users'].add(b.owner.email)
+                total_days += b.days
+                if pi.id == pid:
+                    selected_pi = pi_entry
+
+        data = {
+            'pi_list': sorted(pi_dict.values(), key=lambda pi: pi['total_days'], reverse=True),
+            'total_days': total_days,
+            'resources': resources,
+            'resources_dict': {r['id']: r for r in resources},
+            'selected_resources': selected,
+            'selected_pi': selected_pi,
+            'applications': applications,
+            'selected_app': selected_app
+        }
+        data.update(range_dict)
+        data.update()
+        return data
+
     def get_report_pis_usage(self, **kwargs):
 
         bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
 
         pi_dict = {}
-        univ_dict = self.app.dm.get_universities_dict()
+        try:
+            univ_dict = self.app.dm.get_universities_dict()
+        except:
+            univ_dict = {}
 
         def _get_univ(email, default=None):
             for k, v in univ_dict.items():
@@ -1047,7 +1182,7 @@ class DataContent:
     # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
-        return {'bookings': [self.booking_to_event(b) for b in bookings]}
+        return {'bookings': bookings}
 
     def get_raw_applications_list(self, **kwargs):
         return {'applications': self.app.dm.get_visible_applications()}
@@ -1177,17 +1312,26 @@ class DataContent:
     def get_projects_list(self, **kwargs):
         # FIXME Define access/permissions for other users
         projects = []
+        user = self.app.user  # shortcut
+
         for p in self.app.dm.get_projects():
             pi = p.user.get_pi()
             if pi:
                 apps = pi.get_applications()
                 # skip this project from the list if the application is confidential
                 # and the user has not access to it
-                if apps and not apps[0].allows_access(self.app.user):
+                if apps and not apps[0].allows_access(user):
                     continue
+
+            if not (user.is_manager or user.same_pi(p.user)):
+                continue
+
             projects.append(p)
 
-        return {'projects': projects}
+        can_create = self.app.dm.user_can_create_projects(self.app.user)
+        return {'projects': projects,
+                'user_can_create_projects': can_create
+                }
 
     def get_project_form(self, **kwargs):
         dm = self.app.dm
@@ -1214,8 +1358,9 @@ class DataContent:
     def get_project_details(self, **kwargs):
         # FIXME Define access/permissions for other users
         user = self.app.user  # shortchut
+        dm = self.app.dm  # shortcut
 
-        project = self.app.dm.get_project_by(id=kwargs['project_id'])
+        project = dm.get_project_by(id=kwargs['project_id'])
 
         if project is None:
             raise Exception("Invalid Project Id %s" % kwargs['project_id'])
@@ -1223,51 +1368,22 @@ class DataContent:
         if not user.is_manager and not user.same_pi(project.user):
             raise Exception("You do not have permissions to see this project")
 
+        config = dm.get_config('projects')
 
-        entries = sorted(project.entries, key=lambda e: e.date, reverse=True)
+        def ekey(e):
+            if e.type == 'booking':
+                return (e.start, e.start)
+            else:
+                return (e.date, e.creation_date)
+
+        entries = [e for e in project.entries]
+        entries.extend([b for b in project.bookings])
+        entries.sort(key=ekey, reverse=True)
 
         return {
             'project': project,
             'entries': entries,
-            'entry_types': self.get_entry_types()
-        }
-
-    def get_entry_types(self):
-        return {
-            'grids_preparation':
-                {'label': 'Grids Preparation',
-                 'group': 1,
-                 'iconClass': "fas fa-th fa-inverse",
-                 'imageClass': "img--picture",
-                 'report': "report_grids_preparation.html"
-                 },
-            'grids_storage':
-                {'label': 'Grids Storage',
-                 'group': 1,
-                 'iconClass': "fas fa-box fa-inverse",
-                 'imageClass': "img--picture",
-                 'report': "report_grids_storage.html"
-                 },
-            'screening':
-                {'label': 'Screening',
-                 'group': 2,
-                 'iconClass': "fas fa-search fa-inverse",
-                 'imageClass': "img--location",
-                 'report': "report_screening.html"
-                 },
-            'data_acquisition':
-                {'label': 'Data Acquisition',
-                 'group': 2,
-                 'iconClass': "far fa-image fa-inverse",
-                 'imageClass': "img--location",
-                 'report': "report_data_acquisition.html"
-                 },
-            'note':
-                {'label': 'Note',
-                 'group': 3,
-                 'iconClass': "fas fa-sticky-note fa-inverse",
-                 'imageClass': "img--picture"
-                 },
+            'config': config,
         }
 
     def get_entry_form(self, **kwargs):
@@ -1298,7 +1414,7 @@ class DataContent:
                              description='',
                              extra={})
 
-        entry_type = self.get_entry_types()[entry.type]
+        entry_config = dm.get_entry_config(entry.type)
         form_id = "entry_form:%s" % entry.type
         form = dm.get_form_by(name=form_id)
         if form:
@@ -1306,7 +1422,7 @@ class DataContent:
 
         data = {
             'entry': entry,
-            'entry_type_label': entry_type['label'],
+            'entry_type_label': entry_config['label'],
             'definition': None if form is None else form.definition
         }
         data.update(self.get_grids_storage())
@@ -1321,15 +1437,22 @@ class DataContent:
         if entry is None:
             raise Exception("Please provide a valid Entry id. ")
 
-        entry_type = self.get_entry_types()[entry.type]
+        entry_config = dm.get_entry_config(entry.type)
         data = entry.extra['data']
 
-        if not 'report' in entry_type:
+        if not 'report' in entry_config:
             raise Exception("There is no Report associated with this Entry. ")
 
         images = []
 
+        # Convert images in data form to base64
         base64 = image.Base64Converter(max_size=(1024, 1024))
+
+        for k, v in data.items():
+            if k.endswith('_image') and v.strip():
+                fn = dm.get_entry_path(entry, v)
+                data[k] = 'data:image/%s;base64, ' + base64.from_path(fn)
+
         for row in data.get('images_table', []):
             if 'image_file' in row:
                 fn = dm.get_entry_path(entry, row['image_file'])
@@ -1361,7 +1484,10 @@ class DataContent:
 
         pi = entry.project.user.get_pi()
         # TODO: We should store some properties in EMhub and avoid this request
-        pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
+        try:
+            pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
+        except:
+            pi_info = None
 
         # Create a default dict based on data to avoid missing key errors in report
         ddata = defaultdict(lambda : 'UNKNOWN')
@@ -1369,7 +1495,7 @@ class DataContent:
 
         return {
             'entry': entry,
-            'entry_type': entry_type,
+            'entry_config': entry_config,
             'data': ddata,
             'images': images,
             'pi_info': pi_info,
@@ -1477,22 +1603,26 @@ class DataContent:
         resource = booking.resource
         # Bookings should have resources, just in case an erroneous one
         if resource is None:
-            resource_info = {'id': None, 'name': ''}
-        else:
-            resource_info = {'id': resource.id, 'name': resource.name,
-                             'is_microscope': resource.is_microscope
-                             }
+            resource = self.app.dm.Resource(
+                name='Error: MISSING',
+                status='inactive',
+                tags='',
+                image='',
+                color='rgba(256, 256, 256, 1.0)',
+                extra={})
+
         owner = booking.owner
         owner_name = owner.name
-        o = booking.operator  #  shortcut
-        if o:
-            operator_dict = {'id': o.id, 'name': o.name}
+        operator = booking.operator  #  shortcut
+        if operator:
+            operator_dict = {'id': operator.id, 'name': operator.name}
         else:
             operator_dict = {'id': None, 'name': ''}
 
         creator = booking.creator
         a = booking.application
         user = self.app.user
+        dm = self.app.dm
         b_title = booking.title
         b_description = booking.description
 
@@ -1535,44 +1665,32 @@ class DataContent:
             user_can_book = user.can_book_slot(booking)
         else:
             # Show all booking information in title in some cases only
-            appStr = '' if a is None else ', %s' % a.code
-            extra = "%s%s" % (owner.name, appStr)
+            display = dm.get_config('bookings')['display']
+            emptyApp = a is None or display['show_application'] == 'no'
+            appStr = ''  if emptyApp else ', %s' % a.code
+            emptyOp = operator is None or display['show_operator'] == 'no'
+            opStr = '' if emptyOp else ' -> ' + operator.name
+            extra = "%s%s%s" % (owner.name, appStr, opStr)
             if user_can_view:
-                title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
+                title = "%s (%s) %s" % (resource.name, extra, b_title)
                 if a:
                     application_label = a.code
                     if a.alias:
                         application_label += "  (%s)" % a.alias
             else:
-                title = "%s (%s)" % (resource_info['name'], extra)
+                title = "%s (%s)" % (resource.name, extra)
                 b_title = "Hidden title"
                 b_description = "Hidden description"
 
         bd = {
             'id': booking.id,
             'title': title,
-            'description': b_description,
+            'resource': {'id': resource.id},
             'start': datetime_to_isoformat(booking.start),
             'end': datetime_to_isoformat(booking.end),
             'color': color,
             'textColor': 'white',
-            'resource': resource_info,
-            'creator': {'id': creator.id, 'name': creator.name},
-            'owner': {'id': owner.id, 'name': owner_name},
-            'operator': operator_dict,
-            'type': booking.type,
             'booking_title': b_title,
-            'user_can_book': user_can_book,
-            'user_can_view': user_can_view,
-            'user_can_modify': user_can_modify,
-            'slot_auth': booking.slot_auth,
-            'repeat_id': booking.repeat_id,
-            'repeat_value': booking.repeat_value,
-            'days': booking.days,
-            'experiment': booking.experiment,
-            'application_label': application_label,
-            'costs': booking.costs,
-            'total_cost': booking.total_cost
         }
 
         if kwargs.get('prettyDate', False):
@@ -1710,12 +1828,21 @@ class DataContent:
                     for u in dm.get_users() if 'manager' in u.roles]
         return  []
 
-    def get_booking_in_range(self, kwargs, asJson=True):
+    def get_booking_in_range(self, kwargs,
+                             asJson=True, filter=None, bookingFunc=None):
         """ Return the list of bookings in the given range.
          It will also attach PI information to each booking.
          This function is used from report functions.
          If 'start' and 'end' keys are not in kwargs, the current
          year quarter will be used for the range.
+         Args:
+             kwargs: dict from where to read 'start' and 'end'
+             asJson: if True return json entries for each booking
+             filter: function to filter bookings. If None, the
+                non-slot bookings with non-zero cost resource
+                will be used.
+            bookingFunc: if asJson is True, function used to convert
+                booking into a jsonDict. If it is none, booking_to_event is used.
         """
 
         if 'start' in kwargs and 'end' in kwargs:
@@ -1741,14 +1868,16 @@ class DataContent:
             datetime_from_isoformat(d['end'].replace('/', '-'))
         )
 
+        bookingFunc = bookingFunc or self.booking_to_event
         def process_booking(b):
             if not asJson:
                 return b
-            return self.app.dc.booking_to_event(b, prettyDate=True, piApp=True)
+            return bookingFunc(b, prettyDate=True, piApp=True)
 
         def _filter(b):
             return b.resource.daily_cost > 0 and not b.is_slot
 
-        bookings = [process_booking(b) for b in bookings if _filter(b)]
+        filterFunc = filter or _filter
+        bookings = [process_booking(b) for b in bookings if filterFunc(b)]
 
         return bookings, d

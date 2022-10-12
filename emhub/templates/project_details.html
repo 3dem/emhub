@@ -10,7 +10,7 @@
     {% set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
 
-    {% set can_edit = is_manager or (project.user_can_edit and current_user == project.user) or current_user == project.creation_user %}
+    {% set can_edit = is_manager or (project.user_can_edit and (current_user == project.user or current_user == pi)) or current_user == project.creation_user %}
 
     <input type="hidden" value="{{ project.id }}", id="project-id">
     <input type="hidden" value="09:00:00.000", id="hour_id">
@@ -21,13 +21,13 @@
             <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                 <i class="fas fa-plus-circle"></i> Add Entry </a>
             <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'grids_preparation')">Grid Preparation</a>
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'grids_storage')">Grid Storage</a>
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'screening')">Screening</a>
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'data_acquisition')">Data Acquisition</a>
-                <div class="dropdown-divider"></div>
-                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, 'note')">Note</a>
+                {% for entry in config['entries_menu'] %}
+                    {% if not entry %}
+                        <div class="dropdown-divider"></div>
+                    {% else %}
+                        <a class="dropdown-item" href="javascript:showEntryForm(null, {{ project.id }}, '{{ entry[0] }}')">{{ entry[1] }}</a>
+                    {% endif %}
+                {% endfor %}
             </div>
             {% endif %}
         </div>
@@ -42,50 +42,94 @@
 
         <!-- Block 1 -->
     {% for entry in entries %}
-        {% set entry_type = entry_types[entry.type] %}
+        {% set entry_config = config['entries'][entry.type] %}
         <div class="cd-timeline__block js-cd-block">
-            <div class="cd-timeline__img cd-timeline__{{ entry_type['imageClass'] }} js-cd-img">
+            <div class="cd-timeline__img cd-timeline__{{ entry_config['imageClass'] }} js-cd-img">
                 <div class="fa-2x ml-3 mt-2">
-                <i class="{{ entry_type['iconClass'] }}" data-fa-transform="grow-6 right-2 down-2"></i>
+                <i class="{{ entry_config['iconClass'] }}" data-fa-transform="grow-6 right-2 down-2"></i>
                 </div>
             </div>
 
             <div class="cd-timeline__content js-cd-content pr-0">
 
-                <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
-                    <div class="col-8 align-items-center justify-content-start"> <h3>{{ entry_type['label'] }}</h3></div>
-                    {% if can_edit %}
-                        <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-edit"></i>   </a></div>
-                        <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
-                        <div class="col-1">
-                            {% if is_manager or current_user == entry.creation_user %}
-                                <a href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i></a>
+
+
+                {# Normal Entries #}
+                {% if entry.type != 'booking' %}
+                    <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
+                        <div class="col-8 align-items-center justify-content-start"> <h3>{{ entry_config['label'] }}</h3></div>
+                        {% if can_edit %}
+                            <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-edit"></i>   </a></div>
+                            <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
+                            <div class="col-1">
+                                {% if is_manager or current_user == entry.creation_user %}
+                                    <a href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i></a>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="col-2"></div>
+                            <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-eye"></i>   </a></div>
+                        {% endif %}
+                            {% if 'report' in entry_config %}
+                                <div class="col-1"><a href="javascript:showEntryReport({{ entry.id }})"><i class="fas fa-file-alt"></i> </a></div>
                             {% endif %}
-                        </div>
-                    {% else %}
+                    </div>
+
+                    <hr class="mt-0"/>
+                    <br/>
+
+                    <div class="row col-12  justify-content-start">
+                        <h4 style="color: gray">Title: {{ entry.title }}</h4>
+                    </div>
+                    <br/>
+
+                    <div class="row col-12  justify-content-start pr-0">
+                        Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.last_update_user.name }}</span>, {{ entry.last_update_date|pretty_datetime }}
+                    </div>
+                    <div class="row col-12  justify-content-start pr-0">
+                        Created: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.creation_user.name }}</span>, {{ entry.creation_date|pretty_datetime }}
+                    </div>
+
+                    <span class="cd-timeline__date">{{ entry.date|pretty_date }}</span>
+
+                {# Booking Entry #}
+                {% else %}
+                    <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
+                    <div class="col-8 align-items-center justify-content-start"> <h3>{{ entry_config['label'] }}</h3></div>
                         <div class="col-2"></div>
-                        <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-eye"></i>   </a></div>
-                    {% endif %}
-                    {% if 'report' in entry_type %}
-                        <div class="col-1"><a href="javascript:showEntryReport({{ entry.id }})"><i class="fas fa-file-alt"></i> </a></div>
-                    {% endif %}
+                        <div class="col-1"><a href="javascript:showBookingForm({booking_id: {{ entry.id }} })"><i class="fas fa-eye"></i>   </a></div>
+{#                        <div class="col-1"><a href="javascript:showEntryReport({{ entry.id }})"><i class="fas fa-file-alt"></i> </a></div>#}
                 </div>
 
                 <hr class="mt-0"/>
-
-                <div class="row col-12  justify-content-start">
-                    <h4 style="color: gray">{{ entry.title }}</h4>
-                </div>
-
                 <br/>
-                <div class="row col-12  justify-content-start pr-0">
-                    Last update: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.last_update_user.name }}</span>, {{ entry.last_update_date|pretty_datetime }}
-                </div>
-                <div class="row col-12  justify-content-start pr-0">
-                    Created: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ entry.creation_user.name }}</span>, {{ entry.creation_date|pretty_datetime }}
-                </div>
 
-            <span class="cd-timeline__date">{{ entry.date|pretty_date }}</span>
+                    {% set booking = entry %}
+                    {% set r = booking.resource %}
+
+                    <div class="row col-12  justify-content-start">
+                            <h4 style="color: gray">Instrument: <span class='badge' style='background: {{ r.color }}; color: #fff;'>{{r.name}}</span></h4>
+                        </div>
+                    {% if booking.title %}
+                        <div class="row col-12  justify-content-start">
+                            <h4 style="color: gray">Title: {{ booking.title }}</h4>
+                        </div>
+                    {% endif %}
+                    <br/>
+
+                    <div class="row col-12  justify-content-start pr-0">
+                        Owner: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ booking.owner.name }}</span>
+                    </div>
+                    {% if booking.operator %}
+                        <div class="row col-12  justify-content-start pr-0">
+                            Operator: <span style="color: black; margin-left: 5px; margin-right: 5px">{{ booking.operator.name }}</span>
+                        </div>
+                    {% endif %}
+
+                    <span class="cd-timeline__date">{{ booking.start|pretty_date }}</span>
+                {% endif %}
+
+
             </div>
         </div>
 

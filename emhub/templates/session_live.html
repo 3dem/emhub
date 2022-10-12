@@ -501,11 +501,8 @@ function handleAjaxDone(jsonResponse) {
         if (new_resolution_values.length > 1) {
             request_micrograph_images({{ session.id }}, defocus_plot_column.length-1);
         }
-
-
     }
 }
-
 
 function handleAjaxFail(jqXHR, textStatus) {
     alert(" Error: Request failed: " + textStatus );
