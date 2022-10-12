@@ -107,33 +107,33 @@
         //window.location.href = base_url + "&start=" + start.format('YYYY/MM/DD') + "&end=" + end.format('YYYY/MM/DD');
     });
 
-    function updateReport() {
-        const base_url = "{{ url_for_content('report_microscopes_usage') | safe }}";
-
+    function getArgs() {
         var app_id = $('#application-id').val();
 
         if (!app_id)
             app_id = $('#selectpicker-app').selectpicker('val');
 
-        console.log('app_id ' +  app_id.toString(), " type: ", typeof(app_id));
-
-        const args = {
+        return {
             pi: last_pi,
             start: start_date,
             end: end_date,
             selected: $('#selectpicker-resource').selectpicker('val').join(','),
             application: app_id
         }
+    }
+
+    function updateReport() {
+        const base_url = "{{ url_for_content('report_microscopes_usage') | safe }}";
+
+        //console.log('app_id ' +  app_id.toString(), " type: ", typeof(app_id));
         load_html_from_ajax('report-content',
-            get_ajax_content('report_microscopes_usage_content', args));
+            get_ajax_content('report_microscopes_usage_content', getArgs()));
     }
 
     function selectPiList(pi) {
         last_pi = pi;
         load_html_from_ajax('pilist-content',
-            get_ajax_content('report_microscopes_usage_pilist',
-                {pi: pi, start: start_date, end: end_date})
-        );
+            get_ajax_content('report_microscopes_usage_pilist', getArgs()));
     }
 
 </script>
