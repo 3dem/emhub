@@ -26,6 +26,8 @@
                                 <th>pi</th>
                                 <th>dates</th>
                                 <th>experiment</th>
+                                <th>slot_auth</th>
+                                <th>repeat</th>
                                 {% if current_user.is_manager %}
                                     <th> Edit </th>
                                 {% endif %}
@@ -45,6 +47,8 @@
                                 <td>{{ pi_name }}</td>
                                 <td>{{ b.start|pretty_date }} - {{ b.end|pretty_date }}</td>
                                 <td>{{ b.experiment }}</td>
+                                <td>{{ b.slot_auth }}</td>
+                                <td>{{ b.repeat_id }}: {{ b.repeat_value }}</td>
                                 {% if current_user.is_manager %}
                                     <td>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:showBookingForm({booking_id: {{ b.id }}})"><i class="far fa-edit"></i></button>

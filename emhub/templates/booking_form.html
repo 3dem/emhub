@@ -182,10 +182,13 @@
                                 {{ row_label('Slots') }}
                                 <div class="col-7">
                                 <select id="booking-slot-auth" class="selectpicker show-tick" multiple data-width="100%" data-selected-text-format="count > 5" data-live-search="true" data-actions-box="true" title="Select authorization..." data-key="slot_auth">
-                                    <option value="any">Any</option>
+                                    {% set apps_auth = booking.slot_auth['applications'] %}
+                                    {% set selected = 'selected' if 'any' in apps_auth else '' %}
+                                    <option {{ selected }}  value="any">Any</option>
                                     {% for a in applications %}#}
+                                        {% set selected = 'selected' if a['code'] in apps_auth else '' %}
                 {#                      <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}" data-content="<span class='badge badge-light'>{{a['code']}}</span>">{{a['code']}}</option>#}
-                                      <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}">{{a['code']}}</option>
+                                      <option {{ selected }} value="{{a['code']}}" data-subtext="{{ a['alias'] }}">{{a['code']}}</option>
 
                                     {% endfor %}
                                 </select>
@@ -197,15 +200,13 @@
                                 {{ row_label('Repeat') }}
                                 <div class="col-7">
                                     <div class="custom-controls-stacked">
-                                        <label class="custom-control custom-radio custom-control-inline">
-                                            <input type="radio" name="booking-repeat-radio" checked="" class="custom-control-input" value="no" data-key="repeat_value"><span class="custom-control-label">No</span>
-                                        </label>
-                                        <label class="custom-control custom-radio custom-control-inline">
-                                            <input type="radio" name="booking-repeat-radio" class="custom-control-input" value="weekly" data-key="repeat_value"><span class="custom-control-label">Weekly</span>
-                                        </label>
-                                        <label class="custom-control custom-radio custom-control-inline">
-                                            <input type="radio" name="booking-repeat-radio" class="custom-control-input" value="bi-weekly" data-key="repeat_value"><span class="custom-control-label">Bi-weekly</span>
-                                        </label>
+                                        {% for repeat_label in ['No', 'Weekly', 'Bi-weekly'] %}
+                                            {% set repeat_value = repeat_label|lower %}
+                                            {% set checked = 'checked' if (booking.repeat_value == repeat_value) else '' %}
+                                            <label class="custom-control custom-radio custom-control-inline">
+                                                <input type="radio" name="booking-repeat-radio" {{ checked }} class="custom-control-input" value="{{ repeat_value }}" data-key="repeat_value"><span class="custom-control-label">{{ repeat_label }}</span>
+                                            </label>
+                                        {% endfor %}
                                     </div>
                                 </div>
                             </div>
@@ -273,6 +274,7 @@
     $('select').selectpicker();
     setDateAndTime('booking-start', '{{ booking.start.isoformat() }}');
     setDateAndTime('booking-end', '{{ booking.end.isoformat() }}');
+    // We don't need to update stop date since it is only used at creation
     $('#booking-repeat-stop-date').datetimepicker({format: 'YYYY/MM/DD'});
 
 

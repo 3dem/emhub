@@ -447,6 +447,7 @@ class DataContent:
 
         data = {'booking': booking,
                 'resources': self.get_resources()['resources'],
+                'applications': self.get_raw_applications_list()['applications'],
                 'possible_owners': self.get_pi_labs(),
                 'possible_operators': self.get_possible_operators(),
                 'show_experiment': show_experiment,

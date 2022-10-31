@@ -31,6 +31,7 @@ import os
 import uuid
 from collections import defaultdict
 
+import emhub.utils
 import sqlalchemy
 
 from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
@@ -358,7 +359,6 @@ class DataManager(DbManager):
 
         def update(b):
             self.__check_cancellation(b, attrs)
-
             for attr, value in attrs.items():
                 if attr != 'id':
                     setattr(b, attr, value)
@@ -972,8 +972,6 @@ class DataManager(DbManager):
 
         return self.Booking(**attrs)
 
-        return b
-
     def __validate_booking(self, booking, **kwargs):
         r = self.get_resource_by(id=booking.resource_id)
         if r is None:
@@ -1141,14 +1139,12 @@ class DataManager(DbManager):
         modify_all = attrs.pop('modify_all', 'no') == 'yes'
 
         # Get the booking with the given id
-        bookings = self.get_bookings(condition='id="%s"' % booking_id)
+        booking = self.get_booking_by(id=booking_id)
 
-        if not bookings:
+        if not booking:
             raise Exception("There is no booking with ID=%s" % booking_id)
 
-        booking = bookings[0]
         rid = booking.repeat_id
-
         result = [booking]
 
         if rid is not None:
