@@ -79,8 +79,6 @@ def create_app(test_config=None):
 
     if not "TEMPLATE_MAIN" in app.config:
         app.config["TEMPLATE_MAIN"] = 'main.html'
-    if not "TEMPLATE_SESSION_CONTENT" in app.config:
-        app.config["TEMPLATE_SESSION_CONTENT"] = 'session_content.html'
 
     portalAPI = app.config.get('SLL_PORTAL_API', None)
     if portalAPI is not None:
@@ -135,6 +133,7 @@ def create_app(test_config=None):
         kwargs['is_devel'] = app.is_devel
         kwargs['version'] = __version__
         kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
+
         kwargs['possible_owners'] = app.dc.get_pi_labs()
         kwargs['possible_operators'] = app.dc.get_possible_operators()
         kwargs['booking_types'] = app.dm.Booking.TYPES
@@ -290,6 +289,8 @@ def create_app(test_config=None):
         if content_template in templates:
             kwargs['is_devel'] = app.is_devel
             kwargs['booking_types'] = app.dm.Booking.TYPES
+            kwargs['session_content'] = app.config.get('TEMPLATE_SESSION_CONTENT',
+                                                       'session_content.html')
             return flask.render_template(content_template, **kwargs)
 
         error = {
