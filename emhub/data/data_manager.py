@@ -579,7 +579,8 @@ class DataManager(DbManager):
         session = self.__create_item(self.Session, **attrs)
 
         # Let's update the data path after we know the id
-        session.data_path = 'session_%06d.h5' % session.id
+        data_path = attrs.get('data_path', 'session_%06d.h5' % session.id)
+        session.data_path = data_path
 
         self.commit()
 
