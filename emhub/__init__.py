@@ -77,8 +77,10 @@ def create_app(test_config=None):
         # load the test config if passed in
         app.config.from_mapping(test_config)
 
-    if not "MAIN" in app.config:
-        app.config["MAIN"] = 'main.html'
+    if not "TEMPLATE_MAIN" in app.config:
+        app.config["TEMPLATE_MAIN"] = 'main.html'
+    if not "TEMPLATE_SESSION_CONTENT" in app.config:
+        app.config["TEMPLATE_SESSION_CONTENT"] = 'session_content.html'
 
     portalAPI = app.config.get('SLL_PORTAL_API', None)
     if portalAPI is not None:
@@ -142,7 +144,7 @@ def create_app(test_config=None):
 
         kwargs.update(app.dc.get_resources_list())
 
-        return flask.render_template(app.config['MAIN'], **kwargs)
+        return flask.render_template(app.config['TEMPLATE_MAIN'], **kwargs)
 
     def _redirect(endpoint, **kwargs):
         return flask.redirect(flask.url_for(endpoint, _external=True, **kwargs))
