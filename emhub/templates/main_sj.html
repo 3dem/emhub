@@ -6,32 +6,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>EMhub {{ emhub_title }}</title>
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/circular-std/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='libs/css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='libs/css/emhub.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/fontawesome/css/fontawesome-all.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/vector-map/jqvmap.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/jvectormap/jquery-jvectormap-2.0.2.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/charts/chartist-bundle/chartist.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/charts/c3charts/c3.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/charts/morris-bundle/morris.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/daterangepicker/daterangepicker.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/datatables/css/dataTables.bootstrap4.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/datatables/css/buttons.bootstrap4.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/datatables/css/select.bootstrap4.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/datatables/css/fixedHeader.bootstrap4.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='vendor/daterangepicker/daterangepicker.css') }}">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/full-calendar/packages/core/main.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/full-calendar/packages/daygrid/main.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/full-calendar/packages/timegrid/main.min.css') }}">
-
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-select/css/bootstrap-select.css') }}">
-
-    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/datepicker/tempusdominus-bootstrap-4.css') }}">
-
+    {% include 'main_stylesheet.html' %}
     <link rel="shortcut icon" href="{{ url_for('static', filename='images/emhub.ico') }}">
 
 </head>
@@ -59,9 +35,6 @@
                     <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
                         <div class="text-md-right footer-links d-none d-sm-block">
                             Version: {{ version }}
-{#                            <a href="javascript: void(0);">Version: </a>#}
-{#                            <a href="javascript: void(0);">Support</a>#}
-{#                            <a href="javascript: void(0);">Contact Us</a>#}
                         </div>
                     </div>
                 </div>

@@ -53,7 +53,7 @@
                                         <td>{{ s.id }}</td>
                                         <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
                                         <td>{{ s.start|pretty_date }} </td>
-                                        <td>{{ s.resource.name }}</td>
+                                        <td><span class='badge' style='background: {{ s.resource.color }}; color: #fff;'>{{ s.resource.name }}</span></td>
                                         <td>{{ s.status }}</td>
                                         <td><a href="{{ url_for_content('session_live', session_id=s.id) }}">{{ s.data_path }}</a></td>
                                         <td><a href="javascript:showBookingForm({booking_id: {{ s.booking_id }}})">{{ s.booking_id }}</a></td>
