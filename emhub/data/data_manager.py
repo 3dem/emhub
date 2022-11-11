@@ -38,7 +38,7 @@ from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
-from .data_session import H5SessionData
+from .data_session import H5SessionData, RelionSessionData
 
 
 class DataManager(DbManager):
@@ -586,7 +586,7 @@ class DataManager(DbManager):
 
         # Create empty hdf5 file
         if create_data:
-            data = H5SessionData(self._session_data_path(session), mode='a')
+            data = self._create_data_instance(session, 'a')
             data.close()
 
         # Update counter for this session group
@@ -631,14 +631,19 @@ class DataManager(DbManager):
         return session
 
     def load_session(self, sessionId, mode="r"):
-        # if self._lastSession is not None:
-        #     if self._lastSession.id == sessionId:
-        #         return self._lastSession
-        #     self._lastSession.data.close()
-
         session = self.Session.query.get(sessionId)
-        session.data = H5SessionData(self._session_data_path(session), mode)
+        session.data = self._create_data_instance(session, mode)
         return session
+
+    def _create_data_instance(self, session, mode):
+        if not session.data_path:
+            return None
+
+        if session.data_path.endswith('h5'):
+            return H5SessionData(self._session_data_path(session), mode)
+        else:
+            return RelionSessionData(session.data_path, mode)
+
 
     def clear_session_data(self, **attrs):
         session = self.get_session_by(id=attrs['id'])

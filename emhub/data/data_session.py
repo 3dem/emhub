@@ -27,13 +27,18 @@
 # **************************************************************************
 
 import os
+from glob import glob
 from collections import namedtuple
 import numpy as np
 import h5py
 import sqlite3
+
 import tables as tbl
+import mrcfile
 
 from emhub.utils import image
+from emtools.metadata import StarReader
+from emtools.image import Thumbnail
 
 
 class SessionData:
@@ -471,3 +476,156 @@ class PytablesSessionData(SessionData):
 
     def _getMicSet(self, setId):
         return '/Micrographs/set%03d' % setId
+
+
+
+class RelionSessionData(SessionData):
+    """
+    Adapter class for reading Session data from Relion OTF
+    """
+    def __init__(self, data_path, mode='r'):
+        #h5py.get_config().track_order = True
+        print("Loading Relion data from:", data_path)
+        self._path = data_path
+
+    def _join(self, *paths):
+        return os.path.join(self._path, *paths)
+
+    def _jobs(self, jobType):
+        jobs = glob(self._join(jobType, 'job*'))
+        jobs.sort()
+        return jobs
+    def get_sets(self, attrList=None, condition=None):
+        sets = []
+
+        ctfDirs = self._jobs('CtfFind')
+        if ctfDirs:
+            sets.append({'id': 'Micrographs::' + ctfDirs[-1]})
+
+        c2dDirs = self._jobs('Class2D')
+        if c2dDirs:
+            sets.append({'id': 'Class2D::' + c2dDirs[-1]})
+
+        return sets
+
+    def create_set(self, setId, attrDict):
+        raise Exception('Not implemented')
+
+    def update_set(self, setId, attrDict):
+        raise Exception('Not implemented')
+
+    def _get_coordinates(self, micFn):
+        coords = []
+        pickingDirs = self._jobs('AutoPick')
+        if pickingDirs:
+            lastPicking = pickingDirs[-1]
+            micBase = os.path.splitext(os.path.basename(micFn))[0]
+            coordFn = self._join(lastPicking, 'Frames', micBase + '_autopick.star')
+            if os.path.exists(coordFn):
+                reader = StarReader(coordFn)
+                ctable = reader.readTable('')
+                reader.close()
+                for row in ctable:
+                    coords.append((row.rlnCoordinateX,
+                                   row.rlnCoordinateY))
+
+        return coords
+    def get_set_item(self, setId, itemId, attrList=None):
+        micItem = {}
+        micStarFn = self._join(setId.replace('Micrographs::', ''),
+                               'micrographs_ctf.star')
+        reader = StarReader(micStarFn)
+        otable = reader.readTable('optics')
+        mtable = reader.readTable('micrographs')
+        reader.close()
+
+        micThumb = Thumbnail(output_format='base64',
+                             max_size=(256, 256),
+                             contrast_factor=2,
+                             gaussian_filter=1)
+        psdThumb = Thumbnail(output_format='base64',
+                             max_size=(128, 128),
+                             contrast_factor=3,
+                             gaussian_filter=0)
+
+        for i, row in enumerate(mtable):
+            if itemId == i + 1:
+
+                micFn = self._join(row.rlnMicrographName)
+                micThumbBase64 = micThumb.from_mrc(micFn)
+                psdFn = self._join(row.rlnCtfImage).replace(':mrc', '')
+                pixelSize = otable[0].rlnMicrographPixelSize
+                micItem = {
+                    'micThumbData': micThumbBase64,
+                    'psdData': psdThumb.from_mrc(psdFn),
+                    #'shiftPlotData': None,
+                    'ctfDefocusU': round(row.rlnDefocusU, 3),
+                    'ctfDefocusV': round(row.rlnDefocusV, 3),
+                    'ctfResolution': round(row.rlnCtfMaxResolution, 3),
+                    'coordinates': self._get_coordinates(micFn),
+                    'micThumbPixelSize': pixelSize * micThumb.scale,
+                    'pixelSize': pixelSize
+                }
+        return micItem
+
+    def get_set_items(self, setId, attrList=None, condition=None):
+        items = []
+        setType, setPath = setId.split('::')
+
+        print(f">>>Set id: {setId}")
+        print(f">>>Set type: {setType}, path: {setPath}")
+
+        if setType == 'Micrographs':
+            micFn = self._join(setPath, 'micrographs_ctf.star')
+            reader = StarReader(micFn)
+            table = reader.readTable('micrographs')
+            reader.close()
+            for row in table:
+                items.append({
+                    'location': row.rlnMicrographName,
+                    'ctfDefocus': round(row.rlnDefocusU, 3),
+                    'ctfResolution': round(row.rlnCtfMaxResolution, 3),
+                })
+
+        elif setType == 'Class2D':
+            attrs = ['size', 'average']
+
+            # FIXME: Find the last iteration classes
+            avgMrcs = self._join(setPath, 'run_it200_classes.mrcs')
+            dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
+            modelStar = dataStar.replace('_data.', '_model.')
+
+            mrc_stack = None
+            avgThumb = Thumbnail(max_size=(100, 100),
+                                 output_format='base64')
+            reader = StarReader(modelStar)
+
+            # FIXME: An iterator should be enough here
+            modelTable = reader.readTable('model_classes', guessType=False)
+
+            # rowsIter = Table.iterRows(fileName=modelStar,
+            #                           tableName='model_classes',
+            #                           guessType=False)
+            for row in modelTable:
+                i, fn = row.rlnReferenceImage.split('@')
+                if not mrc_stack:
+                    mrc_stack = mrcfile.open(avgMrcs, permissive=True)
+                items.append({
+                    'id': '%03d' % int(i),
+                    'size': round(float(row.rlnClassDistribution) * 100),
+                    'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
+                })
+
+            mrc_stack.close()
+
+        print(f">>> Set id: {setId}, items: {len(items)}")
+        return items
+
+    def add_set_item(self, setId, itemId, attrDict):
+        raise Exception('Not implemented')
+
+    def update_set_item(self, setId, itemId, attrDict):
+        raise Exception('Not implemented')
+
+    def close(self):
+        pass

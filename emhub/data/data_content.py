@@ -123,13 +123,20 @@ class DataContent:
 
     def get_session_data(self, session):
         micSetId = None
+        c2dSetId = None
         sets = session.data.get_sets()
+
+        print(">>> Sets: ", sets)
+
         for s in sets:
-            if not 'id' in s:
+            sid = s.get('id', None)
+            if not sid:
                 print("ERROR, set without id: ", s)
                 continue
-            if s['id'].startswith('Micrographs'):
-                micSetId = s['id']
+            if sid.startswith('Micrographs'):
+                micSetId = sid
+            elif sid.startswith('Class2D'):
+                c2dSetId = sid
 
         if micSetId is None:
             raise Exception("Not micrograph set found in '%s'"
@@ -152,10 +159,8 @@ class DataContent:
         stats = session.stats
 
         # Load classes
-        classesSet = [s for s in sets if s['id'].startswith('Class2D')]
-        if classesSet:
-            class2DSetId = classesSet[-1]['id']
-            classes2d = session.data.get_set_items(class2DSetId, attrList=['size', 'average'])
+        if c2dSetId:
+            classes2d = session.data.get_set_items(c2dSetId, attrList=['size', 'average'])
             classes2d.sort(key=lambda c: c['size'], reverse=True)
         else:
             classes2d = []
@@ -169,10 +174,10 @@ class DataContent:
             'ctf_resolution_hist': _get_hist('CTF Resolution', resolutionList),
             'session': session.json(),
             'counters': {
-                'imported': stats['numOfMics'],
-                'aligned': stats['numOfMics'],
-                'ctf': stats['numOfCtfs'],
-                'picked': stats['numOfPtcls']
+                'imported': stats.get('numOfMovies', 0),
+                'aligned': stats.get('numOfMics', 0),
+                'ctf': stats.get('numOfCtfs', 0),
+                'picked': stats.get('numOfPtcls', 0)
             },
             'classes2d': classes2d
         }
