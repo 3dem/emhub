@@ -37,7 +37,7 @@ import tables as tbl
 import mrcfile
 
 from emhub.utils import image
-from emtools.metadata import StarReader
+from emtools.metadata import StarFile
 from emtools.image import Thumbnail
 
 
@@ -522,8 +522,8 @@ class RelionSessionData(SessionData):
             micBase = os.path.splitext(os.path.basename(micFn))[0]
             coordFn = self._join(lastPicking, 'Frames', micBase + '_autopick.star')
             if os.path.exists(coordFn):
-                reader = StarReader(coordFn)
-                ctable = reader.readTable('')
+                reader = StarFile(coordFn)
+                ctable = reader.getTable('')
                 reader.close()
                 for row in ctable:
                     coords.append((row.rlnCoordinateX,
@@ -534,9 +534,9 @@ class RelionSessionData(SessionData):
         micItem = {}
         micStarFn = self._join(setId.replace('Micrographs::', ''),
                                'micrographs_ctf.star')
-        reader = StarReader(micStarFn)
-        otable = reader.readTable('optics')
-        mtable = reader.readTable('micrographs')
+        reader = StarFile(micStarFn)
+        otable = reader.getTable('optics')
+        mtable = reader.getTable('micrographs')
         reader.close()
 
         micThumb = Thumbnail(output_format='base64',
@@ -577,8 +577,8 @@ class RelionSessionData(SessionData):
 
         if setType == 'Micrographs':
             micFn = self._join(setPath, 'micrographs_ctf.star')
-            reader = StarReader(micFn)
-            table = reader.readTable('micrographs')
+            reader = StarFile(micFn)
+            table = reader.getTable('micrographs')
             reader.close()
             for row in table:
                 items.append({
@@ -588,8 +588,6 @@ class RelionSessionData(SessionData):
                 })
 
         elif setType == 'Class2D':
-            attrs = ['size', 'average']
-
             # FIXME: Find the last iteration classes
             avgMrcs = self._join(setPath, 'run_it200_classes.mrcs')
             dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
@@ -598,10 +596,12 @@ class RelionSessionData(SessionData):
             mrc_stack = None
             avgThumb = Thumbnail(max_size=(100, 100),
                                  output_format='base64')
-            reader = StarReader(modelStar)
+            reader = StarFile(modelStar)
 
             # FIXME: An iterator should be enough here
-            modelTable = reader.readTable('model_classes', guessType=False)
+            modelTable = reader.getTable('model_classes', guessType=False)
+            ptable = reader.getTable('particles')
+            n = ptable.size()
 
             # rowsIter = Table.iterRows(fileName=modelStar,
             #                           tableName='model_classes',
@@ -612,7 +612,7 @@ class RelionSessionData(SessionData):
                     mrc_stack = mrcfile.open(avgMrcs, permissive=True)
                 items.append({
                     'id': '%03d' % int(i),
-                    'size': round(float(row.rlnClassDistribution) * 100),
+                    'size': round(float(row.rlnClassDistribution) * n),  # fixme: multiply by the number of particles
                     'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
                 })
 
