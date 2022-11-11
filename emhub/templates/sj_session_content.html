@@ -72,6 +72,16 @@
                             </div>
                         </div>
 
+                         <!-- On the fly  Row -->
+                        <div class="row">
+                            <label class="col-12 col-sm-4 col-form-label text-sm-right">On-the-fly</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <a href="{{ url_for_content('session_live', session_id=session.id) }}">{{ session.data_path }}</a>
+                            </div>
+
+                        </div>
+
+
                     </form>
                 </div>
                 <!-- end Session Card -->
