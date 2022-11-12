@@ -577,9 +577,10 @@ class RelionSessionData(SessionData):
 
         if setType == 'Micrographs':
             micFn = self._join(setPath, 'micrographs_ctf.star')
-            reader = StarFile(micFn)
-            table = reader.getTable('micrographs')
-            reader.close()
+
+            with StarFile(micFn) as sf:
+                table = sf.getTable('micrographs')
+
             for row in table:
                 items.append({
                     'location': row.rlnMicrographName,
@@ -596,11 +597,14 @@ class RelionSessionData(SessionData):
             mrc_stack = None
             avgThumb = Thumbnail(max_size=(100, 100),
                                  output_format='base64')
-            reader = StarFile(modelStar)
 
             # FIXME: An iterator should be enough here
-            modelTable = reader.getTable('model_classes', guessType=False)
-            ptable = reader.getTable('particles')
+            with StarFile(dataStar) as sf:
+                ptable = sf.getTable('particles')
+
+            with StarFile(modelStar) as sf:
+                modelTable = sf.getTable('model_classes', guessType=False)
+
             n = ptable.size()
 
             # rowsIter = Table.iterRows(fileName=modelStar,
