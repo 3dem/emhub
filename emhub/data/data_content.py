@@ -447,10 +447,11 @@ class DataContent:
 
         display = dm.get_config('bookings')['display']
         show_experiment = display['show_experiment'] == 'yes'
+        applications = [a for a in dm.get_visible_applications() if a.is_active]
 
         data = {'booking': booking,
                 'resources': self.get_resources()['resources'],
-                'applications': self.get_raw_applications_list()['applications'],
+                'applications': applications,
                 'possible_owners': self.get_pi_labs(),
                 'possible_operators': self.get_possible_operators(),
                 'show_experiment': show_experiment,
