@@ -44,7 +44,6 @@ def create_data_models(dm):
 
     Base = dm.Base
 
-
     class Resource(Base):
         """ Representation of different type of Resources.
         (e.g Microscopes, other instruments or services.
@@ -162,13 +161,11 @@ def create_data_models(dm):
         def daily_cost(self, value):
             self.__setExtra('daily_cost', int(value))
 
-
     ApplicationUser = Table('application_user', Base.metadata,
                             Column('application_id', Integer,
                                    ForeignKey('applications.id')),
                             Column('user_id', Integer,
                                    ForeignKey('users.id')))
-
 
     class User(UserMixin, Base):
         """Model for user accounts."""
@@ -445,7 +442,6 @@ def create_data_models(dm):
         def json(self):
             return dm.json_from_object(self)
 
-
     class Application(Base):
         """
         Application that applies for access to the facility.
@@ -601,7 +597,6 @@ def create_data_models(dm):
                     pi_list.append(u)
             return pi_list
 
-
     class Booking(Base):
         """Model for user accounts."""
         __tablename__ = 'bookings'
@@ -716,16 +711,6 @@ def create_data_models(dm):
         def costs(self, value):
             self.__setExtra('costs', value)
 
-        # @property
-        # def project_id(self):
-        #     """ Return the Project ID associated to this booking.
-        #     """
-        #     return  self.__getExtra('project_id', [])
-        #
-        # @costs.setter
-        # def project_id(self, value):
-        #     self.__setExtra('project_id', value)
-
         @property
         def total_cost(self):
             """ Return all costs associated with this Booking
@@ -761,7 +746,6 @@ def create_data_models(dm):
                 return False
 
             return application.code in self.slot_auth.get('applications', [])
-
 
     class Session(Base):
         """Model for sessions."""
@@ -856,7 +840,6 @@ def create_data_models(dm):
         def json(self):
             return dm.json_from_object(self)
 
-
     class Form(Base):
         """ Class to store Forms definitions. """
         __tablename__ = 'forms'
@@ -873,7 +856,6 @@ def create_data_models(dm):
 
         def json(self):
             return dm.json_from_object(self)
-
 
     class InvoicePeriod(Base):
         """ Period for which invoices will be generated. """
@@ -908,7 +890,6 @@ def create_data_models(dm):
         def json(self):
             return dm.json_from_object(self)
 
-
     class Transaction(Base):
         """ Financial transactions. """
         __tablename__ = 'transactions'
@@ -941,7 +922,6 @@ def create_data_models(dm):
 
         def json(self):
             return dm.json_from_object(self)
-
 
     class Project(Base):
         """ Project entity to group shipments, grids preparation,
@@ -1015,7 +995,6 @@ def create_data_models(dm):
         def json(self):
             return dm.json_from_object(self)
 
-
     class Entry(Base):
         """ Entry related to a given project.
          """
@@ -1068,7 +1047,6 @@ def create_data_models(dm):
         def json(self):
             return dm.json_from_object(self)
 
-
     class Puck(Base):
         """ Puck entity for Grids Storage table.
         """
@@ -1103,7 +1081,6 @@ def create_data_models(dm):
             extra = dict(self.extra or {})
             extra[key] = value
             self.extra = extra
-
 
     class PuckStorage:
         """ Simple class to organize pucks access. """
@@ -1166,8 +1143,6 @@ def create_data_models(dm):
         def get_cane(self, d, c):
             cane = self._dewars[d]['canes'].get(c, None) if d in self._dewars else None
             return cane
-
-
 
     dm.Form = Form
     dm.User = User

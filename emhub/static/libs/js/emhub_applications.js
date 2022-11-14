@@ -40,7 +40,6 @@ function setPiRowHtml(row, pi){
     var statusHtml = '';
     var actionsHtml = '';
     var body = document.getElementById('application-pi-list-body');
-    console.log("editable: " + body.dataset.editable)
 
     if (pi.status == "creator")
         statusHtml = "representative";

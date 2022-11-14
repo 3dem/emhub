@@ -1083,7 +1083,7 @@ class DataContent:
         selected_app = self.app.dm.get_application_by(id=app_id)
         applications = self.app.dm.get_visible_applications()
         if not selected_app:
-            selected_app = applications[0]
+            selected_app = applications[-1]
 
         bookings, range_dict = self.get_booking_in_range(kwargs,
                                                          asJson=False,
