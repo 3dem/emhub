@@ -1,8 +1,10 @@
 <!-- ============================================================== -->
 <!-- Application Modal Content -->
 <!-- ============================================================== -->
-{% set readonly = '' if current_user.is_manager else 'readonly' %}
-{% set disabled = '' if current_user.is_manager else 'disabled' %}
+{% set is_manager = current_user.is_manager %}
+{% set is_representative = current_user.id == application.representative_id %}
+{% set readonly = '' if is_manager else 'readonly' %}
+{% set disabled = '' if is_manager else 'disabled' %}
 {% set create = not application.id  %}
 
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
@@ -96,6 +98,23 @@
                         </div>
                     </div>
 
+                    <!-- Application's Representative -->
+                    {% if is_manager %}
+                        <!-- Row select PI to add -->
+                        <div class="row form-group ">
+                           <label class="col-3 col-form-label text-sm-right">Representative</label>
+                            <div class="col-9">
+                                <select id="application-representative-select" class="selectpicker show-tick" data-width="80%" data-live-search="true">
+                                    {% for pi in application.pi_list %}
+                                        {% set selected = 'selected' if pi.id == application.representative_id else '' %}
+                                        <option value="{{ pi.id }}" {{ selected }}>{{ pi.name }} </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                    {% endif %}
+
                     <!-- PI list row -->
                     <div class="form-group row">
                         <label class="col-sm-3 col-form-label text-sm-right">PI List</label>
@@ -103,14 +122,13 @@
                         <div class="col-9">
 
                             <table class="table">
-                                {% set can_edit = current_user.is_manager %}
+                                {% set can_edit = is_manager or is_representative %}
                                 <tbody id="application-pi-list-body" data-editable={{ can_edit|tojson }}>
                                     {# Rows will be populated via javascript #}
                                 </tbody>
                             </table>
 
-                            {% if current_user.is_manager %}
-
+                            {% if is_manager or is_representative %}
                                 <!-- Row select PI to add -->
                                 <div class="row col-12">
                                     <label class="col-1 col-form-label text-sm-right">Select PI</label>
@@ -162,7 +180,7 @@
       </div>
 
       <div class="modal-footer">
-          {% if current_user.is_manager %}
+          {% if is_manager or is_representative %}
             <button type="button" id="application-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
               {% set okLabel = 'Create' if create else 'Update' %}
             <button type="button" id="application-btn-ok" class="btn btn-outline-dark" onclick="javascript: onApplicationOkButtonClick()">{{ okLabel }}</button>

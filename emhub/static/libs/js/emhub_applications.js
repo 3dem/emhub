@@ -40,9 +40,8 @@ function setPiRowHtml(row, pi){
     var statusHtml = '';
     var actionsHtml = '';
     var body = document.getElementById('application-pi-list-body');
-    console.log("editable: " + body.dataset.editable)
 
-    if (pi.status == "creator")
+    if (pi.status == "representative")
         statusHtml = "representative";
     else if (pi.status == "to add") {
         statusHtml = "to add";
@@ -72,7 +71,7 @@ function addPiRow(body, pi) {
     var row = document.createElement('tr');
     row.id = "application-pi-list-tr-" + pi.id;
     setPiRowHtml(row, pi);
-    if (pi.status == "creator")
+    if (pi.status == "representative")
         body.insertBefore(row, body.firstChild);
     else
         body.appendChild(row);
@@ -179,6 +178,9 @@ function onApplicationOkButtonClick() {
         pi_to_add: [],
         pi_to_remove: []
     };
+
+    if ($('#application-representative-select').length)
+        application.extra.representative_id = parseInt($('#application-representative-select').selectpicker('val'));
 
     $( ".noslot" ).each( function( i, el ) {
         var elem = $( el );

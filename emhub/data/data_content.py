@@ -46,6 +46,7 @@ class DataContent:
     Here information is retrieved from the DataManager (dealing with stored
     data structure) and prepare the "content" for required views.
     """
+
     def __init__(self, app):
         """ Create a new content for the given Flask application. """
         self.app = app
@@ -72,12 +73,12 @@ class DataContent:
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
 
-        now  = self.app.dm.now()
+        now = self.app.dm.now()
         next7 = now + dt.timedelta(days=7)
         next30 = now + dt.timedelta(days=30)
 
         for b in self.app.dm.get_bookings(orderBy='start'):
-            if not user.is_manager and not user.same_pi(b.owner):
+            if not user.is_manager and not user.same_pi(b.owner) or not b.is_booking:
                 continue
             bDict = {'owner': b.owner.name,
                      'resource': b.resource.name,
@@ -103,6 +104,7 @@ class DataContent:
         dataDict.update({'bookings': bookings,
                          'lab_members': self.get_lab_members(user),
                          'resource_bookings': resource_bookings})
+
         return dataDict
 
     def get_lab_members(self, user):
@@ -444,10 +446,11 @@ class DataContent:
 
         display = dm.get_config('bookings')['display']
         show_experiment = display['show_experiment'] == 'yes'
+        applications = [a for a in dm.get_visible_applications() if a.is_active]
 
         data = {'booking': booking,
                 'resources': self.get_resources()['resources'],
-                'applications': self.get_raw_applications_list()['applications'],
+                'applications': applications,
                 'possible_owners': self.get_pi_labs(),
                 'possible_operators': self.get_possible_operators(),
                 'show_experiment': show_experiment,
@@ -515,7 +518,7 @@ class DataContent:
                              'name': u.name,
                              'email': u.email,
                              'in_app': u.id in in_app,
-                             'status': 'creator' if u.id == app.creator.id else ''
+                             'status': 'representative' if u.id == app.representative_id else ''
                              }
                             for u in dm.get_users() if u.is_pi],
                 'users': [u for u in dm.get_users() if u.is_staff]
@@ -569,11 +572,11 @@ class DataContent:
     def get_logs(self, **kwargs):
         dm = self.app.dm
         logs = int(kwargs.get('n', 100))
-        logs = dm.get_logs()[-logs:  ]
+        logs = dm.get_logs()[-logs:]
         for log in logs:
             log.user = dm.get_user_by(id=log.user_id)
 
-        return  {'logs': logs}
+        return {'logs': logs}
 
     def get_pages(self, **kwargs):
         page_id = kwargs['page_id']
@@ -666,6 +669,7 @@ class DataContent:
                 'type': booking.type
             })
             return bj
+
         bookings, range_dict = self.get_booking_in_range(kwargs, bookingFunc=_booking_to_json)
 
         from emhub.reports import get_booking_counters
@@ -736,7 +740,7 @@ class DataContent:
                 'bookings': [],
                 'sum_cost': 0,
                 'sum_days': 0,
-                } for pi in a.pi_list
+            } for pi in a.pi_list
             }
 
         def update_pi_info(pi_info, b):
@@ -759,7 +763,7 @@ class DataContent:
 
             app_id = b.application.code
 
-            if  app_id not in apps_dict:
+            if app_id not in apps_dict:
                 print(">>> Missing app: ", app_id)
                 continue
 
@@ -786,7 +790,7 @@ class DataContent:
                       % (app_id, pi.id))
 
         result = {
-            'apps_dict':  apps_dict,
+            'apps_dict': apps_dict,
             'pi_dict': pi_dict,
             'portal_users': portal_users,
             'group': int(kwargs.get('group', 1))
@@ -957,7 +961,7 @@ class DataContent:
 
         result = {
             'pi': pi_user,
-            'apps_dict':  apps_dict,
+            'apps_dict': apps_dict,
             'all_bookings': all_bookings,
             'total': sum(b['total_cost'] for b in all_bookings)
         }
@@ -1067,8 +1071,10 @@ class DataContent:
 
     def get_report_microscopes_usage_content(self, **kwargs):
         return self.get_report_microscopes_usage(**kwargs)
+
     def get_report_microscopes_usage_pilist(self, **kwargs):
         return self.get_report_microscopes_usage(**kwargs)
+
     def get_report_microscopes_usage(self, **kwargs):
         def _filter(b):
             return not b.is_slot
@@ -1077,7 +1083,7 @@ class DataContent:
         selected_app = self.app.dm.get_application_by(id=app_id)
         applications = self.app.dm.get_visible_applications()
         if not selected_app:
-            selected_app = applications[0]
+            selected_app = applications[-1]
 
         bookings, range_dict = self.get_booking_in_range(kwargs,
                                                          asJson=False,
@@ -1150,7 +1156,6 @@ class DataContent:
                     return v
             return default
 
-
         for b in bookings:
             pi = b.owner.get_pi()
             if pi:
@@ -1162,7 +1167,7 @@ class DataContent:
                         'first_name': first_name,
                         'last_name': last_name,
                         'email': pi.email,
-                        #'email_rev': pi.email[::-1],  # reverse email for sorting
+                        # 'email_rev': pi.email[::-1],  # reverse email for sorting
                         'university': _get_univ(pi.email, 'z-Unknown'),
                         'bookings': 0,
                         'days': 0,
@@ -1189,7 +1194,7 @@ class DataContent:
         return {'applications': self.app.dm.get_visible_applications()}
 
     def get_forms_list(self, **kwargs):
-        return  {'forms': self.app.dm.get_forms()}
+        return {'forms': self.app.dm.get_forms()}
 
     def get_raw_invoice_periods_list(self, **kwargs):
         return {'invoice_periods': self.app.dm.get_invoice_periods()}
@@ -1242,8 +1247,8 @@ class DataContent:
             ip = dm.get_invoice_period_by(id=invoice_period_id)
         else:
             ip = dm.InvoicePeriod(status='active',
-                                 start=dt.datetime.now(),
-                                 end=dt.datetime.now())
+                                  start=dt.datetime.now(),
+                                  end=dt.datetime.now())
 
         return {
             'invoice_period': ip
@@ -1255,7 +1260,7 @@ class DataContent:
 
         def _filter(t):
             return ((period.start < t.date < period.end) and
-                    ('pi' not in kwargs or t.user.id == kwargs['pi'] ))
+                    ('pi' not in kwargs or t.user.id == kwargs['pi']))
 
         transactions = [t for t in dm.get_transactions() if _filter(t)]
         transactions_dict = {}
@@ -1292,9 +1297,9 @@ class DataContent:
             'tabs': tabs,
             'selected_tab': tab,
             'base_url': flask.url_for('main',
-                                 content_id='invoice_period',
-                                 period=period.id,
-                                 tab=tab)
+                                      content_id='invoice_period',
+                                      period=period.id,
+                                      tab=tab)
         }
 
         report_args = {
@@ -1462,9 +1467,9 @@ class DataContent:
 
         # Group data rows by gridboxes (label)
         if entry.type in ['grids_preparation', 'grids_storage']:
-            #TODO: Some possible validations
-            #TODO:      - There are no more that 4 slots per gridbox
-            #TODO:      - There are no duplicated slots
+            # TODO: Some possible validations
+            # TODO:      - There are no more that 4 slots per gridbox
+            # TODO:      - There are no duplicated slots
             table = data[entry.type + '_table']
             gridboxes = {}
 
@@ -1491,7 +1496,7 @@ class DataContent:
             pi_info = None
 
         # Create a default dict based on data to avoid missing key errors in report
-        ddata = defaultdict(lambda : 'UNKNOWN')
+        ddata = defaultdict(lambda: 'UNKNOWN')
         ddata.update(data)
 
         return {
@@ -1514,7 +1519,7 @@ class DataContent:
 
         pucks = self.app.dm.get_pucks(condition=condStr, orderBy='id')
 
-        dewars = defaultdict(lambda :defaultdict(dict))
+        dewars = defaultdict(lambda: defaultdict(dict))
 
         dewar = int(kwargs.get('dewar', 0) or 0)
         cane = int(kwargs.get('cane', 0) or 0)
@@ -1575,7 +1580,7 @@ class DataContent:
             {'id': f.id,
              'name': f.name,
              'definition': json.dumps(f.definition)
-        } for f in self.app.dm.get_forms()]}
+             } for f in self.app.dm.get_forms()]}
 
     def get_raw_entries_list(self, **kwargs):
         cond = ['%s="%s"' % (k, kwargs[k]) for k in ['id', 'type'] if k in kwargs]
@@ -1614,7 +1619,7 @@ class DataContent:
 
         owner = booking.owner
         owner_name = owner.name
-        operator = booking.operator  #  shortcut
+        operator = booking.operator  # shortcut
         if operator:
             operator_dict = {'id': operator.id, 'name': operator.name}
         else:
@@ -1668,7 +1673,7 @@ class DataContent:
             # Show all booking information in title in some cases only
             display = dm.get_config('bookings')['display']
             emptyApp = a is None or display['show_application'] == 'no'
-            appStr = ''  if emptyApp else ', %s' % a.code
+            appStr = '' if emptyApp else ', %s' % a.code
             emptyOp = operator is None or display['show_operator'] == 'no'
             opStr = '' if emptyOp else ' -> ' + operator.name
             extra = "%s%s%s" % (owner.name, appStr, opStr)
@@ -1827,7 +1832,7 @@ class DataContent:
         if self.app.user.is_authenticated and self.app.user.is_manager:
             return [{'id': u.id, 'name': u.name}
                     for u in dm.get_users() if 'manager' in u.roles]
-        return  []
+        return []
 
     def get_booking_in_range(self, kwargs,
                              asJson=True, filter=None, bookingFunc=None):
@@ -1870,6 +1875,7 @@ class DataContent:
         )
 
         bookingFunc = bookingFunc or self.booking_to_event
+
         def process_booking(b):
             if not asJson:
                 return b
