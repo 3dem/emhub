@@ -104,8 +104,7 @@ class DataContent:
         dataDict.update({'bookings': bookings,
                          'lab_members': self.get_lab_members(user),
                          'resource_bookings': resource_bookings})
-        from pprint import pprint
-        pprint(dataDict['resource_bookings'])
+
         return dataDict
 
     def get_lab_members(self, user):
@@ -519,7 +518,7 @@ class DataContent:
                              'name': u.name,
                              'email': u.email,
                              'in_app': u.id in in_app,
-                             'status': 'creator' if u.id == app.creator.id else ''
+                             'status': 'representative' if u.id == app.representative_id else ''
                              }
                             for u in dm.get_users() if u.is_pi],
                 'users': [u for u in dm.get_users() if u.is_staff]

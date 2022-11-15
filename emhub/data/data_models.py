@@ -597,6 +597,17 @@ def create_data_models(dm):
                     pi_list.append(u)
             return pi_list
 
+        @property
+        def representative(self):
+            rep_id = self.representative_id
+            return dm.get_user_by(id=rep_id) if rep_id else None
+
+        @property
+        def representative_id(self):
+            """ Return extra costs associated with this Booking
+            """
+            return self.__getExtra('representative_id', None)
+
     class Booking(Base):
         """Model for user accounts."""
         __tablename__ = 'bookings'
