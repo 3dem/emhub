@@ -49,10 +49,10 @@
                                 <select id="booking-owner-select" class="selectpicker show-tick" data-live-search="true" data-key="owner_id">
                                 {% for lab in possible_owners %}
                                     <option data-divider="true"></option>
-                                    <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
-                                    {% for u in lab[1:] %}
+                                    {% for u in lab %}
+                                        {% set style = 'background: #71748d; color: #fff;' if loop.index0 == 0 else '' %}
                                         {% set selected = 'selected' if (u['id'] == booking.owner.id or u['id'] == booking.owner_id) else '' %}
-                                        <option value="{{u['id']}}" {{ selected }}>{{u['name']}}</option>
+                                        <option value="{{u['id']}}" {{ selected }} style="{{style}}">{{u['name']}}</option>
                                     {% endfor %}
                                 {% endfor %}
                                 </select>
@@ -185,7 +185,7 @@
                                     {% set apps_auth = booking.slot_auth['applications'] %}
                                     {% set selected = 'selected' if 'any' in apps_auth else '' %}
                                     <option {{ selected }}  value="any">Any</option>
-                                    {% for a in applications %}#}
+                                    {% for a in applications %}
                                         {% set selected = 'selected' if a['code'] in apps_auth else '' %}
                 {#                      <option value="{{a['code']}}" data-subtext="{{ a['alias'] }}" data-content="<span class='badge badge-light'>{{a['code']}}</span>">{{a['code']}}</option>#}
                                       <option {{ selected }} value="{{a['code']}}" data-subtext="{{ a['alias'] }}">{{a['code']}}</option>
