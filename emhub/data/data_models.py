@@ -994,6 +994,10 @@ def create_data_models(dm):
             self.extra = extra
 
         @property
+        def is_active(self):
+            return self.status == 'active'
+
+        @property
         def user_can_edit(self):
             """ True if the user of the project can edit it (add/modify/delete notes)
             """

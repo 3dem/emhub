@@ -563,7 +563,7 @@ class DataManager(DbManager):
     def create_session(self, **attrs):
         """ Add a new session row. """
         create_data = attrs.pop('create_data', False)
-        b = self.get_bookings(condition="id=%s" % attrs['booking_id'])[0]
+        b = self.get_booking_by(id=int(attrs['booking_id']))
         attrs['resource_id'] = b.resource.id
         attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
 
@@ -574,12 +574,16 @@ class DataManager(DbManager):
             attrs['status'] = 'pending'
 
         session_info = self.get_new_session_info(b.id)
-        attrs['name'] = session_info['name']
+        attrs['name'] = attrs.get('name', session_info['name'])
 
         session = self.__create_item(self.Session, **attrs)
 
+        extra = attrs.get('extra', {})
         # Let's update the data path after we know the id
-        data_path = attrs.get('data_path', 'session_%06d.h5' % session.id)
+        data_path = attrs.get('data_path', '')
+        if not data_path and 'otf_folder' in extra:
+            data_path = extra['otf_folder']
+
         session.data_path = data_path
 
         self.commit()

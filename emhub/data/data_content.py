@@ -64,6 +64,7 @@ class DataContent:
         return dataDict
 
     def get_dashboard(self, **kwargs):
+        dm = self.app.dm  # shortcut notation
         dataDict = self.get_resources(image=True)
         user = self.app.user  # shortcut
         resource_bookings = {}
@@ -73,11 +74,11 @@ class DataContent:
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
 
-        now = self.app.dm.now()
+        now = dm.now()
         next7 = now + dt.timedelta(days=7)
         next30 = now + dt.timedelta(days=30)
 
-        for b in self.app.dm.get_bookings(orderBy='start'):
+        for b in dm.get_bookings(orderBy='start'):
             if not user.is_manager and not user.same_pi(b.owner) or not b.is_booking:
                 continue
             bDict = {'owner': b.owner.name,
@@ -97,7 +98,8 @@ class DataContent:
             if i >= 0:
                 bookings[i][1].append(bDict)
                 r = b.resource
-                if i == 0 and r.is_microscope and 'solna' in r.tags:  # Today's bookings
+                local_tag = dm.get_config('bookings')['local_tag']
+                if i == 0 and r.is_microscope and local_tag in r.tags:  # Today's bookings
                     # FIXME: If there is already a session, also return its id
                     resource_bookings[r.id] = b
 
@@ -462,7 +464,7 @@ class DataContent:
                 'read_only': read_only
                 }
 
-        data.update(self.get_projects_list())
+        data.update(self.get_projects_list(status='active'))
         return data
 
     def get_applications(self, **kwargs):
@@ -1321,11 +1323,15 @@ class DataContent:
         return data
 
     def get_projects_list(self, **kwargs):
+        status = kwargs.get('status', None)
         # FIXME Define access/permissions for other users
         projects = []
         user = self.app.user  # shortcut
 
         for p in self.app.dm.get_projects():
+            if status and p.status != status:
+                continue
+
             pi = p.user.get_pi()
             if pi:
                 apps = pi.get_applications()
@@ -1598,8 +1604,9 @@ class DataContent:
 
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut
-        booking_id = kwargs['booking_id']
-        b = dm.get_bookings(condition="id=%s" % booking_id)[0]
+        booking_id = int(kwargs['booking_id'])
+        #b = dm.get_bookings(condition="id=%s" % booking_id)[0]
+        b = dm.get_booking_by(id=booking_id)
 
         return {
             'booking': b,
