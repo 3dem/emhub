@@ -622,7 +622,7 @@ class DataManager(DbManager):
         data_path = self._session_data_path(session)
         self.delete(session)
 
-        if os.path.exists(data_path):
+        if os.path.exists(data_path) and os.path.isfile(data_path):
             os.remove(data_path)
 
         self.log("operation", "delete_Session",
