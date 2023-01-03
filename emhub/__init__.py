@@ -291,6 +291,8 @@ def create_app(test_config=None):
             kwargs['booking_types'] = app.dm.Booking.TYPES
             kwargs['session_content'] = app.config.get('TEMPLATE_SESSION_CONTENT',
                                                        'session_content.html')
+            kwargs['session_body'] = app.config.get('TEMPLATE_SESSION_BODY',
+                                                       'create_session_form_body.html')
             return flask.render_template(content_template, **kwargs)
 
         error = {
