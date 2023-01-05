@@ -99,8 +99,11 @@
                         <h5 class="card-header">CTF Defocus</h5>
                         <div class="card-body">
                             <div class="row">
-                                <div id="defocus_plot" class="col-9"></div>
-                                <canvas id="defocus_hist" class="col-3"></canvas>
+                                <div id="defocus_plot" class="col-9" style="height: 300px"></div>
+                                <div class="row col-3 p-0 m-0  no-gutters">
+                                    <div class="col-12 p-0 m-0" id="defocus_hist1"></div>
+                                    <div class="col-12 p-0 m-0" id="defocus_hist2"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -109,8 +112,11 @@
                         <h5 class="card-header">CTF Resolution</h5>
                         <div class="card-body">
                             <div class="row">
-                                <div id="resolution_plot" class="col-9"></div>
-                                <canvas id="resolution_hist" class="col-3"></canvas>
+                                <div id="resolution_plot" class="col-9" style="height: 300px"></div>
+                                <div class="row col-3 p-0 m-0  no-gutters">
+                                    <div class="col-12 p-0 m-0" id="resolution_hist1"></div>
+                                    <div class="col-12 p-0 m-0" id="resolution_hist2"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -133,7 +139,24 @@
 
                 </div>
 
-                <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+                <div class="col-xl-2 col-lg-2 col-md-2 col-sm-2 col-2">
+                    <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <h5 class="card-header">Polar Charts</h5>
+                            <div class="card-body p-0 m-0">
+{#                                <canvas id="chartjs_polar"></canvas>#}
+                                <div id="polar1"></div>
+                                <div id="polar2"></div>
+                                <div id="polar3"></div>
+
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
                     <div class="row">
                     <div class="col-12">
                         <div class="card card-figure" id="image-container">
@@ -153,16 +176,6 @@
                                         <div class="col-6">
                                             <h4 class="figure-title"> Coordinates </h4>
                                             {{ macros.radiogroup('coords-radio', ['Dot', 'Circle', 'None']) }}
-
-<!--                                                <label class="custom-control custom-radio custom-control-inline">-->
-<!--                                                    <input type="radio" name="radio-inline" checked="" class="custom-control-input"><span class="custom-control-label">Option 1</span>-->
-<!--                                                </label>-->
-<!--                                                <label class="custom-control custom-radio custom-control-inline">-->
-<!--                                                    <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Option 2</span>-->
-<!--                                                </label>-->
-<!--                                                <label class="custom-control custom-radio custom-control-inline">-->
-<!--                                                    <input type="radio" name="radio-inline" class="custom-control-input"><span class="custom-control-label">Option 3</span>-->
-<!--                                                </label>-->
                                         </div>
                                     </div>
                                 </figcaption>
@@ -221,59 +234,16 @@
 
 <script>
     // Global variables
-    var defocus_plot_column = null;
-    var defocus_plot_chart = null;
-
-    var resolution_plot_column = null;
-    var resolution_plot_chart = null;
-
-    var ctf_defocus_hist = null;
-    var ctf_defocus_hist_chart = null;
-
-    var ctf_resolution_hist = null;
-    var ctf_resolution_hist_chart = null;
+    var defocus_values = {{ defocusValues|tojson }};
+    var resolution_values = {{ resolutionValues|tojson }};
     var session = {{ session|tojson }};
 
     var canvas_ratio = null;
     var micrograph = null;
     var coordsDisplay = null;
 
+    var global_data = null;
 
-    /* Draw the micrograph images with coordinates(optional) */
-    function drawMicrograph(micrograph) {
-        var canvas = document.getElementById("canvas_micrograph");
-        var ctx = canvas.getContext("2d");
-
-        var image = new Image();
-
-        image.onload = function() {
-            if (canvas.height != image.height) {
-                canvas.height = image.height;
-                canvas.width = image.width;
-                canvas_ratio = canvas.width / parseFloat(canvas.height);
-            }
-
-            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-            if (coordsDisplay === 'None')
-                return;
-
-            ctx.fillStyle = '#00ff00';
-
-            var scale = parseFloat(micrograph.pixelSize) / micrograph.thumbnailPixelSize;
-            var coords = micrograph.coordinates;
-
-            for (var i = 0; i < coords.length; ++i){
-                var x = Math.round(coords[i][0] * scale);
-                var y = Math.round(coords[i][1] * scale);
-                ctx.beginPath();
-                ctx.arc(x, y, 2, 0, 2 * Math.PI);
-                ctx.fill();
-            }
-        };
-
-        image.src = 'data:image/png;base64,' + micrograph.thumbnail;
-    }
 
     function request_micrograph_images(sessionId, micId) {
         var requestMicThumb = $.ajax({
@@ -308,102 +278,6 @@
         });
     }
 
-    function create_c3_chart(bind_id, columns, type, color) {
-        if ($(bind_id).length) {
-            var chart = c3.generate({
-                bindto: bind_id,
-                data: {
-                    columns: columns,
-                    colors: {sample: color},
-                    type: type,
-                    onclick: function (d) {
-                        request_micrograph_images({{ session.id }}, d.index);
-                    },
-                },
-                zoom: {enabled: true},
-                axis: {
-                    y: {show: true},
-                    x: {show: true}
-                },
-                legend: {show: false}
-            });
-            return chart;
-        }
-    } // function create_c3_chart
-
-    function create_c3_hist(bind_id, histogram_data, backgroundColor, borderColor) {
-        if ($(bind_id).length) {
-            var column = histogram_data.data.slice();
-            column.unshift(histogram_data.label);
-
-            printArray(column, "column");
-
-            var chart = c3.generate({
-                bindto: bind_id,
-                data: {
-                    columns: [column],
-                    colors: {sample: backgroundColor},
-                    type: 'bar',
-                },
-                zoom: {enabled: false},
-                axis: {
-                    y: {show: true},
-                    x: {show: true}
-                },
-                legend: {show: false}
-            });
-            return chart;
-        }
-    } // function create_c3_chart
-
-
-    function create_hist_chart(bind_id, histogram_data, backgroundColor, borderColor){
-           if ($('#' + bind_id).length) {
-            var ctx = document.getElementById(bind_id).getContext('2d');
-            return new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: histogram_data.bins,
-                    datasets: [{
-                        label: histogram_data.label,
-                        data: histogram_data.data,
-                        backgroundColor: backgroundColor,
-                        borderColor: borderColor,
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    legend: {
-                        display: false,
-                        position: 'bottom',
-                        labels: {
-                            fontColor: '#71748d',
-                            fontFamily: 'Circular Std Book',
-                            fontSize: 14,
-                        }
-                    },
-                    scales: {
-                        xAxes: [{
-                            ticks: {
-                                fontSize: 14,
-                                fontFamily: 'Circular Std Book',
-                                fontColor: '#71748d',
-                            }
-                        }],
-                        yAxes: [{
-                            ticks: {
-                                fontSize: 14,
-                                fontFamily: 'Circular Std Book',
-                                fontColor: '#71748d',
-                                beginAtZero: true,
-                            }
-                        }]
-                    }
-                }
-            });
-        }
-    } // function create_hist_chart
-
     function fixDimensions(){
         var canvas = document.getElementById("canvas_micrograph");
         var w = $("#canvas_micrograph").width();
@@ -411,21 +285,36 @@
         $("#canvas_micrograph").height(h);
     }
 
+
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
 
-    defocus_plot_column = {{ defocus_plot|tojson }};
-    defocus_plot_chart = create_c3_chart('#defocus_plot', [defocus_plot_column], 'line', '#5969ff');
+    {#defocus_plot_column = {{ defocus_plot|tojson }};#}
+    {#defocus_plot_chart = create_c3_chart('#defocus_plot', [defocus_plot_column], 'line', '#5969ff');#}
 
-    resolution_plot_column = {{ resolution_plot|tojson }};
-    resolution_plot_chart = create_c3_chart('#resolution_plot', [resolution_plot_column], 'scatter', 'rgba(255, 64, 123,0.5)');
+        var config = {
+            color: '#852999',
+            label: 'Defocus',
+            suffix: 'µm'
+        }
+        create_hc_series('defocus_plot', defocus_values, config);
+        create_hc_histogram('defocus_hist1', defocus_values, config);
+        //create_hc_histogram('defocus_hist2', color);
 
-    ctf_defocus_hist = {{ ctf_defocus_hist|tojson }};
-    ctf_defocus_hist_chart = create_hist_chart('defocus_hist', ctf_defocus_hist, "rgba(89, 105, 255,0.5)", "rgba(89, 105, 255,0.7)");
+        config = {
+            color: '#EF9A53',
+            label: 'Resolution',
+            suffix: 'Å'
+        }
+        create_hc_series('resolution_plot', resolution_values, config);
+        create_hc_histogram('resolution_hist1', resolution_values, config);
+        //create_hc_histogram('resolution_hist2', color);
 
-    ctf_resolution_hist = {{ ctf_resolution_hist|tojson }};
-    ctf_resolution_hist_chart = create_hist_chart("resolution_hist", ctf_resolution_hist, "rgba(255, 64, 123,0.5)", "rgba(255, 64, 123,0.7)");
+        config.color = '#55D8C1';
+        create_hc_polar('polar1', config);
+        create_hc_polar('polar2', config);
+        create_hc_polar('polar3', config);
 
     /* Register when the display coordinates changes */
     $('input[type=radio][name=coords-radio]').change(function() {
@@ -436,12 +325,11 @@
 
     request_micrograph_images({{ session['id'] }}, 1);
 
-    setTimeout(requestSessionData, 10000);
+    setTimeout(requestSessionData, 60000);
 
     $(window).resize(fixDimensions);
 
     });
-
 
 
 })(window, document, window.jQuery);
@@ -455,7 +343,6 @@ function handleAjaxDone(jsonResponse) {
     }
     else {
         session = jsonResponse.session;
-        printObject(session, "Session");
         var counters = jsonResponse.counters;
         document.getElementById('counter_imported').innerHTML = counters['imported'];
         document.getElementById('counter_aligned').innerHTML = counters['aligned'];
@@ -465,41 +352,13 @@ function handleAjaxDone(jsonResponse) {
         document.getElementById('counter_picked').innerHTML = counters['picked'];
 
         // Update Defocus plot with new values since last time
-        var new_defocus_plot_column = jsonResponse.defocus_plot;
-        var new_defocus_values = new_defocus_plot_column.slice(defocus_plot_column.length);
-        new_defocus_values.unshift(new_defocus_plot_column[0]);
-        defocus_plot_chart.flow({
-            columns: [new_defocus_values],
-            length: 0
-        });
-        defocus_plot_column = new_defocus_plot_column;
+        var new_defocus_values = jsonResponse.defocusValues;
+        var new_resolution_values = jsonResponse.resolutionValues;
+        var newValuesLength = new_resolution_values.length - resolution_values.length;
 
-        // Update Resolution plot with last values
-        var new_resolution_plot_column = jsonResponse.resolution_plot;
-        var new_resolution_values = new_resolution_plot_column.slice(resolution_plot_column.length);
-        new_resolution_values.unshift(new_resolution_plot_column[0]);
-
-        for (var i = 0; i < new_resolution_values.length; ++i)
-            console.log(i + ": " + new_resolution_values[i]);
-
-        resolution_plot_chart.flow({
-            columns: [new_resolution_values],
-            length: 0
-        });
-        resolution_plot_column = new_resolution_plot_column;
-
-        var chart = ctf_defocus_hist_chart;
-        chart.data.datasets[0].data = jsonResponse.ctf_defocus_hist.data;
-        chart.data.labels = jsonResponse.ctf_defocus_hist.bins;
-        chart.update();
-
-        chart = ctf_resolution_hist_chart;
-        chart.data.datasets[0].data = jsonResponse.ctf_resolution_hist.data;
-        chart.data.labels = jsonResponse.ctf_resolution_hist.bins;
-        chart.update();
-
-        if (new_resolution_values.length > 1) {
-            request_micrograph_images({{ session.id }}, defocus_plot_column.length-1);
+        if (newValuesLength > 0) {
+            console.log("New values: ", newValuesLength);
+            //request_micrograph_images({{ session.id }}, defocus_plot_column.length-1);
         }
     }
 }
@@ -526,7 +385,7 @@ function requestSessionData() {
     ajaxContent.fail(handleAjaxFail);
 
     if (session.status != "finished") {
-        setTimeout(requestSessionData, 10000);
+        setTimeout(requestSessionData, 60000);
     }
 }  // function onTemplateOkButtonClick
 
