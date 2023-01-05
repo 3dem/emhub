@@ -540,9 +540,9 @@ class RelionSessionData(SessionData):
         reader.close()
 
         micThumb = Thumbnail(output_format='base64',
-                             max_size=(256, 256),
-                             contrast_factor=2,
-                             gaussian_filter=1)
+                             max_size=(512, 512),
+                             contrast_factor=1,
+                             gaussian_filter=0)
         psdThumb = Thumbnail(output_format='base64',
                              max_size=(128, 128),
                              contrast_factor=3,
@@ -552,6 +552,7 @@ class RelionSessionData(SessionData):
             if itemId == i + 1:
 
                 micFn = self._join(row.rlnMicrographName)
+                print(f"Reading: {micFn}")
                 micThumbBase64 = micThumb.from_mrc(micFn)
                 psdFn = self._join(row.rlnCtfImage).replace(':mrc', '')
                 pixelSize = otable[0].rlnMicrographPixelSize
@@ -566,6 +567,7 @@ class RelionSessionData(SessionData):
                     'micThumbPixelSize': pixelSize * micThumb.scale,
                     'pixelSize': pixelSize
                 }
+                break
         return micItem
 
     def get_set_items(self, setId, attrList=None, condition=None):
@@ -624,6 +626,21 @@ class RelionSessionData(SessionData):
 
         print(f">>> Set id: {setId}, items: {len(items)}")
         return items
+
+    def get_stats(self):
+        def _count(jobType, starFn, tableName):
+            jobDir = self._jobs(jobType)[-1]
+            fn = self._join(jobDir, starFn)
+            with StarFile(fn) as sf:
+                return sf.getTableSize(tableName)
+
+        return {
+            'numOfMovies': _count('Import', 'movies.star', 'movies'),
+            'numOfMics': _count('MotionCorr', 'corrected_micrographs.star',
+                                'micrographs'),
+            'numOfCtfs': _count('CtfFind', 'micrographs_ctf.star',
+                                'micrographs'),
+        }
 
     def add_set_item(self, setId, itemId, attrDict):
         raise Exception('Not implemented')

@@ -125,7 +125,7 @@ class DataContent:
                                             orderBy='resource_id')
         return {'sessions': sessions}
 
-    def get_session_data(self, session):
+    def get_session_data(self, session, startIndex=0):
         micSetId = None
         c2dSetId = None
         sets = session.data.get_sets()
@@ -147,20 +147,11 @@ class DataContent:
                             % session.data_path)
 
         attrList = ['location', 'ctfDefocus', 'ctfResolution']
-        mics = session.data.get_set_items(micSetId, attrList=attrList)
-
-        def _get_hist(label, inputList):
-            import numpy as np
-            hist, bins = np.histogram(inputList)
-            return {
-                'label': label,
-                'data': [int(h) for h in hist],
-                'bins': ['%0.1f' % b for b in bins],
-            }
-
-        defocusList = [m['ctfDefocus'] for m in mics]
+        allMics = session.data.get_set_items(micSetId, attrList=attrList)
+        mics = allMics[startIndex:]
+        defocusList = [round(m['ctfDefocus']*0.0001, 2) for m in mics]  # in microns
         resolutionList = [m['ctfResolution'] for m in mics]
-        stats = session.stats
+        stats = session.data.get_stats()
 
         # Load classes
         if c2dSetId:
@@ -172,10 +163,8 @@ class DataContent:
         session.data.close()
 
         return {
-            'defocus_plot': ['Defocus'] + defocusList,
-            'ctf_defocus_hist': _get_hist('CTF Defocus', defocusList),
-            'resolution_plot': ['Resolution'] + resolutionList,
-            'ctf_resolution_hist': _get_hist('CTF Resolution', resolutionList),
+            'defocusValues': defocusList,
+            'resolutionValues': resolutionList,
             'session': session.json(),
             'counters': {
                 'imported': stats.get('numOfMovies', 0),
