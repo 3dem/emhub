@@ -126,53 +126,62 @@ class DataContent:
         return {'sessions': sessions}
 
     def get_session_data(self, session, startIndex=0):
-        micSetId = None
-        c2dSetId = None
-        sets = session.data.get_sets()
+        defocus = []
+        defocusAngle = []
+        resolution = []
+        astigmatism = []
+        timestamps = []
+        sdata = session.data  # shortcut
 
-        print(">>> Sets: ", sets)
+        def _microns(v):
+            return round(v * 0.0001, 3)
 
-        for s in sets:
-            sid = s.get('id', None)
-            if not sid:
-                print("ERROR, set without id: ", s)
-                continue
-            if sid.startswith('Micrographs'):
-                micSetId = sid
-            elif sid.startswith('Class2D'):
-                c2dSetId = sid
+        def _ts(fn):
+            # Timestamp in milliseconds
+            return os.path.getmtime(sdata.join(fn)) * 1000
 
-        if micSetId is None:
-            raise Exception("Not micrograph set found in '%s'"
-                            % session.data_path)
+        firstMic = lastMic = None
+        for mic in sdata.micrographs_ctf():
+            if not defocus:
+                firstMic = mic['micrograph']
+            lastMic = mic['micrograph']
+            defocus.append(_microns(mic['ctfDefocus']))
+            defocusAngle.append(mic['ctfDefocusAngle'])
+            astigmatism.append(_microns(mic['ctfAstigmatism']))
+            resolution.append(round(mic['ctfResolution'], 3))
+            #timestamps.append(mic['micTs']*1000)
 
-        attrList = ['location', 'ctfDefocus', 'ctfResolution']
-        allMics = session.data.get_set_items(micSetId, attrList=attrList)
-        mics = allMics[startIndex:]
-        defocusList = [round(m['ctfDefocus']*0.0001, 2) for m in mics]  # in microns
-        resolutionList = [m['ctfResolution'] for m in mics]
-        stats = session.data.get_stats()
+        tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
+        step = (tsLast - tsFirst) / len(defocus)
 
+        classes2d = []
+        stats = sdata.get_stats()
         # Load classes
-        if c2dSetId:
-            classes2d = session.data.get_set_items(c2dSetId, attrList=['size', 'average'])
-            classes2d.sort(key=lambda c: c['size'], reverse=True)
-        else:
-            classes2d = []
+        # if c2dSetId:
+        #     classes2d = sdata.get_set_items(c2dSetId, attrList=['size', 'average'])
+        #     classes2d.sort(key=lambda c: c['size'], reverse=True)
+        # else:
+        #     classes2d = []
 
-        session.data.close()
+        sdata.close()
 
         return {
-            'defocusValues': defocusList,
-            'resolutionValues': resolutionList,
+            'defocus': defocus,
+            'defocusAngle': defocusAngle,
+            'astigmatism': astigmatism,
+            'resolution': resolution,
             'session': session.json(),
+            'timestamps': timestamps,
             'counters': {
                 'imported': stats.get('numOfMovies', 0),
                 'aligned': stats.get('numOfMics', 0),
                 'ctf': stats.get('numOfCtfs', 0),
                 'picked': stats.get('numOfPtcls', 0)
             },
-            'classes2d': classes2d
+            'classes2d': classes2d,
+            'tsRange': {'first': tsFirst,
+                        'last': tsLast,
+                        'step': step}
         }
 
     def get_session_live(self, **kwargs):

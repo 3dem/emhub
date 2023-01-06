@@ -478,7 +478,6 @@ class PytablesSessionData(SessionData):
         return '/Micrographs/set%03d' % setId
 
 
-
 class RelionSessionData(SessionData):
     """
     Adapter class for reading Session data from Relion OTF
@@ -488,13 +487,46 @@ class RelionSessionData(SessionData):
         print("Loading Relion data from:", data_path)
         self._path = data_path
 
-    def _join(self, *paths):
+    def join(self, *paths):
         return os.path.join(self._path, *paths)
 
     def _jobs(self, jobType):
-        jobs = glob(self._join(jobType, 'job*'))
+        jobs = glob(self.join(jobType, 'job*'))
         jobs.sort()
         return jobs
+
+    def get_stats(self):
+        def _count(jobType, starFn, tableName):
+            jobDir = self._jobs(jobType)[-1]
+            fn = self.join(jobDir, starFn)
+            with StarFile(fn) as sf:
+                return sf.getTableSize(tableName)
+
+        return {
+            'numOfMovies': _count('Import', 'movies.star', 'movies'),
+            'numOfMics': _count('MotionCorr', 'corrected_micrographs.star',
+                                'micrographs'),
+            'numOfCtfs': _count('CtfFind', 'micrographs_ctf.star',
+                                'micrographs'),
+        }
+
+    def micrographs_ctf(self):
+        """ Return an iterator over the micrographs' CTF information. """
+        # Take last starfile from last CTF job
+        micFn = self.join(self._jobs('CtfFind')[-1], 'micrographs_ctf.star')
+        with StarFile(micFn) as sf:
+            for row in sf.iterTable('micrographs'):
+                #micFn = self.join(row.rlnMicrographName)
+                yield {
+                    'micrograph': row.rlnMicrographName,
+                    #'micTs': os.path.getmtime(micFn),
+                    'ctfImage': row.rlnCtfImage,
+                    'ctfDefocus': row.rlnDefocusU,
+                    'ctfResolution': row.rlnCtfMaxResolution,
+                    'ctfDefocusAngle': row.rlnDefocusAngle,
+                    'ctfAstigmatism': row.rlnCtfAstigmatism
+                }
+
     def get_sets(self, attrList=None, condition=None):
         sets = []
 
@@ -520,7 +552,7 @@ class RelionSessionData(SessionData):
         if pickingDirs:
             lastPicking = pickingDirs[-1]
             micBase = os.path.splitext(os.path.basename(micFn))[0]
-            coordFn = self._join(lastPicking, 'Frames', micBase + '_autopick.star')
+            coordFn = self.join(lastPicking, 'Frames', micBase + '_autopick.star')
             if os.path.exists(coordFn):
                 reader = StarFile(coordFn)
                 ctable = reader.getTable('')
@@ -532,7 +564,7 @@ class RelionSessionData(SessionData):
         return coords
     def get_set_item(self, setId, itemId, attrList=None):
         micItem = {}
-        micStarFn = self._join(setId.replace('Micrographs::', ''),
+        micStarFn = self.join(setId.replace('Micrographs::', ''),
                                'micrographs_ctf.star')
         reader = StarFile(micStarFn)
         otable = reader.getTable('optics')
@@ -551,10 +583,10 @@ class RelionSessionData(SessionData):
         for i, row in enumerate(mtable):
             if itemId == i + 1:
 
-                micFn = self._join(row.rlnMicrographName)
+                micFn = self.join(row.rlnMicrographName)
                 print(f"Reading: {micFn}")
                 micThumbBase64 = micThumb.from_mrc(micFn)
-                psdFn = self._join(row.rlnCtfImage).replace(':mrc', '')
+                psdFn = self.join(row.rlnCtfImage).replace(':mrc', '')
                 pixelSize = otable[0].rlnMicrographPixelSize
                 micItem = {
                     'micThumbData': micThumbBase64,
@@ -578,7 +610,7 @@ class RelionSessionData(SessionData):
         print(f">>>Set type: {setType}, path: {setPath}")
 
         if setType == 'Micrographs':
-            micFn = self._join(setPath, 'micrographs_ctf.star')
+            micFn = self.join(setPath, 'micrographs_ctf.star')
 
             with StarFile(micFn) as sf:
                 table = sf.getTable('micrographs')
@@ -592,7 +624,7 @@ class RelionSessionData(SessionData):
 
         elif setType == 'Class2D':
             # FIXME: Find the last iteration classes
-            avgMrcs = self._join(setPath, 'run_it200_classes.mrcs')
+            avgMrcs = self.join(setPath, 'run_it200_classes.mrcs')
             dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
             modelStar = dataStar.replace('_data.', '_model.')
 
@@ -627,20 +659,6 @@ class RelionSessionData(SessionData):
         print(f">>> Set id: {setId}, items: {len(items)}")
         return items
 
-    def get_stats(self):
-        def _count(jobType, starFn, tableName):
-            jobDir = self._jobs(jobType)[-1]
-            fn = self._join(jobDir, starFn)
-            with StarFile(fn) as sf:
-                return sf.getTableSize(tableName)
-
-        return {
-            'numOfMovies': _count('Import', 'movies.star', 'movies'),
-            'numOfMics': _count('MotionCorr', 'corrected_micrographs.star',
-                                'micrographs'),
-            'numOfCtfs': _count('CtfFind', 'micrographs_ctf.star',
-                                'micrographs'),
-        }
 
     def add_set_item(self, setId, itemId, attrDict):
         raise Exception('Not implemented')
