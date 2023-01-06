@@ -146,9 +146,10 @@
                             <h5 class="card-header">Polar Charts</h5>
                             <div class="card-body p-0 m-0">
 {#                                <canvas id="chartjs_polar"></canvas>#}
-                                <div id="polar1"></div>
-                                <div id="polar2"></div>
-                                <div id="polar3"></div>
+                                <div id="polar1" class="mt-3"></div>
+                                <div id="polar2" class="mt-3"></div>
+                                <div id="polar3" class="mt-3"></div>
+                                <div id="polar4" class="mt-3"></div>
 
                             </div>
                         </div>
@@ -234,8 +235,13 @@
 
 <script>
     // Global variables
-    var defocus_values = {{ defocusValues|tojson }};
-    var resolution_values = {{ resolutionValues|tojson }};
+    var ctfs = {
+        defocus: {{ defocus|tojson }},
+        resolution: {{ resolution|tojson }},
+        defocusAngle: {{ defocusAngle|tojson }},
+        astigmatism: {{ astigmatism|tojson }},
+        tsRange: {{ tsRange|tojson }}
+    }
     var session = {{ session|tojson }};
 
     var canvas_ratio = null;
@@ -296,25 +302,46 @@
         var config = {
             color: '#852999',
             label: 'Defocus',
-            suffix: 'µm'
+            suffix: 'µm',
+            maxY: 0.0,
+            startX: ctfs.tsRange.first,
+            stepX: ctfs.tsRange.step
         }
-        create_hc_series('defocus_plot', defocus_values, config);
-        create_hc_histogram('defocus_hist1', defocus_values, config);
+
+        var data = [];
+
+        for (var i = 0; i < ctfs.defocusAngle.length; ++i) {
+            var angle = ctfs.defocusAngle[i];
+            if (angle < 0)
+                angle = 360 + angle;
+            const a = ctfs.astigmatism[i];
+            if (a > config.maxY)
+                config.maxY = a;
+            data.push([angle, a])
+        }
+        config.maxY = config.maxY + (config.maxY * 0.1)
+
+        create_hc_series('defocus_plot', ctfs.defocus, config);
+        create_hc_histogram('defocus_hist1', ctfs.defocus, config);
         //create_hc_histogram('defocus_hist2', color);
 
-        config = {
-            color: '#EF9A53',
-            label: 'Resolution',
-            suffix: 'Å'
-        }
-        create_hc_series('resolution_plot', resolution_values, config);
-        create_hc_histogram('resolution_hist1', resolution_values, config);
+        config.color ='#EF9A53';
+        config.label = 'Resolution';
+        config.suffix = 'Å';
+        create_hc_series('resolution_plot', ctfs.resolution, config);
+        create_hc_histogram('resolution_hist1', ctfs.resolution, config);
         //create_hc_histogram('resolution_hist2', color);
 
         config.color = '#55D8C1';
-        create_hc_polar('polar1', config);
-        create_hc_polar('polar2', config);
-        create_hc_polar('polar3', config);
+
+
+        create_hc_polar('polar1', data, 'Azimuth (all)', config);
+        create_hc_polar('polar2', data.slice(Math.round(data.length * 0.7)),
+                        'Azimuth (last 30%)', config);
+        create_hc_polar('polar3', data.slice(Math.round(data.length * 0.8)),
+                        'Azimuth (last 20%)', config);
+        create_hc_polar('polar4', data.slice(Math.round(data.length * 0.9)),
+                        'Azimuth (last 10%)', config);
 
     /* Register when the display coordinates changes */
     $('input[type=radio][name=coords-radio]').change(function() {

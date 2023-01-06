@@ -3,64 +3,60 @@
  */
 
 
-function create_hc_polar(charDivId, config){
-          var N = 100000;
-    var data = [];
-for (var i = 0; i < N; ++i)
-    data.push(Math.random());
+function create_hc_polar(charDivId, data, label, config){
 
-var graph = new Highcharts.Chart({
-    colors: [config.color],
-    chart: {
-        renderTo: charDivId,
-        polar: true,
-        margin: [0, 0, 0, 0],
-        spacing: [0, 0, 0, 0],
-        height: '70%',
+    return new Highcharts.Chart({
+        colors: [config.color],
+        chart: {
+            renderTo: charDivId,
+            polar: true,
+            margin: [0, 0, 0, 0],
+            spacing: [0, 0, 0, 0],
+            height: '70%',
 
-        //type: 'scatter'
-    },
-    pane: {
-        size: '70%',
-    },
-    exporting: {enabled: false},
-    legend: {enabled: false},
-    title: undefined,
-    plotOptions: {
-    series: {
-        marker: {
-            radius: 2
-        }
-    }
-    },
-    subtitle: {
-        align: 'left',
-        text: 'Azimuth',
-    },
-    xAxis: {
-    tickInterval: 45,
-    min: 0,
-    max: 360,
-    labels: {
-        format: ''
-    }
-},
- yAxis: {
-     tickInterval: 0.5,
-    min: 0,
-    max: 1.2
-},
-credits: {enabled: false},
-    series: [{
-        name: 'Points',
-        data: data,
-        type: 'scatter',
-        groupPadding: 0,
-        pointPadding: 0,
-    }
-    ]
-
-});
+            //type: 'scatter'
+        },
+        pane: {
+            size: '70%',
+        },
+        exporting: {enabled: false},
+        legend: {enabled: false},
+        title: undefined,
+        plotOptions: {
+            series: {
+                marker: {
+                    radius: 2
+                }
+            }
+        },
+        subtitle: {
+            align: 'left',
+            text: label,
+            x: 10,
+        },
+        xAxis: {
+            tickInterval: 45,
+            min: 0,
+            max: 360,
+            labels: {format: '{value}°'}
+        },
+         yAxis: {
+            tickInterval: config.maxY/3,
+            min: 0,
+            max: config.maxY,
+            labels: {format: '{value:.2f}'},
+             opposite: true
+        },
+        credits: {enabled: false},
+        series: [{
+            name: 'Points',
+            data: data,
+            type: 'scatter',
+            groupPadding: 0,
+            pointPadding: 0,
+            pointPlacement: 'between'
+        }]
+    });
 }
 
 function create_hc_series(container, data, config) {
@@ -110,8 +106,8 @@ function create_hc_series(container, data, config) {
         series: [{
             name: config.label,
             data: data,
-            pointStart: start.getTime(),
-            pointInterval: 3600,
+            pointStart: config.startX,  //start.getTime(),
+            pointInterval: config.stepX,  //10000,
             tooltip: {
                 valueDecimals: 2,
                 valueSuffix: config.suffix,
