@@ -62,10 +62,9 @@
 
                                         {% if is_admin %}
                                             <td>{{ s.extra }}</td>
-                                        {% endif %}
-
-                                        {% if is_manager %}
                                             <td>
+                                            <button class="btn btn-sm btn-outline-light" onclick="editSession({{ s.id }})">
+                                                    <i class="far fa-edit"></i></button>
                                                 <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
                                                     <i class="far fa-trash-alt"></i></button>
                                             </td>
@@ -83,6 +82,12 @@
     </div>
     <!-- end table row -->
 
+</div>
+
+<!-- ============================================================== -->
+<!-- Entry Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="entry-modal" tabindex="-1" role="dialog" aria-labelledby="entryModal" aria-hidden="true" >
 </div>
 
 
@@ -119,5 +124,11 @@ function deleteSession(session_id) {
             }
             );
 } // function deleteSession
+
+function editSession(session_id){
+    show_modal_from_ajax("entry-modal", get_ajax_content("session_form",
+        {session_id: session_id}));
+}
+
 
 </script>

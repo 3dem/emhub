@@ -120,6 +120,11 @@ class DataContent:
         members.insert(0, pi.json())
         return members
 
+    def get_session_form(self, **kwargs):
+        session_id = kwargs['session_id']
+        session = self.app.dm.load_session(session_id)
+        return {'session': session}
+
     def get_sessions_overview(self, **kwargs):
         sessions = self.app.dm.get_sessions(condition=self._get_display_condition(),
                                             orderBy='resource_id')
