@@ -11,8 +11,10 @@
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12 mb-5">
 
+            <!-- Status cards row -->
             <div class="row">
-                <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
+
+                    <div class="col-xl-8 col-lg-8 col-md-8 col-sm-8 col-8">
                     <div class="row">
                         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
                             <div class="card">
@@ -76,24 +78,24 @@
                 </div>
                 </div>
 
-                <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="text-muted">Status</h5>
-                            <div class="metric-value d-inline-block">
-                            <h1 class="mb-1" id="status_text">{{ session['status'] }}</h1>
-                            </div>
-                            <div class="metric-label d-inline-block float-right text-success font-weight-bold">
-                            <span id="diff_picked">0</span>
+                    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="text-muted">Status</h5>
+                                <div class="metric-value d-inline-block">
+                                <h1 class="mb-1" id="status_text">{{ session['status'] }}</h1>
+                                </div>
+                                <div class="metric-label d-inline-block float-right text-success font-weight-bold">
+                                <span id="diff_picked">0</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
             </div>
 
             <!-- thumbnails row -->
             <div class="row">
-                <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">
+                <div class="col-xl-5 col-lg-5 col-md-5 col-sm-5 col-5">
 
                     <div class="card">
                         <h5 class="card-header">CTF Defocus</h5>
@@ -121,21 +123,7 @@
                         </div>
                     </div>
 
-                    <div class="card">
-                        <h5 class="card-header">Classes 2D</h5>
-                        <div class="card-body">
-                            <div class="row">
-{#                                <canvas id="canvas_classes2d" class="col-3"></canvas>#}
-                                {% for c in classes2d %}
-                                    <div style="padding: 5px; min-width: 90px; ">
-                                    <img src="data:image/png;base64,{{ c['average'] }}">
-                                        <p class="text-muted mb-0"><small>size: {{ c['size']}}, id: {{ c['id'] }}</small></p>
-                                    </div>
-                                {% endfor %}
 
-                            </div>
-                        </div>
-                    </div>
 
                 </div>
 
@@ -157,75 +145,100 @@
                     </div>
                 </div>
 
-                <div class="col-xl-4 col-lg-4 col-md-4 col-sm-4 col-4">
+                <div class="col-xl-5 col-lg-5 col-md-5 col-sm-5 col-5">
+
+
                     <div class="row">
-                    <div class="col-12">
-                        <div class="card card-figure" id="image-container">
-                            <!-- .card-figure -->
-                            <figure class="figure">
-<!--                                <img class="img-fluid" id="img_micrograph" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">-->
-                                <canvas id="canvas_micrograph"></canvas>
-                                <!-- .figure-caption -->
-                                <figcaption class="figure-caption">
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <h4 class="figure-title" id="mic_id"> Micrograph </h4>
-                                            <p class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </p>
-                                            <p class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </p>
-                                            <p class="text-muted mb-0" id="mic_resolution"> Resolution: </p>
-                                        </div>
-                                        <div class="col-6">
-                                            <h4 class="figure-title"> Coordinates </h4>
-                                            {{ macros.radiogroup('coords-radio', ['Dot', 'Circle', 'None']) }}
-                                        </div>
+
+                    <!-- Div for PSD and Micrograph info -->
+                        <div class="col-3">
+                            <div class="card card-figure">
+
+                                <!-- .card-figure -->
+                                <figure class="figure">
+                                    <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+
+                                    <!-- .figure-caption -->
+{#                                    <figcaption class="figure-caption">#}
+{#                                        <h5 class="figure-title" id="mic_id"> Micrograph: </h5>#}
+{#                                            <small class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </small> <br/>#}
+{#                                            <small class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </small><br/>#}
+{#                                            <small class="text-muted mb-0" id="mic_defocus_angle"> Defocus Angle: </small><br/>#}
+{#                                            <small class="text-muted mb-0" id="mic_astigmatism"> Astigmatism: </small><br/>#}
+{#                                            <small class="text-muted mb-0" id="mic_resolution"> Resolution: </small><hr/>#}
+{#                                            <small class="text-muted mb-0" id="mic_particles"> Particles: </small><br/>#}
+{#                                            <small class="text-muted mb-0" id="mic_particles_display"> Display: </small><br/>#}
+{#                                    </figcaption>#}
+
+                                    <div>
+                                        <br/>
+{#                                            <div class="row">#}
+{#                                                <h5 class="figure-title" id="mic_id"> Micrograph: </h5>#}
+{#                                                <input type="text">#}
+{#                                            </div>#}
+                                            <div class="input-group input-group-sm mb-3">
+                                              <div class="input-group-prepend">
+                                                <h5 class="input-group-text" id="inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
+                                              </div>
+                                              <input type="text" id="mic_id" class="form-control" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
+                                            </div>
+                                            <label class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </label> <br/>
+                                            <label class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </label><br/>
+                                            <label class="text-muted mb-0" id="mic_defocus_angle"> Defocus Angle: </label><br/>
+                                            <label class="text-muted mb-0" id="mic_astigmatism"> Astigmatism: </label><br/>
+                                            <label class="text-muted mb-0" id="mic_resolution"> Resolution: </label><hr/>
+                                            <label class="text-muted mb-0" id="mic_particles"> Particles: </label><br/>
+                                            <label class="text-muted mb-0" id="mic_particles_display"> Display: </label><br/><br/>
                                     </div>
-                                </figcaption>
-                                <!-- /.figure-caption -->
-                            </figure>
-                            <!-- /.card-figure -->
-                            <!-- /.card -->
-                        </div>
-                    </div>
 
-                    <div class="col-6">
-
-                        <div class="card card-figure">
-                            <!-- .card-figure -->
-                            <figure class="figure">
-                                <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                <!-- .figure-caption -->
-                                <figcaption class="figure-caption">
-                                    <h6 class="figure-title"> PSD plot </h6>
-{#                                    <p class="text-muted mb-0"> Give some text description </p>#}
-                                </figcaption>
-                                <!-- /.figure-caption -->
-                            </figure>
-                            <!-- /.card-figure -->
-                            <!-- /.card -->
+                                    <!-- /.figure-caption -->
+                                </figure>
+                                <!-- /.card-figure -->
+                                <!-- /.card -->
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="col-6">
-                        <div class="card card-figure">
-                            <!-- .card-figure -->
-                            <figure class="figure">
-                                <img class="img-fluid" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                <!-- .figure-caption -->
-                                <figcaption class="figure-caption">
-                                    <h6 class="figure-title"> CTF fit plot </h6>
-{#                                    <p class="text-muted mb-0"> Give some text description </p>#}
-                                </figcaption>
-                                <!-- /.figure-caption -->
-                            </figure>
-                            <!-- /.card-figure -->
-                            <!-- /.card -->
+                        <!-- Div for Micrograph -->
+                        <div class="col-9">
+                            <!-- Display overlay when loading micrograph -->
+                            <div id="overlay">
+                                <div class="w-100 d-flex justify-content-center align-items-center">
+                                    <div class="row text-white-50">
+                                      <h4 class="pr-5 text-white-50" id="overlay_text">Loading...</h4>
+                                      <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                             <div class="card card-figure" id="image-container">
+                                <!-- .card-figure -->
+                                <figure class="figure">
+                                    <canvas id="canvas_micrograph"></canvas>
+                                </figure>
+                            </div>
                         </div>
-                    </div>
+
+                        <div class="col-12">
+                            <div class="card">
+                                <h5 class="card-header">Classes 2D</h5>
+                                <div class="card-body">
+                                    <div class="row">
+        {#                                <canvas id="canvas_classes2d" class="col-3"></canvas>#}
+                                        {% for c in classes2d %}
+                                            <div style="padding: 5px; min-width: 90px; ">
+                                            <img src="data:image/png;base64,{{ c['average'] }}">
+                                                <p class="text-muted mb-0"><small>size: {{ c['size']}}, id: {{ c['id'] }}</small></p>
+                                            </div>
+                                        {% endfor %}
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                 </div>
-                </div>
-
             </div>
-            <!-- end thumbnails row -->
+            <!-- end thumbnails and classes2d row -->
 
         </div>
     </div>
@@ -252,6 +265,9 @@
 
 
     function request_micrograph_images(sessionId, micId) {
+        document.getElementById("overlay_text").innerHTML = "Loading Micrograph " + micId + " ...";
+        document.getElementById("overlay").style.display = "flex";
+
         var requestMicThumb = $.ajax({
             url: "{{ url_for('images.get_mic_data') }}",
             type: "POST",
@@ -272,11 +288,22 @@
 
             // $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
             $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
-            $("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);
-            document.getElementById('mic_id').innerHTML = "Micrograph " + micId;
-            document.getElementById('mic_defocus_u').innerHTML = "Defocus U: " + data['ctfDefocusU'];
-            document.getElementById('mic_defocus_v').innerHTML = "Defocus V: " + data['ctfDefocusV'];
-            document.getElementById('mic_resolution').innerHTML = "Resolution: " + data['ctfResolution'];
+            {#$("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);#}
+            function setLabel(containerId, value){
+                var elem = document.getElementById(containerId);
+                var parts = elem.innerHTML.split(":");
+                elem.innerHTML = parts[0] + ": " + value;
+            }
+            {#document.getElementById('mic_id').innerHTML = "Micrograph " + micId;#}
+            {#document.getElementById('mic_defocus_u').innerHTML = "Defocus U: " + data['ctfDefocusU'];#}
+            {#document.getElementById('mic_defocus_v').innerHTML = "Defocus V: " + data['ctfDefocusV'];#}
+            {#document.getElementById('mic_resolution').innerHTML = "Resolution: " + data['ctfResolution'];#}
+
+            //setLabel('mic_id', micId);
+            setLabel('mic_defocus_u', data['ctfDefocusU']);
+            setLabel('mic_defocus_v', data['ctfDefocusV']);
+            setLabel('mic_resolution', data['ctfResolution']);
+            document.getElementById("overlay").style.display = "none";
         });
 
         requestMicThumb.fail(function(jqXHR, textStatus) {
@@ -356,8 +383,13 @@
 
     $(window).resize(fixDimensions);
 
+    $("#mic_id").on('keyup', function (e) {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+            request_micrograph_images({{ session['id'] }}, $("#mic_id").val());
+        }
     });
 
+});
 
 })(window, document, window.jQuery);
 
