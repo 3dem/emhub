@@ -46,7 +46,7 @@ a:active {
   color: #a7c947;
 }
 
-#overlay {
+.overlay {
   position: absolute;
   display: none;
   top: 0;

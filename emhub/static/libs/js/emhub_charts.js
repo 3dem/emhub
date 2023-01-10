@@ -211,3 +211,30 @@ function drawMicrograph(micrograph) {
 
     image.src = 'data:image/png;base64,' + micrograph.thumbnail;
 }
+
+function drawClasses2d(containerId, classes){
+    var container = document.getElementById(containerId);
+    var imgStr, infoStr = null;
+    container.innerHTML = '';
+    for (var cls2d of classes) {
+        imgStr = '<img src="data:image/png;base64,' + cls2d.average + '">';
+        infoStr = '<p class="text-muted mb-0"><small>size: ' + cls2d.size + ', id: ' + cls2d.id + '</small></p>';
+        container.innerHTML += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+    }
+}
+
+class Overlay {
+    constructor(containerId) {
+        this.container = document.getElementById(containerId);
+        this.text_div = document.getElementById(containerId + '_text');
+    }
+
+    show(msg) {
+        this.text_div.innerHTML = msg;
+        this.container.style.display = "flex";
+    }
+
+    hide(){
+        this.container.style.display = "none";
+    }
+}
