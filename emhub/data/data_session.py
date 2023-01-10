@@ -508,9 +508,11 @@ class RelionSessionData(SessionData):
                                 'micrographs'),
             'numOfCtfs': _count('CtfFind', 'micrographs_ctf.star',
                                 'micrographs'),
+            'classes2d': _count('Class2D', 'run_it200_model.star',
+                                'model_classes')
         }
 
-    def micrographs_ctf(self):
+    def get_micrographs(self):
         """ Return an iterator over the micrographs' CTF information. """
         # Take last starfile from last CTF job
         micFn = self.join(self._jobs('CtfFind')[-1], 'micrographs_ctf.star')
@@ -526,6 +528,46 @@ class RelionSessionData(SessionData):
                     'ctfDefocusAngle': row.rlnDefocusAngle,
                     'ctfAstigmatism': row.rlnCtfAstigmatism
                 }
+
+    def get_classes2d(self):
+        """ Iterate over 2D classes. """
+        items = []
+        jobs2d = self._jobs('Class2D')
+        if jobs2d:
+            # FIXME: Find the last iteration classes
+            avgMrcs = self.join(jobs2d[-1], 'run_it200_classes.mrcs')
+            dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
+            modelStar = dataStar.replace('_data.', '_model.')
+
+            mrc_stack = None
+            avgThumb = Thumbnail(max_size=(100, 100),
+                                 output_format='base64')
+
+            # FIXME: An iterator should be enough here
+            with StarFile(dataStar) as sf:
+                ptable = sf.getTable('particles')
+
+            with StarFile(modelStar) as sf:
+                modelTable = sf.getTable('model_classes', guessType=False)
+
+            n = ptable.size()
+
+            # rowsIter = Table.iterRows(fileName=modelStar,
+            #                           tableName='model_classes',
+            #                           guessType=False)
+            for row in modelTable:
+                i, fn = row.rlnReferenceImage.split('@')
+                if not mrc_stack:
+                    mrc_stack = mrcfile.open(avgMrcs, permissive=True)
+                items.append({
+                    'id': '%03d' % int(i),
+                    'size': round(float(row.rlnClassDistribution) * n),
+                    'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
+                })
+            items.sort(key=lambda c: c['size'], reverse=True)
+            mrc_stack.close()
+
+        return items
 
     def get_sets(self, attrList=None, condition=None):
         sets = []
