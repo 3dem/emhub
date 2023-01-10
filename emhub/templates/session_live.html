@@ -95,7 +95,7 @@
 
             <!-- thumbnails row -->
             <div class="row">
-                <div class="col-xl-5 col-lg-5 col-md-5 col-sm-5 col-5">
+                <div class="col-5" id="ctf_plots">
 
                     <div class="card">
                         <h5 class="card-header">CTF Defocus</h5>
@@ -122,12 +122,9 @@
                             </div>
                         </div>
                     </div>
-
-
-
                 </div>
 
-                <div class="col-xl-2 col-lg-2 col-md-2 col-sm-2 col-2">
+                <div class="col-2" id="polar_plots">
                     <div class="row">
                     <div class="col-12">
                         <div class="card">
@@ -145,10 +142,10 @@
                     </div>
                 </div>
 
-                <div class="col-xl-5 col-lg-5 col-md-5 col-sm-5 col-5">
+                <div class="col-5" id="image_plots">
                     <div class="row">
                     <!-- Div for PSD and Micrograph info -->
-                        <div class="col-3">
+                    <div class="col-3" id="psd_plot">
                             <div class="card card-figure">
 
                                 <!-- .card-figure -->
@@ -178,44 +175,44 @@
                             </div>
                         </div>
 
-                        <!-- Div for Micrograph -->
-                        <div class="col-9">
-                             <div class="card card-figure" id="image-container">
+                    <!-- Div for Micrograph -->
+                     <div class="col-9" id="mic_plot">
+                         <div class="card card-figure" id="image-container">
 
-                                 <!-- Display overlay when loading micrograph -->
-                                <div id="overlay_mic" class="overlay">
+                             <!-- Display overlay when loading micrograph -->
+                            <div id="overlay_mic" class="overlay">
+                                <div class="w-100 d-flex justify-content-center align-items-center">
+                                    <div class="row text-white-50">
+                                      <h4 class="pr-5 text-white-50" id="overlay_mic_text"></h4>
+                                      <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <figure class="figure">
+                                <canvas id="canvas_micrograph"></canvas>
+                            </figure>
+                        </div>
+                    </div>
+
+                    <!-- 2D classes Card -->
+                    <div class="col-12" id="classes2d_plot">
+                        <div class="card">
+                            <h5 class="card-header">Classes 2D</h5>
+                            <div class="card-body">
+                                <!-- Display overlay when loading micrograph -->
+                                <div id="overlay_classes2d" class="overlay">
                                     <div class="w-100 d-flex justify-content-center align-items-center">
                                         <div class="row text-white-50">
-                                          <h4 class="pr-5 text-white-50" id="overlay_mic_text"></h4>
+                                          <h4 class="pr-5 text-white-50" id="overlay_classes2d_text"></h4>
                                           <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
                                         </div>
                                     </div>
                                 </div>
-
-                                <figure class="figure">
-                                    <canvas id="canvas_micrograph"></canvas>
-                                </figure>
+                                <div class="row" id="classes2d_container"> </div>
                             </div>
                         </div>
-
-                        <!-- 2D classes Card -->
-                        <div class="col-12">
-                            <div class="card">
-                                <h5 class="card-header">Classes 2D</h5>
-                                <div class="card-body">
-                                    <!-- Display overlay when loading micrograph -->
-                                    <div id="overlay_classes2d" class="overlay">
-                                        <div class="w-100 d-flex justify-content-center align-items-center">
-                                            <div class="row text-white-50">
-                                              <h4 class="pr-5 text-white-50" id="overlay_classes2d_text"></h4>
-                                              <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row" id="classes2d_container"> </div>
-                                </div>
-                            </div>
-                        </div>
+                    </div>
 
                 </div>
             </div>
@@ -250,6 +247,26 @@
 
 
     function fixDimensions(){
+        const width  = window.innerWidth || document.documentElement.clientWidth ||
+        document.body.clientWidth;
+        const height = window.innerHeight || document.documentElement.clientHeight ||
+        document.body.clientHeight;
+        $('#mic_particles').html("w: " + width + " h: " + height);
+        if (width < 2000) {
+            document.getElementById('ctf_plots').className = 'col-8';
+            document.getElementById('image_plots').className = 'col-12';
+            {#document.getElementById('psd_plot').className = 'col-2';#}
+            {#document.getElementById('mic_plot').className = 'col-5';#}
+            {#document.getElementById('classes2d_plot').className = 'col-5';#}
+        }
+        else {
+            document.getElementById('ctf_plots').className = 'col-5';
+            document.getElementById('image_plots').className = 'col-5';
+            {#document.getElementById('psd_plot').className = 'col-3';#}
+            {#document.getElementById('mic_plot').className = 'col-9';#}
+            {#document.getElementById('classes2d_plot').className = 'col-12';#}
+        }
+
         var canvas = document.getElementById("canvas_micrograph");
         var w = $("#canvas_micrograph").width();
         var h = Math.round(w / canvas_ratio);

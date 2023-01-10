@@ -497,8 +497,10 @@ class RelionSessionData(SessionData):
 
     def get_stats(self):
         def _count(jobType, starFn, tableName):
-            jobDir = self._jobs(jobType)[-1]
-            fn = self.join(jobDir, starFn)
+            jobDirs = self._jobs(jobType)
+            if not jobDirs:
+                return 0
+            fn = self.join(jobDirs[-1], starFn)
             with StarFile(fn) as sf:
                 return sf.getTableSize(tableName)
 
