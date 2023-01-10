@@ -21,10 +21,10 @@
                                 <div class="card-body">
                                     <h5 class="text-muted">Imported</h5>
                                     <div class="metric-value d-inline-block">
-                                        <h1 class="mb-1" id="counter_imported">{{ counters['imported'] }}</h1>
+                                        <h1 class="mb-1" id="counter_imported"></h1>
                                     </div>
                                     <div class="metric-label d-inline-block float-right text-success font-weight-bold">
-                                        <span><i class="fa fa-fw fa-arrow-up"></i></span><span>5.86%</span>
+                                        <span><i class="fa fa-fw fa-arrow-up"></i></span><span>#value</span>
                                     </div>
                                 </div>
                                 <div id="sparkline-revenue"></div>
@@ -36,10 +36,10 @@
                                 <div class="card-body">
                                     <h5 class="text-muted">Aligned</h5>
                                     <div class="metric-value d-inline-block">
-                                        <h1 class="mb-1" id="counter_aligned">{{ counters['aligned'] }}</h1>
+                                        <h1 class="mb-1" id="counter_aligned"></h1>
                                     </div>
                                     <div class="metric-label d-inline-block float-right text-secondary font-weight-bold">
-                                        <span id="diff_aligned">{{ counters['aligned'] - counters['imported'] }}</span>
+                                        <span id="diff_aligned"></span>
                                     </div>
                                 </div>
                                 <div id="sparkline-revenue2"></div>
@@ -51,10 +51,10 @@
                                 <div class="card-body">
                                     <h5 class="text-muted">CTF Estimation</h5>
                                     <div class="metric-value d-inline-block">
-                                    <h1 class="mb-1" id="counter_ctf">{{ counters['ctf'] }}</h1>
+                                    <h1 class="mb-1" id="counter_ctf"></h1>
                                     </div>
                                     <div class="metric-label d-inline-block float-right text-primary font-weight-bold">
-                                    <span id="diff_ctf">{{ counters['ctf'] - counters['aligned'] }}</span>
+                                    <span id="diff_ctf"></span>
                                     </div>
                                 </div>
                                 <div id="sparkline-revenue3"></div>
@@ -66,7 +66,7 @@
                                 <div class="card-body">
                                     <h5 class="text-muted">Particle Picking</h5>
                                     <div class="metric-value d-inline-block">
-                                    <h1 class="mb-1" id="counter_picked">{{ counters['picked'] }}</h1>
+                                    <h1 class="mb-1" id="counter_picked"></h1>
                                     </div>
                                     <div class="metric-label d-inline-block float-right text-success font-weight-bold">
                                     <span id="diff_picked">0</span>
@@ -146,10 +146,7 @@
                 </div>
 
                 <div class="col-xl-5 col-lg-5 col-md-5 col-sm-5 col-5">
-
-
                     <div class="row">
-
                     <!-- Div for PSD and Micrograph info -->
                         <div class="col-3">
                             <div class="card card-figure">
@@ -157,25 +154,8 @@
                                 <!-- .card-figure -->
                                 <figure class="figure">
                                     <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-
-                                    <!-- .figure-caption -->
-{#                                    <figcaption class="figure-caption">#}
-{#                                        <h5 class="figure-title" id="mic_id"> Micrograph: </h5>#}
-{#                                            <small class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </small> <br/>#}
-{#                                            <small class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </small><br/>#}
-{#                                            <small class="text-muted mb-0" id="mic_defocus_angle"> Defocus Angle: </small><br/>#}
-{#                                            <small class="text-muted mb-0" id="mic_astigmatism"> Astigmatism: </small><br/>#}
-{#                                            <small class="text-muted mb-0" id="mic_resolution"> Resolution: </small><hr/>#}
-{#                                            <small class="text-muted mb-0" id="mic_particles"> Particles: </small><br/>#}
-{#                                            <small class="text-muted mb-0" id="mic_particles_display"> Display: </small><br/>#}
-{#                                    </figcaption>#}
-
                                     <div>
                                         <br/>
-{#                                            <div class="row">#}
-{#                                                <h5 class="figure-title" id="mic_id"> Micrograph: </h5>#}
-{#                                                <input type="text">#}
-{#                                            </div>#}
                                             <div class="input-group input-group-sm mb-3">
                                               <div class="input-group-prepend">
                                                 <h5 class="input-group-text" id="inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
@@ -200,38 +180,39 @@
 
                         <!-- Div for Micrograph -->
                         <div class="col-9">
-                            <!-- Display overlay when loading micrograph -->
-                            <div id="overlay">
-                                <div class="w-100 d-flex justify-content-center align-items-center">
-                                    <div class="row text-white-50">
-                                      <h4 class="pr-5 text-white-50" id="overlay_text">Loading...</h4>
-                                      <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
+                             <div class="card card-figure" id="image-container">
+
+                                 <!-- Display overlay when loading micrograph -->
+                                <div id="overlay_mic" class="overlay">
+                                    <div class="w-100 d-flex justify-content-center align-items-center">
+                                        <div class="row text-white-50">
+                                          <h4 class="pr-5 text-white-50" id="overlay_mic_text"></h4>
+                                          <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                             <div class="card card-figure" id="image-container">
-                                <!-- .card-figure -->
                                 <figure class="figure">
                                     <canvas id="canvas_micrograph"></canvas>
                                 </figure>
                             </div>
                         </div>
 
+                        <!-- 2D classes Card -->
                         <div class="col-12">
                             <div class="card">
                                 <h5 class="card-header">Classes 2D</h5>
                                 <div class="card-body">
-                                    <div class="row">
-        {#                                <canvas id="canvas_classes2d" class="col-3"></canvas>#}
-                                        {% for c in classes2d %}
-                                            <div style="padding: 5px; min-width: 90px; ">
-                                            <img src="data:image/png;base64,{{ c['average'] }}">
-                                                <p class="text-muted mb-0"><small>size: {{ c['size']}}, id: {{ c['id'] }}</small></p>
+                                    <!-- Display overlay when loading micrograph -->
+                                    <div id="overlay_classes2d" class="overlay">
+                                        <div class="w-100 d-flex justify-content-center align-items-center">
+                                            <div class="row text-white-50">
+                                              <h4 class="pr-5 text-white-50" id="overlay_classes2d_text"></h4>
+                                              <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
                                             </div>
-                                        {% endfor %}
-
+                                        </div>
                                     </div>
+                                    <div class="row" id="classes2d_container"> </div>
                                 </div>
                             </div>
                         </div>
@@ -242,7 +223,10 @@
 
         </div>
     </div>
+</div>
+</div>
 <!-- end wrapper  -->
+
 
 <!-- javascript  -->
 
@@ -262,54 +246,8 @@
     var coordsDisplay = null;
 
     var global_data = null;
+    var overlay_2d, overlay_mic = null;
 
-
-    function request_micrograph_images(sessionId, micId) {
-        document.getElementById("overlay_text").innerHTML = "Loading Micrograph " + micId + " ...";
-        document.getElementById("overlay").style.display = "flex";
-
-        var requestMicThumb = $.ajax({
-            url: "{{ url_for('images.get_mic_data') }}",
-            type: "POST",
-            data: {micId : micId, sessionId: sessionId},
-            dataType: "json"
-           // contentType: "img/png"
-        });
-
-        requestMicThumb.done(function(data) {
-            micrograph = {
-                thumbnail: data['micThumbData'],
-                coordinates: data['coordinates'],
-                pixelSize: data['pixelSize'],
-                thumbnailPixelSize: data['micThumbPixelSize']
-            };
-
-            drawMicrograph(micrograph);
-
-            // $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
-            $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
-            {#$("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);#}
-            function setLabel(containerId, value){
-                var elem = document.getElementById(containerId);
-                var parts = elem.innerHTML.split(":");
-                elem.innerHTML = parts[0] + ": " + value;
-            }
-            {#document.getElementById('mic_id').innerHTML = "Micrograph " + micId;#}
-            {#document.getElementById('mic_defocus_u').innerHTML = "Defocus U: " + data['ctfDefocusU'];#}
-            {#document.getElementById('mic_defocus_v').innerHTML = "Defocus V: " + data['ctfDefocusV'];#}
-            {#document.getElementById('mic_resolution').innerHTML = "Resolution: " + data['ctfResolution'];#}
-
-            //setLabel('mic_id', micId);
-            setLabel('mic_defocus_u', data['ctfDefocusU']);
-            setLabel('mic_defocus_v', data['ctfDefocusV']);
-            setLabel('mic_resolution', data['ctfResolution']);
-            document.getElementById("overlay").style.display = "none";
-        });
-
-        requestMicThumb.fail(function(jqXHR, textStatus) {
-          alert( "Request failed: " + textStatus );
-        });
-    }
 
     function fixDimensions(){
         var canvas = document.getElementById("canvas_micrograph");
@@ -323,8 +261,11 @@
     "use strict";
     $(function() {
 
-    {#defocus_plot_column = {{ defocus_plot|tojson }};#}
-    {#defocus_plot_chart = create_c3_chart('#defocus_plot', [defocus_plot_column], 'line', '#5969ff');#}
+        var stats = {{ stats|tojson }};
+        updateStatsCounters(stats);
+
+        overlay_mic = new Overlay('overlay_mic');
+        overlay_2d = new Overlay('overlay_classes2d');
 
         var config = {
             color: '#852999',
@@ -377,21 +318,42 @@
 
     });
 
-    request_micrograph_images({{ session['id'] }}, 1);
+    // Load last micrograph asynchronous
+    requestMicrographData(session.id, ctfs.resolution.length - 1);
 
-    setTimeout(requestSessionData, 60000);
+    // Load 2D classes asynchronous
+        console.log(stats);
+    if (stats.classes2d)
+        requestClasses2D();
+
+    setTimeout(reloadSessionData, 60000);
 
     $(window).resize(fixDimensions);
 
     $("#mic_id").on('keyup', function (e) {
         if (e.key === 'Enter' || e.keyCode === 13) {
-            request_micrograph_images({{ session['id'] }}, $("#mic_id").val());
+            requestMicrographData($("#mic_id").val());
         }
     });
 
 });
 
 })(window, document, window.jQuery);
+
+function updateStatsCounters(stats){
+    function setCounter(container, value){
+            document.getElementById(container).innerHTML = value;
+        }
+    setCounter('counter_imported', stats['numOfMics']);
+    setCounter('counter_picked', stats['classes2d']);
+
+    //document.getElementById('counter_imported').innerHTML = stats['numOfMovies'];
+    document.getElementById('counter_aligned').innerHTML = stats['numOfMics'];
+    document.getElementById('diff_aligned').innerHTML = (stats['numOfMics'] - stats['numOfMovies']).toString();
+    document.getElementById('counter_ctf').innerHTML = stats['numOfCtfs'];
+    document.getElementById('diff_ctf').innerHTML = (stats['numOfCtfs'] - stats['numOfMics']).toString();
+    //document.getElementById('counter_picked').innerHTML = stats['numOfPtcls'];
+}
 
 /** Helper functions to handle Template AJAX response or failure */
 function handleAjaxDone(jsonResponse) {
@@ -402,22 +364,24 @@ function handleAjaxDone(jsonResponse) {
     }
     else {
         session = jsonResponse.session;
-        var counters = jsonResponse.counters;
-        document.getElementById('counter_imported').innerHTML = counters['imported'];
-        document.getElementById('counter_aligned').innerHTML = counters['aligned'];
-        document.getElementById('diff_aligned').innerHTML = (counters['aligned'] - counters['imported']).toString();
-        document.getElementById('counter_ctf').innerHTML = counters['ctf'];
-        document.getElementById('diff_ctf').innerHTML = (counters['ctf'] - counters['aligned']).toString();
-        document.getElementById('counter_picked').innerHTML = counters['picked'];
+        updateStatsCounters(jsonResponse.stats);
+
+        var classes2d = jsonResponse.classes2d;
+
+        if (classes2d.length) {
+            drawClasses2d('classes2d_container', classes2d);
+            overlay_2d.hide();
+            //
+        }
 
         // Update Defocus plot with new values since last time
-        var new_defocus_values = jsonResponse.defocusValues;
-        var new_resolution_values = jsonResponse.resolutionValues;
-        var newValuesLength = new_resolution_values.length - resolution_values.length;
+        var new_defocus_values = jsonResponse.defocus;
+        var new_resolution_values = jsonResponse.resolution;
+        var newValuesLength = new_resolution_values.length - ctf.resolution.length;
 
         if (newValuesLength > 0) {
             console.log("New values: ", newValuesLength);
-            //request_micrograph_images({{ session.id }}, defocus_plot_column.length-1);
+            //requestMicrographData(new_resolution_values.length-1);
         }
     }
 }
@@ -426,12 +390,17 @@ function handleAjaxFail(jqXHR, textStatus) {
     alert(" Error: Request failed: " + textStatus );
 }
 
-/** This function will be called when the OK button in the Application form
- * is clicked. It can be either Create or Update action.
- */
-function requestSessionData() {
+function reloadSessionData() {
+    requestSessionData({result: 'micrographs'});
+
+    if (session.status != "finished") {
+        setTimeout(reloadSessionData, 60000);
+    }
+}
+
+function requestSessionData(attrs) {
     // Update template values
-    var attrs = {'session_id': {{ session['id'] }}, 'set_id': 1};
+    attrs.session_id = session.id;
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.get_session_data') }}",
         type: "POST",
@@ -443,9 +412,57 @@ function requestSessionData() {
     ajaxContent.done(handleAjaxDone);
     ajaxContent.fail(handleAjaxFail);
 
-    if (session.status != "finished") {
-        setTimeout(requestSessionData, 60000);
-    }
+
 }  // function onTemplateOkButtonClick
+
+function requestMicrographData(micId) {
+    $("#mic_id").val(micId);
+    overlay_mic.show("Loading Micrograph " + micId + " ...");
+
+    var requestMicThumb = $.ajax({
+        url: "{{ url_for('images.get_mic_data') }}",
+        type: "POST",
+        data: {micId : micId, sessionId: session.id},
+        dataType: "json"
+       // contentType: "img/png"
+    });
+
+    requestMicThumb.done(function(data) {
+        micrograph = {
+            thumbnail: data['micThumbData'],
+            coordinates: data['coordinates'],
+            pixelSize: data['pixelSize'],
+            thumbnailPixelSize: data['micThumbPixelSize']
+        };
+
+        drawMicrograph(micrograph);
+
+        // $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
+        $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
+        {#$("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);#}
+        function setLabel(containerId, value){
+            var elem = document.getElementById(containerId);
+            var parts = elem.innerHTML.split(":");
+            elem.innerHTML = parts[0] + ": " + value;
+        }
+
+        //setLabel('mic_id', micId);
+        setLabel('mic_defocus_u', data['ctfDefocusU']);
+        setLabel('mic_defocus_v', data['ctfDefocusV']);
+        setLabel('mic_resolution', data['ctfResolution']);
+        overlay_mic.hide();
+    });
+
+    requestMicThumb.fail(function(jqXHR, textStatus) {
+      alert( "Request failed: " + textStatus );
+    });
+}
+
+function requestClasses2D(){
+    overlay_2d.show("Loading 2D classes...");
+    {#document.getElementById("overlay_classes2d").innerHTML = "Loading 2D classes...";#}
+    {#document.getElementById("overlay_classes2d").style.display = "flex";#}
+    requestSessionData({result: 'classes2d'});
+}
 
 </script>

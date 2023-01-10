@@ -455,70 +455,12 @@ def clear_session_data():
     return handle_session(app.dm.clear_session_data)
 
 
-@api_bp.route('/create_session_set', methods=['POST'])
-@flask_login.login_required
-def create_session_set():
-    """ Create a set file without actual session. """
-    def handle(session, set_id, **attrs):
-        session.data.create_set(set_id, attrs)
-        return {'session_set': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
-@api_bp.route('/update_session_set', methods=['POST'])
-@flask_login.login_required
-def update_session_set():
-    """ Create a set file without actual session. """
-    def handle(session, set_id, **attrs):
-        session.data.update_set(set_id, attrs)
-        return {'session_set': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
-@api_bp.route('/get_session_sets', methods=['POST'])
-@flask_login.login_required
-def get_session_sets():
-    """ Return all sets' name of this session. """
-    def handle(session, set_id, **attrs):
-        # set_id is not used here, but passed by default to the handle
-        sets = session.data.get_sets(attrList=attrs)
-        return {'session_sets': sets}
-
-    return handle_session_data(handle, mode="r")
-
-
-@api_bp.route('/add_session_item', methods=['POST'])
-@flask_login.login_required
-def add_session_item():
-    """ Add a new item. """
-    def handle(session, set_id, **attrs):
-        itemId = attrs.pop("item_id")
-        session.data.add_set_item(set_id, itemId, attrs)
-        return {'item': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
-@api_bp.route('/update_session_item', methods=['POST'])
-@flask_login.login_required
-def update_session_item():
-    """ Update existing item. """
-    def handle(session, set_id, **attrs):
-        itemId = attrs.pop("item_id")
-        session.data.update_set_item(set_id, int(itemId), attrs)
-        return {'item': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
 @api_bp.route('/get_session_data', methods=['POST'])
 @flask_login.login_required
 def get_session_data():
     """ Return some information related to session (e.g CTF values, etc). """
-    def handle(session, set_id, **attrs):
-        return DataContent(app).get_session_data(session)
+    def handle(session, **attrs):
+        return DataContent(app).get_session_data(session, **attrs)
 
     return handle_session_data(handle, mode="r")
 
@@ -813,13 +755,12 @@ def handle_session(session_func):
 def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
-    set_id = attrs.pop("set_id", None)
     tries = 0
 
     while tries < 3:
         try:
             session = app.dm.load_session(sessionId=session_id, mode=mode)
-            result = handle(session, set_id, **attrs)
+            result = handle(session, **attrs)
             session.data.close()
             break
         except OSError:
