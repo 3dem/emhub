@@ -122,8 +122,8 @@ class DataContent:
 
     def get_session_form(self, **kwargs):
         session_id = kwargs['session_id']
-        session = self.app.dm.load_session(session_id)
-        return {'session': session}
+        session = self.app.dm.get_session_by(id=session_id)
+        return {'session': session.json()}
 
     def get_sessions_overview(self, **kwargs):
         sessions = self.app.dm.get_sessions(condition=self._get_display_condition(),

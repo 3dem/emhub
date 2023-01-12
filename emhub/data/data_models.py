@@ -848,6 +848,28 @@ def create_data_models(dm):
         def __repr__(self):
             return '<Session {}>'.format(self.name)
 
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra or {})
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def is_active(self):
+            return self.status == 'active'
+
+        @property
+        def actions(self):
+            """ True if the user of the project can edit it (add/modify/delete notes)
+            """
+            return  self.__getExtra('actions', [])
+
+        @actions.setter
+        def actions(self, actions):
+            self.__setExtra('actions', actions)
+
         def json(self):
             return dm.json_from_object(self)
 
