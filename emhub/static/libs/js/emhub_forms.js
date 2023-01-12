@@ -233,3 +233,27 @@ function deleteUser(user_id) {
                            {id: user_id}, userAjaxDone);
         });
 } // function deleteProject
+
+
+/*-------------------------- Sessions ------------------------------------ */
+function showSession(session_id){
+    var content = get_ajax_content("session_form", {session_id: session_id});
+    show_modal_from_ajax("session-modal", content);
+} // function showSession
+
+function sessionAjaxDone(jsonResponse) {
+    ajax_request_done(jsonResponse, 'session');
+}
+
+function deleteSession(session_id) {
+    confirm("Delete Session",
+            "Do you want to DELETE Session with id=" + session_id + "?",
+             "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.session.delete,
+                           {id: session_id}, sessionAjaxDone);
+        });
+} // function deleteProject
+
+function updateSession(session) {
+    send_ajax_json(Api.urls.session.update, session, sessionAjaxDone)
+}
