@@ -9,7 +9,7 @@
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 80%">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="session-modal-title"> {{ session.name }} (Id = {{ session.id }})</h3>
+        <h3 class="modal-title" id="session-modal-title"> {{ session['name'] }} (Id = {{ session['id'] }})</h3>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -20,13 +20,21 @@
             <!-- Session Form -->
             <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                 <form id="session-form" data-parsley-validate="" novalidate="">
-                    <input type="hidden" id="session-id" name="session-id" value="{{ session.id }}">
+                    <input type="hidden" id="session-id" name="session-id" value="{{ session['id'] }}">
 
-                    <!-- Title Row -->
+                    <!-- Status Row -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" {{ readonly }} required="" placeholder="Enter Name" id="session-name" class="form-control" value="{{ session.name }}">
+                            <input type="text" required="" id="session-status" class="form-control" value="{{ session.status }}">
+                        </div>
+                    </div>
+
+                    <!-- Data Path Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Data Path</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" id="session-datapath" class="form-control" value="{{ session.data_path }}">
                         </div>
                     </div>
 
@@ -52,7 +60,7 @@
 
           {% if can_edit %}
               {% set btnOkText = "Update" if session.id else "Create" %}
-               <button class="btn btn-outline-dark" onclick="onSessionOkButtonClick()">{{ btnOkText }}</button>
+               <button class="btn btn-outline-dark" onclick="onSessionOk()">{{ btnOkText }}</button>
           {% else %}
 
           {% endif %}
@@ -65,6 +73,7 @@
 <!-- ============================================================== -->
 
 <script>
+    var session = {{ session|tojson }};
     var editor = null;
 
 (function(window, document, $, undefined) {
@@ -73,9 +82,17 @@
     //editor.renderer.setShowGutter(false);
     editor.setTheme("ace/theme/monokai");
     editor.session.setMode("ace/mode/json");
-
-    var extraJson = {{ session.extra|tojson }};
-    editor.setValue(JSON.stringify(extraJson, null, 4));
+    editor.setValue(JSON.stringify(session.extra, null, 4));
 
 })(window, document, window.jQuery);
+
+function onSessionOk() {
+    updateSession({
+        id: session.id,
+        status: $('#session-status').val(),
+        data_path: $('#session-datapath').val(),
+        extra: JSON.parse(editor.getValue())
+    });
+}
+
 </script>

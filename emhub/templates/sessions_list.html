@@ -19,6 +19,9 @@
                         <table id="sessions-table" class="table table-striped table-bordered" style="width:100%">
                             <thead>
                             <tr>
+                                {% if current_user.is_manager %}
+                                    <th>actions</th>
+                                {% endif %}
                                 <th>id</th>
                                 <th>name</th>
                                 <th>start</th>
@@ -32,9 +35,7 @@
                                 {% if is_admin %}
                                     <td>extra</td>
                                 {% endif %}
-                                {% if current_user.is_manager %}
-                                    <th>actions</th>
-                                {% endif %}
+
                             </tr>
                             </thead>
                             <tbody>
@@ -50,6 +51,14 @@
 
                                 {% if is_manager or current_user.same_pi(owner_pi) %}
                                     <tr>
+                                        {% if is_admin %}
+                                            <td>
+                                            <button class="btn btn-sm btn-outline-light" onclick="showSession({{ s.id }})">
+                                                    <i class="far fa-edit"></i></button>
+                                                <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
+                                                    <i class="far fa-trash-alt"></i></button>
+                                            </td>
+                                        {% endif %}
                                         <td>{{ s.id }}</td>
                                         <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
                                         <td>{{ s.start|pretty_date }} </td>
@@ -59,16 +68,10 @@
                                         <td><a href="javascript:showBookingForm({booking_id: {{ s.booking_id }}})">{{ s.booking_id }}</a></td>
                                         <td>{{ owner_name }}</td>
                                         <td>{{ s.operator.name }}</td>
-
                                         {% if is_admin %}
                                             <td>{{ s.extra }}</td>
-                                            <td>
-                                            <button class="btn btn-sm btn-outline-light" onclick="editSession({{ s.id }})">
-                                                    <i class="far fa-edit"></i></button>
-                                                <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
-                                                    <i class="far fa-trash-alt"></i></button>
-                                            </td>
                                         {% endif %}
+
                                     </tr>
                                 {% endif %}
                             {% endfor %}
@@ -87,7 +90,7 @@
 <!-- ============================================================== -->
 <!-- Entry Modal -->
 <!-- ============================================================== -->
-<div class="modal fade" id="entry-modal" tabindex="-1" role="dialog" aria-labelledby="entryModal" aria-hidden="true" >
+<div class="modal fade" id="session-modal" tabindex="-1" role="dialog" aria-labelledby="entryModal" aria-hidden="true" >
 </div>
 
 
@@ -95,40 +98,7 @@
     var bookingDict = {{ bookingDict|tojson }};
 
     $('#sessions-table').DataTable({
-        order: [[0, "desc"]]
+        order: [[1, "desc"]]
     });
-
-function deleteSession(session_id) {
-    confirm("Delete Session",
-            "Do you want to DELETE session with id=" + session_id + "?",
-             "Cancel", "Delete",
-            function () {
-                    var ajaxContent = $.ajax({
-                        url: "{{ url_for('api.delete_session') }}",
-                        type: "POST",
-                        contentType: 'application/json; charset=utf-8',
-                        data: JSON.stringify({attrs: {id: session_id}}),
-                        dataType: "json"
-                    });
-
-                    ajaxContent.done(function(jsonResponse) {
-                        if ('error' in jsonResponse)
-                            showError(jsonResponse['error']);
-                        else
-                            window.location.reload();
-                    });
-
-                    ajaxContent.fail(function(jqXHR, textStatus) {
-                        showError( "Request failed: " + textStatus );
-                    });
-            }
-            );
-} // function deleteSession
-
-function editSession(session_id){
-    show_modal_from_ajax("entry-modal", get_ajax_content("session_form",
-        {session_id: session_id}));
-}
-
 
 </script>
