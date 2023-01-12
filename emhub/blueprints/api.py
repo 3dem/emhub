@@ -407,10 +407,11 @@ def poll_sessions():
     while True:
         sessions = app.dm.get_sessions(condition='status=="pending"')
         if sessions:
+            data = []
             for s in sessions:
                 b = s.booking
                 e = app.dc.booking_to_event(b)
-                data = [{
+                data.append({
                     'id': s.id,
                     'name': s.name,
                     'booking_id': s.booking_id,
@@ -420,9 +421,24 @@ def poll_sessions():
                     'operator': _user(b.operator),
                     'folder': session_folders[s.name[:3]],
                     'title': e['title']
-                 }]
-                return send_json_data(data)
+                 })
+            return send_json_data(data)
         time.sleep(3)
+
+
+@api_bp.route('/poll_active_sessions', methods=['POST'])
+@flask_login.login_required
+def poll_active_sessions():
+    #from pprint import pprint
+    #from emhub.data.data_manager import DataManager
+    while True:
+        dm = app.dm  # DataManager(app.instance_path, user=app.user)
+        sessions = dm.get_sessions(condition='status=="active"')
+        data = [s.json() for s in sessions if s.actions]
+        if data:
+            return send_json_data(data)
+        time.sleep(5)
+        dm.commit()
 
 
 @api_bp.route('/create_session', methods=['POST'])
