@@ -573,7 +573,7 @@ class DataManager(DbManager):
             attrs['start'] = self.now()
 
         if 'status' not in attrs:
-            attrs['status'] = 'pending'
+            attrs['status'] = 'active'
 
         session_info = self.get_new_session_info(b.id)
         attrs['name'] = attrs.get('name', session_info['name'])
@@ -585,13 +585,18 @@ class DataManager(DbManager):
         data_path = attrs.get('data_path', '')
 
         if not data_path:
-            if 'otf_folder' in extra:
-                data_path = extra['otf_folder']
+            otf_folder = extra.pop('otf_folder', '')
+            if otf_folder:
+                data_path = otf_folder
+                extra['otf'] = {'path': otf_folder}
             elif create_otf:
-                extra = dict(session.extra)
                 extra['actions'] = ['create_otf']
-                session.extra = extra
 
+        raw_folder = extra.pop('raw_folder')
+        if raw_folder:
+            extra['raw'] = {'path': raw_folder}
+
+        session.extra = extra
         session.data_path = data_path
 
         self.commit()

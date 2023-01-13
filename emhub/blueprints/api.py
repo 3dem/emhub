@@ -686,7 +686,10 @@ def fix_dates(attrs, *date_keys):
     for some keys that might be present in the attrs dict. """
     for date_key in date_keys:
         if date_key in attrs:
-            attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+            try:
+                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+            except:
+                attrs[date_key] = None
 
 
 def _handle_item(handle_func, result_key):

@@ -38,19 +38,21 @@
     }
 
     function onCreateClick(){
-        var jsonData = {
-            attrs: {
-                booking_id: parseInt(document.getElementById('booking-id').value),
-                extra: getFormAsJson('session-form')
-            },
+        var attrs = {
+            booking_id: parseInt(document.getElementById('booking-id').value),
+            extra: getFormAsJson('session-form')
         }
-        //alert(JSON.stringify(jsonData, null, 4));
+        if (!attrs.extra.otf_folder)
+            attrs.create_otf = true;
+
+        //alert(JSON.stringify(attrs, null, 4));
+        //return
 
         var ajaxContent = $.ajax({
             url: "{{ url_for('api.create_session') }}",
             type: "POST",
             contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify(jsonData),
+            data: JSON.stringify({attrs: attrs}),
             dataType: "json"
         });
 

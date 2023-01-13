@@ -25,7 +25,9 @@ import time
 import argparse
 import threading
 from datetime import datetime, timedelta
+from glob import glob
 from collections import OrderedDict
+import configparser
 from pprint import pprint
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -49,7 +51,14 @@ class SessionsData:
                 if i == 10:
                     break
 
+            resources_dict = {}
+            req = dc.request('get_resources', jsonData={"attrs": ["id", "name"]})
+            for r in req.json():
+                resources_dict[r['id']] = r
+
         self.sessions = sessions_dict
+        self.resources = resources_dict
+        pprint(resources_dict)
         self.lock = threading.Lock()
 
     def print(self, *args):
@@ -118,36 +127,41 @@ class SessionsData:
         if not os.path.exists(raw_path):
             raise Exception("Input folder does not exists")
 
-        info = sr.get_info(input_raw_folder)
+        date_ts = Pretty.now()  # Fixme Maybe use first file creation (for old sessions)
+        date = date_ts.split()[0].replace('-', '')
+        microscope = self.resources[session['resource_id']]['name']
 
-        date_ts = raw_session['first_movie_creation']
-        date_prefix = date_ts.split()[0].replace('-', '')
-        otf_pattern = "{}_{microscope}_{group}_{user}_{}"
-        otf_folder = otf_pattern.format(date_prefix, project_name, **info)
-        os.system(f"rm -rf {otf_folder}")
+        group = 'cyroemgrp'
+        user = 'ISF'
+        otf_folder = f"{date}_{microscope}_{group}_{user}_OTF"
+        otf_path = os.path.join(otf_root, otf_folder)
+        extra['otf'] = {'path': otf_path}
+        session['data_path'] = otf_path
+        print(f"rm -rf {otf_path}")
+        os.system(f"rm -rf {otf_path}")
 
         def _path(*paths):
-            return os.path.join(otf_folder, *paths)
+            return os.path.join(otf_path, *paths)
 
-        os.mkdir(otf_folder)
+        os.mkdir(otf_path)
         os.symlink(raw_path, _path('data'))
 
-        gain = glob(_path('data', '*gain*.mrc'))[0]
-        os.symlink(os.path.relpath(gain, otf_folder), _path('gain.mrc'))
+        possible_gains = glob(_path('data', '*gain*.mrc'))
+        if possible_gains:
+            gain = possible_gains[0]
+            os.symlink(os.path.relpath(gain, otf_folder), _path('gain.mrc'))
 
         # Create a general ini file with config/information of the session
-        acquisition = load_acquisition()
-        mic = acquisition[info['microscope']]
         config = configparser.ConfigParser()
 
         config['GENERAL'] = {
-            'group': info['group'],
-            'user': info['user'],
-            'microscope': info['microscope'],
+            'group': group,
+            'user': user,
+            'microscope': microscope,
             'raw_data': raw_path
         }
 
-        config['ACQUISITION'] = mic
+        config['ACQUISITION'] = sconfig.acquisition[microscope]
 
         config['PREPROCESSING'] = {
             'images': 'data/Images-Disc1/GridSquare_*/Data/Foil*fractions.tiff',
@@ -156,7 +170,6 @@ class SessionsData:
 
         with open(_path('README.ini'), 'w') as configfile:
             config.write(configfile)
-
 
 
 class SessionsServer(JsonTCPServer):
@@ -197,17 +210,24 @@ class SessionsServer(JsonTCPServer):
 
     def _session_handle_actions(self, dc, session, actions):
         extra = session['extra']
+        remaining_actions = []
         for action in actions:
-            print(f"   - Checking action: {action}")
-            if action.startswith('update_raw'):
-                raw_path = extra['raw']['path']
-                raw_info = EPU.get_session_info(raw_path)
-                extra['raw'] = raw_info
-                extra['raw']['path'] = raw_path
-                extra['updated'] = Pretty.now()
-            elif actions.startswith('create_otf'):
-                pass
+            try:
+                print(f"   - Checking action: {action}")
+                if action.startswith('update_raw'):
+                    raw_path = extra['raw']['path']
+                    raw_info = EPU.get_session_info(raw_path)
+                    extra['raw'] = raw_info
+                    extra['raw']['path'] = raw_path
+
+                elif action.startswith('create_otf'):
+                    self.data.create_session_otf(session)
+            except Exception as e:
+                print(e)
+                remaining_actions.append(action)
         print(f"        Updating session {session['name']}")
+        extra['actions'] = remaining_actions
+        extra['updated'] = Pretty.now()
         dc.update_session(session)
 
     def _poll_sessions(self):
