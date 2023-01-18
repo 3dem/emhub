@@ -27,6 +27,7 @@
 # **************************************************************************
 
 import datetime as dt
+import re
 from collections import OrderedDict
 import jwt
 
@@ -861,10 +862,14 @@ def create_data_models(dm):
             return self.status == 'active'
 
         @property
+        def is_code_counted(self):
+            return re.match("[a-z]{3}[0-9]{5}", self.name) is not None
+
+        @property
         def actions(self):
             """ True if the user of the project can edit it (add/modify/delete notes)
             """
-            return  self.__getExtra('actions', [])
+            return self.__getExtra('actions', [])
 
         @actions.setter
         def actions(self, actions):

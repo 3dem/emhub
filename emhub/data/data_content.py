@@ -196,6 +196,7 @@ class DataContent:
             if not (a is None or a.allows_access(self.app.user)):
                 raise Exception("You do not have access to this session information. ")
 
+        # Try to get deletion days (used in SLL based on session name code)
         days = self.app.dm.get_session_data_deletion(session.name[:3])
         td = (session.start + dt.timedelta(days=days)) - self.app.dm.now()
         errors = []

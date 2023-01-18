@@ -513,7 +513,7 @@ class DataManager(DbManager):
         return self.__get_session_dict('folders')
 
     def get_session_data_deletion(self, group_code):
-        return int(self.__get_session_dict('data_deletion')[group_code])
+        return int(self.__get_session_dict('data_deletion').get(group_code, 0))
 
     def get_session_processing(self):
         # Load processing options from the 'processing' Form
@@ -580,6 +580,8 @@ class DataManager(DbManager):
         if 'name' not in attrs:
             session_info = self.get_new_session_info(b.id)
             attrs['name'] = session_info['name']
+        else:
+            session_info = None
 
         session = self.__create_item(self.Session, **attrs)
 
@@ -609,8 +611,9 @@ class DataManager(DbManager):
             data.close()
 
         # Update counter for this session group
-        self.update_session_counter(session_info['code'],
-                                    session_info['counter'] + 1)
+        if session_info:
+            self.update_session_counter(session_info['code'],
+                                        session_info['counter'] + 1)
 
         return session
 
@@ -621,16 +624,17 @@ class DataManager(DbManager):
         # Update the session counter if it was modified
         name = session.name
 
-        if '_' in name:
-            code, counterStr = name.split('_')
-        else:
-            code = name[:3]
-            counterStr = name[3:]
+        if session.is_code_counted:
+            if '_' in name:
+                code, counterStr = name.split('_')
+            else:
+                code = name[:3]
+                counterStr = name[3:]
 
-        c = self.get_session_counter(code)
-        counter = int(counterStr)
-        if c < counter:
-            self.update_session_counter(code, counter + 1)
+            c = self.get_session_counter(code)
+            counter = int(counterStr)
+            if c < counter:
+                self.update_session_counter(code, counter + 1)
 
         return session
 
