@@ -5,12 +5,12 @@
 <!-- Create Session Form -->
 <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
     <form id="session-form" data-parsley-validate="" novalidate="">
-        <!-- Owner Row -->
+
+        <!-- Session's Name -->
         <div class="form-group row">
-            <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
+            <h3 class="col-12 col-sm-3 col-form-label text-sm-right">Session Name</h3>
             <div class="col-12 col-sm-8 col-lg-6">
-                <h3 class="col-12 text-sm-left">{{ session_name }}*</h3>
-                <label class="col-12 col-form-label text-sm-left">(* can change after folders creation)</label>
+                <input type="text" required="" placeholder="Provide a session name (up to 16 digits: letters, numbers, underscore or dash)" id="session-name" data-key="session_name" class="form-control" value="">
             </div>
         </div>
 

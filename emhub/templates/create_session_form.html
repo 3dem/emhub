@@ -38,15 +38,34 @@
     }
 
     function onCreateClick(){
+        var formValues = getFormAsJson('session-form');
         var attrs = {
-            booking_id: parseInt(document.getElementById('booking-id').value),
-            extra: getFormAsJson('session-form')
+            booking_id: parseInt(document.getElementById('booking-id').value)
         }
-        if (!attrs.extra.otf_folder)
-            attrs.create_otf = true;
 
-        //alert(JSON.stringify(attrs, null, 4));
-        //return
+        if (formValues.session_name) {
+            attrs.name = formValues.session_name;
+            attrs.extra = {
+                otf_folder: formValues.otf_folder,
+                raw_folder: formValues.raw_folder
+            }
+            if (!formValues.otf_folder)
+                attrs.create_otf = true;
+        }
+
+        // If there is a session
+        {#if (attrs.extra.raw_folder)#}
+        var regex = /^[a-zA-Z0-9-_]{2,16}$/;
+        var valid_name = nonEmpty(attrs.name) && regex.test(attrs.name);
+
+        if (!valid_name) {
+            showError("Provide a valid <strong>Session Name</strong>.<br>" +
+                "<p>It must be have from 2 to 16 digits, containing letters, numbers, slash or underscore.</p>");
+            return;
+        }
+
+        alert(JSON.stringify(attrs, null, 4));
+        return
 
         var ajaxContent = $.ajax({
             url: "{{ url_for('api.create_session') }}",

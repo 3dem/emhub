@@ -575,8 +575,11 @@ class DataManager(DbManager):
         if 'status' not in attrs:
             attrs['status'] = 'active'
 
-        session_info = self.get_new_session_info(b.id)
-        attrs['name'] = attrs.get('name', session_info['name'])
+        # Name of the session can be passed and it will be used
+        # If not, then a name will be picked from the booking/group/application
+        if 'name' not in attrs:
+            session_info = self.get_new_session_info(b.id)
+            attrs['name'] = session_info['name']
 
         session = self.__create_item(self.Session, **attrs)
 
@@ -598,7 +601,6 @@ class DataManager(DbManager):
 
         session.extra = extra
         session.data_path = data_path
-
         self.commit()
 
         # Create empty hdf5 file
