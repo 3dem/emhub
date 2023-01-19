@@ -875,6 +875,18 @@ def create_data_models(dm):
         def actions(self, actions):
             self.__setExtra('actions', actions)
 
+        @property
+        def files(self):
+            return self.__getExtra('raw', {}).get('files', {})
+
+        @property
+        def total_files(self):
+            return sum(fi['count'] for fi in self.files.values())
+
+        @property
+        def total_size(self):
+            return sum(fi['size'] for fi in self.files.values())
+
         def json(self):
             return dm.json_from_object(self)
 

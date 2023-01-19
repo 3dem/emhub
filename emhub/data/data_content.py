@@ -38,6 +38,8 @@ from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          datetime_from_isoformat, get_quarter, pretty_quarter,
                          image)
 
+from emtools.utils import Pretty
+
 
 class DataContent:
     """ This class acts as an intermediary between the DataManager and
@@ -208,7 +210,12 @@ class DataContent:
         return {
             'session': session,
             'deletion_days': td.days,
-            'errors': errors
+            'errors': errors,
+            'files': [{'name': k.replace('.', ''),
+                       'y': v['count'],
+                       'z': v['size'],
+                       'sizeH': Pretty.size(v['size'])}
+                      for k, v in session.files.items()]
         }
 
     def get_sessions_list(self, **kwargs):
