@@ -64,8 +64,8 @@
             return;
         }
 
-        alert(JSON.stringify(attrs, null, 4));
-        return
+        {#alert(JSON.stringify(attrs, null, 4));#}
+        {#return#}
 
         var ajaxContent = $.ajax({
             url: "{{ url_for('api.create_session') }}",

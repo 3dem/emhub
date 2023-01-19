@@ -13,8 +13,8 @@
 {% macro trow(title, value, label) %}
     {% set class = label or 'label' %}
     <tr>
-        <td class="col-4"><label>{{ title }}</label></td>
-        <td class="col-8"><{{ class }}>{{ value }}</{class}></td>
+        <td class="col-3"><label>{{ title }}</label></td>
+        <td class="col-9"><{{ class }}>{{ value }}</{class}></td>
     </tr>
 {%- endmacro %}
 
@@ -35,86 +35,118 @@
 
     {% if is_manager or current_user == owner or current_user == pi %}
 
-    <div class="row ">
+    <!-- Create a layout with two columns, left column with two panes -->
+    <div class="row">
 
-        <div class="col-12 col-xl-6">
-            <div class="card">
-            <!-- Modal header -->
-            <div class="card-header">
-                <h3 class="card-header-title"> Overview </h3>
-            </div>
+        <!-- Left column -->
+        <div class="col-6">
 
-            <div class="card-body">
+            <div class="row">
 
-                <!-- Create Session Form -->
                 <div class="col-12">
-                    <form id="session-form" data-parsley-validate="" novalidate="">
-
-                        {{ row('Session Name', session.name, 'h4') }}
-                        {{ row('Owner', booking.owner.name, 'h4') }}
-                        {{ row('Creator', booking.creator.name) }}
-                        {{ row('Operator', booking.operator.name) }}
-                        {{ row('Date', session.start|pretty_date) }}
-                        {{ row('Status', session.status) }}
-
-                        <!-- Microscope Row -->
-                        <div class="row">
-                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Microscope</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                                <div class="row align-items-center justify-content-start">
-                                <div class="col">
-                                    <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
-                                </div>
-                                <div class="col-10 text-sm-left">
-                                    <h5>{{ booking.resource.name }}</h5>
-                                </div>
-                            </div>
-                            </div>
+                    <div class="card"> <!-- Overview Card -->
+                        <div class="card-header">
+                            <h3 class="card-header-title"> Overview </h3>
                         </div>
+                         <div class="card-body">
+                            <div class="col-12">
+                                <form id="session-form" data-parsley-validate="" novalidate="">
 
-                         <!-- On the fly  Row -->
-                        <div class="row">
-                            <label class="col-12 col-sm-4 col-form-label text-sm-right">On-the-fly</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                                <a href="{{ url_for_content('session_live', session_id=session.id) }}">{{ session.data_path }}</a>
+                                    {{ row('Session Name', session.name, 'h4') }}
+                                    {{ row('Owner', booking.owner.name, 'h4') }}
+                                    {{ row('Creator', booking.creator.name) }}
+                                    {{ row('Operator', booking.operator.name) }}
+                                    {{ row('Date', session.start|pretty_date) }}
+                                    {{ row('Status', session.status) }}
+
+                                    <!-- Microscope Row -->
+                                    <div class="row">
+                                        <label class="col-12 col-sm-4 col-form-label text-sm-right">Microscope</label>
+                                        <div class="col-12 col-sm-8 col-lg-6">
+                                            <div class="row align-items-center justify-content-start">
+                                            <div class="col">
+                                                <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
+                                            </div>
+                                            <div class="col-10 text-sm-left">
+                                                <h5>{{ booking.resource.name }}</h5>
+                                            </div>
+                                        </div>
+                                        </div>
+                                    </div>
+
+                                     <!-- On the fly  Row -->
+                                    <div class="row">
+                                        <label class="col-12 col-sm-4 col-form-label text-sm-right">On-the-fly</label>
+                                        <div class="col-12 col-sm-8 col-lg-6">
+                                            <a href="{{ url_for_content('session_live', session_id=session.id) }}">{{ session.data_path }}</a>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
 
                         </div>
-
-
-                    </form>
+                    </div> <!-- Overview Card -->
                 </div>
-                <!-- end Session Card -->
+
+                <div class="col-12">
+                    <div class="card"> <!-- Acquisition Card -->
+                        <div class="card-header">
+                            <h3 class="card-header-title"> Acquisition </h3>
+                        </div>
+
+                        <div class="card-body">
+                            {% set acq = session.acquisition %}
+                            {% set stats = session.stats %}
+                            <table class="table table-striped table-bordered">
+                                <tbody>
+                                    {{ trow('Voltage (kV)', acq['voltage']) }}
+                                    {{ trow('CS', acq['cs']) }}
+                                    {{ trow('Pixel Size (A/px)', acq['pixelSize']) }}
+                                    {{ trow('Dose (per frame)', acq['dosePerFrame']) }}
+                                    {{ trow('Movies', stats['numOfMovies'], 'h5') }}
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div> <!-- End of Acquisition Card -->
+                </div>
 
             </div>
-        </div>
-        </div>
 
-        <div class="col-12 col-xl-6">
-            <div class="card">
-            <!-- Modal header -->
-            <div class="card-header">
-                <h3 class="card-header-title"> Acquisition </h3>
-            </div>
+        </div> <!-- End of Left column -->
 
-            <div class="card-body">
-                {% set acq = session.acquisition %}
-                {% set stats = session.stats %}
-                <table class="table table-striped table-bordered">
-                    <tbody>
-                        {{ trow('Voltage (kV)', acq['voltage']) }}
-                        {{ trow('CS', acq['cs']) }}
-                        {{ trow('Pixel Size (A/px)', acq['pixelSize']) }}
-                        {{ trow('Dose (per frame)', acq['dosePerFrame']) }}
-                        {{ trow('Movies', stats['numOfMovies'], 'h5') }}
+        <!-- Right column -->
+        <div class="col-6">
 
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        </div>
+                <div class="col-12">
+                    <div class="card"> <!-- Data Card -->
+                        <div class="card-header">
+                            <h3 class="card-header-title"> Data </h3>
+                        </div>
 
-    </div> <!-- end of row -->
+                        <div class="card-body">
+                            {% set acq = session.acquisition %}
+                            {% set stats = session.stats %}
+                            {% set extra = session.extra %}
+                            <table class="table table-striped table-bordered">
+                                <tbody>
+                                    {{ trow('Raw path', extra['raw']['path']) }}
+                                    {{ trow('OTF path', extra['otf']['path']) }}
+                                    {{ trow('Size', extra['raw']['sizeH']) }}
+                                    {{ trow('Files', session.total_files) }}
+
+                                </tbody>
+                            </table>
+                             <div class="col-12">
+                                <div id="files-pie" class="col-12"></div>
+                                <p>Here should be the plot. </p>
+                            </div>
+                        </div>
+                    </div> <!-- End of Data Card -->
+                </div>
+
+        </div> <!-- End of Right column -->
+    </div>
 
     {% else %}
         <div>
@@ -126,3 +158,15 @@
 {% endif %}
 
 
+<script>
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        var filesData = {{ files|tojson }};
+        create_hc_files_pie('files-pie', filesData);
+});
+
+})(window, document, window.jQuery);
+
+
+</script>

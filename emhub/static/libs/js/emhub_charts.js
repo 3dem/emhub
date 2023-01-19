@@ -176,6 +176,32 @@ function create_hc_histogram(containerId, data, config) {
     });
 }
 
+
+function create_hc_files_pie(containerId, filesData) {
+    Highcharts.chart(containerId, {
+    chart: {
+        type: 'variablepie'
+    },
+    title: {
+        text: 'Files count and size by extension'
+    },
+    tooltip: {
+        headerFormat: '',
+        pointFormat: '<span style="color:{point.color}">\u25CF</span> <b> {point.name}</b><br/>' +
+            'Count: <b>{point.y}</b><br/>' +
+            'Size: <b>{point.sizeH}</b><br/>'
+    },
+    series: [{
+        minPointSize: 10,
+        innerSize: '20%',
+        zMin: 0,
+        name: 'files',
+        data: filesData
+
+    }]
+});
+}
+
 /* Draw the micrograph images with coordinates(optional) */
 function drawMicrograph(micrograph) {
     var canvas = document.getElementById("canvas_micrograph");
