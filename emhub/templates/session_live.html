@@ -359,16 +359,18 @@
 
 function updateStatsCounters(stats){
     function setCounter(container, value){
-            document.getElementById(container).innerHTML = value;
+            document.getElementById(container).innerHTML = value.toString();
         }
-    setCounter('counter_imported', stats['numOfMics']);
-    setCounter('counter_picked', stats['classes2d']);
+    setCounter('counter_imported', stats['numOfMovies']);
+    setCounter('counter_aligned', stats['numOfMics']);
+    setCounter('counter_ctf', stats['numOfCtfs']);
+    setCounter('diff_aligned', stats['numOfMics'] - stats['numOfMovies']);
+    setCounter('diff_ctf', stats['numOfCtfs'] - stats['numOfMics']);
 
-    //document.getElementById('counter_imported').innerHTML = stats['numOfMovies'];
-    document.getElementById('counter_aligned').innerHTML = stats['numOfMics'];
-    document.getElementById('diff_aligned').innerHTML = (stats['numOfMics'] - stats['numOfMovies']).toString();
-    document.getElementById('counter_ctf').innerHTML = stats['numOfCtfs'];
-    document.getElementById('diff_ctf').innerHTML = (stats['numOfCtfs'] - stats['numOfMics']).toString();
+    //fixme
+    setCounter('counter_picked', stats['numOfMics']);
+    //document.getElementById('diff_aligned').innerHTML = (stats['numOfMics'] - stats['numOfMovies']).toString();
+    //document.getElementById('diff_ctf').innerHTML = (stats['numOfCtfs'] - stats['numOfMics']).toString();
     //document.getElementById('counter_picked').innerHTML = stats['numOfPtcls'];
 }
 
