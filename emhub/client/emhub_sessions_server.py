@@ -30,6 +30,7 @@ from collections import OrderedDict
 import configparser
 from pprint import pprint
 from apscheduler.schedulers.background import BackgroundScheduler
+import traceback
 
 from emtools.utils import Pretty, Process, JsonTCPServer, JsonTCPClient, Path, Color
 from emtools.metadata import EPU
@@ -42,24 +43,33 @@ import sessions_config as sconfig
 
 class SessionsData:
     def __init__(self, **kwargs):
-        sessions_dict = OrderedDict()
-        with open_client() as dc:
-            req = dc.request('get_sessions', jsonData={})
 
-            for i, s in enumerate(req.json()):
-                sessions_dict[s['id']] = s
-                if i == 10:
-                    break
+        print("- Loading sessions...")
+        self.sessions = self.request_dict('get_sessions')
+        print(f"    Total: {len(self.sessions)}")
 
-            resources_dict = {}
-            req = dc.request('get_resources', jsonData={"attrs": ["id", "name"]})
-            for r in req.json():
-                resources_dict[r['id']] = r
+        print("- Loading resources...")
+        self.resources = self.request_dict('get_resources',
+                                           {"attrs": ["id", "name"]})
+        print(f"    Total: {len(self.resources)}")
+        pprint(self.resources)
 
-        self.sessions = sessions_dict
-        self.resources = resources_dict
-        pprint(resources_dict)
+        print("- Loading config...")
+        self.config = self.request_config('sessions')
+        pprint(self.config)
+
         self.lock = threading.Lock()
+
+    def request_data(self, endpoint, jsonData=None):
+        with open_client() as dc:
+            return dc.request(endpoint, jsonData=jsonData).json()
+
+    def request_dict(self, endpoint, jsonData=None):
+        return {s['id']: s for s in self.request_data(endpoint, jsonData=jsonData)}
+
+    def request_config(self, config):
+        data = {'attrs': {'config': config}}
+        return self.request_data('get_config', jsonData=data)['config']
 
     def print(self, *args):
         if self.verbose:
@@ -127,13 +137,17 @@ class SessionsData:
         if not os.path.exists(raw_path):
             raise Exception("Input folder does not exists")
 
+        attrs = {"attrs": {"id": session['id']}}
+        users = self.request_data('get_session_users', attrs)['session_users']
+        print(Color.red(">>> Users: "))
+        pprint(users)
+
         date_ts = Pretty.now()  # Fixme Maybe use first file creation (for old sessions)
         date = date_ts.split()[0].replace('-', '')
         microscope = self.resources[session['resource_id']]['name']
 
-        group = 'cyroemgrp'
-        user = 'ISF'
-        otf_folder = f"{date}_{microscope}_{group}_{user}_OTF"
+        name = session['name']
+        otf_folder = f"{date}_{microscope}_{name}_OTF"
         otf_path = os.path.join(otf_root, otf_folder)
         extra['otf'] = {'path': otf_path}
         session['data_path'] = otf_path
@@ -146,30 +160,67 @@ class SessionsData:
         os.mkdir(otf_path)
         os.symlink(raw_path, _path('data'))
 
-        possible_gains = glob(_path('data', '*gain*.mrc'))
+        gain_pattern = self.config['data']['gain']
+        possible_gains = glob(gain_pattern.format(microscope=microscope))
         if possible_gains:
             gain = possible_gains[0]
-            os.symlink(os.path.relpath(gain, otf_folder), _path('gain.mrc'))
+            os.symlink(os.path.realpath(gain), _path('gain.mrc'))
 
         # Create a general ini file with config/information of the session
         config = configparser.ConfigParser()
 
+        operator = users['operator'].get('name', 'No-operator')
         config['GENERAL'] = {
-            'group': group,
-            'user': user,
+            'group': users['group'],
+            'user': users['owner']['name'],
+            'operator': operator,
             'microscope': microscope,
             'raw_data': raw_path
         }
 
-        config['ACQUISITION'] = sconfig.acquisition[microscope]
+        acq = sconfig.acquisition[microscope]
+        config['ACQUISITION'] = acq
 
         config['PREPROCESSING'] = {
             'images': 'data/Images-Disc1/GridSquare_*/Data/Foil*fractions.tiff',
             'software': 'None',  # or Relion or Scipion
         }
 
-        with open(_path('README.ini'), 'w') as configfile:
+        with open(_path('README.txt'), 'w') as configfile:
             config.write(configfile)
+
+        options = """{{
+'do_prep' : 'True', 
+'do_proc' : 'False', 
+'prep__do_at_most' : '{do_at_most}', 
+'prep__importmovies__angpix' : '{pixel_size}', 
+'prep__importmovies__kV' : '{voltage}', 
+'prep__importmovies__Cs' : '2.7', 
+'prep__importmovies__fn_in_raw' : 'data/Images-Disc1/GridSquare_*/Data/FoilHole_*_fractions.tiff', 
+'prep__importmovies__is_multiframe' : 'True',
+'prep__motioncorr__do_own_motioncor': 'False',
+'prep__motioncorr__fn_motioncor2_exe': '/software/scipion/EM/motioncor2-1.5.0/bin/motioncor2',
+'prep__motioncorr__dose_per_frame' : '1.00',
+'prep__motioncorr__do_save_noDW' : 'False',
+'prep__motioncorr__do_save_ps' : 'False', 
+'prep__motioncorr__do_float16' : 'False',
+'prep__motioncorr__fn_gain_ref' : './gain.mrc', 
+'prep__motioncorr__bin_factor' : '1', 
+'prep__motioncorr__gpu_ids' : '0:1', 
+'prep__motioncorr__nr_mpi' : '2', 
+'prep__motioncorr__nr_threads' : '1',
+'prep__motioncorr__patch_x' : '7',
+'prep__motioncorr__patch_y' : '5',
+'prep__motioncorr__other_args' : '--skip_logfile --do_at_most {do_at_most}',
+'prep__ctffind__fn_ctffind_exe' : '/software/scipion/EM/ctffind4-4.1.13/bin/ctffind', 
+'prep__ctffind__nr_mpi' : '8',
+'prep__ctffind__use_given_ps' : 'False',
+'prep__ctffind__use_noDW' : 'False',
+}}\n"""
+
+        do_at_most = 16
+        with open(_path('relion_it_options.py'), 'w') as f:
+            f.write(options.format(**acq, do_at_most=do_at_most))
 
 
 class SessionsServer(JsonTCPServer):
@@ -224,7 +275,8 @@ class SessionsServer(JsonTCPServer):
                     self.data.create_session_otf(session)
             except Exception as e:
                 print(e)
-                remaining_actions.append(action)
+                traceback.print_exc()
+                #remaining_actions.append(action)
         print(f"        Updating session {session['name']}")
         extra['actions'] = remaining_actions
         extra['updated'] = Pretty.now()
