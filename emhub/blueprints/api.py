@@ -481,6 +481,27 @@ def get_session_data():
     return handle_session_data(handle, mode="r")
 
 
+@api_bp.route('/get_session_users', methods=['POST'])
+@flask_login.login_required
+def get_session_users():
+
+    def _user(u):
+        return {'id': u.id, 'name': u.name, 'email': u.email} if u else {}
+
+    def _session_users(**attrs):
+        session = app.dm.get_session_by(id=attrs['id'])
+        user_groups = app.dm.get_config('sessions')['groups']
+        b = session.booking
+        pi = b.owner.get_pi()
+        return {
+            'owner': _user(b.owner),
+            'operator': _user(b.operator),
+            'creator': _user(b.creator),
+            'group': user_groups.get(pi.email, 'No-group')
+        }
+    return _handle_item(_session_users, 'session_users')
+
+
 # ---------------------------- INVOICE PERIODS --------------------------------
 
 @api_bp.route('/get_invoice_periods', methods=['POST'])
@@ -557,6 +578,16 @@ def update_form():
 @flask_login.login_required
 def delete_form():
     return handle_form(app.dm.delete_form)
+
+
+@api_bp.route('/get_config', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_config():
+    def _get_config(**attrs):
+        return app.dm.get_config(attrs['config'])
+
+    return _handle_item(_get_config, 'config')
+
 
 
 # ------------------------------ PROJECTS ---------------------------------
