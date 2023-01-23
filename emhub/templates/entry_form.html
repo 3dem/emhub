@@ -36,20 +36,24 @@
                     </div>
 
                     <!-- Title Row -->
-                    <div class="form-group row">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
-                        <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="entry-title" class="form-control" value="{{ entry.title }}">
+                    {% if form_config['show_title'] %}
+                        <div class="form-group row">
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="entry-title" class="form-control" value="{{ entry.title }}">
+                            </div>
                         </div>
-                    </div>
+                    {% endif %}
 
                     <!-- Description Row -->
+                    {% if form_config['show_title'] %}
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
                         <div class="col-12 col-sm-8 col-lg-6">
                             <textarea {{ readonly }} required="" class="form-control" id="entry-description">{{ entry.description }}</textarea>
                         </div>
                     </div>
+                    {% endif %}
 
                 </form>
             </div>
