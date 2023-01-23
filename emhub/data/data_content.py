@@ -29,6 +29,7 @@
 import os
 import datetime as dt
 import json
+import sys
 from collections import defaultdict
 
 import flask
@@ -1398,7 +1399,23 @@ class DataContent:
             else:
                 return (e.date, e.creation_date)
 
-        entries = [e for e in project.entries]
+        def _update(e):
+            """ Format entries depending on their type.
+            Hardcoded for now :(
+            """
+            if e.type == 'access_microscopes':
+                t = 'Incomplete Request (select microscope)'
+                data = e.extra['data']
+                if micid := data.get('microscope_id', None):
+                    mic = dm.get_resource_by(id=int(micid))
+                    if mic:
+                        t = f"Request for {mic.name}"
+                        if sample := data.get('sample_name', None):
+                            t += f": {sample}"
+                e.title = t
+            return e
+        entries = [_update(e) for e in project.entries]
+
         entries.extend([b for b in project.bookings])
         entries.sort(key=ekey, reverse=True)
 
@@ -1439,13 +1456,23 @@ class DataContent:
         entry_config = dm.get_entry_config(entry.type)
         form_id = "entry_form:%s" % entry.type
         form = dm.get_form_by(name=form_id)
+        # Default config for the form
+        form_config = {
+            'show_title': True,
+            'show_desc': True,
+        }
+        print("get_entry_form")
         if form:
             self.set_form_values(form, entry.extra.get('data', {}))
+            if 'config' in form.definition:
+                form_config = form.definition['config']
 
         data = {
             'entry': entry,
             'entry_type_label': entry_config['label'],
-            'definition': None if form is None else form.definition
+            'definition': None if form is None else form.definition,
+            'resources': dm.get_resources(),
+            'form_config': form_config
         }
         data.update(self.get_grids_storage())
 

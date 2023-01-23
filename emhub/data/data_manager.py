@@ -809,13 +809,15 @@ class DataManager(DbManager):
 
         return False
 
-    def __check_entry(self, **attrs):
-        if 'title' in attrs:
-            if not attrs['title'].strip():
-                raise Exception("Entry title can not be empty")
+    # def __check_entry(self, **attrs):
+    #     if 'title' in attrs:
+    #         if not attrs['title'].strip():
+    #             raise Exception("Entry title can not be empty")
 
     def create_entry(self, **attrs):
-        self.__check_entry(**attrs)
+        # self.__check_entry(**attrs)
+        if 'title' not in attrs:
+            attrs['title'] = ''
 
         now = self.now()
         attrs.update({
@@ -828,7 +830,7 @@ class DataManager(DbManager):
         return self.__create_item(self.Entry, **attrs)
 
     def update_entry(self, **attrs):
-        self.__check_entry(**attrs)
+        # self.__check_entry(**attrs)
 
         attrs.update({
             'last_update_date': self.now(),
