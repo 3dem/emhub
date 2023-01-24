@@ -1,0 +1,42 @@
+
+{% import "entry_macros.html" as macros %}
+
+{# Number of pages for the report #}
+{% set N = 2 %}
+
+{{ macros.sj_header_card(entry_config['label'], entry.date, (1, N), break=False) }}
+
+{{ macros.table_card('General Info',
+[('PI / User', '%s / %s'|format(pi.name, user.name)),
+ ('Responsible Staff', entry.creation_user.name),
+ ('Comments', data.get('comments', '')),
+ ])
+}}
+
+{{ macros.table_card('Sample Details',
+    [('Sample Name/Identifier', data.get('sample_name', 'Unknown')),
+     ('Components', data.get('components', '')),
+     ('Weight', '%s kDa'|format(data.get('weight', ''))),
+     ('Preparation', '%s storage: %s'|format(data.get('preparation_date', ''), data.get('storage_conditions', ''))),
+     ('Concentration', '%s µM, measured by %s'|format(data.get('concentration', ''), data.get('concentration_measurement', ''))),
+     ('Volume', '%s µL, buffer composition: %s'|format(data.get('volume', ''), data.get('buffer', '')))
+     ])
+}}
+
+{{ macros.sj_header_card(entry_config['label'], entry.date, (2, N)) }}
+
+<div class="card">
+        <div class="card-header">
+            <h3 class="mb-1">Supporting Figures</h3>
+        </div>
+
+        <div class="card-body">
+
+        {% for row in images %}
+            {% set caption = "Figure %s: %s"|format(loop.index, row['image_desc']) %}
+            {{ macros.figure(row['image_data'], caption, 100) }}
+        {% endfor %}
+
+        </div>
+</div>
+
