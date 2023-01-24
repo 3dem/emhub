@@ -1495,18 +1495,20 @@ class DataContent:
         images = []
 
         # Convert images in data form to base64
-        base64 = image.Base64Converter(max_size=(1024, 1024))
+        base64 = image.Base64Converter(max_size=(512, 512))
 
         for k, v in data.items():
             if k.endswith('_image') and v.strip():
                 fn = dm.get_entry_path(entry, v)
                 data[k] = 'data:image/%s;base64, ' + base64.from_path(fn)
 
-        for row in data.get('images_table', []):
-            if 'image_file' in row:
-                fn = dm.get_entry_path(entry, row['image_file'])
-                row['image_data'] = 'data:image/%s;base64, ' + base64.from_path(fn)
-                images.append(row)
+        for k, v in data.items():
+            if k.endswith('_images') or k.endswith('images_table'):
+                for row in v:
+                    if 'image_file' in row:
+                        fn = dm.get_entry_path(entry, row['image_file'])
+                        row['image_data'] = 'data:image/%s;base64, ' + base64.from_path(fn)
+                        images.append(row)
 
         # Group data rows by gridboxes (label)
         if entry.type in ['grids_preparation', 'grids_storage']:
