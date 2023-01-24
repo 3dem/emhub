@@ -54,6 +54,11 @@
     "use strict";
     $('.selectpicker').selectpicker();
 
+    $('.datetimepicker-input').each(function (i){
+       console.log("index: " + i + " id: " + $(this).attr('id') + " value: " + $(this).val());
+       $(this).datetimepicker({format: 'YYYY/MM/DD', date: new Date($(this).val())})
+    });
+
 })(window, document, window.jQuery);
 </script>
 

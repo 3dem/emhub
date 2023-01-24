@@ -31,7 +31,7 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Date</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                             <input type="text" class="form-control datetimepicker-input" data-target="#entry-date" id="entry-date" data-toggle="datetimepicker" />
+                             <input type="text" class="form-control datetimepicker-input" data-target="#entry-date" id="entry-date" value="{{ entry.date|pretty_date }}" data-toggle="datetimepicker" />
                         </div>
                     </div>
 
@@ -90,14 +90,3 @@
 <!-- End of Application Modal Content -->
 <!-- ============================================================== -->
 
-<script>
-    (function(window, document, $, undefined) {
-    "use strict";
-
-    $('#entry-date').datetimepicker({
-        format: 'YYYY/MM/DD',
-        date:  new Date('{{ entry.date|pretty_date }}')
-    });
-
-})(window, document, window.jQuery);
-</script>
