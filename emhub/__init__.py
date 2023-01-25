@@ -293,6 +293,8 @@ def create_app(test_config=None):
                                                        'session_content.html')
             kwargs['session_body'] = app.config.get('TEMPLATE_SESSION_BODY',
                                                        'create_session_form_body.html')
+            kwargs['dashboard_right'] = app.config.get('TEMPLATE_DASHBOARD_RIGHT',
+                                                    'dashboard_right.html')
             return flask.render_template(content_template, **kwargs)
 
         error = {
@@ -316,6 +318,19 @@ def create_app(test_config=None):
         e = date_range[1].strftime("%Y/%m/%d")
         return "&start=%s&end=%s" % (s, e)
 
+    @app.template_filter('shortname')
+    def shortname(user):
+        if user:
+            parts = user.name.split()
+            parts[0] = parts[0][0] + '.'  # take first letter
+            return ' '.join(parts)
+        else:
+            return ''
+
+    @app.template_filter('weekday')
+    def weekday(dt):
+        return dt.strftime("%a, %b %d")
+
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
 
@@ -325,6 +340,8 @@ def create_app(test_config=None):
     app.jinja_env.filters['pretty_datetime'] = pretty_datetime
     app.jinja_env.filters['pretty_date'] = pretty_date
     app.jinja_env.filters['pretty_quarter'] = pretty_quarter
+    app.jinja_env.filters['shortname'] = shortname
+    app.jinja_env.filters['weekday'] = weekday
 
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user

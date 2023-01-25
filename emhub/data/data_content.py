@@ -77,11 +77,24 @@ class DataContent:
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
 
+        def week_start(d):
+            return (d - dt.timedelta(days=d.weekday())).date()
+
         now = dm.now()
-        next7 = now + dt.timedelta(days=7)
+        this_week = week_start(now)
+        d7 = dt.timedelta(days=8)
+        prev7 = now - dt.timedelta(days=8)
+        next7 = now + d7
         next30 = now + dt.timedelta(days=30)
 
-        for b in dm.get_bookings(orderBy='start'):
+        def same_week(d):
+            return this_week == week_start(d)
+        def next_week(d):
+            return this_week == week_start(d - d7)
+
+        local_tag = dm.get_config('bookings')['local_tag']
+
+        for b in dm.get_bookings_range(prev7, next30):
             if not user.is_manager and not user.same_pi(b.owner) or not b.is_booking:
                 continue
             bDict = {'owner': b.owner.name,
@@ -100,11 +113,28 @@ class DataContent:
 
             if i >= 0:
                 bookings[i][1].append(bDict)
-                r = b.resource
-                local_tag = dm.get_config('bookings')['local_tag']
-                if i == 0 and r.is_microscope and local_tag in r.tags:  # Today's bookings
-                    # FIXME: If there is already a session, also return its id
-                    resource_bookings[r.id] = b
+
+            r = b.resource
+
+            if r.is_microscope and local_tag in r.tags:
+                if r.id not in resource_bookings:
+                    resource_bookings[r.id] = {
+                        'today': [],
+                        'this_week': [],
+                        'next_week': []
+                    }
+
+                if same_week(b.start):
+                    k = 'this_week'
+                elif next_week(b.start):
+                    k = 'next_week'
+                else:
+                    k = None
+
+                if k:
+                    resource_bookings[r.id][k].append(b)
+                    if i == 0:  # also add in today
+                        resource_bookings[r.id]["today"].append(b)
 
         dataDict.update({'bookings': bookings,
                          'lab_members': self.get_lab_members(user),
