@@ -71,7 +71,7 @@
                 {% for column in columns %}
                     {% set col_index = loop.index0 %}
                     {% set col_id = column['id'] %}
-                    {% set param_id = 'row-%d-col-%d'|format(row_index, col_index) %}
+                    {% set param_id = '%s-col-%d'|format(row_id, col_index) %}
                     {% set id_name = 'name=%s'|format(param_id) %}
                     {% set data_key = ' data-key=%s '|format(col_id) %}
                     {% set param = column %}
