@@ -82,64 +82,96 @@ class DataContent:
 
         now = dm.now()
         this_week = week_start(now)
-        d7 = dt.timedelta(days=8)
+        d7 = dt.timedelta(days=7)
+        next_week = week_start(now + d7)
         prev7 = now - dt.timedelta(days=8)
         next7 = now + d7
         next30 = now + dt.timedelta(days=30)
 
-        def same_week(d):
+        def is_same_week(d):
             return this_week == week_start(d)
-        def next_week(d):
+        def is_next_week(d):
             return this_week == week_start(d - d7)
 
+        def add_booking(b):
+            r = b.resource
+            if r.id not in resource_bookings:
+                resource_bookings[r.id] = {
+                    'today': [],
+                    'this_week': [],
+                    'next_week': []
+                }
+
+            if is_same_week(b.start):
+                k = 'this_week'
+            elif is_next_week(b.start):
+                k = 'next_week'
+            else:
+                k = None
+
+            if k:
+                resource_bookings[r.id][k].append(b)
+                if b.start.date() == now.date():  # also add in today
+                    resource_bookings[r.id]["today"].append(b)
+
         local_tag = dm.get_config('bookings')['local_tag']
+        local_scopes = {}
 
         for b in dm.get_bookings_range(prev7, next30):
-            if not user.is_manager and not user.same_pi(b.owner) or not b.is_booking:
+            if not user.is_manager and not user.same_pi(b.owner):
                 continue
-            bDict = {'owner': b.owner.name,
-                     'resource': b.resource.name,
-                     'start': pretty_datetime(b.start),
-                     'end': pretty_datetime(b.end),
-                     }
-            if b.start <= now <= b.end:
-                i = 0
-            elif now <= b.start <= next7:
-                i = 1
-            elif now <= b.start <= next30:
-                i = 2
-            else:
-                i = -1
-
-            if i >= 0:
-                bookings[i][1].append(bDict)
-
             r = b.resource
-
             if r.is_microscope and local_tag in r.tags:
-                if r.id not in resource_bookings:
-                    resource_bookings[r.id] = {
-                        'today': [],
-                        'this_week': [],
-                        'next_week': []
-                    }
+                local_scopes[r.id] = r
+                add_booking(b)
 
-                if same_week(b.start):
-                    k = 'this_week'
-                elif next_week(b.start):
-                    k = 'next_week'
-                else:
-                    k = None
+        resource_requests = {rid: [] for rid in local_scopes.keys()}
 
-                if k:
-                    resource_bookings[r.id][k].append(b)
-                    if i == 0:  # also add in today
-                        resource_bookings[r.id]["today"].append(b)
+        from pprint import pprint
+        # Retrieve open requests for each scope from entries and bookings
+        for p in dm.get_projects():
+            if p.is_active:
+                print(f"\n>>> DEBUG: Project {p.id}")
+                last_bookings = {}
+                # Find last bookings for each scope
+                for b in reversed(p.bookings):
+                    if len(last_bookings) == len(local_scopes):
+                        break
+                    last_bookings[b.resource.id] = b
+
+                pprint(last_bookings)
+                requests = {}
+                for e in reversed(p.entries):
+                    # requests found for each scope, no need to continue
+                    if len(requests) == len(local_scopes):
+                        break
+                    if e.type == 'access_microscopes':
+                        data = e.extra['data']
+                        dstr = data.get('suggested_date', None)
+                        rid = int(data.get('microscope_id', 0))
+                        if dstr and rid:
+                            sdate = dm.date(dt.datetime.strptime(dstr, '%Y/%M/%d'))
+                            if rid not in last_bookings or sdate > last_bookings[rid].end:
+                                b = dm.Booking(
+                                    title='',
+                                    type='request',
+                                    start=sdate.replace(hour=9),
+                                    end=sdate.replace(hour=11, minute=59),
+                                    owner=p.user,
+                                    resource=local_scopes[rid],
+                                    resource_id=rid,
+                                    project_id=p.id
+                                )
+                                add_booking(b)
+
+        # Sort all entries
+        for rbookings in resource_bookings.values():
+            for k, bookings in rbookings.items():
+                bookings.sort(key=lambda b: b.start)
 
         dataDict.update({'bookings': bookings,
                          'lab_members': self.get_lab_members(user),
                          'resource_bookings': resource_bookings})
-
         return dataDict
 
     def get_lab_members(self, user):

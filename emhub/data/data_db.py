@@ -28,6 +28,7 @@
 
 import os
 import datetime as dt
+from tzlocal import get_localzone
 import decimal
 
 import sqlalchemy
@@ -71,10 +72,11 @@ class DbManager:
 
     # ------------------- Some utility methods --------------------------------
     def now(self):
-        from tzlocal import get_localzone
         # get local timezone
-        local_tz = get_localzone()
-        return dt.datetime.now(local_tz)
+        return dt.datetime.now(get_localzone())
+
+    def date(self, date):
+        return dt.datetime.combine(date, dt.time(), get_localzone())
 
     @staticmethod
     def json_from_value(v):

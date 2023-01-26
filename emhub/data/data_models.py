@@ -1049,6 +1049,7 @@ def create_data_models(dm):
         def json(self):
             return dm.json_from_object(self)
 
+
     class Entry(Base):
         """ Entry related to a given project.
          """
