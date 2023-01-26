@@ -111,7 +111,7 @@ class DataContent:
 
             if k:
                 resource_bookings[r.id][k].append(b)
-                if b.start.date() == now.date():  # also add in today
+                if b.start.date() <= now.date() <= b.end.date():  # also add in today
                     resource_bookings[r.id]["today"].append(b)
 
         local_tag = dm.get_config('bookings')['local_tag']
