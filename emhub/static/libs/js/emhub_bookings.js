@@ -37,18 +37,15 @@ function handleBookingAjaxDone(jsonResponse) {
     const has_calendar = hasCalendar();
 
     if ('bookings_created' in jsonResponse) {
-        if (has_calendar)
-            add_bookings(jsonResponse.bookings_created);
+        on_bookings_created(jsonResponse);
     }
     else if ('bookings_updated' in jsonResponse) {
-        if (has_calendar) {
-            remove_bookings(jsonResponse.bookings_updated);
-            add_bookings(jsonResponse.bookings_updated);
-        }
+
+        on_bookings_updated(jsonResponse);
     }
     else if ('bookings_deleted' in jsonResponse) {
-        if (has_calendar)
-            remove_bookings(jsonResponse.bookings_deleted);
+        on_bookings_deleted(jsonResponse);
+
     }
     else if ('error' in jsonResponse) {
         error = jsonResponse.error;

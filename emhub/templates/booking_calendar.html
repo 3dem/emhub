@@ -83,6 +83,17 @@
     calendar = createCalender();
     calendar.render();
 
+    on_bookings_created = function (jsonResponse){
+        add_bookings(jsonResponse.bookings_created);
+    };
+    on_bookings_updated = function (jsonResponse){
+        remove_bookings(jsonResponse.bookings_updated);
+        add_bookings(jsonResponse.bookings_updated);
+    };
+    on_bookings_deleted = function (jsonResponse){
+       remove_bookings(jsonResponse.bookings_deleted);
+    };
+
     // Hack to enable multiple modals by making sure the .modal-open class
     // is set to the <body> when there is at least one modal open left
     $('body').on('hidden.bs.modal', function () {
