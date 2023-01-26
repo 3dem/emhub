@@ -127,11 +127,9 @@ class DataContent:
 
         resource_requests = {rid: [] for rid in local_scopes.keys()}
 
-        from pprint import pprint
         # Retrieve open requests for each scope from entries and bookings
         for p in dm.get_projects():
             if p.is_active:
-                print(f"\n>>> DEBUG: Project {p.id}")
                 last_bookings = {}
                 # Find last bookings for each scope
                 for b in reversed(p.bookings):
@@ -139,7 +137,6 @@ class DataContent:
                         break
                     last_bookings[b.resource.id] = b
 
-                pprint(last_bookings)
                 requests = {}
                 for e in reversed(p.entries):
                     # requests found for each scope, no need to continue
@@ -149,8 +146,8 @@ class DataContent:
                         data = e.extra['data']
                         dstr = data.get('suggested_date', None)
                         rid = int(data.get('microscope_id', 0))
-                        if dstr and rid:
-                            sdate = dm.date(dt.datetime.strptime(dstr, '%Y/%M/%d'))
+                        if dstr and rid and rid not in requests:
+                            sdate = dm.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
                             if rid not in last_bookings or sdate > last_bookings[rid].end:
                                 b = dm.Booking(
                                     title='',
@@ -163,6 +160,7 @@ class DataContent:
                                     project_id=p.id
                                 )
                                 add_booking(b)
+                                requests[rid] = b
 
         # Sort all entries
         for rbookings in resource_bookings.values():
@@ -623,7 +621,6 @@ class DataContent:
         booking = self.app.dm.get_booking_by(id=booking_id)
 
         if 'form_values' not in kwargs:
-            print(booking.experiment)
             kwargs['form_values'] = json.dumps(booking.experiment)
 
         data = self.get_dynamic_form_modal(**kwargs)
@@ -1523,7 +1520,6 @@ class DataContent:
             'show_title': True,
             'show_desc': True,
         }
-        print("get_entry_form")
         if form:
             self.set_form_values(form, entry.extra.get('data', {}))
             if 'config' in form.definition:
