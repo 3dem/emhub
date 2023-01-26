@@ -24,7 +24,7 @@
                                         <h1 class="mb-1" id="counter_imported"></h1>
                                     </div>
                                     <div class="metric-label d-inline-block float-right text-success font-weight-bold">
-                                        <span><i class="fa fa-fw fa-arrow-up"></i></span><span>#value</span>
+                                        <span><i class="fas fa-tachometer-alt"></i></span><span id="imported_tag"></span>
                                     </div>
                                 </div>
                                 <div id="sparkline-revenue"></div>
@@ -245,26 +245,22 @@
     var global_data = null;
     var overlay_2d, overlay_mic = null;
 
+    var plots = {};
+
 
     function fixDimensions(){
         const width  = window.innerWidth || document.documentElement.clientWidth ||
         document.body.clientWidth;
         const height = window.innerHeight || document.documentElement.clientHeight ||
         document.body.clientHeight;
-        $('#mic_particles').html("w: " + width + " h: " + height);
+
         if (width < 2000) {
             document.getElementById('ctf_plots').className = 'col-8';
             document.getElementById('image_plots').className = 'col-12';
-            {#document.getElementById('psd_plot').className = 'col-2';#}
-            {#document.getElementById('mic_plot').className = 'col-5';#}
-            {#document.getElementById('classes2d_plot').className = 'col-5';#}
         }
         else {
             document.getElementById('ctf_plots').className = 'col-5';
             document.getElementById('image_plots').className = 'col-5';
-            {#document.getElementById('psd_plot').className = 'col-3';#}
-            {#document.getElementById('mic_plot').className = 'col-9';#}
-            {#document.getElementById('classes2d_plot').className = 'col-12';#}
         }
 
         var canvas = document.getElementById("canvas_micrograph");
@@ -306,8 +302,8 @@
         }
         config.maxY = config.maxY + (config.maxY * 0.1)
 
-        create_hc_series('defocus_plot', ctfs.defocus, config);
-        create_hc_histogram('defocus_hist1', ctfs.defocus, config);
+        plots.defocus = create_hc_series('defocus_plot', ctfs.defocus, config);
+        plots.defocusHist = create_hc_histogram('defocus_hist1', ctfs.defocus, config);
         //create_hc_histogram('defocus_hist2', color);
 
         config.color ='#EF9A53';
@@ -336,10 +332,13 @@
     });
 
     // Load last micrograph asynchronous
-    requestMicrographData(session.id, ctfs.resolution.length - 1);
+        var n = ctfs.resolution.length;
+        if (n > 0)
+            requestMicrographData(n);
 
     // Load 2D classes asynchronous
-        console.log(stats);
+    console.log(stats);
+
     if (stats.classes2d)
         requestClasses2D();
 
@@ -361,17 +360,21 @@ function updateStatsCounters(stats){
     function setCounter(container, value){
             document.getElementById(container).innerHTML = value.toString();
         }
-    setCounter('counter_imported', stats['numOfMovies']);
+
+    let nMovies = stats['numOfMovies'];
+
+    setCounter('counter_imported', nMovies);
     setCounter('counter_aligned', stats['numOfMics']);
     setCounter('counter_ctf', stats['numOfCtfs']);
-    setCounter('diff_aligned', stats['numOfMics'] - stats['numOfMovies']);
+    setCounter('diff_aligned', stats['numOfMics'] - nMovies);
     setCounter('diff_ctf', stats['numOfCtfs'] - stats['numOfMics']);
 
+    let h = (stats['duration']/3600);
+    let speed = Math.round(nMovies/h);
+    setCounter('imported_tag', " " + speed + " / h");
+
     //fixme
-    setCounter('counter_picked', stats['numOfMics']);
-    //document.getElementById('diff_aligned').innerHTML = (stats['numOfMics'] - stats['numOfMovies']).toString();
-    //document.getElementById('diff_ctf').innerHTML = (stats['numOfCtfs'] - stats['numOfMics']).toString();
-    //document.getElementById('counter_picked').innerHTML = stats['numOfPtcls'];
+    setCounter('counter_picked', 0);
 }
 
 /** Helper functions to handle Template AJAX response or failure */
@@ -396,11 +399,15 @@ function handleAjaxDone(jsonResponse) {
         // Update Defocus plot with new values since last time
         var new_defocus_values = jsonResponse.defocus;
         var new_resolution_values = jsonResponse.resolution;
-        var newValuesLength = new_resolution_values.length - ctf.resolution.length;
+        var newValuesLength = new_resolution_values.length - ctfs.resolution.length;
 
         if (newValuesLength > 0) {
-            console.log("New values: ", newValuesLength);
-            //requestMicrographData(new_resolution_values.length-1);
+            console.log(">>>> New values: ", newValuesLength);
+            requestMicrographData(new_resolution_values.length);
+            {#var series = plots.defocus.series[0]#}
+            {#for (let i = newValuesLength; i < new_resolution_values.length; i++)#}
+            {#    series.addPoint(new_defocus_values[i]);#}
+            {#plots.defocus.redraw();#}
         }
     }
 }
@@ -430,12 +437,14 @@ function requestSessionData(attrs) {
 
     ajaxContent.done(handleAjaxDone);
     ajaxContent.fail(handleAjaxFail);
-
-
 }  // function onTemplateOkButtonClick
 
+
 function requestMicrographData(micId) {
+    console.log("data for mic: " + micId);
+
     $("#mic_id").val(micId);
+
     overlay_mic.show("Loading Micrograph " + micId + " ...");
 
     var requestMicThumb = $.ajax({

@@ -193,8 +193,8 @@ class DataContent:
             return round(v * 0.0001, 3)
 
         def _ts(fn):
-            # Timestamp in milliseconds
-            return os.path.getmtime(sdata.join(fn)) * 1000
+
+            return os.path.getmtime(sdata.join(fn))
 
         data = {
             'session': session.json(),
@@ -214,15 +214,17 @@ class DataContent:
                 resolution.append(round(mic['ctfResolution'], 3))
 
             tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
+            duration = dt.datetime.fromtimestamp(tsLast) - dt.datetime.fromtimestamp(tsFirst)
             step = (tsLast - tsFirst) / len(defocus)
+            data['stats']['duration'] = duration.seconds
             data.update({
                 'defocus': defocus,
                 'defocusAngle': defocusAngle,
                 'astigmatism': astigmatism,
                 'resolution': resolution,
-                'tsRange': {'first': tsFirst,
-                            'last': tsLast,
-                            'step': step}
+                'tsRange': {'first': tsFirst * 1000, # Timestamp in milliseconds
+                            'last': tsLast * 1000,
+                            'step': step},
             })
 
         elif result == 'classes2d':
