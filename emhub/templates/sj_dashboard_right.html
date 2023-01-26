@@ -3,30 +3,35 @@
             <table class="table table-striped m-0 p-0">
             <tbody>
                 {% for b in bookings %}
-                    {% if b.type in ['booking', 'downtime', 'maintenance'] %}
-                        {% set icon = 'far fa-calendar-alt' %}
-                    {% elif b.type == 'request' %}
-                        {% set icon = 'far fa-calendar' %}
-                        {% set style = 'color: red' %}
-                    {% else %}
-                        {% set icon = '' %}
-                    {% endif %}
-
                     <tr class="row p-0 m-0">
                         <td class="col-3 text-right">{{ b.start|weekday }}</td>
                         {% if b.type == 'downtime' %}
-                            <td class="col-4"><span class="badge" style="color: white; background-color: rgb(181,4,0);">Downtime</span></td>
-                            <td class="col-4"></td>
-                        {% elif b.type == 'maintenance' %}
-                            <td class="col-4"><span class="badge" style="color: white; background-color: rgb(255,107,53);">Maintenance</span></td>
+{#                            <td class="col-4"><span class="badge" style="color: white; background-color: rgb(181,4,0);">Downtime</span></td>#}
+                            <td class="col-4"><span style="color: rgb(181,4,0);">Downtime</span></td>
                             <td class="col-4">{{ b.title }}</td>
+                        {% elif b.type == 'maintenance' %}
+{#                            <td class="col-4"><span class="badge" style="color: white; background-color: rgb(255,107,53);">Maintenance</span></td>#}
+                            <td class="col-4"><span style="color: rgb(255,107,53);">Maintenance</span></td>
+                            <td class="col-4">{{ b.title }}</td>
+
                         {% else %}
                             <td class="col-4">{{ b.owner.get_pi()|shortname }}/{{b.owner|shortname }}</td>
-                            <td class="col-4">{{ b.operator|shortname}}</td>
+                            <td class="col-4">
+                                {% if b.type == 'request' %}
+                                    {% set pid = b.project_id %}
+                                    <a href="{{ url_for_content('project_details', project_id=pid) }}" class="badge badge-success mr-1">Project {{ pid }}</a>
+                                {% else %}
+                                    {{ b.operator|shortname}}
+                                {% endif %}
+                            </td>
+
                         {% endif %}
                         <td class="col-1">
-{#                            <button class="btn btn-sm btn-outline-light" onclick="alert({{ b.id }})"><i class="far fa-calendar"></i></button>#}
-                            <a href="javascript:showBookingFromDashboard({{ b.id }})"><i class="{{ icon }}" style="{{ style }}"></i></a>
+                            {% if b.type in ['booking', 'downtime', 'maintenance'] %}
+                                <a href="javascript:showBookingFromDashboard({{ b.id }})"><i class="far fa-calendar-alt"></i></a>
+                            {% elif b.type == 'request' %}
+                                <a href="javascript:createBookingFromEntry({{ b.id }})"><i class="far fa-calendar" style="color: red"></i></a>
+                            {% endif %}
                         </td>
                     </tr>
                 {% endfor %}
@@ -108,10 +113,20 @@
 <script>
 
     function showBookingFromDashboard(booking_id){
-        on_bookings_created = on_bookings_updated = function (response){
-           location.reload();
-        };
         showBookingForm({booking_id: booking_id });
     }
+
+    function createBookingFromEntry(entry_id){
+        showBookingForm({entry_id: entry_id });
+    }
+
+    (function(window, document, $, undefined) {
+        "use strict";
+
+       on_bookings_created = on_bookings_updated = on_bookings_deleted = function (response){
+           location.reload();
+        };
+
+    })(window, document, window.jQuery);
 
 </script>

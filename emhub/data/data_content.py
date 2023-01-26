@@ -132,35 +132,21 @@ class DataContent:
             if p.is_active:
                 last_bookings = {}
                 # Find last bookings for each scope
-                for b in reversed(p.bookings):
-                    if len(last_bookings) == len(local_scopes):
-                        break
-                    last_bookings[b.resource.id] = b
+                for b in sorted(p.bookings, key=lambda b: b.end, reverse=True):
+                    if len(last_bookings) < len(local_scopes) and b.resource_id not in last_bookings:
+                        last_bookings[b.resource.id] = b
 
-                requests = {}
+                reqs = {}
                 for e in reversed(p.entries):
-                    # requests found for each scope, no need to continue
-                    if len(requests) == len(local_scopes):
+                    # Requests found for each scope, no need to continue
+                    if len(reqs) == len(local_scopes):
                         break
-                    if e.type == 'access_microscopes':
-                        data = e.extra['data']
-                        dstr = data.get('suggested_date', None)
-                        rid = int(data.get('microscope_id', 0))
-                        if dstr and rid and rid not in requests:
-                            sdate = dm.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
-                            if rid not in last_bookings or sdate > last_bookings[rid].end:
-                                b = dm.Booking(
-                                    title='',
-                                    type='request',
-                                    start=sdate.replace(hour=9),
-                                    end=sdate.replace(hour=11, minute=59),
-                                    owner=p.user,
-                                    resource=local_scopes[rid],
-                                    resource_id=rid,
-                                    project_id=p.id
-                                )
-                                add_booking(b)
-                                requests[rid] = b
+                    if b := self.booking_from_entry(e, local_scopes):
+                        rid = b.resource_id
+                        if rid not in reqs and b.start.date() > last_bookings[rid].end.date():
+                            b.id = e.id
+                            add_booking(b)
+                            reqs[rid] = b
 
         # Sort all entries
         for rbookings in resource_bookings.values():
@@ -514,6 +500,10 @@ class DataContent:
                 booking.end = dates['end']
             if booking is None:
                 raise Exception("Booking with id %s not found." % booking_id)
+        elif 'entry_id' in kwargs:
+            entry = dm.get_entry_by(id=kwargs['entry_id'])
+            scopes = {r.id: r for r in dm.get_resources() if r.is_microscope}
+            booking = self.booking_from_entry(entry, scopes)
         else:  # New Application
             booking = dm.create_basic_booking(dates)
 
@@ -1817,6 +1807,31 @@ class DataContent:
                 bd['app_id'] = app.id
 
         return bd
+
+    def booking_from_entry(self, entry, local_scopes):
+        """ Create a booking instance from an existing entry of type
+        'microscope_access'
+        """
+        dm = self.app.dm  # shortcut
+
+        if entry.type == 'access_microscopes':
+            data = entry.extra['data']
+            dstr = data.get('suggested_date', None)
+            rid = int(data.get('microscope_id', 0))
+            if dstr and rid:
+                p = entry.project
+                sdate = dm.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
+                return dm.Booking(
+                    title='',
+                    type='request',
+                    start=sdate.replace(hour=9),
+                    end=sdate.replace(hour=11, minute=59),
+                    owner=p.user,
+                    resource=local_scopes[rid],
+                    resource_id=rid,
+                    project_id=p.id,
+                    project=p
+                )
 
     def user_profile_image(self, user):
         if getattr(user, 'profile_image', None):
