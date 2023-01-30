@@ -273,6 +273,9 @@ def create_app(test_config=None):
         if content_id in NO_LOGIN_CONTENT or app.user.is_authenticated:
             try:
                 kwargs = app.dc.get(**content_kwargs)
+                if app.user.is_authenticated:
+                    perms = app.dm.get_config('permissions')
+                    kwargs['view_usage_report'] = app.user.has_any_role(perms.get('view_usage_report', []))
             except Exception as e:
                 import traceback
                 tb = traceback.format_exc()
@@ -299,8 +302,7 @@ def create_app(test_config=None):
                                                        'create_session_form_body.html')
             kwargs['dashboard_right'] = app.config.get('TEMPLATE_DASHBOARD_RIGHT',
                                                     'dashboard_right.html')
-            perms = app.dm.get_config('permissions')
-            kwargs['view_usage_report'] = app.user.has_any_role(perms.get('view_usage_report', []))
+
             return flask.render_template(content_template, **kwargs)
 
         error = {
