@@ -118,14 +118,15 @@ class DataContent:
         local_scopes = {}
 
         for b in dm.get_bookings_range(prev7, next30):
-            if not user.is_manager and not user.same_pi(b.owner):
-                continue
+            # if not user.is_manager and not user.same_pi(b.owner):
+            #     continue
             r = b.resource
             if r.is_microscope and local_tag in r.tags:
                 local_scopes[r.id] = r
                 add_booking(b)
 
         resource_requests = {rid: [] for rid in local_scopes.keys()}
+        scopes = {r.id: r for r in dm.get_resources() if r.is_microscope}
 
         # Retrieve open requests for each scope from entries and bookings
         for p in dm.get_projects():
@@ -141,9 +142,11 @@ class DataContent:
                     # Requests found for each scope, no need to continue
                     if len(reqs) == len(local_scopes):
                         break
-                    if b := self.booking_from_entry(e, local_scopes):
+                    if b := self.booking_from_entry(e, scopes):
                         rid = b.resource_id
-                        if rid not in reqs and b.start.date() > last_bookings[rid].end.date():
+                        if (rid not in reqs and
+                                (rid not in last_bookings or
+                                 b.start.date() > last_bookings[rid].end.date())):
                             b.id = e.id
                             add_booking(b)
                             reqs[rid] = b
@@ -1810,7 +1813,7 @@ class DataContent:
 
         return bd
 
-    def booking_from_entry(self, entry, local_scopes):
+    def booking_from_entry(self, entry, scopes):
         """ Create a booking instance from an existing entry of type
         'microscope_access'
         """
@@ -1829,7 +1832,7 @@ class DataContent:
                     start=sdate.replace(hour=9),
                     end=sdate.replace(hour=11, minute=59),
                     owner=p.user,
-                    resource=local_scopes[rid],
+                    resource=scopes[rid],
                     resource_id=rid,
                     project_id=p.id,
                     project=p

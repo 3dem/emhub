@@ -367,6 +367,12 @@ def create_data_models(dm):
             return any(a.code == applicationCode
                        for a in self.get_applications(status='all'))
 
+        def has_any_role(self, roles):
+            """ Return True if the user has any role from the roles list
+            or if it is empty. (this method will be used for permissions)
+            """
+            return not roles or any(r in self.roles for r in roles)
+
         def get_lab_members(self, onlyActive=True):
             """ Return lab members, filtering or not by active status. """
             if onlyActive:
