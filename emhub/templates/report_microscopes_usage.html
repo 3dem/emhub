@@ -1,4 +1,6 @@
 
+{% if view_report_usage %}
+
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = "Microscopes Usage" %}
@@ -74,6 +76,12 @@
 
     </div> <!-- Overall and CEM row -->
 </div>
+
+{% else %}
+        <div>
+        <h2>You do not have access to this page.</h2>
+        </div>
+{% endif %}
 
 
 <script>

@@ -35,6 +35,7 @@
                             </li>
 
                             <!-- Reports -->
+                            {% if view_report_usage %}
                             <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-reports" aria-controls="submenu-reports">
                                     <i class="fas fa-chart-bar"></i>Reports</a>
                             <div id="submenu-reports" class="collapse submenu" style="">
@@ -45,6 +46,7 @@
 
                                 </ul>
                             </div>
+                            {% endif %}
 
                             <!-- Users -->
                             <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-users" aria-controls="submenu-users">

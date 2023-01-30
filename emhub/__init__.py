@@ -27,6 +27,7 @@
 # **************************************************************************
 
 import os
+import sys
 from glob import glob
 
 
@@ -124,6 +125,8 @@ def create_app(test_config=None):
             if content_id == 'user_login':  # Redirects to Dashboard by default
                 kwargs['content_id'] = 'dashboard'
             app.user.image = app.dc.user_profile_image(app.user)
+            perms = app.dm.get_config('permissions')
+            kwargs['view_report_usage'] = app.user.has_any_role(perms.get('view_report_usage', []))
         else:
             if content_id not in NO_LOGIN_CONTENT:
                 kwargs = {'content_id': 'user_login',
@@ -296,6 +299,8 @@ def create_app(test_config=None):
                                                        'create_session_form_body.html')
             kwargs['dashboard_right'] = app.config.get('TEMPLATE_DASHBOARD_RIGHT',
                                                     'dashboard_right.html')
+            perms = app.dm.get_config('permissions')
+            kwargs['view_report_usage'] = app.user.has_any_role(perms.get('view_report_usage', []))
             return flask.render_template(content_template, **kwargs)
 
         error = {
