@@ -126,7 +126,7 @@ def create_app(test_config=None):
                 kwargs['content_id'] = 'dashboard'
             app.user.image = app.dc.user_profile_image(app.user)
             perms = app.dm.get_config('permissions')
-            kwargs['view_report_usage'] = app.user.has_any_role(perms.get('view_report_usage', []))
+            kwargs['view_usage_report'] = app.user.has_any_role(perms.get('view_usage_report', []))
         else:
             if content_id not in NO_LOGIN_CONTENT:
                 kwargs = {'content_id': 'user_login',
@@ -300,7 +300,7 @@ def create_app(test_config=None):
             kwargs['dashboard_right'] = app.config.get('TEMPLATE_DASHBOARD_RIGHT',
                                                     'dashboard_right.html')
             perms = app.dm.get_config('permissions')
-            kwargs['view_report_usage'] = app.user.has_any_role(perms.get('view_report_usage', []))
+            kwargs['view_usage_report'] = app.user.has_any_role(perms.get('view_usage_report', []))
             return flask.render_template(content_template, **kwargs)
 
         error = {
