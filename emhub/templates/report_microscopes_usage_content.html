@@ -77,9 +77,6 @@
         var data = {{ pie_data|tojson }};
         var drilldown = {{ drilldown_data|tojson }};
 
-                alert(JSON.stringify(data, null, 4));
-        alert(JSON.stringify(drilldown, null, 4));
-
         create_hc_usage_pie('usage_pie', data, drilldown);
 });
 
