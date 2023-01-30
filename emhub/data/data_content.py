@@ -1180,7 +1180,7 @@ class DataContent:
                 if not pi or pi.id not in pi_list:
                     continue
                 entry_key = str(pi.id)
-                entry_label = f"{pi.name}'s Lab Bookings"
+                entry_label = pi.name
 
             if not entry_key in entries:
                 entries[entry_key] = {
@@ -1203,6 +1203,29 @@ class DataContent:
             if key == entry_key:
                 selected_entry = entry
 
+        percent = 100 / total_days
+        pie_data = [{
+            'name': e['label'],
+            'y': e['total_days'] * percent,
+            'drilldown': e['label']
+        } for e in entries.values()]
+
+        drilldown_data = []
+        for e in entries.values():
+            percent = 100 / e['total_days']
+            usage = {}
+            for b in e['bookings']:
+                name = b.owner.name
+                if name not in usage:
+                    usage[name] = 0
+                usage[name] += b.days
+
+            drilldown_data.append({
+                'name': e['label'],
+                'id': e['label'],
+                'data': [(k, v * percent) for k, v in usage.items()]
+            })
+
         data = {
             'entries': sorted(entries.values(), key=lambda e: e['total_days'], reverse=True),
             'total_days': total_days,
@@ -1211,7 +1234,9 @@ class DataContent:
             'selected_resources': selected,
             'selected_entry': selected_entry,
             'applications': applications,
-            'selected_app': selected_app
+            'selected_app': selected_app,
+            'pie_data': pie_data,
+            'drilldown_data': drilldown_data
         }
         data.update(range_dict)
         return data
