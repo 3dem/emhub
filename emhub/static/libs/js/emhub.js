@@ -632,3 +632,20 @@ function filebrowser_updateFilePath(fileUpload) {
         $('#' + textId).val(fileUpload.files[0].name);
     }
 }
+
+
+//----------------------------- Utils functions --------------------------
+
+/** Make all elements of the same height. Input can be a list of id's or a pattern. */
+function makeSameHeight(className){
+    var maxHeight = 0;
+    var selector = '.' + className;
+
+    $(selector).each(function (){
+        maxHeight = Math.max(maxHeight, $(this).height());
+    });
+
+    $(selector).each(function (){
+        $(this).css('height', maxHeight + "px");
+    });
+}
