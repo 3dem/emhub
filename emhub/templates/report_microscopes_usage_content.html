@@ -12,7 +12,7 @@
                         <table id="table-overall" class="table table-striped table-bordered" style="width:100%">
                             <thead>
                             <tr>
-                                <th>PI</th>
+                                <th></th>
                                 {% for sr in selected_resources %}
                                     {% set r = resources_dict[sr] %}
                                     <th>
@@ -25,16 +25,22 @@
                             </tr>
                             </thead>
                             <tbody>
-                            {% for pi in pi_list %}
-                            <tr>
-                                <td>{{ pi['name'] }}</td>
+                            {% for entry in entries %}
+                                {% if entry['key'] == 'downtime' %}
+                                    {% set color = 'color: rgb(181,4,0);' %}
+                                {% elif entry['key'] == 'maintenance' %}
+                                    {% set color = 'color: rgb(255,107,53);' %}
+                                {% else %}
+                                {% endif %}
+                            <tr style="{{ color }}">
+                                <td>{{ entry['label'] }}</td>
                                 {% for r in selected_resources %}
-                                    <th>{{ pi['days'][r] }}</th>
+                                    <th>{{ entry['days'][r] }}</th>
                                 {% endfor %}
-                                <td><strong>{{ pi['total_days'] }}</strong></td>
-                                <td>{{ '%0.2f'|format(pi['total_days'] * 100 / total_days) }}</td>
+                                <td><strong>{{ entry['total_days'] }}</strong></td>
+                                <td>{{ '%0.2f'|format(entry['total_days'] * 100 / total_days) }}</td>
                                 <td>
-                                    <div class="col-1"><a href="javascript:selectPiList({{ pi['id'] }})"><i class="fas fa-eye"></i></a></div>
+                                    <div class="col-1"><a href="javascript:selectEntryList('{{ entry['key'] }}')"><i class="fas fa-eye"></i></a></div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -47,6 +53,6 @@
         </div> <!-- Overall table -->
 
         <!-- CEM table -->
-        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6" id="pilist-content">
-            {% include 'report_microscopes_usage_pilist.html' %}
+        <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6" id="entrylist-content">
+            {% include 'report_microscopes_usage_entrylist.html' %}
         </div> <!-- CEM table -->

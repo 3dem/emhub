@@ -1139,7 +1139,7 @@ class DataContent:
     def get_report_microscopes_usage_content(self, **kwargs):
         return self.get_report_microscopes_usage(**kwargs)
 
-    def get_report_microscopes_usage_pilist(self, **kwargs):
+    def get_report_microscopes_usage_entrylist(self, **kwargs):
         return self.get_report_microscopes_usage(**kwargs)
 
     def get_report_microscopes_usage(self, **kwargs):
@@ -1155,10 +1155,10 @@ class DataContent:
         bookings, range_dict = self.get_booking_in_range(kwargs,
                                                          asJson=False,
                                                          filter=_filter)
-        pi_dict = {}
+        entries = {}
         pi_list = [pi.id for pi in selected_app.pi_list]
-        pid = int(kwargs.get('pi', 0))
-        selected_pi = None
+        key = kwargs.get('key', '')
+        selected_entry = None
         total_days = 0
 
         resources = self.get_resources()['resources']
@@ -1169,42 +1169,51 @@ class DataContent:
             selected = [r['id'] for r in resources if r['is_microscope']]
 
         for b in bookings:
-            pi = b.owner.get_pi()
-            r = b.resource.id
-            # Facility bookings or with no PI will not be counted
-            if pi and r in selected and pi.id in pi_list:
-                if not pi.email in pi_dict:
-                    pi_dict[pi.email] = {
-                        'id': pi.id,
-                        'name': pi.name,
-                        'email': pi.email,
-                        'bookings': [],
-                        'days': defaultdict(lambda: 0),
-                        'total_days': 0,
-                        'users': set()
-                    }
-                pi_entry = pi_dict[pi.email]
-                pi_entry['bookings'].append(b)
-                rid = b.resource.id
-                pi_entry['days'][rid] += b.days
-                pi_entry['total_days'] += b.days
-                pi_entry['users'].add(b.owner.email)
-                total_days += b.days
-                if pi.id == pid:
-                    selected_pi = pi_entry
+            if not b.resource_id in selected:
+                continue
+
+            if b.type in ['downtime', 'maintenance', 'special']:
+                entry_key = b.type
+                entry_label = entry_key.capitalize()
+            else:
+                pi = b.owner.get_pi()
+                if not pi or pi.id not in pi_list:
+                    continue
+                entry_key = str(pi.id)
+                entry_label = f"{pi.name}'s Lab Bookings"
+
+            if not entry_key in entries:
+                entries[entry_key] = {
+                    'key': entry_key,
+                    'label': entry_label,
+                    #'email': pi.email,
+                    'bookings': [],
+                    'days': defaultdict(lambda: 0),
+                    'total_days': 0,
+                    'users': set()
+                }
+
+            entry = entries[entry_key]
+            entry['bookings'].append(b)
+            rid = b.resource.id
+            entry['days'][rid] += b.days
+            entry['total_days'] += b.days
+            entry['users'].add(b.owner.email)
+            total_days += b.days
+            if key == entry_key:
+                selected_entry = entry
 
         data = {
-            'pi_list': sorted(pi_dict.values(), key=lambda pi: pi['total_days'], reverse=True),
+            'entries': sorted(entries.values(), key=lambda e: e['total_days'], reverse=True),
             'total_days': total_days,
             'resources': resources,
             'resources_dict': {r['id']: r for r in resources},
             'selected_resources': selected,
-            'selected_pi': selected_pi,
+            'selected_entry': selected_entry,
             'applications': applications,
             'selected_app': selected_app
         }
         data.update(range_dict)
-        data.update()
         return data
 
     def get_report_pis_usage(self, **kwargs):

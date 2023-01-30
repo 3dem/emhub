@@ -1,10 +1,10 @@
 
 
-{% if selected_pi %}
+{% if selected_entry %}
     <div class="card">
        <div class="card-header">
         <div class="row">
-        <h5 class="mb-0 col-8">{{ selected_pi['name'] }}'s Lab Bookings</h5>
+        <h5 class="mb-0 col-8">{{ selected_entry['label'] }}</h5>
         </div>
     </div>
     <div class="card-body">
@@ -19,7 +19,7 @@
                 </tr>
                 </thead>
                 <tbody>
-                {% for b in selected_pi['bookings'] %}
+                {% for b in selected_entry['bookings'] %}
                     {% set r = resources_dict[b.resource.id] %}
                 <tr>
                     <td>{{ b.start|pretty_date }}</td>
