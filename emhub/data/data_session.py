@@ -501,6 +501,12 @@ class RelionSessionData(SessionData):
             if not jobDirs:
                 return 0
             fn = self.join(jobDirs[-1], starFn)
+
+            if '*' in starFn:  # it is a glob pattern, let's find the last file
+                files = glob(fn)
+                files.sort()
+                fn = files[-1]
+
             with StarFile(fn) as sf:
                 return sf.getTableSize(tableName)
 
@@ -510,7 +516,7 @@ class RelionSessionData(SessionData):
                                 'micrographs'),
             'numOfCtfs': _count('CtfFind', 'micrographs_ctf.star',
                                 'micrographs'),
-            'classes2d': _count('Class2D', 'run_it200_model.star',
+            'classes2d': _count('Class2D', 'run_it*_model.star',
                                 'model_classes')
         }
 
@@ -537,7 +543,13 @@ class RelionSessionData(SessionData):
         jobs2d = self._jobs('Class2D')
         if jobs2d:
             # FIXME: Find the last iteration classes
-            avgMrcs = self.join(jobs2d[-1], 'run_it200_classes.mrcs')
+            avgMrcs = self.join(jobs2d[-1], 'run_it*_classes.mrcs')
+
+            if '*' in avgMrcs:
+                files = glob(avgMrcs)
+                files.sort()
+                avgMrcs = files[-1]
+
             dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
             modelStar = dataStar.replace('_data.', '_model.')
 
