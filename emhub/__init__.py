@@ -162,7 +162,7 @@ def create_app(test_config=None):
         """ This view will called when the user lands in the login page (GET)
         and also when login credentials are submitted (POST).
         """
-        next_content = flask.request.args.get('next_content', 'empty')
+        next_content = flask.request.args.get('next_content', 'dashboard')
         return _redirect('main', content_id=next_content)
 
     @app.route('/do_login', methods=['POST'])
