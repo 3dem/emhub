@@ -51,10 +51,18 @@
                 </div>
 
                 <div class="card col-12">
+                    <div class="card-header">
+                        <h3>Usage Distribution Plots</h3>
+                    </div>
                     <div class="card-body">
-                        <div id="usage_pie"></div>
+                        <div class="row">
+                            <div class="col-6" id="usage_pie"></div>
+                            <div class="col-6" id="usage_column"></div>
+                        </div>
                     </div>
                 </div>
+
+
 
             </div>
         </div>
@@ -65,6 +73,7 @@
                 <div class="col-12" id="entrylist-content">
                     {% include 'report_microscopes_usage_entrylist.html' %}
                 </div> <!-- CEM table -->
+
             </div>
         </div> <!-- CEM table -->
 </div>
@@ -77,7 +86,8 @@
         var data = {{ pie_data|tojson }};
         var drilldown = {{ drilldown_data|tojson }};
 
-        create_hc_usage_pie('usage_pie', data, drilldown);
+        create_hc_usage('usage_pie', 'pie', data, drilldown);
+        create_hc_usage('usage_column', 'column', data, drilldown);
 });
 
 })(window, document, window.jQuery);

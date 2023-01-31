@@ -42,7 +42,7 @@ def create_app(test_config=None):
     from .blueprints import api_bp, images_bp, pages_bp
     from .utils import (datetime_to_isoformat,
                         pretty_date, pretty_datetime, pretty_quarter,
-                        send_json_data, send_error)
+                        send_json_data, send_error, shortname)
     from .utils.mail import MailManager
     from .data.data_content import DataContent
 
@@ -325,15 +325,6 @@ def create_app(test_config=None):
         s = date_range[0].strftime("%Y/%m/%d")
         e = date_range[1].strftime("%Y/%m/%d")
         return "&start=%s&end=%s" % (s, e)
-
-    @app.template_filter('shortname')
-    def shortname(user):
-        if user:
-            parts = user.name.split()
-            parts[0] = parts[0][0] + '.'  # take first letter
-            return ' '.join(parts)
-        else:
-            return ''
 
     @app.template_filter('weekday')
     def weekday(dt):

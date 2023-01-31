@@ -203,18 +203,18 @@ function create_hc_files_pie(containerId, filesData) {
 }
 
 
-function create_hc_usage_pie(containerId, usageData, drilldownData){
+function create_hc_usage(containerId, chartType, usageData, drilldownData){
     // Create the chart
     Highcharts.chart(containerId, {
     chart: {
-        type: 'pie'
+        type: chartType,
     },
     title: {
-        text: 'Microscope Usage',
+        text: '',
         align: 'left'
     },
     subtitle: {
-        text: 'Click the slices to view detailed usage.',
+        text: 'Click to view detailed usage.',
         align: 'left'
     },
 

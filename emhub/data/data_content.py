@@ -37,7 +37,7 @@ import flask_login
 
 from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          datetime_from_isoformat, get_quarter, pretty_quarter,
-                         image)
+                         image, shortname)
 
 from emtools.utils import Pretty
 
@@ -1203,15 +1203,20 @@ class DataContent:
             if key == entry_key:
                 selected_entry = entry
 
+
+
+        entries_sorted = [e for e in sorted(entries.values(),
+                                            key=lambda e: e['total_days'],
+                                            reverse=True)]
         percent = 100 / total_days
         pie_data = [{
-            'name': e['label'],
+            'name': shortname(e['label']),
             'y': e['total_days'] * percent,
             'drilldown': e['label']
-        } for e in entries.values()]
+        } for e in entries_sorted]
 
         drilldown_data = []
-        for e in entries.values():
+        for e in entries_sorted:
             percent = 100 / e['total_days']
             usage = {}
             for b in e['bookings']:
@@ -1221,13 +1226,13 @@ class DataContent:
                 usage[name] += b.days
 
             drilldown_data.append({
-                'name': e['label'],
+                'name': shortname(e['label']),
                 'id': e['label'],
                 'data': [(k, v * percent) for k, v in usage.items()]
             })
 
         data = {
-            'entries': sorted(entries.values(), key=lambda e: e['total_days'], reverse=True),
+            'entries': entries_sorted,
             'total_days': total_days,
             'resources': resources,
             'resources_dict': {r['id']: r for r in resources},
