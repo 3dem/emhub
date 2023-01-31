@@ -90,10 +90,14 @@ class DataContent:
 
         def is_same_week(d):
             return this_week == week_start(d)
+
         def is_next_week(d):
             return this_week == week_start(d - d7)
 
         def add_booking(b):
+            start = dm.dt_as_local(b.start)
+            end = dm.dt_as_local(b.end)
+
             r = b.resource
             if r.id not in resource_bookings:
                 resource_bookings[r.id] = {
@@ -102,16 +106,16 @@ class DataContent:
                     'next_week': []
                 }
 
-            if is_same_week(b.start):
+            if is_same_week(start):
                 k = 'this_week'
-            elif is_next_week(b.start):
+            elif is_next_week(start):
                 k = 'next_week'
             else:
                 k = None
 
             if k:
                 resource_bookings[r.id][k].append(b)
-                if b.start.date() <= now.date() <= b.end.date():  # also add in today
+                if start.date() <= now.date() <= end.date():  # also add in today
                     resource_bookings[r.id]["today"].append(b)
 
         local_tag = dm.get_config('bookings')['local_tag']

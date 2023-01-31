@@ -40,6 +40,7 @@ class DbManager:
     """ Helper class to deal with DB stuff
     """
     def init_db(self, dbPath, cleanDb=False, create=True):
+        self.timezone = get_localzone()
         do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
 
         if cleanDb and os.path.exists(dbPath):
@@ -73,10 +74,13 @@ class DbManager:
     # ------------------- Some utility methods --------------------------------
     def now(self):
         # get local timezone
-        return dt.datetime.now(get_localzone())
+        return dt.datetime.now(self.timezone)
 
     def date(self, date):
-        return dt.datetime.combine(date, dt.time(), get_localzone())
+        return dt.datetime.combine(date, dt.time(), self.timezone)
+
+    def dt_as_local(self, dt):
+        return dt.astimezone(self.timezone)
 
     @staticmethod
     def json_from_value(v):
