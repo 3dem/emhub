@@ -1143,12 +1143,15 @@ class DataContent:
         return self.get_report_microscopes_usage(**kwargs)
 
     def get_report_microscopes_usage(self, **kwargs):
+        dm = self.app.dm  # shortcut
+        centers = dm.get_config('sessions')['centers']
+
         def _filter(b):
             return not b.is_slot
 
         app_id = int(kwargs.get('application', 0))
-        selected_app = self.app.dm.get_application_by(id=app_id)
-        applications = self.app.dm.get_visible_applications()
+        selected_app = dm.get_application_by(id=app_id)
+        applications = dm.get_visible_applications()
         if not selected_app:
             selected_app = applications[-1]
 
@@ -1175,18 +1178,20 @@ class DataContent:
             if b.type in ['downtime', 'maintenance', 'special']:
                 entry_key = b.type
                 entry_label = entry_key.capitalize()
+                entry_email = ''
             else:
                 pi = b.owner.get_pi()
                 if not pi or pi.id not in pi_list:
                     continue
                 entry_key = str(pi.id)
-                entry_label = pi.name
+                entry_label = centers.get(pi.email, pi.name)
+                entry_email = pi.email
 
             if not entry_key in entries:
                 entries[entry_key] = {
                     'key': entry_key,
                     'label': entry_label,
-                    #'email': pi.email,
+                    'email': entry_email,
                     'bookings': [],
                     'days': defaultdict(lambda: 0),
                     'total_days': 0,
@@ -1203,14 +1208,17 @@ class DataContent:
             if key == entry_key:
                 selected_entry = entry
 
-
-
         entries_sorted = [e for e in sorted(entries.values(),
                                             key=lambda e: e['total_days'],
                                             reverse=True)]
         percent = 100 / total_days
+
+        def _name(e):
+            name = centers.get(e['email'], e['label'])
+            return shortname(name)
+
         pie_data = [{
-            'name': shortname(e['label']),
+            'name': _name(e),
             'y': e['total_days'] * percent,
             'drilldown': e['label']
         } for e in entries_sorted]
@@ -1226,7 +1234,7 @@ class DataContent:
                 usage[name] += b.days
 
             drilldown_data.append({
-                'name': shortname(e['label']),
+                'name': _name(e),
                 'id': e['label'],
                 'data': [(k, v * percent) for k, v in usage.items()]
             })
@@ -1488,9 +1496,9 @@ class DataContent:
 
         def ekey(e):
             if e.type == 'booking':
-                return (e.start, e.start)
+                return e.start, e.start
             else:
-                return (e.date, e.creation_date)
+                return e.date, e.creation_date
 
         def _update(e):
             """ Format entries depending on their type.
