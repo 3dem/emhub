@@ -112,9 +112,11 @@ def create_app(test_config=None):
                   'params': params
                   }
 
+        dm = app.dm  # shortcut
+
         if 'login_user' in params and app.is_devel:
             user_id = params['login_user']
-            user = app.dm.get_user_by(id=user_id)
+            user = dm.get_user_by(id=user_id)
             if user is None:
                 return send_error("Invalid user id: '%s'" % user_id)
             elif user != app.user:
@@ -125,8 +127,7 @@ def create_app(test_config=None):
             if content_id == 'user_login':  # Redirects to Dashboard by default
                 kwargs['content_id'] = 'dashboard'
             app.user.image = app.dc.user_profile_image(app.user)
-            perms = app.dm.get_config('permissions')
-            kwargs['view_usage_report'] = app.user.has_any_role(perms.get('view_usage_report', []))
+            kwargs['view_usage_report'] = dm.check_user_access('usage_report')
         else:
             if content_id not in NO_LOGIN_CONTENT:
                 kwargs = {'content_id': 'user_login',
@@ -139,9 +140,9 @@ def create_app(test_config=None):
 
         kwargs['possible_owners'] = app.dc.get_pi_labs()
         kwargs['possible_operators'] = app.dc.get_possible_operators()
-        kwargs['booking_types'] = app.dm.Booking.TYPES
+        kwargs['booking_types'] = dm.Booking.TYPES
 
-        display = app.dm.get_config('bookings')['display']
+        display = dm.get_config('bookings')['display']
         kwargs['booking_display_application'] = display['show_application'] != 'no'
 
         kwargs.update(app.dc.get_resources_list())
@@ -273,9 +274,6 @@ def create_app(test_config=None):
         if content_id in NO_LOGIN_CONTENT or app.user.is_authenticated:
             try:
                 kwargs = app.dc.get(**content_kwargs)
-                if app.user.is_authenticated:
-                    perms = app.dm.get_config('permissions')
-                    kwargs['view_usage_report'] = app.user.has_any_role(perms.get('view_usage_report', []))
             except Exception as e:
                 import traceback
                 tb = traceback.format_exc()
@@ -284,9 +282,6 @@ def create_app(test_config=None):
                     'body': tb
                 }
                 return flask.render_template('error_dialog.html', error=error)
-                # result = "<div><h1><span style='color: red'>Error</span> </br>%s</h1>" % e
-                # result += "<pre>%s</pre></div>" % tb
-                # return result
         else:
             kwargs = {'next_content': content_id}
             content_id = 'user_login'

@@ -990,6 +990,14 @@ class DataManager(DbManager):
 
         return any(p.code in json_codes for p in applications)
 
+    # ------------------- PERMISSIONS helper functions -----------------------------
+    def check_user_access(self, permissionKey):
+        """ Return True if the current logged user has any of the roles
+        defined in the config for 'permissionKey'.
+        """
+        perms = self.get_config('permissions')['content']
+        return self._user.has_any_role(perms.get(permissionKey, []))
+
     # ------------------- BOOKING helper functions -----------------------------
     def create_basic_booking(self, attrs, **kwargs):
         if 'creator_id' not in attrs:

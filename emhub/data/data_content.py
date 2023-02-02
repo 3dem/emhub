@@ -115,6 +115,7 @@ class DataContent:
 
             if k:
                 resource_bookings[r.id][k].append(b)
+
                 if start.date() <= now.date() <= end.date():  # also add in today
                     resource_bookings[r.id]["today"].append(b)
 
@@ -1147,6 +1148,8 @@ class DataContent:
         return self.get_report_microscopes_usage(**kwargs)
 
     def get_report_microscopes_usage(self, **kwargs):
+        self.check_user_access('usage_report')
+
         dm = self.app.dm  # shortcut
         centers = dm.get_config('sessions')['centers']
 
@@ -1725,6 +1728,8 @@ class DataContent:
                 }
 
     def get_raw_forms_list(self, **kwargs):
+        self.check_user_access('forms')
+
         return {'forms': [
             {'id': f.id,
              'name': f.name,
@@ -1894,6 +1899,10 @@ class DataContent:
             return flask.url_for('images.user_profile', user_id=user.id)
         else:
             return flask.url_for('images.static', filename='user-icon.png')
+
+    def check_user_access(self, permissionKey):
+        if not self.app.dm.check_user_access(permissionKey):
+            raise Exception('Invalid access')
 
     def _get_facility_staff(self, unit):
         """ Return the list of facility personnel.
