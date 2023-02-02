@@ -257,3 +257,22 @@ function deleteSession(session_id) {
 function updateSession(session) {
     send_ajax_json(Api.urls.session.update, session, sessionAjaxDone)
 }
+
+function showCreateSession(bookingId) {
+        console.log("showCreateSession: " + bookingId);
+
+        var content = get_ajax_content("create_session_form", {booking_id: bookingId});
+        show_modal_from_ajax("session-modal", content);
+} // function showCreateSession
+
+/* Show the Resource Form, either for a new booking or an existing one */
+function createSession(bookingId, totalSessions) {
+    if (totalSessions === 0)
+        showCreateSession(bookingId);
+    else
+        confirm("Create Session", "There are already created sessions, " +
+                "Do you want to create another one?", 'No', 'Yes', function () {
+                showCreateSession(bookingId);
+        });
+
+}  // function showResource

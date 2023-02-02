@@ -81,46 +81,19 @@
         <!-- ============================================================== -->
 
 
-
 </div>
 </div>
 
-<!-- ============================================================== -->
-<!-- Session Modal -->
-<!-- ============================================================== -->
-<div class="modal fade" id="session-modal" tabindex="-1" role="dialog" aria-labelledby="sessionModal" aria-hidden="true">
-</div>
+
+    <!-- ============================================================== -->
+    <!-- Session Modal -->
+    <!-- ============================================================== -->
+    <div class="modal fade" id="session-modal" tabindex="-1" role="dialog" aria-labelledby="sessionModal" aria-hidden="true">
+    </div>
 
 <!-- javascript  -->
 <script>
     function load_calendar(resource_id) {
         return load_main_content('booking_calendar', {resource_id:resource_id});
     }
-
-    function showCreateSession(bookingId) {
-        ajaxContent = get_ajax_content("create_session_form", {booking_id: bookingId});
-
-            ajaxContent.done(function(html) {
-                //alert(html);
-                $("#session-modal").html(html);
-                // Show the form after setting html content
-                $('#session-modal').modal('show');
-            });
-
-            ajaxContent.fail(function(jqXHR, textStatus) {
-                showError("Request failed: " + textStatus );
-            });
-    } // function showCreateSession
-
-    /* Show the Resource Form, either for a new booking or an existing one */
-    function createSession(bookingId, totalSessions) {
-        if (totalSessions === 0)
-            showCreateSession(bookingId);
-        else
-            confirm("Create Session", "There are already created sessions, " +
-                    "Do you want to create another one?", 'No', 'Yes', function () {
-                    showCreateSession(bookingId);
-            });
-
-    }  // function showResource
 </script>
