@@ -301,10 +301,33 @@ class DataContent:
         }
 
     def get_users_list(self, **kwargs):
+        active = int(kwargs.get('active', -1))
         users = self.app.dm.get_users()
         for u in users:
             u.image = self.user_profile_image(u)
             u.project_codes = [p.code for p in u.get_applications()]
+
+        activeIds = set()
+        def _register(u):
+            if u:
+                activeIds.add(u.id)
+                if u.pi:
+                    activeIds.add(u.pi.id)
+
+        for b in self.app.dm.get_bookings():
+            _register(b.owner)
+            _register(b.creator)
+            _register(b.operator)
+
+        def _filter(u):
+            return active < 0 or u.id in activeIds if active else u.id not in activeIds
+
+        users = [u for u in users if _filter(u)]
+
+        if not active:
+            for u in users:
+                u.status = 'inactive'
+            self.app.dm.commit()
 
         return {'users': users}
 
