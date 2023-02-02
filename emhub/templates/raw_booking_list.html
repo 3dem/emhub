@@ -4,6 +4,7 @@
     {% set title = "Bookings List" %}
     {% set navigation = [('Admin', ''), ('Bookings List', '')] %}
     {% include 'include_header.html' %}
+    {% import "entry_macros.html" as macros %}
 
     <!-- table row -->
     <div class="row">
@@ -22,30 +23,38 @@
                                 <th>type</th>
                                 <th>owner</th>
                                 <th>pi</th>
+                                <th>project</th>
                                 <th>dates</th>
                                 <th>extra</th>
-                                {% if current_user.is_manager %}
-                                    <th> Edit </th>
-                                {% endif %}
+                                <th>sessions</th>
+                                <th> actions </th>
                             </tr>
                             </thead>
                             <tbody>
                             {% for b in bookings %}
                             <tr>
-                                <td>{{ b.id }}</td>
-                                <td>{{ b['resource']['name'] }}</td>
+                                <td>{{ '%03d'|format(b.id) }}</td>
+                                <td>{{ b.resource.name }}</td>
                                 <td>{{ b.type }}</td>
                                 <td>{{ b.owner.name }} (id = {{ b.owner.id }})</td>
                                 {% set pi = b.owner.get_pi() %}
                                 {% set pi_name = pi.name if pi else '' %}
                                 <td>{{ pi_name }}</td>
+                                {% if b.project %}
+                                    <td>{{ macros.project(b.project) }}</td>
+                                {% else %}
+                                    <td></td>
+                                {% endif %}
                                 <td>{{ b.start|pretty_datetime }} - {{ b.end|pretty_datetime }}</td>
                                 <td>{{ b.extra }}</td>
-                                {% if current_user.is_manager %}
+                                <td>
+                                    {% for s in b.session %}
+                                        {{ macros.session(s) }}
+                                    {% endfor %}
+                                </td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:showBookingForm({booking_id: {{ b.id }}})"><i class="far fa-edit"></i></button>
                                     </td>
-                                {% endif %}
                             </tr>
                             {% endfor %}
 
@@ -61,5 +70,8 @@
 </div>
 
 <script>
-    $('#bookings-table').DataTable();
+    $('#bookings-table').DataTable({
+        order: [[0, "desc"]],
+        "pageLength": 50
+    });
 </script>

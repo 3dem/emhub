@@ -273,6 +273,9 @@ def create_app(test_config=None):
 
         if content_id in NO_LOGIN_CONTENT or app.user.is_authenticated:
             try:
+                if content_id.startswith('raw_'):
+                    app.dc.check_user_access('raw')
+
                 kwargs = app.dc.get(**content_kwargs)
             except Exception as e:
                 import traceback

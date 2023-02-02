@@ -1,3 +1,4 @@
+{% import "entry_macros.html" as macros %}
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
@@ -43,7 +44,8 @@
                                     <td>
                                         {% set badge_type = 'success' if status == 'active' else 'light' %}
 {#                                        if status == 'disabled' else 'info') %}#}
-                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ p.id }}</a>
+                                        {{ macros.project(p) }}
+{#                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ p.id }}</a>#}
                                     </td>
 
                                     <td>{{ p.date|pretty_date }}</td>

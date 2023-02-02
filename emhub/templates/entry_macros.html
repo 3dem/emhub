@@ -180,3 +180,12 @@
 
 {%- endmacro %}
 
+
+{% macro project(p) -%}
+    {% set badge_type = 'success' if p.status == 'active' else 'light' %}
+    <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ '%02d'|format(p.id) }}</a>
+{%- endmacro %}
+
+{% macro session(s) -%}
+    <a href="{{ url_for_content('session_details', session_id=s.id) }}" class="badge badge-info mr-1 mt-1" >{{ s.name }}</a>
+{%- endmacro %}
