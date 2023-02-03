@@ -418,6 +418,7 @@ class DataContent:
              'image': _image(r) if get_image else None,
              'user_can_book': user.can_book_resource(r),
              'is_microscope': r.is_microscope,
+             'is_active': r.is_active,
              'min_booking': r.min_booking,
              'max_booking': r.max_booking,
              'daily_cost': r.daily_cost
