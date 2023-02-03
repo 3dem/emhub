@@ -36,9 +36,15 @@ from emtools.utils import Pretty, Process, JsonTCPServer, JsonTCPClient, Path, C
 from emtools.metadata import EPU
 
 from emhub.client import open_client, config
-from emhub.utils import datetime_from_isoformat
 
-import sessions_config as sconfig
+
+def __server_address():
+    parts = os.environ.get('SESSIONS_SERVER_ADDRESS', 'localhost:5555').split(':')
+    return parts[0], int(parts[1])
+
+
+SESSIONS_SERVER_ADDRESS = __server_address()
+SESSIONS_DATA_FOLDER = os.environ.get('SESSIONS_DATA_FOLDER', None)
 
 
 class SessionsData:
@@ -57,6 +63,21 @@ class SessionsData:
         print("- Loading config...")
         self.config = self.request_config('sessions')
         pprint(self.config)
+
+        def _check_folder(key, folder):
+            exists = folder and os.path.exists(folder)
+            color = Color.bold if exists else Color.red
+            print(f"{key}: {color(folder)}")
+            if not exists:
+                print(Color.red(">>> Missing folder!!! Exiting."))
+                sys.exit(1)
+
+        _check_folder("SESSIONS_DATA_FOLDER", SESSIONS_DATA_FOLDER)
+        for k, v in self.get_folders().items():
+            _check_folder(k, v[1])
+
+        if not os.path.exists(SESSIONS_DATA_FOLDER):
+            print(Color.red(" Missing"))
 
         self.lock = threading.Lock()
 
@@ -122,7 +143,7 @@ class SessionsData:
     def get_folders(self):
         folders = OrderedDict()
         for f in ['EPU', 'Offload', 'OTF', 'Groups']:
-            folder = os.path.join(sconfig.SESSIONS_DATA_FOLDER, 'links', f)
+            folder = os.path.join(SESSIONS_DATA_FOLDER, f)
             fpath = os.path.abspath(os.path.realpath(folder))
             folders[f] = (folder, fpath)
         return folders
@@ -178,7 +199,7 @@ class SessionsData:
             'raw_data': raw_path
         }
 
-        acq = sconfig.acquisition[microscope]
+        acq = dict(self.config['acquisition'][microscope])
         config['ACQUISITION'] = acq
 
         config['PREPROCESSING'] = {
@@ -192,10 +213,10 @@ class SessionsData:
         options = """{{
 'do_prep' : 'True', 
 'do_proc' : 'False', 
-'prep__do_at_most' : '{do_at_most}', 
+'prep__do_at_most' : '16', 
 'prep__importmovies__angpix' : '{pixel_size}', 
 'prep__importmovies__kV' : '{voltage}', 
-'prep__importmovies__Cs' : '2.7', 
+'prep__importmovies__Cs' : '{cs}', 
 'prep__importmovies__fn_in_raw' : 'data/Images-Disc1/GridSquare_*/Data/FoilHole_*_fractions.tiff', 
 'prep__importmovies__is_multiframe' : 'True',
 'prep__motioncorr__do_own_motioncor': 'False',
@@ -211,21 +232,28 @@ class SessionsData:
 'prep__motioncorr__nr_threads' : '1',
 'prep__motioncorr__patch_x' : '7',
 'prep__motioncorr__patch_y' : '5',
-'prep__motioncorr__other_args' : '--skip_logfile --do_at_most {do_at_most}',
+'prep__motioncorr__other_args' : '--skip_logfile --do_at_most 16',
 'prep__ctffind__fn_ctffind_exe' : '/software/scipion/EM/ctffind4-4.1.13/bin/ctffind', 
 'prep__ctffind__nr_mpi' : '8',
 'prep__ctffind__use_given_ps' : 'False',
 'prep__ctffind__use_noDW' : 'False',
 }}\n"""
 
-        do_at_most = 16
         with open(_path('relion_it_options.py'), 'w') as f:
-            f.write(options.format(**acq, do_at_most=do_at_most))
+            f.write(options.format(**acq))
+
+        config = self.request_config('sessions')
+        opts = self.config['otf']['relion']['common']
+        print(">>> Creating Relion OTF with options: ")
+        pprint(opts)
+        with open(_path('relion_it_options2.py'), 'w') as f:
+            optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
+            f.write("{\n%s\n}\n" % optStr)
 
 
 class SessionsServer(JsonTCPServer):
     def __init__(self, address=None):
-        address = address or sconfig.SESSIONS_SERVER_ADDRESS
+        address = address or SESSIONS_SERVER_ADDRESS
         JsonTCPServer.__init__(self, address)
         self._refresh = 30
         self.data = SessionsData()
@@ -340,7 +368,7 @@ class SessionsServer(JsonTCPServer):
 
 class SessionsClient(JsonTCPClient):
     def __init__(self, address=None):
-        address = address or sconfig.SESSIONS_SERVER_ADDRESS
+        address = address or SESSIONS_SERVER_ADDRESS
         JsonTCPClient.__init__(self, address)
 
 
@@ -368,7 +396,7 @@ def run(args):
         client = SessionsClient()
         if not client.test():
             raise Exception(f"Server not listening on "
-                            f"{sconfig.SESSIONS_SERVER_ADDRESS}")
+                            f"{SESSIONS_SERVER_ADDRESS}")
 
         if args.status:
             status = client.call('status')['result']
