@@ -40,7 +40,10 @@
                                 <td>{{ user.email }}</td>
                                 <td>{{ user.name }}</td>
                                 <td>{{ user.roles }}</td>
-                                <td>{{ user.pi_id}}</td>
+
+                                {% set pi_label = '%s (%d)'|format(user.pi.name, user.pi.id) if user.pi else 'None' %}
+
+                                <td>{{ pi_label }}</td>
                                 <td>{{ user.project_codes}}</td>
                                 <td>
                                     <div style="max-width: 300px; overflow: auto">

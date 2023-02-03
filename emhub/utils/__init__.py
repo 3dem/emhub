@@ -107,6 +107,15 @@ def shortname(user):
     return ''
 
 
+def pairname(user):
+    """ Show PI/User in a shortname. """
+    pi = user.get_pi()
+    if pi and not user.is_pi:
+        return f"{shortname(pi)} / {shortname(user)}"
+    else:
+        return shortname(user)
+
+
 class NpJsonEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):

@@ -1046,11 +1046,32 @@ def create_data_models(dm):
         def user_can_edit(self):
             """ True if the user of the project can edit it (add/modify/delete notes)
             """
-            return  self.__getExtra('user_can_edit', False)
+            return self.__getExtra('user_can_edit', False)
 
         @user_can_edit.setter
         def user_can_edit(self, value):
             self.__setExtra('user_can_edit', value)
+
+        @property
+        def is_confidential(self):
+            """ True if this project is confidential and its information sensitive.
+            Some of the project info will not be available to all users.
+            """
+            return self.__getExtra('is_confidential', False)
+
+        @is_confidential.setter
+        def is_confidential(self, value):
+            self.__setExtra('is_confidential', value)
+
+        @property
+        def collaborators_ids(self):
+            """ True if the user of the project can edit it (add/modify/delete notes)
+            """
+            return self.__getExtra('collaborators_ids', {})
+
+        @collaborators_ids.setter
+        def collaborators_ids(self, value):
+            self.__setExtra('collaborators_ids', value)
 
         def json(self):
             return dm.json_from_object(self)

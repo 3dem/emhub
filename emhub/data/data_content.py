@@ -1475,7 +1475,8 @@ class DataContent:
                                  last_update_date=now,
                                  last_update_user_id=user.id,
                                  title='',
-                                 description='')
+                                 description='',
+                                 extra={})
             if not self.app.user.is_manager:
                 project.creation_user = project.user = user
 

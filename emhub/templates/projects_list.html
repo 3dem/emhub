@@ -30,7 +30,9 @@
                                 <th>user/pi</th>
                                 <th>title</th>
                                 <th>last updated</th>
-                                <th>last updated by</th>
+                                {% if is_admin %}
+                                    <th>extra</th>
+                                {% endif %}
                                 <th>actions</th>
                             </tr>
                             </thead>
@@ -51,13 +53,16 @@
                                     <td>{{ p.date|pretty_date }}</td>
                                     <td>{{ p.status }}</td>
                                     {% set pi = p.user.get_pi() %}
-                                    {% set pi_name = ' / %s'|format(pi.name) if pi else '' %}
+{#                                    {% set pi_name = ' / %s'|format(pi.name) if pi else '' %}#}
                                     {% set apps = pi.get_applications() if pi else [] %}
                                     {% set app = ' / %s'|format(apps[0].code) if apps else '' %}
-                                    <td>{{ p.user.name }} {{ pi_name }} {{ app }}</td>
+                                    <td>{{ p.user|pairname }} {{ app }}</td>
                                     <td>{{ p.title }}</td>
-                                    <td>{{ p.last_update_date|pretty_date }}</td>
-                                    <td>{{ p.last_update_user.name }}</td>
+                                    <td>{{ p.last_update_date|pretty_date }} by {{ p.last_update_user.name }}</td>
+                                    {%  if is_admin %}
+                                        <td> {{ p.extra }} </td>
+                                    {% endif %}
+
                                     <td>
                                         <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
                                             <i class="fa fa-eye"></i></a>

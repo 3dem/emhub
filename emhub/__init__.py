@@ -42,7 +42,7 @@ def create_app(test_config=None):
     from .blueprints import api_bp, images_bp, pages_bp
     from .utils import (datetime_to_isoformat,
                         pretty_date, pretty_datetime, pretty_quarter,
-                        send_json_data, send_error, shortname)
+                        send_json_data, send_error, shortname, pairname)
     from .utils.mail import MailManager
     from .data.data_content import DataContent
 
@@ -338,6 +338,7 @@ def create_app(test_config=None):
     app.jinja_env.filters['pretty_date'] = pretty_date
     app.jinja_env.filters['pretty_quarter'] = pretty_quarter
     app.jinja_env.filters['shortname'] = shortname
+    app.jinja_env.filters['pairname'] = pairname
     app.jinja_env.filters['weekday'] = weekday
 
     from emhub.data.data_manager import DataManager

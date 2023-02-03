@@ -17,7 +17,7 @@
                             <td class="col-4">{{ b.title }}</td>
 
                         {% else %}
-                            <td class="col-4">{{ b.owner.get_pi()|shortname }}/{{b.owner|shortname }}</td>
+                            <td class="col-4">{{ b.owner|pairname}} </td>
                             <td class="col-4">
                                 {% if b.type == 'request' %}
                                     {% set pid = b.project_id %}
@@ -73,7 +73,7 @@
                                         {% set b = resource_bookings[r['id']].get('today', [None])[0] %}
                                         {% if b %}
                                             {% set sessions = b.session %}
-                                            <div class="row"><p>{{ b.start|pretty_date }} - {{ b.owner.get_pi()|shortname }} / {{b.owner|shortname }}</p></div>
+                                            <div class="row"><p>{{ b.start|pretty_date }} - {{ b.owner|pairname }} </p></div>
                                             <div class="row mt-3">
                                                 <div class="col-5 mr-0 ml-0 pl-0">
                                                      <a href="javascript:createSession({{ b.id }}, {{ sessions|length }})" class="btn btn-primary mr-0">
