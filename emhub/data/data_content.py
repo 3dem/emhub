@@ -162,7 +162,6 @@ class DataContent:
                 bookings.sort(key=lambda b: b.start)
 
         dataDict.update({'bookings': bookings,
-                         'lab_members': self.get_lab_members(user),
                          'resource_bookings': resource_bookings})
         return dataDict
 
@@ -382,6 +381,11 @@ class DataContent:
                              for u in dm.get_users() if u.is_pi],
             'pi_label': None,
             'roles': dm.User.ROLES
+        }
+
+    def get_user_profile(self, **kwargs):
+        return {
+            'lab_members': self.get_lab_members(self.app.user)
         }
 
     def get_resources(self, **kwargs):

@@ -60,7 +60,17 @@
                                     <label class="be-checkbox custom-control custom-checkbox mt-1">
                                         <input type="checkbox" class="custom-control-input  row-checkbox" id="user_can_edit-checkbox" {{ checked }}><span class="custom-control-label">Can edit</span>
                                     </label>
-
+                                </div>
+                                <div class="row">
+                                    <select id="project-collaborator-select" class="selectpicker show-tick col-9" data-width="100%" data-live-search="true" value="">
+                                    {% for lab in pi_labs %}
+                                        <option data-divider="true"></option>
+                                        <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
+                                        {% for u in lab[1:] %}
+                                            <option value="{{u['id']}}">{{u['name']}}</option>
+                                        {% endfor %}
+                                    {% endfor %}
+                                    </select>
                                 </div>
 
                             {% else %}

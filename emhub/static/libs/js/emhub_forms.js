@@ -203,6 +203,12 @@ function showUser(userId) {
     show_modal_from_ajax('user-modal', content);
 }  // function showUser
 
+function showUserProfile(userId) {
+    var content = get_ajax_content("user_profile", {user_id: userId});
+    show_modal_from_ajax('user-modal', content);
+}  // function showUser
+
+
 /* Show the User Form */
 function showRegisterUser() {
     var content = get_ajax_content("register_user_form", {});
