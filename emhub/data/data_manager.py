@@ -1027,6 +1027,11 @@ class DataManager(DbManager):
 
         # The following validations do not apply for managers
         if not user.is_manager:
+            perms = self.get_config('permissions')
+
+            if 'user' not in perms['create_booking']:
+                raise Exception("Only Managers can create/modify bookings.")
+
             # Selected resource should be active
             if not r.is_active:
                 raise Exception("Selected resource is inactive now. ")

@@ -45,9 +45,9 @@
                     <div class="form-group row">
                         {{ row_label('Owner') }}
                         <div class="col-7">
-                            {% if possible_owners %}
+                            {% if pi_labs %}
                                 <select id="booking-owner-select" class="selectpicker show-tick" data-live-search="true" data-key="owner_id">
-                                {% for lab in possible_owners %}
+                                {% for lab in pi_labs %}
                                     <option data-divider="true"></option>
                                     {% for u in lab %}
                                         {% set style = 'background: #71748d; color: #fff;' if loop.index0 == 0 else '' %}

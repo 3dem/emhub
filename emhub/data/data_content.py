@@ -296,38 +296,17 @@ class DataContent:
         return {
             'sessions': sessions,
             'bookingDict': bookingDict,
-            'possible_owners': self.get_pi_labs(),
-            'possible_operators': self.get_possible_operators(),
         }
 
     def get_users_list(self, **kwargs):
-        active = int(kwargs.get('active', -1))
-        users = self.app.dm.get_users()
-        for u in users:
-            u.image = self.user_profile_image(u)
-            u.project_codes = [p.code for p in u.get_applications()]
-
-        activeIds = set()
-        def _register(u):
-            if u:
-                activeIds.add(u.id)
-                if u.pi:
-                    activeIds.add(u.pi.id)
-
-        for b in self.app.dm.get_bookings():
-            _register(b.owner)
-            _register(b.creator)
-            _register(b.operator)
-
-        def _filter(u):
-            return active < 0 or u.id in activeIds if active else u.id not in activeIds
-
-        users = [u for u in users if _filter(u)]
-
-        if not active:
-            for u in users:
-                u.status = 'inactive'
-            self.app.dm.commit()
+        status = kwargs.get('status', 'active')
+        all_users = self.app.dm.get_users()
+        users = []
+        for u in all_users:
+            if status == 'all' or u.status == status:
+                u.image = self.user_profile_image(u)
+                u.project_codes = [p.code for p in u.get_applications()]
+                users.append(u)
 
         return {'users': users}
 
@@ -505,9 +484,6 @@ class DataContent:
                                      'alias': a.alias}
                                     for a in dm.get_applications()
                                     if a.is_active]
-
-        dataDict['possible_owners'] = self.get_pi_labs()
-        dataDict['possible_operators'] = self.get_possible_operators()
         return dataDict
 
     def get_booking_form(self, **kwargs):
@@ -545,10 +521,7 @@ class DataContent:
         applications = [a for a in dm.get_visible_applications() if a.is_active]
 
         data = {'booking': booking,
-                'resources': self.get_resources()['resources'],
                 'applications': applications,
-                'possible_owners': self.get_pi_labs(),
-                'possible_operators': self.get_possible_operators(),
                 'show_experiment': show_experiment,
                 'read_only': read_only
                 }
@@ -804,8 +777,6 @@ class DataContent:
         d = {
             'overall': counters,
             'cem': cem_counters,
-            'possible_owners': self.get_pi_labs(),
-            'possible_operators': self.get_possible_operators(),
             'app_dict': app_dict,
             'details_bookings': details_bookings,
             'details_title': details_title,
@@ -1272,7 +1243,6 @@ class DataContent:
         data = {
             'entries': entries_sorted,
             'total_days': total_days,
-            'resources': resources,
             'resources_dict': {r['id']: r for r in resources},
             'selected_resources': selected,
             'selected_entry': selected_entry,
@@ -1506,7 +1476,6 @@ class DataContent:
 
         return {
             'project': project,
-            'possible_owners': self.get_pi_labs()
         }
 
     def get_project_details(self, **kwargs):
@@ -1601,7 +1570,6 @@ class DataContent:
             'entry': entry,
             'entry_type_label': entry_config['label'],
             'definition': None if form is None else form.definition,
-            'resources': dm.get_resources(),
             'form_config': form_config
         }
         data.update(self.get_grids_storage())
@@ -2004,7 +1972,7 @@ class DataContent:
             return []
 
         if user.is_manager:
-            piList = [u for u in self.app.dm.get_users() if u.is_pi]
+            piList = [u for u in self.app.dm.get_users(condition='status="active"') if u.is_pi]
         elif user.is_application_manager:
             apps = [a for a in user.created_applications if a.is_active]
             piSet = {user.get_id()}

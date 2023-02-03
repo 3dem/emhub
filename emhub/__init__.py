@@ -98,14 +98,32 @@ def create_app(test_config=None):
                         'user_reset_password',
                         'pages']
 
+    def register_basic_params(kwargs):
+        kwargs['is_devel'] = app.is_devel
+        kwargs['version'] = __version__
+        kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
+
+        kwargs['pi_labs'] = app.dc.get_pi_labs()
+        kwargs['possible_operators'] = app.dc.get_possible_operators()
+        kwargs['booking_types'] = app.dm.Booking.TYPES
+        kwargs['session_content'] = app.config.get('TEMPLATE_SESSION_CONTENT',
+                                                   'session_content.html')
+        kwargs['session_body'] = app.config.get('TEMPLATE_SESSION_BODY',
+                                                'create_session_form_body.html')
+        kwargs['dashboard_right'] = app.config.get('TEMPLATE_DASHBOARD_RIGHT',
+                                                   'dashboard_right.html')
+
+        display = app.dm.get_config('bookings')['display']
+        kwargs['booking_display_application'] = display['show_application'] != 'no'
+        if 'resources' not in kwargs:
+            kwargs['resources'] = app.dc.get_resources(image=True)['resources']
+
     @app.route('/main', methods=['GET', 'POST'])
     def main():
         if flask.request.method == 'GET':
             params = flask.request.args.to_dict()
-            #content_id = flask.request.args.get('content_id', 'empty')
         else:
             params = flask.request.form.to_dict()
-            #content_id = flask.request.form['content_id']
 
         content_id = params.pop('content_id', 'empty')
         kwargs = {'content_id': content_id,
@@ -134,18 +152,7 @@ def create_app(test_config=None):
                           'next_content': content_id,
                           'params': {}}
 
-        kwargs['is_devel'] = app.is_devel
-        kwargs['version'] = __version__
-        kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
-
-        kwargs['possible_owners'] = app.dc.get_pi_labs()
-        kwargs['possible_operators'] = app.dc.get_possible_operators()
-        kwargs['booking_types'] = dm.Booking.TYPES
-
-        display = dm.get_config('bookings')['display']
-        kwargs['booking_display_application'] = display['show_application'] != 'no'
-
-        kwargs.update(app.dc.get_resources_list())
+        register_basic_params(kwargs)
 
         return flask.render_template(app.config['TEMPLATE_MAIN'], **kwargs)
 
@@ -292,14 +299,7 @@ def create_app(test_config=None):
         content_template = content_id + '.html'
 
         if content_template in templates:
-            kwargs['is_devel'] = app.is_devel
-            kwargs['booking_types'] = app.dm.Booking.TYPES
-            kwargs['session_content'] = app.config.get('TEMPLATE_SESSION_CONTENT',
-                                                       'session_content.html')
-            kwargs['session_body'] = app.config.get('TEMPLATE_SESSION_BODY',
-                                                       'create_session_form_body.html')
-            kwargs['dashboard_right'] = app.config.get('TEMPLATE_DASHBOARD_RIGHT',
-                                                    'dashboard_right.html')
+            register_basic_params(kwargs)
 
             return flask.render_template(content_template, **kwargs)
 
@@ -351,7 +351,6 @@ def create_app(test_config=None):
     app.version = __version__
 
     login_manager = flask_login.LoginManager()
-    #login_manager.login_view = 'login'
     login_manager.init_app(app)
 
     app.mm = MailManager(app)
