@@ -5,7 +5,6 @@
     {% set title = "Projects List" %}
     {% set navigation = [('Projects', '')] %}
     {% include 'include_header.html' %}
-    {%  set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
 
     <!-- table row -->
@@ -23,59 +22,55 @@
                     <div class="table-responsive">
                         <table id="projects-table" class="table">
                             <thead>
-                            <tr>
-                                <th>id</th>
-                                <th>created</th>
-                                <th>status</th>
-                                <th>user/pi</th>
-                                <th>title</th>
-                                <th>last updated</th>
-                                {% if is_admin %}
-                                    <th>extra</th>
-                                {% endif %}
-                                <th>actions</th>
-                            </tr>
+                                <tr>
+                                    <th>id</th>
+                                    <th>last updated</th>
+                                    <th>user/pi</th>
+                                    <th>title</th>
+                                    <th>microscope days</th>
+                                    <th>sessions</th>
+                                    <th>images</th>
+                                    <th>data</th>
+
+                                    {% if show_extra %}
+                                        <th>extra</th>
+                                    {% endif %}
+                                </tr>
                             </thead>
                             <tbody>
                             {% for p in projects %}
                                 {% set status = p['status'] %}
                                 {% if is_manager or status != 'disabled' %}
-                                    {% set badge_type = 'success' if status == 'active' else 'light' %}
                                     {% set color = 'black' if status == 'active' else 'gray' %}
-                                <tr style="color: {{ color }}">
-                                    <td>
-                                        {% set badge_type = 'success' if status == 'active' else 'light' %}
-{#                                        if status == 'disabled' else 'info') %}#}
-                                        {{ macros.project(p) }}
-{#                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ p.id }}</a>#}
-                                    </td>
-
-                                    <td>{{ p.date|pretty_date }}</td>
-                                    <td>{{ p.status }}</td>
-                                    {% set pi = p.user.get_pi() %}
-{#                                    {% set pi_name = ' / %s'|format(pi.name) if pi else '' %}#}
-                                    {% set apps = pi.get_applications() if pi else [] %}
-                                    {% set app = ' / %s'|format(apps[0].code) if apps else '' %}
-                                    <td>{{ p.user|pairname }} {{ app }}</td>
-                                    <td>{{ p.title }}</td>
-                                    <td>{{ p.last_update_date|pretty_date }} by {{ p.last_update_user.name }}</td>
-                                    {%  if is_admin %}
-                                        <td> {{ p.extra }} </td>
-                                    {% endif %}
-
-                                    <td>
-                                        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="btn btn-outline-light">
-                                            <i class="fa fa-eye"></i></a>
-
-                                        {% if is_manager or current_user == p.creation_user %}
-                                             <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
-                                                 <i class="far fa-edit"></i></a>
-                                             <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
-                                                 <i class="far fa-trash-alt"></i></a>
+                                    <tr style="color: {{ color }}">
+                                        <td>
+                                            {{ macros.project(p) }}
+                                            {% if  current_user.can_edit_project(p) %}
+                                                 <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
+                                                     <i class="far fa-edit"></i></a>
+                                            {% endif %}
+                                            {% if  current_user.can_delete_project(p) %}
+                                                 <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
+                                                     <i class="far fa-trash-alt"></i></a>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ p.last_update_date|pretty_date }} by {{ p.last_update_user.name }}</td>
+                                        {% set pi = p.user.get_pi() %}
+                                        {% set apps = pi.get_applications() if pi else [] %}
+                                        {% set app = ' / %s'|format(apps[0].code) if apps and show_application else '' %}
+                                        <td>{{ p.user|pairname }} {{ app }}</td>
+                                        <td>{{ p.title }}</td>
+                                        <td>{{ p.stats['days'] }}</td>
+                                        <td style="max-width: 300px">
+{#                                            {{ p.stats['sessions'] }}#}
+                                            {{ macros.session_list(p.sessions) }}
+                                        </td>
+                                        <td>{{ p.stats['images'] }}</td>
+                                        <td>{{ p.stats['size'] }}</td>
+                                        {%  if show_extra %}
+                                            <td> {{ p.extra }} </td>
                                         {% endif %}
-                                    </td>
-
-                                </tr>
+                                    </tr>
                                 {% endif %}
                             {% endfor %}
 
@@ -103,7 +98,7 @@ $('#projects-table').DataTable({
     sDom: 'lfrtip',
     paging: true,
     info: false,
-    order: [[ 5, "desc" ]],
+    order: [[ 1, "desc" ]], // sorted by 'last_updated' in reverse order
     pageLength: 25
     //ordering: false
 });

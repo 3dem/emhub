@@ -275,6 +275,7 @@ class DataContent:
         }
 
     def get_sessions_list(self, **kwargs):
+        show_extra = 'extra' in kwargs and self.app.user.is_admin
         dm = self.app.dm  # shortcut
         all_sessions = dm.get_sessions()
         sessions = []
@@ -299,6 +300,7 @@ class DataContent:
         return {
             'sessions': sessions,
             'bookingDict': bookingDict,
+            'show_extra': show_extra
         }
 
     def get_users_list(self, **kwargs):
@@ -1440,6 +1442,7 @@ class DataContent:
 
     def get_projects_list(self, **kwargs):
         status = kwargs.get('status', None)
+        extra = 'extra' in kwargs
         # FIXME Define access/permissions for other users
         projects = []
         user = self.app.user  # shortcut
@@ -1459,11 +1462,28 @@ class DataContent:
             if not (user.is_manager or user.same_pi(p.user)):
                 continue
 
+            days = sessions = images = size = 0
+            for b in p.bookings:
+                days += b.days
+                for s in b.session:
+                    sessions += 1
+                    raw = s.extra.get('raw', None)
+                    if raw:
+                        images += raw['movies']
+                        size += raw['size']
+
+            p.stats = {
+                'days': days,
+                'sessions': sessions,
+                'images': images,
+                'size': Pretty.size(size)
+            }
             projects.append(p)
 
         can_create = self.app.dm.user_can_create_projects(self.app.user)
         return {'projects': projects,
-                'user_can_create_projects': can_create
+                'user_can_create_projects': can_create,
+                'show_extra': extra and user.is_admin
                 }
 
     def get_project_form(self, **kwargs):
@@ -1828,9 +1848,9 @@ class DataContent:
         else:
             # Show all booking information in title in some cases only
             display = dm.get_config('bookings')['display']
-            emptyApp = a is None or display['show_application'] == 'no'
+            emptyApp = a is None or not display['show_application']
             appStr = '' if emptyApp else ', %s' % a.code
-            emptyOp = operator is None or display['show_operator'] == 'no'
+            emptyOp = operator is None or not display['show_operator']
             opStr = '' if emptyOp else ' -> ' + operator.name
             extra = "%s%s%s" % (owner.name, appStr, opStr)
             if user_can_view:

@@ -114,7 +114,7 @@ def create_app(test_config=None):
                                                    'dashboard_right.html')
 
         display = app.dm.get_config('bookings')['display']
-        kwargs['booking_display_application'] = display['show_application'] != 'no'
+        kwargs['show_application'] = display['show_application']
         if 'resources' not in kwargs:
             kwargs['resources'] = app.dc.get_resources(image=True)['resources']
 

@@ -397,6 +397,16 @@ def create_data_models(dm):
             """ Return True if the user can book in the given SLOT. """
             return booking_slot.allows_user_in_slot(self)
 
+        def can_edit_project(self, p):
+            """ Return True if this user can edit a project. """
+            u = p.user
+            return (self.is_manager or
+                    p.user_can_edit and self == u or self == u.get_pi())
+
+        def can_delete_project(self, p):
+            """ Return True if this user can delete a project. """
+            u = p.creation_user
+            return self.is_manager or self == u or self == u.get_pi()
 
     class Template(Base):
         """ Classes used as template to create Applications.
@@ -1072,6 +1082,12 @@ def create_data_models(dm):
         @collaborators_ids.setter
         def collaborators_ids(self, value):
             self.__setExtra('collaborators_ids', value)
+
+        @property
+        def sessions(self):
+            for b in self.bookings:
+                for s in b.session:
+                    yield s
 
         def json(self):
             return dm.json_from_object(self)
