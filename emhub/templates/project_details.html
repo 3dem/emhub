@@ -1,3 +1,4 @@
+{% import "entry_macros.html" as macros %}
 
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
@@ -52,10 +53,8 @@
 
             <div class="cd-timeline__content js-cd-content pr-0">
 
-
                 {# Booking entries in Project timeline #}
                 {% if entry.type == 'booking' %}
-
                     <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
                     <div class="col-8 align-items-center justify-content-start"> <h3>{{ entry_config['label'] }}</h3></div>
                         <div class="col-2"></div>
@@ -70,7 +69,16 @@
                     {% set r = booking.resource %}
 
                     <div class="row col-12  justify-content-start">
-                            <h4 style="color: gray">Instrument: <span class='badge' style='background: {{ r.color }}; color: #fff;'>{{r.name}}</span></h4>
+
+                            <div class="row col-12">
+                                <h4 class="col-3 text-right" style="color: gray">Instrument:</h4><div class="col-9 text-left pl-0"> {{ macros.resource(r) }}</div>
+                                <h4 class="col-3 text-right" style="color: gray">Sessions: </h4>
+                                <div class="col-9 text-left pl-0">
+                                    {% for s in booking.session %}
+                                          {{ macros.session(s) }}
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
                     {% if booking.title %}
                         <div class="row col-12  justify-content-start">

@@ -288,9 +288,13 @@ class DataContent:
                     b = self.booking_to_event(s.booking,
                                               prettyDate=True, piApp=True)
                     bookingDict[s.booking.id] = b
-
-                    if not os.path.exists(dm.get_session_data_path(s)):
-                        s.data_path = ''
+                    #
+                    # data_exists = False
+                    # try:
+                    #     if not os.path.exists(dm.get_session_data_path(s)):
+                    #         s.data_path = ''
+                    # except OSError as e:
+                    #     s.data_path = 'IO error'
 
         return {
             'sessions': sessions,
