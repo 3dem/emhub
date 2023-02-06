@@ -34,7 +34,7 @@
                                  <i class="far fa-trash-alt"></i></a>
                         {% endif %}
                     </td>
-                    <td>{{ p.last_update_date|pretty_date }} by {{ p.last_update_user.name }}</td>
+                    <td>{{ p.last_update_date|pretty_datetime }} by {{ p.last_update_user.name }}</td>
                     {% set pi = p.user.get_pi() %}
                     {% set apps = pi.get_applications() if pi else [] %}
                     {% set app = ' / %s'|format(apps[0].code) if apps and show_application else '' %}
