@@ -1443,24 +1443,56 @@ class DataContent:
     def get_projects_list(self, **kwargs):
         status = kwargs.get('status', None)
         extra = 'extra' in kwargs
+        pid = int(kwargs.get('pid', 0))
+        scope = kwargs.get('scope', 'lab')
+
+        permissions = self.app.dm.get_config("projects")['permissions']
+        possible_scopes = permissions['user_can_see_projects']
+
+
         # FIXME Define access/permissions for other users
         projects = []
         user = self.app.user  # shortcut
+
+        if 'pid' in kwargs and not user.is_manager:
+            raise Exception("You do not have permissions to see these projects")
+
+        scopes_set = set(ps['key'] for ps in possible_scopes)
+        if 'scope' in kwargs and not scope in scopes_set:
+            raise Exception(f"Invalid scope '{scope}', or invalid permissions.")
+
+        pi_select = {}
 
         for p in self.app.dm.get_projects():
             if status and p.status != status:
                 continue
 
             pi = p.user.get_pi()
+
+            if pi:
+                if pi.id not in pi_select:
+                    pi_select[pi.id] = {'name': pi.name, 'count': 1}
+                else:
+                    pi_select[pi.id]['count'] += 1
+
+            # Check filters to exclude projects from the list
+            if pid and (not pi or pi.id != pid):
+                continue
+
+            if not user.is_manager:  # filters only for normal users
+                if scope == 'mine':
+                    if user != p.user:
+                        continue
+                elif scope == 'lab':
+                    if not user.same_pi(p.user):
+                        continue
+
             if pi:
                 apps = pi.get_applications()
                 # skip this project from the list if the application is confidential
                 # and the user has not access to it
                 if apps and not apps[0].allows_access(user):
                     continue
-
-            if not (user.is_manager or user.same_pi(p.user)):
-                continue
 
             days = sessions = images = size = 0
             for b in p.bookings:
@@ -1483,8 +1515,15 @@ class DataContent:
         can_create = self.app.dm.user_can_create_projects(self.app.user)
         return {'projects': projects,
                 'user_can_create_projects': can_create,
-                'show_extra': extra and user.is_admin
+                'show_extra': extra and user.is_admin,
+                'pi_select': pi_select,
+                'pid': pid,
+                'possible_scopes': possible_scopes,
+                'scope': scope
                 }
+
+    def get_projects_list_table(self, **kwargs):
+        return self.get_projects_list(**kwargs)
 
     def get_project_form(self, **kwargs):
         dm = self.app.dm
