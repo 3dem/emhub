@@ -354,7 +354,7 @@ def create_app(test_config=None):
     login_manager = flask_login.LoginManager()
     login_manager.init_app(app)
 
-    app.mm = MailManager(app)
+    app.mm = MailManager(app) if app.config.get('MAIL_SERVER', None) else None
 
     from flaskext.markdown import Markdown
     Markdown(app)

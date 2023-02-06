@@ -91,11 +91,13 @@ def register_user():
             pi_id=attrs['pi_id'],
             status='active'
         )
-        app.mm.send_mail(
-            [user.email],
-            "emhub: New account registered",
-            flask.render_template('email/account_registered.txt',
-                                  user=user))
+
+        if app.mm:
+            app.mm.send_mail(
+                [user.email],
+                "emhub: New account registered",
+                flask.render_template('email/account_registered.txt',
+                                      user=user))
         return user
 
     return handle_user(register)

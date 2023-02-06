@@ -689,11 +689,13 @@ class DataContent:
                         status='active'
                     )
                     imported.append(u)
-                    self.app.mm.send_mail(
-                        [user.email],
-                        "emhub: New account imported",
-                        flask.render_template('email/account_created.txt',
-                                              user=user))
+
+                    if self.app.mm:
+                        self.app.mm.send_mail(
+                            [user.email],
+                            "emhub: New account imported",
+                            flask.render_template('email/account_created.txt',
+                                                  user=user))
                 except Exception as e:
                     u['error'] = str(e)
                     failed.append(u)
