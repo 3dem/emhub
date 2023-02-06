@@ -5,6 +5,7 @@
 
 <!-- Modal with the Booking Form -->
 {% set is_new = booking.id is none %}
+{% set select_readonly = 'disabled' if read_only else '' %}
 
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
@@ -32,7 +33,7 @@
                         {{ row_label('Resource') }}
 
                         <div class="col-7">
-                            <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" data-key="resource_id" title="Select Resource to book...">
+                            <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" data-key="resource_id" title="Select Resource to book..." {{ select_readonly }}>
                             {% for r in resources %}#}
                               {% set selected = 'selected' if r['id'] == booking.resource.id else '' %}
                                 <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
@@ -45,9 +46,9 @@
                     <div class="form-group row">
                         {{ row_label('Owner') }}
                         <div class="col-7">
-                            {% if pi_labs %}
+                            {% if possible_booking_owners %}
                                 <select id="booking-owner-select" class="selectpicker show-tick" data-live-search="true" data-key="owner_id">
-                                {% for lab in pi_labs %}
+                                {% for lab in possible_booking_owners %}
                                     <option data-divider="true"></option>
                                     {% for u in lab %}
                                         {% set style = 'background: #71748d; color: #fff;' if loop.index0 == 0 else '' %}
@@ -57,7 +58,7 @@
                                 {% endfor %}
                                 </select>
                             {% else %}
-                                <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control" value="{{ booking.owner.name }}">
+                                <input type="text" required="" placeholder="Owner" id="booking-owner-text" class="form-control" value="{{ booking.owner.name }}" readonly>
                             {% endif %}
                         </div>
                     </div>
@@ -66,7 +67,7 @@
                     <div class="form-group row">
                         {{ row_label('Project ID') }}
                         <div class="col-7">
-                            <select id="booking-projectid-select" class="selectpicker show-tick" data-live-search="true" data-key="project_id" >
+                            <select id="booking-projectid-select" class="selectpicker show-tick" data-live-search="true" data-key="project_id" {{ select_readonly }}>
                                 <option value="0">Not set</option>
                                 {% for p in projects %}
                                     {% set selected = 'selected' if p.id == booking.project.id else '' %}

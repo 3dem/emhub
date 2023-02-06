@@ -400,8 +400,13 @@ def create_data_models(dm):
         def can_edit_project(self, p):
             """ Return True if this user can edit a project. """
             u = p.user
+            for i in p.collaborators_ids:
+                print(f">>> id: {i}, type: {type(i)}")
+
             return (self.is_manager or
-                    p.user_can_edit and self == u or self == u.get_pi())
+                    p.user_can_edit and
+                    (self == u or self == u.get_pi() or
+                     str(self.id) in p.collaborators_ids))
 
         def can_delete_project(self, p):
             """ Return True if this user can delete a project. """
@@ -1077,7 +1082,7 @@ def create_data_models(dm):
         def collaborators_ids(self):
             """ True if the user of the project can edit it (add/modify/delete notes)
             """
-            return self.__getExtra('collaborators_ids', {})
+            return self.__getExtra('collaborators_ids', [])
 
         @collaborators_ids.setter
         def collaborators_ids(self, value):

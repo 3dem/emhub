@@ -15,68 +15,42 @@
             <div class="card">
                 <div class="card-body">
                     {% if is_manager or user_can_create_projects %}
-                        <div class="col-12 mb-5">
-                            <a href="javascript:showProjectForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Project</a>
+                        <div class="row col-12 mb-5">
+                            <div class="col-6">
+                                <a href="javascript:showProjectForm(null)" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Project</a>
+                            </div>
+                            <div class="col-6 align-items-end text-right">
+                                <span class="mr-3"><strong>Display</strong></span>
+                                {% if is_manager %}
+
+                                    <select id="project-pid-select" class="selectpicker" onchange="onPidChanged()">
+                                        {% set selected = 'selected' if pid == 0 else '' %}
+                                        <option value="0" {{ selected }}>All</option>
+                                        {% for k, pi in pi_select.items() %}
+                                            {% set selected = 'selected' if pid == k else '' %}
+                                            <option value="{{ k }}" {{ selected }}>{{ pi['name'] }} ({{ pi['count'] }} projects)</option>
+                                        {% endfor %}
+                                    </select>
+                                {% else %}
+                                    <select id="project-scope-select" class="selectpicker" onchange="onScopeChanged()">
+                                        {% for ps in possible_scopes %}
+                                            {% set selected = 'selected' if scope == ps['key'] else '' %}
+                                            <option value="{{ ps['key'] }}" {{ selected }}>{{ ps['label'] }}</option>
+                                        {% endfor %}
+                                    </select>
+                                {% endif %}
+                            </div>
                         </div>
                     {% endif %}
-                    <div class="table-responsive">
-                        <table id="projects-table" class="table">
-                            <thead>
-                                <tr>
-                                    <th>id</th>
-                                    <th>last updated</th>
-                                    <th>user/pi</th>
-                                    <th>title</th>
-                                    <th>microscope days</th>
-                                    <th>sessions</th>
-                                    <th>images</th>
-                                    <th>data</th>
 
-                                    {% if show_extra %}
-                                        <th>extra</th>
-                                    {% endif %}
-                                </tr>
-                            </thead>
-                            <tbody>
-                            {% for p in projects %}
-                                {% set status = p['status'] %}
-                                {% if is_manager or status != 'disabled' %}
-                                    {% set color = 'black' if status == 'active' else 'gray' %}
-                                    <tr style="color: {{ color }}">
-                                        <td>
-                                            {{ macros.project(p) }}
-                                            {% if  current_user.can_edit_project(p) %}
-                                                 <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
-                                                     <i class="far fa-edit"></i></a>
-                                            {% endif %}
-                                            {% if  current_user.can_delete_project(p) %}
-                                                 <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
-                                                     <i class="far fa-trash-alt"></i></a>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ p.last_update_date|pretty_date }} by {{ p.last_update_user.name }}</td>
-                                        {% set pi = p.user.get_pi() %}
-                                        {% set apps = pi.get_applications() if pi else [] %}
-                                        {% set app = ' / %s'|format(apps[0].code) if apps and show_application else '' %}
-                                        <td>{{ p.user|pairname }} {{ app }}</td>
-                                        <td>{{ p.title }}</td>
-                                        <td>{{ p.stats['days'] }}</td>
-                                        <td style="max-width: 300px">
-{#                                            {{ p.stats['sessions'] }}#}
-                                            {{ macros.session_list(p.sessions) }}
-                                        </td>
-                                        <td>{{ p.stats['images'] }}</td>
-                                        <td>{{ p.stats['size'] }}</td>
-                                        {%  if show_extra %}
-                                            <td> {{ p.extra }} </td>
-                                        {% endif %}
-                                    </tr>
-                                {% endif %}
-                            {% endfor %}
 
-                            </tbody>
-                        </table>
+                    <div class="table-responsive" id="table-content">
+
+                        {% include 'projects_list_table.html' %}
+
                     </div>
+
+
                 </div>
             </div>
         </div>
@@ -93,15 +67,21 @@
 
 
 <script>
+    (function(window, document, $, undefined) {
+    "use strict";
 
-$('#projects-table').DataTable({
-    sDom: 'lfrtip',
-    paging: true,
-    info: false,
-    order: [[ 1, "desc" ]], // sorted by 'last_updated' in reverse order
-    pageLength: 25
-    //ordering: false
-});
+    $('select').selectpicker();
 
+    })(window, document, window.jQuery);
+
+    function onPidChanged(){
+        var pid = $('#project-pid-select').selectpicker('val');
+        load_html_from_ajax('table-content', get_ajax_content('projects_list_table', {pid: pid}));
+    }
+
+    function onScopeChanged(){
+        var scope = $('#project-scope-select').selectpicker('val');
+        load_html_from_ajax('table-content', get_ajax_content('projects_list_table', {scope: scope}));
+    }
 
 </script>

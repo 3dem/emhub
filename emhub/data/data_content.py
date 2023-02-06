@@ -528,12 +528,11 @@ class DataContent:
             booking = dm.create_basic_booking(dates)
 
         display = dm.get_config('bookings')['display']
-        show_experiment = display['show_experiment'] == 'yes'
         applications = [a for a in dm.get_visible_applications() if a.is_active]
 
         data = {'booking': booking,
                 'applications': applications,
-                'show_experiment': show_experiment,
+                'show_experiment': display['show_experiment'],
                 'read_only': read_only
                 }
 
@@ -1443,24 +1442,59 @@ class DataContent:
     def get_projects_list(self, **kwargs):
         status = kwargs.get('status', None)
         extra = 'extra' in kwargs
+        pid = int(kwargs.get('pid', 0))
+        scope = kwargs.get('scope', 'lab')
+
+        permissions = self.app.dm.get_config("projects")['permissions']
+        possible_scopes = permissions['user_can_see_projects']
+
+
         # FIXME Define access/permissions for other users
         projects = []
         user = self.app.user  # shortcut
+        is_manager = user.is_manager
+
+        if 'pid' in kwargs and not is_manager:
+            raise Exception("You do not have permissions to see these projects")
+
+        scopes_set = set(ps['key'] for ps in possible_scopes)
+        if 'scope' in kwargs and not scope in scopes_set:
+            raise Exception(f"Invalid scope '{scope}', or invalid permissions.")
+
+        pi_select = {}
 
         for p in self.app.dm.get_projects():
             if status and p.status != status:
                 continue
 
             pi = p.user.get_pi()
+
+            if pi:
+                if pi.id not in pi_select:
+                    pi_select[pi.id] = {'name': pi.name, 'count': 1}
+                else:
+                    pi_select[pi.id]['count'] += 1
+
+            # Check filters to exclude projects from the list
+            if pid and (not pi or pi.id != pid):
+                continue
+
+            # Show as visible if the user is manager or can edit a project
+            # If not, some filters will be applied, based on user's lab
+            if not is_manager and not user.can_edit_project(p):
+                if scope == 'mine':
+                    if user != p.user:
+                        continue
+                elif scope == 'lab':
+                    if not user.same_pi(p.user):
+                        continue
+
             if pi:
                 apps = pi.get_applications()
                 # skip this project from the list if the application is confidential
                 # and the user has not access to it
                 if apps and not apps[0].allows_access(user):
                     continue
-
-            if not (user.is_manager or user.same_pi(p.user)):
-                continue
 
             days = sessions = images = size = 0
             for b in p.bookings:
@@ -1478,13 +1512,22 @@ class DataContent:
                 'images': images,
                 'size': Pretty.size(size)
             }
+            p.user_can_edit = user.can_edit_project(p)
+            p.display_title = 'Hidden title' if (p.is_confidential and not p.user_can_edit) else p.title
             projects.append(p)
 
         can_create = self.app.dm.user_can_create_projects(self.app.user)
         return {'projects': projects,
                 'user_can_create_projects': can_create,
-                'show_extra': extra and user.is_admin
+                'show_extra': extra and user.is_admin,
+                'pi_select': pi_select,
+                'pid': pid,
+                'possible_scopes': possible_scopes,
+                'scope': scope
                 }
+
+    def get_projects_list_table(self, **kwargs):
+        return self.get_projects_list(**kwargs)
 
     def get_project_form(self, **kwargs):
         dm = self.app.dm
@@ -1506,6 +1549,7 @@ class DataContent:
 
         return {
             'project': project,
+            'pi_labs': self.get_pi_labs(all=True)
         }
 
     def get_project_details(self, **kwargs):
@@ -1518,7 +1562,7 @@ class DataContent:
         if project is None:
             raise Exception("Invalid Project Id %s" % kwargs['project_id'])
 
-        if not user.is_manager and not user.same_pi(project.user):
+        if not (user.can_edit_project(project) or user.same_pi(project.user)):
             raise Exception("You do not have permissions to see this project")
 
         config = dm.get_config('projects')
@@ -1991,17 +2035,18 @@ class DataContent:
 
         return users
 
-    def get_pi_labs(self):
-        # Send a list of possible owners of bookings
+    def get_pi_labs(self, all=False):
+        # Send a list of labs( used for possible owners of bookings or collaborators)
         # 1) Managers or admins can change the ownership to any user
         # 2) Application managers can change the ownership to any user in their
         #    application
         # 3) Other users can not change the ownership
+        # If all = True, all labs will be returned
         user = self.app.user  # shortcut
         if not user.is_authenticated:
             return []
 
-        if user.is_manager:
+        if user.is_manager or all:
             piList = [u for u in self.app.dm.get_users(condition='status="active"') if u.is_pi]
         elif user.is_application_manager:
             apps = [a for a in user.created_applications if a.is_active]
