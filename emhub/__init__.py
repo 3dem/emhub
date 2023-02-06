@@ -103,7 +103,7 @@ def create_app(test_config=None):
         kwargs['version'] = __version__
         kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
 
-        kwargs['pi_labs'] = app.dc.get_pi_labs()
+        kwargs['possible_booking_owners'] = app.dc.get_pi_labs()
         kwargs['possible_operators'] = app.dc.get_possible_operators()
         kwargs['booking_types'] = app.dm.Booking.TYPES
         kwargs['session_content'] = app.config.get('TEMPLATE_SESSION_CONTENT',

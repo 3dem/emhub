@@ -52,7 +52,7 @@ def index():
     # Following params are required in main.html but are not really used
     # here in pages, maybe we should consider to have a separate template
     kwargs = {
-        'pi_labs': [],
+        'possible_booking_owners': [],
         'possible_operators': [],
         'resources': [],
     }
