@@ -4,7 +4,7 @@
 {% set project = entry.project %}
 {% set pi = project.user.get_pi() %}
 {% set is_manager = current_user.is_manager %}
-{% set can_edit = is_manager or (project.user_can_edit and (current_user == project.user or current_user == pi)) or current_user == project.creation_user %}
+{% set can_edit = current_user.can_edit_project(project) %}
 {% set readonly = '' if can_edit else 'readonly' %}
 {% set disabled = '' if can_edit else 'disabled' %}
 

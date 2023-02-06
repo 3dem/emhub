@@ -76,12 +76,12 @@
 
     function onPidChanged(){
         var pid = $('#project-pid-select').selectpicker('val');
-        load_html_from_ajax('table-content', get_ajax_content('projects_list', {pid: pid}));
+        load_html_from_ajax('table-content', get_ajax_content('projects_list_table', {pid: pid}));
     }
 
     function onScopeChanged(){
         var scope = $('#project-scope-select').selectpicker('val');
-        load_html_from_ajax('table-content', get_ajax_content('projects_list', {scope: scope}));
+        load_html_from_ajax('table-content', get_ajax_content('projects_list_table', {scope: scope}));
     }
 
 </script>
