@@ -998,18 +998,40 @@ class DataManager(DbManager):
         perms = self.get_config('permissions')['content']
         return self._user.has_any_role(perms.get(permissionKey, []))
 
+    def check_resource_access(self, resource, permissionKey):
+        """ Check if the user has permission to access bookings for this
+        resource based on the resource tags and user's roles. """
+        # FIXME: Now only checking if 'user' in permissions, not based on roles
+        if self._user.is_manager:
+            return True
+
+        perms = self.get_config('permissions')
+        return (self._user.can_book_resource(resource) and
+                any(t in resource.tags and 'user' in u
+                    for t, u in perms[permissionKey].items()))
+
     # ------------------- BOOKING helper functions -----------------------------
     def create_basic_booking(self, attrs, **kwargs):
-        if 'creator_id' not in attrs:
-            attrs['creator_id'] = self._user.id
-
-        if 'owner_id' not in attrs:
-            attrs['owner_id'] = self._user.id
-
+        # if 'creator_id' not in attrs:
+        #     attrs['creator_id'] = self._user.id
+        #
+        # if 'owner_id' not in attrs:
+        #     attrs['owner_id'] = self._user.id
         if 'type' not in attrs:
             attrs['type'] = 'booking'
 
-        return self.Booking(**attrs)
+        b = self.Booking(**attrs)
+
+        def _set_user(key):
+            keyid = key + '_id'
+            if keyid not in kwargs:
+                setattr(b, keyid, self._user.id)
+                setattr(b, key, self._user)
+
+        _set_user('creator')
+        _set_user('owner')
+
+        return b
 
     def __validate_booking(self, booking, **kwargs):
         r = self.get_resource_by(id=booking.resource_id)
@@ -1027,10 +1049,9 @@ class DataManager(DbManager):
 
         # The following validations do not apply for managers
         if not user.is_manager:
-            perms = self.get_config('permissions')
-
-            if 'user' not in perms['create_booking']:
-                raise Exception("Only Managers can create/modify bookings.")
+            if not self.check_resource_access(r, 'create_booking'):
+                raise Exception("Users can not create/modify bookings for "
+                                "this type of resource.")
 
             # Selected resource should be active
             if not r.is_active:
@@ -1151,8 +1172,12 @@ class DataManager(DbManager):
         This function will raise an exception if a condition is not meet.
         """
         user = self._user
-        if user.is_admin:
+        if user.is_manager:
             return  # admin can cancel/modify at any time
+
+        if not self.check_resource_access(booking.resource, 'delete_booking'):
+            raise Exception("Users can not delete/modify bookings for "
+                            "this type of resource.")
 
         now = self.now()
         latest = booking.resource.latest_cancellation
@@ -1163,8 +1188,7 @@ class DataManager(DbManager):
                             % (action, latest))
 
         start, end = booking.start, booking.end
-        if (not self._user.is_manager
-            and start - dt.timedelta(hours=latest) < now):
+        if start - dt.timedelta(hours=latest) < now:
             if attrs:  # Update case, where we allow modification except dates
                 if start != attrs['start'] or end != attrs['end']:
                    _error('updated')
