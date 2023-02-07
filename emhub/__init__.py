@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '0.7.dev03'
+__version__ = '0.7.dev04'
 
 
 def create_app(test_config=None):
@@ -45,6 +45,8 @@ def create_app(test_config=None):
                         send_json_data, send_error, shortname, pairname)
     from .utils.mail import MailManager
     from .data.data_content import DataContent
+
+    from emtools.utils import Pretty
 
     here = os.path.abspath(os.path.dirname(__file__))
     templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
@@ -340,6 +342,7 @@ def create_app(test_config=None):
     app.jinja_env.filters['shortname'] = shortname
     app.jinja_env.filters['pairname'] = pairname
     app.jinja_env.filters['weekday'] = weekday
+    app.jinja_env.filters['pretty_size'] = Pretty.size
 
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user
