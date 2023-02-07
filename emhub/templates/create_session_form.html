@@ -22,13 +22,12 @@
     </div>
     <!-- End of Modal footer -->
   </div>
-
-
-
 </div>
 
 <!-- javascript  -->
 <script>
+        $('select').selectpicker();
+
     function onProcessingClick(inputRadio) {
         var rows = document.getElementsByClassName("processing-row");
         for (var i = 0; i < rows.length; i++) {
@@ -47,7 +46,8 @@
             attrs.name = formValues.session_name;
             attrs.extra = {
                 otf_folder: formValues.otf_folder,
-                raw_folder: formValues.raw_folder
+                raw_folder: formValues.raw_folder,
+                project_id: formValues.project_id
             }
             if (!formValues.otf_folder)
                 attrs.create_otf = true;

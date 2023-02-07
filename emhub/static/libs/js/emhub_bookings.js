@@ -119,7 +119,14 @@ function invalidRepeatParams(booking) {
 function onOkButtonClick() {
 
     let endpoint = null;
-    var booking = getBookingParams();
+    var booking = null;
+
+    try {
+        booking = getBookingParams();
+    }
+    catch (err) {
+        showError("Error: " + err.toString());
+    }
 
     if (booking.id) {
         endpoint = Api.urls.booking.update;

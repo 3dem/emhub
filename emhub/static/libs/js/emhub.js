@@ -69,8 +69,14 @@ function dateStr(date) {
 function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val();
 
-    if (timeId)
-        dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
+    if (timeId) {
+        var timeValue = $(timeId).val();
+        dateVal += ' ' + timeValue.replace('.000', ' GMT');
+        if (!moment(timeValue, "HH:mm", true).isValid())
+            throw "Invalid time <bold>" + timeValue + "</bold>.</br></br>" +
+                  "Provide a valid time format, examples: &nbsp" +
+                  "9:00, 10:15, 13:05, 23:59";
+    }
 
     var date = new Date(dateVal);
 

@@ -908,6 +908,30 @@ def create_data_models(dm):
         def total_size(self):
             return sum(fi['size'] for fi in self.files.values())
 
+        @property
+        def project_id(self):
+            """ Get the project based on project_id or the booking's project. """
+            return self.__getExtra('project_id', 0)
+
+        @project_id.setter
+        def project_id(self, project_id):
+            self.__setExtra('project_id', project_id)
+
+        @property
+        def project(self):
+            """ Get the project based on project_id or the booking's project. """
+            return dm.get_project_by(id=self.project_id) or self.booking.project
+
+        @property
+        def images(self):
+            raw = self.extra.get('raw', {})
+            return raw.get('movies', 0)
+
+        @property
+        def size(self):
+            raw = self.extra.get('raw', {})
+            return raw.get('size', 0)
+
         def json(self):
             return dm.json_from_object(self)
 
@@ -1087,12 +1111,6 @@ def create_data_models(dm):
         @collaborators_ids.setter
         def collaborators_ids(self, value):
             self.__setExtra('collaborators_ids', value)
-
-        @property
-        def sessions(self):
-            for b in self.bookings:
-                for s in b.session:
-                    yield s
 
         def json(self):
             return dm.json_from_object(self)
