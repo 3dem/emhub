@@ -68,7 +68,7 @@
                                         <td>{{ s.status }}</td>
                                         <td><a href="{{ url_for_content('session_live', session_id=s.id) }}">{{ s.data_path }}</a></td>
                                         <td><a href="javascript:showBookingForm({booking_id: {{ booking.id }}})">{{ booking.id }}</a></td>
-                                        <td>{{ macros.project(booking.project) }}</td>
+                                        <td>{{ macros.project(s.project) }}</td>
                                         <td>{{ booking.owner|pairname }}</td>
                                         <td>{{ s.operator.name }}</td>
                                         {% if show_extra %}
