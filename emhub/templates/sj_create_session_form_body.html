@@ -67,6 +67,22 @@
             </div>
         </div>
 
+        <!-- Project id -->
+        <div class="form-group row">
+            <label class="col-12 col-sm-3 col-form-label text-sm-right">Project ID</label>
+            <div class="col-12 col-sm-8 col-lg-6">
+                <select id="session-projectid-select" class="selectpicker show-tick" data-live-search="true" data-key="project_id">
+                    <option value="0">Not set</option>
+                    {% for p in projects %}
+                        {% set selected = 'selected' if p.id == booking.project.id else '' %}
+                        <option {{ selected }} value="{{ p.id }}">{{ p.title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+
+
     </form>
 </div>
 <!-- end Booking Form -->

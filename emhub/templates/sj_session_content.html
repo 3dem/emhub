@@ -1,3 +1,4 @@
+{% import "entry_macros.html" as macros %}
 
 <!-- Session Macro definitions -->
 {% macro row(title, value, label) -%}
@@ -9,6 +10,12 @@
         </div>
     </div>
 {%- endmacro %}
+
+{% macro project(p) -%}
+    {% if p %}
+        {{ macros.project(p) }} <label>{{ p.title }}</label>
+    {% endif %}
+{%- endmacro  %}
 
 {% macro trow(title, value, label) %}
     {% set class = label or 'label' %}
@@ -54,6 +61,8 @@
 
                                     {{ row('Session Name', session.name, 'h4') }}
                                     {{ row('Owner', booking.owner.name, 'h4') }}
+                                    {{ row('PI', booking.owner.pi.name) }}
+                                    {{ row('Project', project(session.project), 'div') }}
                                     {{ row('Creator', booking.creator.name) }}
                                     {{ row('Operator', booking.operator.name) }}
                                     {{ row('Date', session.start|pretty_date) }}
@@ -103,7 +112,6 @@
                                     {{ trow('CS', acq['cs']) }}
                                     {{ trow('Pixel Size (A/px)', acq['pixelSize']) }}
                                     {{ trow('Dose (per frame)', acq['dosePerFrame']) }}
-                                    {{ trow('Movies', stats['numOfMovies'], 'h5') }}
 
                                 </tbody>
                             </table>
@@ -132,8 +140,9 @@
                                 <tbody>
                                     {{ trow('Raw path', extra['raw']['path']) }}
                                     {{ trow('OTF path', extra.get('otf', {}).get('path', '')) }}
-                                    {{ trow('Size', extra['raw']['sizeH']) }}
+                                    {{ trow('Size', session.size|pretty_size) }}
                                     {{ trow('Files', session.total_files) }}
+                                    {{ trow('Images', session.images) }}
 
                                 </tbody>
                             </table>
