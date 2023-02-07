@@ -34,9 +34,11 @@
 
                         <div class="col-7">
                             <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" data-key="resource_id" title="Select Resource to book..." {{ select_readonly }}>
-                            {% for r in resources %}#}
-                              {% set selected = 'selected' if r['id'] == booking.resource.id else '' %}
-                                <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                            {% for r in resources %}
+                                {% if r['user_can_book'] %}
+                                    {% set selected = 'selected' if r['id'] == booking.resource.id else '' %}
+                                    <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                                {% endif %}
                             {% endfor %}
                             </select>
                         </div>
