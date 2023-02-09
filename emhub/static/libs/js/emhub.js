@@ -72,6 +72,8 @@ function dateFromValue(dateId, timeId) {
     if (timeId) {
         var timeValue = $(timeId).val();
         dateVal += ' ' + timeValue.replace('.000', ' GMT');
+        timeValue = timeValue.replace(":00.000", "");
+        
         if (!moment(timeValue, "HH:mm", true).isValid())
             throw "Invalid time <bold>" + timeValue + "</bold>.</br></br>" +
                   "Provide a valid time format, examples: &nbsp" +
