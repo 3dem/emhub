@@ -13,7 +13,7 @@
     {% set can_edit = current_user.can_edit_project(project) %}
 
     <input type="hidden" value="{{ project.id }}", id="project-id">
-    <input type="hidden" value="09:00:00.000", id="hour_id">
+    {{ macros.hidden_hour_id() }}
 
     <div class="row">
         <div class="col-12">
