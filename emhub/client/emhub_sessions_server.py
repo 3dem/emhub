@@ -58,11 +58,9 @@ class SessionsData:
         self.resources = self.request_dict('get_resources',
                                            {"attrs": ["id", "name"]})
         print(f"    Total: {len(self.resources)}")
-        pprint(self.resources)
 
         print("- Loading config...")
         self.config = self.request_config('sessions')
-        pprint(self.config)
 
         def _check_folder(key, folder):
             exists = folder and os.path.exists(folder)
@@ -210,51 +208,24 @@ class SessionsData:
         with open(_path('README.txt'), 'w') as configfile:
             config.write(configfile)
 
-        options = """{{
-'do_prep' : 'True', 
-'do_proc' : 'False', 
-'prep__do_at_most' : '16', 
-'prep__importmovies__angpix' : '{pixel_size}', 
-'prep__importmovies__kV' : '{voltage}', 
-'prep__importmovies__Cs' : '{cs}', 
-'prep__importmovies__fn_in_raw' : 'data/Images-Disc1/GridSquare_*/Data/FoilHole_*_fractions.tiff', 
-'prep__importmovies__is_multiframe' : 'True',
-'prep__motioncorr__do_own_motioncor': 'False',
-'prep__motioncorr__fn_motioncor2_exe': '/software/scipion/EM/motioncor2-1.5.0/bin/motioncor2',
-'prep__motioncorr__dose_per_frame' : '1.00',
-'prep__motioncorr__do_save_noDW' : 'False',
-'prep__motioncorr__do_save_ps' : 'False', 
-'prep__motioncorr__do_float16' : 'False',
-'prep__motioncorr__fn_gain_ref' : './gain.mrc', 
-'prep__motioncorr__bin_factor' : '1', 
-'prep__motioncorr__gpu_ids' : '0:1', 
-'prep__motioncorr__nr_mpi' : '2', 
-'prep__motioncorr__nr_threads' : '1',
-'prep__motioncorr__patch_x' : '7',
-'prep__motioncorr__patch_y' : '5',
-'prep__motioncorr__other_args' : '--skip_logfile --do_at_most 16',
-'prep__ctffind__fn_ctffind_exe' : '/software/scipion/EM/ctffind4-4.1.13/bin/ctffind', 
-'prep__ctffind__nr_mpi' : '8',
-'prep__ctffind__use_given_ps' : 'False',
-'prep__ctffind__use_noDW' : 'False',
-}}\n"""
-
-        with open(_path('relion_it_options.py'), 'w') as f:
-            f.write(options.format(**acq))
-
-        config = self.request_config('sessions')
-        opts = self.config['otf']['relion']['common']
+        sconfig = self.request_config('sessions')
+        opts = sconfig['otf']['relion']['common']
+        command = sconfig['otf']['command']
         print(">>> Creating Relion OTF with options: ")
         pprint(opts)
-        with open(_path('relion_it_options2.py'), 'w') as f:
+        with open(_path('relion_it_options.py'), 'w') as f:
             optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
             f.write("{\n%s\n}\n" % optStr)
+
+        cmd = command[microscope].format(otf_path=otf_path)
+        Process.system(cmd)
 
 
 class SessionsServer(JsonTCPServer):
     def __init__(self, address=None):
         address = address or SESSIONS_SERVER_ADDRESS
         JsonTCPServer.__init__(self, address)
+        print(Color.green(f"Connected to server: {config.EMHUB_SERVER_URL}"))
         self._refresh = 30
         self.data = SessionsData()
         self._files = {}
@@ -290,32 +261,62 @@ class SessionsServer(JsonTCPServer):
     def _session_handle_actions(self, dc, session, actions):
         extra = session['extra']
         remaining_actions = []
+        update_session = False
+        print(Color.bold(f" > Session {session['id']}"))
         for action in actions:
             try:
                 print(f"   - Checking action: {action}")
                 if action.startswith('update_raw'):
-                    raw_path = extra['raw']['path']
-                    raw_info = EPU.get_session_info(raw_path)
-                    extra['raw'] = raw_info
-                    extra['raw']['path'] = raw_path
+
+                    raw = extra.get('raw', {})
+                    last_movie = raw.get('last_movie', '')
+                    raw_path = raw['path']
+                    new_raw = EPU.get_session_info(raw_path)
+                    if last_movie != new_raw.get('last_movie', ''):
+                        extra['raw'] = new_raw
+                        extra['raw']['path'] = raw_path
+                        update_session = True
+                    else:
+                        last_creation = new_raw.get('last_movie_creation', '')
+                        if last_creation:
+                            last_modified = Pretty.parse_datetime(last_creation)
+                            print(f"RAW: last_movie: {last_modified}")
+                            now = datetime.now()
+                            if (now - last_modified).days >= 1:  # Raw data older than a day
+                                # Let's check OTF data
+                                otf = extra.get('otf', {})
+                                if otf and os.path.exists(opath := otf['path']):
+                                    fn, last_modified = Path.lastModified(opath)
+                                    print(f"OTF: last: {fn}, {last_modified}")
+                                    if (now - last_modified).days >= 1:
+                                        session['status'] = 'finished'
+                                        update_session = True
+
+                        if not update_session:
+                            print(f"      No changes for this session, not updating.")
+
+                    if 'from_server' not in action:
+                        update_session = True
 
                 elif action.startswith('create_otf'):
+                    update_session = True
                     self.data.create_session_otf(session)
+
             except Exception as e:
                 print(e)
                 traceback.print_exc()
                 #remaining_actions.append(action)
-        print(f"        Updating session {session['name']}")
-        extra['actions'] = remaining_actions
-        extra['updated'] = Pretty.now()
-        dc.update_session(session)
+        if update_session:
+            print(f"        Updating session {session['name']}")
+            extra['actions'] = remaining_actions
+            extra['updated'] = Pretty.now()
+            dc.update_session(session)
 
     def _poll_sessions(self):
         """ Check for actions needed for EMhub's sessions. """
         while True:
             try:
                 with open_client() as dc:
-                    print("Connected to server: ", config.EMHUB_SERVER_URL)
                     print(">>> Polling active sessions...")
                     r = dc.request('poll_active_sessions', jsonData={})
 
@@ -353,8 +354,8 @@ class SessionsServer(JsonTCPServer):
         self._scheduler = BackgroundScheduler()
         # Schedule _poll_sessions function to run now
         self._scheduler.add_job(self._poll_sessions, 'date')
-        self._scheduler.add_job(self._sessions_update_info, 'interval', minutes=5)
-        self._scheduler.add_job(self._sessions_sync_files, 'interval', seconds=10)
+        self._scheduler.add_job(self._sessions_update_info, 'interval', minutes=1)
+        # self._scheduler.add_job(self._sessions_sync_files, 'interval', seconds=10)
         self._scheduler.start()
 
         JsonTCPServer.serve_forever(self, *args, **kwargs)
