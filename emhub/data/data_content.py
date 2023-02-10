@@ -1562,8 +1562,8 @@ class DataContent:
                                  last_update_user_id=user.id,
                                  title='',
                                  description='',
-                                 extra={})
-            if not self.app.user.is_manager:
+                                 extra={'user_can_edit': True})
+            if not user.is_manager:
                 project.creation_user = project.user = user
 
         return {
