@@ -1177,7 +1177,10 @@ class DataContent:
         bookings, range_dict = self.get_booking_in_range(kwargs,
                                                          asJson=False,
                                                          filter=_filter)
-        entries = {}
+        entries_usage = {}
+        total_usage = 0
+        entries_down = {}
+        total_down = 0
         key = kwargs.get('key', '')
         selected_entry = None
         total_days = 0
@@ -1197,6 +1200,8 @@ class DataContent:
                 entry_key = b.type
                 entry_label = entry_key.capitalize()
                 entry_email = ''
+                entries = entries_down
+                total_down += b.days
             else:
                 if b.project:
                     pi = b.project.user.get_pi()
@@ -1207,6 +1212,8 @@ class DataContent:
                 entry_key = str(pi.id)
                 entry_label = centers.get(pi.email, pi.name)
                 entry_email = pi.email
+                entries = entries_usage
+                total_usage += b.days
 
             if entry_key not in entries:
                 entries[entry_key] = {
@@ -1229,18 +1236,23 @@ class DataContent:
             if key == entry_key:
                 selected_entry = entry
 
-        entries_sorted = [e for e in sorted(entries.values(),
+        entries_sorted = [e for e in sorted(entries_usage.values(),
                                             key=lambda e: e['total_days'],
                                             reverse=True)]
         percent = 100 / total_days
+        percent_usage = 100 / total_usage
 
         def _name(e):
             name = centers.get(e['email'], e['label'])
             return shortname(name)
 
-        pie_data = [{
+        pie_data = [{'name': e['label'], 'y': e['total_days'] * percent}
+                    for e in entries_down.values()]
+        pie_data.append({'name': 'Usage', 'y': total_usage * percent})
+
+        bar_data = [{
             'name': _name(e),
-            'y': e['total_days'] * percent,
+            'y': e['total_days'] * percent_usage,
             'drilldown': e['label']
         } for e in entries_sorted]
 
@@ -1263,12 +1275,14 @@ class DataContent:
         data = {
             'entries': entries_sorted,
             'total_days': total_days,
+            'total_usage': total_usage,
             'resources_dict': {r['id']: r for r in resources},
             'selected_resources': selected,
             'selected_entry': selected_entry,
             'applications': applications,
             'selected_app': selected_app,
             'pie_data': pie_data,
+            'bar_data': bar_data,
             'drilldown_data': drilldown_data
         }
         data.update(range_dict)

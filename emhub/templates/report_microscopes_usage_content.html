@@ -37,7 +37,7 @@
                                         <th>{{ entry['days'][r] }}</th>
                                     {% endfor %}
                                     <td><strong>{{ entry['total_days'] }}</strong></td>
-                                    <td>{{ '%0.2f'|format(entry['total_days'] * 100 / total_days) }}</td>
+                                    <td>{{ '%0.2f'|format(entry['total_days'] * 100 / total_usage) }}</td>
                                     <td>
                                         <div class="col-1"><a href="javascript:selectEntryList('{{ entry['key'] }}')"><i class="fas fa-eye"></i></a></div>
                                     </td>
@@ -83,11 +83,22 @@
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
-        var data = {{ pie_data|tojson }};
+        var pie_data = {{ pie_data|tojson }};
+        var bar_data = {{ bar_data|tojson }};
         var drilldown = {{ drilldown_data|tojson }};
 
-        create_hc_usage('usage_pie', 'pie', data, drilldown);
-        create_hc_usage('usage_column', 'column', data, drilldown);
+        create_hc_usage('usage_pie', 'pie', pie_data);
+        create_hc_usage('usage_column', 'column', bar_data, drilldown);
+
+        $('#table-overall').DataTable({
+            sDom: 'Blrtip',
+            paging: false,
+            info: false,
+            order: [[ 4, "desc" ]],
+            buttons: [
+            'copy', 'csv', 'excel', 'pdf', 'print'
+        ],
+    });
 });
 
 })(window, document, window.jQuery);
