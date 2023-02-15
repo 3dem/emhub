@@ -38,7 +38,7 @@ from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
-from .data_session import H5SessionData, RelionSessionData
+from .data_session import RelionSessionData
 
 
 class DataManager(DbManager):
