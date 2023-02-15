@@ -217,3 +217,14 @@
 {% macro hidden_hour_id() -%}
     <input type="hidden" value="09:00:00.000", id="hour_id">
 {%- endmacro %}
+
+{% macro overlay(overlay_id) -%}
+    <div id="{{ overlay_id }}" class="overlay">
+        <div class="w-100 d-flex justify-content-center align-items-center">
+            <div class="row text-white-50">
+              <h4 class="pr-5 text-white-50" id="{{ overlay_id }}_text"></h4>
+              <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
+            </div>
+        </div>
+    </div>
+{%- endmacro %}

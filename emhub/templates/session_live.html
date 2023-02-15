@@ -31,31 +31,33 @@
                             </div>
                         </div>
 
-                        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5 class="text-muted">Aligned</h5>
-                                    <div class="metric-value d-inline-block">
-                                        <h1 class="mb-1" id="counter_aligned"></h1>
-                                    </div>
-                                    <div class="metric-label d-inline-block float-right text-secondary font-weight-bold">
-                                        <span id="diff_aligned"></span>
-                                    </div>
-                                </div>
-                                <div id="sparkline-revenue2"></div>
-                            </div>
-                        </div>
+{#                        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">#}
+{#                            <div class="card">#}
+{#                                <div class="card-body">#}
+{#                                    <h5 class="text-muted">Aligned</h5>#}
+{#                                    <div class="metric-value d-inline-block">#}
+{#                                        <h1 class="mb-1" id="counter_aligned"></h1>#}
+{#                                    </div>#}
+{#                                    <div class="metric-label d-inline-block float-right text-secondary font-weight-bold">#}
+{#                                        <span id="diff_aligned"></span>#}
+{#                                    </div>#}
+{#                                </div>#}
+{#                                <div id="sparkline-revenue2"></div>#}
+{#                            </div>#}
+{#                        </div>#}
 
                         <div class="col-xl-3 col-lg-6 col-md-6 col-sm-12 col-12">
                             <div class="card">
                                 <div class="card-body">
-                                    <h5 class="text-muted">CTF Estimation</h5>
+                                    <h5 class="text-muted">Motioncor/CTF</h5>
                                     <div class="metric-value d-inline-block">
-                                    <h1 class="mb-1" id="counter_ctf"></h1>
+                                    <h1 class="mb-1" id="ctf_count"></h1>
                                     </div>
-                                    <div class="metric-label d-inline-block float-right text-primary font-weight-bold">
-                                    <span id="diff_ctf"></span>
-                                    </div>
+
+                                        <div class="metric-label d-inline-block float-right  font-weight-bold">
+                                            <span id="ctf_diff" class="mr-2 text-warning"></span>
+                                            <span class="text-success"><i class="fas fa-tachometer-alt"></i></span><span  class="text-success" id="ctf_speed"></span>
+                                        </div>
                                 </div>
                                 <div id="sparkline-revenue3"></div>
                             </div>
@@ -96,28 +98,31 @@
             <!-- thumbnails row -->
             <div class="row">
                 <div class="col-5" id="ctf_plots">
-
-                    <div class="card">
-                        <h5 class="card-header">CTF Defocus</h5>
-                        <div class="card-body">
-                            <div class="row">
-                                <div id="defocus_plot" class="col-9" style="height: 300px"></div>
-                                <div class="row col-3 p-0 m-0  no-gutters">
-                                    <div class="col-12 p-0 m-0" id="defocus_hist1"></div>
-                                    <div class="col-12 p-0 m-0" id="defocus_hist2"></div>
+                    <div class="plots">
+                        <div class="card">
+                            <h5 class="card-header">CTF Defocus</h5>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div id="defocus_plot" class="col-9" style="height: 300px"></div>
+                                    <div class="row col-3 p-0 m-0  no-gutters">
+                                        <div class="col-12 p-0 m-0" id="defocus_hist1"></div>
+                                        <div class="col-12 p-0 m-0" id="defocus_hist2">
+                                            <p>Testing</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="card">
-                        <h5 class="card-header">CTF Resolution</h5>
-                        <div class="card-body">
-                            <div class="row">
-                                <div id="resolution_plot" class="col-9" style="height: 300px"></div>
-                                <div class="row col-3 p-0 m-0  no-gutters">
-                                    <div class="col-12 p-0 m-0" id="resolution_hist1"></div>
-                                    <div class="col-12 p-0 m-0" id="resolution_hist2"></div>
+                        <div class="card">
+                            <h5 class="card-header">CTF Resolution</h5>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div id="resolution_plot" class="col-9" style="height: 300px"></div>
+                                    <div class="row col-3 p-0 m-0  no-gutters">
+                                        <div class="col-12 p-0 m-0" id="resolution_hist1"></div>
+                                        <div class="col-12 p-0 m-0" id="resolution_hist2"></div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -127,13 +132,13 @@
                 <div class="col-2" id="polar_plots">
                     <div class="row">
                     <div class="col-12">
-                        <div class="card">
+                        <div class="card plots">
                             <h5 class="card-header">Polar Charts</h5>
                             <div class="card-body p-0 m-0">
 {#                                <canvas id="chartjs_polar"></canvas>#}
                                 <div id="polar1" class="mt-3"></div>
-                                <div id="polar2" class="mt-3"></div>
-                                <div id="polar3" class="mt-3"></div>
+{#                                <div id="polar2" class="mt-3"></div>#}
+{#                                <div id="polar3" class="mt-3"></div>#}
                                 <div id="polar4" class="mt-3"></div>
 
                             </div>
@@ -143,78 +148,138 @@
                 </div>
 
                 <div class="col-5" id="image_plots">
-                    <div class="row">
-                    <!-- Div for PSD and Micrograph info -->
-                    <div class="col-3" id="psd_plot">
-                            <div class="card card-figure">
+                    <div class="row col-12">
 
-                                <!-- .card-figure -->
-                                <figure class="figure">
-                                    <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                    <div>
-                                        <br/>
-                                            <div class="input-group input-group-sm mb-3">
-                                              <div class="input-group-prepend">
-                                                <h5 class="input-group-text" id="inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
-                                              </div>
-                                              <input type="text" id="mic_id" class="form-control" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
-                                            </div>
-                                            <label class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </label> <br/>
-                                            <label class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </label><br/>
-                                            <label class="text-muted mb-0" id="mic_defocus_angle"> Defocus Angle: </label><br/>
-                                            <label class="text-muted mb-0" id="mic_astigmatism"> Astigmatism: </label><br/>
-                                            <label class="text-muted mb-0" id="mic_resolution"> Resolution: </label><hr/>
-                                            <label class="text-muted mb-0" id="mic_particles"> Particles: </label><br/>
-                                            <label class="text-muted mb-0" id="mic_particles_display"> Display: </label><br/><br/>
-                                    </div>
-
-                                    <!-- /.figure-caption -->
-                                </figure>
-                                <!-- /.card-figure -->
-                                <!-- /.card -->
+                        <!-- GridSquare and FoilHole card -->
+                        <div class="col-6">
+                            <div class="col-12" id="gs">
+                                 <div class="card card-figure" id="gs-container">
+                                     {{ macros.overlay("overlay_loc") }}
+                                    <figure class="figure">
+                                        <img class="img-fluid" id="gs-image" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                        <label class="text-muted mb-0" id="gs-label">  </label>
+                                    </figure>
+                                     <img class="img-fluid" id="fh-image" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                 </div>
                             </div>
                         </div>
 
-                    <!-- Div for Micrograph -->
-                     <div class="col-9" id="mic_plot">
-                         <div class="card card-figure" id="image-container">
+                        <!-- Div for PSD and Micrograph info -->
+                        <div class="col-6">
 
-                             <!-- Display overlay when loading micrograph -->
-                            <div id="overlay_mic" class="overlay">
+                             <!-- Div for Micrograph -->
+                             <div class="col-12" id="mic_plot">
+                                 <div class="card card-figure" id="image-container">
+
+                                     <!-- Display overlay when loading micrograph -->
+                                     {{ macros.overlay("overlay_mic") }}
+{#                                    <div id="overlay_mic" class="overlay">#}
+{#                                        <div class="w-100 d-flex justify-content-center align-items-center">#}
+{#                                            <div class="row text-white-50">#}
+{#                                              <h4 class="pr-5 text-white-50" id="overlay_mic_text"></h4>#}
+{#                                              <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>#}
+{#                                            </div>#}
+{#                                        </div>#}
+{#                                    </div>#}
+
+                                    <figure class="figure">
+                                        <canvas id="canvas_micrograph"></canvas>
+                                    </figure>
+
+                                     <div class="row col-12 mt-2 ml-0 pl-0">
+
+                                        <div class="col-5 ml-0 pl-0">
+                                            <figure class="figure">
+                                                <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
+                                            </figure>
+                                        </div>
+
+                                        <div class="col-7 mr-0 pr-0">
+                                            <br/>
+                                                <div class="input-group input-group-sm mb-3">
+                                                  <div class="input-group-prepend">
+                                                    <h5 class="input-group-text" id="inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
+                                                  </div>
+                                                  <input type="text" id="mic_id" class="form-control" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
+                                                </div>
+                                                <label class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </label> <br/>
+                                                <label class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </label><br/>
+                                                <label class="text-muted mb-0" id="mic_defocus_angle"> Defocus Angle: </label><br/>
+                                                <label class="text-muted mb-0" id="mic_astigmatism"> Astigmatism: </label><br/>
+                                                <label class="text-muted mb-0" id="mic_resolution"> Resolution: </label><br/>
+                                                <label class="text-muted mb-0" id="mic_gs">  </label><br/>
+                                                <label class="text-muted mb-0" id="mic_fh">  </label><br/><br/>
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+
+
+                            </div>
+
+{#                            <div class="col-12" id="psd_plot">#}
+{#                                <div class="card card-figure">#}
+{##}
+{#                                    <div class="row col-12">#}
+{##}
+{#                                        <div class="col-6">#}
+{#                                            <figure class="figure">#}
+{#                                                <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">#}
+{#                                            </figure>#}
+{#                                        </div>#}
+{##}
+{#                                        <div class="col-6">#}
+{#                                            <br/>#}
+{#                                                <div class="input-group input-group-sm mb-3">#}
+{#                                                  <div class="input-group-prepend">#}
+{#                                                    <h5 class="input-group-text" id="inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>#}
+{#                                                  </div>#}
+{#                                                  <input type="text" id="mic_id" class="form-control" aria-label="Small" aria-describedby="inputGroup-sizing-sm">#}
+{#                                                </div>#}
+{#                                                <label class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </label> <br/>#}
+{#                                                <label class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </label><br/>#}
+{#                                                <label class="text-muted mb-0" id="mic_defocus_angle"> Defocus Angle: </label><br/>#}
+{#                                                <label class="text-muted mb-0" id="mic_astigmatism"> Astigmatism: </label><br/>#}
+{#                                                <label class="text-muted mb-0" id="mic_resolution"> Resolution: </label><hr/>#}
+{#                                                <label class="text-muted mb-0" id="mic_particles"> Particles: </label><br/>#}
+{#                                                <label class="text-muted mb-0" id="mic_particles_display"> Display: </label><br/><br/>#}
+{#                                        </div>#}
+{##}
+{#                                    </div>#}
+{##}
+{#                                </div>#}
+{#                            </div>#}
+
+                        </div>
+
+
+
+
+
+
+                </div>
+
+                <!-- 2D classes Card -->
+                <div class="col-12" id="classes2d_plot">
+                    <div class="card">
+                        <h5 class="card-header">Classes 2D</h5>
+                        <div class="card-body">
+                            <!-- Display overlay when loading micrograph -->
+                            <div id="overlay_classes2d" class="overlay">
                                 <div class="w-100 d-flex justify-content-center align-items-center">
                                     <div class="row text-white-50">
-                                      <h4 class="pr-5 text-white-50" id="overlay_mic_text"></h4>
+                                      <h4 class="pr-5 text-white-50" id="overlay_classes2d_text"></h4>
                                       <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
                                     </div>
                                 </div>
                             </div>
-
-                            <figure class="figure">
-                                <canvas id="canvas_micrograph"></canvas>
-                            </figure>
+                            <div class="row" id="classes2d_container"> </div>
                         </div>
                     </div>
-
-                    <!-- 2D classes Card -->
-                    <div class="col-12" id="classes2d_plot">
-                        <div class="card">
-                            <h5 class="card-header">Classes 2D</h5>
-                            <div class="card-body">
-                                <!-- Display overlay when loading micrograph -->
-                                <div id="overlay_classes2d" class="overlay">
-                                    <div class="w-100 d-flex justify-content-center align-items-center">
-                                        <div class="row text-white-50">
-                                          <h4 class="pr-5 text-white-50" id="overlay_classes2d_text"></h4>
-                                          <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="row" id="classes2d_container"> </div>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
+
             </div>
             <!-- end thumbnails and classes2d row -->
 
@@ -234,12 +299,14 @@
         resolution: {{ resolution|tojson }},
         defocusAngle: {{ defocusAngle|tojson }},
         astigmatism: {{ astigmatism|tojson }},
-        tsRange: {{ tsRange|tojson }}
+        tsRange: {}
     }
     var session = {{ session|tojson }};
 
     var canvas_ratio = null;
     var micrograph = null;
+    var lastGridSquare = null;
+    var lastFoilHole = null;
     var coordsDisplay = null;
 
     var global_data = null;
@@ -317,10 +384,10 @@
 
 
         create_hc_polar('polar1', data, 'Azimuth (all)', config);
-        create_hc_polar('polar2', data.slice(Math.round(data.length * 0.7)),
-                        'Azimuth (last 30%)', config);
-        create_hc_polar('polar3', data.slice(Math.round(data.length * 0.8)),
-                        'Azimuth (last 20%)', config);
+        {#create_hc_polar('polar2', data.slice(Math.round(data.length * 0.7)),#}
+        {#                'Azimuth (last 30%)', config);#}
+        {#create_hc_polar('polar3', data.slice(Math.round(data.length * 0.8)),#}
+        {#                'Azimuth (last 20%)', config);#}
         create_hc_polar('polar4', data.slice(Math.round(data.length * 0.9)),
                         'Azimuth (last 10%)', config);
 
@@ -339,7 +406,7 @@
     // Load 2D classes asynchronous
     console.log(stats);
 
-    if (stats.classes2d)
+    if (stats.classes2d.count)
         requestClasses2D();
 
     setTimeout(reloadSessionData, 60000);
@@ -352,6 +419,8 @@
         }
     });
 
+    makeSameHeight('plots');
+
 });
 
 })(window, document, window.jQuery);
@@ -361,17 +430,22 @@ function updateStatsCounters(stats){
             document.getElementById(container).innerHTML = value.toString();
         }
 
-    let nMovies = stats['numOfMovies'];
+        //alert(JSON.stringify(stats.movies, null, 4));
+
+    let nMovies = stats.movies.count;
+    let nCtfs = stats.ctfs.count;
+
+    ctfs.tsRange.first = stats.movies.first * 1000;
+    ctfs.tsRange.step = (stats.movies.last - stats.movies.first) * 1000 / nMovies;
 
     setCounter('counter_imported', nMovies);
-    setCounter('counter_aligned', stats['numOfMics']);
-    setCounter('counter_ctf', stats['numOfCtfs']);
-    setCounter('diff_aligned', stats['numOfMics'] - nMovies);
-    setCounter('diff_ctf', stats['numOfCtfs'] - stats['numOfMics']);
+    //setCounter('counter_aligned', stats['numOfMics']);
+    setCounter('ctf_count', nCtfs);
+    setCounter('ctf_diff', nCtfs - nMovies);
+    setCounter('ctf_speed', " " + Math.round(nCtfs/stats.ctfs.hours) + " / h");
+    //setCounter('diff_ctf', stats['numOfCtfs'] - stats['numOfMics']);
 
-    let h = (stats['duration']/3600);
-    let speed = Math.round(nMovies/h);
-    setCounter('imported_tag', " " + speed + " / h");
+    setCounter('imported_tag', " " + Math.round(nMovies/stats.movies.hours) + " / h");
 
     //fixme
     setCounter('counter_picked', 0);
@@ -440,6 +514,41 @@ function requestSessionData(attrs) {
 }  // function onTemplateOkButtonClick
 
 
+function requestMicLocation(data, label, container) {
+    var attrs = {sessionId: session.id}
+
+    if (data.gridSquare != lastGridSquare)
+        attrs.gsId = data.gridSquare;
+
+    if (data.foilHole != lastFoilHole)
+        attrs.fhId = data.foilHole;
+
+    lastGridSquare = attrs.gsId;
+    lastFoilHole = attrs.fhId;
+
+    var requestMicImg = $.ajax({
+        url: "{{ url_for('images.get_mic_location') }}",
+        type: "POST",
+        data: attrs,
+        dataType: "json"
+    });
+
+    requestMicImg.done(function(data) {
+        if (data.gridSquare.thumbnail){
+            //alert("Loaded " + label + " " + JSON.stringify(data, null, 4));
+            $("#gs-image").attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
+        }
+        if (data.foilHole.thumbnail){
+            $("#fh-image").attr('src', 'data:image/png;base64,' + data.foilHole.thumbnail);
+        }
+    });
+
+    requestMicImg.fail(function(jqXHR, textStatus) {
+      alert(label + " Request failed: " + textStatus );
+    });
+}
+
+
 function requestMicrographData(micId) {
     console.log("data for mic: " + micId);
 
@@ -463,10 +572,12 @@ function requestMicrographData(micId) {
             thumbnailPixelSize: data['micThumbPixelSize']
         };
 
+        requestMicLocation(data);
+
         drawMicrograph(micrograph);
 
         // $("#img_micrograph").attr('src', 'data:image/png;base64,' + data['micThumbData']);
-        $("#img_psd").attr('src', 'data:image/png;base64,' + data['psdData']);
+        $("#img_psd").attr('src', 'data:image/png;base64,' + data.psdData);
         {#$("#img_shifts").attr('src', 'data:image/png;base64,' + data['shiftPlotData']);#}
         function setLabel(containerId, value){
             var elem = document.getElementById(containerId);
@@ -478,6 +589,9 @@ function requestMicrographData(micId) {
         setLabel('mic_defocus_u', data['ctfDefocusU']);
         setLabel('mic_defocus_v', data['ctfDefocusV']);
         setLabel('mic_resolution', data['ctfResolution']);
+        $('#gs-label').text(data.gridSquare);
+        {#setLabel('mic_gs', data.gridSquare);#}
+        {#setLabel('mic_fh', data.foilHole);#}
         overlay_mic.hide();
     });
 

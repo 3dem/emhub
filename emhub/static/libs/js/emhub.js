@@ -650,8 +650,11 @@ function makeSameHeight(className){
     var selector = '.' + className;
 
     $(selector).each(function (){
+        console.log(this.className + " h: " + $(this).height());
         maxHeight = Math.max(maxHeight, $(this).height());
     });
+
+    console.log("Max h: " + maxHeight);
 
     $(selector).each(function (){
         $(this).css('height', maxHeight + "px");

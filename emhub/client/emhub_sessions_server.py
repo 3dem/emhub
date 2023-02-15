@@ -217,6 +217,15 @@ class SessionsData:
             optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
             f.write("{\n%s\n}\n" % optStr)
 
+        #cmd = command[microscope].format(otf_path=otf_path)
+        #Process.system(cmd)
+        self.launch_sessions_otf(session)
+
+    def launch_sessions_otf(self, session):
+        microscope = self.resources[session['resource_id']]['name']
+        otf_path = session['extra']['otf']['path']
+        sconfig = self.request_config('sessions')
+        command = sconfig['otf']['command']
         cmd = command[microscope].format(otf_path=otf_path)
         Process.system(cmd)
 
@@ -301,6 +310,10 @@ class SessionsServer(JsonTCPServer):
                 elif action.startswith('create_otf'):
                     update_session = True
                     self.data.create_session_otf(session)
+
+                elif action.startswith('launch_otf'):
+                    update_session = True
+                    self.data.launch_sessions_otf(session)
 
             except Exception as e:
                 print(e)
