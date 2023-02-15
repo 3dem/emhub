@@ -317,3 +317,246 @@ class Overlay {
         this.container.style.display = "none";
     }
 }
+
+/* --------------------------- Session Live functions ------------------------*/
+function session_getData(attrs) {
+    // Update template values
+    attrs.session_id = session_id;
+    var ajaxContent = $.ajax({
+        url: urls.get_session_data,
+        type: "POST",
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({attrs: attrs}),
+        dataType: "json"
+    });
+
+    ajaxContent.done(
+        function (jsonResponse) {
+            var error = null;
+
+            if ('error' in jsonResponse) {
+                error = jsonResponse.error;
+            }
+            else {
+                var count = session_data == null ? 0 : session_data.resolution.length;
+                session_data = jsonResponse;
+                session_updatePlots();
+
+                if (session_data.classes2d.length) {
+                    drawClasses2d('classes2d_container', session_data.classes2d);
+                    overlay_2d.hide();
+                }
+                // TODO: Update Defocus plot with new values since last time
+                var new_count = session_data.resolution.length;
+                if (new_count > count) {
+                    session_getMicData(new_count);
+                }
+            }
+        }
+    );
+    ajaxContent.fail(function(jqXHR, textStatus) {
+      alert(" Request failed: " + textStatus );
+    });
+}  // function session_getData
+
+
+function session_reload() {
+    session_getData({result: 'micrographs'});
+
+    if (session_data.session.status != "finished") {
+        setTimeout(session_reload, 60000);
+    }
+}
+
+
+function session_resize(){
+    const width  = window.innerWidth || document.documentElement.clientWidth ||
+    document.body.clientWidth;
+    const height = window.innerHeight || document.documentElement.clientHeight ||
+    document.body.clientHeight;
+
+    if (width < 2000) {
+        document.getElementById('ctf_plots').className = 'col-8';
+        document.getElementById('image_plots').className = 'col-12';
+    }
+    else {
+        document.getElementById('ctf_plots').className = 'col-5';
+        document.getElementById('image_plots').className = 'col-5';
+    }
+
+    var canvas = document.getElementById("canvas_micrograph");
+    var w = $("#canvas_micrograph").width();
+    var h = Math.round(w / canvas_ratio);
+    $("#canvas_micrograph").height(h);
+}
+
+
+function session_updateCounters(){
+    let stats = session_data.stats;
+
+    function setCounter(container, value){
+        document.getElementById(container).innerHTML = value.toString();
+    }
+
+    let nMovies = stats.movies.count;
+    let nCtfs = stats.ctfs.count;
+
+    session_timespan.first = stats.movies.first * 1000;
+    session_timespan.step = (stats.movies.last - stats.movies.first) * 1000 / nMovies;
+
+    setCounter('counter_imported', nMovies);
+    //setCounter('counter_aligned', stats['numOfMics']);
+    setCounter('ctf_count', nCtfs);
+    setCounter('ctf_diff', nCtfs - nMovies);
+    setCounter('ctf_speed', " " + Math.round(nCtfs/stats.ctfs.hours) + " / h");
+    //setCounter('diff_ctf', stats['numOfCtfs'] - stats['numOfMics']);
+    setCounter('imported_tag', " " + Math.round(nMovies/stats.movies.hours) + " / h");
+    //fixme
+    setCounter('counter_picked', 0);
+}
+
+function session_updatePlots() {
+
+    session_updateCounters();
+
+    if (session_plots == null)  // Create new plots
+    {
+        var config = {
+            color: '#852999',
+            label: 'Defocus',
+            suffix: 'µm',
+            maxY: 0.0,
+            startX: session_timespan.first,
+            stepX: session_timespan.step
+        }
+
+        var data = [];
+        session_plots = {};
+
+        for (var i = 0; i < session_data.defocusAngle.length; ++i) {
+            var angle = session_data.defocusAngle[i];
+            if (angle < 0)
+                angle = 360 + angle;
+            const a = session_data.astigmatism[i];
+            if (a > config.maxY)
+                config.maxY = a;
+            data.push([angle, a])
+        }
+        config.maxY = config.maxY + (config.maxY * 0.1)
+
+        session_plots.defocus = create_hc_series('defocus_plot', session_data.defocus, config);
+        session_plots.defocusHist = create_hc_histogram('defocus_hist1', session_data.defocus, config);
+        //create_hc_histogram('defocus_hist2', color);
+
+        config.color ='#EF9A53';
+        config.label = 'Resolution';
+        config.suffix = 'Å';
+
+        session_plots.resolution = create_hc_series('resolution_plot', session_data.resolution, config);
+        session_plots.resolutionHist = create_hc_histogram('resolution_hist1', session_data.resolution, config);
+
+        config.color = '#55D8C1';
+
+        session_plots.polarAll = create_hc_polar('polar1', data, 'Azimuth (all)', config);
+
+        session_plots.polar10 = create_hc_polar('polar4', data.slice(Math.round(data.length * 0.9)),
+                        'Azimuth (last 10%)', config);
+
+        /* Register when the display coordinates changes */
+        $('input[type=radio][name=coords-radio]').change(function() {
+            coordsDisplay = this.dataset.option;
+            drawMicrograph(micrograph);
+
+        });
+    }
+    else {  // update existing plots
+
+    }
+}
+
+
+function session_getMicData(micId) {
+    console.log("data for mic: " + micId);
+
+    $("#mic_id").val(micId);
+
+    overlay_mic.show("Loading Micrograph " + micId + " ...");
+
+    var requestMicThumb = $.ajax({
+        url: urls.get_mic_data,
+        type: "POST",
+        data: {micId : micId, sessionId: session_id},
+        dataType: "json"
+       // contentType: "img/png"
+    });
+
+    requestMicThumb.done(function(data) {
+        micrograph = {
+            thumbnail: data['micThumbData'],
+            coordinates: data['coordinates'],
+            pixelSize: data['pixelSize'],
+            thumbnailPixelSize: data['micThumbPixelSize']
+        };
+
+        session_getMicLocation(data);
+
+        drawMicrograph(micrograph);
+
+        $("#img_psd").attr('src', 'data:image/png;base64,' + data.psdData);
+        function setLabel(containerId, value){
+            var elem = document.getElementById(containerId);
+            var parts = elem.innerHTML.split(":");
+            elem.innerHTML = parts[0] + ": " + value;
+        }
+
+        //setLabel('mic_id', micId);
+        setLabel('mic_defocus_u', data['ctfDefocusU']);
+        setLabel('mic_defocus_v', data['ctfDefocusV']);
+        setLabel('mic_resolution', data['ctfResolution']);
+        $('#gs-label').text(data.gridSquare);
+        overlay_mic.hide();
+    });
+
+    requestMicThumb.fail(function(jqXHR, textStatus) {
+      alert( "Request failed: " + textStatus );
+    });
+}
+
+function session_get2DClasses(){
+    overlay_2d.show("Loading 2D classes...");
+    requestSessionData({result: 'classes2d'});
+}
+
+function session_getMicLocation(data, label, container) {
+    var attrs = {sessionId: session_id}
+
+    if (data.gridSquare != lastGridSquare)
+        attrs.gsId = data.gridSquare;
+
+    if (data.foilHole != lastFoilHole)
+        attrs.fhId = data.foilHole;
+
+    lastGridSquare = attrs.gsId;
+    lastFoilHole = attrs.fhId;
+
+    var requestMicImg = $.ajax({
+        url: urls.get_mic_location,
+        type: "POST",
+        data: attrs,
+        dataType: "json"
+    });
+
+    requestMicImg.done(function(data) {
+        if (data.gridSquare.thumbnail){
+            //alert("Loaded " + label + " " + JSON.stringify(data, null, 4));
+            $("#gs-image").attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
+        }
+        if (data.foilHole.thumbnail){
+            $("#fh-image").attr('src', 'data:image/png;base64,' + data.foilHole.thumbnail);
+        }
+    });
+
+    requestMicImg.fail(function(jqXHR, textStatus) {
+      alert(label + " Request failed: " + textStatus );
+    });
+}
