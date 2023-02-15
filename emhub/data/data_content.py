@@ -210,6 +210,9 @@ class DataContent:
             'classes2d': []
         }
 
+        # from pprint import pprint
+        # pprint(data)
+
         if result == 'micrographs':
             firstMic = lastMic = None
             for mic in sdata.get_micrographs():
@@ -222,17 +225,20 @@ class DataContent:
                 resolution.append(round(mic['ctfResolution'], 3))
 
             tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
-            duration = dt.datetime.fromtimestamp(tsLast) - dt.datetime.fromtimestamp(tsFirst)
             step = (tsLast - tsFirst) / len(defocus)
-            data['stats']['duration'] = duration.seconds
+            epuData = session.data.getEpuData()
+            beamshifts = [{'x': row.beamShiftX, 'y': row.beamShiftY}
+                          for row in epuData.moviesTable]
+
             data.update({
                 'defocus': defocus,
                 'defocusAngle': defocusAngle,
                 'astigmatism': astigmatism,
                 'resolution': resolution,
-                'tsRange': {'first': tsFirst * 1000, # Timestamp in milliseconds
+                'tsRange': {'first': tsFirst * 1000,  # Timestamp in milliseconds
                             'last': tsLast * 1000,
                             'step': step},
+                'beamshifts': beamshifts
             })
 
         elif result == 'classes2d':
