@@ -30,8 +30,7 @@ import unittest
 import datetime as dt
 from pprint import pprint
 
-from emhub.data import (DataManager, ImageSessionData, H5SessionData,
-                        PytablesSessionData, DataLog)
+from emhub.data import DataManager, DataLog
 from emhub.data.imports.test import TestData
 from emhub.utils import datetime_to_isoformat
 
@@ -139,76 +138,6 @@ class TestDataManager(unittest.TestCase):
 
         self.assertTrue(all(m.requires_slot for m in  microscopes))
         self.assertFalse(all(m.requires_slot for m in microscopes))
-
-
-class TestSessionData(unittest.TestCase):
-    def test_basic(self):
-        setId = 1
-        tsd = ImageSessionData(useBase64=True)
-        FEW_ATTRS = ['id', 'ctfDefocus', 'location']
-
-        mics = tsd.get_set_items(setId, attrList=FEW_ATTRS)
-
-        self.assertEqual(len(mics), 20)
-
-        firstMic = mics[0]
-        self.assertEqual(list(firstMic.keys()), FEW_ATTRS)
-
-        firstMicFull = tsd.get_set_item(setId, firstMic['id'],
-                                        attrList=ImageSessionData.MIC_ALL_ATTRS)
-        #pprint(firstMicFull)
-
-        print("=" * 80, "\nTesting h5py session...")
-
-        hsd = H5SessionData('/tmp/h5py.h5', 'w')
-        micSetId = 'MicrographSet_%03d' % setId
-        hsd.create_set(micSetId, {'label': 'Test set'})
-
-        N = 10
-        c = 0
-        for i in range(N):
-            for mic in mics:
-                micFull = tsd.get_set_item(setId, mic['id'],
-                                       attrList=ImageSessionData.MIC_ALL_ATTRS)
-                c += 1
-                print("\rWriting item %06d" % c, end='')
-                hsd.add_set_item(micSetId, c, micFull)
-
-        hsd.close()
-
-        #hsd = H5SessionData('/tmp/h5py.h5', 'r')
-        #mics2 = hsd.get_set_items(setId, attrList=ImageSessionData.MIC_ALL_ATTRS)
-        #self.assertEqual(len(mics), len(mics2))
-
-
-
-class TestPytablesSessionData(unittest.TestCase):
-    def test_basic(self):
-        setId = 1
-        tsd = ImageSessionData(useBase64=True)
-        FEW_ATTRS = ['id', 'ctfDefocus', 'location']
-
-        mics = tsd.get_set_items(setId, attrList=FEW_ATTRS)
-
-        print("=" * 80, "\nTesting pytables session...")
-        psd = PytablesSessionData('/tmp/pytables.h5', 'w')
-        psd.create_set(setId)
-
-        for mic in mics:
-            micData = tsd.get_item(setId, mic.id,
-                                   dataAttrs=['micThumbData',
-                                              'psdData',
-                                              'shiftPlotData'])
-            psd.add_item(setId, itemId=mic.id, **micData._asdict())
-
-        # test updating item
-        dic = {'location': '/new/location', 'psdData': 'newstr'}
-        psd.update_item(setId, itemId=2, **dic)
-        for mic in psd.get_items(setId,
-                                 attrList=['id', 'location', 'ctfDefocus']):
-            print(mic)
-
-        psd.close()
 
 
 class TestDataLog(unittest.TestCase):
