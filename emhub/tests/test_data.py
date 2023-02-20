@@ -136,7 +136,7 @@ class TestDataManager(unittest.TestCase):
 
         microscopes = [r for r in resources if r.is_microscope]
 
-        self.assertTrue(all(m.requires_slot for m in  microscopes))
+        self.assertTrue(all(m.requires_slot for m in microscopes))
         self.assertFalse(all(m.requires_slot for m in microscopes))
 
 

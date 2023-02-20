@@ -533,9 +533,6 @@ function session_getMicLocation(data, label, container) {
     if (data.gridSquare != lastGridSquare)
         attrs.gsId = data.gridSquare;
 
-    if (data.foilHole != lastFoilHole)
-        attrs.fhId = data.foilHole;
-
     lastGridSquare = attrs.gsId;
     lastFoilHole = attrs.fhId;
 
@@ -550,9 +547,6 @@ function session_getMicLocation(data, label, container) {
         if (data.gridSquare.thumbnail){
             //alert("Loaded " + label + " " + JSON.stringify(data, null, 4));
             $("#gs-image").attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
-        }
-        if (data.foilHole.thumbnail){
-            $("#fh-image").attr('src', 'data:image/png;base64,' + data.foilHole.thumbnail);
         }
     });
 

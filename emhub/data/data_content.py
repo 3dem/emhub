@@ -251,7 +251,9 @@ class DataContent:
     def get_session_live(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
-        return self.get_session_data(session)
+        data = self.get_session_data(session)
+        data.update({'s': session})
+        return data
 
     def get_session_details(self, **kwargs):
         session_id = kwargs['session_id']

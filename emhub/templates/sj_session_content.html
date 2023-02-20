@@ -60,9 +60,9 @@
                                 <form id="session-form" data-parsley-validate="" novalidate="">
 
                                     {{ row('Session Name', session.name, 'h4') }}
-                                    {{ row('Owner', booking.owner.name, 'h4') }}
-                                    {{ row('PI', booking.owner.pi.name) }}
-                                    {{ row('Project', project(session.project), 'div') }}
+                                    {{ row('Owner', owner.name, 'h4') }}
+                                    {{ row('PI', owner.pi.name) }}
+                                    {{ row('Project', macros.project(session.project, True), 'div') }}
                                     {{ row('Creator', booking.creator.name) }}
                                     {{ row('Operator', booking.operator.name) }}
                                     {{ row('Date', session.start|pretty_date) }}

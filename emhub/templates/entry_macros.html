@@ -181,10 +181,13 @@
 {%- endmacro %}
 
 
-{% macro project(p) -%}
+{% macro project(p, show_title) -%}
     {% if p %}
         {% set badge_type = 'success' if p.status == 'active' else 'light' %}
         <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ '%02d'|format(p.id) }}</a>
+        {% if show_title %}
+            <label>{{ p.title }}</label>
+        {% endif %}
     {% endif %}
 {%- endmacro %}
 

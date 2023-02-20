@@ -231,7 +231,7 @@ class RelionSessionData:
                         break
 
         _updateData(epuData.gsTable, 'gsId', 'gridSquare')
-        _updateData(epuData.fhTable, 'fhId', 'foilHole')
+        #_updateData(epuData.fhTable, 'fhId', 'foilHole')
         return locData
 
     def get_classes2d(self):

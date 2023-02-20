@@ -89,6 +89,7 @@ def get_mic_data():
 
     return send_json_data(mic)
 
+
 @images_bp.route("/get_mic_location", methods=['POST'])
 def get_mic_location():
     form = request.form  # shortcut
