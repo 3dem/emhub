@@ -62,7 +62,7 @@
                                             </td>
                                         {% endif %}
                                         <td>{{ s.id }}</td>
-                                        <td><a href="{{ url_for_content('session_details', session_id=s.id) }}">{{ s.name }}</a></td>
+                                        <td>{{ macros.session(s) }}</td>
                                         <td>{{ s.start|pretty_date }} </td>
                                         <td><span class='badge' style='background: {{ s.resource.color }}; color: #fff;'>{{ s.resource.name }}</span></td>
                                         <td>{{ s.status }}</td>

@@ -201,14 +201,17 @@ class DataContent:
             return round(v * 0.0001, 3)
 
         def _ts(fn):
-
             return os.path.getmtime(sdata.join(fn))
 
         data = {
             'session': session.json(),
-            'stats': sdata.get_stats(),
             'classes2d': []
         }
+
+        if not sdata:
+            return data
+
+        data['stats'] = sdata.get_stats()
 
         # from pprint import pprint
         # pprint(data)
@@ -246,6 +249,18 @@ class DataContent:
 
         sdata.close()
 
+        return data
+
+    def get_session_default(self, **kwargs):
+        session_id = kwargs['session_id']
+        session = self.app.dm.load_session(session_id)
+        if os.path.exists(session.data_path):
+            data = self.get_session_live(**kwargs)
+            data['session_default'] = 'session_live.html'
+        else:
+            data = self.get_session_data(session)
+            data.update({'s': session,
+                         'session_default': 'session_details.html'})
         return data
 
     def get_session_live(self, **kwargs):
