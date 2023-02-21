@@ -338,18 +338,22 @@ function session_getData(attrs) {
                 error = jsonResponse.error;
             }
             else {
-                var count = session_data == null ? 0 : session_data.resolution.length;
-                session_data = jsonResponse;
-                session_updatePlots();
+                let classes2d = jsonResponse.classes2d;
 
-                if (session_data.classes2d.length) {
-                    drawClasses2d('classes2d_container', session_data.classes2d);
+                if (classes2d.length > 0) {
+                    drawClasses2d('classes2d_container', classes2d);
                     overlay_2d.hide();
                 }
-                // TODO: Update Defocus plot with new values since last time
-                var new_count = session_data.resolution.length;
-                if (new_count > count) {
-                    session_getMicData(new_count);
+                else if ('defocus' in jsonResponse) {
+                    var count = session_data == null ? 0 : session_data.resolution.length;
+                    session_data = jsonResponse;
+                    session_updatePlots();
+
+                    // TODO: Update Defocus plot with new values since last time
+                    var new_count = session_data.resolution.length;
+                    if (new_count > count) {
+                        session_getMicData(new_count);
+                    }
                 }
             }
         }

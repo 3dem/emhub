@@ -99,7 +99,7 @@
                             <div class="row col-12 p-0 m-0">
                                 <div class="col-4 p-0 m-0" >
                                     <label class="text-muted col-12 p-0 m-0">Size: </label>
-                                    <h3 class="text-muted col-12 p-0 m-0" style="font-weight: bold">{{ s.size|pretty_size }}</h3>
+                                    <h3 class="text-muted col-12 p-0 m-0" style="font-weight: bold"><span style="color: #3d405c">{{ s.size|pretty_size }}</span></h3>
                                 </div>
                                 <div class="col-8 p-0 m-0">
                                     {{ status_row('Files', s.total_files) }}
@@ -308,6 +308,7 @@
         overlay_2d = new Overlay('overlay_classes2d');
 
         session_getData({result: 'micrographs'});
+        session_getData({result: 'classes2d'});
 
         $(window).resize(session_resize);
 

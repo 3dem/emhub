@@ -177,11 +177,11 @@ class RelionSessionData:
                 for row in sf.iterTable('micrographs', start=micId):
                     micThumb = Thumbnail(output_format='base64',
                                          max_size=(512, 512),
-                                         contrast_factor=1,
+                                         contrast_factor=0.15,
                                          gaussian_filter=0)
                     psdThumb = Thumbnail(output_format='base64',
                                          max_size=(128, 128),
-                                         contrast_factor=3,
+                                         contrast_factor=1,
                                          gaussian_filter=0)
 
                     micFn = self.join(row.rlnMicrographName)
