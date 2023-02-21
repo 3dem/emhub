@@ -278,9 +278,18 @@ class SessionsServer(JsonTCPServer):
                 if action.startswith('update_raw'):
 
                     raw = extra.get('raw', {})
+                    otf = extra.get('otf', {})
                     last_movie = raw.get('last_movie', '')
                     raw_path = raw['path']
-                    new_raw = EPU.get_session_info(raw_path)
+                    kwargs = {}
+                    if os.path.exists(otf.get('path', '')):
+                        epuPath = os.path.join(otf['path'], 'EPU')
+                        kwargs = {
+                            'outputStar': os.path.join(epuPath, 'movies.star'),
+                            'backupFolder': epuPath
+                        }
+                    kwargs['lastMovie'] = last_movie
+                    new_raw = EPU.parse_session(raw_path, **kwargs)
                     if last_movie != new_raw.get('last_movie', ''):
                         extra['raw'] = new_raw
                         extra['raw']['path'] = raw_path
