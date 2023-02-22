@@ -112,12 +112,53 @@ function create_hc_series(container, data, config) {
                 valueDecimals: 2,
                 valueSuffix: config.suffix,
             }
+            // point: {
+            //     events: {
+            //         click: function () {
+            //             console.log(this);
+            //             alert('value: y' + this.y + ' i: ' + this.index);
+            //         }
+            //     }
+            //}
+
         }]
     });
 } // function create_hc_series
 
+
+function create_hc_defocus_histogram(containerId, data, percent) {
+    const maxD = Math.max(...data);
+    var config = {
+        color: '#852999',
+        label: 'Defocus',
+        suffix: 'µm',
+        maxX: Math.min(maxD, 4),
+        binsNumber: 10,
+        percent: percent
+    }
+    return create_hc_histogram(containerId, data, config);
+}
+
+
+function create_hc_resolution_histogram(containerId, data, percent) {
+    const maxD = Math.max(...data);
+    var config = {
+        color: '#EF9A53',
+        label: 'Resolution',
+        suffix: 'Å',
+        maxX: Math.min(maxD, 10),
+        binsNumber: 20,
+        percent: percent
+    }
+    return create_hc_histogram(containerId, data, config);
+}
+
+
 function create_hc_histogram(containerId, data, config) {
     var chart = Highcharts.chart(containerId, {
+        chart: {
+            height: config.percent + '%'
+        },
         margin: [0, 0, 0, 0],
         spacing: [0, 0, 0, 0],
         exporting: {enabled: false},
@@ -132,15 +173,16 @@ function create_hc_histogram(containerId, data, config) {
           text: ''
         },
         alignTicks: false,
-        opposite: false
+        opposite: false,
+          max: 4
       }, {
         title: {
           text: config.label + ' (' + config.suffix + ')'
         },
         alignTicks: true,
         opposite: false,
+          max: config.maxX
       }],
-
       yAxis: [
         {
             title: {text: ''}
@@ -153,7 +195,7 @@ function create_hc_histogram(containerId, data, config) {
         }],
       plotOptions: {
         histogram: {
-          binsNumber: 25
+          binsNumber: config.binsNumber
         }
       },
       series: [{
@@ -449,7 +491,8 @@ function session_updatePlots() {
         config.maxY = config.maxY + (config.maxY * 0.1)
 
         session_plots.defocus = create_hc_series('defocus_plot', session_data.defocus, config);
-        session_plots.defocusHist = create_hc_histogram('defocus_hist1', session_data.defocus, config);
+        session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
+
         //create_hc_histogram('defocus_hist2', color);
 
         config.color ='#EF9A53';
@@ -457,12 +500,10 @@ function session_updatePlots() {
         config.suffix = 'Å';
 
         session_plots.resolution = create_hc_series('resolution_plot', session_data.resolution, config);
-        session_plots.resolutionHist = create_hc_histogram('resolution_hist1', session_data.resolution, config);
+        session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
 
         config.color = '#55D8C1';
-
         session_plots.polarAll = create_hc_polar('polar1', data, 'Azimuth (all)', config);
-
         session_plots.polar10 = create_hc_polar('polar4', data.slice(Math.round(data.length * 0.9)),
                         'Azimuth (last 10%)', config);
 
@@ -470,7 +511,6 @@ function session_updatePlots() {
         $('input[type=radio][name=coords-radio]').change(function() {
             coordsDisplay = this.dataset.option;
             drawMicrograph(micrograph);
-
         });
     }
     else {  // update existing plots
@@ -548,9 +588,13 @@ function session_getMicLocation(data, label, container) {
     });
 
     requestMicImg.done(function(data) {
+        console.log(data.resolution);
+
         if (data.gridSquare.thumbnail){
             //alert("Loaded " + label + " " + JSON.stringify(data, null, 4));
             $("#gs-image").attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
+            create_hc_defocus_histogram('gs_defocus_hist', data.defocus, 80);
+            create_hc_resolution_histogram('gs_resolution_hist', data.resolution, 80);
         }
     });
 

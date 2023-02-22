@@ -40,6 +40,24 @@
     </div>
 {%- endmacro  %}
 
+{% macro bins_table(label, bins) -%}
+    <div class="col-12 p-0 m-0 pt-1 pb-1" style="background-color: 	#F5F5F5; border: solid 0.5px #BEBEBE; border-radius: 5px">
+    <div class="row col-12 p-0 m-0">
+        <div class="col-6 font-bold">{{ label }}</div>
+        <div class="col-3 font-bold text-right">#</div>
+        <div class="col-3 font-bold text-right">%</div>
+    </div>
+    {% for label, b, p in bins %}
+        <div class="row col-12 p-0 m-0">
+            <div class="col-5">{{ label }}</div>
+            <div class="col-4 text-right">{{ b }}</div>
+            <div class="col-3 text-right">{{ p }}</div>
+        </div>
+    {% endfor %}
+    </div>
+{%- endmacro  %}
+
+
 {% set booking = s.booking %}
 {% set owner = booking.owner %}
 {% set pi = owner.get_pi() %}
@@ -125,7 +143,7 @@
                                             <div id="defocus_plot" class="col-9" style="height: 300px"></div>
                                             <div class="row col-3 p-0 m-0  no-gutters">
                                                 <div class="col-12 p-0 m-0" id="defocus_hist1"></div>
-                                                    <p>Testing</p>
+                                                {{ bins_table('Defocus (µm)', defocus_bins) }}
                                             </div>
                                         </div>
                                     </div>
@@ -138,6 +156,7 @@
                                             <div id="resolution_plot" class="col-9" style="height: 300px"></div>
                                             <div class="row col-3 p-0 m-0  no-gutters">
                                                 <div class="col-12 p-0 m-0" id="resolution_hist1"></div>
+                                                {{ bins_table('Resolution (Å)', resolution_bins) }}
                                             </div>
                                         </div>
                                     </div>
@@ -169,6 +188,11 @@
                                                 <img class="img-fluid" id="gs-image" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
                                                 <label class="text-muted mb-0" id="gs-label">  </label>
                                             </figure>
+                                             <div class="row col-12 p-0 m-0">
+
+                                                <div class="col-6 p-0 m-0" id="gs_defocus_hist" ></div>
+                                                <div class="col-6 p-0 m-0" id="gs_resolution_hist"></div>
+                                            </div>
 
                                          </div>
                                     </div>
@@ -246,7 +270,7 @@
                             <div class="card">
                                 <h5 class="card-header">3D</h5>
                                 <div class="card-body">
-                                    <!-- Display overlay when loading micrograph -->
+                                    <!-- Display overlay when loading 3d -->
                                     <div id="overlay_3d" class="overlay">
                                         <div class="w-100 d-flex justify-content-center align-items-center">
                                             <div class="row text-white-50">
