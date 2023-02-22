@@ -47,9 +47,17 @@ SESSIONS_SERVER_ADDRESS = __server_address()
 SESSIONS_DATA_FOLDER = os.environ.get('SESSIONS_DATA_FOLDER', None)
 
 
-class SessionsData:
-    def __init__(self, **kwargs):
+class SessionsServer(JsonTCPServer):
+    def __init__(self, address=None):
+        address = address or SESSIONS_SERVER_ADDRESS
+        JsonTCPServer.__init__(self, address)
+        print(Color.green(f"Connected to server: {config.EMHUB_SERVER_URL}"))
+        self._refresh = 30
+        self.init_data()
+        self._files = {}
+        self._scheduler = None
 
+    def init_data(self):
         print("- Loading sessions...")
         self.sessions = self.request_dict('get_sessions')
         print(f"    Total: {len(self.sessions)}")
@@ -77,8 +85,6 @@ class SessionsData:
         if not os.path.exists(SESSIONS_DATA_FOLDER):
             print(Color.red(" Missing"))
 
-        self.lock = threading.Lock()
-
     def request_data(self, endpoint, jsonData=None):
         with open_client() as dc:
             return dc.request(endpoint, jsonData=jsonData).json()
@@ -94,9 +100,11 @@ class SessionsData:
         if self.verbose:
             print(*args)
 
-    def active_sessions(self):
-        return iter(s for s in self.sessions.values()
-                    if s.get('status', 'finished') == 'active')
+    def get_active_sessions(self, dc):
+        args = {'condition': 'status="active"',
+                "attrs": ["id", "name", "extra"]}
+        r = dc.request('get_sessions', jsonData=args)
+        return r.json()
 
     def offload_session_files(self, session):
         """ Move files from the Raw folder to the Offload folder.
@@ -158,9 +166,6 @@ class SessionsData:
 
         attrs = {"attrs": {"id": session['id']}}
         users = self.request_data('get_session_users', attrs)['session_users']
-        print(Color.red(">>> Users: "))
-        pprint(users)
-
         date_ts = Pretty.now()  # Fixme Maybe use first file creation (for old sessions)
         date = date_ts.split()[0].replace('-', '')
         microscope = self.resources[session['resource_id']]['name']
@@ -217,10 +222,6 @@ class SessionsData:
             optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
             f.write("{\n%s\n}\n" % optStr)
 
-        #cmd = command[microscope].format(otf_path=otf_path)
-        #Process.system(cmd)
-        self.launch_sessions_otf(session)
-
     def launch_sessions_otf(self, session):
         microscope = self.resources[session['resource_id']]['name']
         otf_path = session['extra']['otf']['path']
@@ -228,44 +229,6 @@ class SessionsData:
         command = sconfig['otf']['command']
         cmd = command[microscope].format(otf_path=otf_path)
         Process.system(cmd)
-
-
-class SessionsServer(JsonTCPServer):
-    def __init__(self, address=None):
-        address = address or SESSIONS_SERVER_ADDRESS
-        JsonTCPServer.__init__(self, address)
-        print(Color.green(f"Connected to server: {config.EMHUB_SERVER_URL}"))
-        self._refresh = 30
-        self.data = SessionsData()
-        self._files = {}
-        #self._pollingThread = None
-        self._scheduler = None
-
-    def status(self):
-        s = JsonTCPServer.status(self)
-        s['sessions'] = len(self.data.sessions)
-        config = {}
-        for k in dir(sconfig):
-            if k.startswith('SESSIONS_'):
-                config[k] = getattr(sconfig, k)
-        config['folders'] = {
-            k: f"{v[0]} -> {v[1]}" for k, v in self.data.get_folders().items()
-        }
-        s['config'] = config
-        s['active_sessions'] = [s['name'] for s in self.data.active_sessions()]
-        return s
-
-    def list(self, ):
-        sessions = []
-        for k, s in self.data.sessions.items():
-            sessions.append(s)
-        return {'sessions': sessions}
-
-    def session_info(self, session_key):
-        if session_key in self.data.sessions:
-            return self.data.sessions[session_key]
-        else:
-            return {'errors': [f'Session {session_key} does not exists.']}
 
     def _session_handle_actions(self, dc, session, actions):
         extra = session['extra']
@@ -276,7 +239,6 @@ class SessionsServer(JsonTCPServer):
             try:
                 print(f"   - Checking action: {action}")
                 if action.startswith('update_raw'):
-
                     raw = extra.get('raw', {})
                     otf = extra.get('otf', {})
                     last_movie = raw.get('last_movie', '')
@@ -289,6 +251,7 @@ class SessionsServer(JsonTCPServer):
                             'backupFolder': epuPath
                         }
                     kwargs['lastMovie'] = last_movie
+
                     new_raw = EPU.parse_session(raw_path, **kwargs)
                     if last_movie != new_raw.get('last_movie', ''):
                         extra['raw'] = new_raw
@@ -318,16 +281,16 @@ class SessionsServer(JsonTCPServer):
 
                 elif action.startswith('create_otf'):
                     update_session = True
-                    self.data.create_session_otf(session)
+                    self.create_session_otf(session)
+                    self.launch_sessions_otf(session)
 
                 elif action.startswith('launch_otf'):
                     update_session = True
-                    self.data.launch_sessions_otf(session)
+                    self.launch_sessions_otf(session)
 
             except Exception as e:
                 print(e)
                 traceback.print_exc()
-                #remaining_actions.append(action)
         if update_session:
             print(f"        Updating session {session['name']}")
             extra['actions'] = remaining_actions
@@ -358,16 +321,12 @@ class SessionsServer(JsonTCPServer):
         """
         print(f"{Color.green(Pretty.now())} Updating sessions info...")
         with open_client() as dc:
-            args = {'condition': 'status="active"',
-                    "attrs": ["id", "name", "extra"]}
-            r = dc.request('get_sessions', jsonData=args)
-            for session in r.json():
+            for session in self.get_active_sessions(dc):
                 self._session_handle_actions(dc, session,
                                              ['update_raw:from_server'])
 
     def _sessions_sync_files(self):
         print(f"{Color.warn(Pretty.now())} Synchronizing files...")
-        #self.data.update_active_sessions()
 
     def serve_forever(self, *args, **kwargs):
         print(f"{Color.green(Pretty.now())} Running server\n\taddress: {self._address}")
@@ -382,60 +341,7 @@ class SessionsServer(JsonTCPServer):
 
         JsonTCPServer.serve_forever(self, *args, **kwargs)
 
-    def create_session(self, microscope, group, user, label):
-        return self.data.create_session(microscope, group, user, label)
-
-    def delete_session(self, session_name):
-        return self.data.delete_session(session_name)
-
-
-class SessionsClient(JsonTCPClient):
-    def __init__(self, address=None):
-        address = address or SESSIONS_SERVER_ADDRESS
-        JsonTCPClient.__init__(self, address)
-
-
-def create_parser():
-    parser = argparse.ArgumentParser(prog='emhub.sessions_server')
-    parser.add_argument('--verbose', '-v', action='count')
-    group = parser.add_mutually_exclusive_group()
-
-    group.add_argument('--start_server', action='store_true',
-                       help="Start the sessions server.")
-    group.add_argument('--status', '-s', action='store_true',
-                       help="Query sessions' server status.")
-    group.add_argument('--list', '-l', action='store_true',
-                       help="List all OTF sessions stored in the cache. ")
-    group.add_argument('--info', '-i', type=int,
-                       help="Get info about this session.")
-    return parser
-
-
-def run(args):
-    if args.start_server:
-        with SessionsServer() as server:
-            server.serve_forever()
-    else:
-        client = SessionsClient()
-        if not client.test():
-            raise Exception(f"Server not listening on "
-                            f"{SESSIONS_SERVER_ADDRESS}")
-
-        if args.status:
-            status = client.call('status')['result']
-            pprint(status)
-        elif args.list:
-            sessions = client.call('list')['result']['sessions']
-            for s in sessions:
-                print(s)
-            print(f"Total: {len(sessions)}")
-        elif args.info:
-            session = client.call('session_info', args.info)['result']
-            pprint(session)
-        else:
-            print("Nothing to do for now")
-
 
 if __name__ == '__main__':
-    parser = create_parser()
-    run(parser.parse_args())
+    with SessionsServer() as server:
+        server.serve_forever()
