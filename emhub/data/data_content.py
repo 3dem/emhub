@@ -40,6 +40,7 @@ from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          image, shortname)
 
 from emtools.utils import Pretty
+from emtools.metadata import Bins
 
 
 class DataContent:
@@ -216,16 +217,24 @@ class DataContent:
         # from pprint import pprint
         # pprint(data)
 
+
         if result == 'micrographs':
             firstMic = lastMic = None
+            dbins = Bins([1, 2, 3])
+            rbins = Bins([3, 4, 6])
+
             for mic in sdata.get_micrographs():
                 if not defocus:
                     firstMic = mic['micrograph']
                 lastMic = mic['micrograph']
-                defocus.append(_microns(mic['ctfDefocus']))
+                d = _microns(mic['ctfDefocus'])
+                defocus.append(d)
+                dbins.addValue(d)
                 defocusAngle.append(mic['ctfDefocusAngle'])
                 astigmatism.append(_microns(mic['ctfAstigmatism']))
-                resolution.append(round(mic['ctfResolution'], 3))
+                r = round(mic['ctfResolution'], 3)
+                resolution.append(r)
+                rbins.addValue(r)
 
             tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
             step = (tsLast - tsFirst) / len(defocus)
@@ -241,14 +250,15 @@ class DataContent:
                 'tsRange': {'first': tsFirst * 1000,  # Timestamp in milliseconds
                             'last': tsLast * 1000,
                             'step': step},
-                'beamshifts': beamshifts
+                'beamshifts': beamshifts,
+                'defocus_bins': dbins.toList(),
+                'resolution_bins': rbins.toList(),
             })
 
         elif result == 'classes2d':
             data['classes2d'] = sdata.get_classes2d()
 
         sdata.close()
-
         return data
 
     def get_session_default(self, **kwargs):

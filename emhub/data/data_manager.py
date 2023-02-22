@@ -1240,6 +1240,8 @@ class DataManager(DbManager):
         return result
 
     def _session_data_path(self, session):
+        if not session.data_path:
+            return ''
         return os.path.join(self._sessionsPath, session.data_path)
 
 

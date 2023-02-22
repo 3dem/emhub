@@ -151,9 +151,6 @@ class RelionSessionData:
         if not micFn:
             return []
 
-        epuData = self.getEpuData()
-        epuMovies = {Path}
-
         with StarFile(micFn) as sf:
             for row in sf.iterTable('micrographs'):
                 #micFn = self.join(row.rlnMicrographName)
@@ -209,6 +206,7 @@ class RelionSessionData:
 
     def get_mic_location(self, **kwargs):
         epuData = self.getEpuData()
+        gsId = kwargs.get('gsId', '')
         locData = {
             'gridSquare': {},
             'foilHole': {}
@@ -216,22 +214,30 @@ class RelionSessionData:
         thumb = Thumbnail(output_format='base64',
                           max_size=(512, 512))
 
-        def _updateData(table, kw, key):
-            if kw in kwargs:
-                kwId = kwargs[kw]
-                for row in table:
-                    if row.id == kwId:
-                        imgPath = self.join('EPU', row.folder, row.image)
-                        locData[key] = {
-                            'id': row.id,
-                            'image': row.image,
-                            'folder': row.folder,
-                            'thumbnail': thumb.from_path(imgPath)
-                        }
-                        break
+        for row in epuData.gsTable:
+            if row.id == gsId:
+                imgPath = self.join('EPU', row.folder, row.image)
+                locData['gridSquare'] = {
+                    'id': row.id,
+                    'image': row.image,
+                    'folder': row.folder,
+                    'thumbnail': thumb.from_path(imgPath)
+                }
+                break
 
-        _updateData(epuData.gsTable, 'gsId', 'gridSquare')
-        #_updateData(epuData.fhTable, 'fhId', 'foilHole')
+        def _microns(v):
+            return round(v * 0.0001, 3)
+
+        defocus = []
+        resolution = []
+        for mic in self.get_micrographs():
+            loc = EPU.get_movie_location(mic['micrograph'])
+            if loc['gs'] == gsId:
+                defocus.append(_microns(mic['ctfDefocus']))
+                resolution.append(round(mic['ctfResolution'], 3))
+
+        locData.update({'defocus': defocus, 'resolution': resolution})
+
         return locData
 
     def get_classes2d(self):
