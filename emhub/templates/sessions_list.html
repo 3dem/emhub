@@ -28,6 +28,7 @@
                                 <th>start</th>
                                 <th>microscope</th>
                                 <th>status</th>
+                                <th>OTF</th>
                                 <th>preprocessing</th>
                                 <th>booking_id</th>
                                 <th>project</th>
@@ -66,6 +67,7 @@
                                         <td>{{ s.start|pretty_date }} </td>
                                         <td><span class='badge' style='background: {{ s.resource.color }}; color: #fff;'>{{ s.resource.name }}</span></td>
                                         <td>{{ s.status }}</td>
+                                        <td>{{ s.otf_status }}</td>
                                         <td><a href="{{ url_for_content('session_live', session_id=s.id) }}">{{ s.data_path }}</a></td>
                                         <td><a href="javascript:showBookingForm({booking_id: {{ booking.id }}})">{{ booking.id }}</a></td>
                                         <td>{{ macros.project(s.project) }}</td>

@@ -396,6 +396,10 @@ function session_getData(attrs) {
                     if (new_count > count) {
                         session_getMicData(new_count);
                     }
+
+                    if (session_data.session.status != "finished") {
+                        setTimeout(session_reload, 30000);
+                    }
                 }
             }
         }
@@ -408,10 +412,6 @@ function session_getData(attrs) {
 
 function session_reload() {
     session_getData({result: 'micrographs'});
-
-    if (session_data.session.status != "finished") {
-        setTimeout(session_reload, 60000);
-    }
 }
 
 
@@ -459,6 +459,11 @@ function session_updateCounters(){
     setCounter('imported_tag', " " + Math.round(nMovies/stats.movies.hours) + " / h");
     //fixme
     setCounter('counter_picked', 0);
+
+    let extra = session_data.session.extra;
+    let otf = extra.otf;
+    setCounter('label_processes', otf.processes.length);
+    setCounter('label_updated', extra.updated);
 }
 
 function session_updatePlots() {
