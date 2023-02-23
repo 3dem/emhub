@@ -214,10 +214,6 @@ class DataContent:
 
         data['stats'] = sdata.get_stats()
 
-        # from pprint import pprint
-        # pprint(data)
-
-
         if result == 'micrographs':
             firstMic = lastMic = None
             dbins = Bins([1, 2, 3])

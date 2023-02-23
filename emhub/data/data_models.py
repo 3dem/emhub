@@ -932,6 +932,13 @@ def create_data_models(dm):
             raw = self.extra.get('raw', {})
             return raw.get('size', 0)
 
+        @property
+        def otf_status(self):
+            otf = self.__getExtra('otf', {})
+            if not isinstance(otf, dict):
+                otf = {}
+            return otf.get('status', '')
+
         def json(self):
             return dm.json_from_object(self)
 
