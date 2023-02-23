@@ -100,12 +100,6 @@ class SessionsServer(JsonTCPServer):
         if self.verbose:
             print(*args)
 
-    def get_active_sessions(self, dc):
-        args = {'condition': 'status="active"',
-                "attrs": ["id", "name", "extra"]}
-        r = dc.request('get_sessions', jsonData=args)
-        return r.json()
-
     def offload_session_files(self, session):
         """ Move files from the Raw folder to the Offload folder.
         Files will be moved when there has been a time without modification
@@ -146,6 +140,21 @@ class SessionsServer(JsonTCPServer):
             print(f"   Active session: {s['name']}, checking files")
             self.offload_session_files(s)
 
+    def active_otf(self, session):
+        otf = session['extra'].get('otf', {})
+        status = otf.get('status', None)
+        if status not in ['running', 'launched', 'created']:
+            return False
+        otf_path = otf.get('path', '')
+
+        if otf and os.path.exists(otf_path):
+            fn, last_modified = Path.lastModified(otf_path)
+            now = datetime.now()
+            print(f"OTF: Running, last: {fn}, {last_modified}")
+            if (now - last_modified).days >= 1:
+                return False
+        return True
+
     def get_folders(self):
         folders = OrderedDict()
         for f in ['EPU', 'Offload', 'OTF', 'Groups']:
@@ -173,7 +182,7 @@ class SessionsServer(JsonTCPServer):
         name = session['name']
         otf_folder = f"{date}_{microscope}_{name}_OTF"
         otf_path = os.path.join(otf_root, otf_folder)
-        extra['otf'] = {'path': otf_path}
+        extra['otf'] = {'path': otf_path, 'status': 'created'}
         session['data_path'] = otf_path
         print(f"rm -rf {otf_path}")
         os.system(f"rm -rf {otf_path}")
@@ -215,19 +224,18 @@ class SessionsServer(JsonTCPServer):
 
         sconfig = self.request_config('sessions')
         opts = sconfig['otf']['relion']['common']
-        command = sconfig['otf']['command']
-        print(">>> Creating Relion OTF with options: ")
-        pprint(opts)
         with open(_path('relion_it_options.py'), 'w') as f:
             optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
             f.write("{\n%s\n}\n" % optStr)
 
     def launch_sessions_otf(self, session):
         microscope = self.resources[session['resource_id']]['name']
-        otf_path = session['extra']['otf']['path']
+        otf = session['extra']['otf']
+        otf_path = otf['path']
         sconfig = self.request_config('sessions')
         command = sconfig['otf']['command']
-        cmd = command[microscope].format(otf_path=otf_path)
+        cmd = command[microscope].format(otf_path=otf_path,
+                                         session_id=session['id'])
         Process.system(cmd)
 
     def _session_handle_actions(self, dc, session, actions):
@@ -235,6 +243,8 @@ class SessionsServer(JsonTCPServer):
         remaining_actions = []
         update_session = False
         print(Color.bold(f" > Session {session['id']}"))
+        launch_otf = False
+
         for action in actions:
             try:
                 print(f"   - Checking action: {action}")
@@ -244,7 +254,10 @@ class SessionsServer(JsonTCPServer):
                     last_movie = raw.get('last_movie', '')
                     raw_path = raw['path']
                     kwargs = {}
-                    if os.path.exists(otf.get('path', '')):
+                    otf_path = otf.get('path', '')
+                    otf_exists = os.path.exists(otf_path)
+
+                    if otf_exists:
                         epuPath = os.path.join(otf['path'], 'EPU')
                         kwargs = {
                             'outputStar': os.path.join(epuPath, 'movies.star'),
@@ -252,26 +265,23 @@ class SessionsServer(JsonTCPServer):
                         }
                     kwargs['lastMovie'] = last_movie
 
-                    new_raw = EPU.parse_session(raw_path, **kwargs)
-                    if last_movie != new_raw.get('last_movie', ''):
-                        extra['raw'] = new_raw
+                    # Get the new raw info
+                    raw = EPU.parse_session(raw_path, **kwargs)
+                    if last_movie != raw.get('last_movie', ''):
+                        extra['raw'] = raw
                         extra['raw']['path'] = raw_path
                         update_session = True
                     else:
-                        last_creation = new_raw.get('last_movie_creation', '')
+                        last_creation = raw.get('last_movie_creation', '')
                         if last_creation:
+                            last_movie = raw['last_movie']
                             last_modified = Pretty.parse_datetime(last_creation)
-                            print(f"RAW: last_movie: {last_modified}")
+                            print(f"RAW: last: {last_movie}, {last_modified}")
                             now = datetime.now()
-                            if (now - last_modified).days >= 1:  # Raw data older than a day
-                                # Let's check OTF data
-                                otf = extra.get('otf', {})
-                                if otf and os.path.exists(opath := otf['path']):
-                                    fn, last_modified = Path.lastModified(opath)
-                                    print(f"OTF: last: {fn}, {last_modified}")
-                                    if (now - last_modified).days >= 1:
-                                        session['status'] = 'finished'
-                                        update_session = True
+                            if (now - last_modified).days >= 1 and not self.active_otf(session):
+                                session['status'] = 'finished'
+                                otf['status'] = 'finished'
+                                update_session = True
 
                         if not update_session:
                             print(f"      No changes for this session, not updating.")
@@ -279,14 +289,28 @@ class SessionsServer(JsonTCPServer):
                     if 'from_server' not in action:
                         update_session = True
 
+                    # Check now for otf status
+                    if otf_exists:
+                        status = otf.get('status', None)
+                        if status == 'created':  # launch otf now
+                            n = raw['movies']
+                            launch_otf = n > 16
+                            msg = 'Launching OTF!' if launch_otf else 'Waiting for more movies'
+                            print(f"OTF: folder already CREATED, "
+                                  f"input movies {raw['movies']}."
+                                  f"\n\t{msg}")
+                            if launch_otf:
+                                otf['status'] = 'launched'
+                                update_session = True
+
                 elif action.startswith('create_otf'):
                     update_session = True
                     self.create_session_otf(session)
-                    self.launch_sessions_otf(session)
 
                 elif action.startswith('launch_otf'):
+                    otf['status'] = 'launched'
                     update_session = True
-                    self.launch_sessions_otf(session)
+                    launch_otf = True
 
             except Exception as e:
                 print(e)
@@ -296,6 +320,9 @@ class SessionsServer(JsonTCPServer):
             extra['actions'] = remaining_actions
             extra['updated'] = Pretty.now()
             dc.update_session(session)
+
+        if launch_otf:
+            self.launch_sessions_otf(session)
 
     def _poll_sessions(self):
         """ Check for actions needed for EMhub's sessions. """
@@ -321,7 +348,7 @@ class SessionsServer(JsonTCPServer):
         """
         print(f"{Color.green(Pretty.now())} Updating sessions info...")
         with open_client() as dc:
-            for session in self.get_active_sessions(dc):
+            for session in dc.get_active_sessions():
                 self._session_handle_actions(dc, session,
                                              ['update_raw:from_server'])
 
