@@ -71,13 +71,7 @@ def get_mic_data():
     sessionId = int(request.form['sessionId'])
     session = app.dm.load_session(sessionId)
 
-    attrs = [
-        'micThumbData', 'psdData', 'shiftPlotData',
-        'ctfDefocusU', 'ctfDefocusV', 'ctfResolution',
-        'coordinates', 'micThumbPixelSize', 'pixelSize'
-    ]
-
-    mic = session.data.get_micrograph_data(micId, attrList=attrs)
+    mic = session.data.get_micrograph_data(micId)
 
     if 'coordinates' in mic:
         if not isinstance(mic['coordinates'], list):  # numpy arrays

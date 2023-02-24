@@ -165,7 +165,7 @@ class RelionSessionData:
                 }
                 yield micData
 
-    def get_micrograph_data(self, micId, attrList=None):
+    def get_micrograph_data(self, micId):
         micFn = self._last_micFn()
 
         if micFn:
@@ -193,9 +193,11 @@ class RelionSessionData:
                         'micThumbData': micThumbBase64,
                         'psdData': psdThumb.from_mrc(psdFn),
                         # 'shiftPlotData': None,
-                        'ctfDefocusU': round(row.rlnDefocusU, 3),
-                        'ctfDefocusV': round(row.rlnDefocusV, 3),
-                        'ctfResolution': round(row.rlnCtfMaxResolution, 3),
+                        'ctfDefocusU': round(row.rlnDefocusU/10000., 2),
+                        'ctfDefocusV': round(row.rlnDefocusV/10000., 2),
+                        'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
+                        'ctfAstigmatism': round(row.rlnCtfAstigmatism, 2),
+                        'ctfResolution': round(row.rlnCtfMaxResolution, 2),
                         'coordinates': self._get_coordinates(micFn),
                         'micThumbPixelSize': pixelSize * micThumb.scale,
                         'pixelSize': pixelSize,

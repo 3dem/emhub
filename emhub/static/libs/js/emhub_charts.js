@@ -389,11 +389,10 @@ function session_getData(attrs) {
                 else if ('defocus' in jsonResponse) {
                     var count = session_data == null ? 0 : session_data.resolution.length;
                     session_data = jsonResponse;
-                    session_updatePlots();
-
                     // TODO: Update Defocus plot with new values since last time
                     var new_count = session_data.resolution.length;
                     if (new_count > count) {
+                        session_updatePlots();
                         session_getMicData(new_count);
                     }
 
@@ -437,13 +436,15 @@ function session_resize(){
 }
 
 
+function session_setCounter(container, value){
+    let strValue = nonEmpty(value) ? value.toString() : '';
+    document.getElementById(container).innerHTML = strValue;
+}
+
 function session_updateCounters(){
     let stats = session_data.stats;
 
-    function setCounter(container, value){
-        let strValue = nonEmpty(value) ? value.toString() : '';
-        document.getElementById(container).innerHTML = strValue;
-    }
+
 
     let nMovies = stats.movies.count;
     let nCtfs = stats.ctfs.count;
@@ -451,21 +452,21 @@ function session_updateCounters(){
     session_timespan.first = stats.movies.first * 1000;
     session_timespan.step = (stats.movies.last - stats.movies.first) * 1000 / nMovies;
 
-    setCounter('counter_imported', nMovies);
+    session_setCounter('counter_imported', nMovies);
     //setCounter('counter_aligned', stats['numOfMics']);
-    setCounter('ctf_count', nCtfs);
-    setCounter('ctf_diff', nCtfs - nMovies);
-    setCounter('ctf_speed', " " + Math.round(nCtfs/stats.ctfs.hours) + " / h");
+    session_setCounter('ctf_count', nCtfs);
+    session_setCounter('ctf_diff', nCtfs - nMovies);
+    session_setCounter('ctf_speed', " " + Math.round(nCtfs/stats.ctfs.hours) + " / h");
     //setCounter('diff_ctf', stats['numOfCtfs'] - stats['numOfMics']);
-    setCounter('imported_tag', " " + Math.round(nMovies/stats.movies.hours) + " / h");
+    session_setCounter('imported_tag', " " + Math.round(nMovies/stats.movies.hours) + " / h");
     //fixme
-    setCounter('counter_picked', 0);
+    session_setCounter('counter_picked', 0);
 
     let extra = session_data.session.extra;
     let otf = extra.otf;
     if (otf.processes)
-        setCounter('label_processes', otf.processes.length);
-    setCounter('label_updated', extra.updated);
+        session_setCounter('label_processes', otf.processes.length);
+    session_setCounter('label_updated', extra.updated);
 }
 
 function session_updatePlots() {
@@ -521,14 +522,15 @@ function session_updatePlots() {
         });
     }
     else {  // update existing plots
-
+        session_plots.defocus.series[0].setData(session_data.defocus);
+        session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
+        session_plots.resolution.series[0].setData(session_data.resolution);
+        session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
     }
 }
 
 
 function session_getMicData(micId) {
-    console.log("data for mic: " + micId);
-
     $("#mic_id").val(micId);
 
     overlay_mic.show("Loading Micrograph " + micId + " ...");
@@ -561,10 +563,12 @@ function session_getMicData(micId) {
         }
 
         //setLabel('mic_id', micId);
-        setLabel('mic_defocus_u', data['ctfDefocusU']);
-        setLabel('mic_defocus_v', data['ctfDefocusV']);
-        setLabel('mic_resolution', data['ctfResolution']);
-        $('#gs-label').text(data.gridSquare);
+        $('#mic_defocus_u').text(data['ctfDefocusU']);
+        $('#mic_defocus_v').text(data['ctfDefocusV']);
+        $('#mic_defocus_angle').text(data['ctfDefocusAngle']);
+        $('#mic_astigmatism').text(data['ctfAstigmatism']);
+        $('#mic_resolution').text(data['ctfResolution']);
+
         overlay_mic.hide();
     });
 
@@ -595,8 +599,6 @@ function session_getMicLocation(data, label, container) {
     });
 
     requestMicImg.done(function(data) {
-        console.log(data.resolution);
-
         if (data.gridSquare.thumbnail){
             //alert("Loaded " + label + " " + JSON.stringify(data, null, 4));
             $("#gs-image").attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);

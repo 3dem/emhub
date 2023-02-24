@@ -42,6 +42,13 @@
     </div>
 {%- endmacro  %}
 
+{% macro mic_row(label, value, id) -%}
+    <div class="row col-12 p-0 m-0">
+        <label class="text-muted col-8 text-right">{{ label }}</label>
+        <label class="col-4 text-right" id="{{ id }}">{{ value }}</label>
+    </div>
+{%- endmacro  %}
+
 
 {% macro bins_table(label, bins) -%}
     <div class="col-12 p-0 m-0 pt-1 pb-1" style="background-color: 	#F5F5F5; border: solid 0.5px #BEBEBE; border-radius: 5px">
@@ -241,13 +248,12 @@
                                                           </div>
                                                           <input type="text" id="mic_id" class="form-control" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
                                                         </div>
-                                                        <label class="text-muted mb-0" id="mic_defocus_u"> Defocus U: </label> <br/>
-                                                        <label class="text-muted mb-0" id="mic_defocus_v"> Defocus V: </label><br/>
-                                                        <label class="text-muted mb-0" id="mic_defocus_angle"> Defocus Angle: </label><br/>
-                                                        <label class="text-muted mb-0" id="mic_astigmatism"> Astigmatism: </label><br/>
-                                                        <label class="text-muted mb-0" id="mic_resolution"> Resolution: </label><br/>
-                                                        <label class="text-muted mb-0" id="mic_gs">  </label><br/>
-                                                        <label class="text-muted mb-0" id="mic_fh">  </label><br/><br/>
+                                                        {{ mic_row('Defocus U (µm)', '', 'mic_defocus_u') }}
+                                                        {{ mic_row('Defocus V (µm)', '', 'mic_defocus_v') }}
+                                                        {{ mic_row('Defocus Angle (°)', '', 'mic_defocus_angle') }}
+                                                        {{ mic_row('Astigmatism', '', 'mic_astigmatism') }}
+                                                        {{ mic_row('Resolution (Å)', '', 'mic_resolution') }}
+
                                                 </div>
 
                                             </div>

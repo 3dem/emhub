@@ -60,6 +60,8 @@
                                                     <i class="far fa-edit"></i></button>
                                             <button class="btn btn-sm btn-outline-light" onclick="deleteSession({{ s.id }})">
                                                 <i class="far fa-trash-alt"></i></button>
+                                            <button class="btn btn-sm btn-outline-light" onclick="createSession({{ booking.id }}, 0)">
+                                                <i class="far fa-copy"></i></button>
                                             </td>
                                         {% endif %}
                                         <td>{{ s.id }}</td>
