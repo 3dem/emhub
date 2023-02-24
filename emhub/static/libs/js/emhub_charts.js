@@ -441,7 +441,8 @@ function session_updateCounters(){
     let stats = session_data.stats;
 
     function setCounter(container, value){
-        document.getElementById(container).innerHTML = value.toString();
+        let strValue = nonEmpty(value) ? value.toString() : '';
+        document.getElementById(container).innerHTML = strValue;
     }
 
     let nMovies = stats.movies.count;
@@ -462,7 +463,8 @@ function session_updateCounters(){
 
     let extra = session_data.session.extra;
     let otf = extra.otf;
-    setCounter('label_processes', otf.processes.length);
+    if (otf.processes)
+        setCounter('label_processes', otf.processes.length);
     setCounter('label_updated', extra.updated);
 }
 

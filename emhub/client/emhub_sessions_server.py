@@ -246,11 +246,15 @@ class SessionsServer(JsonTCPServer):
         launch_otf = False
 
         for action in actions:
+            raw = extra.get('raw', {})
+            otf = extra.get('otf', {})
+            if not raw or 'path' not in raw:
+                continue
+
             try:
                 print(f"   - Checking action: {action}")
                 if action.startswith('update_raw'):
-                    raw = extra.get('raw', {})
-                    otf = extra.get('otf', {})
+
                     last_movie = raw.get('last_movie', '')
                     raw_path = raw['path']
                     kwargs = {}
