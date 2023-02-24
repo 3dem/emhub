@@ -40,7 +40,6 @@ function handleBookingAjaxDone(jsonResponse) {
         on_bookings_created(jsonResponse);
     }
     else if ('bookings_updated' in jsonResponse) {
-
         on_bookings_updated(jsonResponse);
     }
     else if ('bookings_deleted' in jsonResponse) {

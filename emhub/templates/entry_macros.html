@@ -181,16 +181,19 @@
 {%- endmacro %}
 
 
-{% macro project(p) -%}
+{% macro project(p, show_title) -%}
     {% if p %}
         {% set badge_type = 'success' if p.status == 'active' else 'light' %}
         <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ '%02d'|format(p.id) }}</a>
+        {% if show_title %}
+            <label>{{ p.title }}</label>
+        {% endif %}
     {% endif %}
 {%- endmacro %}
 
 
 {% macro session(s) -%}
-    <a href="{{ url_for_content('session_details', session_id=s.id) }}" class="badge badge-info mr-1 mt-1" >{{ s.name }}</a>
+    <a href="{{ url_for_content('session_default', session_id=s.id) }}" class="badge badge-info mr-1 mt-1" >{{ s.name }}</a>
 {%- endmacro %}
 
 
@@ -216,4 +219,15 @@
 
 {% macro hidden_hour_id() -%}
     <input type="hidden" value="09:00:00.000", id="hour_id">
+{%- endmacro %}
+
+{% macro overlay(overlay_id) -%}
+    <div id="{{ overlay_id }}" class="overlay">
+        <div class="w-100 d-flex justify-content-center align-items-center">
+            <div class="row text-white-50">
+              <h4 class="pr-5 text-white-50" id="{{ overlay_id }}_text"></h4>
+              <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
+            </div>
+        </div>
+    </div>
 {%- endmacro %}

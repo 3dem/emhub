@@ -40,6 +40,7 @@ from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          image, shortname)
 
 from emtools.utils import Pretty
+from emtools.metadata import Bins
 
 
 class DataContent:
@@ -201,51 +202,79 @@ class DataContent:
             return round(v * 0.0001, 3)
 
         def _ts(fn):
-
             return os.path.getmtime(sdata.join(fn))
 
         data = {
             'session': session.json(),
-            'stats': sdata.get_stats(),
             'classes2d': []
         }
 
+        if not sdata:
+            return data
+
+        data['stats'] = sdata.get_stats()
+
         if result == 'micrographs':
             firstMic = lastMic = None
+            dbins = Bins([1, 2, 3])
+            rbins = Bins([3, 4, 6])
+
             for mic in sdata.get_micrographs():
                 if not defocus:
                     firstMic = mic['micrograph']
                 lastMic = mic['micrograph']
-                defocus.append(_microns(mic['ctfDefocus']))
+                d = _microns(mic['ctfDefocus'])
+                defocus.append(d)
+                dbins.addValue(d)
                 defocusAngle.append(mic['ctfDefocusAngle'])
                 astigmatism.append(_microns(mic['ctfAstigmatism']))
-                resolution.append(round(mic['ctfResolution'], 3))
+                r = round(mic['ctfResolution'], 3)
+                resolution.append(r)
+                rbins.addValue(r)
 
             tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
-            duration = dt.datetime.fromtimestamp(tsLast) - dt.datetime.fromtimestamp(tsFirst)
             step = (tsLast - tsFirst) / len(defocus)
-            data['stats']['duration'] = duration.seconds
+            epuData = session.data.getEpuData()
+            beamshifts = [{'x': row.beamShiftX, 'y': row.beamShiftY}
+                          for row in epuData.moviesTable]
+
             data.update({
                 'defocus': defocus,
                 'defocusAngle': defocusAngle,
                 'astigmatism': astigmatism,
                 'resolution': resolution,
-                'tsRange': {'first': tsFirst * 1000, # Timestamp in milliseconds
+                'tsRange': {'first': tsFirst * 1000,  # Timestamp in milliseconds
                             'last': tsLast * 1000,
                             'step': step},
+                'beamshifts': beamshifts,
+                'defocus_bins': dbins.toList(),
+                'resolution_bins': rbins.toList(),
             })
 
         elif result == 'classes2d':
             data['classes2d'] = sdata.get_classes2d()
 
         sdata.close()
+        return data
 
+    def get_session_default(self, **kwargs):
+        session_id = kwargs['session_id']
+        session = self.app.dm.load_session(session_id)
+        if os.path.exists(session.data_path):
+            data = self.get_session_live(**kwargs)
+            data['session_default'] = 'session_live.html'
+        else:
+            data = self.get_session_data(session)
+            data.update({'s': session,
+                         'session_default': 'session_details.html'})
         return data
 
     def get_session_live(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
-        return self.get_session_data(session)
+        data = self.get_session_data(session)
+        data.update({'s': session})
+        return data
 
     def get_session_details(self, **kwargs):
         session_id = kwargs['session_id']
@@ -1177,7 +1206,10 @@ class DataContent:
         bookings, range_dict = self.get_booking_in_range(kwargs,
                                                          asJson=False,
                                                          filter=_filter)
-        entries = {}
+        entries_usage = {}
+        total_usage = 0
+        entries_down = {}
+        total_down = 0
         key = kwargs.get('key', '')
         selected_entry = None
         total_days = 0
@@ -1197,6 +1229,8 @@ class DataContent:
                 entry_key = b.type
                 entry_label = entry_key.capitalize()
                 entry_email = ''
+                entries = entries_down
+                total_down += b.days
             else:
                 if b.project:
                     pi = b.project.user.get_pi()
@@ -1207,6 +1241,8 @@ class DataContent:
                 entry_key = str(pi.id)
                 entry_label = centers.get(pi.email, pi.name)
                 entry_email = pi.email
+                entries = entries_usage
+                total_usage += b.days
 
             if entry_key not in entries:
                 entries[entry_key] = {
@@ -1229,18 +1265,23 @@ class DataContent:
             if key == entry_key:
                 selected_entry = entry
 
-        entries_sorted = [e for e in sorted(entries.values(),
+        entries_sorted = [e for e in sorted(entries_usage.values(),
                                             key=lambda e: e['total_days'],
                                             reverse=True)]
         percent = 100 / total_days
+        percent_usage = 100 / total_usage
 
         def _name(e):
             name = centers.get(e['email'], e['label'])
             return shortname(name)
 
-        pie_data = [{
+        pie_data = [{'name': e['label'], 'y': e['total_days'] * percent}
+                    for e in entries_down.values()]
+        pie_data.append({'name': 'Usage', 'y': total_usage * percent})
+
+        bar_data = [{
             'name': _name(e),
-            'y': e['total_days'] * percent,
+            'y': e['total_days'] * percent_usage,
             'drilldown': e['label']
         } for e in entries_sorted]
 
@@ -1263,12 +1304,14 @@ class DataContent:
         data = {
             'entries': entries_sorted,
             'total_days': total_days,
+            'total_usage': total_usage,
             'resources_dict': {r['id']: r for r in resources},
             'selected_resources': selected,
             'selected_entry': selected_entry,
             'applications': applications,
             'selected_app': selected_app,
             'pie_data': pie_data,
+            'bar_data': bar_data,
             'drilldown_data': drilldown_data
         }
         data.update(range_dict)
@@ -1587,7 +1630,7 @@ class DataContent:
         config = dm.get_config('projects')
 
         def ekey(e):
-            if e.type == 'booking':
+            if isinstance(e, dm.Booking): #e.type == 'booking':
                 return e.start, e.start
             else:
                 return e.date, e.creation_date
@@ -1614,7 +1657,7 @@ class DataContent:
         for s in dm.get_sessions():
             if s.project == project:
                 b = s.booking
-                if b.id not in bookings:
+                if b.type == 'booking' and b.id not in bookings:
                     entries.append(b)
                     bookings.add(b.id)
 
@@ -1983,6 +2026,7 @@ class DataContent:
                     start=sdate.replace(hour=9),
                     end=sdate.replace(hour=11, minute=59),
                     owner=p.user,
+                    owner_id=p.user.id,
                     resource=scopes[rid],
                     resource_id=rid,
                     project_id=p.id,

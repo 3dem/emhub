@@ -85,9 +85,13 @@ class DataClient:
         return self._method('create_session', 'session', attrs)
 
     def get_session(self, sessionId, attrs=None):
-        return self._method('get_sessions', 0, attrs,
-                            condition='id=%d' % sessionId)
+        return self._method('get_sessions', None, attrs,
+                            condition='id=%d' % sessionId)[0]
 
+    def get_active_sessions(self):
+        """ Return all sessions that are active. """
+        return self._method('get_sessions', None, None,
+                            condition='status="active"')
     def update_session(self, attrs):
         """ Request the server to update existing session.
         Mandatory in attrs:

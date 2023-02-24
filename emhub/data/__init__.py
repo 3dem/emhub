@@ -26,8 +26,6 @@
 # *
 # **************************************************************************
 
-from .data_session import (SessionData, H5SessionData,
-                           ImageSessionData, PytablesSessionData)
 from .data_manager import DataManager
 from .data_log import DataLog
 from .data_content import DataContent

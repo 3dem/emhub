@@ -67,7 +67,13 @@
     var last_experiment = null;
     var last_event = null;
 
-    var on_bookings_created, on_bookings_updated, on_bookings_deleted = function (response){};
+    /* By default, the page will be reloaded in any of the following events
+    * These variables can be re-assigned in subpages to allow different
+    * behaviour when modifying bookings.
+    * */
+    var on_bookings_created = function (response){location.reload();};
+    var on_bookings_updated = function (response){location.reload();};
+    var on_bookings_deleted = function (response){location.reload();};
 
     var is_devel = {{ is_devel|tojson }};
     var content_url = "{{ url_for('get_content') }}";

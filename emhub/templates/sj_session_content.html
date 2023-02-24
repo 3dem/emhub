@@ -11,12 +11,6 @@
     </div>
 {%- endmacro %}
 
-{% macro project(p) -%}
-    {% if p %}
-        {{ macros.project(p) }} <label>{{ p.title }}</label>
-    {% endif %}
-{%- endmacro  %}
-
 {% macro trow(title, value, label) %}
     {% set class = label or 'label' %}
     <tr>
@@ -40,127 +34,128 @@
     {% set owner = booking.owner %}
     {% set pi = owner.get_pi() %}
 
-    {% if is_manager or current_user == owner or current_user == pi %}
+    {% if is_manager or current_user.same_pi(owner) %}
 
-    <!-- Create a layout with two columns, left column with two panes -->
-    <div class="row">
+        <!-- Create a layout with two columns, left column with two panes -->
+        <div class="row">
 
-        <!-- Left column -->
-        <div class="col-6">
+            <!-- Left column -->
+            <div class="col-6">
 
-            <div class="row">
+                <div class="row">
 
-                <div class="col-12">
-                    <div class="card"> <!-- Overview Card -->
-                        <div class="card-header">
-                            <h3 class="card-header-title"> Overview </h3>
-                        </div>
-                         <div class="card-body">
-                            <div class="col-12">
-                                <form id="session-form" data-parsley-validate="" novalidate="">
+                    <div class="col-12">
+                        <div class="card"> <!-- Overview Card -->
+                            <div class="card-header">
+                                <h3 class="card-header-title"> Overview </h3>
+                            </div>
+                             <div class="card-body">
+                                <div class="col-12">
+                                    <form id="session-form" data-parsley-validate="" novalidate="">
 
-                                    {{ row('Session Name', session.name, 'h4') }}
-                                    {{ row('Owner', booking.owner.name, 'h4') }}
-                                    {{ row('PI', booking.owner.pi.name) }}
-                                    {{ row('Project', project(session.project), 'div') }}
-                                    {{ row('Creator', booking.creator.name) }}
-                                    {{ row('Operator', booking.operator.name) }}
-                                    {{ row('Date', session.start|pretty_date) }}
-                                    {{ row('Status', session.status) }}
+                                        {{ row('Session Name', session.name, 'h4') }}
+                                        {{ row('Owner', owner.name, 'h4') }}
+                                        {{ row('PI', owner.pi.name) }}
+                                        {{ row('Project', macros.project(session.project, True), 'div') }}
+                                        {{ row('Creator', booking.creator.name) }}
+                                        {{ row('Operator', booking.operator.name) }}
+                                        {{ row('Date', session.start|pretty_date) }}
+                                        {{ row('Status', session.status) }}
 
-                                    <!-- Microscope Row -->
-                                    <div class="row">
-                                        <label class="col-12 col-sm-4 col-form-label text-sm-right">Microscope</label>
-                                        <div class="col-12 col-sm-8 col-lg-6">
-                                            <div class="row align-items-center justify-content-start">
-                                            <div class="col">
-                                                <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
+                                        <!-- Microscope Row -->
+                                        <div class="row">
+                                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Microscope</label>
+                                            <div class="col-12 col-sm-8 col-lg-6">
+                                                <div class="row align-items-center justify-content-start">
+                                                <div class="col">
+                                                    <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
+                                                </div>
+                                                <div class="col-10 text-sm-left">
+                                                    <h5>{{ booking.resource.name }}</h5>
+                                                </div>
                                             </div>
-                                            <div class="col-10 text-sm-left">
-                                                <h5>{{ booking.resource.name }}</h5>
                                             </div>
                                         </div>
-                                        </div>
-                                    </div>
 
-                                     <!-- On the fly  Row -->
-                                    <div class="row">
-                                        <label class="col-12 col-sm-4 col-form-label text-sm-right">On-the-fly</label>
-                                        <div class="col-12 col-sm-8 col-lg-6">
-                                            <a href="{{ url_for_content('session_live', session_id=session.id) }}">{{ session.data_path }}</a>
+                                         <!-- On the fly  Row -->
+                                        <div class="row">
+                                            <label class="col-12 col-sm-4 col-form-label text-sm-right">On-the-fly</label>
+                                            <div class="col-12 col-sm-8 col-lg-6">
+                                                <a href="{{ url_for_content('session_live', session_id=session.id) }}">{{ session.data_path }}</a>
+                                            </div>
                                         </div>
-                                    </div>
-                                </form>
+                                    </form>
+                                </div>
+
+                            </div>
+                        </div> <!-- Overview Card -->
+                    </div>
+
+                    <div class="col-12">
+                        <div class="card"> <!-- Acquisition Card -->
+                            <div class="card-header">
+                                <h3 class="card-header-title"> Acquisition </h3>
                             </div>
 
-                        </div>
-                    </div> <!-- Overview Card -->
-                </div>
+                            <div class="card-body">
+                                {% set acq = session.acquisition %}
+                                {% set stats = session.stats %}
+                                <table class="table table-striped table-bordered">
+                                    <tbody>
+                                        {{ trow('Voltage (kV)', acq['voltage']) }}
+                                        {{ trow('CS', acq['cs']) }}
+                                        {{ trow('Pixel Size (A/px)', acq['pixelSize']) }}
+                                        {{ trow('Dose (per frame)', acq['dosePerFrame']) }}
 
-                <div class="col-12">
-                    <div class="card"> <!-- Acquisition Card -->
-                        <div class="card-header">
-                            <h3 class="card-header-title"> Acquisition </h3>
-                        </div>
-
-                        <div class="card-body">
-                            {% set acq = session.acquisition %}
-                            {% set stats = session.stats %}
-                            <table class="table table-striped table-bordered">
-                                <tbody>
-                                    {{ trow('Voltage (kV)', acq['voltage']) }}
-                                    {{ trow('CS', acq['cs']) }}
-                                    {{ trow('Pixel Size (A/px)', acq['pixelSize']) }}
-                                    {{ trow('Dose (per frame)', acq['dosePerFrame']) }}
-
-                                </tbody>
-                            </table>
-                        </div>
-                    </div> <!-- End of Acquisition Card -->
-                </div>
-
-            </div>
-
-        </div> <!-- End of Left column -->
-
-        <!-- Right column -->
-        <div class="col-6">
-
-                <div class="col-12">
-                    <div class="card"> <!-- Data Card -->
-                        <div class="card-header">
-                            <h3 class="card-header-title"> Data </h3>
-                        </div>
-
-                        <div class="card-body">
-                            {% set acq = session.acquisition %}
-                            {% set stats = session.stats %}
-                            {% set extra = session.extra %}
-                            <table class="table table-striped table-bordered">
-                                <tbody>
-                                    {{ trow('Raw path', extra['raw']['path']) }}
-                                    {{ trow('OTF path', extra.get('otf', {}).get('path', '')) }}
-                                    {{ trow('Size', session.size|pretty_size) }}
-                                    {{ trow('Files', session.total_files) }}
-                                    {{ trow('Images', session.images) }}
-
-                                </tbody>
-                            </table>
-                             <div class="col-12">
-                                <div id="files-pie" class="col-12"></div>
-                                <p>Here should be the plot. </p>
+                                    </tbody>
+                                </table>
                             </div>
-                        </div>
-                    </div> <!-- End of Data Card -->
+                        </div> <!-- End of Acquisition Card -->
+                    </div>
+
                 </div>
 
-        </div> <!-- End of Right column -->
-    </div>
+            </div> <!-- End of Left column -->
+
+            <!-- Right column -->
+            <div class="col-6">
+
+                    <div class="col-12">
+                        <div class="card"> <!-- Data Card -->
+                            <div class="card-header">
+                                <h3 class="card-header-title"> Data </h3>
+                            </div>
+
+                            <div class="card-body">
+                                {% set acq = session.acquisition %}
+                                {% set stats = session.stats %}
+                                {% set extra = session.extra %}
+                                {% set otf_path = extra.get('otf', {}).get('path', '') if session.data_path else '' %}
+                                <table class="table table-striped table-bordered">
+                                    <tbody>
+                                        {{ trow('Raw path', extra['raw']['path']) }}
+                                        {{ trow('OTF path', otf_path) }}
+                                        {{ trow('Size', session.size|pretty_size) }}
+                                        {{ trow('Files', session.total_files) }}
+                                        {{ trow('Images', session.images) }}
+
+                                    </tbody>
+                                </table>
+                                 <div class="col-12">
+                                    <div id="files-pie" class="col-12"></div>
+                                    <p>Here should be the plot. </p>
+                                </div>
+                            </div>
+                        </div> <!-- End of Data Card -->
+                    </div>
+
+            </div> <!-- End of Right column -->
+        </div>
 
     {% else %}
         <div>
         <h2>You do not have access to this information.</h2>
-        <p>A session is only visible to the owner user or the principal investigator. </p>
+        <p>A session is only visible by people on the same lab </p>
         </div>
     {% endif %}
 

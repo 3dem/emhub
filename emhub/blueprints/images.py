@@ -70,21 +70,8 @@ def get_mic_data():
     micId = int(request.form['micId'])
     sessionId = int(request.form['sessionId'])
     session = app.dm.load_session(sessionId)
-    micSetId = None
-    for s in session.data.get_sets():
-        if s['id'].startswith('Micrographs'):
-            micSetId = s['id']
 
-    if micSetId is None:
-        raise Exception("Not micrograph set found in '%s'"
-                        % session.data_path)
-    attrs = [
-        'micThumbData', 'psdData', 'shiftPlotData',
-        'ctfDefocusU', 'ctfDefocusV', 'ctfResolution',
-        'coordinates', 'micThumbPixelSize', 'pixelSize'
-    ]
-
-    mic = session.data.get_set_item(micSetId, micId, attrList=attrs)
+    mic = session.data.get_micrograph_data(micId)
 
     if 'coordinates' in mic:
         if not isinstance(mic['coordinates'], list):  # numpy arrays
@@ -95,3 +82,19 @@ def get_mic_data():
     session.data.close()
 
     return send_json_data(mic)
+
+
+@images_bp.route("/get_mic_location", methods=['POST'])
+def get_mic_location():
+    form = request.form  # shortcut
+    sessionId = int(form['sessionId'])
+    session = app.dm.load_session(sessionId)
+    kwargs = {}
+    if 'gsId' in form:
+        kwargs['gsId'] = form['gsId']
+    if 'fhId' in form:
+        kwargs['fhId'] = form['fhId']
+    data = session.data.get_mic_location(**kwargs)
+    session.data.close()
+    print(data['foilHole'].keys())
+    return send_json_data(data)
