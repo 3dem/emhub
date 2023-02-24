@@ -1630,7 +1630,7 @@ class DataContent:
         config = dm.get_config('projects')
 
         def ekey(e):
-            if e.type == 'booking':
+            if isinstance(e, dm.Booking): #e.type == 'booking':
                 return e.start, e.start
             else:
                 return e.date, e.creation_date
@@ -1657,7 +1657,7 @@ class DataContent:
         for s in dm.get_sessions():
             if s.project == project:
                 b = s.booking
-                if b.id not in bookings:
+                if b.type == 'booking' and b.id not in bookings:
                     entries.append(b)
                     bookings.add(b.id)
 
@@ -2026,6 +2026,7 @@ class DataContent:
                     start=sdate.replace(hour=9),
                     end=sdate.replace(hour=11, minute=59),
                     owner=p.user,
+                    owner_id=p.user.id,
                     resource=scopes[rid],
                     resource_id=rid,
                     project_id=p.id,

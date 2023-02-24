@@ -1024,7 +1024,7 @@ class DataManager(DbManager):
 
         def _set_user(key):
             keyid = key + '_id'
-            if keyid not in kwargs:
+            if keyid not in attrs:
                 setattr(b, keyid, self._user.id)
                 setattr(b, key, self._user)
 
