@@ -1,3 +1,4 @@
+{% set is_manager = current_user.is_manager %}
 
 <!-- Modal body -->
 <div class="modal-body">
@@ -51,19 +52,10 @@
 
         <!-- Raw data folder -->
         <div class="form-group row">
-            <label class="col-12 col-sm-3 col-form-label text-sm-right">RAW data folder</label>
+            <h3 class="col-12 col-sm-3 col-form-label text-sm-right">RAW data folder</h3>
             <div class="col-12 col-sm-8 col-lg-6">
                 <input type="text" required="" placeholder="Provide RAW data folder" id="raw-folder" class="form-control"
                        value="" data-key="raw_folder">
-            </div>
-        </div>
-
-        <!-- OTF folder -->
-        <div class="form-group row">
-            <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF folder</label>
-            <div class="col-12 col-sm-8 col-lg-6">
-                <input type="text" required="" placeholder="If OTF folder is not provided it will be created" id="otf-folder" class="form-control"
-                       value="" data-key="otf_folder">
             </div>
         </div>
 
@@ -80,6 +72,53 @@
                 </select>
             </div>
         </div>
+
+
+
+        <!-- OTF extra params only visible to manager for now -->
+        {% if is_manager %}
+
+            <!-- OTF folder -->
+            <div class="form-group row">
+                <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF folder</label>
+                <div class="col-12 col-sm-8 col-lg-6">
+                    <input type="text" required="" placeholder="If OTF folder is not provided it will be created" id="otf-folder" class="form-control"
+                           value="" data-key="otf_folder">
+                </div>
+            </div>
+
+            <!-- OTF host -->
+            <div class="form-group row">
+                <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF Host</label>
+                <div class="col-12 col-sm-8 col-lg-6">
+                   <select id="otf_host-select" class="selectpicker" data-key="otf_host">
+                        <option selected value="default">default</option>
+                        {% for h in hosts %}
+                            <option value="{{ h }}">{{ h }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- OTF host -->
+            <div class="form-group row">
+                <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF Workflow</label>
+                <div class="col-12 col-sm-8 col-lg-6">
+                   <select id="otf_workflow-select" class="selectpicker" data-key="otf_workflow">
+                        <option selected value="none">relion</option>
+                        <option selected value="relion">relion</option>
+                        <option value="scipion">scipion</option>
+                    </select>
+                </div>
+            </div>
+
+
+
+
+
+        {% endif %}
+
+
 
 
 

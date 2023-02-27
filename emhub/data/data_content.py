@@ -1913,7 +1913,8 @@ class DataContent:
             'booking': b,
             'cameras': dm.get_session_cameras(b.resource.id),
             'processing': dm.get_session_processing(),
-            'session_name': dm.get_new_session_info(booking_id)['name']
+            'session_name': dm.get_new_session_info(booking_id)['name'],
+            'hosts':  dm.get_config('sessions')['otf']['hosts']
         }
         data.update(self.get_user_projects(b.owner, status='active'))
         return data
