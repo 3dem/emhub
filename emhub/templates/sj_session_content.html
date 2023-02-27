@@ -11,15 +11,6 @@
     </div>
 {%- endmacro %}
 
-{% macro trow(title, value, label) %}
-    {% set class = label or 'label' %}
-    <tr>
-        <td class="col-3"><label>{{ title }}</label></td>
-        <td class="col-9"><{{ class }}>{{ value }}</{class}></td>
-    </tr>
-{%- endmacro %}
-
-
 <!-- Session details Card -->
 {% set booking = session.booking %}
 {% set is_manager = current_user.is_manager %}
@@ -102,10 +93,10 @@
                                 {% set stats = session.stats %}
                                 <table class="table table-striped table-bordered">
                                     <tbody>
-                                        {{ trow('Voltage (kV)', acq['voltage']) }}
-                                        {{ trow('CS', acq['cs']) }}
-                                        {{ trow('Pixel Size (A/px)', acq['pixelSize']) }}
-                                        {{ trow('Dose (per frame)', acq['dosePerFrame']) }}
+                                        {{ macros.trow('Voltage (kV)', acq['voltage']) }}
+                                        {{ macros.trow('CS', acq['cs']) }}
+                                        {{ macros.trow('Pixel Size (A/px)', acq['pixelSize']) }}
+                                        {{ macros.trow('Dose (per frame)', acq['dosePerFrame']) }}
 
                                     </tbody>
                                 </table>
@@ -120,34 +111,7 @@
             <!-- Right column -->
             <div class="col-6">
 
-                    <div class="col-12">
-                        <div class="card"> <!-- Data Card -->
-                            <div class="card-header">
-                                <h3 class="card-header-title"> Data </h3>
-                            </div>
-
-                            <div class="card-body">
-                                {% set acq = session.acquisition %}
-                                {% set stats = session.stats %}
-                                {% set extra = session.extra %}
-                                {% set otf_path = extra.get('otf', {}).get('path', '') if session.data_path else '' %}
-                                <table class="table table-striped table-bordered">
-                                    <tbody>
-                                        {{ trow('Raw path', extra['raw']['path']) }}
-                                        {{ trow('OTF path', otf_path) }}
-                                        {{ trow('Size', session.size|pretty_size) }}
-                                        {{ trow('Files', session.total_files) }}
-                                        {{ trow('Images', session.images) }}
-
-                                    </tbody>
-                                </table>
-                                 <div class="col-12">
-                                    <div id="files-pie" class="col-12"></div>
-                                    <p>Here should be the plot. </p>
-                                </div>
-                            </div>
-                        </div> <!-- End of Data Card -->
-                    </div>
+                    {% include 'session_data_card.html' %}
 
             </div> <!-- End of Right column -->
         </div>
@@ -160,15 +124,3 @@
     {% endif %}
 
 {% endif %}
-
-
-<script>
-(function(window, document, $, undefined) {
-    "use strict";
-    $(function() {
-        var filesData = {{ files|tojson }};
-        create_hc_files_pie('files-pie', filesData);
-});
-
-})(window, document, window.jQuery);
-</script>

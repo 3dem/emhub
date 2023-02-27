@@ -249,3 +249,12 @@
     {% endfor %}
     </div>
 {%- endmacro  %}
+
+
+{% macro trow(title, value, label) %}
+    {% set class = label or 'label' %}
+    <tr>
+        <td class="col-3"><label>{{ title }}</label></td>
+        <td class="col-9"><{{ class }}>{{ value }}</{class}></td>
+    </tr>
+{%- endmacro %}

@@ -370,24 +370,29 @@
     };
 
     function showPlotImported() {
-        showPlot('Imported', 'imported');
+        var ajaxContent = get_ajax_content('session_hourly_plots', {session_id: session_id, plot: 'imported'});
+        showPlot('Imported', ajaxContent);
     }
 
     function showPlotAligned() {
-        showPlot('Motioncor/CTF', 'aligned');
+        var ajaxContent = get_ajax_content('session_hourly_plots', {session_id: session_id, plot: 'aligned'});
+        showPlot('Motioncor/CTF', ajaxContent);
     }
 
-    function showPlot(title, plot_key) {
+    function showDataCard(){
+        var ajaxContent = get_ajax_content('session_data_card', {session_id: session_id});
+        showPlot('Session Data', ajaxContent);
+    }
+
+    function showPlot(title, ajaxContent) {
         $('#plot-title').text(title);
         $('#plot-content').html('');
         $('#plot-modal').modal('show');
         plot_overlay.show("Loading Plot Data");
-        var ajaxContent = get_ajax_content('session_hourly_plots', {session_id: session_id, plot: plot_key});
         ajaxContent.done(function(html) {
             plot_overlay.hide();
             $('#plot-content').html(html);
         });
-
         ajaxContent.fail(ajax_request_failed);
     }
 
@@ -415,7 +420,7 @@
 
         $("#href-counter_imported").attr("href", "javascript:showPlotImported();");
         $("#href-ctf_count").attr("href", "javascript:showPlotAligned();");
-        $("#href-Data").attr("href", "javascript:alert('DATA PLOT');");
+        $("#href-Data").attr("href", "javascript:showDataCard();");
 });
 
 
