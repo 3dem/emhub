@@ -1,0 +1,18 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="col-12">
+    <div class="col-12 p-0 m-0" id="plot_hourly" ></div>
+</div>
+
+<script>
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        var data = {{ plot_data|tojson }};
+        var plot_key = {{ plot_key|tojson }};
+        create_hc_hourly('plot_hourly', data, 'Movies ' + plot_key + ' per Hour', 'Start time: ');
+    });
+})(window, document, window.jQuery);
+
+</script>

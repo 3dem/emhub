@@ -231,3 +231,21 @@
         </div>
     </div>
 {%- endmacro %}
+
+
+{% macro bins_table(label, bins) -%}
+    <div class="col-12 p-0 m-0 pt-1 pb-1" style="background-color: 	#F5F5F5; border: solid 0.5px #BEBEBE; border-radius: 5px">
+    <div class="row col-12 p-0 m-0">
+        <div class="col-6 font-bold">{{ label }}</div>
+        <div class="col-3 font-bold text-right">#</div>
+        <div class="col-3 font-bold text-right">%</div>
+    </div>
+    {% for label, b, p in bins %}
+        <div class="row col-12 p-0 m-0">
+            <div class="col-5">{{ label }}</div>
+            <div class="col-4 text-right">{{ b }}</div>
+            <div class="col-3 text-right">{{ p }}</div>
+        </div>
+    {% endfor %}
+    </div>
+{%- endmacro  %}

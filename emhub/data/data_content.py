@@ -40,7 +40,7 @@ from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          image, shortname)
 
 from emtools.utils import Pretty
-from emtools.metadata import Bins
+from emtools.metadata import Bins, TsBins
 
 
 class DataContent:
@@ -304,6 +304,35 @@ class DataContent:
                       for k, v in session.files.items()]
         }
 
+    def get_session_hourly_plots(self, **kwargs):
+        session_id = kwargs['session_id']
+        plot = kwargs['plot']
+        session = self.app.dm.load_session(session_id)
+        data = {'plot_data': [],
+                'plot_key': plot
+                }
+
+        if os.path.exists(session.data_path):
+            if plot == 'imported':
+                epuData = session.data.getEpuData()
+                items = [{'ts': row.timeStamp} for row in epuData.moviesTable]
+            elif plot == 'aligned':
+                sdata = session.data
+                items = []
+                for mic in sdata.get_micrographs():
+                    micFn = sdata.join(mic['micrograph'])
+                    items.append({'ts': os.path.getmtime(micFn)})
+                items.sort(key=lambda item: item['ts'])
+            else:
+                raise Exception('Unknown plot type: ' + plot)
+
+            data['plot_data'] = TsBins(items).bins
+
+        return data
+
+    def get_session_alignedplot(self, **kwargs):
+        pass
+
     def get_sessions_list(self, **kwargs):
         show_extra = 'extra' in kwargs and self.app.user.is_admin
         dm = self.app.dm  # shortcut
@@ -319,13 +348,6 @@ class DataContent:
                     b = self.booking_to_event(s.booking,
                                               prettyDate=True, piApp=True)
                     bookingDict[s.booking.id] = b
-                    #
-                    # data_exists = False
-                    # try:
-                    #     if not os.path.exists(dm.get_session_data_path(s)):
-                    #         s.data_path = ''
-                    # except OSError as e:
-                    #     s.data_path = 'IO error'
 
         return {
             'sessions': sessions,

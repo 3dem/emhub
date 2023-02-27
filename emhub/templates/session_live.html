@@ -1,9 +1,17 @@
 <!-- wrapper  -->
-{% macro status_card(label) -%}
+{% macro status_card(label, icon) -%}
     <div class="col-2">
         <div class="card status_card">
             <div class="card-body">
+                <div class="row">
                 <h5 class="text-muted">{{label}}</h5>
+                    {% if icon %}
+                        <div class="toolbar ml-auto d-flex">
+                            <a class="" id="href-{{ label }}" href="#"><i class="fas fa-search-plus"></i></a>
+                        </div>
+                    {% endif %}
+
+                </div>
 
                 {{ caller() }}
 
@@ -14,14 +22,23 @@
 {%- endmacro %}
 
 
-{% macro status_card_counter(label, counter_id) -%}
+{% macro status_card_counter(label, counter_id, icon) -%}
     <div class="col-2">
         <div class="card status_card">
             <div class="card-body">
+
+                <div class="row">
                 <h5 class="text-muted">{{label}}</h5>
+                    {% if icon %}
+                        <div class="toolbar ml-auto d-flex">
+                            <a class="" id="href-{{ counter_id }}" href="#"><i class="fas fa-search-plus"></i></a>
+                        </div>
+                    {% endif %}
+                </div>
 
                <div class="metric-value d-inline-block">
                     <h1 class="mb-1" id="{{ counter_id }}"></h1>
+
                 </div>
 
                 <div class="metric-label d-inline-block float-right text-success font-weight-bold">
@@ -46,24 +63,6 @@
     <div class="row col-12 p-0 m-0">
         <label class="text-muted col-8 text-right">{{ label }}</label>
         <label class="col-4 text-right" id="{{ id }}">{{ value }}</label>
-    </div>
-{%- endmacro  %}
-
-
-{% macro bins_table(label, bins) -%}
-    <div class="col-12 p-0 m-0 pt-1 pb-1" style="background-color: 	#F5F5F5; border: solid 0.5px #BEBEBE; border-radius: 5px">
-    <div class="row col-12 p-0 m-0">
-        <div class="col-6 font-bold">{{ label }}</div>
-        <div class="col-3 font-bold text-right">#</div>
-        <div class="col-3 font-bold text-right">%</div>
-    </div>
-    {% for label, b, p in bins %}
-        <div class="row col-12 p-0 m-0">
-            <div class="col-5">{{ label }}</div>
-            <div class="col-4 text-right">{{ b }}</div>
-            <div class="col-3 text-right">{{ p }}</div>
-        </div>
-    {% endfor %}
     </div>
 {%- endmacro  %}
 
@@ -109,11 +108,11 @@
 
                         {% endcall %}
 
-                        {% call status_card_counter('Imported', 'counter_imported') %}
+                        {% call status_card_counter('Imported', 'counter_imported', True) %}
                             <span><i class="fas fa-tachometer-alt"></i></span><span id="imported_tag"></span>
                         {% endcall %}
 
-                        {% call status_card_counter('Motioncor/CTF', 'ctf_count') %}
+                        {% call status_card_counter('Motioncor/CTF', 'ctf_count', True) %}
                             <span id="ctf_diff" class="mr-2 text-warning"></span>
                             <span class="text-success"><i class="fas fa-tachometer-alt"></i></span>
                             <span  class="text-success" id="ctf_speed"></span>
@@ -123,7 +122,7 @@
                             <span id="diff_picked">0</span>
                         {% endcall %}
 
-                        {% call status_card('Data') %}
+                        {% call status_card('Data', True) %}
                             <div class="row col-12 p-0 m-0">
                                 <div class="col-4 p-0 m-0" >
                                     <label class="text-muted col-12 p-0 m-0">Size: </label>
@@ -163,7 +162,7 @@
                                             <div id="defocus_plot" class="col-9" style="height: 300px"></div>
                                             <div class="row col-3 p-0 m-0  no-gutters">
                                                 <div class="col-12 p-0 m-0" id="defocus_hist1"></div>
-                                                {{ bins_table('Defocus (µm)', defocus_bins) }}
+                                                {{ macros.bins_table('Defocus (µm)', defocus_bins) }}
                                             </div>
                                         </div>
                                     </div>
@@ -176,7 +175,7 @@
                                             <div id="resolution_plot" class="col-9" style="height: 300px"></div>
                                             <div class="row col-3 p-0 m-0  no-gutters">
                                                 <div class="col-12 p-0 m-0" id="resolution_hist1"></div>
-                                                {{ bins_table('Resolution (Å)', resolution_bins) }}
+                                                {{ macros.bins_table('Resolution (Å)', resolution_bins) }}
                                             </div>
                                         </div>
                                     </div>
@@ -319,6 +318,33 @@
 
 <!-- end wrapper  -->
 
+<!-- ============================================================== -->
+<!-- Booking Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="plot-modal" tabindex="-1" role="dialog" aria-labelledby="plotModal" aria-hidden="true">
+
+      <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+        <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h3 class="modal-title" id="plot-title"> Plot </h3>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div> <!-- End of Modal header -->
+
+            <!-- Modal Body -->
+
+             <div class="modal-body row" id="plot-body">
+                {{ macros.overlay('plot-overlay') }}
+                 <div class="col-12" id="plot-content">
+
+                 </div>
+             </div> <!-- End of Modal body -->
+
+        </div>
+      </div>
+
+</div>
 
 <!-- javascript  -->
 
@@ -331,7 +357,7 @@
     var coordsDisplay = null;
 
     var global_data = null;
-    var overlay_2d, overlay_mic = null;
+    var overlay_2d, overlay_mic, plot_overlay = null;
 
     var session_plots = null;
     var session_data = null;
@@ -343,12 +369,34 @@
         get_mic_location: "{{ url_for('images.get_mic_location') }}"
     };
 
+    function showPlotImported() {
+        showPlot('Imported', 'imported');
+    }
+
+    function showPlotAligned() {
+        showPlot('Motioncor/CTF', 'aligned');
+    }
+
+    function showPlot(title, plot_key) {
+        $('#plot-title').text(title);
+        $('#plot-content').html('');
+        $('#plot-modal').modal('show');
+        plot_overlay.show("Loading Plot Data");
+        var ajaxContent = get_ajax_content('session_hourly_plots', {session_id: session_id, plot: plot_key});
+        ajaxContent.done(function(html) {
+            plot_overlay.hide();
+            $('#plot-content').html(html);
+        });
+
+        ajaxContent.fail(ajax_request_failed);
+    }
 
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
         overlay_mic = new Overlay('overlay_mic');
         overlay_2d = new Overlay('overlay_classes2d');
+        plot_overlay = new Overlay('plot-overlay');
 
         //session_getData({result: 'micrographs'});
         session_reload();
@@ -364,7 +412,13 @@
 
         makeSameHeight('plots');
         makeSameHeight('status_card');
+
+        $("#href-counter_imported").attr("href", "javascript:showPlotImported();");
+        $("#href-ctf_count").attr("href", "javascript:showPlotAligned();");
+        $("#href-Data").attr("href", "javascript:alert('DATA PLOT');");
 });
+
+
 
 })(window, document, window.jQuery);
 

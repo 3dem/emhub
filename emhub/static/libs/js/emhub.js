@@ -368,7 +368,6 @@ function get_ajax_html(url, params) {
 
 /**
  * Make an AJAX request to the server and render the html result in a container.
- * @param container_id The HTML container id where the result content will be placed.
  * @param content_id contend id that will be requested to the server
  * @param params dictionary with extra parameters to retrieve the content.
  */

@@ -297,6 +297,52 @@ function create_hc_usage(containerId, chartType, usageData, drilldownData){
 }
 
 
+function create_hc_hourly(containerId, data, title, subtitle){
+    var categories = [];
+    for (var i = 0; i < data.length; ++i)
+        categories.push('+' + (i+1));
+
+    return Highcharts.chart(containerId, {
+    chart: {
+        type: 'column',
+
+    },
+    title: {
+        text: title
+    },
+    subtitle: {
+        text: subtitle
+    },
+    xAxis: {
+        categories: categories,
+     crosshair: false
+    },
+    yAxis: {
+        min: 0,
+        title: {
+            text: 'Number of images'
+        }
+    },
+    tooltip: {
+        headerFormat: '<span style="font-size:10px">{point.key}</span><table>',
+        pointFormat: '<tr><td style="padding:0"><b>{point.y:.1f} images</b></td></tr>',
+        footerFormat: '</table>',
+        shared: true,
+        useHTML: true
+    },
+    plotOptions: {
+        column: {
+            pointPadding: 0.0,
+            borderWidth: 0
+        }
+    },
+    series: [{
+        data: data
+    }]
+});
+}  // function create_hc_hourly
+
+
 /* Draw the micrograph images with coordinates(optional) */
 function drawMicrograph(micrograph) {
     var canvas = document.getElementById("canvas_micrograph");
