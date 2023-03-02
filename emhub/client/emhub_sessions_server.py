@@ -22,6 +22,7 @@ the sessions' folders creation and data transfer.
 import os
 import sys
 import time
+import logging
 import argparse
 import threading
 from datetime import datetime, timedelta
@@ -32,10 +33,13 @@ from pprint import pprint
 from apscheduler.schedulers.background import BackgroundScheduler
 import traceback
 
-from emtools.utils import Pretty, Process, JsonTCPServer, JsonTCPClient, Path, Color
+from emtools.utils import Pretty, Process, JsonTCPServer, Path, Color, Timer
 from emtools.metadata import EPU
 
 from emhub.client import open_client, config
+
+
+
 
 
 def __server_address():
@@ -55,6 +59,7 @@ class SessionsServer(JsonTCPServer):
         self._refresh = 30
         self.init_data()
         self._files = {}
+        self._session_threads = {}
         self._scheduler = None
 
     def init_data(self):
@@ -150,7 +155,6 @@ class SessionsServer(JsonTCPServer):
         if otf and os.path.exists(otf_path):
             fn, last_modified = Path.lastModified(otf_path)
             now = datetime.now()
-            print(f"OTF: Running, last: {fn}, {last_modified}")
             if (now - last_modified).days >= 1:
                 return False
         return True
@@ -163,15 +167,11 @@ class SessionsServer(JsonTCPServer):
             folders[f] = (folder, fpath)
         return folders
 
-    def create_session_otf(self, session):
+    def create_session_otf(self, session, pl):
         # Get absolute OTF root folder
         otf_root = self.get_folders()['OTF'][1]
         extra = session['extra']
         raw_path = extra['raw']['path']
-
-        print(f">>> Creating OTF session from: {raw_path}")
-        if not os.path.exists(raw_path):
-            raise Exception("Input folder does not exists")
 
         attrs = {"attrs": {"id": session['id']}}
         users = self.request_data('get_session_users', attrs)['session_users']
@@ -184,8 +184,7 @@ class SessionsServer(JsonTCPServer):
         otf_path = os.path.join(otf_root, otf_folder)
         extra['otf'] = {'path': otf_path, 'status': 'created'}
         session['data_path'] = otf_path
-        print(f"rm -rf {otf_path}")
-        os.system(f"rm -rf {otf_path}")
+        pl.system(f"rm -rf {otf_path}")
 
         def _path(*paths):
             return os.path.join(otf_path, *paths)
@@ -228,7 +227,8 @@ class SessionsServer(JsonTCPServer):
             optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
             f.write("{\n%s\n}\n" % optStr)
 
-    def launch_sessions_otf(self, session):
+    def launch_sessions_otf(self, session, pl):
+        """ Launch OTF for a session. """
         microscope = self.resources[session['resource_id']]['name']
         otf = session['extra']['otf']
         otf_path = otf['path']
@@ -236,100 +236,124 @@ class SessionsServer(JsonTCPServer):
         command = sconfig['otf']['command']
         cmd = command[microscope].format(otf_path=otf_path,
                                          session_id=session['id'])
-        Process.system(cmd)
+        pl.system(cmd + ' &')
 
-    def _session_handle_actions(self, dc, session, actions):
-        extra = session['extra']
-        remaining_actions = []
-        update_session = False
-        print(Color.bold(f" > Session {session['id']}"))
-        launch_otf = False
+    def _session_loop(self, session):
+        # First create a logger for this session
+        sessionId = session['id']
+        logName = f"session_{sessionId}.log"
+        logFn = os.path.join(SESSIONS_DATA_FOLDER, 'Logs', logName)
+        handler = logging.FileHandler(logFn)
+        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        handler.setFormatter(formatter)
+        logger = logging.getLogger(logName)
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(handler)
+        pl = Process.Logger(logger)
 
-        for action in actions:
-            raw = extra.get('raw', {})
-            otf = extra.get('otf', {})
-            if not raw or 'path' not in raw:
-                continue
+        timer = Timer()
+        logger.info(f" > Starting Thread for Session {sessionId}")
+        first = True
 
+        while True:
             try:
-                print(f"   - Checking action: {action}")
-                if action.startswith('update_raw'):
+                if not first:
+                    time.sleep(60)
+                    logger.info("Reloading session ")
+                    with open_client() as dc:
+                        session = dc.get_session(sessionId)
 
-                    last_movie = raw.get('last_movie', '')
-                    raw_path = raw['path']
-                    kwargs = {}
-                    otf_path = otf.get('path', '')
-                    otf_exists = os.path.exists(otf_path)
+                launch_otf = False
+                update_session = False
+                extra = session['extra']
+                raw = extra.get('raw', {})
+                otf = extra.get('otf', {})
+                if not raw or 'path' not in raw:
+                    logger.error("Missing 'raw' path from session")
+                    break
 
-                    if otf_exists:
-                        epuPath = os.path.join(otf['path'], 'EPU')
-                        kwargs = {
-                            'outputStar': os.path.join(epuPath, 'movies.star'),
-                            'backupFolder': epuPath
-                        }
-                    kwargs['lastMovie'] = last_movie
+                last_movie = raw.get('last_movie', '')
+                raw_path = raw['path']
+                kwargs = {}
+                otf_path = otf.get('path', '')
+                otf_exists = os.path.exists(otf_path)
 
-                    # Get the new raw info
-                    raw = EPU.parse_session(raw_path, **kwargs)
-                    if last_movie != raw.get('last_movie', ''):
-                        extra['raw'] = raw
-                        extra['raw']['path'] = raw_path
+                if not otf_exists:
+                    logger.info(f'OTF folder does not exists, creating one')
+                    timer.tic()
+                    self.create_session_otf(session, pl)
+                    logger.info(f'OTF creation took {timer.getToc()}')
+
+                epuPath = os.path.join(otf['path'], 'EPU')
+                epuMoviesFn = os.path.join(epuPath, 'movies.star')
+
+                logger.info(f'Parsing RAW files from: {raw_path}')
+                logger.info(f'            last movie: {last_movie}')
+                timer.tic()
+                raw = EPU.parse_session(raw_path,
+                                        outputStar=epuMoviesFn,
+                                        backupFolder=epuPath,
+                                        lastMovie=last_movie)
+                logger.info(f'Parsing took {timer.getToc()}')
+
+                if last_movie != raw.get('last_movie', ''):
+                    extra['raw'] = raw
+                    extra['raw']['path'] = raw_path
+                    update_session = True
+                else:
+                    last_creation = raw.get('last_movie_creation', '')
+                    if last_creation:
+                        last_movie = raw['last_movie']
+                        last_modified = Pretty.parse_datetime(last_creation)
+                        now = datetime.now()
+                        if (now - last_modified).days >= 1 and not self.active_otf(session):
+                            session['status'] = 'finished'
+                            otf['status'] = 'finished'
+                            update_session = True
+
+                # Check now for otf status
+                if otf.get('status', None) == 'created':  # launch otf now
+                    n = raw['movies']
+                    launch_otf = n > 16
+                    if launch_otf:
+                        otf['status'] = 'launched'
                         update_session = True
                     else:
-                        last_creation = raw.get('last_movie_creation', '')
-                        if last_creation:
-                            last_movie = raw['last_movie']
-                            last_modified = Pretty.parse_datetime(last_creation)
-                            print(f"RAW: last: {last_movie}, {last_modified}")
-                            now = datetime.now()
-                            if (now - last_modified).days >= 1 and not self.active_otf(session):
-                                session['status'] = 'finished'
-                                otf['status'] = 'finished'
-                                update_session = True
+                        logger.info(f"OTF: folder already CREATED, "
+                                    f"input movies {raw['movies']}."
+                                    f"Waiting for more movies")
 
-                        if not update_session:
-                            print(f"      No changes for this session, not updating.")
+                if update_session:
+                    logger.info(f"Updating session {session['name']}")
+                    extra['updated'] = Pretty.now()
+                    with open_client() as dc:
+                        dc.update_session(session)
 
-                    if 'from_server' not in action:
-                        update_session = True
-
-                    # Check now for otf status
-                    if otf_exists:
-                        status = otf.get('status', None)
-                        if status == 'created':  # launch otf now
-                            n = raw['movies']
-                            launch_otf = n > 16
-                            msg = 'Launching OTF!' if launch_otf else 'Waiting for more movies'
-                            print(f"OTF: folder already CREATED, "
-                                  f"input movies {raw['movies']}."
-                                  f"\n\t{msg}")
-                            if launch_otf:
-                                otf['status'] = 'launched'
-                                update_session = True
-
-                elif action.startswith('create_otf'):
-                    update_session = True
-                    self.create_session_otf(session)
-
-                elif action.startswith('launch_otf'):
-                    otf['status'] = 'launched'
-                    update_session = True
-                    launch_otf = True
+                if launch_otf:
+                    logger.info(f"Launching OTF after {raw['movies']} input movies .")
+                    timer.tic()
+                    self.launch_sessions_otf(session)
+                    logger.info(f'Launch took {timer.getToc()}')
 
             except Exception as e:
-                print(e)
-                traceback.print_exc()
-        if update_session:
-            print(f"        Updating session {session['name']}")
-            extra['actions'] = remaining_actions
-            extra['updated'] = Pretty.now()
-            dc.update_session(session)
+                logger.error(traceback.format_exc())
+                #traceback.print_exc()
 
-        if launch_otf:
-            self.launch_sessions_otf(session)
+            first = False
 
-    def _poll_sessions(self):
+    def _start_session_thread(self, session):
+        t = threading.Thread(target=self._session_loop, args=[session])
+        self._session_threads[session['id']] = t
+        t.start()
+        return t
+
+    def _poll_loop(self):
         """ Check for actions needed for EMhub's sessions. """
+
+        with open_client() as dc:
+            for s in dc.get_active_sessions():
+                self._start_session_thread(s)
+
         while True:
             try:
                 with open_client() as dc:
@@ -337,24 +361,14 @@ class SessionsServer(JsonTCPServer):
                     r = dc.request('poll_active_sessions', jsonData={})
 
                     for s in r.json():
-                        print(f"   Handling session: {s['id']}")
-                        extra = s['extra']
-                        actions = extra.pop('actions', [])
-                        self._session_handle_actions(dc, s, actions)
+                        if s['id'] not in self._session_threads:
+                            print(f"   Monitoring session: {s['id']}")
+                            self._start_session_thread(s)
+
             except Exception as e:
                 print("Some error happened: ", str(e))
                 print("Waiting 60 seconds before retrying...")
                 time.sleep(60)
-
-    def _sessions_update_info(self):
-        """ Inspect the files under active sessions and update 'raw' info.
-        This job should not be run that frequent since it is not crucial info.
-        """
-        print(f"{Color.green(Pretty.now())} Updating sessions info...")
-        with open_client() as dc:
-            for session in dc.get_active_sessions():
-                self._session_handle_actions(dc, session,
-                                             ['update_raw:from_server'])
 
     def _sessions_sync_files(self):
         print(f"{Color.warn(Pretty.now())} Synchronizing files...")
@@ -364,9 +378,9 @@ class SessionsServer(JsonTCPServer):
         # Start a thread with the server -- that thread will then start one
         # more thread for each request
         self._scheduler = BackgroundScheduler()
-        # Schedule _poll_sessions function to run now
-        self._scheduler.add_job(self._poll_sessions, 'date')
-        self._scheduler.add_job(self._sessions_update_info, 'interval', minutes=1)
+        # Schedule _poll_loop function to run now
+        self._scheduler.add_job(self._poll_loop, 'date')
+        #self._scheduler.add_job(self._sessions_update_info, 'interval', minutes=1)
         # self._scheduler.add_job(self._sessions_sync_files, 'interval', seconds=10)
         self._scheduler.start()
 
