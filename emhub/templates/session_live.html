@@ -150,6 +150,7 @@
 
                     </div>
 
+                    {% if stats['movies']['count'] > 0 and stats['ctfs']['count'] > 0 %}
 
                     <!-- Row: Plots and Micrograph thumbnails -->
                     <div class="row">
@@ -208,7 +209,7 @@
                                                 <label class="text-muted mb-0" id="gs-label">  </label>
                                             </figure>
                                              <div class="row col-12 p-0 m-0">
-
+                                                <div class="col-12 pt-2 pb-2" id="gs_label" ></div>
                                                 <div class="col-6 p-0 m-0" id="gs_defocus_hist" ></div>
                                                 <div class="col-6 p-0 m-0" id="gs_resolution_hist"></div>
                                             </div>
@@ -252,15 +253,9 @@
                                                         {{ mic_row('Defocus Angle (°)', '', 'mic_defocus_angle') }}
                                                         {{ mic_row('Astigmatism', '', 'mic_astigmatism') }}
                                                         {{ mic_row('Resolution (Å)', '', 'mic_resolution') }}
-
                                                 </div>
-
                                             </div>
-
                                         </div>
-
-
-
                                     </div>
 
                                 </div>
@@ -304,6 +299,13 @@
 
                     </div>
 
+                    {% else %}
+                        <div class="row col-6">
+                            <div class="row col-12"><h3 style="color: red">Files for this session have not been processed yet</h3></div>
+                            <div class="row col-12"><h5 id="reload_label">Reloading in seconds</h5></div>
+                        </div>
+                    {% endif %}
+
             </div>
         </div>
 
@@ -319,7 +321,7 @@
 <!-- end wrapper  -->
 
 <!-- ============================================================== -->
-<!-- Booking Modal -->
+<!-- Plots Modal -->
 <!-- ============================================================== -->
 <div class="modal fade" id="plot-modal" tabindex="-1" role="dialog" aria-labelledby="plotModal" aria-hidden="true">
 
@@ -355,9 +357,8 @@
     var lastGridSquare = null;
     var lastFoilHole = null;
     var coordsDisplay = null;
-
-    var global_data = null;
     var overlay_2d, overlay_mic, plot_overlay = null;
+
 
     var session_plots = null;
     var session_data = null;
@@ -396,31 +397,50 @@
         ajaxContent.fail(ajax_request_failed);
     }
 
+    var reload_counter = 60;  // 60 seconds to reload
+    function check_reload(){
+        if (reload_counter > 0) {
+            $('#reload_label').text('Reloading in ' + reload_counter + ' seconds.');
+            reload_counter -= 1;
+            setTimeout(check_reload, 1000);  // every second
+        }
+        else
+            window.location.reload();
+    }
+
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
-        overlay_mic = new Overlay('overlay_mic');
-        overlay_2d = new Overlay('overlay_classes2d');
-        plot_overlay = new Overlay('plot-overlay');
+        var stats = {{ stats|tojson }};
 
-        //session_getData({result: 'micrographs'});
-        session_reload();
-        session_getData({result: 'classes2d'});
+        if (stats.movies.count > 0 && stats.ctfs.count > 0) {
+            overlay_mic = new Overlay('overlay_mic');
+            overlay_2d = new Overlay('overlay_classes2d');
+            plot_overlay = new Overlay('plot-overlay');
 
-        $(window).resize(session_resize);
+            //session_getData({result: 'micrographs'});
+            session_reload();
+            session_getData({result: 'classes2d'});
 
-        $("#mic_id").on('keyup', function (e) {
-            if (e.key === 'Enter' || e.keyCode === 13) {
-                session_getMicData($("#mic_id").val());
-            }
-        });
+            $(window).resize(session_resize);
 
-        makeSameHeight('plots');
+            $("#mic_id").on('keyup', function (e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    session_getMicData($("#mic_id").val());
+                }
+            });
+
+            makeSameHeight('plots');
+
+
+            $("#href-counter_imported").attr("href", "javascript:showPlotImported();");
+            $("#href-ctf_count").attr("href", "javascript:showPlotAligned();");
+            $("#href-Data").attr("href", "javascript:showDataCard();");
+        }
+        else {
+            check_reload();
+        }
         makeSameHeight('status_card');
-
-        $("#href-counter_imported").attr("href", "javascript:showPlotImported();");
-        $("#href-ctf_count").attr("href", "javascript:showPlotAligned();");
-        $("#href-Data").attr("href", "javascript:showDataCard();");
 });
 
 

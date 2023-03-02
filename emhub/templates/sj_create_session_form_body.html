@@ -73,8 +73,6 @@
             </div>
         </div>
 
-
-
         <!-- OTF extra params only visible to manager for now -->
         {% if is_manager %}
 
@@ -105,21 +103,14 @@
                 <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF Workflow</label>
                 <div class="col-12 col-sm-8 col-lg-6">
                    <select id="otf_workflow-select" class="selectpicker" data-key="otf_workflow">
-                        <option selected value="none">relion</option>
                         <option selected value="relion">relion</option>
                         <option value="scipion">scipion</option>
+                        <option value="none">none</option>
                     </select>
                 </div>
             </div>
 
-
-
-
-
         {% endif %}
-
-
-
 
 
     </form>

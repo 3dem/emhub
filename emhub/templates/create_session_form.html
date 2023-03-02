@@ -45,13 +45,19 @@
         if (formValues.session_name) {
             attrs.name = formValues.session_name;
             attrs.extra = {
-                otf_folder: formValues.otf_folder,
-                raw_folder: formValues.raw_folder,
+                raw: {path: formValues.raw_folder},
                 project_id: formValues.project_id
             }
             if (!formValues.otf_folder)
-                attrs.create_otf = true;
+                attrs.extra.otf = {
+                    workflow: formValues.otf_workflow,
+                    host: formValues.otf_host,
+                }
+            else
+                attrs.extra.otf  = {path: otf_folder}
         }
+
+        alert(JSON.stringify(attrs, null, 4));
 
         // If there is a session
         {#if (attrs.extra.raw_folder)#}
