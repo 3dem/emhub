@@ -813,7 +813,8 @@ def handle_session_data(handle, mode="r"):
         try:
             session = app.dm.load_session(sessionId=session_id, mode=mode)
             result = handle(session, **attrs)
-            session.data.close()
+            if session.data:
+                session.data.close()
             break
         except OSError:
             print("Error with session data, sleeping 3 secs")
