@@ -60,10 +60,16 @@ function create_hc_polar(charDivId, data, label, config){
 }
 
 function create_hc_series(container, data, config) {
-    var start = new Date();
-    global_data = data;
     // Create the chart
+    var data2 = data; //.slice(0, 100);
+
     return Highcharts.stockChart(container, {
+        plotOptions: {
+                series: {
+                    turboThreshold: 0,
+                }
+            },
+
         colors: [config.color],
         chart: {
             events: {
@@ -89,10 +95,12 @@ function create_hc_series(container, data, config) {
                 type: 'all',
                 text: 'All'
             }],
-            selected: 1,
+            selected: 3,
             inputEnabled: false
         },
-
+        xAxis: {
+          plotLines: config.gsLines,
+        },
         yAxis: {
             title: {
                 text: config.label + " (" + config.suffix + ")",
@@ -105,21 +113,24 @@ function create_hc_series(container, data, config) {
         title: undefined,
         series: [{
             name: config.label,
-            data: data,
-            pointStart: config.startX,  //start.getTime(),
-            pointInterval: config.stepX,  //10000,
+            id: "datapoints",
+            data: data2,
+            //pointStart: config.startX,  //start.getTime(),
+            //pointInterval: config.stepX,  //10000,
             tooltip: {
-                valueDecimals: 2,
-                valueSuffix: config.suffix,
+                headerFormat: '',
+                pointFormat: '<b>Micrograph {point.micId}</b><br/>' +
+                    config.label + ' <b>{point.y:.2f} ' + config.suffix + '</b><br/><hr/>' +
+                    '{point.gs}'
+            },
+            point: {
+                events: {
+                    click: function () {
+                        if ('micId' in this)
+                            session_getMicData(this.micId);
+                    }
+                }
             }
-            // point: {
-            //     events: {
-            //         click: function () {
-            //             console.log(this);
-            //             alert('value: y' + this.y + ' i: ' + this.index);
-            //         }
-            //     }
-            //}
 
         }]
     });
@@ -443,7 +454,7 @@ function session_getData(attrs) {
                     }
 
                     if (session_data.session.status != "finished") {
-                        setTimeout(session_reload, 30000);
+                        setTimeout(session_reload, 60000);
                     }
                 }
             }
@@ -532,8 +543,16 @@ function session_updatePlots() {
 
         var data = [];
         session_plots = {};
+        var data_defocus = [];
+        var data_resolution = [];
+        var ts = config.startX;
+        var date, gs;
 
+        config.gsLines = [];
+
+        var lastGs = null;
         for (var i = 0; i < session_data.defocusAngle.length; ++i) {
+
             var angle = session_data.defocusAngle[i];
             if (angle < 0)
                 angle = 360 + angle;
@@ -541,9 +560,23 @@ function session_updatePlots() {
             if (a > config.maxY)
                 config.maxY = a;
             data.push([angle, a])
+            date = new Date(ts)
+            gs = session_data.gridsquares[i];
+            if (gs !== lastGs) {
+                lastGs = gs;
+                config.gsLines.push({color: 'gray', value: date, width: 1});
+            }
+
+            data_defocus.push({x: date, y: session_data.defocus[i], micId: i+1, gs: gs})
+            data_resolution.push({x: date, y: session_data.resolution[i], micId: i+1, gs: gs})
+            ts += config.stepX;
         }
         config.maxY = config.maxY + (config.maxY * 0.1)
 
+        console.log(data_defocus);
+        console.log(config.gsLines);
+
+        //session_plots.defocus = create_hc_series('defocus_plot', data_defocus, config);
         session_plots.defocus = create_hc_series('defocus_plot', session_data.defocus, config);
         session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
 
@@ -553,6 +586,7 @@ function session_updatePlots() {
         config.label = 'Resolution';
         config.suffix = 'Å';
 
+        //session_plots.resolution = create_hc_series('resolution_plot', data_resolution, config);
         session_plots.resolution = create_hc_series('resolution_plot', session_data.resolution, config);
         session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
 
@@ -568,10 +602,11 @@ function session_updatePlots() {
         });
     }
     else {  // update existing plots
-        session_plots.defocus.series[0].setData(session_data.defocus);
-        session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
-        session_plots.resolution.series[0].setData(session_data.resolution);
-        session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
+        // session_plots.defocus.series[0].setData(session_data.defocus);
+        // session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
+        // session_plots.resolution.series[0].setData(session_data.resolution);
+        // session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
+        //
     }
 }
 
@@ -614,6 +649,7 @@ function session_getMicData(micId) {
         $('#mic_defocus_angle').text(data['ctfDefocusAngle']);
         $('#mic_astigmatism').text(data['ctfAstigmatism']);
         $('#mic_resolution').text(data['ctfResolution']);
+        $('#gs_label').text(data['gridSquare'])
 
         overlay_mic.hide();
     });
