@@ -40,7 +40,7 @@ from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          image, shortname)
 
 from emtools.utils import Pretty
-from emtools.metadata import Bins, TsBins
+from emtools.metadata import Bins, TsBins, EPU
 
 
 class DataContent:
@@ -196,6 +196,10 @@ class DataContent:
         resolution = []
         astigmatism = []
         timestamps = []
+        gridsquares = []
+        tsRange = {}
+        beamshifts = []
+
         sdata = session.data  # shortcut
 
         def _microns(v):
@@ -210,6 +214,7 @@ class DataContent:
         }
 
         if not sdata:
+            data['stats'] = {'movies': {'count': 0}}
             return data
 
         data['stats'] = sdata.get_stats()
@@ -219,36 +224,42 @@ class DataContent:
             dbins = Bins([1, 2, 3])
             rbins = Bins([3, 4, 6])
 
-            for mic in sdata.get_micrographs():
-                if not defocus:
-                    firstMic = mic['micrograph']
-                lastMic = mic['micrograph']
-                d = _microns(mic['ctfDefocus'])
-                defocus.append(d)
-                dbins.addValue(d)
-                defocusAngle.append(mic['ctfDefocusAngle'])
-                astigmatism.append(_microns(mic['ctfAstigmatism']))
-                r = round(mic['ctfResolution'], 3)
-                resolution.append(r)
-                rbins.addValue(r)
+            if data['stats']['ctfs']['count'] > 0:
+                for mic in sdata.get_micrographs():
+                    micFn = mic['micrograph']
+                    loc = EPU.get_movie_location(micFn)
+                    gridsquares.append(loc['gs'])
+                    if not defocus:
+                        firstMic = micFn
+                    lastMic = micFn
+                    d = _microns(mic['ctfDefocus'])
+                    defocus.append(d)
+                    dbins.addValue(d)
+                    defocusAngle.append(mic['ctfDefocusAngle'])
+                    astigmatism.append(_microns(mic['ctfAstigmatism']))
+                    r = round(mic['ctfResolution'], 3)
+                    resolution.append(r)
+                    rbins.addValue(r)
 
-            tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
-            step = (tsLast - tsFirst) / len(defocus)
-            epuData = session.data.getEpuData()
-            beamshifts = [{'x': row.beamShiftX, 'y': row.beamShiftY}
-                          for row in epuData.moviesTable]
+                tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
+                step = (tsLast - tsFirst) / len(defocus)
+                epuData = session.data.getEpuData()
+                beamshifts = [{'x': row.beamShiftX, 'y': row.beamShiftY}
+                              for row in epuData.moviesTable]
+                tsRange = {'first': tsFirst * 1000,  # Timestamp in milliseconds
+                            'last': tsLast * 1000,
+                            'step': step}
 
             data.update({
                 'defocus': defocus,
                 'defocusAngle': defocusAngle,
                 'astigmatism': astigmatism,
                 'resolution': resolution,
-                'tsRange': {'first': tsFirst * 1000,  # Timestamp in milliseconds
-                            'last': tsLast * 1000,
-                            'step': step},
+                'tsRange': tsRange,
                 'beamshifts': beamshifts,
                 'defocus_bins': dbins.toList(),
                 'resolution_bins': rbins.toList(),
+                'gridsquares': gridsquares,
             })
 
         elif result == 'classes2d':
@@ -260,19 +271,17 @@ class DataContent:
     def get_session_default(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
-        if os.path.exists(session.data_path):
-            data = self.get_session_live(**kwargs)
-            data['session_default'] = 'session_live.html'
-        else:
-            data = self.get_session_data(session)
-            data.update({'s': session,
-                         'session_default': 'session_details.html'})
+        data = self.get_session_live(**kwargs)
+        data['session_default'] = 'session_live.html'
         return data
 
     def get_session_live(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
         data = self.get_session_data(session)
+
+        print(data['stats'], 'type', type(data['stats']))
+
         data.update({'s': session})
         return data
 

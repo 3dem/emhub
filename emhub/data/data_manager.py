@@ -563,8 +563,6 @@ class DataManager(DbManager):
     def create_session(self, **attrs):
         """ Add a new session row. """
         create_data = attrs.pop('create_data', False)
-        create_otf = attrs.pop('create_otf', False)
-
         b = self.get_booking_by(id=int(attrs['booking_id']))
         attrs['resource_id'] = b.resource.id
         attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
@@ -583,32 +581,18 @@ class DataManager(DbManager):
         else:
             session_info = None
 
-        session = self.__create_item(self.Session, **attrs)
-
         extra = attrs.get('extra', {})
-        # Let's update the data path after we know the id
-        data_path = attrs.get('data_path', '')
+        raw_folder = extra['raw'].get('path', '')
+        if not os.path.exists(raw_folder):
+            raise Exception(f"Missing Raw data folder '{raw_folder}'")
 
-        if not data_path:
-            otf_folder = extra.pop('otf_folder', '')
-            if otf_folder:
-                data_path = otf_folder
-                extra['otf'] = {'path': otf_folder}
-            elif create_otf:
-                extra['actions'] = ['create_otf']
+        otf = extra['otf']
+        otf_folder = otf.get('path', '')
+        if otf_folder:
+            data_path = otf_folder
+            extra['otf'] = {'path': otf_folder}
 
-        raw_folder = extra.pop('raw_folder')
-        if raw_folder:
-            extra['raw'] = {'path': raw_folder}
-
-        session.extra = extra
-        session.data_path = data_path
-        self.commit()
-
-        # Create empty hdf5 file
-        if create_data:
-            data = self._create_data_instance(session, 'a')
-            data.close()
+        session = self.__create_item(self.Session, **attrs)
 
         # Update counter for this session group
         if session_info:

@@ -91,7 +91,7 @@ class RelionSessionData:
         def _stats_from_star(jobType, starFn, tableName, attribute):
             fn = self.get_last_star(jobType, starFn)
             if not fn or not os.path.exists(fn):
-                return {}
+                return {'count': 0}
 
             with StarFile(fn) as sf:
                 if attribute == 'count':
@@ -112,7 +112,7 @@ class RelionSessionData:
         print(f"Movies star: {moviesStar}")
 
         if not moviesStar:
-            return {}
+            return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
 
         if epuData := self.getEpuData():
             moviesTable = epuData.moviesTable
