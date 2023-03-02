@@ -182,7 +182,7 @@ class SessionsServer(JsonTCPServer):
         name = session['name']
         otf_folder = f"{date}_{microscope}_{name}_OTF"
         otf_path = os.path.join(otf_root, otf_folder)
-        extra['otf'] = {'path': otf_path, 'status': 'created'}
+        extra['otf'].update({'path': otf_path, 'status': 'created'})
         session['data_path'] = otf_path
         pl.system(f"rm -rf {otf_path}")
 
@@ -222,7 +222,7 @@ class SessionsServer(JsonTCPServer):
             config.write(configfile)
 
         sconfig = self.request_config('sessions')
-        opts = sconfig['otf']['relion']['common']
+        opts = sconfig['otf']['relion']['options']
         with open(_path('relion_it_options.py'), 'w') as f:
             optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
             f.write("{\n%s\n}\n" % optStr)
@@ -232,10 +232,17 @@ class SessionsServer(JsonTCPServer):
         microscope = self.resources[session['resource_id']]['name']
         otf = session['extra']['otf']
         otf_path = otf['path']
+        workflow = otf['workflow']
+        host = otf['host']
+        if host == 'default':
+            host = {'Krios01': 'splpleginon01.stjude.org',
+                    'Arctica01': 'splpleginon02.stjude.org'}[microscope]
+
         sconfig = self.request_config('sessions')
-        command = sconfig['otf']['command']
-        cmd = command[microscope].format(otf_path=otf_path,
-                                         session_id=session['id'])
+        command = sconfig['otf'][workflow]['command']
+        cmd = command.format(otf_path=otf_path, session_id=session['id'])
+        if host != 'localhost':
+            cmd = f'ssh {host} {cmd}'
         pl.system(cmd + ' &')
 
     def _session_loop(self, session):
@@ -266,15 +273,15 @@ class SessionsServer(JsonTCPServer):
                 launch_otf = False
                 update_session = False
                 extra = session['extra']
-                raw = extra.get('raw', {})
-                otf = extra.get('otf', {})
+                raw = extra['raw']
+                otf = extra['otf']
+
                 if not raw or 'path' not in raw:
                     logger.error("Missing 'raw' path from session")
                     break
 
                 last_movie = raw.get('last_movie', '')
                 raw_path = raw['path']
-                kwargs = {}
                 otf_path = otf.get('path', '')
                 otf_exists = os.path.exists(otf_path)
 
@@ -293,7 +300,8 @@ class SessionsServer(JsonTCPServer):
                 raw = EPU.parse_session(raw_path,
                                         outputStar=epuMoviesFn,
                                         backupFolder=epuPath,
-                                        lastMovie=last_movie)
+                                        lastMovie=last_movie,
+                                        pl=pl)
                 logger.info(f'Parsing took {timer.getToc()}')
 
                 if last_movie != raw.get('last_movie', ''):
@@ -332,7 +340,7 @@ class SessionsServer(JsonTCPServer):
                 if launch_otf:
                     logger.info(f"Launching OTF after {raw['movies']} input movies .")
                     timer.tic()
-                    self.launch_sessions_otf(session)
+                    self.launch_sessions_otf(session, pl)
                     logger.info(f'Launch took {timer.getToc()}')
 
             except Exception as e:
@@ -349,26 +357,19 @@ class SessionsServer(JsonTCPServer):
 
     def _poll_loop(self):
         """ Check for actions needed for EMhub's sessions. """
-
-        with open_client() as dc:
-            for s in dc.get_active_sessions():
-                self._start_session_thread(s)
-
         while True:
             try:
                 with open_client() as dc:
-                    print(">>> Polling active sessions...")
-                    r = dc.request('poll_active_sessions', jsonData={})
-
-                    for s in r.json():
+                    for s in dc.get_active_sessions():
                         if s['id'] not in self._session_threads:
-                            print(f"   Monitoring session: {s['id']}")
+                            print(f">>> Starting thread for session {s['name']:<15} (id={s['id']})")
                             self._start_session_thread(s)
 
             except Exception as e:
                 print("Some error happened: ", str(e))
                 print("Waiting 60 seconds before retrying...")
-                time.sleep(60)
+
+            time.sleep(60)
 
     def _sessions_sync_files(self):
         print(f"{Color.warn(Pretty.now())} Synchronizing files...")
