@@ -279,9 +279,6 @@ class DataContent:
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
         data = self.get_session_data(session)
-
-        print(data['stats'], 'type', type(data['stats']))
-
         data.update({'s': session})
         return data
 

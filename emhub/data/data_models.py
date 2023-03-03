@@ -400,9 +400,6 @@ def create_data_models(dm):
         def can_edit_project(self, p):
             """ Return True if this user can edit a project. """
             u = p.user
-            for i in p.collaborators_ids:
-                print(f">>> id: {i}, type: {type(i)}")
-
             return (self.is_manager or
                     p.user_can_edit and
                     (self == u or self == u.get_pi() or
