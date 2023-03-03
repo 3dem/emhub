@@ -232,8 +232,13 @@ class SessionsServer(JsonTCPServer):
         microscope = self.resources[session['resource_id']]['name']
         otf = session['extra']['otf']
         otf_path = otf['path']
-        workflow = otf['workflow']
-        host = otf['host']
+        workflow = otf.get('workflow', 'relion')
+
+        if workflow == 'none':
+            pl.logger.info('OTF workflow is None, so no doing anything.')
+            return
+
+        host = otf.get('host', 'default')
         if host == 'default':
             host = {'Krios01': 'splpleginon01.stjude.org',
                     'Arctica01': 'splpleginon02.stjude.org'}[microscope]
@@ -320,7 +325,7 @@ class SessionsServer(JsonTCPServer):
                             update_session = True
 
                 # Check now for otf status
-                if otf.get('status', None) == 'created':  # launch otf now
+                if otf['status'] == 'created':  # launch otf now
                     n = raw['movies']
                     launch_otf = n > 16
                     if launch_otf:
