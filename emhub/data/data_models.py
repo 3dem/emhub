@@ -92,7 +92,7 @@ def create_data_models(dm):
             """ If True, users will need to have access to an slot
             or have some exceptions via the Application.
             """
-            return  self.__getExtra('requires_slot', False)
+            return self.__getExtra('requires_slot', False)
 
         @requires_slot.setter
         def requires_slot(self, value):
@@ -103,7 +103,7 @@ def create_data_models(dm):
         # If 0, means that the booking can be cancelled at any time
         @property
         def latest_cancellation(self):
-            return  self.__getExtra('latest_cancellation', 0)
+            return self.__getExtra('latest_cancellation', 0)
 
         @latest_cancellation.setter
         def latest_cancellation(self, value):
@@ -144,7 +144,7 @@ def create_data_models(dm):
 
         @property
         def requires_application(self):
-            """ True if the user should belongs to an Application to book this resource.
+            """ True if the user must be in an Application to book this resource.
             """
             return self.__getExtra('requires_application', True)
 

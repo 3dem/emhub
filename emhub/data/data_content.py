@@ -1247,7 +1247,7 @@ class DataContent:
         if 'selected' in kwargs:
             selected = [int(p) for p in kwargs['selected'].split(',')]
         else:
-            selected = [r['id'] for r in resources if r['is_microscope']]
+            selected = [r['id'] for r in resources]  # if r['is_microscope']]
 
         for b in bookings:
             if b.resource_id not in selected:
@@ -1296,8 +1296,8 @@ class DataContent:
         entries_sorted = [e for e in sorted(entries_usage.values(),
                                             key=lambda e: e['total_days'],
                                             reverse=True)]
-        percent = 100 / total_days
-        percent_usage = 100 / total_usage
+        percent = 100 / total_days if total_days > 0 else 0
+        percent_usage = 100 / total_usage if total_usage > 0 else 0
 
         def _name(e):
             name = centers.get(e['email'], e['label'])

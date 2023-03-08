@@ -91,6 +91,20 @@ class DataManager(DbManager):
         if self._user is None:
             self._user = admin
 
+    def create_basic_users(self):
+        users = []
+        for user in ['admin', 'manager', 'user']:
+            users.append(self.create_user(
+                username=user,
+                email=user + '@emhub.org',
+                password=user,
+                name=user,
+                roles=[user],
+                pi_id=None
+            ))
+        if self._user is None:
+            self._user = users[0]
+
     def create_user(self, **attrs):
         """ Create a new user in the DB. """
         attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
