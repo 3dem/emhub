@@ -689,23 +689,25 @@ class DataContent:
         if 'form_values' not in kwargs:
             kwargs['form_values'] = json.dumps(booking.experiment)
 
-        data = self.get_dynamic_form_modal(**kwargs)
+        form = self.app.dm.get_form_by(name='experiment')
+        data = self._dynamic_form(form, **kwargs)
         data.update(self.get_grids_storage())
         return data
 
-    def get_dynamic_form_modal(self, **kwargs):
-        form_id = int(kwargs.get('form_id', 1))
+    def _dynamic_form(self, form, **kwargs):
         form_values_str = kwargs.get('form_values', None) or '{}'
         form_values = json.loads(form_values_str)
+        self.set_form_values(form, form_values)
+        return {'form': form}
 
+    def get_dynamic_form_modal(self, **kwargs):
+        form_id = int(kwargs.get('form_id', 1))
         form = self.app.dm.get_form_by(id=form_id)
 
         if form is None:
             raise Exception("Invalid form id: %s" % form_id)
 
-        self.set_form_values(form, form_values)
-
-        return {'form': form}
+        return self._dynamic_form(form, **kwargs)
 
     def get_logs(self, **kwargs):
         dm = self.app.dm
@@ -1689,7 +1691,7 @@ class DataContent:
                     entries.append(b)
                     bookings.add(b.id)
 
-        #entries.extend([b for b in project.bookings])
+        entries.extend([b for b in project.bookings if b.id not in bookings])
         entries.sort(key=ekey, reverse=True)
 
         return {

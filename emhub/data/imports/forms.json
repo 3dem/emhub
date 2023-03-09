@@ -1,5 +1,40 @@
 [
   {
+    "name": "sample",
+    "definition": {
+            "title": "Sample Form",
+            "params": [
+                {"id": "name",
+                 "label": "Name",
+                 },
+                {"id": "phone",
+                 "default": "88546756777",
+                 "label": "Phone",
+                 },
+                {"id": "show-phone",
+                 "label": "Show phone?",
+                 "type": "bool"
+                 },
+                {"id": "about",
+                 "label": "About everything that you need",
+                 "type": "text"
+                 },
+                {"label": "Options"},
+                {"id": "level",
+                 "label": "Level",
+                 "enum": {"choices": ["low", "medium", "high"],
+                          "display": "combo"
+                          }
+                 },
+                {"id": "pet",
+                 "label": "Pet",
+                 "enum": {"choices": ["cat", "dog", "horse", "monkey"],
+                          "display": "radio"
+                          }
+                 },
+        ]}
+  },
+  {
     "name":  "config:bookings",
     "definition": {
         "display": {
