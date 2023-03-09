@@ -45,13 +45,15 @@
                             <tbody>
                             {% for p in storage.pucks() %}
                                 {% set cane = storage.get_cane(p.dewar, p.cane) %}
+                                {% set caneStr = cane['label'] if cane['label'] else p.cane %}
                                 <tr>
                                     <td>{{ p['id'] }}</td>
                                     <td>{{ p.code }}</td>
                                     <td style="background-color: {{ p.color }}; color: white;">{{ p.label }}</td>
                                     <td>{{ p.color }}</td>
                                     <td>{{ p.dewar }}</td>
-                                    <td style="background-color: {{ cane['color'] }}; color: white;">{{ cane['label'] }}</td>
+{#                                    <td style="background-color: {{ cane['color'] }}; color: white;">{{ p.cane }}</td>#}
+                                    <td>{{ p.cane }}</td>
                                     <td>{{ p.position }}</td>
                                     <td>{{ p.extra|tojson }}</td>
 
