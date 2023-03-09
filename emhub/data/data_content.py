@@ -685,9 +685,10 @@ class DataContent:
     def get_experiment_form(self, **kwargs):
         booking_id = int(kwargs['booking_id'])
         booking = self.app.dm.get_booking_by(id=booking_id)
+        print("Booking id: ", booking_id, 'experiment', booking.experiment)
 
-        if 'form_values' not in kwargs:
-            kwargs['form_values'] = json.dumps(booking.experiment)
+        #if 'form_values' not in kwargs:
+        kwargs['form_values'] = json.dumps(booking.experiment)
 
         form = self.app.dm.get_form_by(name='experiment')
         data = self._dynamic_form(form, **kwargs)
@@ -1390,6 +1391,61 @@ class DataContent:
         }
         data.update(range_dict)
 
+        return data
+
+    def get_sjsm_batch_content(self, **kwargs):
+        batch_id = int(kwargs['batch_id'])
+        batch = {
+            'id': batch_id,
+            'plates': []
+        }
+        plates = self.app.dm.get_pucks()
+        platesDict = {}
+
+        for p in plates:
+            b = p.dewar
+            plate = p.cane
+            if batch_id == b:
+                platesDict[plate] = {}
+                batch['plates'].append(plate)
+
+        # Fixme: get a range of bookings only
+        for b in self.app.dm.get_bookings(orderBy='start'):
+            e = b.experiment
+            if e and 'plates' in e:
+                for plate in e['plates']:
+                    plate_id = int(plate['plate'])
+                    if plate_id in platesDict:
+                        channel_id = int(plate['channel'])
+                        platesDict[plate_id][channel_id] = {
+                            'resource': b.resource,
+                            'issues': bool(plate.get('issues', False)),
+                            'comments': plate['comments']
+                        }
+        data = {
+            'batch': batch,
+            'platesDict': platesDict
+        }
+        for k, v in platesDict.items():
+            for k2, v2 in v.items():
+                print('plate', k, 'channel', k2, v2['resource'].name)
+        return data
+
+    def get_sjsm_plates(self, **kwargs):
+        plates = self.app.dm.get_pucks()
+        batches = []
+
+        for p in plates:
+            batch = p.dewar
+            plate = p.cane
+            if batch not in batches:
+                batches.append(batch)
+
+        batches.reverse()  # more recent first
+        batch_id = kwargs.get('batch_id', batches[0])
+
+        data = {'batches': batches}
+        data.update(self.get_sjsm_batch_content(batch_id=batch_id))
         return data
 
     # --------------------- RAW (development) content --------------------------

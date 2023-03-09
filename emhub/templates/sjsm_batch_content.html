@@ -1,0 +1,41 @@
+
+{% import "entry_macros.html" as macros %}
+
+<div class="col-12">
+<div class="card">
+    <div class="card-body">
+        <h3>Batch {{ batch['id'] }}</h3>
+        <table id="plates-table" class="table table-striped table-bordered" style="width:100%">
+            <thead>
+            <tr>
+                <th>Plate</th>
+                {% for i in range(1, 11) %}
+                    <th>Lane {{ i }}</th>
+                {% endfor %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for plate in batch['plates'] %}
+                <tr>
+                    <td style="width:5%">Plate {{ plate }}</td>
+                    {% for i in range(1, 11) %}
+                        <td style="width:9.5%" class="p-1">
+                            {% set info = platesDict.get(plate, {}).get(i, None) %}
+                            {% if info %}
+                                <div class="p-2">
+                                <div class="row">{{ macros.resource(info['resource']) }}</div>
+                                <div class="row">{{  info['comments'] }}</div>
+                                </div>
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+
+            </tbody>
+        </table>
+
+    </div>
+</div>
+</div>
+
