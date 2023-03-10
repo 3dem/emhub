@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '0.7.dev08'
+__version__ = '0.7.dev09'
 
 
 def create_app(test_config=None):
@@ -115,8 +115,11 @@ def create_app(test_config=None):
         kwargs['dashboard_right'] = app.config.get('TEMPLATE_DASHBOARD_RIGHT',
                                                    'dashboard_right.html')
 
-        display = app.dm.get_config('bookings')['display']
-        kwargs['show_application'] = display['show_application']
+        try:
+            display = app.dm.get_config('bookings')['display']
+            kwargs['show_application'] = display['show_application']
+        except:
+            kwargs['show_application'] = False
         if 'resources' not in kwargs:
             kwargs['resources'] = app.dc.get_resources(image=True)['resources']
 
@@ -328,7 +331,7 @@ def create_app(test_config=None):
 
     @app.template_filter('weekday')
     def weekday(dt):
-        return dt.strftime("%a, %b %d")
+        return app.dm.local_weekday(dt)
 
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
@@ -349,6 +352,7 @@ def create_app(test_config=None):
     app.dm = DataManager(app.instance_path, user=app.user)
     app.dc = DataContent(app)
 
+    app.jinja_env.filters['booking_active_today'] = app.dc.booking_active_today
     app.jinja_env.filters['booking_to_event'] = app.dc.booking_to_event
 
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')

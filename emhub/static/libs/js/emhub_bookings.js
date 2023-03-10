@@ -205,7 +205,7 @@ function onCancelButtonClick() {
 }
 
 function showExperimentForm(booking_id) {
-    var params = {form_id: 2, booking_id: booking_id};
+    var params = {booking_id: booking_id};
     if (last_experiment)
         params.form_values = JSON.stringify(last_experiment);
 

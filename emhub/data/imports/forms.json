@@ -1,0 +1,145 @@
+[
+  {
+    "name": "sample",
+    "definition": {
+            "title": "Sample Form",
+            "params": [
+                {"id": "name",
+                 "label": "Name",
+                 },
+                {"id": "phone",
+                 "default": "88546756777",
+                 "label": "Phone",
+                 },
+                {"id": "show-phone",
+                 "label": "Show phone?",
+                 "type": "bool"
+                 },
+                {"id": "about",
+                 "label": "About everything that you need",
+                 "type": "text"
+                 },
+                {"label": "Options"},
+                {"id": "level",
+                 "label": "Level",
+                 "enum": {"choices": ["low", "medium", "high"],
+                          "display": "combo"
+                          }
+                 },
+                {"id": "pet",
+                 "label": "Pet",
+                 "enum": {"choices": ["cat", "dog", "horse", "monkey"],
+                          "display": "radio"
+                          }
+                 },
+        ]}
+  },
+  {
+    "name":  "config:bookings",
+    "definition": {
+        "display": {
+            "show_operator": true,
+            "show_application": false,
+            "show_experiment": false
+        },
+        "local_tag": "stjude"
+    }
+  },
+  {
+    "name": "config:permissions",
+    "definition": {
+      "create_booking": {
+        "microscope": ["manager", "admin"],
+        "vitrobot": ["user"],
+        "leica": ["user"]
+      },
+      "delete_booking": {
+        "microscope": ["manager", "admin"],
+        "vitrobot": ["user"]
+      },
+      "create_session": ["manager", "admin"],
+      "content": {
+        "usage_report": ["head", "admin"],
+        "raw": ["admin"]
+      }
+    }
+  },
+  {
+    "name": "config:projects",
+    "definition": {
+        "entries_menu": [
+            ["access_microscopes", "Request Microscope Access"],
+            ["note", "Note"]
+        ],
+        "entries": {
+            "note": {
+                "label": "Note",
+                "group": 3,
+                "iconClass": "fas fa-sticky-note fa-inverse",
+                "imageClass": "img--picture"
+            },
+            "access_microscopes": {
+                "label": "Microscope Request",
+                "group": 2,
+                "iconClass": "fas fa-search fa-inverse",
+                "imageClass": "img--location",
+                "report": "sj_report_access_microscopes.html"
+            },
+            "booking": {
+                "label": "Booking",
+                "group": 3,
+                "iconClass": "far fa-calendar",
+                "imageClass": "img--location"
+            }
+        },
+        "permissions": {
+            "user_can_create_projects": "all",
+            "user_can_see_projects": [
+                {"key": "mine", "label": "My Projects"},
+                {"key": "lab", "label": "Lab's Projects"},
+                {"key": "all", "label": "All Projects"}
+            ]
+        }
+    }
+  },
+  {
+    "name": "config:sessions",
+    "definition": {
+    "acquisition": {
+        "Krios01": {
+            "voltage": 300,
+            "magnification": 130000,
+            "pixel_size": 0.6485,
+            "dose": 1.09,
+            "cs": 2.7
+        },
+        "Arctica01": {
+            "voltage": 200,
+            "magnification": 79000,
+            "pixel_size": 1.044,
+            "dose": 1.063,
+            "cs": 2.7
+        }
+    },
+    "groups": {
+        "israel.fernandez@stjude.org": "cryoem_center_grp",
+        "mario.halic@stjude.org": "halicgrp",
+        "scott.blanchard@stjude.org": "blancgrp",
+        "ji.sun@stjude.org": "sun1grp",
+        "tanja.mittag@stjude.org": "mittagrp",
+        "chiahsueh.lee@stjude.org": "clee2grp",
+        "ravi.kalathur@stjude.org": "kalatgrp",
+        "babis.kalodimos@stjude.org": "babisgrp",
+        "madan.babu@stjude.org": "ba"
+    },
+    "centers": {
+        "israel.fernandez@stjude.org": "CryoEM",
+        "ravi.kalathur@stjude.org": "PTC"
+    },
+    "data": {
+        "gain": "/jude/facility/data/gains/*{microscope}*gain*.mrc",
+        "images": ""
+    }
+}
+  }
+]

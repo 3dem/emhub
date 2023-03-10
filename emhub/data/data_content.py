@@ -279,9 +279,6 @@ class DataContent:
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
         data = self.get_session_data(session)
-
-        print(data['stats'], 'type', type(data['stats']))
-
         data.update({'s': session})
         return data
 
@@ -688,27 +685,30 @@ class DataContent:
     def get_experiment_form(self, **kwargs):
         booking_id = int(kwargs['booking_id'])
         booking = self.app.dm.get_booking_by(id=booking_id)
+        print("Booking id: ", booking_id, 'experiment', booking.experiment)
 
-        if 'form_values' not in kwargs:
-            kwargs['form_values'] = json.dumps(booking.experiment)
+        #if 'form_values' not in kwargs:
+        kwargs['form_values'] = json.dumps(booking.experiment)
 
-        data = self.get_dynamic_form_modal(**kwargs)
+        form = self.app.dm.get_form_by(name='experiment')
+        data = self._dynamic_form(form, **kwargs)
         data.update(self.get_grids_storage())
         return data
 
-    def get_dynamic_form_modal(self, **kwargs):
-        form_id = int(kwargs.get('form_id', 1))
+    def _dynamic_form(self, form, **kwargs):
         form_values_str = kwargs.get('form_values', None) or '{}'
         form_values = json.loads(form_values_str)
+        self.set_form_values(form, form_values)
+        return {'form': form}
 
+    def get_dynamic_form_modal(self, **kwargs):
+        form_id = int(kwargs.get('form_id', 1))
         form = self.app.dm.get_form_by(id=form_id)
 
         if form is None:
             raise Exception("Invalid form id: %s" % form_id)
 
-        self.set_form_values(form, form_values)
-
-        return {'form': form}
+        return self._dynamic_form(form, **kwargs)
 
     def get_logs(self, **kwargs):
         dm = self.app.dm
@@ -1250,7 +1250,7 @@ class DataContent:
         if 'selected' in kwargs:
             selected = [int(p) for p in kwargs['selected'].split(',')]
         else:
-            selected = [r['id'] for r in resources if r['is_microscope']]
+            selected = [r['id'] for r in resources]  # if r['is_microscope']]
 
         for b in bookings:
             if b.resource_id not in selected:
@@ -1299,8 +1299,8 @@ class DataContent:
         entries_sorted = [e for e in sorted(entries_usage.values(),
                                             key=lambda e: e['total_days'],
                                             reverse=True)]
-        percent = 100 / total_days
-        percent_usage = 100 / total_usage
+        percent = 100 / total_days if total_days > 0 else 0
+        percent_usage = 100 / total_usage if total_usage > 0 else 0
 
         def _name(e):
             name = centers.get(e['email'], e['label'])
@@ -1391,6 +1391,71 @@ class DataContent:
         }
         data.update(range_dict)
 
+        return data
+
+    def get_sjsm_batch_content(self, **kwargs):
+        batch_id = int(kwargs['batch_id'])
+        batch = {
+            'id': batch_id,
+            'plates': []
+        }
+        plates = self.app.dm.get_pucks()
+        platesDict = {}
+        platesIdMap = {}
+
+        for p in plates:
+            b = p.dewar
+            plate_number = p.cane
+            if batch_id == b:
+                platesDict[plate_number] = {}
+                platesIdMap[p.id] = plate_number
+                batch['plates'].append(plate_number)
+
+        def _infoFromPlate(plate, b=None, p=None):
+            plate_id = int(plate['plate'])
+            if plate_id in platesIdMap:
+                channel_id = int(plate['channel'])
+                plate_number = platesIdMap[plate_id]
+                platesDict[plate_number][channel_id] = {
+                    'booking': b,
+                    'project': p,
+                    'issues': plate.get('issues', False),
+                    'sample': plate.get('sample', ''),
+                    'comments': plate['comments']
+                }
+
+        # Fixme: get a range of bookings only
+        for b in self.app.dm.get_bookings(orderBy='start'):
+            e = b.experiment
+            if e and 'plates' in e:
+                for plate in e['plates']:
+                    _infoFromPlate(plate, b=b)
+
+        cond = "type=='update_plate'"
+        for entry in self.app.dm.get_entries(condition=cond):
+            _infoFromPlate(entry.extra['data'], p=entry.project)
+
+        data = {
+            'batch': batch,
+            'platesDict': platesDict
+        }
+        return data
+
+    def get_sjsm_plates(self, **kwargs):
+        plates = self.app.dm.get_pucks()
+        batches = []
+
+        for p in plates:
+            batch = p.dewar
+            plate = p.cane
+            if batch not in batches:
+                batches.append(batch)
+
+        batches.reverse()  # more recent first
+        batch_id = kwargs.get('batch_id', batches[0])
+
+        data = {'batches': batches}
+        data.update(self.get_sjsm_batch_content(batch_id=batch_id))
         return data
 
     # --------------------- RAW (development) content --------------------------
@@ -1692,7 +1757,7 @@ class DataContent:
                     entries.append(b)
                     bookings.add(b.id)
 
-        #entries.extend([b for b in project.bookings])
+        entries.extend([b for b in project.bookings if b.id not in bookings])
         entries.sort(key=ekey, reverse=True)
 
         return {
@@ -1749,6 +1814,7 @@ class DataContent:
             'form_config': form_config
         }
         data.update(self.get_grids_storage())
+        data.update(self.get_sjsm_plates())
 
         return data
 
@@ -1914,10 +1980,14 @@ class DataContent:
 
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut
+        user = self.app.user
         booking_id = int(kwargs['booking_id'])
         #b = dm.get_bookings(condition="id=%s" % booking_id)[0]
         b = dm.get_booking_by(id=booking_id)
 
+        if not user.is_manager and not user.same_pi(b.owner):
+            raise Exception("You can not create Sessions for this Booking. "
+                            "Only members of the same lab can do it.")
         data = {
             'booking': b,
             'cameras': dm.get_session_cameras(b.resource.id),
@@ -2064,6 +2134,15 @@ class DataContent:
                     project_id=p.id,
                     project=p
                 )
+
+    def booking_active_today(self, b):
+        """ Return True if booking is active today. """
+        dm = self.app.dm
+        now = dm.now().date()
+        def _local(dt):
+            return dm.dt_as_local(dt).date()
+
+        return _local(b.start) <= now <= _local(b.end)
 
     def user_profile_image(self, user):
         if getattr(user, 'profile_image', None):

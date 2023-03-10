@@ -82,6 +82,9 @@ class DbManager:
     def dt_as_local(self, dt):
         return dt.astimezone(self.timezone)
 
+    def local_weekday(self, dt):
+        return self.dt_as_local(dt).strftime("%a, %b %d")
+
     @staticmethod
     def json_from_value(v):
         if isinstance(v, dt.date) or isinstance(v, dt.datetime):

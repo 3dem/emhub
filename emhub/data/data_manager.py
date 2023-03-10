@@ -91,6 +91,20 @@ class DataManager(DbManager):
         if self._user is None:
             self._user = admin
 
+    def create_basic_users(self):
+        users = []
+        for user in ['admin', 'manager', 'user']:
+            users.append(self.create_user(
+                username=user,
+                email=user + '@emhub.org',
+                password=user,
+                name=user,
+                roles=[user],
+                pi_id=None
+            ))
+        if self._user is None:
+            self._user = users[0]
+
     def create_user(self, **attrs):
         """ Create a new user in the DB. """
         attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
@@ -467,16 +481,19 @@ class DataManager(DbManager):
 
     # ---------------------------- SESSIONS -----------------------------------
     def __get_section(self, sectionName):
-        formDef = self.get_form_by_name('sessions_config').definition
-        for s in formDef['sections']:
-            if s['label'] == sectionName:
-                return formDef, s
+        form = self.get_form_by(name='sessions_config')
+        if form:
+            formDef = form.definition
+            for s in formDef['sections']:
+                if s['label'] == sectionName:
+                    return formDef, s
         return None
 
     def __iter_config_params(self, configName):
-        _, section = self.__get_section(configName)
-        for p in section['params']:
-            yield p
+        section = self.__get_section(configName)
+        if section:
+            for p in section[1]['params']:
+                yield p
 
     def __get_session_dict(self, section):
         return {p['label']: p['value']
@@ -1019,6 +1036,7 @@ class DataManager(DbManager):
 
     def __validate_booking(self, booking, **kwargs):
         r = self.get_resource_by(id=booking.resource_id)
+
         if r is None:
             raise Exception("Select a valid Resource for this booking.")
 
@@ -1030,7 +1048,6 @@ class DataManager(DbManager):
             raise Exception("The booking 'end' should be after the 'start'. ")
 
         user = self._user
-
         # The following validations do not apply for managers
         if not user.is_manager:
             if not self.check_resource_access(r, 'create_booking'):
