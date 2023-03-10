@@ -1980,10 +1980,14 @@ class DataContent:
 
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut
+        user = self.app.user
         booking_id = int(kwargs['booking_id'])
         #b = dm.get_bookings(condition="id=%s" % booking_id)[0]
         b = dm.get_booking_by(id=booking_id)
 
+        if not user.is_manager and not user.same_pi(b.owner):
+            raise Exception("You can not create Sessions for this Booking. "
+                            "Only members of the same lab can do it.")
         data = {
             'booking': b,
             'cameras': dm.get_session_cameras(b.resource.id),
