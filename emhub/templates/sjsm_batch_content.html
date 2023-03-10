@@ -10,22 +10,41 @@
             <tr>
                 <th>Plate</th>
                 {% for i in range(1, 11) %}
-                    <th>Lane {{ i }}</th>
+                    <th>Channel {{ i }}</th>
                 {% endfor %}
             </tr>
             </thead>
             <tbody>
-            {% for plate in batch['plates'] %}
+            {% for plate in batch['plates']|sort %}
                 <tr>
-                    <td style="width:5%">Plate {{ plate }}</td>
+                    <td style="width:5%"> {{ plate }}</td>
                     {% for i in range(1, 11) %}
                         <td style="width:9.5%" class="p-1">
                             {% set info = platesDict.get(plate, {}).get(i, None) %}
                             {% if info %}
-                                <div class="p-2">
-                                <div class="row">{{ macros.resource(info['resource']) }}</div>
-                                <div class="row">{{  info['comments'] }}</div>
+                                <div class="row" style="width: 100%">
+                                    <div class="row col-12">
+                                        {% if info['booking'] %}
+                                            <div class="col-12">
+                                                <a href="javascript:showBookingForm({booking_id: {{ info['booking'].id }}})"><i class="far fa-calendar-alt"></i></a>
+                                            </div>
+                                            <div class="col-6">{{ macros.resource(info['booking'].resource) }}</div>
+                                        {% endif %}
+                                        {% if info['project'] %}
+                                            <div class="col-6">{{ macros.project(info['project']) }}</div>
+                                        {% endif %}
+                                        <div class="col-2 ml-2">
+                                            {% if info['issues'] %}
+                                                <i class="fas fa-info-circle" style="color: red"></i>
+
+                                            {% endif %}
+                                        </div>
+
+                                    </div>
                                 </div>
+
+                                    <div class="row col-12">{{ info['sample'] }}</div>
+                                <div class="row col-12">{{  info['comments'] }}</div>
                             {% endif %}
                         </td>
                     {% endfor %}

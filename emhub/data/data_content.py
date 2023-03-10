@@ -1401,34 +1401,44 @@ class DataContent:
         }
         plates = self.app.dm.get_pucks()
         platesDict = {}
+        platesIdMap = {}
 
         for p in plates:
             b = p.dewar
-            plate = p.cane
+            plate_number = p.cane
             if batch_id == b:
-                platesDict[plate] = {}
-                batch['plates'].append(plate)
+                platesDict[plate_number] = {}
+                platesIdMap[p.id] = plate_number
+                batch['plates'].append(plate_number)
+
+        def _infoFromPlate(plate, b=None, p=None):
+            plate_id = int(plate['plate'])
+            if plate_id in platesIdMap:
+                channel_id = int(plate['channel'])
+                plate_number = platesIdMap[plate_id]
+                platesDict[plate_number][channel_id] = {
+                    'booking': b,
+                    'project': p,
+                    'issues': plate.get('issues', False),
+                    'sample': plate.get('sample', ''),
+                    'comments': plate['comments']
+                }
 
         # Fixme: get a range of bookings only
         for b in self.app.dm.get_bookings(orderBy='start'):
             e = b.experiment
             if e and 'plates' in e:
                 for plate in e['plates']:
-                    plate_id = int(plate['plate'])
-                    if plate_id in platesDict:
-                        channel_id = int(plate['channel'])
-                        platesDict[plate_id][channel_id] = {
-                            'resource': b.resource,
-                            'issues': bool(plate.get('issues', False)),
-                            'comments': plate['comments']
-                        }
+                    _infoFromPlate(plate, b=b)
+
+        cond = "type=='update_plate'"
+        for entry in self.app.dm.get_entries(condition=cond):
+            _infoFromPlate(entry.extra['data'], p=entry.project)
+
         data = {
             'batch': batch,
             'platesDict': platesDict
         }
-        for k, v in platesDict.items():
-            for k2, v2 in v.items():
-                print('plate', k, 'channel', k2, v2['resource'].name)
         return data
 
     def get_sjsm_plates(self, **kwargs):
@@ -1804,6 +1814,7 @@ class DataContent:
             'form_config': form_config
         }
         data.update(self.get_grids_storage())
+        data.update(self.get_sjsm_plates())
 
         return data
 
