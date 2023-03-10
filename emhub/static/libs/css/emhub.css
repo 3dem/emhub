@@ -64,5 +64,9 @@ a:active {
     height: 700px;
 }
 
+.borderless td, .borderless th {
+    border: none;
+}
+
 /* Custom, iPhone Retina */
 @media only screen and (max-width:320px) {}

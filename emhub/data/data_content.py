@@ -2135,6 +2135,15 @@ class DataContent:
                     project=p
                 )
 
+    def booking_active_today(self, b):
+        """ Return True if booking is active today. """
+        dm = self.app.dm
+        now = dm.now().date()
+        def _local(dt):
+            return dm.dt_as_local(dt).date()
+
+        return _local(b.start) <= now <= _local(b.end)
+
     def user_profile_image(self, user):
         if getattr(user, 'profile_image', None):
             return flask.url_for('images.user_profile', user_id=user.id)

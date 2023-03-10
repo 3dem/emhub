@@ -331,7 +331,7 @@ def create_app(test_config=None):
 
     @app.template_filter('weekday')
     def weekday(dt):
-        return dt.strftime("%a, %b %d")
+        return app.dm.local_weekday(dt)
 
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
@@ -352,6 +352,7 @@ def create_app(test_config=None):
     app.dm = DataManager(app.instance_path, user=app.user)
     app.dc = DataContent(app)
 
+    app.jinja_env.filters['booking_active_today'] = app.dc.booking_active_today
     app.jinja_env.filters['booking_to_event'] = app.dc.booking_to_event
 
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
