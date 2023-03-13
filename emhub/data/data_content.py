@@ -1452,10 +1452,11 @@ class DataContent:
                 batches.append(batch)
 
         batches.reverse()  # more recent first
-        batch_id = kwargs.get('batch_id', batches[0])
-
         data = {'batches': batches}
-        data.update(self.get_sjsm_batch_content(batch_id=batch_id))
+        if batches:
+            batch_id = kwargs.get('batch_id', batches[0])
+            data.update(self.get_sjsm_batch_content(batch_id=batch_id))
+            
         return data
 
     # --------------------- RAW (development) content --------------------------
