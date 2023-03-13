@@ -60,16 +60,37 @@ function create_hc_polar(charDivId, data, label, config){
 }
 
 function create_hc_series(container, data, config) {
-    // Create the chart
-    var data2 = data; //.slice(0, 100);
+    var mydata = data;
+    function get_micIndex(x) {
+        for (var i = 0; i < data.length - 1; ++i) {
+            if (x >= data[i][0] && x <= data[i+1][0])
+               return x - data[i][0] < data[i+1][0] - x ? i : i + 1;
+        }
+        return -1;
+    }
 
+    var mylabel = config.label;
+    var mysuffix = config.suffix;
+
+    // Create the chart
     return Highcharts.stockChart(container, {
         plotOptions: {
-                series: {
-                    turboThreshold: 0,
-                }
+                // series: {
+                //     turboThreshold: 0,
+                // }
             },
-
+        tooltip: {
+                formatter: function() {
+                    var micIndex = get_micIndex(this.x);
+                    var tooltip = '';
+                    if (micIndex > 0) {
+                        tooltip = '<span>' + session_data.gridsquares[micIndex] + '</span><br/><br/>' +
+                            '<b>Micrograph ' + (micIndex+1) + '</b><br/>' +
+                            mylabel + ": " + mydata[micIndex][1].toFixed(2) + " " + mysuffix + '<br/>';
+                    }
+                    return tooltip;
+                  }
+            },
         colors: [config.color],
         chart: {
             events: {
@@ -95,7 +116,7 @@ function create_hc_series(container, data, config) {
                 type: 'all',
                 text: 'All'
             }],
-            selected: 3,
+            selected: 1,
             inputEnabled: false
         },
         xAxis: {
@@ -114,20 +135,13 @@ function create_hc_series(container, data, config) {
         series: [{
             name: config.label,
             id: "datapoints",
-            data: data2,
-            //pointStart: config.startX,  //start.getTime(),
-            //pointInterval: config.stepX,  //10000,
-            tooltip: {
-                headerFormat: '',
-                pointFormat: '<b>Micrograph {point.micId}</b><br/>' +
-                    config.label + ' <b>{point.y:.2f} ' + config.suffix + '</b><br/><hr/>' +
-                    '{point.gs}'
-            },
+            data: data,
             point: {
                 events: {
                     click: function () {
-                        if ('micId' in this)
-                            session_getMicData(this.micId);
+                        var micIndex = get_micIndex(this.x);
+                        if (micIndex > 0)
+                            session_getMicData(micIndex + 1);
                     }
                 }
             }
@@ -567,17 +581,12 @@ function session_updatePlots() {
                 config.gsLines.push({color: 'gray', value: date, width: 1});
             }
 
-            data_defocus.push({x: date, y: session_data.defocus[i], micId: i+1, gs: gs})
-            data_resolution.push({x: date, y: session_data.resolution[i], micId: i+1, gs: gs})
+            data_defocus.push([ts, session_data.defocus[i]]);
+            data_resolution.push([ts, session_data.resolution[i]])
             ts += config.stepX;
         }
         config.maxY = config.maxY + (config.maxY * 0.1)
-
-        console.log(data_defocus);
-        console.log(config.gsLines);
-
-        //session_plots.defocus = create_hc_series('defocus_plot', data_defocus, config);
-        session_plots.defocus = create_hc_series('defocus_plot', session_data.defocus, config);
+        session_plots.defocus = create_hc_series('defocus_plot', data_defocus, config);
         session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
 
         //create_hc_histogram('defocus_hist2', color);
@@ -586,8 +595,7 @@ function session_updatePlots() {
         config.label = 'Resolution';
         config.suffix = 'Å';
 
-        //session_plots.resolution = create_hc_series('resolution_plot', data_resolution, config);
-        session_plots.resolution = create_hc_series('resolution_plot', session_data.resolution, config);
+        session_plots.resolution = create_hc_series('resolution_plot', data_resolution, config);
         session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
 
         config.color = '#55D8C1';

@@ -166,7 +166,6 @@ class RelionSessionData:
 
     def get_micrograph_data(self, micId):
         micFn = self._last_micFn()
-
         if micFn:
             with StarFile(micFn) as sf:
                 otable = sf.getTable('optics')
@@ -194,7 +193,7 @@ class RelionSessionData:
                         'ctfDefocusU': round(row.rlnDefocusU/10000., 2),
                         'ctfDefocusV': round(row.rlnDefocusV/10000., 2),
                         'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
-                        'ctfAstigmatism': round(row.rlnCtfAstigmatism, 2),
+                        'ctfAstigmatism': round(row.rlnCtfAstigmatism/10000, 2),
                         'ctfResolution': round(row.rlnCtfMaxResolution, 2),
                         'coordinates': self._get_coordinates(micFn),
                         'micThumbPixelSize': pixelSize * micThumb.scale,
