@@ -45,8 +45,11 @@
         if (formValues.session_name) {
             attrs.name = formValues.session_name;
             attrs.extra = {
-                raw: {path: formValues.raw_folder},
-                project_id: formValues.project_id
+                tasks: ["raw", "otf"],
+                raw: {
+                    path: formValues.raw_folder
+                },
+                project_id: formValues.project_id,
             }
             if (!formValues.otf_folder)
                 attrs.extra.otf = {

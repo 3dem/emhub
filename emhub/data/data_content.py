@@ -1456,8 +1456,29 @@ class DataContent:
         if batches:
             batch_id = kwargs.get('batch_id', batches[0])
             data.update(self.get_sjsm_batch_content(batch_id=batch_id))
-            
+
         return data
+
+    def get_workers(self, **kwargs):
+        workers = {}
+        for k, v in self.app.dm.get_config('hosts').items():
+            workers[k] = v
+            updated = v.get('updated', '')
+            active = False
+            if updated:
+                u = Pretty.parse_datetime(updated)
+                td = dt.datetime.now() - u
+                active = td < dt.timedelta(minutes=2)
+
+            workers[k].update({
+                'has_specs': bool(v.get('specs', '')),
+                'active': active
+            })
+        return {'workers': workers,
+                'now': Pretty.now()}
+
+    def get_workers_content(self, **kwargs):
+        return self.get_workers()
 
     # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):

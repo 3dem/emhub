@@ -29,7 +29,10 @@
 import os
 import json
 import requests
+import socket
 from contextlib import contextmanager
+
+from emtools.utils import System
 
 
 class config:
@@ -147,7 +150,17 @@ class DataClient:
         """
         return self._method('update_session_item', 'item', attrs)
 
-    #---------------------- Internal functions ------------------------------
+    def get_session_tasks(self, specs=False):
+        """ Get session task to be handled by this worker.
+        Args:
+            specs: If true, send this host specs.
+        """
+        attrs = {'worker': socket.gethostname()}
+        if specs:
+            attrs['specs'] = System.specs()
+        return self._method('get_session_tasks', 'session_tasks', attrs)
+
+    # --------------------- Internal functions ------------------------------
     def _method(self, method, resultKey, attrs, condition=None):
         r = self.request(method,
                          jsonData={'attrs': attrs,

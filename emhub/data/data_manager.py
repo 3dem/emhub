@@ -790,6 +790,10 @@ class DataManager(DbManager):
         the associated JSON definition. """
         return self.get_form_by_name(f'config:{configName}').definition
 
+    def update_config(self, configName, definition):
+        form = self.get_form_by_name(f'config:{configName}')
+        self.update_form(id=form.id, definition=definition)
+
     def get_entry_config(self, entry_type):
         return self.get_config('projects')['entries'][entry_type]
 

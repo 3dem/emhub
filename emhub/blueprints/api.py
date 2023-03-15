@@ -36,6 +36,7 @@ from flask import request
 from flask import current_app as app
 import flask_login
 
+from emtools.utils import Pretty
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data import DataContent
@@ -504,6 +505,77 @@ def get_session_users():
     return _handle_item(_session_users, 'session_users')
 
 
+@api_bp.route('/get_session_tasks', methods=['POST'])
+@flask_login.login_required
+def get_session_tasks():
+    def _session_tasks(**attrs):
+        tasks = []
+        worker = attrs['worker']
+        dm = app.dm
+        hosts = dm.get_config('hosts')
+        sconfig = dm.get_config('sessions')
+        raw_hosts = sconfig['raw']['hosts']
+
+        if worker not in hosts:
+            raise Exception("Unregistered host %s" % worker)
+        else:
+            # First register host notification
+            hosts[worker]['updated'] = Pretty.now()
+            if 'specs' in attrs:
+                hosts[worker]['specs'] = attrs['specs']
+            dm.update_config('hosts', hosts)
+
+            # Let's find tasks now
+            for session in dm.get_sessions(condition='status="active"'):
+                extra = dict(session.extra)
+                session_tasks = extra.get('tasks', [])
+                if not session_tasks:
+                    continue
+                remaining_tasks = []
+                resourceName = session.booking.resource.name
+                for t in session_tasks:
+                    added = False
+                    if t.startswith('raw'):
+                        if raw_hosts.get(resourceName) == worker:
+                            tasks.append({"name": "raw",
+                                          "session": session.json(),
+                                          "create": ':create' in t
+                                          })
+                            added = True
+                    elif t.startswith('otf'):
+                        if session.otf.get('host', '') == worker:
+                            tasks.append({"name": "otf",
+                                          "session": session.json(),
+                                          "create": ':create' in t,
+                                          "stop": ':stop' in t
+                                          })
+                            added = True
+
+                    if not added:
+                        remaining_tasks.append(t)
+                print("Host:", worker, "tasks: ", session_tasks, "remaining: ", remaining_tasks)
+                if len(remaining_tasks) != len(session_tasks):
+                    print("Updating session")
+                    extra['tasks'] = remaining_tasks
+                    dm.update_session(id=session.id, extra=extra)
+
+        return tasks
+
+    return _handle_item(_session_tasks, 'session_tasks')
+
+
+@api_bp.route('/get_workers', methods=['POST'])
+@flask_login.login_required
+def get_workers():
+    def _user(u):
+        return {'id': u.id, 'name': u.name, 'email': u.email} if u else {}
+
+    def _workers(**attrs):
+        return app.dc.get_workers()['workers']
+
+    return _handle_item(app.dc.get_workers, 'workers')
+
+
 # ---------------------------- INVOICE PERIODS --------------------------------
 
 @api_bp.route('/get_invoice_periods', methods=['POST'])
@@ -589,7 +661,6 @@ def get_config():
         return app.dm.get_config(attrs['config'])
 
     return _handle_item(_get_config, 'config')
-
 
 
 # ------------------------------ PROJECTS ---------------------------------
