@@ -449,7 +449,6 @@ def poll_active_sessions():
 def create_session():
     return handle_session(app.dm.create_session)
 
-
 @api_bp.route('/update_session', methods=['POST'])
 @flask_login.login_required
 def update_session():
@@ -482,6 +481,12 @@ def get_session_data():
         return DataContent(app).get_session_data(session, **attrs)
 
     return handle_session_data(handle, mode="r")
+
+@api_bp.route('/update_session_extra', methods=['POST'])
+@flask_login.login_required
+def update_session_extra():
+    """ Update only certain elements from the extra property. """
+    return handle_session(app.dm.update_session_extra)
 
 
 @api_bp.route('/get_session_users', methods=['POST'])
@@ -556,8 +561,8 @@ def get_session_tasks():
                 print("Host:", worker, "tasks: ", session_tasks, "remaining: ", remaining_tasks)
                 if len(remaining_tasks) != len(session_tasks):
                     print("Updating session")
-                    extra['tasks'] = remaining_tasks
-                    dm.update_session(id=session.id, extra=extra)
+                    dm.update_session_extra(id=session.id,
+                                            extra={'tasks': remaining_tasks})
 
         return tasks
 

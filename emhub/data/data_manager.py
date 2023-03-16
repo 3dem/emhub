@@ -620,6 +620,9 @@ class DataManager(DbManager):
 
     def update_session(self, **attrs):
         """ Update session attrs. """
+        otf_path = attrs.get('extra', {}).get('otf', {}).get('path', None)
+        if otf_path:
+            attrs['data_path'] = otf_path
         session = self.__update_item(self.Session, **attrs)
 
         # Update the session counter if it was modified
@@ -668,13 +671,19 @@ class DataManager(DbManager):
         else:
             return RelionSessionData(session.data_path, mode)
 
-
     def clear_session_data(self, **attrs):
         session = self.get_session_by(id=attrs['id'])
         data_path = self._session_data_path(session)
         if os.path.exists(data_path):
             os.remove(data_path)
         return session
+
+    def update_session_extra(self, **attrs):
+        session = self.get_session_by(id=attrs['id'])
+        extra = dict(session.extra)
+        extra.update(attrs['extra'])
+        attrs['extra'] = extra
+        return self.update_session(**attrs)
 
     # -------------------------- INVOICE PERIODS ------------------------------
     def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):

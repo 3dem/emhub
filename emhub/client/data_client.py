@@ -102,6 +102,14 @@ class DataClient:
         """
         return self._method('update_session', 'session', attrs)
 
+    def update_session_extra(self, attrs):
+        """ Request the server to update existing session's extra elements.
+        Mandatory in attrs:
+            id: the id of the session
+            extra: with extra keys to be updated
+        """
+        return self._method('update_session_extra', 'session', attrs)
+
     def delete_session(self, attrs):
         """ Request the server to delete a session.
         Mandatory in attrs:
