@@ -526,6 +526,7 @@ def get_session_tasks():
         else:
             # First register host notification
             hosts[worker]['updated'] = Pretty.now()
+            print(f"{worker}: get_session_tasks at {hosts[worker]['updated']}")
             if 'specs' in attrs:
                 hosts[worker]['specs'] = attrs['specs']
             dm.update_config('hosts', hosts)
@@ -540,15 +541,20 @@ def get_session_tasks():
                 resourceName = session.booking.resource.name
                 for t in session_tasks:
                     added = False
-                    if t.startswith('raw'):
+                    parts = t.split(':')
+                    taskName = parts[0]
+                    if taskName in ['raw', 'transfer']:
                         if raw_hosts.get(resourceName) == worker:
-                            tasks.append({"name": "raw",
+                            tasks.append({"name": taskName,
                                           "session": session.json(),
                                           "create": ':create' in t
                                           })
                             added = True
                     elif t.startswith('otf'):
-                        if session.otf.get('host', '') == worker:
+                        host = session.otf.get('host', '')
+                        if host == 'default':
+                            host = sconfig['otf']['hosts_default'].get(resourceName, '')
+                        if host == worker:
                             tasks.append({"name": "otf",
                                           "session": session.json(),
                                           "create": ':create' in t,
