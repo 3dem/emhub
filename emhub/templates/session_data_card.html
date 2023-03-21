@@ -12,6 +12,7 @@
                 {% set otf_path = extra.get('otf', {}).get('path', '') if session.data_path else '' %}
                 <table class="table table-striped table-bordered">
                     <tbody>
+                        {{ macros.trow('Frames Folder', extra['raw']['frames']) }}
                         {{ macros.trow('Raw path', extra['raw']['path']) }}
                         {{ macros.trow('OTF path', otf_path) }}
                         {{ macros.trow('Size', session.size|pretty_size) }}

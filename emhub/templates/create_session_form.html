@@ -44,13 +44,22 @@
 
         if (formValues.session_name) {
             attrs.name = formValues.session_name;
-            attrs.extra = {
-                tasks: ["raw", "otf"],
-                raw: {
-                    path: formValues.raw_folder
-                },
-                project_id: formValues.project_id,
+
+            if (!formValues.raw_folder){
+                attrs.extra = {
+                    tasks: ["transfer", "otf"],
+                    raw: {},
+                    project_id: formValues.project_id,
+                }
             }
+            else {
+                attrs.extra = {
+                    tasks: ["raw", "otf"],
+                    raw: {path: formValues.raw_folder},
+                    project_id: formValues.project_id,
+                }
+            }
+
             if (!formValues.otf_folder)
                 attrs.extra.otf = {
                     workflow: formValues.otf_workflow,
@@ -87,8 +96,10 @@
 
             if ('error' in jsonResponse)
                 showError(jsonResponse['error']);
-            else
-                window.location.reload();
+            else {
+                //window.location.reload();
+                window.location = "{{ url_for_content('session_default') }}" + "&session_id=" + jsonResponse.session.id;
+            }
         });
 
         ajaxContent.fail(function(jqXHR, textStatus) {
