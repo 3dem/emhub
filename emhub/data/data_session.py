@@ -71,8 +71,8 @@ class RelionSessionData:
 
     def getEpuData(self):
         if not self._epuData:
-            star = self.join('EPU', 'movies.star')
-            self._epuData = EPU.Data(star) if star and os.path.exists(star) else None
+            epuFolder = self.join('EPU')
+            self._epuData = EPU.Data(epuFolder, epuFolder) if epuFolder and os.path.exists(epuFolder) else None
         return self._epuData
 
     def mtime(self, fn):
@@ -210,6 +210,9 @@ class RelionSessionData:
             'gridSquare': {},
             'foilHole': {}
         }
+        if epuData is None:
+            return locData
+
         thumb = Thumbnail(output_format='base64',
                           max_size=(512, 512))
 

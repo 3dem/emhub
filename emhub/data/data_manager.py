@@ -600,7 +600,7 @@ class DataManager(DbManager):
 
         extra = attrs.get('extra', {})
         raw_folder = extra['raw'].get('path', '')
-        if not os.path.exists(raw_folder):
+        if raw_folder and not os.path.exists(raw_folder):
             raise Exception(f"Missing Raw data folder '{raw_folder}'")
 
         otf = extra['otf']

@@ -244,11 +244,14 @@ class DataContent:
                 tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
                 step = (tsLast - tsFirst) / len(defocus)
                 epuData = session.data.getEpuData()
-                beamshifts = [{'x': row.beamShiftX, 'y': row.beamShiftY}
-                              for row in epuData.moviesTable]
+                if epuData is None:
+                    beamshifts = []
+                else:
+                    beamshifts = [{'x': row.beamShiftX, 'y': row.beamShiftY}
+                                  for row in epuData.moviesTable]
                 tsRange = {'first': tsFirst * 1000,  # Timestamp in milliseconds
-                            'last': tsLast * 1000,
-                            'step': step}
+                           'last': tsLast * 1000,
+                           'step': step}
 
             data.update({
                 'defocus': defocus,
