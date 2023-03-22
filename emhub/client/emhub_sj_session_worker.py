@@ -14,7 +14,7 @@
 # * GNU General Public License for more details.
 # *
 # **************************************************************************
-
+import json
 import os
 import sys
 import time
@@ -42,8 +42,8 @@ class SessionHandler:
     main SessionManager.
     """
     def create_logger(self, logsFolder, logName):
-        logFn = os.path.join(logsFolder, logName)
-        handler = logging.FileHandler(logFn)
+        self.logFile = os.path.join(logsFolder, logName)
+        handler = logging.FileHandler(self.logFile)
         formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
         handler.setFormatter(formatter)
         logger = logging.getLogger(logName)
@@ -62,41 +62,46 @@ class SessionHandler:
         while True:
             try:
                 if not first:
-                    time.sleep(60)
+                    time.sleep(self._sleep)
                     if self._stopEvent.is_set():
                         self.logger.info("Stopping worker thread.")
                         break
-                    with open_client() as dc:
-                        self.session = dc.get_session(self.session['id'])
+                    if self._update_session:
+                        with open_client() as dc:
+                            self.session = dc.get_session(self.session['id'])
 
                 session_func(first)
 
             except Exception as e:
                 self.logger.error('FATAL ERROR: ' + str(e))
                 self.logger.error(traceback.format_exc())
-                break
             first = False
 
-    def update_session(self, session=None):
-        session = session or self.session
+    def update_session_extra(self, extra, session=None):
+        if session is None:
+            self.logger.info("Session is None, using self")
+            session = self.session
         self.logger.info(f"Updating session {session['name']}")
-        session['extra']['updated'] = Pretty.now()
+        extra['updated'] = Pretty.now()
         with open_client() as dc:
-            dc.update_session(session)
+            dc.update_session_extra({'id': session['id'], 'extra': extra})
 
 
 class SjSessionWorker(threading.Thread, SessionHandler):
-    def __init__(self, manager, session, task, debug):
+    def __init__(self, manager, task, debug):
         threading.Thread.__init__(self)
         SessionHandler.__init__(self)
         self.manager = manager
-        self.session = session
+        self.session = task['session']
         self.logger = None
+        self.logFile = None
         self.pl = None
         self.task = task
         self.debug = debug
         self._otf_launched = False
         self._stopEvent = threading.Event()
+        self._update_session = True
+        self._sleep = 60
 
     def stop(self):
         self._stopEvent.set()
@@ -108,27 +113,61 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         name = self.session['name']
         return f"{date}_{self.microscope}_{name}"
 
-    def create_raw_folder(self, frames_root, raw_root, session, pl):
-        """ Create the folder where frames will be written from the microscope
-        and also the raw folder were data will be offloaded.
-        """
-        extra = session['extra']
+    def create_folders(self):
+        extra = self.session['extra']
+        raw = extra.get('raw', None)
+        otf = extra['otf']
+
+        if raw is None:
+            raise Exception("Missing 'raw' from session")
+
+        raw_path = raw.get('path', '')
+        if not raw_path:
+            session_folder = self.get_folder_name()
+
+            def _mkdir(root):
+                folderPath = os.path.join(root, session_folder)
+                self.pl.system(f"mkdir -p {folderPath}")
+                return folderPath
+
+            raw['frames'] = _mkdir(self.sconfig['raw']['root_frames'])
+            rawRoot = self.sconfig['raw']['root']
+            parts = self.users['owner']['email'].split('@')[0].split('.')
+            userFolder = parts[0][0] + parts[1]
+            userRoot = os.path.join(rawRoot,
+                                    self.users['group'],
+                                    self.microscope, str(datetime.now().year),
+                                    'raw', 'EPU', userFolder)
+            raw_path = raw['path'] = _mkdir(userRoot)  # FIXME: Add rules of Year/Scope/Group/User
+            self.update_session_extra({'raw': raw})
+
+        if not os.path.exists(raw_path):
+            raise Exception("Missing raw_path")
+
+        otf_path = otf.get('path', '')
+        otf_exists = os.path.exists(otf_path)
+
+        if not otf_exists or self.task.get('create', False):
+            self.logger.info(f'OTF folder does not exists, creating one')
+            self.create_otf_folder()
 
     def create_otf_folder(self):
         extra = self.session['extra']
+        otf = extra['otf']
         raw_path = extra['raw']['path']
 
         otf_folder = self.get_folder_name() + '_OTF'
         otf_root = self.sconfig['otf']['root']
         otf_path = os.path.join(otf_root, otf_folder)
-        extra['otf'].update({'path': otf_path, 'status': 'created'})
-        self.session['data_path'] = otf_path
+        otf.update({'path': otf_path, 'status': 'created'})
         self.pl.system(f"rm -rf {otf_path}")
 
         def _path(*paths):
             return os.path.join(otf_path, *paths)
 
-        os.mkdir(otf_path)
+        self.pl.system(f"mkdir {otf_path}")
+        self.pl.system(f"mkdir {otf_path}/EPU")
+
         os.symlink(raw_path, _path('data'))
 
         gain_pattern = self.sconfig['data']['gain']
@@ -165,34 +204,104 @@ class SjSessionWorker(threading.Thread, SessionHandler):
             optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
             f.write("{\n%s\n}\n" % optStr)
 
-    def create_folders(self):
+        # Update OTF status
+        self.update_session_extra({'otf': otf})
+
+    def transfer_files(self):
+        """ Move files from the Raw folder to the Offload folder.
+        Files will be moved when there has been a time without modification
+        (file's timeout).
+        """
         extra = self.session['extra']
-        raw = extra.get('raw', None)
-        otf = extra['otf']
+        logger = self.logger
+        raw = extra['raw']
+        epuPath = os.path.join(extra['otf']['path'], 'EPU')
+        framesPath = raw['frames']
+        rawPath = raw['path']
 
-        if not raw:
-            raise Exception("Missing 'raw' from session")
+        now = datetime.now()
+        td = timedelta(minutes=1)
 
-        raw_path = raw['path']
-        if not raw_path or not os.path.exists(raw_path):
-            raise Exception("Missing raw_path")
+        infoFile = self.logFile.replace('.log', '_info.json')
 
-        otf_path = otf.get('path', '')
-        otf_exists = os.path.exists(otf_path)
+        if not hasattr(self, '_transfer_ed'):  # first time
+            # FIXME When restarting the server, load ed from previous values
+            logger.info("NEW transfer info")
+            self._transfer_ed = Path.ExtDict()
+            if os.path.exists(infoFile):
+                with open(infoFile) as f:
+                    infoJson = json.load(f)
+                    self._transfer_ed.update(infoJson['ed'])
+            self._epuData = EPU.Data(framesPath, epuPath)
 
-        if not otf_exists or self.task['create']:
-            self.logger.info(f'OTF folder does not exists, creating one')
-            self.create_otf_folder()
+        ed = self._transfer_ed
+        epuData = self._epuData
+        self._transfer_movies = []
 
-    def update_session(self):
-        self.logger.info(f"Updating session {self.session['name']}")
-        self.session['extra']['updated'] = Pretty.now()
-        with open_client() as dc:
-            dc.update_session(self.session)
+        def _update():
+            movies = self._transfer_movies
+            self.logger.info(f"Found {len(movies)} new movies")
+            if movies:
+                movies.sort(key=lambda m: m[1])  # sort by time
+                for movie in movies:
+                    epuData.addMovie(*movie)
+                info = epuData.info()
+                info.update({
+                    'size': ed.total_size,
+                    'sizeH': Pretty.size(ed.total_size),
+                    'files': ed
+                })
+                raw.update(info)
+                logger.info(f"AFTER - info: {raw['movies']}")
+                with open(infoFile, 'w') as f:
+                    json.dump({'ed': ed}, f)
+                epuData.write()
+                self.update_session_extra({'raw': raw})
+            self._transfer_movies = []
+
+        def _mkdir(root, folder):
+            folderPath = os.path.join(root, folder)
+            if not os.path.exists(folderPath):
+                self.pl.system(f"mkdir {folderPath}")
+
+        def _gsThumb(f):
+            return f.startswith('GridSquare') and f.endswith('.jpg')
+
+        for root, dirs, files in os.walk(framesPath):
+            rootRaw = root.replace(framesPath, rawPath)
+            rootEpu = root.replace(framesPath, epuPath)
+            for d in dirs:
+                _mkdir(rootRaw, d)
+                _mkdir(rootEpu, d)
+            for f in files:
+                srcFile = os.path.join(root, f)
+                dstFile = os.path.join(rootRaw, f)
+                s = os.stat(srcFile)
+                dt = datetime.fromtimestamp(s.st_mtime)
+                if now - dt >= td:
+                    ed.register(srcFile, stat=s)
+                    # Register creation time of movie files
+                    if f.endswith('fractions.tiff'):
+                        self._transfer_movies.append((os.path.relpath(srcFile, framesPath), s))
+                    else:  # Copy metadata files into the OTF/EPU folder
+                        dstEpuFile = os.path.join(rootEpu, f)
+                        # only backup gridsquares thumbnails and xml files
+                        if f.endswith('.xml') or _gsThumb(f):
+                            self.pl.system(f'cp {srcFile} {dstEpuFile}')
+                    self.pl.system(f'rsync -ac --remove-source-files {srcFile} {dstFile}')
+
+            if len(self._transfer_movies) >= 32:  # make frequent updates to keep otf updated
+                _update()
+
+        # Only sleep when no data was found
+        self._sleep = 0 if self._transfer_movies else 60
+        _update()
+        self.logger.info(f"Sleeping {self._sleep} seconds.")
 
     def update_raw(self):
         extra = self.session['extra']
-        raw = extra.get('raw', None)
+        self._update_session = False
+        raw = extra['raw']
         otf = extra['otf']
         raw_path = raw['path']
 
@@ -215,13 +324,13 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         if last_movie != raw.get('last_movie', ''):
             raw['path'] = raw_path
             extra['raw'] = raw
-            self.update_session()  # FIXME: Update raw only
+            self.update_session_extra({'raw': raw})
 
     def update_otf(self):
         extra = self.session['extra']
         raw = extra.get('raw', None)
         otf = extra['otf']
-        otf_status = otf['status']
+        otf_status = otf.get('status', '')
 
         if otf_status == 'created':  # check to launch otf
             # this is a protection in case OTF status does not update on time
@@ -232,12 +341,13 @@ class SjSessionWorker(threading.Thread, SessionHandler):
                     otf['status'] = 'launched'
                     self.logger.info(f"Launching OTF after {raw['movies']} input movies .")
                     self.launch_otf()
-                    self.update_session()  # FIXME: Update otf only
+                    self.update_session_extra({'otf': otf})
                     self._otf_launched = True
+                    self._update_session = False  # we don't need to check raw anymore
                 else:
                     self.logger.info(f"OTF: folder already CREATED, "
-                                f"input movies {raw['movies']}."
-                                f"Waiting for more movies")
+                                     f"input movies {raw['movies']}."
+                                     f"Waiting for more movies")
 
         elif otf_status in ['launched', 'running']:
             pass  # FIXME: monitor OTF progress
@@ -268,10 +378,15 @@ class SjSessionWorker(threading.Thread, SessionHandler):
 
         self.logger.info(f" > Starting Thread for Session {sessionId}, task '{taskName}'")
 
+        if taskName in ['transfer', 'raw']:
+            self.create_folders()
+            self._update_session = False
+
         def _handle_session(first):
-            if taskName == 'raw':
-                if first:
-                    self.create_folders()
+            self.logger.info("Task name '%s', equal: %s" % (taskName, taskName == 'transfer'))
+            if taskName == 'transfer':
+                self.transfer_files()
+            elif taskName == 'raw':
                 self.update_raw()
             elif taskName == 'otf':
                 self.update_otf()
@@ -311,15 +426,15 @@ class SjSessionManager(SessionHandler):
             print(*args)
 
     def stop_otf(self, session):
-        otf_path = session['extra']['otf']['path']
-        processes = Process.ps('relion', workingDir=otf_path)
+        otf = session['extra']['otf']
+        processes = Process.ps('relion', workingDir=otf['path'])
         for folder, procs in processes.items():
             try:
                 print(f"Killing processes for Session {session['id']}")
                 for p in procs:
                     p.kill()
-                session['extra']['otf']['status'] = 'stopped'
-                self.update_session(session=session)
+                otf['status'] = 'stopped'
+                self.update_session_extra({'otf': otf}, session=session)
             except Exception as e:
                 print(Color.red("Error: %s" % str(e)))
 
@@ -332,8 +447,25 @@ class SjSessionManager(SessionHandler):
         self.create_logger(self.logs_folder, "worker.log")
         self.resources = self.request_dict('get_resources',
                                            {"attrs": ["id", "name"]})
+        status_file = os.path.join(self.logs_folder, 'worker-status.json')
+        self.logger.info("Status file: %s" % status_file)
+
         first = True  # Send workers specs the first time
         threadsDict = {}
+
+        # Reload previously active threads if the worker restarted
+        if os.path.exists(status_file):
+            with open(status_file) as f:
+                for sessionId, taskName in json.load(f):
+                    with open_client() as dc:
+                        session = dc.get_session(sessionId)
+                        task = {"name": taskName, "session": session}
+                        self.logger.info(f"Relaunching thread for task {taskName}"
+                                         f" (session {sessionId})")
+                        threadKey = sessionId, taskName
+                        threadsDict[threadKey] = SjSessionWorker(self, task, debug=False)
+                        threadsDict[threadKey].start()
+
         while True:
             try:
                 with open_client() as dc:
@@ -343,27 +475,48 @@ class SjSessionManager(SessionHandler):
                     s = t["session"]
                     taskName = t['name']
                     sessionId = s['id']
-                    self.logger.info(f"Got task {taskName} for session {sessionId}")
-                    if taskName in ["raw", "otf"]:
+                    self.logger.info(f"Got task {taskName} (session {sessionId})")
+                    if taskName in ["raw", "otf", "transfer"]:
                         if taskName == "otf" and t['stop']:
+                            # Check if there is a stop command
                             if thread := threadsDict.get((sessionId, 'otf'), None):
                                 thread.stop()
+                                del threadsDict[(sessionId, 'otf')]
                             self.stop_otf(s)
                             continue
+
                         threadKey = (sessionId, taskName)
                         if threadKey in threadsDict:
                             self.logger.error("Seems like a duplicate task!!!")
-                        else:
-                            threadsDict[threadKey] = SjSessionWorker(self, s, t, debug=False)
-                            threadsDict[threadKey].start()
+                            continue
+
+                        # If OTF, check if we need to stop other OTFs
+                        if taskName == 'otf':
+                            threadItems = list(threadsDict.items())
+                            for (sessionId, threadTask), thread in threadItems:
+                                if threadTask == 'otf':
+                                    thread.stop()
+                                    self.stop_otf(thread.session)
+                                    del threadsDict[(sessionId, 'otf')]
+
+                        threadsDict[threadKey] = SjSessionWorker(self, t, debug=False)
+                        threadsDict[threadKey].start()
 
                 first = False
+                # Update and store current working threads
+                not_active = [k for k, thread in threadsDict.items()
+                              if not thread.is_alive()]
+                for k in not_active:
+                    del threadsDict[k]
+
+                with open(status_file, 'w') as f:
+                    json.dump([k for k in threadsDict.keys()], f)
+
                 time.sleep(30)
+
             except Exception as e:
                 self.logger.error("Some error happened: %s" % e)
                 print("Waiting 60 seconds before retrying...")
-
-            time.sleep(60)
 
 
 if __name__ == '__main__':
