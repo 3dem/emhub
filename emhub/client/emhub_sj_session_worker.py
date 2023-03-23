@@ -228,6 +228,7 @@ class SjSessionWorker(threading.Thread, SessionHandler):
             # FIXME When restarting the server, load ed from previous values
             logger.info("NEW transfer info")
             self._transfer_ed = Path.ExtDict()
+            self._transferred_files = set()
             if os.path.exists(infoFile):
                 with open(infoFile) as f:
                     infoJson = json.load(f)
@@ -237,11 +238,12 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         ed = self._transfer_ed
         epuData = self._epuData
         self._transfer_movies = []
+        self._files_count = 0
 
         def _update():
             movies = self._transfer_movies
             self.logger.info(f"Found {len(movies)} new movies")
-            if movies:
+            if self._files_count > 0:
                 movies.sort(key=lambda m: m[1])  # sort by time
                 for movie in movies:
                     epuData.addMovie(*movie)
@@ -252,12 +254,12 @@ class SjSessionWorker(threading.Thread, SessionHandler):
                     'files': ed
                 })
                 raw.update(info)
-                logger.info(f"AFTER - info: {raw['movies']}")
                 with open(infoFile, 'w') as f:
                     json.dump({'ed': ed}, f)
                 epuData.write()
                 self.update_session_extra({'raw': raw})
             self._transfer_movies = []
+            self._files_count = 0
 
         def _mkdir(root, folder):
             folderPath = os.path.join(root, folder)
@@ -278,20 +280,25 @@ class SjSessionWorker(threading.Thread, SessionHandler):
                 dstFile = os.path.join(rootRaw, f)
                 s = os.stat(srcFile)
                 dt = datetime.fromtimestamp(s.st_mtime)
-                if now - dt >= td:
+                if now - dt >= td and srcFile not in self._transferred_files:
+                    self._transferred_files.add(srcFile)
                     ed.register(srcFile, stat=s)
+                    self._files_count += 1
                     # Register creation time of movie files
                     if f.endswith('fractions.tiff'):
                         self._transfer_movies.append((os.path.relpath(srcFile, framesPath), s))
+                        # Only move now the movies files, not other metadata files
+                        self.pl.system(f'rsync -ac --remove-source-files {srcFile} {dstFile}')
                     else:  # Copy metadata files into the OTF/EPU folder
+                        self.pl.system(f'cp {srcFile} {dstFile}')
                         dstEpuFile = os.path.join(rootEpu, f)
                         # only backup gridsquares thumbnails and xml files
                         if f.endswith('.xml') or _gsThumb(f):
                             self.pl.system(f'cp {srcFile} {dstEpuFile}')
-                    self.pl.system(f'rsync -ac --remove-source-files {srcFile} {dstFile}')
 
-            if len(self._transfer_movies) >= 32:  # make frequent updates to keep otf updated
-                _update()
+        self.logger.info(f"Transferred {self._files_count} files.")
+        if self._files_count >= 32:  # make frequent updates to keep otf updated
+            _update()
 
         # Only sleep when no data was found
         self._sleep = 0 if self._transfer_movies else 60
