@@ -241,8 +241,14 @@ class DataContent:
                     resolution.append(r)
                     rbins.addValue(r)
 
-                tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
-                step = (tsLast - tsFirst) / len(defocus)
+                if firstMic and lastMic:
+                    tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
+                    step = (tsLast - tsFirst) / len(defocus)
+                else:
+                    tsFirst = dt.datetime.timestamp(dt.datetime.now())
+                    step = 1000000
+                    tsLast = tsFirst + len(defocus) * step
+
                 epuData = session.data.getEpuData()
                 if epuData is None:
                     beamshifts = []
@@ -267,6 +273,7 @@ class DataContent:
 
         elif result == 'classes2d':
             data['classes2d'] = sdata.get_classes2d()
+            print(">>>> Classes 2D: ", len(data['classes2d']))
 
         sdata.close()
         return data

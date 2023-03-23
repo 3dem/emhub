@@ -38,7 +38,7 @@ from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
-from .data_session import RelionSessionData
+from .data_session import RelionSessionData, ScipionSessionData
 
 
 class DataManager(DbManager):
@@ -669,6 +669,9 @@ class DataManager(DbManager):
         if session.data_path.endswith('h5'):
             return H5SessionData(self._session_data_path(session), mode)
         else:
+            projectSqlite = os.path.join(session.data_path, 'project.sqlite')
+            if os.path.exists(projectSqlite):
+                return ScipionSessionData(session.data_path, mode)
             return RelionSessionData(session.data_path, mode)
 
     def clear_session_data(self, **attrs):
