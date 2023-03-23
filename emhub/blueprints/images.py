@@ -84,8 +84,8 @@ def get_mic_data():
     return send_json_data(mic)
 
 
-@images_bp.route("/get_mic_location", methods=['POST'])
-def get_mic_location():
+@images_bp.route("/get_micrograph_gridsquare", methods=['POST'])
+def get_micrograph_gridsquare():
     form = request.form  # shortcut
     sessionId = int(form['sessionId'])
     session = app.dm.load_session(sessionId)
@@ -94,7 +94,7 @@ def get_mic_location():
         kwargs['gsId'] = form['gsId']
     if 'fhId' in form:
         kwargs['fhId'] = form['fhId']
-    data = session.data.get_mic_location(**kwargs)
+    data = session.data.get_micrograph_gridsquare(**kwargs)
     session.data.close()
     print(data['foilHole'].keys())
     return send_json_data(data)

@@ -899,7 +899,9 @@ def handle_session_data(handle, mode="r"):
                 session.data.close()
             break
         except OSError:
-            print("Error with session data, sleeping 3 secs")
+            print(f"Error with session (id={session_id})data, sleeping 3 secs")
+            import traceback
+            traceback.print_exc()
             time.sleep(3)
             result = {}
             tries += 1

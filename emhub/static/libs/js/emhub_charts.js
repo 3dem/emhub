@@ -682,7 +682,7 @@ function session_getMicLocation(data, label, container) {
     lastFoilHole = attrs.fhId;
 
     var requestMicImg = $.ajax({
-        url: urls.get_mic_location,
+        url: urls.get_micrograph_gridsquare,
         type: "POST",
         data: attrs,
         dataType: "json"
