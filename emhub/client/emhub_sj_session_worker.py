@@ -173,7 +173,8 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         gain_pattern = self.sconfig['data']['gain']
         possible_gains = glob(gain_pattern.format(microscope=self.microscope))
         if possible_gains:
-            gain = possible_gains[0]
+            possible_gains.sort(key=lambda g: os.path.getmtime(g))
+            gain = possible_gains[-1]  # Use updated gain
             os.symlink(os.path.realpath(gain), _path('gain.mrc'))
 
         # Create a general ini file with config/information of the session
