@@ -282,8 +282,15 @@ class DataContent:
     def get_session_default(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
-        data = self.get_session_live(**kwargs)
-        data['session_default'] = 'session_live.html'
+        otf_status = session.otf_status
+
+        if not otf_status or otf_status == 'created':
+            data = self.get_session_details(**kwargs)
+            data['session_default'] = 'session_details.html'
+        else:
+            data = self.get_session_live(**kwargs)
+            data['session_default'] = 'session_live.html'
+
         return data
 
     def get_session_live(self, **kwargs):
