@@ -138,7 +138,7 @@ class SjSessionWorker(threading.Thread, SessionHandler):
                                     self.users['group'],
                                     self.microscope, str(datetime.now().year),
                                     'raw', 'EPU', userFolder)
-            raw_path = raw['path'] = _mkdir(userRoot)  # FIXME: Add rules of Year/Scope/Group/User
+            raw_path = raw['path'] = _mkdir(userRoot)
             self.update_session_extra({'raw': raw})
 
         if not os.path.exists(raw_path):
@@ -296,12 +296,13 @@ class SjSessionWorker(threading.Thread, SessionHandler):
                         if f.endswith('.xml') or _gsThumb(f):
                             self.pl.system(f'cp {srcFile} {dstEpuFile}')
 
-        self.logger.info(f"Transferred {self._files_count} files.")
-        if self._files_count >= 32:  # make frequent updates to keep otf updated
-            _update()
+            if self._files_count >= 32:  # make frequent updates to keep otf updated
+                self.logger.info(f"Transferred {self._files_count} files.")
+                _update()
 
         # Only sleep when no data was found
         self._sleep = 0 if self._transfer_movies else 60
+        self.logger.info(f"Transferred {self._files_count} files.")
         _update()
         self.logger.info(f"Sleeping {self._sleep} seconds.")
 
