@@ -227,7 +227,8 @@ class DataContent:
             if data['stats']['ctfs']['count'] > 0:
                 for mic in sdata.get_micrographs():
                     micFn = mic['micrograph']
-                    loc = EPU.get_movie_location(micFn)
+                    micName = mic.get('micName', micFn)
+                    loc = EPU.get_movie_location(micName)
                     gridsquares.append(loc['gs'])
                     if not defocus:
                         firstMic = micFn
@@ -2014,10 +2015,10 @@ class DataContent:
         dm = self.app.dm  # shortcut
         user = self.app.user
         booking_id = int(kwargs['booking_id'])
-        #b = dm.get_bookings(condition="id=%s" % booking_id)[0]
         b = dm.get_booking_by(id=booking_id)
+        can_edit = b.project and user.can_edit_project(b.project)
 
-        if not user.is_manager and not user.same_pi(b.owner):
+        if not (user.is_manager or user.same_pi(b.owner) or can_edit):
             raise Exception("You can not create Sessions for this Booking. "
                             "Only members of the same lab can do it.")
         data = {
