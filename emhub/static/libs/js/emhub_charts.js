@@ -526,12 +526,15 @@ function session_updateCounters(){
     session_setCounter('counter_imported', nMovies);
     //setCounter('counter_aligned', stats['numOfMics']);
     session_setCounter('ctf_count', nCtfs);
+
+    // Picked particle coordinates
+    session_setCounter('counter_picked', stats.coordinates.count);
+    session_setCounter('diff_picked', Math.round(stats.coordinates.count/nCtfs) + " / mic");
+
     session_setCounter('ctf_diff', nCtfs - nMovies);
     session_setCounter('ctf_speed', " " + Math.round(nCtfs/stats.ctfs.hours) + " / h");
     //setCounter('diff_ctf', stats['numOfCtfs'] - stats['numOfMics']);
     session_setCounter('imported_tag', " " + Math.round(nMovies/stats.movies.hours) + " / h");
-    //fixme
-    session_setCounter('counter_picked', 0);
 
     let extra = session_data.session.extra;
     let otf = extra.otf;

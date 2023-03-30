@@ -110,7 +110,8 @@ class SessionData:
         defocus = []
         resolution = []
         for mic in self.get_micrographs():
-            loc = EPU.get_movie_location(mic['micrograph'])
+            micName = mic.get('micName', mic['micrograph'])
+            loc = EPU.get_movie_location(micName)
             if loc['gs'] == gsId:
                 defocus.append(_microns(mic['ctfDefocus']))
                 resolution.append(round(mic['ctfResolution'], 3))
@@ -201,7 +202,7 @@ class RelionSessionData(SessionData):
         if micFn:
             with StarFile(micFn) as sf:
                 otable = sf.getTable('optics')
-                row = sf.getTableRow('micrographs', start=micId - 1)
+                row = sf.getTableRow('micrographs', micId - 1)
                 micThumb = Thumbnail(output_format='base64',
                                      max_size=(512, 512),
                                      contrast_factor=0.15,
@@ -352,22 +353,25 @@ class ScipionSessionData(SessionData):
         self.outputs = outputs
 
     def get_stats(self):
-        def _stats_from_sqlite(sqliteFn, fileKey=None):
-            with SqliteFile(sqliteFn) as sf:
-                size = sf.getTableSize('Objects')
-                stats = {
-                    'hours': 0,
-                    'count': size,
-                    'first': '',
-                    'last': '',
-                }
-                if fileKey is not None:
-                    first = sf.getTableRow('Objects', 0, classes='Classes')
-                    last = sf.getTableRow('Objects', size - 1, classes='Classes')
-                    stats['first'] = self.mtime(first[fileKey])
-                    stats['last'] = self.mtime(last[fileKey])
-                    stats['hours'] = hours(stats['first'], stats['last'])
-                return stats
+        def _stats_from_output(outputKey, fileKey=None):
+            stats = {
+                'hours': 0,
+                'count': 0,
+                'first': '',
+                'last': '',
+            }
+            sqliteFn = self.outputs.get(outputKey, None)
+            if sqliteFn:
+                with SqliteFile(sqliteFn) as sf:
+                    size = sf.getTableSize('Objects')
+                    stats['count'] = size
+                    if fileKey is not None:
+                        first = sf.getTableRow('Objects', 0, classes='Classes')
+                        last = sf.getTableRow('Objects', size - 1, classes='Classes')
+                        stats['first'] = self.mtime(first[fileKey])
+                        stats['last'] = self.mtime(last[fileKey])
+                        stats['hours'] = hours(stats['first'], stats['last'])
+            return stats
 
         if 'movies' not in self.outputs:
             return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
@@ -386,8 +390,9 @@ class ScipionSessionData(SessionData):
         return {
             #'movies': _stats_from_sqlite(self.outputs['movies']),
             'movies': msEpu,
-            'ctfs': _stats_from_sqlite(self.outputs['ctfs'], fileKey='_psdFile'),
-            'classes2d': _stats_from_sqlite(self.outputs['classes2d'])
+            'ctfs': _stats_from_output('ctfs', fileKey='_psdFile'),
+            'coordinates': _stats_from_output('coordinates'),
+            'classes2d': _stats_from_output('classes2d')
         }
 
     def get_micrographs(self):
@@ -403,7 +408,7 @@ class ScipionSessionData(SessionData):
                 dU, dV = row['_defocusU'], row['_defocusV']
                 micData = {
                     'micrograph': row['_micObj._filename'],
-                    #'micTs': os.path.getmtime(micFn),
+                    'micName': row['_micObj._micName'],
                     'ctfImage': row['_psdFile'],
                     'ctfDefocus': row['_defocusU'],
                     'ctfResolution': min(row['_resolution'], 25),
@@ -425,12 +430,13 @@ class ScipionSessionData(SessionData):
                                      contrast_factor=1,
                                      gaussian_filter=0)
 
+                micName = row['_micObj._micName']
                 micFn = self.join(row['_micObj._filename'])
                 micThumbBase64 = micThumb.from_mrc(micFn)
                 psdFn = self.join(row['_psdFile']).replace(':mrc', '')
                 pixelSize = row['_micObj._samplingRate']
 
-                loc = EPU.get_movie_location(micFn)
+                loc = EPU.get_movie_location(micName)
                 dU, dV = row['_defocusU'], row['_defocusV']
 
                 return {
@@ -453,7 +459,8 @@ class ScipionSessionData(SessionData):
     def get_classes2d(self):
         """ Iterate over 2D classes. """
         items = []
-        if classesSqlite := self.outputs['classes2d']:
+        if classesSqlite := self.outputs.get('classes2d', None):
+            print(">>>> Sqlite: ", classesSqlite)
             with SqliteFile(classesSqlite) as sf:
                 mrc_stack = None
                 avgThumb = Thumbnail(max_size=(100, 100),
@@ -466,9 +473,10 @@ class ScipionSessionData(SessionData):
                     if not mrc_stack:
                         mrc_stack = mrcfile.open(avgFn, permissive=True)
 
+                    classId = '%03d' % row['id']
                     items.append({
-                        'id': '%03d' % row['id'],
-                        'size': row['_size'],
+                        'id': classId,
+                        'size': sf.getTableSize('Class%s_Objects' % classId),
                         'average': avgThumb.from_array(mrc_stack.data[avgIndex, :, :])
                     })
             items.sort(key=lambda c: c['size'], reverse=True)
