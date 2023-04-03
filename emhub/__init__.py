@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '0.7.dev12'
+__version__ = '0.7.dev13'
 
 
 def create_app(test_config=None):
@@ -172,7 +172,7 @@ def create_app(test_config=None):
 
     @app.route('/login', methods=['GET'])
     def login():
-        """ This view will called when the user lands in the login page (GET)
+        """ This view will be called when the user lands in the login page (GET)
         and also when login credentials are submitted (POST).
         """
         next_content = flask.request.args.get('next_content', 'dashboard')
@@ -180,7 +180,7 @@ def create_app(test_config=None):
 
     @app.route('/do_login', methods=['POST'])
     def do_login():
-        """ This view will called as POST from the user login page. """
+        """ This view will be called as POST from the user login page. """
         username = flask.request.form['username']
         password = flask.request.form['password']
         next_content = flask.request.form.get('next_content', 'index')
@@ -199,7 +199,7 @@ def create_app(test_config=None):
     @app.route('/do_switch_login', methods=['POST'])
     @flask_login.login_required
     def do_switch_login():
-        """ This view will called as POST from a currently logged admin user.
+        """ This view will be called as POST from a currently logged admin user.
          It will allow admins to login as another users for troubleshooting.
         """
         if not app.user.is_admin:
@@ -223,14 +223,14 @@ def create_app(test_config=None):
 
     @app.route('/reset_password', methods=['GET'])
     def reset_password():
-        """ This view will called when the user lands in the login page (GET)
+        """ This view will be called when the user lands in the login page (GET)
         and also when login credentials are submitted (POST).
         """
         return _redirect('main', content_id='user_reset_password')
 
     @app.route('/reset_password_request', methods=['POST'])
     def reset_password_request():
-        """ This view will called as POST from the user login page. """
+        """ This view will be called as POST from the user login page. """
         email = flask.request.form['user-email'].strip()
         user = app.dm.get_user_by(email=email)
 
@@ -259,7 +259,7 @@ def create_app(test_config=None):
 
     @app.route('/do_reset_password/<token>', methods=['GET', 'POST'])
     def do_reset_password(token):
-        """ This view will called as POST from the user login page. """
+        """ This view will be called as POST from the user login page. """
         if app.user.is_authenticated:
             return _redirect('index')
 
