@@ -316,7 +316,7 @@ def create_app(test_config=None):
 
     @app.template_filter('basename')
     def basename(filename):
-        return os.path.basename(filename)
+        return os.path.basename(filename) if filename else ''
 
     @app.template_filter('id_from_label')
     def id_from_label(label):
