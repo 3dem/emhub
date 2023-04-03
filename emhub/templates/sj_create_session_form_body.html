@@ -113,7 +113,8 @@
                 <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF Workflow</label>
                 <div class="col-12 col-sm-8 col-lg-6">
                    <select id="otf_workflow-select" class="selectpicker" data-key="otf_workflow">
-                        <option selected value="relion">relion</option>
+                        <option selected value="default">default</option>
+                        <option value="relion">relion</option>
                         <option value="scipion">scipion</option>
                         <option value="none">none</option>
                     </select>
@@ -122,7 +123,7 @@
 
         {% else %}
             <input type="hidden" value="default" data-key="otf_host">
-            <input type="hidden" value="relion" data-key="otf_workflow">
+            <input type="hidden" value="default" data-key="otf_workflow">
         {% endif %}
 
     </form>
