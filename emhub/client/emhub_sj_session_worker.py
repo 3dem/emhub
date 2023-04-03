@@ -83,8 +83,12 @@ class SessionHandler:
             session = self.session
         self.logger.info(f"Updating session {session['name']}")
         extra['updated'] = Pretty.now()
-        with open_client() as dc:
-            dc.update_session_extra({'id': session['id'], 'extra': extra})
+        try:
+            with open_client() as dc:
+                dc.update_session_extra({'id': session['id'], 'extra': extra})
+        except Exception as e:
+            self.logger.error(f"Error connecting to {config.EMHUB_SERVER_URL} "
+                              f"to update session.")
 
 
 class SjSessionWorker(threading.Thread, SessionHandler):
@@ -226,7 +230,6 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         infoFile = self.logFile.replace('.log', '_info.json')
 
         if not hasattr(self, '_transfer_ed'):  # first time
-            # FIXME When restarting the server, load ed from previous values
             logger.info("NEW transfer info")
             self._transfer_ed = Path.ExtDict()
             self._transferred_files = set()
@@ -344,18 +347,18 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         if otf_status == 'created':  # check to launch otf
             # this is a protection in case OTF status does not update on time
             if not self._otf_launched:
-                n = raw['movies']
+                n = raw.get('movies', 0)
                 launch_otf = n > 16
                 if launch_otf:
                     otf['status'] = 'launched'
-                    self.logger.info(f"Launching OTF after {raw['movies']} input movies .")
+                    self.logger.info(f"Launching OTF after {n} input movies .")
                     self.launch_otf()
                     self.update_session_extra({'otf': otf})
                     self._otf_launched = True
                     self._update_session = False  # we don't need to check raw anymore
                 else:
                     self.logger.info(f"OTF: folder already CREATED, "
-                                     f"input movies {raw['movies']}."
+                                     f"input movies {n}."
                                      f"Waiting for more movies")
 
         elif otf_status in ['launched', 'running']:
@@ -365,9 +368,10 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         """ Launch OTF for a session. """
         otf = self.session['extra']['otf']
         otf_path = otf['path']
-        workflow = otf.get('workflow', 'relion')
-
-        if workflow == 'none':
+        workflow = otf.get('workflow', 'default')
+        if workflow == 'default':
+            workflow = self.sconfig['otf']['workflow']['default']
+        elif workflow == 'none':
             self.pl.logger.info('OTF workflow is None, so no doing anything.')
             return
 
