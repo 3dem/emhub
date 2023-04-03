@@ -227,7 +227,8 @@ class DataContent:
             if data['stats']['ctfs']['count'] > 0:
                 for mic in sdata.get_micrographs():
                     micFn = mic['micrograph']
-                    loc = EPU.get_movie_location(micFn)
+                    micName = mic.get('micName', micFn)
+                    loc = EPU.get_movie_location(micName)
                     gridsquares.append(loc['gs'])
                     if not defocus:
                         firstMic = micFn
@@ -281,8 +282,15 @@ class DataContent:
     def get_session_default(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
-        data = self.get_session_live(**kwargs)
-        data['session_default'] = 'session_live.html'
+        otf_status = session.otf_status
+
+        if not otf_status or otf_status == 'created':
+            data = self.get_session_details(**kwargs)
+            data['session_default'] = 'session_details.html'
+        else:
+            data = self.get_session_live(**kwargs)
+            data['session_default'] = 'session_live.html'
+
         return data
 
     def get_session_live(self, **kwargs):
@@ -2014,10 +2022,10 @@ class DataContent:
         dm = self.app.dm  # shortcut
         user = self.app.user
         booking_id = int(kwargs['booking_id'])
-        #b = dm.get_bookings(condition="id=%s" % booking_id)[0]
         b = dm.get_booking_by(id=booking_id)
+        can_edit = b.project and user.can_edit_project(b.project)
 
-        if not user.is_manager and not user.same_pi(b.owner):
+        if not (user.is_manager or user.same_pi(b.owner) or can_edit):
             raise Exception("You can not create Sessions for this Booking. "
                             "Only members of the same lab can do it.")
         data = {

@@ -155,7 +155,7 @@
 
             <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
                 <div class="col-11 align-items-center justify-content-start"> <h3>Project Creation</h3></div>
-                {% if  current_user.can_edit_project(project) %}
+                {% if  can_edit %}
                     <div class="col-1"><a href="javascript:showProjectForm({{ project.id }}, 'entry-modal')"><i class="fas fa-edit"></i></a></div>
                 {% endif %}
             </div>

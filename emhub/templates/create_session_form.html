@@ -28,12 +28,21 @@
 <script>
         $('select').selectpicker();
 
+
+
     function onProcessingClick(inputRadio) {
         var rows = document.getElementsByClassName("processing-row");
         for (var i = 0; i < rows.length; i++) {
             var r = rows[i];
             r.style.display = r.id === "row-" + inputRadio.value ? "block" : "none";
         }
+    }
+
+    function advancedOnClick(checkbox){
+         if (checkbox.checked)
+             $(".advanced").show();
+         else
+             $(".advanced").hide();
     }
 
     function onCreateClick(){
@@ -106,4 +115,12 @@
             alert( "Request failed: " + textStatus );
         });
     }
+
+    (function(window, document, $, undefined) {
+        var checkbox = document.getElementById('advanced-checkbox');
+        console.log("loading page: checked: " + checkbox.checked);
+        advancedOnClick(checkbox);
+
+    })(window, document, window.jQuery);
+
 </script>

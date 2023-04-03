@@ -50,15 +50,6 @@
             </div>
         </div>
 
-        <!-- Raw data folder -->
-        <div class="form-group row">
-            <h3 class="col-12 col-sm-3 col-form-label text-sm-right">RAW data folder</h3>
-            <div class="col-12 col-sm-8 col-lg-6">
-                <input type="text" required="" placeholder="Provide RAW data folder" id="raw-folder" class="form-control"
-                       value="" data-key="raw_folder">
-            </div>
-        </div>
-
         <!-- Project id -->
         <div class="form-group row">
             <label class="col-12 col-sm-3 col-form-label text-sm-right">Project ID</label>
@@ -75,9 +66,28 @@
 
         <!-- OTF extra params only visible to manager for now -->
         {% if is_manager %}
+            <!-- Display Advanced options -->
+            <div class="form-group row">
+                <h3 class="col-12 col-sm-3 col-form-label text-sm-right">Advanced Options</h3>
+                <div class="col-12 col-sm-8 col-lg-6">
+                    <label class="be-checkbox custom-control custom-checkbox mt-1">
+                        {% set checked = 'checked' if current_user.is_admin else '' %}
+                        <input type="checkbox" class="custom-control-input  row-checkbox" id="advanced-checkbox" {{ checked }} onclick='advancedOnClick(this);'><span class="custom-control-label"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Raw data folder -->
+            <div class="form-group row advanced">
+                <label class="col-12 col-sm-3 col-form-label text-sm-right">RAW data folder</label>
+                <div class="col-12 col-sm-8 col-lg-6">
+                    <input type="text" required="" placeholder="Provide RAW data folder" id="raw-folder" class="form-control"
+                           value="" data-key="raw_folder">
+                </div>
+            </div>
 
             <!-- OTF folder -->
-            <div class="form-group row">
+            <div class="form-group row advanced">
                 <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF folder</label>
                 <div class="col-12 col-sm-8 col-lg-6">
                     <input type="text" required="" placeholder="If OTF folder is not provided it will be created" id="otf-folder" class="form-control"
@@ -86,7 +96,7 @@
             </div>
 
             <!-- OTF host -->
-            <div class="form-group row">
+            <div class="form-group row advanced">
                 <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF Host</label>
                 <div class="col-12 col-sm-8 col-lg-6">
                    <select id="otf_host-select" class="selectpicker" data-key="otf_host">
@@ -98,8 +108,8 @@
                 </div>
             </div>
 
-            <!-- OTF host -->
-            <div class="form-group row">
+            <!-- OTF workflow -->
+            <div class="form-group row advanced">
                 <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF Workflow</label>
                 <div class="col-12 col-sm-8 col-lg-6">
                    <select id="otf_workflow-select" class="selectpicker" data-key="otf_workflow">
@@ -110,10 +120,10 @@
                 </div>
             </div>
 
+        {% else %}
+            <input type="hidden" value="default" data-key="otf_host">
+            <input type="hidden" value="relion" data-key="otf_workflow">
         {% endif %}
-
-
-
 
     </form>
 </div>
