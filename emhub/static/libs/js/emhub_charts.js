@@ -45,7 +45,7 @@ function create_hc_polar(charDivId, data, label, config){
             min: 0,
             max: config.maxY,
             labels: {format: '{value:.2f}'},
-             opposite: true
+             opposite: true,
         },
         credits: {enabled: false},
         series: [{
@@ -60,7 +60,6 @@ function create_hc_polar(charDivId, data, label, config){
 }
 
 function create_hc_series(container, data, config) {
-    var mydata = data;
     function get_micIndex(x) {
         for (var i = 0; i < data.length - 1; ++i) {
             if (x >= data[i][0] && x <= data[i+1][0])
@@ -86,7 +85,7 @@ function create_hc_series(container, data, config) {
                     if (micIndex > 0) {
                         tooltip = '<span>' + session_data.gridsquares[micIndex] + '</span><br/><br/>' +
                             '<b>Micrograph ' + (micIndex+1) + '</b><br/>' +
-                            mylabel + ": " + mydata[micIndex][1].toFixed(2) + " " + mysuffix + '<br/>';
+                            mylabel + ": " + data[micIndex][1].toFixed(2) + " " + mysuffix + '<br/>';
                     }
                     return tooltip;
                   }
@@ -126,7 +125,11 @@ function create_hc_series(container, data, config) {
             title: {
                 text: config.label + " (" + config.suffix + ")",
             },
-            opposite: false
+            opposite: false,
+            min: config.minY,
+            max: config.maxY,
+            startOnTick: false,
+            endOnTick: false
         },
 
         exporting: {enabled: false},
@@ -149,6 +152,32 @@ function create_hc_series(container, data, config) {
         }]
     });
 } // function create_hc_series
+
+
+function create_hc_defocus_series(containerId, data) {
+    var config = {
+        color: '#852999',
+        label: 'Defocus',
+        suffix: 'µm',
+        minY: data.min * 0.9,
+        maxY: data.max * 1.1, //Math.max(...data),
+        gsLines: data.lines
+    }
+    return create_hc_series(containerId, data.points, config);
+}
+
+
+function create_hc_resolution_series(containerId, data) {
+    var config = {
+        color: '#EF9A53',
+        label: 'Resolution',
+        suffix: 'Å',
+        minY: data.min * 0.9,
+        maxY: data.max * 1.1,
+        gsLines: data.lines
+    }
+    return create_hc_series(containerId, data.points, config);
+}
 
 
 function create_hc_defocus_histogram(containerId, data, percent) {
@@ -565,7 +594,7 @@ function session_updatePlots() {
         var ts = config.startX;
         var date, gs;
 
-        config.gsLines = [];
+        gsLines = [];
 
         var lastGs = null;
         for (var i = 0; i < session_data.defocusAngle.length; ++i) {
@@ -581,7 +610,7 @@ function session_updatePlots() {
             gs = session_data.gridsquares[i];
             if (gs !== lastGs) {
                 lastGs = gs;
-                config.gsLines.push({color: 'gray', value: date, width: 1});
+                gsLines.push({color: 'gray', value: date, width: 1});
             }
 
             data_defocus.push([ts, session_data.defocus[i]]);
@@ -589,16 +618,25 @@ function session_updatePlots() {
             ts += config.stepX;
         }
         config.maxY = config.maxY + (config.maxY * 0.1)
-        session_plots.defocus = create_hc_series('defocus_plot', data_defocus, config);
+        //session_plots.defocus = create_hc_series('defocus_plot', data_defocus, config);
+        session_plots.defocus = create_hc_defocus_series('defocus_plot', {
+            points: data_defocus,
+            lines: gsLines,
+            min: Math.min(...session_data.defocus),
+            max: Math.max(...session_data.defocus)
+        }, );
         session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
 
         //create_hc_histogram('defocus_hist2', color);
 
-        config.color ='#EF9A53';
-        config.label = 'Resolution';
-        config.suffix = 'Å';
+        //session_plots.resolution = create_hc_series('resolution_plot', data_resolution, config);
+        session_plots.resolution = create_hc_resolution_series('resolution_plot', {
+            points: data_resolution,
+            lines: gsLines,
+            min: Math.min(...session_data.resolution),
+            max: Math.max(...session_data.resolution)
+        });
 
-        session_plots.resolution = create_hc_series('resolution_plot', data_resolution, config);
         session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
 
         config.color = '#55D8C1';
