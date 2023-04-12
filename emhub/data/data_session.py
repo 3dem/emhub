@@ -191,7 +191,7 @@ class RelionSessionData(SessionData):
                     #'micTs': os.path.getmtime(micFn),
                     'ctfImage': row.rlnCtfImage,
                     'ctfDefocus': row.rlnDefocusU,
-                    'ctfResolution': row.rlnCtfMaxResolution,
+                    'ctfResolution': min(row.rlnCtfMaxResolution, 10),
                     'ctfDefocusAngle': row.rlnDefocusAngle,
                     'ctfAstigmatism': row.rlnCtfAstigmatism
                 }
@@ -411,7 +411,7 @@ class ScipionSessionData(SessionData):
                     'micName': row['_micObj._micName'],
                     'ctfImage': row['_psdFile'],
                     'ctfDefocus': row['_defocusU'],
-                    'ctfResolution': min(row['_resolution'], 25),
+                    'ctfResolution': min(row['_resolution'], 10),
                     'ctfDefocusAngle': row['_defocusAngle'],
                     'ctfAstigmatism': abs(dU - dV)
                 }
