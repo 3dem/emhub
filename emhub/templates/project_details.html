@@ -101,15 +101,15 @@
                 {# All other entries #}
                 {% else %}
                     <div class="row col-12 justify-content-start pr-0 mb-0 pb-0" style="background-color: transparent">
-                        <div class="col-8 align-items-center justify-content-start"> <h3>{{ entry_config['label'] }}</h3></div>
+                        <div class="col-8 align-items-center justify-content-start"> <h3>{{ entry_config['label'] }} (id={{ entry.id}}) </h3></div>
+                        {# Only manager can edit any entry....and only the last entry (reversed) can be edited by users #}
+                        {% set can_edit_entry = is_manager or (current_user == entry.creation_user and loop.index == 1) %}
                         {% if can_edit %}
-                            <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-edit"></i>   </a></div>
+                            {% if can_edit_entry %}
+                                <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-edit"></i>   </a></div>
+                                <div class="col-1"><a href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i></a></div>
+                            {% endif %}
                             <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }}, null, true)"><i class="fas fa-copy"></i>   </a></div>
-                            <div class="col-1">
-                                {% if is_manager or current_user == entry.creation_user %}
-                                    <a href="javascript:deleteEntry({{ entry.id }}, '{{ entry.title }}')"><i class="fas fa-trash-alt"></i></a>
-                                {% endif %}
-                            </div>
                         {% else %}
                             <div class="col-2"></div>
                             <div class="col-1"><a href="javascript:showEntryForm({{ entry.id }}, {{ project.id }})"><i class="fas fa-eye"></i>   </a></div>

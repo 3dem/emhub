@@ -35,6 +35,8 @@ import sqlalchemy
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
+from emhub.utils import datetime_from_isoformat
+
 
 class DbManager:
     """ Helper class to deal with DB stuff
@@ -84,6 +86,15 @@ class DbManager:
 
     def local_weekday(self, dt):
         return self.dt_as_local(dt).strftime("%a, %b %d")
+
+    def local_datetime(self, dt):
+        if dt is None:
+            return 'None'
+
+        if isinstance(dt, str):
+            dt = datetime_from_isoformat(dt)
+
+        return self.dt_as_local(dt).strftime("%Y/%m/%d %I:%M %p")
 
     @staticmethod
     def json_from_value(v):

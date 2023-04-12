@@ -339,12 +339,11 @@ def create_app(test_config=None):
     app.jinja_env.globals.update(url_for_content=url_for_content)
     app.jinja_env.add_extension('jinja2.ext.do')
     app.jinja_env.filters['reverse'] = basename
-    app.jinja_env.filters['pretty_datetime'] = pretty_datetime
+
     app.jinja_env.filters['pretty_date'] = pretty_date
     app.jinja_env.filters['pretty_quarter'] = pretty_quarter
     app.jinja_env.filters['shortname'] = shortname
     app.jinja_env.filters['pairname'] = pairname
-    app.jinja_env.filters['weekday'] = weekday
     app.jinja_env.filters['pretty_size'] = Pretty.size
 
     from emhub.data.data_manager import DataManager
@@ -365,6 +364,8 @@ def create_app(test_config=None):
 
     from flaskext.markdown import Markdown
     Markdown(app)
+
+    app.jinja_env.filters['pretty_datetime'] = app.dm.local_datetime
 
     @login_manager.user_loader
     def load_user(user_id):

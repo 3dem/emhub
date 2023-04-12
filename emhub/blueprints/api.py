@@ -715,7 +715,8 @@ def create_entry():
         fix_dates(attrs, 'date')
         entry = app.dm.create_entry(**attrs)
         save_entry_files(entry, entry.extra['data'])
-        entry = app.dm.update_entry(id=entry.id, extra=entry.extra)
+        entry = app.dm.update_entry(id=entry.id, extra=entry.extra,
+                                    validate=False)
         return entry.json()
 
     return _handle_item(handle, 'entry')
