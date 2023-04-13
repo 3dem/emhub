@@ -273,7 +273,8 @@ class DataContent:
             })
 
         elif result == 'classes2d':
-            data['classes2d'] = sdata.get_classes2d()
+            runId = int(kwargs.get('run_id', -1))
+            data['classes2d'] = sdata.get_classes2d(runId=runId)
             print(">>>> Classes 2D: ", len(data['classes2d']))
 
         sdata.close()

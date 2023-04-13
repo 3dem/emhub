@@ -338,7 +338,7 @@ class ScipionSessionData(SessionData):
 
         results = glob(self.join('Runs', '??????_*', '*.sqlite'))
         results.sort()
-        outputs = {}
+        outputs = {'classes2d': []}
 
         for r in results:
             if r.endswith('ProtImportMovies/movies.sqlite'):
@@ -348,31 +348,34 @@ class ScipionSessionData(SessionData):
             elif r.endswith('coordinates.sqlite'):
                 outputs['coordinates'] = r
             elif r.endswith('classes2D.sqlite'):
-                outputs['classes2d'] = r
+                outputs['classes2d'].append(r)
 
+        outputs['select2d'] = glob(self.join('Runs', '??????_ProtRelionSelectClasses2D'))
         self.outputs = outputs
 
-    def get_stats(self):
-        def _stats_from_output(outputKey, fileKey=None):
-            stats = {
-                'hours': 0,
-                'count': 0,
-                'first': '',
-                'last': '',
-            }
-            sqliteFn = self.outputs.get(outputKey, None)
-            if sqliteFn:
-                with SqliteFile(sqliteFn) as sf:
-                    size = sf.getTableSize('Objects')
-                    stats['count'] = size
-                    if fileKey is not None:
-                        first = sf.getTableRow('Objects', 0, classes='Classes')
-                        last = sf.getTableRow('Objects', size - 1, classes='Classes')
-                        stats['first'] = self.mtime(first[fileKey])
-                        stats['last'] = self.mtime(last[fileKey])
-                        stats['hours'] = hours(stats['first'], stats['last'])
-            return stats
+    def _stats_from_sqlite(self, sqliteFn, fileKey=None):
+        stats = {
+            'hours': 0,
+            'count': 0,
+            'first': '',
+            'last': '',
+        }
+        if sqliteFn:
+            with SqliteFile(sqliteFn) as sf:
+                size = sf.getTableSize('Objects')
+                stats['count'] = size
+                if fileKey is not None:
+                    first = sf.getTableRow('Objects', 0, classes='Classes')
+                    last = sf.getTableRow('Objects', size - 1, classes='Classes')
+                    stats['first'] = self.mtime(first[fileKey])
+                    stats['last'] = self.mtime(last[fileKey])
+                    stats['hours'] = hours(stats['first'], stats['last'])
+        return stats
 
+    def _stats_from_output(self, outputKey, fileKey=None):
+        return self._stats_from_sqlite(self.outputs.get(outputKey, None), fileKey)
+
+    def get_stats(self):
         if 'movies' not in self.outputs:
             return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
 
@@ -390,9 +393,9 @@ class ScipionSessionData(SessionData):
         return {
             #'movies': _stats_from_sqlite(self.outputs['movies']),
             'movies': msEpu,
-            'ctfs': _stats_from_output('ctfs', fileKey='_psdFile'),
-            'coordinates': _stats_from_output('coordinates'),
-            'classes2d': _stats_from_output('classes2d')
+            'ctfs': self._stats_from_output('ctfs', fileKey='_psdFile'),
+            'coordinates': self._stats_from_output('coordinates'),
+            'classes2d': len(self.outputs['classes2d'])
         }
 
     def get_micrographs(self):
@@ -456,11 +459,41 @@ class ScipionSessionData(SessionData):
                 }
         return {}
 
-    def get_classes2d(self):
+    def get_classes2d(self, runId=None):
         """ Iterate over 2D classes. """
-        items = []
-        if classesSqlite := self.outputs.get('classes2d', None):
-            print(">>>> Sqlite: ", classesSqlite)
+        classes2d = {
+            'runs': [],
+            'items': [],
+            'selection': list(range(runId)) if runId % 2 == 0 else []
+        }
+
+        if outputs2d := self.outputs['classes2d']:
+            classes2d['runs'] = [{'id': i, 'label': Path.splitall(fn)[-2]}
+                                 for i, fn in enumerate(outputs2d)]
+
+            print(">>>>>> Selections: ")
+
+
+            runIndex = runId or -1
+            classesSqlite = outputs2d[runIndex]
+
+            for sel in self.outputs['select2d']:
+                starFn = os.path.join(sel, 'extra', 'class_averages.star')
+                with StarFile(starFn) as sf:
+                    table = sf.getTable('')
+                    path = table[0].rlnReferenceImage
+                    runName = Path.splitall(path)[1]
+
+                    # We found a selection job for this classification run
+                    if runName in classesSqlite:
+                        classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
+                                                  for row in table if row.rlnEstimatedResolution < 25]
+
+                        print(classes2d['selection'])
+                        break
+
+            items = classes2d['items']
+
             with SqliteFile(classesSqlite) as sf:
                 mrc_stack = None
                 avgThumb = Thumbnail(max_size=(100, 100),
@@ -482,7 +515,7 @@ class ScipionSessionData(SessionData):
             items.sort(key=lambda c: c['size'], reverse=True)
             mrc_stack.close()
 
-        return items
+        return classes2d
 
     def get_micrograph_coordinates(self, micFn):
         coords = []

@@ -268,34 +268,47 @@
 
                     <!-- Row: 2D and 3D -->
                     <div class="row">
-                            <!-- 2D classes Card -->
-                            <div class="col-7" id="classes2d_plot">
-                                <div class="card">
-                                    <h5 class="card-header">Classes 2D</h5>
-                                    <div class="card-body">
-                                        {{ macros.overlay('overlay_classes2d') }}
-                                        <div class="row" id="classes2d_container"> </div>
+                        <!-- 2D classes Card -->
+                        <div class="col-12" id="classes2d_plot">
+                            <div class="card">
+                                <div class="card-header d-flex">
+                                    <h5 class="card-header-title">Classes 2D</h5>
+                                    <div class="row ml-5 w-auto">
+                                        <label class="mt-2 mr-2">Run: </label>
+                                        <select id="selectpicker-classes2d" class="selectpicker" data-width="70%" onchange="onSelectClasses2D()"></select>
                                     </div>
                                 </div>
-                            </div>
-
-                        <div class="col-5" id="card_3d">
-                            <div class="card">
-                                <h5 class="card-header">3D</h5>
-                                <div class="card-body">
-                                    <!-- Display overlay when loading 3d -->
-                                    <div id="overlay_3d" class="overlay">
-                                        <div class="w-100 d-flex justify-content-center align-items-center">
-                                            <div class="row text-white-50">
-                                              <h4 class="pr-5 text-white-50" id="overlay_classes2d_text"></h4>
-                                              <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
-                                            </div>
-                                        </div>
+                                <div class="card-body row">
+                                    {{ macros.overlay('overlay_classes2d') }}
+{#                                    <div class="row col-12 mb-3">#}
+{#                                        <div class="row col-4">#}
+{#                                            <label class="mt-2 mr-2">Run: </label>#}
+{#                                            <select id="selectpicker-classes2d" class="selectpicker" data-width="70%" onchange="onSelectClasses2D()"></select>#}
+{#                                        </div>#}
+{#                                    </div>#}
+                                    <div class="row col-12" id="classes2d_container">
                                     </div>
-                                    <div class="row" id="container_3d"> </div>
                                 </div>
                             </div>
                         </div>
+
+{#                        <div class="col-5" id="card_3d">#}
+{#                            <div class="card">#}
+{#                                <h5 class="card-header">3D</h5>#}
+{#                                <div class="card-body">#}
+{#                                    <!-- Display overlay when loading 3d -->#}
+{#                                    <div id="overlay_3d" class="overlay">#}
+{#                                        <div class="w-100 d-flex justify-content-center align-items-center">#}
+{#                                            <div class="row text-white-50">#}
+{#                                              <h4 class="pr-5 text-white-50" id="overlay_classes2d_text"></h4>#}
+{#                                              <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>#}
+{#                                            </div>#}
+{#                                        </div>#}
+{#                                    </div>#}
+{#                                    <div class="row" id="container_3d"> </div>#}
+{#                                </div>#}
+{#                            </div>#}
+{#                        </div>#}
 
                     </div>
 
@@ -413,6 +426,8 @@
     $(function() {
         var stats = {{ stats|tojson }};
 
+        $('select').selectpicker();
+
         if (stats.movies.count > 0 && stats.ctfs.count > 0) {
             overlay_mic = new Overlay('overlay_mic');
             overlay_2d = new Overlay('overlay_classes2d');
@@ -420,7 +435,9 @@
 
             //session_getData({result: 'micrographs'});
             session_reload();
-            session_getData({result: 'classes2d'});
+
+            if (stats.classes2d > 0)
+                session_getData2D(stats.classes2d - 1);
 
             $(window).resize(session_resize);
 
@@ -444,4 +461,7 @@
 });
 })(window, document, window.jQuery);
 
+    function onSelectClasses2D() {
+        session_getData2D($('#selectpicker-classes2d').selectpicker('val'));
+    }
 </script>

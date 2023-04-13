@@ -433,15 +433,19 @@ function drawMicrograph(micrograph) {
     image.src = 'data:image/png;base64,' + micrograph.thumbnail;
 }
 
-function drawClasses2d(containerId, classes){
+function drawClasses2d(containerId, classes, header, showSel){
     var container = document.getElementById(containerId);
     var imgStr, infoStr = null;
-    container.innerHTML = '';
+    html = '<div class="col-12">' + header + '</div>';
+
     for (var cls2d of classes) {
-        imgStr = '<img src="data:image/png;base64,' + cls2d.average + '">';
+        let borderColor = showSel && cls2d.sel ? 'limegreen' : 'white';
+        imgStr = '<img src="data:image/png;base64,' + cls2d.average + '" style="border: solid 3px ' + borderColor + ';">';
         infoStr = '<p class="text-muted mb-0"><small>size: ' + cls2d.size + ', id: ' + cls2d.id + '</small></p>';
-        container.innerHTML += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+        html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+
     }
+    container.innerHTML = html;
 }
 
 class Overlay {
@@ -461,6 +465,11 @@ class Overlay {
 }
 
 /* --------------------------- Session Live functions ------------------------*/
+function session_getData2D(run_id){
+    overlay_2d.show("Loading Class2D, run " + run_id);
+    return session_getData({result: 'classes2d', run_id: run_id})
+}
+
 function session_getData(attrs) {
     // Update template values
     attrs.session_id = session_id;
@@ -482,8 +491,58 @@ function session_getData(attrs) {
             else {
                 let classes2d = jsonResponse.classes2d;
 
-                if (classes2d.length > 0) {
-                    drawClasses2d('classes2d_container', classes2d);
+                if (nonEmpty(classes2d)) {
+                    let items = classes2d.items;
+                    let n = items.length;
+                    let sel = classes2d.selection;
+                    let nsel = sel.length;
+                    var total = 0;
+                    var totalSel = 0;
+                    var itemsSel = [];
+
+                    for (var i = 0; i < n; ++i) {
+                        cls = items[i];
+                        total += cls.size;
+                        if (sel.indexOf(parseInt(cls.id)) >= 0) {
+                            cls.sel = true;
+                            totalSel += cls.size;
+                            itemsSel.push(cls);
+                        }
+                        else
+                            cls.sel = false;
+                    }
+                    classes2d_container = document.getElementById('classes2d_container');
+
+                    let col =  nsel ? '7' : '12';
+                    classes2d_container.innerHTML = '<div id="classes2d_all" class="row col-' + col + '" style="vertical-align: top;"></div>';
+
+                    if (nsel) {
+                        classes2d_container.innerHTML += '<div id="classes2d_sel" class="row col-4 align-content-start ml-5"></div>'
+
+                        let cPercent = (nsel * 100 / n).toFixed(0);
+                        let pPercent = (totalSel * 100 / total).toFixed(0);
+                        let selHeader = '<label>Selection</label>: <strong>' + nsel + '</strong> classes (' + cPercent + '%) from <strong>' + totalSel + '</strong> particles (' + pPercent + '%)';
+                        drawClasses2d('classes2d_sel', itemsSel, selHeader);
+                    }
+
+                    let header = '<label>All</label>: <strong>' + n + '</strong> classes from <strong>' + total + '</strong> particles';
+                    drawClasses2d('classes2d_all', items, header, true);
+
+                    $('#selectpicker-classes2d').find('option').remove();
+
+                    let nRuns = classes2d.runs.length;
+                    for (var i = 0; i < nRuns; ++i) {
+                        let run = classes2d.runs[i];
+                        //let selected = attrs.run_id == run.id ? 'selected' : '';
+                        let optStr = '<option value="' + run.id + '">' + run.label + '</option>';
+                        $('#selectpicker-classes2d').append(optStr);
+                    }
+                    let selectedValue = classes2d.runs[attrs.run_id].id.toString();
+                    console.log("Selected: " + selectedValue)
+                    $('#selectpicker-classes2d').selectpicker('refresh');
+                    $('#selectpicker-classes2d').val(selectedValue);
+                    $('#selectpicker-classes2d').selectpicker('refresh');
+
                     overlay_2d.hide();
                 }
                 else if ('defocus' in jsonResponse) {
