@@ -358,6 +358,9 @@ class DataContent:
     def get_session_data_card(self, **kwargs):
         return self.get_session_details(**kwargs)
 
+    def get_session_micrographs(self, **kwargs):
+        return self.get_session_details(**kwargs)
+
     def get_sessions_list(self, **kwargs):
         show_extra = 'extra' in kwargs and self.app.user.is_admin
         dm = self.app.dm  # shortcut

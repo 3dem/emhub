@@ -144,7 +144,7 @@ function create_hc_series(container, data, config) {
                     click: function () {
                         var micIndex = get_micIndex(this.x);
                         if (micIndex > 0)
-                            session_getMicData(micIndex + 1);
+                            mic_card.loadMicData(micIndex + 1);
                     }
                 }
             }
@@ -398,8 +398,8 @@ function create_hc_hourly(containerId, data, title, subtitle){
 
 
 /* Draw the micrograph images with coordinates(optional) */
-function drawMicrograph(micrograph) {
-    var canvas = document.getElementById("canvas_micrograph");
+function drawMicrograph(containerId, micrograph) {
+    var canvas = document.getElementById(containerId);
     var ctx = canvas.getContext("2d");
 
     var image = new Image();
@@ -461,6 +461,76 @@ class Overlay {
 
     hide(){
         this.container.style.display = "none";
+    }
+}
+
+
+class MicrographCard {
+    constructor(containerId) {
+        this.containerId = containerId;
+        this.overlay = new Overlay(this.id('overlay'));
+        $(this.jid('mic_id')).on('keyup', function (e) {
+            if (e.key === 'Enter' || e.keyCode === 13) {
+                this.loadMicData($(this.jid('mic_id')).val());
+            }
+        });
+    }
+
+    id(suffix) {
+        return this.containerId + '_' + suffix;
+    }
+
+    jid(suffix) {
+        return '#' + this.id(suffix)
+    }
+
+    loadMicData(micId) {
+        let self = this;
+        $(this.jid('mic_id')).val(micId);
+
+        this.overlay.show("Loading Micrograph " + micId + " ...");
+
+        var requestMicThumb = $.ajax({
+            url: urls.get_mic_data,
+            type: "POST",
+            data: {micId : micId, sessionId: session_id},
+            dataType: "json"
+           // contentType: "img/png"
+        });
+
+        requestMicThumb.done(function(data) {
+            micrograph = {
+                thumbnail: data['micThumbData'],
+                coordinates: data['coordinates'],
+                pixelSize: data['pixelSize'],
+                thumbnailPixelSize: data['micThumbPixelSize']
+            };
+
+            session_getMicLocation(data);
+
+            drawMicrograph(self.id('mic_canvas'), micrograph);
+
+            $(self.jid('img_psd')).attr('src', 'data:image/png;base64,' + data.psdData);
+            function setLabel(containerId, value){
+                var elem = document.getElementById(containerId);
+                var parts = elem.innerHTML.split(":");
+                elem.innerHTML = parts[0] + ": " + value;
+            }
+
+            //setLabel('mic_id', micId);
+            $(self.jid('mic_defocus_u')).text(data['ctfDefocusU']);
+            $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
+            $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
+            $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
+            $(self.jid('mic_resolution')).text(data['ctfResolution']);
+            //$(self.jid('gs_label')).text(data['gridSquare'])
+
+            self.overlay.hide();
+        });
+
+        requestMicThumb.fail(function(jqXHR, textStatus) {
+          alert( "Request failed: " + textStatus );
+        });
     }
 }
 
@@ -552,7 +622,7 @@ function session_getData(attrs) {
                     var new_count = session_data.resolution.length;
                     if (new_count > count) {
                         session_updatePlots();
-                        session_getMicData(new_count);
+                        mic_card.loadMicData(new_count);
                     }
 
                     if (session_data.session.status != "finished") {
@@ -719,53 +789,7 @@ function session_updatePlots() {
 }
 
 
-function session_getMicData(micId) {
-    $("#mic_id").val(micId);
 
-    overlay_mic.show("Loading Micrograph " + micId + " ...");
-
-    var requestMicThumb = $.ajax({
-        url: urls.get_mic_data,
-        type: "POST",
-        data: {micId : micId, sessionId: session_id},
-        dataType: "json"
-       // contentType: "img/png"
-    });
-
-    requestMicThumb.done(function(data) {
-        micrograph = {
-            thumbnail: data['micThumbData'],
-            coordinates: data['coordinates'],
-            pixelSize: data['pixelSize'],
-            thumbnailPixelSize: data['micThumbPixelSize']
-        };
-
-        session_getMicLocation(data);
-
-        drawMicrograph(micrograph);
-
-        $("#img_psd").attr('src', 'data:image/png;base64,' + data.psdData);
-        function setLabel(containerId, value){
-            var elem = document.getElementById(containerId);
-            var parts = elem.innerHTML.split(":");
-            elem.innerHTML = parts[0] + ": " + value;
-        }
-
-        //setLabel('mic_id', micId);
-        $('#mic_defocus_u').text(data['ctfDefocusU']);
-        $('#mic_defocus_v').text(data['ctfDefocusV']);
-        $('#mic_defocus_angle').text(data['ctfDefocusAngle']);
-        $('#mic_astigmatism').text(data['ctfAstigmatism']);
-        $('#mic_resolution').text(data['ctfResolution']);
-        $('#gs_label').text(data['gridSquare'])
-
-        overlay_mic.hide();
-    });
-
-    requestMicThumb.fail(function(jqXHR, textStatus) {
-      alert( "Request failed: " + textStatus );
-    });
-}
 
 function session_get2DClasses(){
     overlay_2d.show("Loading 2D classes...");

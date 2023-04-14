@@ -1,0 +1,45 @@
+{% macro mic_row(label, value, id) -%}
+    <div class="row col-12 p-0 m-0">
+        <label class="text-muted col-8 text-right">{{ label }}</label>
+        <label class="col-4 text-right" id="{{ id }}">{{ value }}</label>
+    </div>
+{%- endmacro  %}
+
+
+{# card_id should be defined before including this macro #}
+
+<div class="col-12">
+     <div class="card card-figure image_card" id="{{ card_id }}">
+
+         <!-- Display overlay when loading micrograph -->
+         {{ macros.overlay(card_id + "_overlay") }}
+
+        <figure class="figure">
+            <canvas id="{{ card_id }}_mic_canvas"></canvas>
+        </figure>
+
+         <div class="row col-12 mt-2 ml-0 pl-0">
+
+            <div class="col-5 ml-0 pl-0">
+                <figure class="figure">
+                    <img class="img-fluid" id="{{ card_id }}_img_psd" src="">
+                </figure>
+            </div>
+
+            <div class="col-7 mr-0 pr-0">
+                <br/>
+                    <div class="input-group input-group-sm mb-3">
+                      <div class="input-group-prepend">
+                        <h5 class="input-group-text" id="inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
+                      </div>
+                      <input type="text" id="{{ card_id }}_mic_id" class="form-control" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
+                    </div>
+                    {{ mic_row('Defocus U (µm)', '', card_id + '_mic_defocus_u') }}
+                    {{ mic_row('Defocus V (µm)', '', card_id + '_mic_defocus_v') }}
+                    {{ mic_row('Defocus Angle (°)', '', card_id + '_mic_defocus_angle') }}
+                    {{ mic_row('Astigmatism  (µm)', '', card_id + '_mic_astigmatism') }}
+                    {{ mic_row('Resolution (Å)', '', card_id + '_mic_resolution') }}
+            </div>
+        </div>
+    </div>
+</div>
