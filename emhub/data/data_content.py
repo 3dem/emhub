@@ -362,6 +362,10 @@ class DataContent:
         data = self.get_session_live(**kwargs)
         return {'micrographs': data['defocus'][:8]}
 
+    def get_session_gridsquares(self, **kwargs):
+        session = self.app.dm.load_session(kwargs['session_id'])
+        return {'gridsquares': session.data.get_gridsquares()}
+
     def get_sessions_list(self, **kwargs):
         show_extra = 'extra' in kwargs and self.app.user.is_admin
         dm = self.app.dm  # shortcut

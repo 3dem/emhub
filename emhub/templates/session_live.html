@@ -196,23 +196,12 @@
 
                                 <!-- GridSquare and FoilHole card -->
                                 <div class="col-6">
-                                    <div class="col-12" id="gs">
-                                         <div class="card card-figure image_card" id="gs-container">
-                                             {{ macros.overlay("overlay_loc") }}
-                                            <figure class="figure">
-                                                <img class="img-fluid" id="gs-image" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                                <label class="text-muted mb-0" id="gs-label">  </label>
-                                            </figure>
-                                             <div class="row col-12 p-0 m-0">
-                                                <div class="col-12 pt-2 pb-2" id="gs_label" ></div>
-                                                <div class="col-6 p-0 m-0" id="gs_defocus_hist" ></div>
-                                                <div class="col-6 p-0 m-0" id="gs_resolution_hist"></div>
-                                            </div>
+                                    <!-- Div for GridSquare -->
+                                    {% set card_id = 'gs_card' %}
+                                    {% include 'gridsquare_card.html' %}
 
-                                         </div>
-                                    </div>
                                     <div class="col-12 text-sm-right mb-3">
-                                        <a href="javascript:showMicrographs()" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show GridSquares </a>
+                                        <a href="javascript:showGridSquares()" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show GridSquares </a>
                                     </div>
                                 </div>
 
@@ -310,11 +299,10 @@
     // Global variables
     var canvas_ratio = null;
     var micrograph = null;
-    var lastGridSquare = null;
     var lastFoilHole = null;
     var coordsDisplay = null;
     var overlay_2d, plot_overlay = null;
-    var mic_card = null;
+    var gs_card, mic_card = null;
 
 
     var session_plots = null;
@@ -345,6 +333,11 @@
     function showMicrographs(){
         var ajaxContent = get_ajax_content('session_micrographs', {session_id: session_id});
         showPlot('Micrographs', ajaxContent, 95);
+    }
+
+    function showGridSquares(){
+        var ajaxContent = get_ajax_content('session_gridsquares', {session_id: session_id});
+        showPlot('GridSquares', ajaxContent, 95);
     }
 
     function showPlot(title, ajaxContent, width) {
@@ -383,7 +376,8 @@
         $('select').selectpicker();
 
         if (stats.movies.count > 0 && stats.ctfs.count > 0) {
-            mic_card = new MicrographCard('mic_card');
+            gs_card = new GridSquareCard('gs_card');
+            mic_card = new MicrographCard('mic_card', gs_card);
             overlay_2d = new Overlay('overlay_classes2d');
             plot_overlay = new Overlay('plot-overlay');
 

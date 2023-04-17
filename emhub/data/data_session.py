@@ -120,6 +120,10 @@ class SessionData:
 
         return locData
 
+    def get_gridsquares(self, **kwargs):
+        epuData = self.getEpuData()
+        return [] if epuData is None else [row.id for row in epuData.gsTable]
+
     def get_classes2d(self):
         pass
 
@@ -451,6 +455,7 @@ class ScipionSessionData(SessionData):
                     'ctfDefocusAngle': round(row['_defocusAngle'], 2),
                     'ctfAstigmatism': round(abs(dU - dV)/10000, 2),
                     'ctfResolution': round(row['_resolution'], 2),
+                    # FIXME: Retrieving coordinates from multiple micrographs is very slow now
                     'coordinates': self.get_micrograph_coordinates(row['_micObj._micName']),
                     'micThumbPixelSize': pixelSize * micThumb.scale,
                     'pixelSize': pixelSize,
