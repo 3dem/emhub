@@ -359,7 +359,8 @@ class DataContent:
         return self.get_session_details(**kwargs)
 
     def get_session_micrographs(self, **kwargs):
-        return self.get_session_details(**kwargs)
+        data = self.get_session_live(**kwargs)
+        return {'micrographs': data['defocus'][:8]}
 
     def get_sessions_list(self, **kwargs):
         show_extra = 'extra' in kwargs and self.app.user.is_admin

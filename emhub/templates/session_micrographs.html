@@ -1,33 +1,13 @@
 {% import "entry_macros.html" as macros %}
 
-<div class="col-12">
-        <div class="card"> <!-- Data Card -->
-            <div class="card-header">
-                <h3 class="card-header-title"> Micrographs </h3>
+<div class="col-12 row">
+        {% for mic in micrographs %}
+            <div class="col-3">
+                {% set card_id = 'mic_card%d'|format(loop.index) %}
+                {% include 'micrograph_card.html' %}
             </div>
 
-            <div class="card-body">
-                {% set stats = session.stats %}
-                {% set extra = session.extra %}
-                {% set otf_path = extra.get('otf', {}).get('path', '') if session.data_path else '' %}
-                <table class="table table-striped table-bordered">
-                    <tbody>
-                        {{ macros.trow('EPU Session Name', extra['raw']['frames']|basename, 'h3') }}
-                        {{ macros.trow('Frames Folder', extra['raw']['frames']) }}
-                        {{ macros.trow('Raw path', extra['raw']['path']) }}
-                        {{ macros.trow('OTF path', otf_path) }}
-                        {{ macros.trow('Size', session.size|pretty_size) }}
-                        {{ macros.trow('Files', session.total_files) }}
-                        {{ macros.trow('Images', session.images) }}
-
-                    </tbody>
-                </table>
-                 <div class="col-12">
-                    <div id="files-pie" class="col-12"></div>
-                    <p>Here should be the plot. </p>
-                </div>
-            </div>
-        </div> <!-- End of Data Card -->
+        {% endfor %}
     </div>
 
 <script>
@@ -35,8 +15,13 @@
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
-        var filesData = {{ files|tojson }};
-        create_hc_files_pie('files-pie', filesData);
+        var micrographs = {{ micrographs|tojson }};
+
+        for (var i = 1; i < micrographs.length + 1; i++){
+            mic_card = new MicrographCard('mic_card' + i);
+            mic_card.loadMicData(i);
+        }
+
     });
 })(window, document, window.jQuery);
 
