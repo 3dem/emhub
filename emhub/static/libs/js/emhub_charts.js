@@ -398,7 +398,7 @@ function create_hc_hourly(containerId, data, title, subtitle){
 
 
 /* Draw the micrograph images with coordinates(optional) */
-function drawMicrograph(containerId, micrograph) {
+function drawMicrograph(containerId, micrograph, drawCoordinates) {
     var canvas = document.getElementById(containerId);
     var ctx = canvas.getContext("2d");
 
@@ -413,7 +413,7 @@ function drawMicrograph(containerId, micrograph) {
 
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-        if (coordsDisplay === 'None')
+        if (!drawCoordinates || micrograph.coordinates.length == 0)
             return;
 
         ctx.fillStyle = '#00ff00';
@@ -471,10 +471,17 @@ class MicrographCard {
         this.overlay = new Overlay(this.id('overlay'));
         this.gsCard = gsCard;
         let self = this;
+
+        // Bind enter key with micrograph number input
         $(self.jid('mic_id')).on('keyup', function (e) {
             if (e.key === 'Enter' || e.keyCode === 13) {
                 self.loadMicData($(self.jid('mic_id')).val());
             }
+        });
+
+        // Bind to on/off coordinates display
+        $(self.jid('show_particles')).change(function() {
+            self.drawMicrograph();
         });
     }
 
@@ -484,6 +491,11 @@ class MicrographCard {
 
     jid(suffix) {
         return '#' + this.id(suffix)
+    }
+
+    drawMicrograph() {
+       drawMicrograph(this.id('mic_canvas'), this.micrograph,
+           $(this.jid('show_particles')).prop('checked'));
     }
 
     loadMicData(micId, doneCallback) {
@@ -509,12 +521,13 @@ class MicrographCard {
                 pixelSize: data['pixelSize'],
                 thumbnailPixelSize: data['micThumbPixelSize']
             };
+            self.micrograph = micrograph;
+
+            self.drawMicrograph()
 
             if (nonEmpty(self.gsCard)) {
                 self.gsCard.loadData(data.gridSquare);
             }
-
-            drawMicrograph(self.id('mic_canvas'), micrograph);
 
             $(self.jid('img_psd')).attr('src', 'data:image/png;base64,' + data.psdData);
             function setLabel(containerId, value){
@@ -537,6 +550,7 @@ class MicrographCard {
             }
 
             $(self.jid('mic_resolution')).text(data['ctfResolution']);
+            $(self.jid('particles')).text(micrograph.coordinates.length);
 
             self.overlay.hide();
 
@@ -588,6 +602,8 @@ class GridSquareCard {
         requestMicImg.done(function(data) {
             if (data.gridSquare.thumbnail) {
                 $(self.jid('name')).text(gridSquare);
+                $(self.jid('micrographs')).text(data.defocus.length);
+                $(self.jid('particles')).text(data.particles);
                 $(self.jid('image')).attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
                 create_hc_defocus_histogram(self.id('defocus_hist'), data.defocus, 80);
                 create_hc_resolution_histogram(self.id('resolution_hist'), data.resolution, 80);
@@ -842,10 +858,10 @@ function session_updatePlots() {
                         'Azimuth (last 10%)', config);
 
         /* Register when the display coordinates changes */
-        $('input[type=radio][name=coords-radio]').change(function() {
-            coordsDisplay = this.dataset.option;
-            drawMicrograph(micrograph);
-        });
+        // $('input[type=radio][name=coords-radio]').change(function() {
+        //     coordsDisplay = this.dataset.option;
+        //     drawMicrograph(micrograph);
+        // });
     }
     else {  // update existing plots
         // session_plots.defocus.series[0].setData(session_data.defocus);

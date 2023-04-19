@@ -29,9 +29,10 @@
 import os
 import datetime as dt
 from glob import glob
+from collections import defaultdict
 
 import mrcfile
-from emtools.utils import Path
+from emtools.utils import Path, Timer
 from emtools.metadata import StarFile, EPU, SqliteFile
 from emtools.image import Thumbnail
 
@@ -109,20 +110,39 @@ class SessionData:
 
         defocus = []
         resolution = []
+        particles = 0
         for mic in self.get_micrographs():
             micName = mic.get('micName', mic['micrograph'])
             loc = EPU.get_movie_location(micName)
             if loc['gs'] == gsId:
                 defocus.append(_microns(mic['ctfDefocus']))
                 resolution.append(round(mic['ctfResolution'], 3))
+                particles += len(self.get_micrograph_coordinates(micName))
 
-        locData.update({'defocus': defocus, 'resolution': resolution})
+        locData.update({'defocus': defocus,
+                        'resolution': resolution,
+                        'particles': particles
+                        })
 
         return locData
 
     def get_gridsquares(self, **kwargs):
         epuData = self.getEpuData()
-        return [] if epuData is None else [row.id for row in epuData.gsTable]
+        gs = []
+        lastGs = None
+        counter = 0
+        if epuData is not None:
+            for row in epuData.moviesTable:
+                movieGs = row.gsId
+                if movieGs != lastGs:
+                    if lastGs:
+                        gs.append({'gsId': lastGs, 'micrographs': counter})
+                    lastGs = movieGs
+                    counter = 0
+                counter += 1
+            gs.append({'gsId': lastGs, 'count': counter})
+
+        return gs
 
     def get_classes2d(self):
         pass
@@ -523,13 +543,16 @@ class ScipionSessionData(SessionData):
         return classes2d
 
     def get_micrograph_coordinates(self, micFn):
-        coords = []
-        print("Getting coordinates for: ", micFn)
-        if coordSqlite := self.outputs.get('coordinates', None):
-            with SqliteFile(coordSqlite) as sf:
-                for row in sf.iterTable('Objects', classes='Classes'):
-                    if row['_micName'] == micFn:
-                        coords.append((row['_x'], row['_y']))
+        self.all_coords = getattr(self, 'all_coords', None)
+        if self.all_coords is None:
+            coords = defaultdict(lambda: [])
+            with Timer():
+                print("Loading all coordinates")
+                if coordSqlite := self.outputs.get('coordinates', None):
+                    with SqliteFile(coordSqlite) as sf:
+                        for row in sf.iterTable('Objects', classes='Classes'):
+                            coords[row['_micName']].append((row['_x'], row['_y']))
+                print("   Total: ", len(coords))
+            self.all_coords = coords
 
-        print("   Total: ", len(coords))
-        return coords
+        return self.all_coords[micFn]

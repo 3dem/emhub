@@ -14,21 +14,14 @@
     var gridsquares = {{ gridsquares|tojson }};
     var cards = [];
 
-    function loadMic(i) {
-        let gs_card = cards[i];
-        let loadNext = i == gridsquares.length - 1 ? null : function () { loadMic(i+1); }
-        gs_card.loadData(gridsquares[i], loadNext);
-    }
-
 (function(window, document, $, undefined) {
     "use strict";
     $(function() {
         for (var i = 1; i < gridsquares.length + 1; i++){
             let gs_card = new GridSquareCard(('gs_card' + i));
             cards.push(gs_card);
-            gs_card.loadData(gridsquares[i-1])
+            gs_card.loadData(gridsquares[i-1].gsId)
         }
-        //loadMic(0);
     });
 })(window, document, window.jQuery);
 
