@@ -504,18 +504,19 @@ class ScipionSessionData(SessionData):
 
             for sel in self.outputs['select2d']:
                 starFn = os.path.join(sel, 'extra', 'class_averages.star')
-                with StarFile(starFn) as sf:
-                    table = sf.getTable('')
-                    path = table[0].rlnReferenceImage
-                    runName = Path.splitall(path)[1]
+                if os.path.exists(starFn):
+                    with StarFile(starFn) as sf:
+                        table = sf.getTable('')
+                        path = table[0].rlnReferenceImage
+                        runName = Path.splitall(path)[1]
 
-                    # We found a selection job for this classification run
-                    if runName in classesSqlite:
-                        classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
-                                                  for row in table if row.rlnEstimatedResolution < 25]
+                        # We found a selection job for this classification run
+                        if runName in classesSqlite:
+                            classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
+                                                      for row in table if row.rlnEstimatedResolution < 25]
 
-                        print(classes2d['selection'])
-                        break
+                            print(classes2d['selection'])
+                            break
 
             items = classes2d['items']
 
