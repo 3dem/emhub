@@ -198,7 +198,8 @@ class RelionSessionData(SessionData):
             'ctfs': _stats_from_star('CtfFind', 'micrographs_ctf.star',
                                      'micrographs', 'rlnMicrographName'),
             'classes2d': _stats_from_star('Class2D', 'run_it*_model.star',
-                                          'model_classes', 'count')
+                                          'model_classes', 'count'),
+            'coordinates': {'count': 0}  # FIXME if there are picking jobs or from extraction
         }
 
     def get_micrographs(self):
