@@ -86,9 +86,11 @@ class SessionHandler:
         try:
             with open_client() as dc:
                 dc.update_session_extra({'id': session['id'], 'extra': extra})
+                return True
         except Exception as e:
             self.logger.error(f"Error connecting to {config.EMHUB_SERVER_URL} "
                               f"to update session.")
+            return False
 
 
 class SjSessionWorker(threading.Thread, SessionHandler):
@@ -292,13 +294,13 @@ class SjSessionWorker(threading.Thread, SessionHandler):
                     if f.endswith('fractions.tiff'):
                         self._transfer_movies.append((os.path.relpath(srcFile, framesPath), s))
                         # Only move now the movies files, not other metadata files
-                        self.pl.system(f'rsync -ac --remove-source-files {srcFile} {dstFile}')
+                        self.pl.system(f'rsync -ac --remove-source-files {srcFile} {dstFile}', retry=30)
                     else:  # Copy metadata files into the OTF/EPU folder
-                        self.pl.system(f'cp {srcFile} {dstFile}')
+                        self.pl.system(f'cp {srcFile} {dstFile}', retry=30)
                         dstEpuFile = os.path.join(rootEpu, f)
                         # only backup gridsquares thumbnails and xml files
                         if f.endswith('.xml') or _gsThumb(f):
-                            self.pl.system(f'cp {srcFile} {dstEpuFile}')
+                            self.pl.system(f'cp {srcFile} {dstEpuFile}', retry=30)
 
             if self._files_count >= 32:  # make frequent updates to keep otf updated
                 self.logger.info(f"Transferred {self._files_count} files.")

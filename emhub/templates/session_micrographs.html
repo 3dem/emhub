@@ -1,0 +1,82 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="col-12 row">
+        <div class="col-12 mb-3">
+            <div class="row col-3">
+                <h3 class="col-1 col-form-label text-sm-left">Range</h3>
+                <div class="col-9">
+                    <input type="text" required="" placeholder="Range" id="micrograph-list" class="form-control" value="1-{{ micrographs|length }}">
+                </div>
+                <a href="javascript:updateMicrographs()" class="btn btn-primary col-2"> Update </a>
+            </div>
+        </div>
+
+        {% for mic in micrographs %}
+            <div class="col-3">
+                {% set card_id = 'mic_card%d'|format(loop.index) %}
+                {% set card_compact = True %}
+                {% include 'micrograph_card.html' %}
+            </div>
+
+        {% endfor %}
+    </div>
+
+<script>
+
+    var micrographs = {{ micrographs|tojson }};
+    var mic_indexes = [];
+    var cards = [];
+
+    function loadMic(i) {
+        let card = cards[i];
+        let loadNext = i == micrographs.length - 1 ? null : function () { loadMic(i+1); }
+        card.loadMicData(mic_indexes[i], loadNext);
+    }
+
+    function updateMicrographs(){
+        let values = getValues($('#micrograph-list').val());
+        let minIndex = Math.min(values.length, micrographs.length);
+        for (var i = 0; i < minIndex; ++i)
+            mic_indexes[i] = values[i];
+        loadMic(0)
+    }
+
+    function getValues(text) {
+        const myArray = text.split(" ");
+
+        var values = [];
+
+        for (var i = 0; i < myArray.length; ++i) {
+          let part = myArray[i];
+          if (part.indexOf('-') < 0)
+            values.push(parseInt(part));
+           else {
+            let rangeParts = part.split('-', 2);
+            let start = parseInt(rangeParts[0]);
+            let end = parseInt(rangeParts[1]);
+            for (var j = start; j <= end; ++j)
+               values.push(j);
+           }
+
+        }
+        return values;
+    }
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        console.log(micrographs);
+
+        for (var i = 1; i < micrographs.length + 1; i++){
+            mic_indexes.push(i);
+            var mic_card = new MicrographCard('mic_card' + i);
+            cards.push(mic_card);
+            //mic_card.loadMicData(i);
+        }
+
+        loadMic(0);
+
+    });
+})(window, document, window.jQuery);
+
+</script>

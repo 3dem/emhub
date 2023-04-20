@@ -59,13 +59,6 @@
     </div>
 {%- endmacro  %}
 
-{% macro mic_row(label, value, id) -%}
-    <div class="row col-12 p-0 m-0">
-        <label class="text-muted col-8 text-right">{{ label }}</label>
-        <label class="col-4 text-right" id="{{ id }}">{{ value }}</label>
-    </div>
-{%- endmacro  %}
-
 
 {% set booking = s.booking %}
 {% set owner = booking.owner %}
@@ -154,6 +147,7 @@
 
                     <!-- Row: Plots and Micrograph thumbnails -->
                     <div class="row">
+
                         <div class="col-5" id="ctf_plots">
                             <div class="plots">
                                 <div class="card">
@@ -199,22 +193,15 @@
                         <div class="col-5" id="image_plots">
 
                             <div class="row col-12">
+
                                 <!-- GridSquare and FoilHole card -->
                                 <div class="col-6">
-                                    <div class="col-12" id="gs">
-                                         <div class="card card-figure" id="gs-container">
-                                             {{ macros.overlay("overlay_loc") }}
-                                            <figure class="figure">
-                                                <img class="img-fluid" id="gs-image" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                                <label class="text-muted mb-0" id="gs-label">  </label>
-                                            </figure>
-                                             <div class="row col-12 p-0 m-0">
-                                                <div class="col-12 pt-2 pb-2" id="gs_label" ></div>
-                                                <div class="col-6 p-0 m-0" id="gs_defocus_hist" ></div>
-                                                <div class="col-6 p-0 m-0" id="gs_resolution_hist"></div>
-                                            </div>
+                                    <!-- Div for GridSquare -->
+                                    {% set card_id = 'gs_card' %}
+                                    {% include 'gridsquare_card.html' %}
 
-                                         </div>
+                                    <div class="col-12 text-sm-right mb-3">
+                                        <a href="javascript:showGridSquares()" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show GridSquares </a>
                                     </div>
                                 </div>
 
@@ -222,42 +209,12 @@
                                 <div class="col-6">
 
                                      <!-- Div for Micrograph -->
-                                     <div class="col-12" id="mic_plot">
-                                         <div class="card card-figure" id="image-container">
+                                    {% set card_id = 'mic_card' %}
+                                    {% include 'micrograph_card.html' %}
 
-                                             <!-- Display overlay when loading micrograph -->
-                                             {{ macros.overlay("overlay_mic") }}
-
-                                            <figure class="figure">
-                                                <canvas id="canvas_micrograph"></canvas>
-                                            </figure>
-
-                                             <div class="row col-12 mt-2 ml-0 pl-0">
-
-                                                <div class="col-5 ml-0 pl-0">
-                                                    <figure class="figure">
-                                                        <img class="img-fluid" id="img_psd" src="{{ url_for('static', filename='images/card-img.jpg') }}" alt="Card image cap">
-                                                    </figure>
-                                                </div>
-
-                                                <div class="col-7 mr-0 pr-0">
-                                                    <br/>
-                                                        <div class="input-group input-group-sm mb-3">
-                                                          <div class="input-group-prepend">
-                                                            <h5 class="input-group-text" id="inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
-                                                          </div>
-                                                          <input type="text" id="mic_id" class="form-control" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
-                                                        </div>
-                                                        {{ mic_row('Defocus U (µm)', '', 'mic_defocus_u') }}
-                                                        {{ mic_row('Defocus V (µm)', '', 'mic_defocus_v') }}
-                                                        {{ mic_row('Defocus Angle (°)', '', 'mic_defocus_angle') }}
-                                                        {{ mic_row('Astigmatism  (µm)', '', 'mic_astigmatism') }}
-                                                        {{ mic_row('Resolution (Å)', '', 'mic_resolution') }}
-                                                </div>
-                                            </div>
-                                        </div>
+                                    <div class="col-12 text-sm-right mb-3">
+                                        <a href="javascript:showMicrographs()" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show Micrographs </a>
                                     </div>
-
                                 </div>
 
                             </div>
@@ -268,35 +225,23 @@
 
                     <!-- Row: 2D and 3D -->
                     <div class="row">
-                            <!-- 2D classes Card -->
-                            <div class="col-7" id="classes2d_plot">
-                                <div class="card">
-                                    <h5 class="card-header">Classes 2D</h5>
-                                    <div class="card-body">
-                                        {{ macros.overlay('overlay_classes2d') }}
-                                        <div class="row" id="classes2d_container"> </div>
+                        <!-- 2D classes Card -->
+                        <div class="col-12" id="classes2d_plot">
+                            <div class="card">
+                                <div class="card-header d-flex">
+                                    <h5 class="card-header-title">Classes 2D</h5>
+                                    <div class="row ml-5 w-auto">
+                                        <label class="mt-2 mr-2">Run: </label>
+                                        <select id="selectpicker-classes2d" class="selectpicker" data-width="70%" onchange="onSelectClasses2D()"></select>
                                     </div>
                                 </div>
-                            </div>
-
-                        <div class="col-5" id="card_3d">
-                            <div class="card">
-                                <h5 class="card-header">3D</h5>
-                                <div class="card-body">
-                                    <!-- Display overlay when loading 3d -->
-                                    <div id="overlay_3d" class="overlay">
-                                        <div class="w-100 d-flex justify-content-center align-items-center">
-                                            <div class="row text-white-50">
-                                              <h4 class="pr-5 text-white-50" id="overlay_classes2d_text"></h4>
-                                              <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
-                                            </div>
-                                        </div>
+                                <div class="card-body row">
+                                    {{ macros.overlay('overlay_classes2d') }}
+                                    <div class="row col-12" id="classes2d_container">
                                     </div>
-                                    <div class="row" id="container_3d"> </div>
                                 </div>
                             </div>
                         </div>
-
                     </div>
 
                     {% else %}
@@ -325,7 +270,7 @@
 <!-- ============================================================== -->
 <div class="modal fade" id="plot-modal" tabindex="-1" role="dialog" aria-labelledby="plotModal" aria-hidden="true">
 
-      <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+      <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 60%" id="plot-modal-document">
         <div class="modal-content">
 
             <!-- Modal Header -->
@@ -354,10 +299,10 @@
     // Global variables
     var canvas_ratio = null;
     var micrograph = null;
-    var lastGridSquare = null;
     var lastFoilHole = null;
     var coordsDisplay = null;
-    var overlay_2d, overlay_mic, plot_overlay = null;
+    var overlay_2d, plot_overlay = null;
+    var gs_card, mic_card = null;
 
 
     var session_plots = null;
@@ -385,10 +330,25 @@
         showPlot('Session Data', ajaxContent);
     }
 
-    function showPlot(title, ajaxContent) {
+    function showMicrographs(){
+        var ajaxContent = get_ajax_content('session_micrographs', {session_id: session_id});
+        showPlot('Micrographs', ajaxContent, 95);
+    }
+
+    function showGridSquares(){
+        var ajaxContent = get_ajax_content('session_gridsquares', {session_id: session_id});
+        showPlot('GridSquares', ajaxContent, 95);
+    }
+
+    function showPlot(title, ajaxContent, width) {
+        if (!nonEmpty(width))
+            width=60;
+
         $('#plot-title').text(title);
         $('#plot-content').html('');
+        $('#plot-modal-document').css('max-width', width + '%');
         $('#plot-modal').modal('show');
+
         plot_overlay.show("Loading Plot Data");
         ajaxContent.done(function(html) {
             plot_overlay.hide();
@@ -413,25 +373,29 @@
     $(function() {
         var stats = {{ stats|tojson }};
 
+        $('select').selectpicker();
+
         if (stats.movies.count > 0 && stats.ctfs.count > 0) {
-            overlay_mic = new Overlay('overlay_mic');
+            gs_card = new GridSquareCard('gs_card');
+            mic_card = new MicrographCard('mic_card', gs_card);
             overlay_2d = new Overlay('overlay_classes2d');
             plot_overlay = new Overlay('plot-overlay');
 
             //session_getData({result: 'micrographs'});
             session_reload();
-            session_getData({result: 'classes2d'});
+
+            if (stats.classes2d > 0)
+                session_getData2D(stats.classes2d - 1);
 
             $(window).resize(session_resize);
 
-            $("#mic_id").on('keyup', function (e) {
-                if (e.key === 'Enter' || e.keyCode === 13) {
-                    session_getMicData($("#mic_id").val());
-                }
-            });
+            {#$("#mic_id").on('keyup', function (e) {#}
+            {#    if (e.key === 'Enter' || e.keyCode === 13) {#}
+            {#        session_getMicData($("#mic_id").val());#}
+            {#    }#}
+            {# });  #}
 
             makeSameHeight('plots');
-
 
             $("#href-counter_imported").attr("href", "javascript:showPlotImported();");
             $("#href-ctf_count").attr("href", "javascript:showPlotAligned();");
@@ -441,7 +405,12 @@
             check_reload();
         }
         makeSameHeight('status_card');
+
+        session_resize();
 });
 })(window, document, window.jQuery);
 
+    function onSelectClasses2D() {
+        session_getData2D($('#selectpicker-classes2d').selectpicker('val'));
+    }
 </script>

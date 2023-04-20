@@ -273,7 +273,8 @@ class DataContent:
             })
 
         elif result == 'classes2d':
-            data['classes2d'] = sdata.get_classes2d()
+            runId = int(kwargs.get('run_id', -1))
+            data['classes2d'] = sdata.get_classes2d(runId=runId)
             print(">>>> Classes 2D: ", len(data['classes2d']))
 
         sdata.close()
@@ -356,6 +357,14 @@ class DataContent:
 
     def get_session_data_card(self, **kwargs):
         return self.get_session_details(**kwargs)
+
+    def get_session_micrographs(self, **kwargs):
+        data = self.get_session_live(**kwargs)
+        return {'micrographs': data['defocus'][:8]}
+
+    def get_session_gridsquares(self, **kwargs):
+        session = self.app.dm.load_session(kwargs['session_id'])
+        return {'gridsquares': session.data.get_gridsquares()}
 
     def get_sessions_list(self, **kwargs):
         show_extra = 'extra' in kwargs and self.app.user.is_admin

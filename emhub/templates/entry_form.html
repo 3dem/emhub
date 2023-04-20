@@ -13,7 +13,7 @@
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 80%">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="entry-modal-title"> {{ entry_type_label }} (Id = {{ entry.id }})</h3>
+        <h3 class="modal-title" id="entry-modal-title"> {{ entry_type_label }} (id = {{ entry.id }})</h3>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -33,7 +33,11 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Date</label>
                         <div class="col-12 col-sm-8 col-lg-6">
+                            {% if is_manager %}
                              <input type="text" class="form-control datetimepicker-input" data-target="#entry-date" id="entry-date" value="{{ entry.date|pretty_date }}" data-toggle="datetimepicker" />
+                            {% else %}
+                                <input type="text" class="form-control" id="entry-date" value="{{ entry.date|pretty_date }}" readonly />
+                            {% endif %}
                         </div>
                     </div>
 

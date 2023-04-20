@@ -656,3 +656,23 @@ function makeSameHeight(className){
         $(this).css('height', maxHeight + "px");
     });
 }
+
+
+class Timer {
+    constructor() {
+        this.startTime = new Date();
+    }
+
+    tic() {
+      this.startTime = new Date();
+    };
+
+    toc(msg) {
+        var timeDiff = new Date() - this.startTime; //in ms
+        // strip the ms
+        timeDiff /= 1000;
+        // get seconds
+        return timeDiff.toFixed(2);
+    }
+
+}  // class Timer

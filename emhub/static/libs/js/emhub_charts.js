@@ -45,7 +45,7 @@ function create_hc_polar(charDivId, data, label, config){
             min: 0,
             max: config.maxY,
             labels: {format: '{value:.2f}'},
-             opposite: true
+             opposite: true,
         },
         credits: {enabled: false},
         series: [{
@@ -60,7 +60,6 @@ function create_hc_polar(charDivId, data, label, config){
 }
 
 function create_hc_series(container, data, config) {
-    var mydata = data;
     function get_micIndex(x) {
         for (var i = 0; i < data.length - 1; ++i) {
             if (x >= data[i][0] && x <= data[i+1][0])
@@ -86,7 +85,7 @@ function create_hc_series(container, data, config) {
                     if (micIndex > 0) {
                         tooltip = '<span>' + session_data.gridsquares[micIndex] + '</span><br/><br/>' +
                             '<b>Micrograph ' + (micIndex+1) + '</b><br/>' +
-                            mylabel + ": " + mydata[micIndex][1].toFixed(2) + " " + mysuffix + '<br/>';
+                            mylabel + ": " + data[micIndex][1].toFixed(2) + " " + mysuffix + '<br/>';
                     }
                     return tooltip;
                   }
@@ -126,7 +125,11 @@ function create_hc_series(container, data, config) {
             title: {
                 text: config.label + " (" + config.suffix + ")",
             },
-            opposite: false
+            opposite: false,
+            min: config.minY,
+            max: config.maxY,
+            startOnTick: false,
+            endOnTick: false
         },
 
         exporting: {enabled: false},
@@ -141,7 +144,7 @@ function create_hc_series(container, data, config) {
                     click: function () {
                         var micIndex = get_micIndex(this.x);
                         if (micIndex > 0)
-                            session_getMicData(micIndex + 1);
+                            mic_card.loadMicData(micIndex + 1);
                     }
                 }
             }
@@ -149,6 +152,32 @@ function create_hc_series(container, data, config) {
         }]
     });
 } // function create_hc_series
+
+
+function create_hc_defocus_series(containerId, data) {
+    var config = {
+        color: '#852999',
+        label: 'Defocus',
+        suffix: 'µm',
+        minY: data.min * 0.9,
+        maxY: data.max * 1.1, //Math.max(...data),
+        gsLines: data.lines
+    }
+    return create_hc_series(containerId, data.points, config);
+}
+
+
+function create_hc_resolution_series(containerId, data) {
+    var config = {
+        color: '#EF9A53',
+        label: 'Resolution',
+        suffix: 'Å',
+        minY: data.min * 0.9,
+        maxY: data.max * 1.1,
+        gsLines: data.lines
+    }
+    return create_hc_series(containerId, data.points, config);
+}
 
 
 function create_hc_defocus_histogram(containerId, data, percent) {
@@ -369,8 +398,8 @@ function create_hc_hourly(containerId, data, title, subtitle){
 
 
 /* Draw the micrograph images with coordinates(optional) */
-function drawMicrograph(micrograph) {
-    var canvas = document.getElementById("canvas_micrograph");
+function drawMicrograph(containerId, micrograph, drawCoordinates) {
+    var canvas = document.getElementById(containerId);
     var ctx = canvas.getContext("2d");
 
     var image = new Image();
@@ -384,7 +413,7 @@ function drawMicrograph(micrograph) {
 
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-        if (coordsDisplay === 'None')
+        if (!drawCoordinates || micrograph.coordinates.length == 0)
             return;
 
         ctx.fillStyle = '#00ff00';
@@ -404,15 +433,19 @@ function drawMicrograph(micrograph) {
     image.src = 'data:image/png;base64,' + micrograph.thumbnail;
 }
 
-function drawClasses2d(containerId, classes){
+function drawClasses2d(containerId, classes, header, showSel){
     var container = document.getElementById(containerId);
     var imgStr, infoStr = null;
-    container.innerHTML = '';
+    html = '<div class="col-12">' + header + '</div>';
+
     for (var cls2d of classes) {
-        imgStr = '<img src="data:image/png;base64,' + cls2d.average + '">';
+        let borderColor = showSel && cls2d.sel ? 'limegreen' : 'white';
+        imgStr = '<img src="data:image/png;base64,' + cls2d.average + '" style="border: solid 3px ' + borderColor + ';">';
         infoStr = '<p class="text-muted mb-0"><small>size: ' + cls2d.size + ', id: ' + cls2d.id + '</small></p>';
-        container.innerHTML += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+        html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+
     }
+    container.innerHTML = html;
 }
 
 class Overlay {
@@ -431,7 +464,167 @@ class Overlay {
     }
 }
 
+
+class MicrographCard {
+    constructor(containerId, gsCard) {
+        this.containerId = containerId;
+        this.overlay = new Overlay(this.id('overlay'));
+        this.gsCard = gsCard;
+        let self = this;
+
+        // Bind enter key with micrograph number input
+        $(self.jid('mic_id')).on('keyup', function (e) {
+            if (e.key === 'Enter' || e.keyCode === 13) {
+                self.loadMicData($(self.jid('mic_id')).val());
+            }
+        });
+
+        // Bind to on/off coordinates display
+        $(self.jid('show_particles')).change(function() {
+            self.drawMicrograph();
+        });
+    }
+
+    id(suffix) {
+        return this.containerId + '_' + suffix;
+    }
+
+    jid(suffix) {
+        return '#' + this.id(suffix)
+    }
+
+    drawMicrograph() {
+       drawMicrograph(this.id('mic_canvas'), this.micrograph,
+           $(this.jid('show_particles')).prop('checked'));
+    }
+
+    loadMicData(micId, doneCallback) {
+        let self = this;
+        let t = new Timer()
+
+        $(this.jid('mic_id')).val(micId);
+
+        this.overlay.show("Loading Micrograph " + micId + " ...");
+
+        var requestMicThumb = $.ajax({
+            url: urls.get_mic_data,
+            type: "POST",
+            data: {micId : micId, sessionId: session_id},
+            dataType: "json"
+           // contentType: "img/png"
+        });
+
+        requestMicThumb.done(function(data) {
+            micrograph = {
+                thumbnail: data['micThumbData'],
+                coordinates: data['coordinates'],
+                pixelSize: data['pixelSize'],
+                thumbnailPixelSize: data['micThumbPixelSize']
+            };
+            self.micrograph = micrograph;
+
+            self.drawMicrograph()
+
+            if (nonEmpty(self.gsCard)) {
+                self.gsCard.loadData(data.gridSquare);
+            }
+
+            $(self.jid('img_psd')).attr('src', 'data:image/png;base64,' + data.psdData);
+            function setLabel(containerId, value){
+                var elem = document.getElementById(containerId);
+                var parts = elem.innerHTML.split(":");
+                elem.innerHTML = parts[0] + ": " + value;
+            }
+
+            let compact = $(self.jid('compact')).val();
+
+            if (compact === 'False') {
+                $(self.jid('mic_defocus_u')).text(data['ctfDefocusU']);
+                $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
+                $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
+                $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
+            }
+            else {
+                let uva = data['ctfDefocusU'] + ', ' + data['ctfDefocusV'] + ', ' + data['ctfDefocusAngle'];
+                $(self.jid('mic_defocus_uva')).text(uva);
+            }
+
+            $(self.jid('mic_resolution')).text(data['ctfResolution']);
+            $(self.jid('particles')).text(micrograph.coordinates.length);
+
+            self.overlay.hide();
+
+             //$(self.jid('testing')).text(compact);
+
+            if (doneCallback)
+                doneCallback();
+        });
+
+        requestMicThumb.fail(function(jqXHR, textStatus) {
+          alert( "Request failed: " + textStatus );
+        });
+    }
+}
+
+
+class GridSquareCard {
+    constructor(containerId) {
+        this.containerId = containerId;
+        this.overlay = new Overlay(this.id('overlay'));
+        this.last = null;
+    }
+
+    id(suffix) {
+        return this.containerId + '_' + suffix;
+    }
+
+    jid(suffix) {
+        return '#' + this.id(suffix)
+    }
+
+    loadData(gridSquare) {
+        // Do not load if it is the same GridSquare
+        if (gridSquare == this.last)
+            return;
+
+        let self = this;
+        var attrs = {sessionId: session_id, gsId: gridSquare};
+        this.last = gridSquare;
+        this.overlay.show('Loading ' + gridSquare);
+
+        var requestMicImg = $.ajax({
+            url: urls.get_micrograph_gridsquare,
+            type: "POST",
+            data: attrs,
+            dataType: "json"
+        });
+
+        requestMicImg.done(function(data) {
+            if (data.gridSquare.thumbnail) {
+                $(self.jid('name')).text(gridSquare);
+                $(self.jid('micrographs')).text(data.defocus.length);
+                $(self.jid('particles')).text(data.particles);
+                $(self.jid('image')).attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
+                create_hc_defocus_histogram(self.id('defocus_hist'), data.defocus, 80);
+                create_hc_resolution_histogram(self.id('resolution_hist'), data.resolution, 80);
+            }
+            self.overlay.hide();
+        });
+
+        requestMicImg.fail(function(jqXHR, textStatus) {
+          alert("GridSquare request failed: " + textStatus );
+          self.overlay.hide();
+        });
+    }
+
+}  // class GridSquareCard
+
 /* --------------------------- Session Live functions ------------------------*/
+function session_getData2D(run_id){
+    overlay_2d.show("Loading Class2D, run " + run_id);
+    return session_getData({result: 'classes2d', run_id: run_id})
+}
+
 function session_getData(attrs) {
     // Update template values
     attrs.session_id = session_id;
@@ -453,8 +646,57 @@ function session_getData(attrs) {
             else {
                 let classes2d = jsonResponse.classes2d;
 
-                if (classes2d.length > 0) {
-                    drawClasses2d('classes2d_container', classes2d);
+                if (nonEmpty(classes2d)) {
+                    let items = classes2d.items;
+                    let n = items.length;
+                    let sel = classes2d.selection;
+                    let nsel = sel.length;
+                    var total = 0;
+                    var totalSel = 0;
+                    var itemsSel = [];
+
+                    for (var i = 0; i < n; ++i) {
+                        cls = items[i];
+                        total += cls.size;
+                        if (sel.indexOf(parseInt(cls.id)) >= 0) {
+                            cls.sel = true;
+                            totalSel += cls.size;
+                            itemsSel.push(cls);
+                        }
+                        else
+                            cls.sel = false;
+                    }
+                    classes2d_container = document.getElementById('classes2d_container');
+
+                    let col =  nsel ? '7' : '12';
+                    classes2d_container.innerHTML = '<div id="classes2d_all" class="row col-' + col + '" style="vertical-align: top;"></div>';
+
+                    if (nsel) {
+                        classes2d_container.innerHTML += '<div id="classes2d_sel" class="row col-4 align-content-start ml-5"></div>'
+
+                        let cPercent = (nsel * 100 / n).toFixed(0);
+                        let pPercent = (totalSel * 100 / total).toFixed(0);
+                        let selHeader = '<label>Selection</label>: <strong>' + nsel + '</strong> classes (' + cPercent + '%) from <strong>' + totalSel + '</strong> particles (' + pPercent + '%)';
+                        drawClasses2d('classes2d_sel', itemsSel, selHeader);
+                    }
+
+                    let header = '<label>All</label>: <strong>' + n + '</strong> classes from <strong>' + total + '</strong> particles';
+                    drawClasses2d('classes2d_all', items, header, true);
+
+                    $('#selectpicker-classes2d').find('option').remove();
+
+                    let nRuns = classes2d.runs.length;
+                    for (var i = 0; i < nRuns; ++i) {
+                        let run = classes2d.runs[i];
+                        //let selected = attrs.run_id == run.id ? 'selected' : '';
+                        let optStr = '<option value="' + run.id + '">' + run.label + '</option>';
+                        $('#selectpicker-classes2d').append(optStr);
+                    }
+                    let selectedValue = classes2d.runs[attrs.run_id].id.toString();
+                    $('#selectpicker-classes2d').selectpicker('refresh');
+                    $('#selectpicker-classes2d').val(selectedValue);
+                    $('#selectpicker-classes2d').selectpicker('refresh');
+
                     overlay_2d.hide();
                 }
                 else if ('defocus' in jsonResponse) {
@@ -464,7 +706,7 @@ function session_getData(attrs) {
                     var new_count = session_data.resolution.length;
                     if (new_count > count) {
                         session_updatePlots();
-                        session_getMicData(new_count);
+                        mic_card.loadMicData(new_count);
                     }
 
                     if (session_data.session.status != "finished") {
@@ -565,7 +807,7 @@ function session_updatePlots() {
         var ts = config.startX;
         var date, gs;
 
-        config.gsLines = [];
+        gsLines = [];
 
         var lastGs = null;
         for (var i = 0; i < session_data.defocusAngle.length; ++i) {
@@ -581,7 +823,7 @@ function session_updatePlots() {
             gs = session_data.gridsquares[i];
             if (gs !== lastGs) {
                 lastGs = gs;
-                config.gsLines.push({color: 'gray', value: date, width: 1});
+                gsLines.push({color: 'gray', value: date, width: 1});
             }
 
             data_defocus.push([ts, session_data.defocus[i]]);
@@ -589,16 +831,25 @@ function session_updatePlots() {
             ts += config.stepX;
         }
         config.maxY = config.maxY + (config.maxY * 0.1)
-        session_plots.defocus = create_hc_series('defocus_plot', data_defocus, config);
+        //session_plots.defocus = create_hc_series('defocus_plot', data_defocus, config);
+        session_plots.defocus = create_hc_defocus_series('defocus_plot', {
+            points: data_defocus,
+            lines: gsLines,
+            min: Math.min(...session_data.defocus),
+            max: Math.max(...session_data.defocus)
+        }, );
         session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
 
         //create_hc_histogram('defocus_hist2', color);
 
-        config.color ='#EF9A53';
-        config.label = 'Resolution';
-        config.suffix = 'Å';
+        //session_plots.resolution = create_hc_series('resolution_plot', data_resolution, config);
+        session_plots.resolution = create_hc_resolution_series('resolution_plot', {
+            points: data_resolution,
+            lines: gsLines,
+            min: Math.min(...session_data.resolution),
+            max: Math.max(...session_data.resolution)
+        });
 
-        session_plots.resolution = create_hc_series('resolution_plot', data_resolution, config);
         session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
 
         config.color = '#55D8C1';
@@ -607,10 +858,10 @@ function session_updatePlots() {
                         'Azimuth (last 10%)', config);
 
         /* Register when the display coordinates changes */
-        $('input[type=radio][name=coords-radio]').change(function() {
-            coordsDisplay = this.dataset.option;
-            drawMicrograph(micrograph);
-        });
+        // $('input[type=radio][name=coords-radio]').change(function() {
+        //     coordsDisplay = this.dataset.option;
+        //     drawMicrograph(micrograph);
+        // });
     }
     else {  // update existing plots
         // session_plots.defocus.series[0].setData(session_data.defocus);
@@ -622,85 +873,38 @@ function session_updatePlots() {
 }
 
 
-function session_getMicData(micId) {
-    $("#mic_id").val(micId);
 
-    overlay_mic.show("Loading Micrograph " + micId + " ...");
-
-    var requestMicThumb = $.ajax({
-        url: urls.get_mic_data,
-        type: "POST",
-        data: {micId : micId, sessionId: session_id},
-        dataType: "json"
-       // contentType: "img/png"
-    });
-
-    requestMicThumb.done(function(data) {
-        micrograph = {
-            thumbnail: data['micThumbData'],
-            coordinates: data['coordinates'],
-            pixelSize: data['pixelSize'],
-            thumbnailPixelSize: data['micThumbPixelSize']
-        };
-
-        session_getMicLocation(data);
-
-        drawMicrograph(micrograph);
-
-        $("#img_psd").attr('src', 'data:image/png;base64,' + data.psdData);
-        function setLabel(containerId, value){
-            var elem = document.getElementById(containerId);
-            var parts = elem.innerHTML.split(":");
-            elem.innerHTML = parts[0] + ": " + value;
-        }
-
-        //setLabel('mic_id', micId);
-        $('#mic_defocus_u').text(data['ctfDefocusU']);
-        $('#mic_defocus_v').text(data['ctfDefocusV']);
-        $('#mic_defocus_angle').text(data['ctfDefocusAngle']);
-        $('#mic_astigmatism').text(data['ctfAstigmatism']);
-        $('#mic_resolution').text(data['ctfResolution']);
-        $('#gs_label').text(data['gridSquare'])
-
-        overlay_mic.hide();
-    });
-
-    requestMicThumb.fail(function(jqXHR, textStatus) {
-      alert( "Request failed: " + textStatus );
-    });
-}
 
 function session_get2DClasses(){
     overlay_2d.show("Loading 2D classes...");
     requestSessionData({result: 'classes2d'});
 }
 
-function session_getMicLocation(data, label, container) {
-    var attrs = {sessionId: session_id}
-
-    if (data.gridSquare != lastGridSquare)
-        attrs.gsId = data.gridSquare;
-
-    lastGridSquare = attrs.gsId;
-    lastFoilHole = attrs.fhId;
-
-    var requestMicImg = $.ajax({
-        url: urls.get_micrograph_gridsquare,
-        type: "POST",
-        data: attrs,
-        dataType: "json"
-    });
-
-    requestMicImg.done(function(data) {
-        if (data.gridSquare.thumbnail){
-            //alert("Loaded " + label + " " + JSON.stringify(data, null, 4));
-            $("#gs-image").attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
-            create_hc_defocus_histogram('gs_defocus_hist', data.defocus, 80);
-            create_hc_resolution_histogram('gs_resolution_hist', data.resolution, 80);
-        }
-    });
-
-    requestMicImg.fail(function(jqXHR, textStatus) {
-      alert(label + " Request failed: " + textStatus );
-    });
-}
+// function session_getMicLocation(data) {
+//     var attrs = {sessionId: session_id}
+//
+//     if (data.gridSquare != lastGridSquare)
+//         attrs.gsId = data.gridSquare;
+//
+//     lastGridSquare = attrs.gsId;
+//
+//     var requestMicImg = $.ajax({
+//         url: urls.get_micrograph_gridsquare,
+//         type: "POST",
+//         data: attrs,
+//         dataType: "json"
+//     });
+//
+//     requestMicImg.done(function(data) {
+//         if (data.gridSquare.thumbnail){
+//             //alert("Loaded " + label + " " + JSON.stringify(data, null, 4));
+//             $("#gs-image").attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
+//             create_hc_defocus_histogram('gs_defocus_hist', data.defocus, 80);
+//             create_hc_resolution_histogram('gs_resolution_hist', data.resolution, 80);
+//         }
+//     });
+//
+//     requestMicImg.fail(function(jqXHR, textStatus) {
+//       alert("GridSquare request failed: " + textStatus );
+//     });
+// }

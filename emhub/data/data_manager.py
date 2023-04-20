@@ -31,8 +31,8 @@ import os
 import uuid
 from collections import defaultdict
 
-import emhub.utils
 import sqlalchemy
+from emtools.utils import Pretty
 
 from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
@@ -831,10 +831,46 @@ class DataManager(DbManager):
     #         if not attrs['title'].strip():
     #             raise Exception("Entry title can not be empty")
 
+    def _validate_access_microscopes(self, entry):
+        data = entry.extra['data']
+        micId = data.get('microscope_id', None)
+        if not (micId and self.get_resource_by(id=micId)):
+            raise Exception("Please select microscope")
+        dstr = data.get('suggested_date', '')
+        try:
+            sdate = self.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
+            now = self.now()
+            nowDay = self.date(dt.datetime.now())
+            monday = nowDay - dt.timedelta(days=nowDay.weekday())
+            fridayNoon = monday + dt.timedelta(days=4, hours=12)
+            start = monday + dt.timedelta(weeks=1 if now < fridayNoon else 2)
+            end = start + dt.timedelta(days=4)
+
+            if sdate < start or sdate > end:
+                raise Exception(f"Now requests are allowed for the following "
+                                f"period: </br>{self.local_weekday(start)} - "
+                                f"{self.local_weekday(end)}")
+
+        except ValueError:
+            raise Exception("Provide a valid suggested date")
+
+    def __validate_entry(self, attrs):
+        entry = self.Entry(**attrs)
+        t = attrs['type']
+        formDef = self.get_form_by_name(f"entry_form:{t}").definition if t != 'note' else {}
+        config = formDef.get('config', {})
+        validate = config.get('validation', '')
+        if validate:
+            validateFunc = getattr(self, validate)
+            validateFunc(entry)
+        return entry
+
     def create_entry(self, **attrs):
-        # self.__check_entry(**attrs)
         if 'title' not in attrs:
             attrs['title'] = ''
+
+        def __create(attrs):
+            return self.__validate_entry(attrs)
 
         now = self.now()
         attrs.update({
@@ -843,16 +879,22 @@ class DataManager(DbManager):
             'creation_user_id': self._user.id,
             'last_update_date': now,
             'last_update_user_id': self._user.id,
+            'special_create': __create
         })
+
         return self.__create_item(self.Entry, **attrs)
 
     def update_entry(self, **attrs):
-        # self.__check_entry(**attrs)
-
+        # In some special cases, update_entry is called after create_entry,
+        # and we don't want to validate in this case
+        validate = attrs.pop('validate', True)
         attrs.update({
             'last_update_date': self.now(),
             'last_update_user_id': self._user.id,
         })
+        if validate:
+            self.__validate_entry(attrs)
+
         return self.__update_item(self.Entry, **attrs)
 
     def delete_entry(self, **attrs):
