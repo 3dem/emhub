@@ -853,6 +853,7 @@ function session_updatePlots() {
         session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
 
         config.color = '#55D8C1';
+        config.maxY = 0.2;
         session_plots.polarAll = create_hc_polar('polar1', data, 'Azimuth (all)', config);
         session_plots.polar10 = create_hc_polar('polar4', data.slice(Math.round(data.length * 0.9)),
                         'Azimuth (last 10%)', config);
