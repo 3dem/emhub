@@ -228,11 +228,11 @@
                         <!-- 2D classes Card -->
                         <div class="col-12" id="classes2d_plot">
                             <div class="card">
-                                <div class="card-header d-flex">
-                                    <h5 class="card-header-title">Classes 2D</h5>
-                                    <div class="row ml-5 w-auto">
-                                        <label class="mt-2 mr-2">Run: </label>
-                                        <select id="selectpicker-classes2d" class="selectpicker" data-width="70%" onchange="onSelectClasses2D()"></select>
+                                <div class="card-header">
+                                    <div class="row">
+                                        <h5 class="card-header-title ml-3">Classes 2D</h5>
+                                        <label class="mt-2 mr-2 ml-5">Run: </label>
+                                        <select id="selectpicker-classes2d" class="selectpicker" data-width="25%" onchange="onSelectClasses2D()"></select>
                                     </div>
                                 </div>
                                 <div class="card-body row">
@@ -381,19 +381,12 @@
             overlay_2d = new Overlay('overlay_classes2d');
             plot_overlay = new Overlay('plot-overlay');
 
-            //session_getData({result: 'micrographs'});
             session_reload();
 
             if (stats.classes2d > 0)
                 session_getData2D(stats.classes2d - 1);
 
             $(window).resize(session_resize);
-
-            {#$("#mic_id").on('keyup', function (e) {#}
-            {#    if (e.key === 'Enter' || e.keyCode === 13) {#}
-            {#        session_getMicData($("#mic_id").val());#}
-            {#    }#}
-            {# });  #}
 
             makeSameHeight('plots');
 
