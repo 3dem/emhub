@@ -14,7 +14,7 @@
 # * GNU General Public License for more details.
 # *
 # **************************************************************************
-
+import json
 import os.path
 import argparse
 import ast
@@ -41,6 +41,7 @@ OUT_PART = 'outputParticles'
 
 # Some global workflow parameters
 params = {}
+OTF_FILE = 'scipion-otf.json'
 
 
 def _setPointer(pointer, prot, extended):
@@ -55,7 +56,7 @@ def loadGpus():
     half = int(ngpu/2)
     gpus = list(range(ngpu))
     # Take half of gpus for Motioncor and the other half for 2D
-    mcGpus = gpus[:half]
+    params['mcGpus'] = gpus[:half]
     params['cls2dGpus'] = gpus[half:]
 
 
@@ -83,10 +84,25 @@ def calculateBoxSize(protCryolo):
     params['boxSize'] = boxSize
 
 
+def load_otf():
+    otf = {'2d': {}}
+    if os.path.exists(OTF_FILE):
+        with open(OTF_FILE) as f:
+            otf = json.load(f)
+
+    return otf
+
+
+def save_otf(otf):
+    with open(OTF_FILE, 'w') as f:
+        json.dump(otf, f, indent=4)
+
+
 def run2DPipeline(wf, protExtract):
     print(f"\n>>> Running 2D pipeline: input extract "
           f"{Color.bold(protExtract.getRunName())}")
 
+    otf = load_otf()
     def _generate2D():
         """ Generated subset of 2D from the outputParticles from extract protocol.
         Subsets will be created based on the GridSquare of the micrographs. """
@@ -170,6 +186,12 @@ def run2DPipeline(wf, protExtract):
 
                         _setPointer(protRelion2D.inputParticles, protSubset, OUT_PART)
                         wf.saveProtocol(protRelion2D)
+                        otf['2d'][oldLastGs] = {
+                            'runId': protRelion2D.getObjId(),
+                            'runName': protRelion2D.getRunName(),
+                            'runDir': protRelion2D.getWorkingDir()
+                        }
+                        save_otf(otf)
 
                         yield {'gs': oldLastGs, 'prot': protRelion2D}
                         lastParticleIndex = i
@@ -249,7 +271,8 @@ def create_project(workingDir):
         objLabel='motioncor',
         patchX=7, patchY=5,
         numberOfThreads=1,
-        gpuList=' '.join(str(g) for g in mcGpus)
+        streamingBatchSize=8,
+        gpuList=' '.join(str(g) for g in params['mcGpus'])
     )
     _setPointer(protMc.inputMovies, protImport, 'outputMovies')
     wf.launchProtocol(protMc, wait={OUT_MICS: 8})
