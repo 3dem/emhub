@@ -1244,6 +1244,9 @@ class DataContent:
         return self.get_report_microscopes_usage(**kwargs)
 
     def get_report_microscopes_usage(self, **kwargs):
+        metric = kwargs.get('metric', 'days')
+        use_data = metric == 'data'
+
         self.check_user_access('usage_report')
 
         dm = self.app.dm  # shortcut
@@ -1271,24 +1274,34 @@ class DataContent:
         key = kwargs.get('key', '')
         selected_entry = None
         total_days = 0
+        totalDays = defaultdict(lambda: 0)
 
-        resources = self.get_resources()['resources']
+        report_resources = dm.get_config('reports')['resources']
+        resources = [r for r in self.get_resources()['resources']
+                     if r['name'] in report_resources]
+
         # selected resources
         if 'selected' in kwargs:
             selected = [int(p) for p in kwargs['selected'].split(',')]
         else:
-            selected = [r['id'] for r in resources]  # if r['is_microscope']]
+            selected = [r['id'] for r in resources]
+
+        def _value(b):
+            return b.total_size if use_data else b.days
 
         for b in bookings:
             if b.resource_id not in selected:
                 continue
+
+            rid = b.resource.id
+            b_value = _value(b)
 
             if b.type in ['downtime', 'maintenance', 'special']:
                 entry_key = b.type
                 entry_label = entry_key.capitalize()
                 entry_email = ''
                 entries = entries_down
-                total_down += b.days
+                total_down += b_value
             else:
                 if b.project:
                     pi = b.project.user.get_pi()
@@ -1300,34 +1313,42 @@ class DataContent:
                 entry_label = centers.get(pi.email, pi.name)
                 entry_email = pi.email
                 entries = entries_usage
-                total_usage += b.days
+                total_usage += b_value
+                totalDays[rid] += b_value
 
             if entry_key not in entries:
-                entries[entry_key] = {
+                entries[entry_key] = entry = {
                     'key': entry_key,
                     'label': entry_label,
                     'email': entry_email,
                     'bookings': [],
                     'days': defaultdict(lambda: 0),
+                    'data': defaultdict(lambda: {'size': 0, 'files': 0}),
+                    'total_data': {'size': 0, 'files': 0},
                     'total_days': 0,
                     'users': set()
                 }
+            else:
+                entry = entries[entry_key]
 
-            entry = entries[entry_key]
             entry['bookings'].append(b)
-            rid = b.resource.id
-            entry['days'][rid] += b.days
-            entry['total_days'] += b.days
+            entry['days'][rid] += b_value
+            entry['total_days'] += b_value
             entry['users'].add(b.owner.email)
-            total_days += b.days
+
+            total_days += b_value
             if key == entry_key:
                 selected_entry = entry
 
         entries_sorted = [e for e in sorted(entries_usage.values(),
                                             key=lambda e: e['total_days'],
                                             reverse=True)]
-        percent = 100 / total_days if total_days > 0 else 0
-        percent_usage = 100 / total_usage if total_usage > 0 else 0
+
+        def _percent(value):
+            return 100 / value if value > 0 else 0
+
+        percent = _percent(total_days)
+        percent_usage = _percent(total_usage)
 
         def _name(e):
             name = centers.get(e['email'], e['label'])
@@ -1345,19 +1366,26 @@ class DataContent:
 
         drilldown_data = []
         for e in entries_sorted:
-            percent = 100 / e['total_days']
+            percent = _percent(e['total_days'])
             usage = {}
             for b in e['bookings']:
                 name = b.owner.name
                 if name not in usage:
                     usage[name] = 0
-                usage[name] += b.days
+                usage[name] += _value(b)
 
             drilldown_data.append({
                 'name': _name(e),
                 'id': e['label'],
                 'data': [(k, v * percent) for k, v in usage.items()]
             })
+
+        # Add a total entry
+        entries_sorted.insert(0, {
+            'key': 'Total', 'label': 'Total', 'email': '',
+            'bookings': [], 'total_days': total_usage,
+            'days': totalDays,
+        })
 
         data = {
             'entries': entries_sorted,
@@ -1370,7 +1398,10 @@ class DataContent:
             'selected_app': selected_app,
             'pie_data': pie_data,
             'bar_data': bar_data,
-            'drilldown_data': drilldown_data
+            'drilldown_data': drilldown_data,
+            'resources': resources,
+            'metric': metric,
+            'use_data': use_data
         }
         data.update(range_dict)
         return data

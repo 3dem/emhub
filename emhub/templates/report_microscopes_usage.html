@@ -9,7 +9,7 @@
 
     <div class="row col-12 text-left">
 
-        <div class="col-3">
+        <div class="col-2">
 
             <div class="col-12 text-left" style="margin-top: 7px;">
                 <div class="row col-12">
@@ -33,7 +33,23 @@
 
         </div>
 
-        <div class="col-3">
+        <div class="col-2">
+            <div class="row">
+                <div class="col text-right" style="margin-top: 7px;">
+                    <h5> Usage Metric </h5>
+                </div>
+                <div class="col col-auto">
+                    <select id="selectpicker-metric" class="selectpicker show-tick" data-width="100%" data-key="metric" style="color: white">
+                        {% for m in ['days', 'data'] %}
+                          {% set selected = 'selected' if metric == m else '' %}
+                            <option {{ selected }} value="{{m}}">{{ m }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-2">
             <div class="row">
                 <div class="col text-right" style="margin-top: 7px;">
                     <h5> Date Range </h5>
@@ -44,7 +60,7 @@
             </div>
         </div>
 
-        <div class="col-5">
+        <div class="col-4">
             <div class="row col-12">
                 <div class="col-3 text-right" style="margin-top: 7px;">
                         <h5> Resources: </h5>
@@ -81,12 +97,7 @@
     var end_date = dateStr(new Date({{ end|tojson }}));
     var last_key = null;
 
-
     $('select').selectpicker();
-
-    $('.datetimepicker-input').datetimepicker({
-        format: 'YYYY/MM/DD'
-    });
 
     $('#daterange').daterangepicker({
         "locale": {
@@ -101,11 +112,8 @@
            'Last Year': [moment().subtract(1, 'year').startOf('year'), moment().subtract(1, 'year').endOf('year')]
         }
     }, function(start, end, label) {
-        //console.log("A new date selection was made: " + start.format('YYYY/MM/DD') + ' to ' + end.format('YYYY/MM/DD'));
         start_date = start.format('YYYY/MM/DD');
         end_date = end.format('YYYY/MM/DD');
-        //const base_url = "{{ url_for_content('report_microscopes_usage') | safe }}";
-        //window.location.href = base_url + "&start=" + start.format('YYYY/MM/DD') + "&end=" + end.format('YYYY/MM/DD');
     });
 
     function getArgs() {
@@ -119,14 +127,13 @@
             start: start_date,
             end: end_date,
             selected: $('#selectpicker-resource').selectpicker('val').join(','),
+            metric: $('#selectpicker-metric').selectpicker('val'),
             application: app_id
         }
     }
 
     function updateReport() {
         const base_url = "{{ url_for_content('report_microscopes_usage') | safe }}";
-
-        //console.log('app_id ' +  app_id.toString(), " type: ", typeof(app_id));
         load_html_from_ajax('report-content',
             get_ajax_content('report_microscopes_usage_content', getArgs()));
     }

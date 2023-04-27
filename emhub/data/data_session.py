@@ -486,7 +486,7 @@ class ScipionSessionData(SessionData):
                     'ctfAstigmatism': round(abs(dU - dV)/10000, 2),
                     'ctfResolution': round(row['_resolution'], 2),
                     # FIXME: Retrieving coordinates from multiple micrographs is very slow now
-                    'coordinates': self.get_micrograph_coordinates(row['_micObj._micName']),
+                    'coordinates': [], #self.get_micrograph_coordinates(row['_micObj._micName']),
                     'micThumbPixelSize': pixelSize * micThumb.scale,
                     'pixelSize': pixelSize,
                     'gridSquare': loc['gs'],
