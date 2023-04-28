@@ -1275,6 +1275,7 @@ class DataContent:
         selected_entry = None
         total_days = 0
         totalDays = defaultdict(lambda: 0)
+        resources_data_usage = defaultdict(lambda: list())
 
         report_resources = dm.get_config('reports')['resources']
         resources = [r for r in self.get_resources()['resources']
@@ -1315,6 +1316,8 @@ class DataContent:
                 entries = entries_usage
                 total_usage += b_value
                 totalDays[rid] += b_value
+                ts = dt.datetime.timestamp(b.end)
+                resources_data_usage[rid].append((ts * 1000, b_value))
 
             if entry_key not in entries:
                 entries[entry_key] = entry = {
@@ -1365,6 +1368,7 @@ class DataContent:
         } for e in entries_sorted]
 
         drilldown_data = []
+
         for e in entries_sorted:
             percent = _percent(e['total_days'])
             usage = {}
@@ -1387,6 +1391,14 @@ class DataContent:
             'days': totalDays,
         })
 
+        data_usage_series = []
+        for r in resources:
+            if r['id'] in selected:
+                resources_data_usage[r['id']].sort(key=lambda item: item[0])
+                data_usage_series.append({'name': r['name'],
+                                          'color': r['color'],
+                                          'data': resources_data_usage[r['id']]})
+
         data = {
             'entries': entries_sorted,
             'total_days': total_days,
@@ -1399,6 +1411,7 @@ class DataContent:
             'pie_data': pie_data,
             'bar_data': bar_data,
             'drilldown_data': drilldown_data,
+            'data_usage_series': data_usage_series,
             'resources': resources,
             'metric': metric,
             'use_data': use_data

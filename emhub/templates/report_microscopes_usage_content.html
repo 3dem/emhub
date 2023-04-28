@@ -104,6 +104,10 @@
         var pie_data = {{ pie_data|tojson }};
         var bar_data = {{ bar_data|tojson }};
         var drilldown = {{ drilldown_data|tojson }};
+        var data_usage_series = {{ data_usage_series|tojson }};
+
+        console.log(data_usage_series);
+
         var n = {{ selected_resources|length }};
 
         var columnsDef = [
@@ -116,6 +120,9 @@
 
         if (metric == 'days')
             create_hc_usage('usage_pie', 'pie', pie_data);
+        else
+            create_hc_data_plot('usage_pie', data_usage_series)
+
         create_hc_usage('usage_column', 'column', bar_data, drilldown);
 
         $('#table-overall').DataTable({
