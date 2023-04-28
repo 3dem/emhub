@@ -756,9 +756,6 @@ function session_setCounter(container, value){
 
 function session_updateCounters(){
     let stats = session_data.stats;
-
-
-
     let nMovies = stats.movies.count;
     let nCtfs = stats.ctfs.count;
 
@@ -831,7 +828,6 @@ function session_updatePlots() {
             ts += config.stepX;
         }
         config.maxY = config.maxY + (config.maxY * 0.1)
-        //session_plots.defocus = create_hc_series('defocus_plot', data_defocus, config);
         session_plots.defocus = create_hc_defocus_series('defocus_plot', {
             points: data_defocus,
             lines: gsLines,
@@ -839,8 +835,6 @@ function session_updatePlots() {
             max: Math.max(...session_data.defocus)
         }, );
         session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
-
-        //create_hc_histogram('defocus_hist2', color);
 
         //session_plots.resolution = create_hc_series('resolution_plot', data_resolution, config);
         session_plots.resolution = create_hc_resolution_series('resolution_plot', {
@@ -868,62 +862,16 @@ function session_updatePlots() {
 }
 
 
-
-
 function session_get2DClasses(){
     overlay_2d.show("Loading 2D classes...");
     requestSessionData({result: 'classes2d'});
 }
 
 
-
 function formatBytes(a,b=2){if(!+a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return`${parseFloat((a/Math.pow(1024,d)).toFixed(c))} ${["Bytes","KiB","MiB","GiB","TiB","PiB","EiB","ZiB","YiB"][d]}`}
 
 
-function getData(n, v) {
-    var arr = [],
-        i,
-        x,
-        a,
-        b,
-        c,
-        spike,
-        total = 0;
-    for (
-        i = 0, x = Date.UTC(new Date().getUTCFullYear(), 0, 1) - n * 36e5;
-        i < n;
-        i = i + 1, x = x + 36e5
-    ) {
-        if (i % 100 === 0) {
-            a = 2 * Math.random();
-        }
-        if (i % 1000 === 0) {
-            b = 2 * Math.random();
-        }
-        if (i % 10000 === 0) {
-            c = 2 * Math.random();
-        }
-        if (i % 50000 === 0) {
-            spike = 10;
-        } else {
-            spike = 0;
-        }
-        total += (2 * Math.sin(i / 100) + a + b + c + spike + Math.random()) * v;
-        arr.push([
-            x,
-            total
-        ]);
-    }
-    return arr;
-}
-
-
 function create_hc_data_plot(containerId, data_usage_series) {
-
-    // var N = 1000;
-    // var userData = getData(N, 2);
-    // var sessionData = getData(N, 1);
-    //
     var minTs = data_usage_series[0].data[0][0];
     var maxTs = 0;
 
@@ -941,8 +889,6 @@ function create_hc_data_plot(containerId, data_usage_series) {
     var oneDay = 24 * 3600 * 1000;
     var days = (maxTs - minTs) / oneDay;
     var interval = days < 30 ? 7 : 14;
-
-
 
     return Highcharts.chart(containerId, {
         title: {
@@ -1010,33 +956,3 @@ function create_hc_data_plot(containerId, data_usage_series) {
         series: data_usage_series
     });
 }
-
-
-// function session_getMicLocation(data) {
-//     var attrs = {sessionId: session_id}
-//
-//     if (data.gridSquare != lastGridSquare)
-//         attrs.gsId = data.gridSquare;
-//
-//     lastGridSquare = attrs.gsId;
-//
-//     var requestMicImg = $.ajax({
-//         url: urls.get_micrograph_gridsquare,
-//         type: "POST",
-//         data: attrs,
-//         dataType: "json"
-//     });
-//
-//     requestMicImg.done(function(data) {
-//         if (data.gridSquare.thumbnail){
-//             //alert("Loaded " + label + " " + JSON.stringify(data, null, 4));
-//             $("#gs-image").attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
-//             create_hc_defocus_histogram('gs_defocus_hist', data.defocus, 80);
-//             create_hc_resolution_histogram('gs_resolution_hist', data.resolution, 80);
-//         }
-//     });
-//
-//     requestMicImg.fail(function(jqXHR, textStatus) {
-//       alert("GridSquare request failed: " + textStatus );
-//     });
-// }
