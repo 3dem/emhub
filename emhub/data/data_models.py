@@ -715,6 +715,11 @@ def create_data_models(dm):
         def is_slot(self):
             return self.type == 'slot'
 
+        @property
+        def total_size(self):
+            """ Compute all the data size of sessions related to this booking. """
+            return sum(s.total_size for s in self.session)
+
         def __repr__(self):
             def _timestr(dt):
                 return dt.strftime('%Y/%m/%d')

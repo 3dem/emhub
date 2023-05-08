@@ -756,9 +756,6 @@ function session_setCounter(container, value){
 
 function session_updateCounters(){
     let stats = session_data.stats;
-
-
-
     let nMovies = stats.movies.count;
     let nCtfs = stats.ctfs.count;
 
@@ -831,7 +828,6 @@ function session_updatePlots() {
             ts += config.stepX;
         }
         config.maxY = config.maxY + (config.maxY * 0.1)
-        //session_plots.defocus = create_hc_series('defocus_plot', data_defocus, config);
         session_plots.defocus = create_hc_defocus_series('defocus_plot', {
             points: data_defocus,
             lines: gsLines,
@@ -839,8 +835,6 @@ function session_updatePlots() {
             max: Math.max(...session_data.defocus)
         }, );
         session_plots.defocusHist = create_hc_defocus_histogram('defocus_hist1', session_data.defocus, 70);
-
-        //create_hc_histogram('defocus_hist2', color);
 
         //session_plots.resolution = create_hc_series('resolution_plot', data_resolution, config);
         session_plots.resolution = create_hc_resolution_series('resolution_plot', {
@@ -853,15 +847,10 @@ function session_updatePlots() {
         session_plots.resolutionHist = create_hc_resolution_histogram('resolution_hist1', session_data.resolution, 70);
 
         config.color = '#55D8C1';
+        config.maxY = 0.2;
         session_plots.polarAll = create_hc_polar('polar1', data, 'Azimuth (all)', config);
         session_plots.polar10 = create_hc_polar('polar4', data.slice(Math.round(data.length * 0.9)),
                         'Azimuth (last 10%)', config);
-
-        /* Register when the display coordinates changes */
-        // $('input[type=radio][name=coords-radio]').change(function() {
-        //     coordsDisplay = this.dataset.option;
-        //     drawMicrograph(micrograph);
-        // });
     }
     else {  // update existing plots
         // session_plots.defocus.series[0].setData(session_data.defocus);
@@ -873,38 +862,97 @@ function session_updatePlots() {
 }
 
 
-
-
 function session_get2DClasses(){
     overlay_2d.show("Loading 2D classes...");
     requestSessionData({result: 'classes2d'});
 }
 
-// function session_getMicLocation(data) {
-//     var attrs = {sessionId: session_id}
-//
-//     if (data.gridSquare != lastGridSquare)
-//         attrs.gsId = data.gridSquare;
-//
-//     lastGridSquare = attrs.gsId;
-//
-//     var requestMicImg = $.ajax({
-//         url: urls.get_micrograph_gridsquare,
-//         type: "POST",
-//         data: attrs,
-//         dataType: "json"
-//     });
-//
-//     requestMicImg.done(function(data) {
-//         if (data.gridSquare.thumbnail){
-//             //alert("Loaded " + label + " " + JSON.stringify(data, null, 4));
-//             $("#gs-image").attr('src', 'data:image/png;base64,' + data.gridSquare.thumbnail);
-//             create_hc_defocus_histogram('gs_defocus_hist', data.defocus, 80);
-//             create_hc_resolution_histogram('gs_resolution_hist', data.resolution, 80);
-//         }
-//     });
-//
-//     requestMicImg.fail(function(jqXHR, textStatus) {
-//       alert("GridSquare request failed: " + textStatus );
-//     });
-// }
+
+function formatBytes(a,b=2){if(!+a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return`${parseFloat((a/Math.pow(1024,d)).toFixed(c))} ${["Bytes","KiB","MiB","GiB","TiB","PiB","EiB","ZiB","YiB"][d]}`}
+
+
+function create_hc_data_plot(containerId, data_usage_series) {
+    var minTs = data_usage_series[0].data[0][0];
+    var maxTs = 0;
+
+    for (var i = 0; i < data_usage_series.length; ++i) {
+        var data = data_usage_series[i].data;
+        var sum = 0;
+        for (var j = 0; j < data.length; j++) {
+            minTs = Math.min(minTs, data[j][0]);
+            maxTs = Math.max(maxTs, data[j][0]);
+            sum += data[j][1];
+            data[j][1] = sum;
+        }
+    }
+
+    var oneDay = 24 * 3600 * 1000;
+    var days = (maxTs - minTs) / oneDay;
+    var interval = days < 30 ? 7 : 14;
+
+    return Highcharts.chart(containerId, {
+        title: {
+            text: '',
+            align: 'left'
+        },
+        subtitle: {
+            text: 'Accumulated data per scope',
+            align: 'left'
+        },
+         xAxis: {
+            tickInterval: interval * oneDay,
+            type: 'datetime',
+            tickWidth: 0,
+            gridLineWidth: 1,
+            labels: {
+                align: 'left',
+                x: 3,
+                y: -3
+            }
+        },
+        yAxis: [{ // left y axis
+            title: {
+                text: null
+            },
+            labels: {
+                align: 'left',
+                x: -10,
+                y: 16,
+                formatter: function () { return formatBytes(this.value) }
+            },
+            showFirstLabel: false
+        }, { // right y axis
+            linkedTo: 0,
+            gridLineWidth: 0,
+            opposite: true,
+            title: {
+                text: null
+            },
+            labels: {
+                align: 'right',
+                x: -3,
+                y: 16,
+                formatter: function () { return formatBytes(this.value) }
+            },
+            showFirstLabel: false
+        }],
+        tooltip: {
+            shared: true,
+            crosshairs: true,
+            pointFormatter: function () {
+                return '<br/><span style="font-size:11px; font-width: bold;color: ' + this.series.color + '">' + this.series.name
+                    + ': </span><span style="font-size:11px;">' + formatBytes(this.y) + '</span>';
+            },
+            useHTML: true
+        },
+
+        plotOptions: {
+            series: {
+                marker: {
+                    lineWidth: 1
+                }
+            }
+        },
+        series: data_usage_series
+    });
+}

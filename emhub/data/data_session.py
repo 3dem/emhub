@@ -30,6 +30,7 @@ import os
 import datetime as dt
 from glob import glob
 from collections import defaultdict
+import json
 
 import mrcfile
 from emtools.utils import Path, Timer
@@ -62,8 +63,9 @@ class SessionData:
 
     def mtime(self, fn):
         from emtools.utils import Pretty
-        print(f"Getting time from: {self.join(fn)}: {Pretty.timestamp(os.path.getmtime(self.join(fn)))}")
-        return os.path.getmtime(self.join(fn))
+        print(f">>>>>> Getting time from: {self.join(fn)}: {Pretty.timestamp(os.path.getmtime(self.join(fn)))}")
+        mt = os.path.getmtime(self.join(fn))
+        return mt
 
     def close(self):
         """ Deprecated, just for backward compatibility. """
@@ -153,7 +155,8 @@ class RelionSessionData(SessionData):
     Adapter class for reading Session data from Relion OTF
     """
     def get_stats(self):
-
+        print("Getting stats")
+        t = Timer()
         def _stats_from_star(jobType, starFn, tableName, attribute):
             fn = self.get_last_star(jobType, starFn)
             if not fn or not os.path.exists(fn):
@@ -201,6 +204,8 @@ class RelionSessionData(SessionData):
                                           'model_classes', 'count'),
             'coordinates': {'count': 0}  # FIXME if there are picking jobs or from extraction
         }
+
+        t.toc()
 
     def get_micrographs(self):
         """ Return an iterator over the micrographs' CTF information. """
@@ -261,19 +266,17 @@ class RelionSessionData(SessionData):
                 }
         return {}
 
-    def get_classes2d(self):
-        """ Iterate over 2D classes. """
+    @staticmethod
+    def get_classes2d_from_run(runFolder):
+        """ Get classes information from a class 2d run. """
         items = []
-        jobs2d = self._jobs('Class2D')
-        if jobs2d:
-            # FIXME: Find the last iteration classes
-            avgMrcs = self.join(jobs2d[-1], 'run_it*_classes.mrcs')
+        print(f"Relion: getting classes from {runFolder}")
 
-            if '*' in avgMrcs:
-                files = glob(avgMrcs)
-                files.sort()
-                avgMrcs = files[-1]
-
+        if runFolder:
+            avgMrcs = os.path.join(runFolder, '*_it*_classes.mrcs')
+            files = glob(avgMrcs)
+            files.sort()
+            avgMrcs = files[-1]
             dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
             modelStar = dataStar.replace('_data.', '_model.')
 
@@ -281,28 +284,31 @@ class RelionSessionData(SessionData):
             avgThumb = Thumbnail(max_size=(100, 100),
                                  output_format='base64')
 
-            # FIXME: An iterator should be enough here
             with StarFile(dataStar) as sf:
-                ptable = sf.getTable('particles')
+                n = sf.getTableSize('particles')
 
             with StarFile(modelStar) as sf:
                 modelTable = sf.getTable('model_classes', guessType=False)
 
-            n = ptable.size()
-
-            for row in modelTable:
-                i, fn = row.rlnReferenceImage.split('@')
-                if not mrc_stack:
-                    mrc_stack = mrcfile.open(avgMrcs, permissive=True)
-                items.append({
-                    'id': '%03d' % int(i),
-                    'size': round(float(row.rlnClassDistribution) * n),
-                    'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
-                })
+                for row in modelTable:
+                    i, fn = row.rlnReferenceImage.split('@')
+                    if not mrc_stack:
+                        mrc_stack = mrcfile.open(avgMrcs, permissive=True)
+                    items.append({
+                        'id': '%03d' % int(i),
+                        'size': round(float(row.rlnClassDistribution) * n),
+                        'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
+                    })
             items.sort(key=lambda c: c['size'], reverse=True)
             mrc_stack.close()
 
         return items
+
+    def get_classes2d(self):
+        """ Iterate over 2D classes. """
+        jobs2d = self._jobs('Class2D')
+        runFolder = jobs2d[-1] if jobs2d else None
+        return RelionSessionData.get_classes2d_from_run(runFolder)
 
     def get_micrograph_coordinates(self, micFn):
         coords = []
@@ -375,7 +381,10 @@ class ScipionSessionData(SessionData):
             elif r.endswith('classes2D.sqlite'):
                 outputs['classes2d'].append(r)
 
+        outputs['classes2d'].sort()
+
         outputs['select2d'] = glob(self.join('Runs', '??????_ProtRelionSelectClasses2D'))
+        outputs['select2d'].sort()
         self.outputs = outputs
 
     def _stats_from_sqlite(self, sqliteFn, fileKey=None):
@@ -476,7 +485,7 @@ class ScipionSessionData(SessionData):
                     'ctfDefocusAngle': round(row['_defocusAngle'], 2),
                     'ctfAstigmatism': round(abs(dU - dV)/10000, 2),
                     'ctfResolution': round(row['_resolution'], 2),
-                    # FIXME: Retrieving coordinates from multiple micrographs is very slow now
+                    # TODO: Retrieving coordinates from multiple micrographs is very slow now
                     'coordinates': self.get_micrograph_coordinates(row['_micObj._micName']),
                     'micThumbPixelSize': pixelSize * micThumb.scale,
                     'pixelSize': pixelSize,
@@ -490,17 +499,29 @@ class ScipionSessionData(SessionData):
         classes2d = {
             'runs': [],
             'items': [],
-            'selection': list(range(runId)) if runId % 2 == 0 else []
+            'selection': []
         }
 
         if outputs2d := self.outputs['classes2d']:
-            classes2d['runs'] = [{'id': i, 'label': Path.splitall(fn)[-2]}
+            otf_file = self.join('scipion-otf.json')
+            if os.path.exists(otf_file):
+                with open(otf_file) as f:
+                    otf = json.load(f)
+            else:
+                otf = {'2d': {}}
+            def _label(fn):
+                parts = Path.splitall(fn)
+                label = parts[-2]  # Run name
+                for run in otf['2d'].values():
+                    if label in run['runDir']:
+                        label = run['runName']
+                        break
+                return label
+
+            classes2d['runs'] = [{'id': i, 'label': _label(fn)}
                                  for i, fn in enumerate(outputs2d)]
 
-            print(">>>>>> Selections: ")
-
-
-            runIndex = runId or -1
+            runIndex = -1 if runId is None else runId
             classesSqlite = outputs2d[runIndex]
 
             for sel in self.outputs['select2d']:
@@ -510,37 +531,13 @@ class ScipionSessionData(SessionData):
                         table = sf.getTable('')
                         path = table[0].rlnReferenceImage
                         runName = Path.splitall(path)[1]
-
                         # We found a selection job for this classification run
                         if runName in classesSqlite:
                             classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
-                                                      for row in table if row.rlnEstimatedResolution < 25]
-
-                            print(classes2d['selection'])
+                                                      for row in table if row.rlnEstimatedResolution < 30]
                             break
-
-            items = classes2d['items']
-
-            with SqliteFile(classesSqlite) as sf:
-                mrc_stack = None
-                avgThumb = Thumbnail(max_size=(100, 100),
-                                     output_format='base64')
-
-                for row in sf.iterTable('Objects', classes='Classes'):
-                    avgFn = self.join(row['_representative._filename'])
-                    avgIndex = row['_representative._index'] - 1
-
-                    if not mrc_stack:
-                        mrc_stack = mrcfile.open(avgFn, permissive=True)
-
-                    classId = '%03d' % row['id']
-                    items.append({
-                        'id': classId,
-                        'size': sf.getTableSize('Class%s_Objects' % classId),
-                        'average': avgThumb.from_array(mrc_stack.data[avgIndex, :, :])
-                    })
-            items.sort(key=lambda c: c['size'], reverse=True)
-            mrc_stack.close()
+            runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra')
+            classes2d['items'] = RelionSessionData.get_classes2d_from_run(runFolder)
 
         return classes2d
 
