@@ -271,7 +271,7 @@ def create_project(workingDir):
         objLabel='motioncor',
         patchX=7, patchY=5,
         numberOfThreads=1,
-        streamingBatchSize=8,
+        streamingBatchSize=16,
         gpuList=' '.join(str(g) for g in params['mcGpus'])
     )
     _setPointer(protMc.inputMovies, protImport, 'outputMovies')
@@ -352,6 +352,29 @@ def continue_project(workingDir):
     run2DPipeline(wf, protExtract)
 
 
+def restart(workingDir, ids):
+    """ Restart one or more protocols. """
+    print(f"To relaunch {ids}")
+    project = Project(pw.Config.getDomain(), workingDir)
+    project.load()
+
+    all_protocols = [2, 88, 198, 262, 318]
+
+    # to_restart = [88]
+
+    for protId in all_protocols:
+        prot = project.getProtocol(protId)
+        clsName = prot.getClassName()
+        suffix = ''
+        print(f"- {prot.getObjId()}: {clsName}")
+        if prot.getObjId() in ids:
+            print("\t * Stopping...")
+            project.stopProtocol(prot)
+            print("\t * Re-running...")
+            project.launchProtocol(prot, force=True)
+            time.sleep(30)
+
+
 def parse_project(projDir):
     from emhub.data.data_session import ScipionSessionData
     sd = ScipionSessionData(projDir)
@@ -389,10 +412,10 @@ def main():
                        help="Create a new Scipion project in the working "
                             "directory. This will overwrite any existing "
                             "'scipion' folder there.")
-    g.add_argument('--restart', action='store_true',
-                   help="Continue with an existing project. ")
-    g.add_argument('--gui', action='store_true',
-                   help="Open project GUI")
+    g.add_argument('--restart', nargs="+", type=int,
+                   help="Restart one or more protocols. ")
+    g.add_argument('--test', action='store_true',
+                   help="Some test code")
     g.add_argument('--clean', action="store_true",
                    help="Clean Scipion project files/folders.")
 
@@ -402,91 +425,14 @@ def main():
     if args.create:
         create_project(cwd)
     elif args.restart:
-        continue_project(cwd)
-    elif args.gui:
-        from pyworkflow.gui.project import ProjectWindow
-        ProjectWindow(cwd).show()
+        restart(cwd, args.restart)
+    elif args.test:
+        pass  # debugging/testing code
     elif args.clean:
         clean_project(cwd)
-    else:
-        import sqlite3
-        from pwem.objects import SetOfParticles, SetOfCoordinates
-        from pyworkflow.mapper.sqlite import SqliteFlatMapper
-        from pyworkflow import Config
-
-
-        def _tables(db):
-            r = db.execute("SELECT name FROM sqlite_master "
-                                    "WHERE type='table'")
-            for row in r.fetchall():
-                tableName = row[0]
-                print(row)
-                print(db.execute(f"SELECT COUNT(*) FROM {tableName}").fetchone()[0])
-
-        def _iterSqlite(db):
-            c = 0
-            r = db.execute('SELECT * FROM Objects')
-            for row in r.fetchall():
-                c += 1
-            print("total: ", c)
-
-        def _iterScipion(db):
-            parts = SetOfParticles()
-            #parts = SetOfCoordinates()
-            memMapper = SqliteFlatMapper(db, Config.getDomain().getMapperDict())
-            parts.setMapper(memMapper)
-            #parts.loadAllProperties()
-            c = 0
-            for p in parts.iterItems():
-                c += 1
-            print("total: ", c)
-
-        #parse_project(cwd)
-        print("Testing...")
-        fn = 'Runs/000318_ProtRelionExtractParticles/particles.sqlite'
-        #fn = 'Runs/000262_SphireProtCRYOLOPicking/coordinates.sqlite'
-
-
-
-        t = Timer()
-        print("\n>>>>>> File db")
-        db = sqlite3.connect(fn)
-        print('type: ', type(db), "classname", db.__class__.__name__)
-        _tables(db)
-        t.toc()
-
-        print("\n>>>>>> Iterating db")
-        t.tic()
-        _iterSqlite(db)
-        t.toc()
-
-        print("\n>>>>>> Iterating db (scipion)")
-        t.tic()
-        _iterScipion(db)
-        t.toc()
-
-        t.tic()
-        print("\n>>>>>> BACKUP")
-        memDb = sqlite3.connect(':memory:')
-        db.backup(memDb)
-        db.close()
-        t.toc()
-
-        t.tic()
-        print("\n>>>>>> Memory db")
-        _tables(memDb)
-        t.toc()
-
-        print("\n>>>>>> Iterating MEM db")
-        t.tic()
-        _iterSqlite(memDb)
-        t.toc()
-
-        print("\n>>>>>> Iterating MEM db (scipion)")
-        t.tic()
-        _iterScipion(memDb)
-        t.toc("")
-
+    else:  # by default open the GUI
+        from pyworkflow.gui.project import ProjectWindow
+        ProjectWindow(cwd).show()
 
 
 if __name__ == '__main__':
