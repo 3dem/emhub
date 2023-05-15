@@ -62,6 +62,9 @@ def create_app(test_config=None):
     app.register_blueprint(images_bp, url_prefix='/images')
     app.register_blueprint(pages_bp, url_prefix='/pages')
 
+    ####
+    # config specified here can be overridden by the config file
+
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config['SECRET_KEY'] = 'dev'
 
@@ -73,12 +76,56 @@ def create_app(test_config=None):
     app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
     app.config["PAGES"] = os.path.join(app.instance_path, 'pages')
 
+    app.config['LDAP_FAIL_AUTH_ON_MULTIPLE_FOUND'] = True
+
+    #
+    ####
+
     if test_config is None:
         # load the instance config, if it exists, when not testing
         app.config.from_pyfile('config.py', silent=True)
     else:
         # load the test config if passed in
         app.config.from_mapping(test_config)
+
+    # From this point on, any config items specified override conflicting
+    # settings from the config file.
+
+    if app.config.get('USE_DOMAIN_AUTHENTICATION', False):
+        from cryptography.fernet import Fernet
+
+        # Storing this key here is not secure, but at least it avoids relying
+        # on a plaintext password to be recorded on permanent storage
+        # TODO: it would be a little better to put the key in the instance DB
+        key = b'cvqjeJ-ccoUhpcFzQLc1qu8wRnpPKVF4rIfrK_lWRJY='
+        app.config['LDAP_BIND_USER_PASSWORD'] = str(
+                Fernet(key).decrypt(app.config['LDAP_BIND_USER_PASSWORD_ENCRYPTED']),
+                'utf-8')
+
+        app.config['LDAP_ADD_SERVER'] = True
+        app.config['LDAP_BIND_DIRECT_CREDENTIALS'] = False
+        app.config['LDAP_ALWAYS_SEARCH_BIND'] = True
+        app.config['LDAP_GET_USER_ATTRIBUTES'] = [
+                # These are not the only attributes available
+                'cn',               # Canonical name: 'Doe, John X'
+                'department',       # Department: 'Structural Biology'
+                'gidNumber',        # Numeric GID of the user's primary group: 99999
+                'givenName',        # Personal name: 'John'
+                'initials',         # Middle initial(s): 'X'
+                'mail',             # Email address: 'John.Doe@STJUDE.ORG'
+                'sn',               # Surname: 'Doe'
+                'telephoneNumber',  # (work) telephone number: '901-555-4321'
+                'title',            # Job title: 'Crash Test Dummy'
+                'uid',              # Username: 'jdoe17'
+                'uidNumber',        # Numeric user id: 94242
+                ]
+        app.config['LDAP_SEARCH_FOR_GROUPS'] = True
+        app.config['LDAP_GET_GROUP_ATTRIBUTES'] = [
+                'cn',               # Canonical name (generally the same as the name)
+                'description',      # Description
+                'gidNumber',        # Numeric GID of this group
+                'name',             # Simple name
+                ]
 
     if not "TEMPLATE_MAIN" in app.config:
         app.config["TEMPLATE_MAIN"] = 'main.html'
@@ -99,6 +146,10 @@ def create_app(test_config=None):
     NO_LOGIN_CONTENT = ['users_list',
                         'user_reset_password',
                         'pages']
+
+    for name, value in app.config.items():
+        app.logger.debug(f'config: {name} = {value}')
+
 
     def register_basic_params(kwargs):
         kwargs['is_devel'] = app.is_devel
@@ -181,15 +232,47 @@ def create_app(test_config=None):
     @app.route('/do_login', methods=['POST'])
     def do_login():
         """ This view will be called as POST from the user login page. """
+
         username = flask.request.form['username']
         password = flask.request.form['password']
         next_content = flask.request.form.get('next_content', 'index')
+        authenticated = None
+        user = None
 
-        user = app.dm.get_user_by(username=username)
-        if user is None or not user.check_password(password):
+        if not app.config.get('CASE_SENSITIVE_USERNAMES', True):
+            username = username.lower()
+
+        # If domain authentication is enabled then usernames that look even
+        # a little like e-mail addresses (on account of containing an '@') are
+        # authenticated against the domain.
+        #
+        # TODO: consider adding an attribute to the database to control whether to
+        #       authenticate against the domain, instead of judging based on the
+        #       form of the username.
+        if '@' in username and app.config.get('USE_DOMAIN_AUTHENTICATION', False):
+            response = ldap_manager.authenticate(username, password)
+            authenticated = (response.status == flask_ldap3_login.AuthenticationResponseStatus.success)
+            # Specifics are configurable.  That information is not presently used.
+
+        if authenticated is not False:  # True or None
+            # Whether domain authentication succeeded or was skipped,
+            # we need to lookup the user in the DB
+            user = app.dm.get_user_by(username=username)
+
+            if user is None:
+                # Even if domain auth previously succeeded, we reject the user
+                # if they are not in our DB
+                authenticated = False
+            elif authenticated is None:
+                # Only if domain auth was skipped do we check the provided
+                # password against the one, if any, stored in our DB
+                authenticated = user.check_password(password)
+
+        if not authenticated:
             flask.flash('Invalid username or password')
             return _redirect('login')
 
+        assert(user is not None)
         flask_login.login_user(user)
 
         if next_content == 'user_login':
@@ -359,6 +442,10 @@ def create_app(test_config=None):
 
     login_manager = flask_login.LoginManager()
     login_manager.init_app(app)
+
+    if app.config.get('USE_DOMAIN_AUTHENTICATION', False):
+        import flask_ldap3_login
+        ldap_manager = flask_ldap3_login.LDAP3LoginManager(app)
 
     app.mm = MailManager(app) if app.config.get('MAIL_SERVER', None) else None
 
