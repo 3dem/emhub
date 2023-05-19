@@ -955,3 +955,111 @@ function create_hc_data_plot(containerId, data_usage_series) {
         series: data_usage_series
     });
 }
+
+
+// ---------- Network related functions ----------------
+var network_colors = {
+  saved: '#CBF6F8',  // water
+  launched: '#A8E4EF',  // Blizzard Blue
+  //'#0CC078',  // Crayola's Green
+  //finished: '#79DE79',  // Pastel Green
+  finished: '#BBEC7B',
+  interactive: '#FCFC99',  // Pastel Yellow
+  running: '#FFC634',  // Sunglow (African heart palette)
+  aborted: '#DD9789', //'#ABABC3',
+  scheduled: '#F0D17A',
+  failed: '#FB6962',  // Pastel Red
+};
+
+
+function createNetwork(container, workflow) {
+    var nodes = new vis.DataSet();
+
+    for (var i = 0;  i < workflow.length; i++){
+        var prot = workflow[i];
+        var c = network_colors[prot['status']];
+        var label = prot['label'];
+        if (label !== prot['id'])
+            label += "(id=" + prot['id'] + ")";
+
+        nodes.add({
+            id: prot['id'],
+            label: label,
+            widthConstraint: { minimum: 120, maximum: 180 },
+            labelHighlightBold: false,
+            color: {
+              background: c,
+              highlight: {
+                border: 'black',
+                background: c
+              },
+              hover: {
+                border: 'black',
+                background: c
+              },
+            }
+          });
+    }
+
+    var edges = new vis.DataSet();
+
+    for (var i = 0;  i < workflow.length; i++){
+        var prot = workflow[i];
+        for (var j = 0; j < prot.links.length; j++){
+            edges.add({from: prot.id, to: prot.links[j]});
+        }
+    }
+
+    var data = {
+        nodes: nodes,
+        edges: edges,
+    };
+
+    var options = {
+        edges: {
+          font: {
+            size: 12,
+          },
+          widthConstraint: {
+            maximum: 90,
+          },
+          arrows: {
+          from: {
+              enabled: true,
+              type: "circle",
+            },
+            to: {
+              enabled: true,
+              type: "arrow",
+            },
+          },
+        },
+        nodes: {
+          shape: "box",
+          margin: 10,
+          widthConstraint: {
+            maximum: 200,
+          },
+        },
+        physics: {
+          enabled: false,
+        },
+        layout: {
+          hierarchical: {
+            direction: "UD",
+            sortMethod: "directed", // "directed"
+              shakeTowards: "roots",
+              nodeSpacing: 200,
+              parentCentralization: true,
+              edgeMinimization: true,
+              blockShifting: true
+          }
+        },
+        interaction: {
+            hover: true,
+            multiselect: true,
+        }
+    };
+
+    return new vis.Network(container, data, options);
+}

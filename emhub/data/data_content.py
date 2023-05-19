@@ -389,6 +389,14 @@ class DataContent:
             'show_extra': show_extra
         }
 
+    def get_session_flowchart(self, **kwargs):
+        session = self.app.dm.load_session(kwargs['session_id'])
+        data = self.get_session_data(session)
+        return {
+            'session': session,
+            'workflow': session.data.get_workflow()
+        }
+
     def get_users_list(self, **kwargs):
         status = kwargs.get('status', 'active')
         all_users = self.app.dm.get_users()

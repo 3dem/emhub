@@ -149,6 +149,10 @@ class SessionData:
     def get_classes2d(self):
         pass
 
+    def get_workflow(self):
+        """ Return protocols and their relations. """
+        return []
+
 
 class RelionSessionData(SessionData):
     """
@@ -555,3 +559,43 @@ class ScipionSessionData(SessionData):
             self.all_coords = coords
 
         return self.all_coords[micFn]
+
+    def get_workflow(self):
+        protList = []
+        protDict = {}
+
+        with SqliteFile(self.join('project.sqlite')) as sf:
+            for row in sf.iterTable('Objects'):
+                name = row['name']
+                pid = row['parent_id']
+
+                if row['parent_id'] is None and name != 'CreationTime':
+                    prot = {
+                        'id': row['id'],
+                        'label': row['label'],
+                        'links': [],
+                        'status': 'finished',
+                        'type': row['classname']
+                    }
+                    protList.append(prot)
+                    protDict[prot['id']] = prot
+                    #print(row)
+                elif 'outputs' in name:
+                    pass
+                    #print("   OUTPUTS: ", row)
+                elif row['classname'] == 'Pointer':
+                    #print("   POINTER: ", row)
+                    if row['value']:
+                        rid = int(row['value'])
+                        if rid in protDict:
+                            #print("PROTOCOLS DICT: ", protDict)
+                            #print("PROTOCOLS LIST: ", protList)
+                            protDict[rid]['links'].append(pid)
+
+                    if pid in protDict:
+                        pass
+                elif 'status' in name:
+                    # Update protocol status
+                    protDict[pid]['status'] = row['value']
+                    #print("   STATUS:  ", row)
+        return protList
