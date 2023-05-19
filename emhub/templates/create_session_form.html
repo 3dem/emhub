@@ -26,9 +26,7 @@
 
 <!-- javascript  -->
 <script>
-        $('select').selectpicker();
-
-
+    $('select').selectpicker();
 
     function onProcessingClick(inputRadio) {
         var rows = document.getElementsByClassName("processing-row");
@@ -73,6 +71,7 @@
                 attrs.extra.otf = {
                     workflow: formValues.otf_workflow,
                     host: formValues.otf_host,
+                    cryolo_model: formValues.cryolo_model
                 }
             else
                 attrs.extra.otf  = {path: otf_folder}
@@ -89,8 +88,8 @@
             return;
         }
 
-        {#alert(JSON.stringify(attrs, null, 4));#}
-        {#return#}
+        //alert(JSON.stringify(attrs, null, 4));
+        //return
 
         var ajaxContent = $.ajax({
             url: "{{ url_for('api.create_session') }}",

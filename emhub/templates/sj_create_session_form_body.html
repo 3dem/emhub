@@ -121,10 +121,23 @@
                 </div>
             </div>
 
+
         {% else %}
             <input type="hidden" value="default" data-key="otf_host">
             <input type="hidden" value="default" data-key="otf_workflow">
         {% endif %}
+
+        <div class="form-group row advanced">
+            <label class="col-12 col-sm-3 col-form-label text-sm-right">Cryolo Picking Model</label>
+            <div class="col-12 col-sm-8 col-lg-6">
+               <select id="cryolo_model-select" class="selectpicker" data-key="cryolo_model">
+                    <option selected value="general">general</option>
+                    {% for model_key, model_value in cryolo_models.items() %}
+                        <option value="{{ model_value }}">{{ model_key }}</option>
+                   {% endfor %}
+                </select>
+            </div>
+        </div>
 
     </form>
 </div>

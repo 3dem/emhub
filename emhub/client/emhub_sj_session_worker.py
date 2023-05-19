@@ -211,6 +211,18 @@ class SjSessionWorker(threading.Thread, SessionHandler):
             optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
             f.write("{\n%s\n}\n" % optStr)
 
+        opts = self.sconfig['otf']['scipion']['options']
+        cryolo_model = otf.get('cryolo_model', None)
+
+        if cryolo_model:
+            model = os.path.basename(cryolo_model)
+            os.symlink(cryolo_model, _path(model))
+            opts['picking'] = {'cryolo_model': model}
+
+        with open(_path('scipion_otf_options.json'), 'w') as f:
+            opts['acquisition'] = acq
+            json.dump(opts, f, indent=4)
+
         # Update OTF status
         self.update_session_extra({'otf': otf})
 
@@ -398,7 +410,6 @@ class SjSessionWorker(threading.Thread, SessionHandler):
             self._update_session = False
 
         def _handle_session(first):
-            self.logger.info("Task name '%s', equal: %s" % (taskName, taskName == 'transfer'))
             if taskName == 'transfer':
                 self.transfer_files()
             elif taskName == 'raw':

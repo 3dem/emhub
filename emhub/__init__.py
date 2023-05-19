@@ -421,7 +421,7 @@ def create_app(test_config=None):
 
     app.jinja_env.globals.update(url_for_content=url_for_content)
     app.jinja_env.add_extension('jinja2.ext.do')
-    app.jinja_env.filters['reverse'] = basename
+    app.jinja_env.filters['basename'] = basename
 
     app.jinja_env.filters['pretty_date'] = pretty_date
     app.jinja_env.filters['pretty_quarter'] = pretty_quarter

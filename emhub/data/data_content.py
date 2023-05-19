@@ -31,6 +31,7 @@ import datetime as dt
 import json
 import sys
 from collections import defaultdict
+from glob import glob
 
 import flask
 import flask_login
@@ -1841,7 +1842,7 @@ class DataContent:
             return e
         entries = [_update(e) for e in project.entries]
 
-        # Find all sessions related to this projects and their bookings
+        # Find all sessions related to this project and their bookings
         bookings = set()
         for s in dm.get_sessions():
             if s.project == project:
@@ -2081,12 +2082,26 @@ class DataContent:
         if not (user.is_manager or user.same_pi(b.owner) or can_edit):
             raise Exception("You can not create Sessions for this Booking. "
                             "Only members of the same lab can do it.")
+        # We provide cryolo_models to be used with the OTF
+        cryolo_models_pattern = dm.get_config('sessions')['data']['cryolo_models']
+
+        cryolo_models = glob(cryolo_models_pattern)
+
+        if not user.is_manager:
+            group = dm.get_user_group(user)
+            cryolo_models = [cm for cm in cryolo_models if group in cm]
+
+        def _key(model):
+            d, base = os.path.split(model)
+            return base if not user.is_manager else os.path.join(os.path.basename(d), base)
+
         data = {
             'booking': b,
             'cameras': dm.get_session_cameras(b.resource.id),
             'processing': dm.get_session_processing(),
             'session_name': dm.get_new_session_info(booking_id)['name'],
-            'hosts':  dm.get_config('sessions')['otf']['hosts']
+            'hosts':  dm.get_config('sessions')['otf']['hosts'],
+            'cryolo_models': {_key(cm): cm for cm in cryolo_models}
         }
         data.update(self.get_user_projects(b.owner, status='active'))
         return data

@@ -728,21 +728,20 @@ function session_reload() {
 
 
 function session_resize(){
-    const width  = window.innerWidth || document.documentElement.clientWidth ||
-    document.body.clientWidth;
-    const height = window.innerHeight || document.documentElement.clientHeight ||
-    document.body.clientHeight;
 
-    if (width < 2000) {
-        document.getElementById('ctf_plots').className = 'col-8';
-        document.getElementById('image_plots').className = 'col-12';
-    }
-    else {
-        document.getElementById('ctf_plots').className = 'col-5';
-        document.getElementById('image_plots').className = 'col-5';
+    ctfPlots = document.getElementById('ctf_plots');
+    imgPlots = document.getElementById('image_plots');
+
+    if (ctfPlots != null && imgPlots != null) {
+        const width  = window.innerWidth || document.documentElement.clientWidth ||
+        document.body.clientWidth;
+        const height = window.innerHeight || document.documentElement.clientHeight ||
+        document.body.clientHeight;
+        ctfPlots.className = width < 2000 ? 'col-8' : 'col-5';
+        imgPlots.className = width < 2000 ? 'col-12' : 'col-5';
     }
 
-    var canvas = document.getElementById("canvas_micrograph");
+    //var canvas = document.getElementById("canvas_micrograph");
     var w = $("#canvas_micrograph").width();
     var h = Math.round(w / canvas_ratio);
     $("#canvas_micrograph").height(h);

@@ -29,7 +29,8 @@
                                 <th>microscope</th>
                                 <th>status</th>
                                 <th>OTF</th>
-                                <th>preprocessing</th>
+                                <th>images</th>
+                                <th>size</th>
                                 <th>booking_id</th>
                                 <th>project</th>
                                 <th>owner</th>
@@ -69,8 +70,9 @@
                                         <td>{{ s.start|pretty_date }} </td>
                                         <td><span class='badge' style='background: {{ s.resource.color }}; color: #fff;'>{{ s.resource.name }}</span></td>
                                         <td>{{ s.status }}</td>
-                                        <td>{{ s.otf_status }}</td>
-                                        <td><a href="{{ url_for_content('session_live', session_id=s.id) }}">{{ s.data_path }}</a></td>
+                                        <td><a href="{{ url_for_content('session_live', session_id=s.id) }}">{{ s.otf_status }}: {{ s.data_path|basename }}</a></td>
+                                        <td>{{ s.images }}</td>
+                                        <td>{{ s.total_size|pretty_size }}</td>
                                         <td><a href="javascript:showBookingForm({booking_id: {{ booking.id }}})">{{ booking.id }}</a></td>
                                         <td>{{ macros.project(s.project) }}</td>
                                         <td>{{ booking.owner|pairname }}</td>

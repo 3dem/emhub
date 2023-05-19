@@ -135,6 +135,11 @@ class DataManager(DbManager):
         """ This should return a single user or None. """
         return self.__item_by(self.User, **kwargs)
 
+    def get_user_group(self, user):
+        pi = user.get_pi()
+        user_groups = self.get_config('sessions')['groups']
+        return user_groups.get(pi.email, 'No-group')
+
     # ---------------------------- FORMS ---------------------------------
     def create_form(self, **attrs):
         return self.__create_item(self.Form, **attrs)
