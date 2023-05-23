@@ -286,3 +286,192 @@ function createSession(bookingId, totalSessions) {
         });
 
 }  // function showResource
+
+
+// ---------------------- Run Form related Functions ---------------------------
+ /* Create a Radiobutton with its label */
+ function form_addRadio(parent, id, name, value, labelText, checked) {
+     var label = document.createElement('label');
+     label.className = "custom-control custom-radio custom-control-inline";
+     //label.for = id;
+
+     var input = document.createElement('input');
+     input.type = 'radio';
+     input.className = 'custom-control-input scn-radio';
+     input.id = id;
+     input.name = name;
+     input.checked = checked;
+     input.dataset.key = name;
+     input.value = value;
+     label.appendChild(input);
+
+     var span = document.createElement('span');
+     span.className = "custom-control-label mt-1";
+     span.textContent = labelText;
+     label.appendChild(span);
+
+     parent.appendChild(label);
+     return label;
+ }
+
+ /* Create row with new elements under this parent */
+ function form_addRows(parent, params, values){
+
+    for (var i = 0;  i < params.length; i++) {
+        var param = params[i];
+        var base_id = param.name;
+        var param_value = (param.name in values) ? values[param.name] : '';
+
+        if (param.label) {
+            var row = document.createElement('div');
+            row.className = 'row form-group';
+            row.id = base_id + '-row';
+            parent.appendChild(row);
+
+            var label = document.createElement('label');
+            label.className = 'col-6 col-form-label text-sm-right text-wrap';
+            label.textContent = param.label;
+            label.dataset.toggle = "tooltip";
+            label.dataset.placement = "top";
+            label.title = param.help;
+
+            row.appendChild(label);
+
+            if (param.paramClass === "LabelParam"){
+                label.classList.replace('col-6', 'col-12');
+            }
+            else if (param.paramClass === "EnumParam") {
+                var div = document.createElement('div');
+                div.className = 'col-6 form-group';
+
+                if (param.display == 1) { // Combo
+                    var select = document.createElement('select');
+                    select.dataset.key = param.name;
+                    select.className = 'form-control form-control-sm';
+                    select.style.backgroundColor = "#fff";
+                    select.style.color = "black";
+
+                    for (var j = 0; j < param.choices.length; j++) {
+                        var opt = document.createElement('option');
+                        opt.textContent = param.choices[j];
+                        opt.selected = param_value === j;
+                        opt.value = j;
+                        select.appendChild(opt);
+                    }
+                    div.appendChild(select);
+                }
+                row.appendChild(div);
+            }
+            else if ('valueClass' in param) {
+
+                if (param.paramClass === "BooleanParam") {
+                    var div = document.createElement('div');
+                    div.className = 'row col-6 ml-1';
+                    form_addRadio(div, base_id + '-yes', base_id, true, 'Yes', param_value === '1');
+                    form_addRadio(div, base_id + '-no', base_id, false, 'No', param_value === '0');
+                    row.appendChild(div);
+                }
+                else {
+                    var div = document.createElement('div');
+                    div.className = 'col-6';
+                    var input = document.createElement('input');
+                    input.className = 'form-control form-control-sm';
+                    input.value = param_value;
+                    input.dataset.key = param.name;
+                    div.appendChild(input)
+                    row.appendChild(div);
+                }
+            }
+        }
+
+    }
+ } // function form_addRows
+
+
+/** Create a dynamic form based on teh JSON definition of sections and params
+ * */
+ function form_create(form, values, elementId, protocol) {
+     var formElement = document.getElementById(elementId);
+     formElement.innerHTML = '';
+
+     var card = document.createElement('div');
+     card.className = "card card-primary card-tabs";
+
+     // Card header
+     var cardh = document.createElement('div');
+     cardh.className = "card-header p-0 pt-1";
+     var ul = document.createElement('ul');
+     ul.id = "dynamic-tab";
+     ul.role = "tablist";
+     ul.className = "nav nav-tabs";
+     cardh.appendChild(ul);
+     card.appendChild(cardh);
+
+     // Card body
+     var cardb = document.createElement('div');
+     cardb.className = "card-body";
+     var content = document.createElement('div');
+     content.id = "dynamic-tabContent";
+     content.className = "tab-content";
+     cardb.appendChild(content);
+     card.appendChild(cardb);
+
+     formElement.appendChild(card);
+     var counter = 0;
+
+     for (var i = 0;  i < form.sections.length; i++) {
+         // Header elements
+         var section = form.sections[i];
+
+         console.log('DEBUG: label: ' + section.label + " type: " + typeof(section.label));
+
+         var section_label = replaceAll(section.label, ' ', '_');
+         section_label = replaceAll(section_label, '.', '_');
+         section_label = replaceAll(section_label, '/', '_');
+
+         if (section.label === "General" || section.label === "Parallelization")
+             continue;
+
+         counter += 1;
+         var base_id = ul.id + "-" + section_label;
+         var li = document.createElement('li');
+         li.className = "nav-item";
+         var a = document.createElement('a');
+         a.className = "nav-link";
+         a.setAttribute('aria-selected', counter == 1);
+         a.id = base_id + '-tab';
+         a.setAttribute("data-toggle", "pill");
+         a.setAttribute("aria-controls", base_id);
+         a.role = "tab";
+         a.href = "#" + base_id;
+         a.textContent = section.label;
+         li.appendChild(a);
+
+         ul.appendChild(li);
+
+         // Content elements
+         var div = document.createElement('div');
+         div.id = base_id;
+         div.className = "tab-pane fade ";
+         if (counter == 1) {
+             a.className += " active";
+             div.className += "show active";
+         }
+         div.role = "tabpanel";
+         div.setAttribute('aria-labelledby', a.id);
+         content.appendChild(div);
+
+         form_addRows(div, section.params, values);
+     }
+
+    //  function update() {
+    //      updateFormVisibility(form, elementId, protocol);
+    //  }
+    //
+    // $(formElement).on('change', '.scn-radio', update);
+    //
+    //  update();
+
+     return card;
+ } // function createForm
+

@@ -137,6 +137,11 @@
                                 <div class="col-8 p-0 m-0">
                                     {{ status_row('Processes', s.total_files, 'label_processes') }}
                                     {{ status_row('Updated', s.extra['updated'], 'label_updated') }}
+                                    {% if current_user.is_admin %}
+                                    <div class="col-12 text-sm-right mt-3">
+                                        <a href="{{ url_for_content('session_flowchart', session_id=session.id) }}" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show Workflow </a>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         {% endcall %}

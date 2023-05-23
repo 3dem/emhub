@@ -508,6 +508,49 @@ def get_session_users():
     return _handle_item(_session_users, 'session_users')
 
 
+def _loadFileLines(fn):
+    lines = ''
+    if os.path.exists(fn):
+        for line in open(fn):
+            lines += line
+
+    return lines
+
+
+
+@api_bp.route('/get_session_run', methods=['POST'])
+@flask_login.login_required
+def get_session_run():
+
+    def _get_run(**attrs):
+        session = app.dm.load_session(attrs['sessionId'])
+        run = session.data.get_run(int(attrs['runId']))
+
+        lines = ''
+        outputs = attrs.get('output', ['json'])
+        from pprint import pprint
+        pprint(attrs)
+        results = {}
+
+        if 'json' in outputs:
+            results['json'] = {'dict': run.dict, 'values': run.getValues()}
+
+        if 'stdout' in outputs:
+            results['stdout'] = _loadFileLines(run.join('logs', 'run.stdout'))
+
+        if 'stderr' in outputs:
+            results['stderr'] = _loadFileLines(run.join('logs', 'run.stderr'))
+
+        if 'form' in outputs:
+            results['form'] = run.getFormDefinition()
+
+        return results
+
+    return _handle_item(_get_run, 'run')
+
+
+
+
 @api_bp.route('/get_session_tasks', methods=['POST'])
 @flask_login.login_required
 def get_session_tasks():
@@ -773,6 +816,7 @@ def update_puck():
 @flask_login.login_required
 def delete_puck():
     return handle_puck(app.dm.delete_puck)
+
 
 
 # -------------------- UTILS functions ----------------------------------------

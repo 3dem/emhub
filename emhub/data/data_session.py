@@ -364,6 +364,53 @@ class ScipionSessionData(SessionData):
     """
     Adapter class for reading Session data from Relion OTF
     """
+    class Run:
+        """ Helper class to manipulate Scipion run data. """
+        def __init__(self, projectDir, runDict):
+            self.dict = runDict
+
+            runRow = runDict['']  # first protocol row, empty name
+            self.id = runRow['id']
+            self.className = runRow['classname']
+
+            wdRow = runDict[f'{self.id}.workingDir']
+            self.workingDir = os.path.join(projectDir, wdRow['value'])
+
+        def join(self, *paths):
+            return os.path.join(self.workingDir, *paths)
+
+        def getFormDefinition(self):
+            return ScipionSessionData.getFormDefinition(self.className)
+
+        def getValues(self):
+            values = {}
+            parents = {}
+            for k, v in self.dict.items():
+                parts = v['name'].split('.')
+                pid = v['parent_id']
+                if pid == self.id:
+                    name = parts[-1]
+                    values[name] = v['value']
+                    parents[v['id']] = name
+                elif pid in parents:
+                    parent_name = parents[pid]
+                    if values[parent_name] is not None:
+                        values[parent_name] += f".{v['value']}"
+
+            return values
+
+    def _loadRun(self, runId):
+        prefix = f'{runId}.'
+        runDict = {}
+
+        with SqliteFile(self.join('project.sqlite')) as sf:
+            for row in sf.iterTable('Objects'):
+                name = row['name']
+                if row['id'] == runId or name.startswith(prefix):
+                    runDict[name] = row
+
+        return self.Run(self._path, runDict)
+
     def __init__(self, data_path, mode='r'):
         SessionData.__init__(self, data_path, mode=mode)
         projDb = self.join('project.sqlite')
@@ -599,3 +646,64 @@ class ScipionSessionData(SessionData):
                     protDict[pid]['status'] = row['value']
                     #print("   STATUS:  ", row)
         return protList
+
+    def get_run(self, runId):
+        return self._loadRun(runId)
+
+    @staticmethod
+    def getFormDefinition(className):
+        """ Return the json definition of a form defined by className. """
+        print("Loading form ", className)
+
+        from pyworkflow.protocol import ElementGroup
+        import pwem
+
+        formDef = {
+            'name': className,
+            'sections': []
+        }
+
+        def getParamDef(name, param):
+            paramDef = {
+                'label': param.getLabel(),
+                'name': name,
+                'paramClass': param.getClassName(),
+                'important': param.isImportant(),
+                'expert': param.expertLevel.get()
+            }
+            if param.hasCondition():
+                paramDef['condition'] = param.condition.get()
+
+            if hasattr(param, 'choices'):
+                paramDef['choices'] = param.choices
+                paramDef['display'] = param.display.get()
+
+            if isinstance(param, ElementGroup):
+                paramDef['params'] = []
+                for subname, subparam in param.iterParams():
+                    paramDef['params'].append(getParamDef(subname, subparam))
+            else:
+                paramDef['valueClass'] = param.paramClass.__name__
+                paramDef['default'] = param.getDefault()
+                paramDef['help'] = param.getHelp()
+
+            return paramDef
+
+        ProtClass = pwem.Domain.findClass(className)
+        prot = ProtClass()
+
+        for section in prot.iterDefinitionSections():
+            sectionDef = {
+                'label': section.getLabel(),
+                'params': []
+            }
+
+            for name, param in section.iterParams():
+                sectionDef['params'].append(getParamDef(name, param))
+
+            formDef['sections'].append(sectionDef)
+
+        from pprint import pprint
+        pprint(formDef)
+
+        return formDef
