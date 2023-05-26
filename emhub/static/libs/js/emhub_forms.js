@@ -269,8 +269,6 @@ function updateSession(session) {
 }
 
 function showCreateSession(bookingId) {
-        console.log("showCreateSession: " + bookingId);
-
         var content = get_ajax_content("create_session_form", {booking_id: bookingId});
         show_modal_from_ajax("session-modal", content);
 } // function showCreateSession
@@ -328,7 +326,6 @@ function createSession(bookingId, totalSessions) {
 
             if (param.expert == 1) {
                 row.style.backgroundColor = "#E6E6E6";
-                console.log("Expert: ", param.name);
                 row.className += ' scn-expert-param';
                 row.style.display = display_expert;
             }

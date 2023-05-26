@@ -563,10 +563,13 @@ class ScipionSessionData(SessionData):
             def _label(fn):
                 parts = Path.splitall(fn)
                 label = parts[-2]  # Run name
+                print(f"Filename: {fn}")
+                print(f"    label1: {label}")
                 for run in otf['2d'].values():
                     if label in run['runDir']:
                         label = run['runName']
                         break
+                print(f"    label2: {label}")
                 return label
 
             classes2d['runs'] = [{'id': i, 'label': _label(fn)}
@@ -577,15 +580,21 @@ class ScipionSessionData(SessionData):
 
             for sel in self.outputs['select2d']:
                 starFn = os.path.join(sel, 'extra', 'class_averages.star')
-                if os.path.exists(starFn):
+                print(f"Checking {starFn} ")
+                if os.path.exists(starFn) and os.path.getsize(starFn) > 0:
+                    print(f"   - Exists...Reading {starFn} ")
                     with StarFile(starFn) as sf:
+                        print(f"   - Loading table")
                         table = sf.getTable('')
                         path = table[0].rlnReferenceImage
                         runName = Path.splitall(path)[1]
+                        print(f"   - path: {path}, runName: {runName}")
                         # We found a selection job for this classification run
                         if runName in classesSqlite:
+                            print(f"   - FOUND!!!")
                             classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
                                                       for row in table if row.rlnEstimatedResolution < 30]
+                            print(f"   - Selection: {classes2d['selection']}")
                             break
             runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra')
             classes2d['items'] = RelionSessionData.get_classes2d_from_run(runFolder)
@@ -653,13 +662,23 @@ class ScipionSessionData(SessionData):
     @staticmethod
     def getFormDefinition(className):
         """ Return the json definition of a form defined by className. """
-        print("Loading form ", className)
-
         from pyworkflow.protocol import ElementGroup
         import pwem
 
+        print(">>> Loading form ", className)
+        ProtClass = pwem.Domain.findClass(className)
+        prot = ProtClass()
+        logoPath = prot.getPluginLogoPath()
+        if logoPath and os.path.exists(logoPath):
+            thumb = Thumbnail(output_format='base64', max_size=(64, 64))
+            logo = thumb.from_path(logoPath)
+        else:
+            logo = ''
+
         formDef = {
             'name': className,
+            'logo': logo,
+            'package': prot.getClassPackageName(),
             'sections': []
         }
 
@@ -689,12 +708,13 @@ class ScipionSessionData(SessionData):
 
             return paramDef
 
-        ProtClass = pwem.Domain.findClass(className)
-        prot = ProtClass()
+
+        #package = prot.getPackage()
 
         for section in prot.iterDefinitionSections():
             sectionDef = {
                 'label': section.getLabel(),
+
                 'params': []
             }
 
@@ -702,8 +722,5 @@ class ScipionSessionData(SessionData):
                 sectionDef['params'].append(getParamDef(name, param))
 
             formDef['sections'].append(sectionDef)
-
-        from pprint import pprint
-        pprint(formDef)
 
         return formDef
