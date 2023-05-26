@@ -46,7 +46,7 @@
             <div class="col-8">
                 <div class="row">
                     <div class="switch-button switch-button-xs ml-3 mt-2">
-                        <input type="checkbox" checked="" name="queue-switch" id="queue-switch"><span>
+                        <input type="checkbox" checked="" name="queue-switch" id="queue-switch" onclick="alert('changed queue')"><span>
                         <label for="queue-switch"></label></span>
                     </div>
                 </div>
@@ -59,10 +59,12 @@
 </div>
 </div>
 
-<div class="row col-6">
-    <label class="col-form-label">Expert Options</label>
-    <div class="switch-button switch-button-xs ml-3 mt-2">
-        <input type="checkbox" checked="" name="switch12" id="switch12"><span>
-        <label for="switch12"></label></span>
+<div class="col-12 mb-2" style="background-color: #E6E6E6;">
+    <div class="row col-6">
+        <label class="col-form-label">Expert Options</label>
+        <div class="switch-button switch-button-xs ml-3 mt-2">
+            <input type="checkbox" name="switch-expert" id="switch-expert" onclick="clickOnExpert()"><span>
+            <label for="switch-expert"></label></span>
+        </div>
     </div>
 </div>

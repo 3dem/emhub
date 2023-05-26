@@ -325,6 +325,14 @@ function createSession(bookingId, totalSessions) {
         if (param.label) {
             var row = document.createElement('div');
             row.className = 'row form-group';
+
+            if (param.expert == 1) {
+                row.style.backgroundColor = "#E6E6E6";
+                console.log("Expert: ", param.name);
+                row.className += ' scn-expert-param';
+                row.style.display = display_expert;
+            }
+
             row.id = base_id + '-row';
             parent.appendChild(row);
 
@@ -334,6 +342,7 @@ function createSession(bookingId, totalSessions) {
             label.dataset.toggle = "tooltip";
             label.dataset.placement = "top";
             label.title = param.help;
+
 
             row.appendChild(label);
 
@@ -422,8 +431,6 @@ function createSession(bookingId, totalSessions) {
      for (var i = 0;  i < form.sections.length; i++) {
          // Header elements
          var section = form.sections[i];
-
-         console.log('DEBUG: label: ' + section.label + " type: " + typeof(section.label));
 
          var section_label = replaceAll(section.label, ' ', '_');
          section_label = replaceAll(section_label, '.', '_');

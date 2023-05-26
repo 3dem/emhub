@@ -64,14 +64,13 @@
                 </div>
                 <div class="col-3">
                         <h3 class="col-12">Parameters</h3>
+{#                        <h3><span class="badge" style="background: black; color: #fff; font-size: 20px">Parameters</span></h3>#}
                         <div id="run_general_container" class="col-12">
                              {% include "session_flowchart_form.html" %}
                         </div>
+
                         <div id="run_form_container" class="col-12">
-
                         </div>
-
-
 
                 </div>
 
@@ -92,6 +91,7 @@
     var workflow = {{ workflow|tojson }};
     var stdoutEditor, stderrEditor, jsonEditor;
     var session_id = {{ session.id }};
+    var display_expert = 'none';
 
 
     (function(window, document, $, undefined) {
@@ -176,6 +176,11 @@
         reqRun.fail(function(jqXHR, textStatus) {
           alert( "Run request failed: " + textStatus );
         });
+    }
+
+    function clickOnExpert() {
+        display_expert = $('#switch-expert').prop('checked') ? 'flex' : 'none';
+        $('.scn-expert-param').css('display', display_expert);
     }
 
 
