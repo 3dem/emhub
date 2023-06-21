@@ -35,10 +35,11 @@
                                 <th>project</th>
                                 <th>owner</th>
                                 <th>operator</th>
-
+                                <th>acq</th>
                                 {% if show_extra %}
                                     <td>extra</td>
                                 {% endif %}
+
 
                             </tr>
                             </thead>
@@ -77,6 +78,7 @@
                                         <td>{{ macros.project(s.project) }}</td>
                                         <td>{{ booking.owner|pairname }}</td>
                                         <td>{{ s.operator.name }}</td>
+                                        <td>{{ s.acquisition }}</td>
                                         {% if show_extra %}
                                             <td>{{ s.extra }}</td>
                                         {% endif %}

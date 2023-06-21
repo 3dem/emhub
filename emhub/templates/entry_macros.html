@@ -258,3 +258,15 @@
         <td class="col-9"><{{ class }}>{{ value }}</{class}></td>
     </tr>
 {%- endmacro %}
+
+{% macro session_dialog_row(label, id, value, placeholder) %}
+
+    <div class="form-group row ">
+        <label class="col-12 col-sm-3 col-form-label text-sm-right">{{ label }}</label>
+        <div class="col-12 col-sm-8 col-lg-6">
+            <input type="text" required="" placeholder="{{ placeholder }}" id="{{ id }}" class="form-control"
+                   value="{{ value }}" data-key="{{ id }}">
+        </div>
+    </div>
+
+{%- endmacro %}
