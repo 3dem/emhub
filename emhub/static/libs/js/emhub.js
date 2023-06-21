@@ -24,6 +24,10 @@ function printObject(obj, label) {
     }
 }
 
+function getObjectValue(obj, key, default_value) {
+    return key in obj ? obj[key] : default_value;
+}
+
 function printArray(array, label){
     console.log("Array: ", label);
     var i = 0;
@@ -320,8 +324,7 @@ function getFormAsJson(formId, includeEmpty){
             newJson[propName] = propValue;
     }
     return newJson;
-} // function onFormOk
-
+} // function getFormAsJson
 
 
 function getFilesFromForm(formId) {
