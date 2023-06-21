@@ -2090,6 +2090,10 @@ class DataContent:
         if not (user.is_manager or user.same_pi(b.owner) or can_edit):
             raise Exception("You can not create Sessions for this Booking. "
                             "Only members of the same lab can do it.")
+
+        # load default acquisition params for the given microscope
+        acq = dm.get_config('sessions')['acquisition'][b.resource.name]
+
         # We provide cryolo_models to be used with the OTF
         cryolo_models_pattern = dm.get_config('sessions')['data']['cryolo_models']
 
@@ -2105,6 +2109,7 @@ class DataContent:
 
         data = {
             'booking': b,
+            'acquisition': acq,
             'cameras': dm.get_session_cameras(b.resource.id),
             'processing': dm.get_session_processing(),
             'session_name': dm.get_new_session_info(booking_id)['name'],

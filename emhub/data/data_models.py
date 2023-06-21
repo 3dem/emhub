@@ -813,15 +813,10 @@ def create_data_models(dm):
 
         DEFAULT_ACQUISITION = {
             'voltage': None,
+            'magnification': None,
             'cs': None,
-            'phasePlate': False,
-            'detector': None,
-            'detectorMode': None,
-            'pixelSize': None,
-            'dosePerFrame': None,
-            'totalDose': None,
-            'exposureTime': None,
-            'numOfFrames': None,
+            'pixel_size': None,
+            'dose': None,
         }
         # Acquisition info parameters are store as a JSON string
         acquisition = Column(JSON, default=DEFAULT_ACQUISITION)
