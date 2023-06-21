@@ -15,18 +15,18 @@
                 <ul class="nav nav-tabs nav-fill" id="myTab7" role="tablist">
 
                     <li class="nav-item">
-                        <a class="nav-link active" id="session-tab-current" data-toggle="tab" href="#sessions-current" role="tab" aria-controls="current" aria-selected="true">General</a>
+                        <a class="nav-link active" id="session-general-tab" data-toggle="tab" href="#session-general" role="tab" aria-controls="current" aria-selected="true">General</a>
                     </li>
 
                     {% if is_manager %}
                     <li class="nav-item">
-                        <a class="nav-link" id="session-tab-past" data-toggle="tab" href="#sessions-past" role="tab" aria-controls="past" aria-selected="false">Advanced</a>
+                        <a class="nav-link" id="session-acq-tab" data-toggle="tab" href="#session-acq" role="tab" aria-controls="past" aria-selected="false">Acquisition</a>
                     </li>
                     {% endif %}
 
                     {% if is_admin %}
                     <li class="nav-item">
-                        <a class="nav-link" id="session-tab-summary" data-toggle="tab" href="#sessions-summary" role="tab" aria-controls="summary" aria-selected="false">Development</a>
+                        <a class="nav-link" id="session-advanced-tab" data-toggle="tab" href="#session-advanced" role="tab" aria-controls="summary" aria-selected="false">Advanced</a>
                     </li>
                     {% endif %}
 
@@ -35,7 +35,7 @@
                 <div class="tab-content" id="myTabContent7">
 
                     <!-- tab "Current" -->
-                    <div class="tab-pane fade show active" id="sessions-current" role="tabpanel" aria-labelledby="session-tab-current">
+                    <div class="tab-pane fade show active" id="session-general" role="tabpanel" aria-labelledby="session-general-tab">
 
                             <!-- Session's Name -->
                             <div class="form-group row">
@@ -97,18 +97,18 @@
 
                 <!-- OTF extra params only visible to manager for now -->
                     {% if is_manager %}
-                        <div class="tab-pane fade" id="sessions-past" role="tabpanel" aria-labelledby="session-tab-past">
-                            {{ macros.session_dialog_row('Voltage', 'acq_voltage', acquisition['voltage'], '') }}
+                        <div class="tab-pane fade" id="session-acq" role="tabpanel" aria-labelledby="session-acq-tab">
+                            {{ macros.session_dialog_row('Voltage (kV)', 'acq_voltage', acquisition['voltage'], '') }}
                             {{ macros.session_dialog_row('Magnification', 'acq_magnification', acquisition['magnification'], '') }}
-                            {{ macros.session_dialog_row('Pixel size', 'acq_pixel_size', acquisition['pixel_size'], '') }}
-                            {{ macros.session_dialog_row('Spherical aberration', 'acq_cs', acquisition['cs'], '') }}
-                            {{ macros.session_dialog_row('Dose', 'acq_dose', acquisition['dose'], '') }}
+                            {{ macros.session_dialog_row('Pixel Size (A/px)', 'acq_pixel_size', acquisition['pixel_size'], '') }}
+                            {{ macros.session_dialog_row('CS', 'acq_cs', acquisition['cs'], '') }}
+                            {{ macros.session_dialog_row('Dose (per frame)', 'acq_dose', acquisition['dose'], '') }}
                         </div>
                     {% endif %}
 
 
                     {% if is_admin %}
-                        <div class="tab-pane fade" id="sessions-summary" role="tabpanel" aria-labelledby="session-tab-summary">
+                        <div class="tab-pane fade" id="session-advanced" role="tabpanel" aria-labelledby="session-advanced-tab">
                             {{ macros.session_dialog_row('RAW data folder', 'raw_folder', '', 'Provide RAW data folder') }}
                             {{ macros.session_dialog_row('OTF folder', 'otf_folder', '', 'If OTF folder is not provided it will be created') }}
 

@@ -94,9 +94,10 @@
                                 <table class="table table-striped table-bordered">
                                     <tbody>
                                         {{ macros.trow('Voltage (kV)', acq['voltage']) }}
+                                        {{ macros.trow('Magnification', acq['magnification']) }}
+                                        {{ macros.trow('Pixel Size (A/px)', acq['pixel_size']) }}
                                         {{ macros.trow('CS', acq['cs']) }}
-                                        {{ macros.trow('Pixel Size (A/px)', acq['pixelSize']) }}
-                                        {{ macros.trow('Dose (per frame)', acq['dosePerFrame']) }}
+                                        {{ macros.trow('Dose (per frame)', acq['dose']) }}
 
                                     </tbody>
                                 </table>
