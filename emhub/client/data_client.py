@@ -168,6 +168,9 @@ class DataClient:
             attrs['specs'] = System.specs()
         return self._method('get_session_tasks', 'session_tasks', attrs)
 
+    def get_config(self, configName):
+        return self._method('get_config', None, {'config': configName})['config']
+
     # --------------------- Internal functions ------------------------------
     def _method(self, method, resultKey, attrs, condition=None):
         r = self.request(method,
