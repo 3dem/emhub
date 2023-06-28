@@ -82,7 +82,10 @@ class DataContent:
         def week_start(d):
             return (d - dt.timedelta(days=d.weekday())).date()
 
-        now = dm.now()
+        if 'date' in kwargs:
+            now = datetime_from_isoformat(kwargs['date'])
+        else:
+            now = dm.now()
         this_week = week_start(now)
         d7 = dt.timedelta(days=7)
         next_week = week_start(now + d7)
