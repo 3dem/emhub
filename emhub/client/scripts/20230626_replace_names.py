@@ -26,56 +26,83 @@
 # **************************************************************************
 
 """ 
-This script will create new bookings for specific bookings
+This script change the names of all users in the database
 """
 import datetime
 import os
 import sys
-import secrets
-from pprint import pprint
-from datetime import timezone, timedelta, datetime
+from faker import Faker
 
 from emtools.utils import Pretty, Color
+
 from emhub.client import open_client, config
 from emhub.utils import datetime_from_isoformat
 
 update = '--update' in sys.argv
+users = '--users' in sys.argv
+sessions = '--sessions' in sys.argv
+projects = '--projects' in sys.argv
 
 
-def update_sessions_acq():
+def change_user_names():
     with open_client() as dc:
-        resources = dc.request('get_resources', jsonData=None).json()
-        bookings = dc.request('get_bookings', jsonData=None).json()
+        users = dc.request('get_users', jsonData=None).json()
+
+        c = 0
+        f = Faker()
+        for u in users:
+            if u['status'] == 'active':
+                print(f"{u['id']:>5}   {u['email']:>30}  {u['name']:30} {u['username']}")
+                c += 1
+                if update:
+                    name = ' '.join(f.name().split(' ')[-2:])
+                    email = name.lower().replace(' ', '.') + '@emhub.org'
+                    attrs = {'id': u['id'], 'name': name, 'email': email}
+                    dc.request('update_user', jsonData={'attrs': attrs})
+
+        print(f"\n\nTotal users: {c}")
+
+
+def change_session_names():
+    with open_client() as dc:
         sessions = dc.request('get_sessions', jsonData=None).json()
         sconfig = dc.get_config('sessions')
 
-        rDict = {r['id']: r['name'] for r in resources}
-        brDict = {b['id']: rDict[b['resource_id']] for b in bookings}
-
         for s in sessions:
-            acq = s['acquisition']
-            ps = acq.get('pixel_size', None)
-            rName = brDict[s['booking_id']]
-            if ps:
-                color = Color.green
-                acqStr = str(acq)
-            else:
-                color = Color.red
-                newAcq = sconfig['acquisition'][rName]
-                acqStr = f"None -> {newAcq}"
-                if update:
-                    dc.update_session({'id': s['id'],
-                                       'acquisition': newAcq})
-
-            print(f"{color(s['name']):>25} {acqStr}")
+            if update:
+                dc.update_session({'id': s['id'],
+                                   'name': f"S{s['id']:05d}"
+                                   })
 
         print(f"\n\nTotal sessions: {len(sessions)}")
+
+
+def change_project_names():
+    with open_client() as dc:
+        projects = dc.request('get_projects', jsonData=None).json()
+
+        for p in projects:
+
+            if update:
+                extra = dict(p['extra'])
+                extra['is_confidential'] = True
+                attrs = {'id': p['id'], 'extra': extra, 'title': 'Project Title'}
+                dc.request('update_project', jsonData={'attrs': attrs})
+
+        print(f"\n\nTotal projects: {len(projects)}")
 
 
 def main():
     print("EMHUB_SERVER_URL: ", config.EMHUB_SERVER_URL)
 
-    update_sessions_acq()
+    if users:
+        change_user_names()
+
+    if sessions:
+        change_session_names()
+
+    if projects:
+        change_project_names()
 
 
 if __name__ == '__main__':
