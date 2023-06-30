@@ -31,7 +31,7 @@ import traceback
 from emtools.utils import Pretty, Process, Path, Color, Timer
 from emtools.metadata import EPU
 
-from emhub.client import open_client, config
+from emhub.client import open_client, config, DataClient
 
 
 SESSIONS_DATA_FOLDER = os.environ.get('SESSIONS_DATA_FOLDER', None)
@@ -41,6 +41,14 @@ class SessionHandler:
     """ Class with base functionality used by the Worker thread and the
     main SessionManager.
     """
+    def __init__(self):
+        # Login into EMhub and keep a client instance
+        self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
+        self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+
+    def __del__(self):
+        self.dc.logout()
+
     def create_logger(self, logsFolder, logName):
         self.logFile = os.path.join(logsFolder, logName)
         handler = logging.FileHandler(self.logFile)
@@ -67,8 +75,7 @@ class SessionHandler:
                         self.logger.info("Stopping worker thread.")
                         break
                     if self._update_session:
-                        with open_client() as dc:
-                            self.session = dc.get_session(self.session['id'])
+                        self.session = self.dc.get_session(self.session['id'])
 
                 session_func(first)
 
@@ -84,13 +91,22 @@ class SessionHandler:
         self.logger.info(f"Updating session {session['name']}")
         extra['updated'] = Pretty.now()
         try:
-            with open_client() as dc:
-                dc.update_session_extra({'id': session['id'], 'extra': extra})
-                return True
+            self.dc.update_session_extra({'id': session['id'], 'extra': extra})
+            return True
         except Exception as e:
             self.logger.error(f"Error connecting to {config.EMHUB_SERVER_URL} "
                               f"to update session.")
             return False
+
+    def request_data(self, endpoint, jsonData=None):
+        return self.dc.request(endpoint, jsonData=jsonData).json()
+
+    def request_dict(self, endpoint, jsonData=None):
+        return {s['id']: s for s in self.request_data(endpoint, jsonData=jsonData)}
+
+    def request_config(self, config):
+        data = {'attrs': {'config': config}}
+        return self.request_data('get_config', jsonData=data)['config']
 
 
 class SjSessionWorker(threading.Thread, SessionHandler):
@@ -196,6 +212,7 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         }
 
         acq = dict(self.sconfig['acquisition'][self.microscope])
+        acq.update(self.session['acquisition'])
         config['ACQUISITION'] = acq
 
         config['PREPROCESSING'] = {
@@ -234,7 +251,8 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         extra = self.session['extra']
         logger = self.logger
         raw = extra['raw']
-        epuPath = os.path.join(extra['otf']['path'], 'EPU')
+        otf_path = extra['otf']['path']
+        epuPath = os.path.join(otf_path, 'EPU')
         framesPath = raw['frames']
         rawPath = raw['path']
 
@@ -323,6 +341,34 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         self.logger.info(f"Transferred {self._files_count} files.")
         _update()
         self.logger.info(f"Sleeping {self._sleep} seconds.")
+        info = epuData.info()
+        lastMovieDt = datetime.fromtimestamp(info['last_movie_creation'])
+        now = datetime.now()
+        lastMovieDays = (now - lastMovieDt).days
+
+        if lastMovieDays:
+            self.logger.info(f"Last movie: {lastMovieDt} ({lastMovieDays} days ago)")
+            self.logger.info(f"Frames: {framesPath}, exists: {os.path.exists(framesPath)}")
+            otfCreation = 'Unknown'
+            if os.path.exists(otf_path):
+                otfMt = datetime.fromtimestamp(os.path.getctime(os.path.join(otf_path, 'README.txt')))
+                otfDays = (now - otfMt).days
+                otfCreation = f"{otfDays} days ago"
+                if otfDays:
+                    # Both transfer and otf are done, so we can mark this session as finished
+                    self.stop()
+                    sessionId = self.session['id']
+                    thread = self.manager.threadsDict.get((sessionId, 'otf'), None)
+                    self.manager.stop_otf(thread, self.session)
+                    self.dc.update_session({'id': sessionId, 'status': 'finished'})
+
+                    self.logger.info(f"OTF: {otf_path}, "
+                                     f"exists: {os.path.exists(otf_path)}, "
+                                     f"created: {otfCreation}, STOPPED")
+
+                    if os.path.exists(framesPath):
+                        self.logger.info(f"Deleting frames folder: {framesPath}")
+                        self.pl.system(f"rm -rf {framesPath}")
 
     def update_raw(self):
         extra = self.session['extra']
@@ -343,6 +389,7 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         raw = EPU.parse_session(raw_path,
                                 outputStar=epuMoviesFn,
                                 backupFolder=epuPath,
+                                doBackup=True,
                                 lastMovie=last_movie,
                                 pl=self.pl)
         logger.info(f'Parsing took {timer.getToc()}')
@@ -351,6 +398,18 @@ class SjSessionWorker(threading.Thread, SessionHandler):
             raw['path'] = raw_path
             extra['raw'] = raw
             self.update_session_extra({'raw': raw})
+
+        lastMovieDt = datetime.fromtimestamp(raw['last_movie_creation'])
+        now = datetime.now()
+        lastMovieDays = (now - lastMovieDt).days
+
+        if lastMovieDays:
+            self.logger.info(f"Last movie: {lastMovieDt} ({lastMovieDays} days ago)")
+            maxDays = 1
+            if lastMovieDays > maxDays:
+                self.logger.info(f"STOPPING 'raw' task since last movie is "
+                                 f"older than {maxDays} days")
+                self.stop()
 
     def update_otf(self):
         extra = self.session['extra']
@@ -380,6 +439,9 @@ class SjSessionWorker(threading.Thread, SessionHandler):
 
     def launch_otf(self):
         """ Launch OTF for a session. """
+        self.logger.info(f"Notifying launch of OTF, self: {self}")
+        manager.notify_launch_otf(self)
+
         otf = self.session['extra']['otf']
         otf_path = otf['path']
         workflow = otf.get('workflow', 'default')
@@ -403,7 +465,7 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         logName = f"session_{self.session['id']}_{taskName}.log"
         self.create_logger(self.manager.logs_folder, logName)
 
-        self.logger.info(f" > Starting Thread for Session {sessionId}, task '{taskName}'")
+        self.logger.info(f" > Working on Session {sessionId}, Task '{taskName}' ({self})")
 
         if taskName in ['transfer', 'raw']:
             self.create_folders()
@@ -436,33 +498,41 @@ class SjSessionManager(SessionHandler):
         self.pl = None
         self.resources = []
 
-    def request_data(self, endpoint, jsonData=None):
-        with open_client() as dc:
-            return dc.request(endpoint, jsonData=jsonData).json()
-
-    def request_dict(self, endpoint, jsonData=None):
-        return {s['id']: s for s in self.request_data(endpoint, jsonData=jsonData)}
-
-    def request_config(self, config):
-        data = {'attrs': {'config': config}}
-        return self.request_data('get_config', jsonData=data)['config']
-
     def print(self, *args):
         if self.verbose:
             print(*args)
 
-    def stop_otf(self, session):
+    def stop_otf(self, thread, session):
+        """ Stop the thread that is doing OTF and all subprocess.
+        Also update the internal dictionary of threads-sessions-tasks
+        """
+        if thread:
+            thread.stop()
+            del self.threadsDict[(session['id'], 'otf')]
+
         otf = session['extra']['otf']
-        processes = Process.ps('relion', workingDir=otf['path'])
+        processes = Process.ps('', workingDir=otf['path'])
         for folder, procs in processes.items():
             try:
-                print(f"Killing processes for Session {session['id']}")
+                self.logger.info(f"Killing processes for Session {session['id']}")
                 for p in procs:
                     p.kill()
                 otf['status'] = 'stopped'
                 self.update_session_extra({'otf': otf}, session=session)
             except Exception as e:
-                print(Color.red("Error: %s" % str(e)))
+                self.logger.error(Color.red("Error: %s" % str(e)))
+
+    def notify_launch_otf(self, thread):
+        """ Through this method a thread notifies that is launching OTF.
+        Then, if there is any other OTF running, we must stop it.
+        """
+        self.logger.info(f"Thread  {thread} notified OTF launch")
+        threadKey = (thread.session['id'], 'otf')
+        threadItems = list(self.threadsDict.items())
+        for (sessionId, threadTask), thread2 in threadItems:
+            if threadTask == 'otf' and thread != thread2:
+                self.logger.info(f"Stopping thread  {thread2}.")
+                self.stop_otf(thread2, thread2.session)
 
     def run(self):
         """ Check actions needed by this server """
@@ -477,7 +547,7 @@ class SjSessionManager(SessionHandler):
         self.logger.info("Status file: %s" % status_file)
 
         first = True  # Send workers specs the first time
-        threadsDict = {}
+        self.threadsDict = threadsDict = {}
 
         # Reload previously active threads if the worker restarted
         if os.path.exists(status_file):
@@ -499,31 +569,23 @@ class SjSessionManager(SessionHandler):
 
                 for t in tasks:
                     s = t["session"]
+                    taskInfo = dict(t)
+                    del taskInfo['session']
+
                     taskName = t['name']
                     sessionId = s['id']
-                    self.logger.info(f"Got task {taskName} (session {sessionId})")
+                    self.logger.info(f"Got task {taskInfo} (session {sessionId})")
                     if taskName in ["raw", "otf", "transfer"]:
-                        if taskName == "otf" and t['stop']:
-                            # Check if there is a stop command
-                            if thread := threadsDict.get((sessionId, 'otf'), None):
-                                thread.stop()
-                                del threadsDict[(sessionId, 'otf')]
-                            self.stop_otf(s)
-                            continue
+                        if taskName == "otf" and (t['create'] or t['stop']):
+                            thread = threadsDict.get((sessionId, 'otf'), None)
+                            self.stop_otf(thread, s)
+                            if not t['create']:  # restart case
+                                continue
 
                         threadKey = (sessionId, taskName)
                         if threadKey in threadsDict:
                             self.logger.error("Seems like a duplicate task!!!")
                             continue
-
-                        # If OTF, check if we need to stop other OTFs
-                        if taskName == 'otf':
-                            threadItems = list(threadsDict.items())
-                            for (sessionId, threadTask), thread in threadItems:
-                                if threadTask == 'otf':
-                                    thread.stop()
-                                    self.stop_otf(thread.session)
-                                    del threadsDict[(sessionId, 'otf')]
 
                         threadsDict[threadKey] = SjSessionWorker(self, t, debug=False)
                         threadsDict[threadKey].start()
@@ -542,7 +604,8 @@ class SjSessionManager(SessionHandler):
 
             except Exception as e:
                 self.logger.error("Some error happened: %s" % e)
-                print("Waiting 60 seconds before retrying...")
+                self.logger.error("Waiting 60 seconds before retrying...")
+                time.sleep(60)
 
 
 if __name__ == '__main__':
