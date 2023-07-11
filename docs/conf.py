@@ -122,7 +122,7 @@ intersphinx_mapping.update(
 extensions += ['jaraco.tidelift']
 
 # Add icons (aka "favicons") to documentation
-extensions += ['sphinx-favicon']
+extensions += ['sphinx_favicon']
 html_static_path = ['images']  # should contain the folder with icons
 
 # List of dicts with <link> HTML attributes
