@@ -93,9 +93,10 @@ to build the documentation.
 
 .. code-block:: bash
 
-    conda create --name=emhub-docs python=3.8
+    conda create -y --name=emhub-docs python=3.8
     conda activate emhub-docs
-    pip install sphinx furo jaraco.packaging rst.linker sphinx_reredirects sphinx_inline_tabs jaraco.tidelift sphinx-favicon
+    pip install sphinx furo jaraco.packaging rst.linker sphinx_reredirects \
+    sphinx_inline_tabs jaraco.tidelift sphinx-favicon
 
 Then we change to the branch `docs` and build the documentation
 
