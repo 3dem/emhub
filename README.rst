@@ -92,6 +92,7 @@ A Python environment with Sphinx and other dependencies is required
 to build the documentation.
 
 .. code-block:: bash
+
     conda create --name=emhub-docs python=3.8
     conda activate emhub-docs
     pip install sphinx furo jaraco.packaging rst.linker sphinx_reredirects sphinx_inline_tabs jaraco.tidelift sphinx-favicon
@@ -99,7 +100,8 @@ to build the documentation.
 Then we change to the branch `docs` and build the documentation
 
 .. code-block:: bash
-    git checkout docs    
+
+    git checkout docs
     sphinx-build -b html docs/ html/
     # Rsync the generated html files to the emhub-doc repo
     rsync -av html/ ../emhub-docs/
