@@ -1,3 +1,4 @@
+{% import "entry_macros.html" as macros %}
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
@@ -8,7 +9,7 @@
     {% set is_manager = current_user.is_manager %}
 
     <!-- table row -->
-    <input type="hidden" value="09:00:00.000", id="hour_id">
+    {{ macros.hidden_hour_id() }}
 
     <div class="row">
         <div class="col-12">
@@ -70,7 +71,7 @@
 </div>
 
 <!-- ============================================================== -->
-<!-- Project Modal -->
+<!-- Entry Modal -->
 <!-- ============================================================== -->
 <div class="modal fade" id="entry-modal" tabindex="-1" role="dialog" aria-labelledby="projectModal" aria-hidden="true" >
     <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 80%">
@@ -87,7 +88,7 @@
             <div class="form-group row">
                 <label class="col-12 col-sm-3 col-form-label text-sm-right">Extra (Json)</label>
                 <div class="col-12 col-sm-8 col-lg-6">
-                    <div id="editor"></div>
+                    <div id="editor" class="editor-json-black"></div>
                 </div>
             </div>
         </div>
@@ -100,14 +101,6 @@
         </div>
     </div>
 </div>
-
-<style type="text/css" media="screen">
-    #editor {
-        position: relative;
-        width: 100%;
-        height: 400px;
-    }
-</style>
 
 <script>
 

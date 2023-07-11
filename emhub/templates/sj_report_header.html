@@ -1,0 +1,17 @@
+
+{% import "entry_macros.html" as macros %}
+
+{{ macros.sj_header_card(entry_config['label'], entry.date, (1, N), False) }}
+
+{% if pi_info %}
+    {% set ia = pi_info['invoice_address'] %}
+    {% set address = '%s, %s, %s'|format(ia['address'], ia['city'], ia['country']) %}
+{% endif %}
+
+{{ macros.table_card('General Info',
+[('PI / User', '%s / %s'|format(pi.name, user.name)),
+ ('Responsible Staff', entry.creation_user.name),
+ ('Description', entry.description),
+ ])
+}}
+

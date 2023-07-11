@@ -32,12 +32,13 @@ import uuid
 from collections import defaultdict
 
 import sqlalchemy
+from emtools.utils import Pretty
 
 from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
-from .data_session import H5SessionData
+from .data_session import RelionSessionData, ScipionSessionData
 
 
 class DataManager(DbManager):
@@ -90,6 +91,20 @@ class DataManager(DbManager):
         if self._user is None:
             self._user = admin
 
+    def create_basic_users(self):
+        users = []
+        for user in ['admin', 'manager', 'user']:
+            users.append(self.create_user(
+                username=user,
+                email=user + '@emhub.org',
+                password=user,
+                name=user,
+                roles=[user],
+                pi_id=None
+            ))
+        if self._user is None:
+            self._user = users[0]
+
     def create_user(self, **attrs):
         """ Create a new user in the DB. """
         attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
@@ -119,6 +134,11 @@ class DataManager(DbManager):
     def get_user_by(self, **kwargs):
         """ This should return a single user or None. """
         return self.__item_by(self.User, **kwargs)
+
+    def get_user_group(self, user):
+        pi = user.get_pi()
+        user_groups = self.get_config('sessions')['groups']
+        return user_groups.get(pi.email, 'No-group')
 
     # ---------------------------- FORMS ---------------------------------
     def create_form(self, **attrs):
@@ -307,12 +327,15 @@ class DataManager(DbManager):
         # We might create many bookings if repeat != 'no'
         repeat_value = attrs.get('repeat_value', 'no')
         modify_all = attrs.pop('modify_all', None)
+        # We should accept empty title for booking
+        attrs['title'] = attrs.get('title', None) or ''
         bookings = []
 
         def _add_booking(attrs):
-            b = self.__create_booking(attrs,
-                                      check_min_booking=check_min_booking,
-                                      check_max_booking=check_max_booking)
+            b = self.create_basic_booking(attrs)
+            self.__validate_booking(b,
+                                    check_min_booking=check_min_booking,
+                                    check_max_booking=check_max_booking)
             bookings.append(b)
 
         if repeat_value == 'no':
@@ -355,7 +378,6 @@ class DataManager(DbManager):
 
         def update(b):
             self.__check_cancellation(b, attrs)
-
             for attr, value in attrs.items():
                 if attr != 'id':
                     setattr(b, attr, value)
@@ -370,6 +392,10 @@ class DataManager(DbManager):
                  attrs=self.json_from_dict(attrs))
 
         return result
+
+    def get_booking_by(self, **kwargs):
+        """ Return a single Application or None. """
+        return self.__item_by(self.Booking, **kwargs)
 
     def get_bookings(self, condition=None, orderBy=None, asJson=False):
         return self.__items_from_query(self.Booking,
@@ -460,16 +486,19 @@ class DataManager(DbManager):
 
     # ---------------------------- SESSIONS -----------------------------------
     def __get_section(self, sectionName):
-        formDef = self.get_form_by_name('sessions_config').definition
-        for s in formDef['sections']:
-            if s['label'] == sectionName:
-                return formDef, s
+        form = self.get_form_by(name='sessions_config')
+        if form:
+            formDef = form.definition
+            for s in formDef['sections']:
+                if s['label'] == sectionName:
+                    return formDef, s
         return None
 
     def __iter_config_params(self, configName):
-        _, section = self.__get_section(configName)
-        for p in section['params']:
-            yield p
+        section = self.__get_section(configName)
+        if section:
+            for p in section[1]['params']:
+                yield p
 
     def __get_session_dict(self, section):
         return {p['label']: p['value']
@@ -506,7 +535,7 @@ class DataManager(DbManager):
         return self.__get_session_dict('folders')
 
     def get_session_data_deletion(self, group_code):
-        return int(self.__get_session_dict('data_deletion')[group_code])
+        return int(self.__get_session_dict('data_deletion').get(group_code, 0))
 
     def get_session_processing(self):
         # Load processing options from the 'processing' Form
@@ -556,7 +585,7 @@ class DataManager(DbManager):
     def create_session(self, **attrs):
         """ Add a new session row. """
         create_data = attrs.pop('create_data', False)
-        b = self.get_bookings(condition="id=%s" % attrs['booking_id'])[0]
+        b = self.get_booking_by(id=int(attrs['booking_id']))
         attrs['resource_id'] = b.resource.id
         attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
 
@@ -564,46 +593,57 @@ class DataManager(DbManager):
             attrs['start'] = self.now()
 
         if 'status' not in attrs:
-            attrs['status'] = 'pending'
+            attrs['status'] = 'active'
 
-        session_info = self.get_new_session_info(b.id)
-        attrs['name'] = session_info['name']
+        # Name of the session can be passed and it will be used
+        # If not, then a name will be picked from the booking/group/application
+        if 'name' not in attrs:
+            session_info = self.get_new_session_info(b.id)
+            attrs['name'] = session_info['name']
+        else:
+            session_info = None
+
+        extra = attrs.get('extra', {})
+        raw_folder = extra['raw'].get('path', '')
+        if raw_folder and not os.path.exists(raw_folder):
+            raise Exception(f"Missing Raw data folder '{raw_folder}'")
+
+        otf = extra['otf']
+        otf_folder = otf.get('path', '')
+        if otf_folder:
+            data_path = otf_folder
+            extra['otf'] = {'path': otf_folder}
 
         session = self.__create_item(self.Session, **attrs)
 
-        # Let's update the data path after we know the id
-        session.data_path = 'session_%06d.h5' % session.id
-
-        self.commit()
-
-        # Create empty hdf5 file
-        if create_data:
-            data = H5SessionData(self._session_data_path(session), mode='a')
-            data.close()
-
         # Update counter for this session group
-        self.update_session_counter(session_info['code'],
-                                    session_info['counter'] + 1)
+        if session_info:
+            self.update_session_counter(session_info['code'],
+                                        session_info['counter'] + 1)
 
         return session
 
     def update_session(self, **attrs):
         """ Update session attrs. """
+        otf_path = attrs.get('extra', {}).get('otf', {}).get('path', None)
+        if otf_path:
+            attrs['data_path'] = otf_path
         session = self.__update_item(self.Session, **attrs)
 
         # Update the session counter if it was modified
         name = session.name
 
-        if '_' in name:
-            code, counterStr = name.split('_')
-        else:
-            code = name[:3]
-            counterStr = name[3:]
+        if session.is_code_counted:
+            if '_' in name:
+                code, counterStr = name.split('_')
+            else:
+                code = name[:3]
+                counterStr = name[3:]
 
-        c = self.get_session_counter(code)
-        counter = int(counterStr)
-        if c < counter:
-            self.update_session_counter(code, counter + 1)
+            c = self.get_session_counter(code)
+            counter = int(counterStr)
+            if c < counter:
+                self.update_session_counter(code, counter + 1)
 
         return session
 
@@ -614,7 +654,7 @@ class DataManager(DbManager):
         data_path = self._session_data_path(session)
         self.delete(session)
 
-        if os.path.exists(data_path):
+        if os.path.exists(data_path) and os.path.isfile(data_path):
             os.remove(data_path)
 
         self.log("operation", "delete_Session",
@@ -623,14 +663,21 @@ class DataManager(DbManager):
         return session
 
     def load_session(self, sessionId, mode="r"):
-        # if self._lastSession is not None:
-        #     if self._lastSession.id == sessionId:
-        #         return self._lastSession
-        #     self._lastSession.data.close()
-
         session = self.Session.query.get(sessionId)
-        session.data = H5SessionData(self._session_data_path(session), mode)
+        session.data = self._create_data_instance(session, mode)
         return session
+
+    def _create_data_instance(self, session, mode):
+        if not session.data_path:
+            return None
+
+        if session.data_path.endswith('h5'):
+            return H5SessionData(self._session_data_path(session), mode)
+        else:
+            projectSqlite = os.path.join(session.data_path, 'project.sqlite')
+            if os.path.exists(projectSqlite):
+                return ScipionSessionData(session.data_path, mode)
+            return RelionSessionData(session.data_path, mode)
 
     def clear_session_data(self, **attrs):
         session = self.get_session_by(id=attrs['id'])
@@ -638,6 +685,13 @@ class DataManager(DbManager):
         if os.path.exists(data_path):
             os.remove(data_path)
         return session
+
+    def update_session_extra(self, **attrs):
+        session = self.get_session_by(id=attrs['id'])
+        extra = dict(session.extra)
+        extra.update(attrs['extra'])
+        attrs['extra'] = extra
+        return self.update_session(**attrs)
 
     # -------------------------- INVOICE PERIODS ------------------------------
     def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):
@@ -748,19 +802,80 @@ class DataManager(DbManager):
         return self.__item_by(self.Project, **kwargs)
 
     # ---------------------------- ENTRIES ---------------------------------
-    def __check_entry(self, **attrs):
-        if 'title' in attrs:
-            if not attrs['title'].strip():
-                raise Exception("Entry title can not be empty")
+    def get_config(self, configName):
+        """ Find a form named config:configName and return
+        the associated JSON definition. """
+        return self.get_form_by_name(f'config:{configName}').definition
 
-        # if 'type' in attrs:
-        #     entry_types = self.get_entry_types()
-        #     if not attrs['type'].strip() in entry_types:
-        #         raise Exception("Please provide a valid entry type: %s"
-        #                         % entry_types)
+    def update_config(self, configName, definition):
+        form = self.get_form_by_name(f'config:{configName}')
+        self.update_form(id=form.id, definition=definition)
+
+    def get_entry_config(self, entry_type):
+        return self.get_config('projects')['entries'][entry_type]
+
+    def get_projects_config_permissions(self):
+        return {e['label']: e['value']
+                for e in self.__get_project_config_section('permissions')}
+
+    def user_can_create_projects(self, user):
+        if user.is_manager:
+            return True
+
+        permissions = self.get_config("projects")['permissions']
+        value = permissions['user_can_create_projects']
+
+        if (value == 'all'
+            or (value == 'independent' and user.is_independent)):
+            return True
+
+        return False
+
+    # def __check_entry(self, **attrs):
+    #     if 'title' in attrs:
+    #         if not attrs['title'].strip():
+    #             raise Exception("Entry title can not be empty")
+
+    def _validate_access_microscopes(self, entry):
+        data = entry.extra['data']
+        micId = data.get('microscope_id', None)
+        if not (micId and self.get_resource_by(id=micId)):
+            raise Exception("Please select microscope")
+        dstr = data.get('suggested_date', '')
+        try:
+            sdate = self.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
+            now = self.now()
+            nowDay = self.date(dt.datetime.now())
+            monday = nowDay - dt.timedelta(days=nowDay.weekday())
+            fridayNoon = monday + dt.timedelta(days=4, hours=12)
+            start = monday + dt.timedelta(weeks=1 if now < fridayNoon else 2)
+            end = start + dt.timedelta(days=4)
+
+            if sdate < start or sdate > end:
+                raise Exception(f"Now requests are allowed for the following "
+                                f"period: </br>{self.local_weekday(start)} - "
+                                f"{self.local_weekday(end)}")
+
+        except ValueError:
+            raise Exception("Provide a valid suggested date")
+
+    def __validate_entry(self, attrs):
+        entry = self.Entry(**attrs)
+        t = attrs['type']
+        formDef = self.get_form_by_name(f"entry_form:{t}").definition if t != 'note' else {}
+        config = formDef.get('config', {})
+        validate = config.get('validation', '')
+        if validate:
+            validateFunc = getattr(self, validate)
+            validateFunc(entry)
+        return entry
 
     def create_entry(self, **attrs):
-        self.__check_entry(**attrs)
+        if 'title' not in attrs:
+            attrs['title'] = ''
+
+        def __create(attrs):
+            return self.__validate_entry(attrs)
 
         now = self.now()
         attrs.update({
@@ -769,16 +884,22 @@ class DataManager(DbManager):
             'creation_user_id': self._user.id,
             'last_update_date': now,
             'last_update_user_id': self._user.id,
+            'special_create': __create
         })
+
         return self.__create_item(self.Entry, **attrs)
 
     def update_entry(self, **attrs):
-        self.__check_entry(**attrs)
-
+        # In some special cases, update_entry is called after create_entry,
+        # and we don't want to validate in this case
+        validate = attrs.pop('validate', True)
         attrs.update({
             'last_update_date': self.now(),
             'last_update_user_id': self._user.id,
         })
+        if validate:
+            self.__validate_entry(attrs)
+
         return self.__update_item(self.Entry, **attrs)
 
     def delete_entry(self, **attrs):
@@ -933,17 +1054,55 @@ class DataManager(DbManager):
 
         return any(p.code in json_codes for p in applications)
 
+    # ------------------- PERMISSIONS helper functions -----------------------------
+    def check_user_access(self, permissionKey):
+        """ Return True if the current logged user has any of the roles
+        defined in the config for 'permissionKey'.
+        """
+        perms = self.get_config('permissions')['content']
+        return self._user.has_any_role(perms.get(permissionKey, []))
+
+    def check_resource_access(self, resource, permissionKey):
+        """ Check if the user has permission to access bookings for this
+        resource based on the resource tags and user's roles. """
+        # FIXME: Now only checking if 'user' in permissions, not based on roles
+        if self._user.is_manager:
+            return True
+
+        perms = self.get_config('permissions')
+        return (self._user.can_book_resource(resource) and
+                any(t in resource.tags and 'user' in u
+                    for t, u in perms[permissionKey].items()))
+
     # ------------------- BOOKING helper functions -----------------------------
-    def __create_booking(self, attrs, **kwargs):
-        if 'creator_id' not in attrs:
-            attrs['creator_id'] = self._user.id
+    def create_basic_booking(self, attrs, **kwargs):
+        # if 'creator_id' not in attrs:
+        #     attrs['creator_id'] = self._user.id
+        #
+        # if 'owner_id' not in attrs:
+        #     attrs['owner_id'] = self._user.id
+        if 'type' not in attrs:
+            attrs['type'] = 'booking'
 
         b = self.Booking(**attrs)
-        self.__validate_booking(b, **kwargs)
+
+        def _set_user(key):
+            keyid = key + '_id'
+            if keyid not in attrs:
+                setattr(b, keyid, self._user.id)
+                setattr(b, key, self._user)
+
+        _set_user('creator')
+        _set_user('owner')
+
         return b
 
     def __validate_booking(self, booking, **kwargs):
         r = self.get_resource_by(id=booking.resource_id)
+
+        if r is None:
+            raise Exception("Select a valid Resource for this booking.")
+
         check_min_booking = kwargs.get('check_min_booking', True)
         check_max_booking = kwargs.get('check_max_booking', True)
 
@@ -952,9 +1111,12 @@ class DataManager(DbManager):
             raise Exception("The booking 'end' should be after the 'start'. ")
 
         user = self._user
-
         # The following validations do not apply for managers
         if not user.is_manager:
+            if not self.check_resource_access(r, 'create_booking'):
+                raise Exception("Users can not create/modify bookings for "
+                                "this type of resource.")
+
             # Selected resource should be active
             if not r.is_active:
                 raise Exception("Selected resource is inactive now. ")
@@ -1074,8 +1236,12 @@ class DataManager(DbManager):
         This function will raise an exception if a condition is not meet.
         """
         user = self._user
-        if user.is_admin:
+        if user.is_manager:
             return  # admin can cancel/modify at any time
+
+        if not self.check_resource_access(booking.resource, 'delete_booking'):
+            raise Exception("Users can not delete/modify bookings for "
+                            "this type of resource.")
 
         now = self.now()
         latest = booking.resource.latest_cancellation
@@ -1086,8 +1252,7 @@ class DataManager(DbManager):
                             % (action, latest))
 
         start, end = booking.start, booking.end
-        if (not self._user.is_manager
-            and start - dt.timedelta(hours=latest) < now):
+        if start - dt.timedelta(hours=latest) < now:
             if attrs:  # Update case, where we allow modification except dates
                 if start != attrs['start'] or end != attrs['end']:
                    _error('updated')
@@ -1103,17 +1268,15 @@ class DataManager(DbManager):
                 returned
         """
         booking_id = attrs['id']
-        modify_all = attrs.pop('modify_all', False)
+        modify_all = attrs.pop('modify_all', 'no') == 'yes'
 
         # Get the booking with the given id
-        bookings = self.get_bookings(condition='id="%s"' % booking_id)
+        booking = self.get_booking_by(id=booking_id)
 
-        if not bookings:
+        if not booking:
             raise Exception("There is no booking with ID=%s" % booking_id)
 
-        booking = bookings[0]
         rid = booking.repeat_id
-
         result = [booking]
 
         if rid is not None:
@@ -1141,6 +1304,8 @@ class DataManager(DbManager):
         return result
 
     def _session_data_path(self, session):
+        if not session.data_path:
+            return ''
         return os.path.join(self._sessionsPath, session.data_path)
 
 

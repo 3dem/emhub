@@ -1,0 +1,53 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Plates" %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+    {% set is_admin = current_user.is_admin %}
+
+    <!-- table row -->
+    <div class="row">
+        <div class="col-1">
+            <div class="row">
+
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Batches</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for batch in batches %}
+                                    <div class="col-12 mb-2">
+                                        <a href="javascript:loadBatch({{ batch }})" class="badge badge-dark mr-1">B{{ batch }}</a>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="batch-content" class="col-11 p-0 m-0">
+               {% include "sjsm_batch_content.html" %}
+        </div>
+
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<script>
+    function loadBatch(batch) {
+        var ajaxContent = get_ajax_content('sjsm_batch_content', {batch_id: batch});
+        ajaxContent.done(function(html) {
+            $('#batch-content').html(html);
+        });
+        ajaxContent.fail(ajax_request_failed);
+
+    }
+
+</script>

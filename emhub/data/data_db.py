@@ -28,17 +28,21 @@
 
 import os
 import datetime as dt
+from tzlocal import get_localzone
 import decimal
 
 import sqlalchemy
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
+from emhub.utils import datetime_from_isoformat
+
 
 class DbManager:
     """ Helper class to deal with DB stuff
     """
     def init_db(self, dbPath, cleanDb=False, create=True):
+        self.timezone = get_localzone()
         do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
 
         if cleanDb and os.path.exists(dbPath):
@@ -71,10 +75,26 @@ class DbManager:
 
     # ------------------- Some utility methods --------------------------------
     def now(self):
-        from tzlocal import get_localzone
         # get local timezone
-        local_tz = get_localzone()
-        return dt.datetime.now(local_tz)
+        return dt.datetime.now(self.timezone)
+
+    def date(self, date):
+        return dt.datetime.combine(date, dt.time(), self.timezone)
+
+    def dt_as_local(self, dt):
+        return dt.astimezone(self.timezone)
+
+    def local_weekday(self, dt):
+        return self.dt_as_local(dt).strftime("%a, %b %d")
+
+    def local_datetime(self, dt):
+        if dt is None:
+            return 'None'
+
+        if isinstance(dt, str):
+            dt = datetime_from_isoformat(dt)
+
+        return self.dt_as_local(dt).strftime("%Y/%m/%d %I:%M %p")
 
     @staticmethod
     def json_from_value(v):

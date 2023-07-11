@@ -70,48 +70,31 @@ def get_mic_data():
     micId = int(request.form['micId'])
     sessionId = int(request.form['sessionId'])
     session = app.dm.load_session(sessionId)
-    micSetId = None
-    for s in session.data.get_sets():
-        if s['id'].startswith('Micrographs'):
-            micSetId = s['id']
 
-    if micSetId is None:
-        raise Exception("Not micrograph set found in '%s'"
-                        % session.data_path)
-    attrs = [
-        'micThumbData', 'psdData', 'shiftPlotData',
-        'ctfDefocusU', 'ctfDefocusV', 'ctfResolution',
-        'coordinates', 'micThumbPixelSize', 'pixelSize'
-    ]
-
-    mic = session.data.get_set_item(micSetId, micId, attrList=attrs)
+    mic = session.data.get_micrograph_data(micId)
 
     if 'coordinates' in mic:
-        mic['coordinates'] = mic['coordinates'].tolist()
+        if not isinstance(mic['coordinates'], list):  # numpy arrays
+            mic['coordinates'] = mic['coordinates'].tolist()
     else:
         mic['coordinates'] = []
-
-    def _enhance(base64Str, cutoff=2, radius=1):
-        msg = base64.b64decode(base64Str)
-        # msg = mic['micThumbData']
-        buf = io.BytesIO(msg)
-        img = Image.open(buf)
-        img = ImageOps.autocontrast(img, cutoff=2)
-        img = img.filter(ImageFilter.GaussianBlur(radius=1))
-        # enhancer = ImageEnhance.Brightness(img)
-        # img = enhancer.enhance(0.15)
-        img_io = io.BytesIO()
-        img.save(img_io, format='PNG')
-        return base64.b64encode(img_io.getvalue()).decode("utf-8")
-
-    config = {
-        'micThumbData': {'cutoff': 2, 'radius': 1},
-        'psdData': {'cutoff': 0.5, 'radius': 1}
-    }
-    for key, args in config.items():
-        if key in mic:
-            mic[key] = _enhance(mic[key], **args)
 
     session.data.close()
 
     return send_json_data(mic)
+
+
+@images_bp.route("/get_micrograph_gridsquare", methods=['POST'])
+def get_micrograph_gridsquare():
+    form = request.form  # shortcut
+    sessionId = int(form['sessionId'])
+    session = app.dm.load_session(sessionId)
+    kwargs = {}
+    if 'gsId' in form:
+        kwargs['gsId'] = form['gsId']
+    if 'fhId' in form:
+        kwargs['fhId'] = form['fhId']
+    data = session.data.get_micrograph_gridsquare(**kwargs)
+    session.data.close()
+    print(data['foilHole'].keys())
+    return send_json_data(data)

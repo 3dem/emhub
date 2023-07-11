@@ -1,3 +1,4 @@
+{% include "entry_macros.html" as macros %}
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
@@ -8,7 +9,7 @@
     {% set period_url = 'invoice_period' if is_manager else 'reports_invoices_lab' %}
 
     <!-- table row -->
-    <input type="hidden" value="09:00:00.000", id="hour_id">
+    {{ macros.hidden_hour_id() }}
 
     <div class="row">
         <div class="col-xl-6 col-lg-6 col-md-6 col-sm-6 col-6">

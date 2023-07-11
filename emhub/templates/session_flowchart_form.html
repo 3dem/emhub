@@ -1,0 +1,70 @@
+<div class="card">
+<div class="card-body">
+
+    <form id="run-form" data-parsley-validate="" novalidate="">
+
+        <div class="form-group row">
+            <label class="col-4 col-form-label text-sm-right">Run name</label>
+            <div class="col-8">
+            <input type="text" required="" placeholder="Type something" class="form-control" id="runLabel">
+            </div>
+        </div>
+
+        <div class="form-group row">
+            <label class="col-4 col-form-label text-sm-right">Parallel</label>
+            <div class="col-8">
+                <div class="row">
+
+                    <label class="col-2 mt-2 mr-3">Threads</label>
+                    <input type="text" class="form-control col-3" id="numberOfThreads">
+
+                    <label class="col-2 ml-3 mt-2">MPIs</label>
+                    <input type="text" class="form-control col-3" id="numberOfMpi">
+
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group row">
+            <label class="col-4 col-form-label text-sm-right">GPUs</label>
+            <div class="col-8">
+                <div class="row">
+
+                    <div class="switch-button switch-button-xs ml-3 mt-2">
+                        <input type="checkbox" checked="" name="gpu-switch" id="gpu-switch"><span>
+                        <label for="gpu-switch"></label></span>
+                    </div>
+
+                    <input type="text" class="form-control col-3" id="gpuList">
+
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group row">
+            <label class="col-4 col-form-label text-sm-right">Queue</label>
+            <div class="col-8">
+                <div class="row">
+                    <div class="switch-button switch-button-xs ml-3 mt-2">
+                        <input type="checkbox" checked="" name="queue-switch" id="queue-switch" onclick="alert('changed queue')"><span>
+                        <label for="queue-switch"></label></span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </form>
+
+</div>
+</div>
+
+<div class="col-12 mb-2" style="background-color: #E6E6E6;">
+    <div class="row col-6">
+        <label class="col-form-label">Expert Options</label>
+        <div class="switch-button switch-button-xs ml-3 mt-2">
+            <input type="checkbox" name="switch-expert" id="switch-expert" onclick="clickOnExpert()"><span>
+            <label for="switch-expert"></label></span>
+        </div>
+    </div>
+</div>

@@ -52,7 +52,9 @@
             <div ><button type="button" class="btn btn-sm btn-outline-light ml-2" onclick="filebrowser_onBrowse(this)" id="{{ param_id }}--browse"><i class="far fa-folder-open"></i>   </button></div>
             <input type="file" required="" capture id="{{ param_id }}--file" class="browser-file-input" hidden>
         </div>
-
+    {% elif type == "date" %}
+{#        <input type="text" class="form-control datetimepicker-input" data-target="#entry-date" id="entry-date" data-toggle="datetimepicker" />#}
+        <input type="text" required="" placeholder="{{ help }}"  class="form-control datetimepicker-input" value="{{ value }}" style="min-width: 100px;" id="{{ param_id }}" data-target="#{{ param_id }}" {{ data_key }} data-toggle="datetimepicker">
     {% else %}
         <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
     {% endif %}

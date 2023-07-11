@@ -1,0 +1,206 @@
+
+<!-- JavaScript libraries -->
+<script src="{{ url_for('static', filename='vendor/jquery/jquery-3.3.1.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/slimscroll/jquery.slimscroll.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/bootstrap-select/js/bootstrap-select.js') }}"></script>
+
+<script src="{{ url_for('static', filename='vendor/full-calendar/packages/core/main.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/full-calendar/packages/daygrid/main.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/full-calendar/packages/timegrid/main.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/full-calendar/packages/interaction/main.min.js') }}"></script>
+
+
+<script src="{{ url_for('static', filename='libs/js/main-js.js') }}"></script>
+
+<script src="{{ url_for('static', filename='libs/js/vis-network.min.js') }}"></script>
+
+<!-- chart chartist js -->
+<script src="{{ url_for('static', filename='vendor/charts/chartist-bundle/chartist.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/charts/chartist-bundle/chartist-plugin-threshold.js') }}"></script>
+<!-- chart C3 js -->
+<script src="{{ url_for('static', filename='vendor/charts/c3charts/c3.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/charts/c3charts/d3-5.4.0.min.js') }}"></script>
+<!-- chartjs js -->
+<script src="{{ url_for('static', filename='vendor/charts/charts-bundle/Chart.bundle.js') }}"></script>
+<!-- sparkline js -->
+<script src="{{ url_for('static', filename='vendor/charts/sparkline/jquery.sparkline.js') }}"></script>
+<!-- gauge js -->
+<script src="{{ url_for('static', filename='vendor/gauge/gauge.min.js') }}"></script>
+<!-- morris js -->
+<script src="{{ url_for('static', filename='vendor/charts/morris-bundle/raphael.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/charts/morris-bundle/morris.js') }}"></script>
+
+<!-- parsley -->
+<script src="{{ url_for('static', filename='vendor/parsley/parsley.js') }}"></script>
+
+<!-- datepicker -->
+<script src="{{ url_for('static', filename='vendor/datepicker/datepicker.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/datepicker/moment.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/datepicker/tempusdominus-bootstrap-4.js') }}"></script>
+
+<!-- Highcharts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/highcharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/highcharts-more.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/exporting.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/stock.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/histogram-bellcurve.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/variable-pie.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/drilldown.js"></script>
+
+
+{#<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/export-data.js"></script>#}
+{#<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/accessibility.js"></script>#}
+
+<!-- emhub -->
+<script src="{{ url_for('static', filename='libs/js/emhub.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/js/emhub_applications.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/js/emhub_forms.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/js/emhub_bookings.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/js/emhub_charts.js') }}"></script>
+
+
+<script type="text/javascript">
+    /* Some variables */
+    var resources = {{ resources|tojson }};
+    var possible_operators = {{ possible_operators|tojson }};
+    var calendar = null;
+    var last_booking = null;
+    var last_experiment = null;
+    var last_event = null;
+
+    /* By default, the page will be reloaded in any of the following events
+    * These variables can be re-assigned in subpages to allow different
+    * behaviour when modifying bookings.
+    * */
+    var on_bookings_created = function (response){location.reload();};
+    var on_bookings_updated = function (response){location.reload();};
+    var on_bookings_deleted = function (response){location.reload();};
+
+    var is_devel = {{ is_devel|tojson }};
+    var content_url = "{{ url_for('get_content') }}";
+
+    Api.urls = {
+        application: {
+            create: "{{ url_for('api.create_application') }}",
+            update: "{{ url_for('api.update_application') }}",
+            delete: "{{ url_for('api.delete_application') }}"
+        },
+        project: {
+            create: "{{ url_for('api.create_project') }}",
+            update: "{{ url_for('api.update_project') }}",
+            delete: "{{ url_for('api.delete_project') }}"
+        },
+        entry: {
+            create: "{{ url_for('api.create_entry') }}",
+            update: "{{ url_for('api.update_entry') }}",
+            delete: "{{ url_for('api.delete_entry') }}"
+        },
+        template: {
+            create: "{{ url_for('api.create_template') }}",
+            update: "{{ url_for('api.update_template') }}",
+            delete: "{{ url_for('api.delete_template') }}"
+        },
+        resource: {
+            create: "{{ url_for('api.create_resource') }}",
+            update: "{{ url_for('api.update_resource') }}",
+            delete: "{{ url_for('api.delete_resource') }}"
+        },
+        user: {
+            create: "{{ url_for('api.create_user') }}",
+            update: "{{ url_for('api.update_user') }}",
+            delete: "{{ url_for('api.delete_user') }}",
+            register: "{{ url_for('api.register_user') }}"
+        },
+        booking: {
+            create: "{{ url_for('api.create_booking') }}",
+            update: "{{ url_for('api.update_booking') }}",
+            delete: "{{ url_for('api.delete_booking') }}",
+            range: "{{ url_for('api.get_bookings_range') }}"
+        },
+        session: {
+            create: "{{ url_for('api.create_session') }}",
+            update: "{{ url_for('api.update_session') }}",
+            delete: "{{ url_for('api.delete_session') }}"
+        }
+    };
+
+    var application_config = {
+        on_update: null,
+        modal_status: null
+    };
+
+
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    $('select').selectpicker();
+
+    $('.datetimepicker-input').datetimepicker({
+        format: 'YYYY/MM/DD'
+    });
+
+    /* Register when the Booking type change */
+    $('input[type=radio][name=booking-type-radio]').change(function() {
+        booking_type = this.value;
+        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+    });
+
+    $('input[type=radio][name=booking-repeat-radio]').change(function() {
+        repeat_value = this.value;
+    });
+
+    $('input[type=radio][name=booking-modify-radio]').change(function() {
+        modify_all = this.value == 'yes';
+    });
+
+    })(window, document, window.jQuery);
+
+
+    function load_main_content(content_id, params) {
+        load_html_from_ajax("main-content", get_ajax_content(content_id, params));
+    }
+
+    function load_content_fromlink(e) {
+        var content_id = e.currentTarget.dataset.contentId;
+        load_main_content(content_id);
+        e.preventDefault();
+    }
+
+    $(document).ready(function(){
+        load_main_content("{{ content_id }}", {{ params|tojson }});
+    });
+
+    /* ---------------- RESOURCE functions ------------------*/
+    /** Get the resource object from its id */
+    function getResource(resourceId) {
+        for (var r of resources)
+            if (r.id == resourceId)
+                return r;
+        return null;
+    }
+
+</script>
+
+
+<script src="{{ url_for('static', filename='vendor/multi-select/js/jquery.multi-select.js') }}"></script>
+<script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+
+<script src="{{ url_for('static', filename='vendor/datatables/js/dataTables.bootstrap4.min.js') }}"></script>
+
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/dataTables.buttons.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/datatables/js/buttons.bootstrap4.min.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.36/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.print.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/1.5.2/js/buttons.colVis.min.js"></script>
+<script src="https://cdn.datatables.net/rowgroup/1.0.4/js/dataTables.rowGroup.min.js"></script>
+<script src="https://cdn.datatables.net/select/1.2.7/js/dataTables.select.min.js"></script>
+<script src="https://cdn.datatables.net/fixedheader/3.1.5/js/dataTables.fixedHeader.min.js"></script>
+<script src="https://cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/ace/ace.js') }}"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.8.1/html2pdf.bundle.min.js" integrity="sha512-vDKWohFHe2vkVWXHp3tKvIxxXg0pJxeid5eo+UjdjME3DBFBn2F8yWOE0XmiFcFbXxrEOR1JriWEno5Ckpn15A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>

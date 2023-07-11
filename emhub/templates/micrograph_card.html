@@ -1,0 +1,61 @@
+{% macro mic_row(label, value, id) -%}
+    <div class="row col-12 p-0 m-0">
+        <label class="text-muted col-6 text-right ml-0 pl-0">{{ label }}</label>
+        <label class="col-4 text-right ml-0 pl-0" id="{{ id }}">{{ value }}</label>
+    </div>
+{%- endmacro  %}
+
+
+{# card_id should be defined before including this macro #}
+{% set card_compact = card_compact or False %}
+
+<div class="col-12">
+     <div class="card card-figure image_card" id="{{ card_id }}">
+        <input type="hidden" value="{{ card_compact }}" id="{{ card_id }}_compact">
+
+         <!-- Display overlay when loading micrograph -->
+         {{ macros.overlay(card_id + "_overlay") }}
+
+        <figure class="figure">
+            <canvas id="{{ card_id }}_mic_canvas"></canvas>
+        </figure>
+
+         <div class="row col-12 mt-2 ml-0 pl-0 mr-0 pr-0">
+
+            <div class="col-4 ml-0 pl-0 mr-0 pr-0">
+                <figure class="figure">
+                    <img class="img-fluid" id="{{ card_id }}_img_psd" src="">
+                </figure>
+            </div>
+
+            <div class="col-8 mr-0 pr-0">
+                <br/>
+                    <div class="input-group input-group-sm mb-3">
+                      <div class="input-group-prepend">
+                        <h5 class="input-group-text" id="inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
+                      </div>
+                      <input type="text" id="{{ card_id }}_mic_id" class="form-control" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
+                    </div>
+                {% if card_compact %}
+                    {{ mic_row('Defocus U, V, A (µm, µm, °)', '', card_id + '_mic_defocus_uva') }}
+                {% else %}
+                    {{ mic_row('Defocus U (µm)', '', card_id + '_mic_defocus_u') }}
+                    {{ mic_row('Defocus V (µm)', '', card_id + '_mic_defocus_v') }}
+                    {{ mic_row('Defocus Angle (°)', '', card_id + '_mic_defocus_angle') }}
+                    {{ mic_row('Astigmatism  (µm)', '', card_id + '_mic_astigmatism') }}
+                {% endif %}
+
+                {{ mic_row('Resolution (Å)', '', card_id + '_mic_resolution') }}
+                <div class="row col-12 p-0 m-0">
+                    <label class="text-muted col-6 text-right mt-1">Particles</label>
+                    <label class="col-4 text-right mt-1" id="{{ card_id }}_particles">{{ value }}</label>
+                    <label class="custom-control custom-checkbox col-1">
+                        <input type="checkbox" checked class="custom-control-input" id="{{ card_id }}_show_particles">
+                            <span class="custom-control-label"></span>
+                    </label>
+                </div>
+{#                {{ mic_row('Compact', '', card_id + '_testing') }}#}
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,65 @@
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-body">
+
+<div class="card">
+                <div class="card-body">
+                    <div class="text-center">
+                        <h2 class="font-24 mb-0">{{ current_user.name }}</h2>
+                        <div>
+                            <p></br>Roles:
+                                {% for r in current_user.roles %}
+                                <a href="#" class="badge badge-light mr-1">{{ r }}</a>
+                                {% endfor %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body border-top">
+                    <h3 class="font-16">Contact Information</h3>
+                    <div class="">
+                        <ul class="list-unstyled mb-0">
+                        <li class="mb-2"><i class="fas fa-fw fa-envelope mr-2"></i>{{ current_user.email }}</li>
+                        <li class="mb-0"><i class="fas fa-fw fa-phone mr-2"></i>{{ current_user.phone }}</li>
+                    </ul>
+                    </div>
+                </div>
+                <div class="card-body border-top">
+                    {% set head_label = 'Facility Head' if current_user.is_staff else 'PI' %}
+                    {% set members_label = 'Facility Staff' if current_user.is_staff else 'Lab Members' %}
+                    {% set head = lab_members[0] %}
+                    <div class="row">
+                        <h3 class="font-16 pl-3">{{ head_label }}</h3> <a class="pl-3" href="javascript:showUser({{ head['id'] }})">{{ head['name'] }}</a>
+                    </div>
+
+                    <div>
+                        <h3 class="font-16">{{ members_label }} ({{ lab_members|length - 1 }})</h3>
+                        <div>
+                            <ul class="mb-0 list-unstyled">
+                                {% for u in lab_members[1:] %}
+                                    <li class="mb-1"><a href="javascript:showUser({{ u['id'] }})">{{ u['name'] }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body border-top">
+                    <h3 class="font-16">Applications</h3>
+                    <div>
+                        {% for a in current_user.get_applications() %}
+                            <a href="#" class="badge badge-success mr-1">{{ a.code     }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+      </div>
+      <div class="modal-footer">
+          <button type="button" id="user-btn-ok"  class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of User Modal Content -->
+<!-- ============================================================== -->

@@ -24,6 +24,9 @@ function printObject(obj, label) {
     }
 }
 
+function getObjectValue(obj, key, default_value) {
+    return key in obj ? obj[key] : default_value;
+}
 
 function printArray(array, label){
     console.log("Array: ", label);
@@ -70,8 +73,16 @@ function dateStr(date) {
 function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val();
 
-    if (timeId)
-        dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
+    if (timeId) {
+        var timeValue = $(timeId).val();
+        dateVal += ' ' + timeValue.replace('.000', ' GMT');
+        timeValue = timeValue.replace(":00.000", "");
+        
+        if (!moment(timeValue, "HH:mm", true).isValid())
+            throw "Invalid time <bold>" + timeValue + "</bold>.</br></br>" +
+                  "Provide a valid time format, examples: &nbsp" +
+                  "9:00, 10:15, 13:05, 23:59";
+    }
 
     var date = new Date(dateVal);
 
@@ -237,6 +248,9 @@ function setInputValue(element, value) {
 function nonEmpty(value) {
     var type = typeof value;
 
+    if (value === null || type === 'undefined')
+        return false;
+
     if (type === 'string')
         return value.trim().length > 0;
 
@@ -310,8 +324,7 @@ function getFormAsJson(formId, includeEmpty){
             newJson[propName] = propValue;
     }
     return newJson;
-} // function onFormOk
-
+} // function getFormAsJson
 
 
 function getFilesFromForm(formId) {
@@ -358,7 +371,6 @@ function get_ajax_html(url, params) {
 
 /**
  * Make an AJAX request to the server and render the html result in a container.
- * @param container_id The HTML container id where the result content will be placed.
  * @param content_id contend id that will be requested to the server
  * @param params dictionary with extra parameters to retrieve the content.
  */
@@ -551,7 +563,6 @@ function table_copyRows(table_id){
         var rowValues = []
         for (var row of rows) {
             var values = row_getValues(row);
-            console.log(values);
             if (!jQuery.isEmptyObject(values))
                 rowValues.push(values);
         }
@@ -584,7 +595,6 @@ function table_rowsToClipboard(table_id) {
 */
 function table_setRowValues(table_id, rowValues) {
     var emptyRows = table_getEmptyRows(table_id);
-    console.log(rowValues);
     for (var i = 0; i < rowValues.length; ++i){
         var values = rowValues[i];
 
@@ -631,4 +641,50 @@ function filebrowser_updateFilePath(fileUpload) {
         var textId = fileUpload.id.replace("--file", "--text");
         $('#' + textId).val(fileUpload.files[0].name);
     }
+}
+
+
+//----------------------------- Utils functions --------------------------
+
+/** Make all elements of the same height. Input can be a list of id's or a pattern. */
+function makeSameHeight(className){
+    var maxHeight = 0;
+    var selector = '.' + className;
+
+    $(selector).each(function (){
+        maxHeight = Math.max(maxHeight, $(this).height());
+    });
+
+    $(selector).each(function (){
+        $(this).css('height', maxHeight + "px");
+    });
+}
+
+
+class Timer {
+    constructor() {
+        this.startTime = new Date();
+    }
+
+    tic() {
+      this.startTime = new Date();
+    };
+
+    toc(msg) {
+        var timeDiff = new Date() - this.startTime; //in ms
+        // strip the ms
+        timeDiff /= 1000;
+        // get seconds
+        return timeDiff.toFixed(2);
+    }
+
+}  // class Timer
+
+//Taken from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
+function replaceAll(str, match, replacement){
+   return str.replace(new RegExp(escapeRegExp(match), 'g'), ()=>replacement);
 }

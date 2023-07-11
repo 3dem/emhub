@@ -1,0 +1,32 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Worker Machines " %}
+    {% include 'include_header.html' %}
+
+    <!-- table row -->
+    <div class="row" id="workers-content">
+
+        {% include 'workers_content.html' %}
+
+    </div>
+    <!-- end table row -->
+
+</div>
+
+
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    setTimeout(reload, 60000);
+
+    })(window, document, window.jQuery);
+
+    function reload(){
+        load_html_from_ajax('workers-content', get_ajax_content('workers_content'));
+        setTimeout(reload, 60000);
+    }
+
+</script>

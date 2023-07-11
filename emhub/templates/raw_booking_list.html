@@ -4,6 +4,7 @@
     {% set title = "Bookings List" %}
     {% set navigation = [('Admin', ''), ('Bookings List', '')] %}
     {% include 'include_header.html' %}
+    {% import "entry_macros.html" as macros %}
 
     <!-- table row -->
     <div class="row">
@@ -20,40 +21,49 @@
                                 <th>id</th>
                                 <th>resource</th>
                                 <th>type</th>
-                                <th>title</th>
-                                <th>creator</th>
                                 <th>owner</th>
-                                <th>operator</th>
-                                <th>start/end</th>
-                                <th>days</th>
-                                <th>slot_auth</th>
-                                <th>IS_USER_AUTH</th>
-                                <th>repeat_id</th>
-                                <th>repeat_value</th>
+                                <th>pi</th>
+                                <th>project</th>
+                                <th>dates</th>
+                                <th>extra</th>
                                 <th>experiment</th>
-                                <th>costs</th>
-                                <td>total_cost</td>
+                                <th>sessions</th>
+                                <th> actions </th>
                             </tr>
                             </thead>
                             <tbody>
                             {% for b in bookings %}
                             <tr>
-                                <td>{{ b['id'] }}</td>
-                                <td>{{ b['resource']['name'] }}</td>
-                                <td>{{ b['type'] }}</td>
-                                <td>{{ b['title'] }}</td>
-                                <td>{{ b['creator']['name'] }}</td>
-                                <td>{{ b['owner']['name'] }}</td>
-                                <td>{{ b['operator']['name'] }}</td>
-                                <td>{{ b['start'] }} / {{ b['end'] }}</td>
-                                <td>{{ b['days'] }}</td>
-                                <td>{{ b['slot_auth'] }}</td>
-                                <td>book={{b['user_can_book']}}, view={{b['user_can_view']}}, modify={{b['user_can_modify']}}</td>
-                                <td>{{ b['repeat_id'] }}</td>
-                                <td>{{ b['repeat_value'] }}</td>
-                                <td>{{ b['experiment'] }}</td>
-                                <td>{{ b['costs'] }}</td>
-                                <td>{{ b['total_cost'] }}</td>
+                                <td>{{ '%03d'|format(b.id) }}</td>
+                                <td>{{ b.resource.name }}</td>
+                                <td>{{ b.type }}</td>
+                                <td>{{ b.owner.name }} (id = {{ b.owner.id }})</td>
+                                {% set pi = b.owner.get_pi() %}
+                                {% set pi_name = pi.name if pi else '' %}
+                                <td>{{ pi_name }}</td>
+                                {% if b.project %}
+                                    <td>{{ macros.project(b.project) }}</td>
+                                {% else %}
+                                    <td></td>
+                                {% endif %}
+                                <td>{{ b.start|pretty_datetime }} - {{ b.end|pretty_datetime }}</td>
+                                <td>{{ b.extra }}</td>
+                                <td>{{ b.experiment }}</td>
+                                <td>
+                                    {% set sessions = b.session %}
+                                    <div class="row mt-3">
+                                        <div class="col-5 mr-0 ml-0 pl-0">
+                                             <a href="javascript:createSession({{ b.id }}, {{ sessions|length }})" class="btn btn-primary mr-0">
+                                                    <i class="fas fa-plus-circle"></i></a>
+                                        </div>
+                                        <div class="col-7 pl-0">
+                                            {{ macros.session_list(sessions) }}
+                                        </div>
+                                    </div>
+                                </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showBookingForm({booking_id: {{ b.id }}})"><i class="far fa-edit"></i></button>
+                                    </td>
                             </tr>
                             {% endfor %}
 
@@ -68,6 +78,15 @@
 
 </div>
 
+    <!-- ============================================================== -->
+    <!-- Session Modal -->
+    <!-- ============================================================== -->
+    <div class="modal fade" id="session-modal" tabindex="-1" role="dialog" aria-labelledby="sessionModal" aria-hidden="true">
+    </div>
+
 <script>
-    $('#bookings-table').DataTable();
+    $('#bookings-table').DataTable({
+        order: [[0, "desc"]],
+        "pageLength": 50
+    });
 </script>

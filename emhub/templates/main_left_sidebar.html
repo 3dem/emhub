@@ -44,6 +44,22 @@
                                     <i class="far fa-money-bill-alt"></i>Invoices</a>
                             </li>
 
+                            <!-- Reports -->
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-reports" aria-controls="submenu-reports">
+                                    <i class="fas fa-chart-bar"></i>Reports</a>
+                            <div id="submenu-reports" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('report_microscopes_usage') }}">Microscopes Usage</a>
+                                    </li>
+                                    {% if current_user.is_manager %}
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('report_pis_usage') }}">All PIs Usage</a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+
                             <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-pages" aria-controls="submenu-pages">
                                 <i class="fas fa-f fa-folder"></i>Pages</a>
 
@@ -77,7 +93,6 @@
                         <ul class="nav flex-column submenu">
 
                             <!-- Users -->
-                            <!-- Reports -->
                             <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-users" aria-controls="submenu-users">
                                     <i class="fas fa-f fa-users"></i>Users</a>
                             <div id="submenu-users" class="collapse submenu" style="">
@@ -108,20 +123,6 @@
                                  <a class="nav-link" href="{{ url_for_content('logs') }}">
                                     <i class="fas fa-list-alt"></i>Logs</a>
                             </li>
-
-                            <!-- Reports -->
-                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-reports" aria-controls="submenu-reports">
-                                    <i class="fas fa-chart-bar"></i>Reports</a>
-                            <div id="submenu-reports" class="collapse submenu" style="">
-                                <ul class="nav flex-column">
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('reports_time_distribution') }}">Overall Time Distribution</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('report_pis_usage') }}">All PIs Usage</a>
-                                    </li>
-                                </ul>
-                            </div>
 
                             <!-- Import from Portal -->
                             <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-portal" aria-controls="submenu-portal">

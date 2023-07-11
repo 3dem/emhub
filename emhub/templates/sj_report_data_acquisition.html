@@ -1,0 +1,91 @@
+
+{# Number of pages for the report #}
+{% set N = 3 + images|length %}
+
+{% include "sj_report_header.html" %}
+
+{% import "entry_macros.html" as macros %}
+
+{% if session %}
+    {% set session_name = session.name %}
+    {% set start_date = session.start|pretty_datetime %}
+{% else %}
+    {% set session_name = 'Invalid session name: %s'|format(data['session_name']) %}
+    {% set start_date = 'Unknown' %}
+{% endif %}
+
+{{ macros.table_card('Session Details',
+    [('Session ID', session_name),
+     ('Start Date', start_date)
+     ])
+}}
+
+{% set film = {'Carbon': 'C', 'Gold': 'Au', 'Other': 'Other'}[data['film_material']] %}
+{% set hole_size = data['hole_size'] %}
+{% set hole_size_prefix = '' if hole_size in ['Lacey', 'Multihole'] else 'R'  %}
+{% set mesh = 'Other' if data['mesh'] == 'Other' else data['mesh'][0] %}
+{% set grid_material = {'Copper': 'Cu', 'Gold': 'Au', 'Nickel': 'Ni', "Molybdenum": "Mo", 'Other': 'Other'}[data['grid_material']] %}
+{% set grid_type = '%s-%s %s-%s%s%s'|format(data['grid_manufacturer'], film, hole_size_prefix, hole_size, mesh, grid_material) %}
+
+
+{{ macros.sj_header_card(entry_config['label'], entry.date, (2, N)) }}
+
+{{ macros.table_card('Sample Details',
+    [('Grid Type', grid_type),
+     ('Sample / Grid ID', '%s / %s'|format(data['sample'], data['gridbox_label']))
+     ])
+}}
+
+{{ macros.table_card('Microscope Details',
+    [('Detector [Mode]', '%s [%s]'|format(data['detector'], data['detector_mode'])),
+     ('Accelerating Voltage', '%s kV'|format(data['voltage'])),
+     ('Spherical Aberration', '%s mm'|format(data['spherical_aberration']))
+     ])
+}}
+
+{{ macros.table_card('Software Details',
+    [('Collection Software', data['collection_software']),
+     ('Selection Type', data['selection_type']),
+     ('Acquisition Mode', data['acquisition_mode'])
+     ])
+}}i
+
+{% set apertures = "%s µm, %s µm, %s µm"|format(data['aperture_c1'], data['aperture_c2'], data['aperture_c3'])%}
+{% set objective_aperture = "%s µm"|format(data['objective_aperture']) %}
+{% set pixel_size = data.get('pixel_size', 'nan')|float %}
+{% set dose_rate = data.get('dose_rate', 'nan')| float %}
+{% set dose_rate_A = dose_rate / (pixel_size*pixel_size) %}
+{% set exposure_time = data.get('exposure_time', 'nan')|float %}
+{% set total_dose = exposure_time * dose_rate_A %}
+{% set dose_fractions = data.get('dose_fractions', 'nan')|float %}
+{% set dose_per_fractions = total_dose / dose_fractions %}
+
+
+{{ macros.sj_header_card(entry_config['label'], entry.date, (3, N)) }}
+
+{{ macros.table_card('Data Acquisition Details',
+    [('Apertures (C1, C2, C3)', apertures),
+     ('Objective Aperture', objective_aperture),
+     ('Energy Filter Slit Width', '%s eV'|format(data['energy_filter_slit_width'])),
+     ('Illuminated Area', '%s µm'|format(data['illuminated_area'])),
+     ('Spot Size', data['spot_size']),
+     ('Tilt Angle', '%s °'|format(data['tilt_angle'])),
+     ('Nominal Magnification', '%s X'|format(data['nominal_magnification'])),
+     ('Pixel Size', '%s Å'|format(data['pixel_size'])),
+     ('Defocus Range', '%s µm to %s µm'|format(data['low_defocus_target'], data['high_defocus_target'])),
+     ('Defocus Step', '%s µm'|format(data['defocus_step'])),
+     ('Dose Rate', '%0.3f e⁻/px/s'|format(dose_rate)),
+     ('Dose Rate', '%0.3f e⁻/Å²/s'|format(dose_rate_A)),
+
+     ('Exposure Time',  '%0.1f s'|format(exposure_time)),
+     ('Total Dose', '%0.3f e⁻/Å²'|format(total_dose)),
+     ('Dose Fractions (type)', '%s (%s %s)'|format(data.get('dose_fractions', ''), data.get('fraction_size', ''), data.get('fraction_format', ''))),
+     ('Dose per Fraction', '%0.3f e⁻/Å²'|format(dose_per_fractions))
+     ])
+}}
+
+{% for row in images %}
+    {{ macros.sj_header_card(entry_config['label'], entry.date, (4 + loop.index0, N)) }}
+    {{ macros.image_card(row['image_title'], row['image_data']) }}
+{% endfor %}
+

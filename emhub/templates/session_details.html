@@ -6,8 +6,32 @@
     {% include 'include_header.html' %}
 
     <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-        {% include 'session_content.html' %}
+        {% include session_content %}
+    </div>
+    <div class="row col-6">
+        <div class="row col-12"><h5 id="reload_label">Reloading in seconds</h5></div>
     </div>
 
 </div>
 
+<script>
+    var reload_counter = 30;  // 60 seconds to reload
+    function check_reload(){
+        if (reload_counter > 0) {
+            $('#reload_label').text('Reloading in ' + reload_counter + ' seconds.');
+            reload_counter -= 1;
+            setTimeout(check_reload, 1000);  // every second
+        }
+        else
+            window.location.reload();
+    }
+
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+            check_reload();
+});
+})(window, document, window.jQuery);
+
+</script>

@@ -29,14 +29,19 @@
 import os
 import datetime as dt
 import json
+import sys
 from collections import defaultdict
+from glob import glob
 
 import flask
 import flask_login
 
 from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          datetime_from_isoformat, get_quarter, pretty_quarter,
-                         image)
+                         image, shortname)
+
+from emtools.utils import Pretty
+from emtools.metadata import Bins, TsBins, EPU
 
 
 class DataContent:
@@ -46,6 +51,7 @@ class DataContent:
     Here information is retrieved from the DataManager (dealing with stored
     data structure) and prepare the "content" for required views.
     """
+
     def __init__(self, app):
         """ Create a new content for the given Flask application. """
         self.app = app
@@ -56,14 +62,15 @@ class DataContent:
     def get(self, **kwargs):
         content_id = kwargs['content_id']
         get_func_name = 'get_%s' % content_id.replace('-', '_')  # FIXME
-        dataDict = {}  # self.get_resources_list()
+        dataDict = {}
         get_func = getattr(self, get_func_name, None)
         if get_func is not None:
             dataDict.update(get_func(**kwargs))
         return dataDict
 
     def get_dashboard(self, **kwargs):
-        dataDict = self.get_resources_list()
+        dm = self.app.dm  # shortcut notation
+        dataDict = self.get_resources(image=True)
         user = self.app.user  # shortcut
         resource_bookings = {}
 
@@ -72,37 +79,94 @@ class DataContent:
                     ('Next 7 days', []),
                     ('Next 30 days', [])]
 
+        def week_start(d):
+            return (d - dt.timedelta(days=d.weekday())).date()
 
-        now  = self.app.dm.now()
-        next7 = now + dt.timedelta(days=7)
+        if 'date' in kwargs:
+            now = datetime_from_isoformat(kwargs['date'])
+        else:
+            now = dm.now()
+        this_week = week_start(now)
+        d7 = dt.timedelta(days=7)
+        next_week = week_start(now + d7)
+        prev7 = now - dt.timedelta(days=8)
+        next7 = now + d7
         next30 = now + dt.timedelta(days=30)
 
-        for b in self.app.dm.get_bookings(orderBy='start'):
-            if not user.is_manager and not user.same_pi(b.owner):
-                continue
-            bDict = {'owner': b.owner.name,
-                     'resource': b.resource.name,
-                     'start': pretty_datetime(b.start),
-                     'end': pretty_datetime(b.end),
-                     }
-            if b.start <= now <= b.end:
-                i = 0
-            elif now <= b.start <= next7:
-                i = 1
-            elif now <= b.start <= next30:
-                i = 2
-            else:
-                i = -1
+        def is_same_week(d):
+            return this_week == week_start(d)
 
-            if i >= 0:
-                bookings[i][1].append(bDict)
-                r = b.resource
-                if i == 0 and r.is_microscope and 'solna' in r.tags:  # Today's bookings
-                    # FIXME: If there is already a session, also return its id
-                    resource_bookings[r.id] = b
+        def is_next_week(d):
+            return this_week == week_start(d - d7)
+
+        def add_booking(b):
+            start = dm.dt_as_local(b.start)
+            end = dm.dt_as_local(b.end)
+
+            r = b.resource
+            if r.id not in resource_bookings:
+                resource_bookings[r.id] = {
+                    'today': [],
+                    'this_week': [],
+                    'next_week': []
+                }
+
+            if is_same_week(start):
+                k = 'this_week'
+            elif is_next_week(start):
+                k = 'next_week'
+            else:
+                k = None
+
+            if k:
+                resource_bookings[r.id][k].append(b)
+
+                if start.date() <= now.date() <= end.date():  # also add in today
+                    resource_bookings[r.id]["today"].append(b)
+
+        local_tag = dm.get_config('bookings')['local_tag']
+        local_scopes = {}
+
+        for b in dm.get_bookings_range(prev7, next30):
+            # if not user.is_manager and not user.same_pi(b.owner):
+            #     continue
+            r = b.resource
+            if local_tag in r.tags:
+                local_scopes[r.id] = r
+                add_booking(b)
+
+        resource_requests = {rid: [] for rid in local_scopes.keys()}
+        scopes = {r.id: r for r in dm.get_resources()}
+
+        # Retrieve open requests for each scope from entries and bookings
+        for p in dm.get_projects():
+            if p.is_active:
+                last_bookings = {}
+                # Find last bookings for each scope
+                for b in sorted(p.bookings, key=lambda b: b.end, reverse=True):
+                    if len(last_bookings) < len(local_scopes) and b.resource_id not in last_bookings:
+                        last_bookings[b.resource.id] = b
+
+                reqs = {}
+                for e in reversed(p.entries):
+                    # Requests found for each scope, no need to continue
+                    if len(reqs) == len(local_scopes):
+                        break
+                    if b := self.booking_from_entry(e, scopes):
+                        rid = b.resource_id
+                        if (rid not in reqs and
+                                (rid not in last_bookings or
+                                 b.start.date() > last_bookings[rid].end.date())):
+                            b.id = e.id
+                            add_booking(b)
+                            reqs[rid] = b
+
+        # Sort all entries
+        for rbookings in resource_bookings.values():
+            for k, bookings in rbookings.items():
+                bookings.sort(key=lambda b: b.start)
 
         dataDict.update({'bookings': bookings,
-                         'lab_members': self.get_lab_members(user),
                          'resource_bookings': resource_bookings})
         return dataDict
 
@@ -117,71 +181,129 @@ class DataContent:
         members.insert(0, pi.json())
         return members
 
+    def get_session_form(self, **kwargs):
+        session_id = kwargs['session_id']
+        session = self.app.dm.get_session_by(id=session_id)
+        data = {'session': session.json()}
+        return data
+
     def get_sessions_overview(self, **kwargs):
         sessions = self.app.dm.get_sessions(condition=self._get_display_condition(),
                                             orderBy='resource_id')
         return {'sessions': sessions}
 
-    def get_session_data(self, session):
-        micSetId = None
-        sets = session.data.get_sets()
-        for s in sets:
-            if not 'id' in s:
-                print("ERROR, set without id: ", s)
-                continue
-            if s['id'].startswith('Micrographs'):
-                micSetId = s['id']
+    def get_session_data(self, session, **kwargs):
+        result = kwargs.get('result', 'micrographs')
 
-        if micSetId is None:
-            raise Exception("Not micrograph set found in '%s'"
-                            % session.data_path)
+        defocus = []
+        defocusAngle = []
+        resolution = []
+        astigmatism = []
+        timestamps = []
+        gridsquares = []
+        tsRange = {}
+        beamshifts = []
 
-        attrList = ['location', 'ctfDefocus', 'ctfResolution']
-        mics = session.data.get_set_items(micSetId, attrList=attrList)
+        sdata = session.data  # shortcut
 
-        def _get_hist(label, inputList):
-            import numpy as np
-            hist, bins = np.histogram(inputList)
-            return {
-                'label': label,
-                'data': [int(h) for h in hist],
-                'bins': ['%0.1f' % b for b in bins],
-            }
+        def _microns(v):
+            return round(v * 0.0001, 3)
 
-        defocusList = [m['ctfDefocus'] for m in mics]
-        resolutionList = [m['ctfResolution'] for m in mics]
-        stats = session.stats
+        def _ts(fn):
+            return os.path.getmtime(sdata.join(fn))
 
-        # Load classes
-        classesSet = [s for s in sets if s['id'].startswith('Class2D')]
-        if classesSet:
-            class2DSetId = classesSet[-1]['id']
-            classes2d = session.data.get_set_items(class2DSetId, attrList=['size', 'average'])
-            classes2d.sort(key=lambda c: c['size'], reverse=True)
-        else:
-            classes2d = []
-
-        session.data.close()
-
-        return {
-            'defocus_plot': ['Defocus'] + defocusList,
-            'ctf_defocus_hist': _get_hist('CTF Defocus', defocusList),
-            'resolution_plot': ['Resolution'] + resolutionList,
-            'ctf_resolution_hist': _get_hist('CTF Resolution', resolutionList),
+        data = {
             'session': session.json(),
-            'counters': {
-                'imported': stats['numOfMics'],
-                'aligned': stats['numOfMics'],
-                'ctf': stats['numOfCtfs'],
-                'picked': stats['numOfPtcls']
-            },
-            'classes2d': classes2d
+            'classes2d': []
         }
+
+        if not sdata:
+            data['stats'] = {'movies': {'count': 0}}
+            return data
+
+        data['stats'] = sdata.get_stats()
+
+        if result == 'micrographs':
+            firstMic = lastMic = None
+            dbins = Bins([1, 2, 3])
+            rbins = Bins([3, 4, 6])
+
+            if data['stats']['ctfs']['count'] > 0:
+                for mic in sdata.get_micrographs():
+                    micFn = mic['micrograph']
+                    micName = mic.get('micName', micFn)
+                    loc = EPU.get_movie_location(micName)
+                    gridsquares.append(loc['gs'])
+                    if not defocus:
+                        firstMic = micFn
+                    lastMic = micFn
+                    d = _microns(mic['ctfDefocus'])
+                    defocus.append(d)
+                    dbins.addValue(d)
+                    defocusAngle.append(mic['ctfDefocusAngle'])
+                    astigmatism.append(_microns(mic['ctfAstigmatism']))
+                    r = round(mic['ctfResolution'], 3)
+                    resolution.append(r)
+                    rbins.addValue(r)
+
+                if firstMic and lastMic:
+                    tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
+                    step = (tsLast - tsFirst) / len(defocus)
+                else:
+                    tsFirst = dt.datetime.timestamp(dt.datetime.now())
+                    step = 1000000
+                    tsLast = tsFirst + len(defocus) * step
+
+                epuData = session.data.getEpuData()
+                if epuData is None:
+                    beamshifts = []
+                else:
+                    beamshifts = [{'x': row.beamShiftX, 'y': row.beamShiftY}
+                                  for row in epuData.moviesTable]
+                tsRange = {'first': tsFirst * 1000,  # Timestamp in milliseconds
+                           'last': tsLast * 1000,
+                           'step': step}
+
+            data.update({
+                'defocus': defocus,
+                'defocusAngle': defocusAngle,
+                'astigmatism': astigmatism,
+                'resolution': resolution,
+                'tsRange': tsRange,
+                'beamshifts': beamshifts,
+                'defocus_bins': dbins.toList(),
+                'resolution_bins': rbins.toList(),
+                'gridsquares': gridsquares,
+            })
+
+        elif result == 'classes2d':
+            runId = int(kwargs.get('run_id', -1))
+            data['classes2d'] = sdata.get_classes2d(runId=runId)
+            print(">>>> Classes 2D: ", len(data['classes2d']))
+
+        sdata.close()
+        return data
+
+    def get_session_default(self, **kwargs):
+        session_id = kwargs['session_id']
+        session = self.app.dm.load_session(session_id)
+        otf_status = session.otf_status
+
+        if not otf_status or otf_status == 'created':
+            data = self.get_session_details(**kwargs)
+            data['session_default'] = 'session_details.html'
+        else:
+            data = self.get_session_live(**kwargs)
+            data['session_default'] = 'session_live.html'
+
+        return data
 
     def get_session_live(self, **kwargs):
         session_id = kwargs['session_id']
         session = self.app.dm.load_session(session_id)
-        return self.get_session_data(session)
+        data = self.get_session_data(session)
+        data.update({'s': session})
+        return data
 
     def get_session_details(self, **kwargs):
         session_id = kwargs['session_id']
@@ -191,6 +313,7 @@ class DataContent:
             if not (a is None or a.allows_access(self.app.user)):
                 raise Exception("You do not have access to this session information. ")
 
+        # Try to get deletion days (used in SLL based on session name code)
         days = self.app.dm.get_session_data_deletion(session.name[:3])
         td = (session.start + dt.timedelta(days=days)) - self.app.dm.now()
         errors = []
@@ -202,10 +325,53 @@ class DataContent:
         return {
             'session': session,
             'deletion_days': td.days,
-            'errors': errors
+            'errors': errors,
+            'files': [{'name': k.replace('.', ''),
+                       'y': v['count'],
+                       'z': v['size'],
+                       'sizeH': Pretty.size(v['size'])}
+                      for k, v in session.files.items()]
         }
 
+    def get_session_hourly_plots(self, **kwargs):
+        session_id = kwargs['session_id']
+        plot = kwargs['plot']
+        session = self.app.dm.load_session(session_id)
+        data = {'plot_data': [],
+                'plot_key': plot
+                }
+
+        if os.path.exists(session.data_path):
+            if plot == 'imported':
+                epuData = session.data.getEpuData()
+                items = [{'ts': row.timeStamp} for row in epuData.moviesTable]
+            elif plot == 'aligned':
+                sdata = session.data
+                items = []
+                for mic in sdata.get_micrographs():
+                    micFn = sdata.join(mic['micrograph'])
+                    items.append({'ts': os.path.getmtime(micFn)})
+                items.sort(key=lambda item: item['ts'])
+            else:
+                raise Exception('Unknown plot type: ' + plot)
+
+            data['plot_data'] = TsBins(items).bins
+
+        return data
+
+    def get_session_data_card(self, **kwargs):
+        return self.get_session_details(**kwargs)
+
+    def get_session_micrographs(self, **kwargs):
+        data = self.get_session_live(**kwargs)
+        return {'micrographs': data['defocus'][:8]}
+
+    def get_session_gridsquares(self, **kwargs):
+        session = self.app.dm.load_session(kwargs['session_id'])
+        return {'gridsquares': session.data.get_gridsquares()}
+
     def get_sessions_list(self, **kwargs):
+        show_extra = 'extra' in kwargs and self.app.user.is_admin
         dm = self.app.dm  # shortcut
         all_sessions = dm.get_sessions()
         sessions = []
@@ -220,21 +386,29 @@ class DataContent:
                                               prettyDate=True, piApp=True)
                     bookingDict[s.booking.id] = b
 
-                    if not os.path.exists(dm.get_session_data_path(s)):
-                        s.data_path = ''
-
         return {
             'sessions': sessions,
             'bookingDict': bookingDict,
-            'possible_owners': self.get_pi_labs(),
-            'possible_operators': self.get_possible_operators(),
+            'show_extra': show_extra
+        }
+
+    def get_session_flowchart(self, **kwargs):
+        session = self.app.dm.load_session(kwargs['session_id'])
+        data = self.get_session_data(session)
+        return {
+            'session': session,
+            'workflow': session.data.get_workflow()
         }
 
     def get_users_list(self, **kwargs):
-        users = self.app.dm.get_users()
-        for u in users:
-            u.image = self.user_profile_image(u)
-            u.project_codes = [p.code for p in u.get_applications()]
+        status = kwargs.get('status', 'active')
+        all_users = self.app.dm.get_users()
+        users = []
+        for u in all_users:
+            if status == 'all' or u.status == status:
+                u.image = self.user_profile_image(u)
+                u.project_codes = [p.code for p in u.get_applications()]
+                users.append(u)
 
         return {'users': users}
 
@@ -312,18 +486,30 @@ class DataContent:
             'roles': dm.User.ROLES
         }
 
-    def get_resources_list(self, **kwargs):
+    def get_user_profile(self, **kwargs):
+        return {
+            'lab_members': self.get_lab_members(self.app.user)
+        }
+
+    def get_resources(self, **kwargs):
         user = self.app.user
+        dm = self.app.dm
         if not user.is_authenticated:
-            return  {'resources': []}
+            return {'resources': []}
 
         def _image(r):
-            fn = self.app.dm.get_resource_image_path(r)
+            fn = dm.get_resource_image_path(r)
             if os.path.exists(fn):
-                base64 = image.Base64Converter(max_size=(1024, 1024))
+                base64 = image.Base64Converter(max_size=(128, 128))
                 return 'data:image/%s;base64, ' + base64.from_path(fn)
             else:
                 return flask.url_for('images.static', filename=r.image)
+
+        all = kwargs.get('all', False)
+        get_image = kwargs.get('image', False)
+
+        def _filter(r):
+            return all or r.is_active
 
         resource_list = [
             {'id': r.id,
@@ -333,16 +519,22 @@ class DataContent:
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
-             'image': _image(r),
-             'user_can_book': user.can_book_resource(r),
+             'image': _image(r) if get_image else None,
+             'user_can_book': dm.check_resource_access(r, 'create_booking'),
              'is_microscope': r.is_microscope,
+             'is_active': r.is_active,
              'min_booking': r.min_booking,
              'max_booking': r.max_booking,
              'daily_cost': r.daily_cost
              }
-            for r in self.app.dm.get_resources()
+            for r in self.app.dm.get_resources() if _filter(r)
         ]
         return {'resources': resource_list}
+
+    def get_resources_list(self, **kwargs):
+        kwargs['all'] = True  # show all resources despite status
+        kwargs['image'] = True  # load resource image
+        return self.get_resources(**kwargs)
 
     def get_resource_form(self, **kwargs):
         copy_resource = json.loads(kwargs.pop('copy_resource', 'false'))
@@ -392,22 +584,59 @@ class DataContent:
 
     def get_booking_calendar(self, **kwargs):
         dm = self.app.dm  # shortcut
-        dataDict = self.get_resources_list()
+        dataDict = self.get_resources()
         dataDict['bookings'] = [self.booking_to_event(b)
                                 for b in dm.get_bookings()
                                 if b.resource is not None]
-        dataDict['current_user_json'] = flask_login.current_user.json()
         dataDict['applications'] = [{'id': a.id,
                                      'code': a.code,
                                      'alias': a.alias}
                                     for a in dm.get_applications()
                                     if a.is_active]
-
-        dataDict['possible_owners'] = self.get_pi_labs()
-        dataDict['possible_operators'] = self.get_possible_operators()
-
-        dataDict['resource_id'] = kwargs.get('resource_id', None)
         return dataDict
+
+    def get_booking_form(self, **kwargs):
+        dm = self.app.dm  # shortcut
+        user = self.app.user
+
+        if 'start' in kwargs and 'end' in kwargs:
+            dates = {
+                'start': datetime_from_isoformat(kwargs.get('start', None)),
+                'end': datetime_from_isoformat(kwargs.get('end', None))
+            }
+        else:
+            dates = None
+
+        read_only = False
+        if 'booking_id' in kwargs:
+            booking_id = kwargs['booking_id']
+            booking = dm.get_booking_by(id=booking_id)
+            read_only = not (user.is_manager or user.id == booking.owner.id)
+
+            if dates:
+                booking.start = dates['start']
+                booking.end = dates['end']
+            if booking is None:
+                raise Exception("Booking with id %s not found." % booking_id)
+        elif 'entry_id' in kwargs:
+            entry = dm.get_entry_by(id=kwargs['entry_id'])
+            scopes = {r.id: r for r in dm.get_resources() if r.is_microscope}
+            booking = self.booking_from_entry(entry, scopes)
+        else:  # New Application
+            booking = dm.create_basic_booking(dates)
+            allowed_resources = [r for r in dm.get_resources()]
+
+        display = dm.get_config('bookings')['display']
+        applications = [a for a in dm.get_visible_applications() if a.is_active]
+
+        data = {'booking': booking,
+                'applications': applications,
+                'show_experiment': display['show_experiment'],
+                'read_only': read_only
+                }
+
+        data.update(self.get_projects_list(status='active'))
+        return data
 
     def get_applications(self, **kwargs):
         dataDict = self.get_raw_applications_list()
@@ -467,7 +696,7 @@ class DataContent:
                              'name': u.name,
                              'email': u.email,
                              'in_app': u.id in in_app,
-                             'status': 'creator' if u.id == app.creator.id else ''
+                             'status': 'representative' if u.id == app.representative_id else ''
                              }
                             for u in dm.get_users() if u.is_pi],
                 'users': [u for u in dm.get_users() if u.is_staff]
@@ -477,6 +706,7 @@ class DataContent:
         """ Load values to form parameters based on the ids.
         """
         definition = form.definition
+        values = values or {}  # Stored None in some booking.experiment
 
         def set_value(p):
             if 'id' not in p:
@@ -492,32 +722,41 @@ class DataContent:
                     set_value(p)
 
     def get_experiment_form(self, **kwargs):
-        data = self.get_dynamic_form_modal(**kwargs)
+        booking_id = int(kwargs['booking_id'])
+        booking = self.app.dm.get_booking_by(id=booking_id)
+        print("Booking id: ", booking_id, 'experiment', booking.experiment)
+
+        #if 'form_values' not in kwargs:
+        kwargs['form_values'] = json.dumps(booking.experiment)
+
+        form = self.app.dm.get_form_by(name='experiment')
+        data = self._dynamic_form(form, **kwargs)
         data.update(self.get_grids_storage())
         return data
 
-    def get_dynamic_form_modal(self, **kwargs):
-        form_id = int(kwargs.get('form_id', 1))
+    def _dynamic_form(self, form, **kwargs):
         form_values_str = kwargs.get('form_values', None) or '{}'
         form_values = json.loads(form_values_str)
+        self.set_form_values(form, form_values)
+        return {'form': form}
 
+    def get_dynamic_form_modal(self, **kwargs):
+        form_id = int(kwargs.get('form_id', 1))
         form = self.app.dm.get_form_by(id=form_id)
 
         if form is None:
             raise Exception("Invalid form id: %s" % form_id)
 
-        self.set_form_values(form, form_values)
-
-        return {'form': form}
+        return self._dynamic_form(form, **kwargs)
 
     def get_logs(self, **kwargs):
         dm = self.app.dm
         logs = int(kwargs.get('n', 100))
-        logs = dm.get_logs()[-logs:  ]
+        logs = dm.get_logs()[-logs:]
         for log in logs:
             log.user = dm.get_user_by(id=log.user_id)
 
-        return  {'logs': logs}
+        return {'logs': logs}
 
     def get_pages(self, **kwargs):
         page_id = kwargs['page_id']
@@ -552,11 +791,13 @@ class DataContent:
                         status='active'
                     )
                     imported.append(u)
-                    self.app.mm.send_mail(
-                        [user.email],
-                        "emhub: New account imported",
-                        flask.render_template('email/account_created.txt',
-                                              user=user))
+
+                    if self.app.mm:
+                        self.app.mm.send_mail(
+                            [user.email],
+                            "emhub: New account imported",
+                            flask.render_template('email/account_created.txt',
+                                                  user=user))
                 except Exception as e:
                     u['error'] = str(e)
                     failed.append(u)
@@ -602,7 +843,16 @@ class DataContent:
 
     def get_reports_time_distribution(self, **kwargs):
 
-        bookings, range_dict = self.get_booking_in_range(kwargs)
+        def _booking_to_json(booking, **kwargs):
+            bj = self.booking_to_event(booking, **kwargs)
+            bj.update({
+                'total_cost': booking.total_cost,
+                'days': booking.days,
+                'type': booking.type
+            })
+            return bj
+
+        bookings, range_dict = self.get_booking_in_range(kwargs, bookingFunc=_booking_to_json)
 
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
@@ -641,8 +891,6 @@ class DataContent:
         d = {
             'overall': counters,
             'cem': cem_counters,
-            'possible_owners': self.get_pi_labs(),
-            'possible_operators': self.get_possible_operators(),
             'app_dict': app_dict,
             'details_bookings': details_bookings,
             'details_title': details_title,
@@ -672,7 +920,7 @@ class DataContent:
                 'bookings': [],
                 'sum_cost': 0,
                 'sum_days': 0,
-                } for pi in a.pi_list
+            } for pi in a.pi_list
             }
 
         def update_pi_info(pi_info, b):
@@ -695,7 +943,7 @@ class DataContent:
 
             app_id = b.application.code
 
-            if  app_id not in apps_dict:
+            if app_id not in apps_dict:
                 print(">>> Missing app: ", app_id)
                 continue
 
@@ -722,7 +970,7 @@ class DataContent:
                       % (app_id, pi.id))
 
         result = {
-            'apps_dict':  apps_dict,
+            'apps_dict': apps_dict,
             'pi_dict': pi_dict,
             'portal_users': portal_users,
             'group': int(kwargs.get('group', 1))
@@ -893,7 +1141,7 @@ class DataContent:
 
         result = {
             'pi': pi_user,
-            'apps_dict':  apps_dict,
+            'apps_dict': apps_dict,
             'all_bookings': all_bookings,
             'total': sum(b['total_cost'] for b in all_bookings)
         }
@@ -1001,19 +1249,203 @@ class DataContent:
                 'since': since
                 }
 
+    def get_report_microscopes_usage_content(self, **kwargs):
+        return self.get_report_microscopes_usage(**kwargs)
+
+    def get_report_microscopes_usage_entrylist(self, **kwargs):
+        return self.get_report_microscopes_usage(**kwargs)
+
+    def get_report_microscopes_usage(self, **kwargs):
+        metric = kwargs.get('metric', 'days')
+        use_data = metric == 'data'
+
+        self.check_user_access('usage_report')
+
+        dm = self.app.dm  # shortcut
+        centers = dm.get_config('sessions')['centers']
+
+        def _filter(b):
+            return not b.is_slot
+
+        app_id = int(kwargs.get('application', 0))
+        selected_app = dm.get_application_by(id=app_id)
+        applications = dm.get_visible_applications()
+        if not selected_app:
+            selected_app = applications[-1]
+            pi_list = [u.id for u in dm.get_users() if u.is_pi]
+        else:
+            pi_list = [pi.id for pi in selected_app.pi_list]
+
+        bookings, range_dict = self.get_booking_in_range(kwargs,
+                                                         asJson=False,
+                                                         filter=_filter)
+        entries_usage = {}
+        total_usage = 0
+        entries_down = {}
+        total_down = 0
+        key = kwargs.get('key', '')
+        selected_entry = None
+        total_days = 0
+        totalDays = defaultdict(lambda: 0)
+        resources_data_usage = defaultdict(lambda: list())
+
+        report_resources = dm.get_config('reports')['resources']
+        resources = [r for r in self.get_resources()['resources']
+                     if r['name'] in report_resources]
+
+        # selected resources
+        if 'selected' in kwargs:
+            selected = [int(p) for p in kwargs['selected'].split(',')]
+        else:
+            selected = [r['id'] for r in resources]
+
+        def _value(b):
+            return b.total_size if use_data else b.days
+
+        for b in bookings:
+            if b.resource_id not in selected:
+                continue
+
+            rid = b.resource.id
+            b_value = _value(b)
+
+            if b.type in ['downtime', 'maintenance', 'special']:
+                entry_key = b.type
+                entry_label = entry_key.capitalize()
+                entry_email = ''
+                entries = entries_down
+                total_down += b_value
+            else:
+                if b.project:
+                    pi = b.project.user.get_pi()
+                else:
+                    pi = b.owner.get_pi()
+                if not pi or pi.id not in pi_list:
+                    continue
+                entry_key = str(pi.id)
+                entry_label = centers.get(pi.email, pi.name)
+                entry_email = pi.email
+                entries = entries_usage
+                total_usage += b_value
+                totalDays[rid] += b_value
+                ts = dt.datetime.timestamp(b.end)
+                resources_data_usage[rid].append((ts * 1000, b_value))
+
+            if entry_key not in entries:
+                entries[entry_key] = entry = {
+                    'key': entry_key,
+                    'label': entry_label,
+                    'email': entry_email,
+                    'bookings': [],
+                    'days': defaultdict(lambda: 0),
+                    'data': defaultdict(lambda: {'size': 0, 'files': 0}),
+                    'total_data': {'size': 0, 'files': 0},
+                    'total_days': 0,
+                    'users': set()
+                }
+            else:
+                entry = entries[entry_key]
+
+            entry['bookings'].append(b)
+            entry['days'][rid] += b_value
+            entry['total_days'] += b_value
+            entry['users'].add(b.owner.email)
+
+            total_days += b_value
+            if key == entry_key:
+                selected_entry = entry
+
+        entries_sorted = [e for e in sorted(entries_usage.values(),
+                                            key=lambda e: e['total_days'],
+                                            reverse=True)]
+
+        def _percent(value):
+            return 100 / value if value > 0 else 0
+
+        percent = _percent(total_days)
+        percent_usage = _percent(total_usage)
+
+        def _name(e):
+            name = centers.get(e['email'], e['label'])
+            return shortname(name)
+
+        pie_data = [{'name': e['label'], 'y': e['total_days'] * percent}
+                    for e in entries_down.values()]
+        pie_data.append({'name': 'Usage', 'y': total_usage * percent})
+
+        bar_data = [{
+            'name': _name(e),
+            'y': e['total_days'] * percent_usage,
+            'drilldown': e['label']
+        } for e in entries_sorted]
+
+        drilldown_data = []
+
+        for e in entries_sorted:
+            percent = _percent(e['total_days'])
+            usage = {}
+            for b in e['bookings']:
+                name = b.owner.name
+                if name not in usage:
+                    usage[name] = 0
+                usage[name] += _value(b)
+
+            drilldown_data.append({
+                'name': _name(e),
+                'id': e['label'],
+                'data': [(k, v * percent) for k, v in usage.items()]
+            })
+
+        # Add a total entry
+        entries_sorted.insert(0, {
+            'key': 'Total', 'label': 'Total', 'email': '',
+            'bookings': [], 'total_days': total_usage,
+            'days': totalDays,
+        })
+
+        data_usage_series = []
+        for r in resources:
+            if r['id'] in selected:
+                resources_data_usage[r['id']].sort(key=lambda item: item[0])
+                data_usage_series.append({'name': r['name'],
+                                          'color': r['color'],
+                                          'data': resources_data_usage[r['id']]})
+
+        data = {
+            'entries': entries_sorted,
+            'total_days': total_days,
+            'total_usage': total_usage,
+            'resources_dict': {r['id']: r for r in resources},
+            'selected_resources': selected,
+            'selected_entry': selected_entry,
+            'applications': applications,
+            'selected_app': selected_app,
+            'pie_data': pie_data,
+            'bar_data': bar_data,
+            'drilldown_data': drilldown_data,
+            'data_usage_series': data_usage_series,
+            'resources': resources,
+            'metric': metric,
+            'use_data': use_data
+        }
+        data.update(range_dict)
+        return data
+
     def get_report_pis_usage(self, **kwargs):
 
         bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
 
         pi_dict = {}
-        univ_dict = self.app.dm.get_universities_dict()
+        try:
+            univ_dict = self.app.dm.get_universities_dict()
+        except:
+            univ_dict = {}
 
         def _get_univ(email, default=None):
             for k, v in univ_dict.items():
                 if email.endswith(k):
                     return v
             return default
-
 
         for b in bookings:
             pi = b.owner.get_pi()
@@ -1026,7 +1458,7 @@ class DataContent:
                         'first_name': first_name,
                         'last_name': last_name,
                         'email': pi.email,
-                        #'email_rev': pi.email[::-1],  # reverse email for sorting
+                        # 'email_rev': pi.email[::-1],  # reverse email for sorting
                         'university': _get_univ(pi.email, 'z-Unknown'),
                         'bookings': 0,
                         'days': 0,
@@ -1044,16 +1476,103 @@ class DataContent:
 
         return data
 
+    def get_sjsm_batch_content(self, **kwargs):
+        batch_id = int(kwargs['batch_id'])
+        batch = {
+            'id': batch_id,
+            'plates': []
+        }
+        plates = self.app.dm.get_pucks()
+        platesDict = {}
+        platesIdMap = {}
+
+        for p in plates:
+            b = p.dewar
+            plate_number = p.cane
+            if batch_id == b:
+                platesDict[plate_number] = {}
+                platesIdMap[p.id] = plate_number
+                batch['plates'].append(plate_number)
+
+        def _infoFromPlate(plate, b=None, p=None):
+            plate_id = int(plate['plate'])
+            if plate_id in platesIdMap:
+                channel_id = int(plate['channel'])
+                plate_number = platesIdMap[plate_id]
+                platesDict[plate_number][channel_id] = {
+                    'booking': b,
+                    'project': p,
+                    'issues': plate.get('issues', False),
+                    'sample': plate.get('sample', ''),
+                    'comments': plate['comments']
+                }
+
+        # Fixme: get a range of bookings only
+        for b in self.app.dm.get_bookings(orderBy='start'):
+            e = b.experiment
+            if e and 'plates' in e:
+                for plate in e['plates']:
+                    _infoFromPlate(plate, b=b)
+
+        cond = "type=='update_plate'"
+        for entry in self.app.dm.get_entries(condition=cond):
+            _infoFromPlate(entry.extra['data'], p=entry.project)
+
+        data = {
+            'batch': batch,
+            'platesDict': platesDict
+        }
+        return data
+
+    def get_sjsm_plates(self, **kwargs):
+        plates = self.app.dm.get_pucks()
+        batches = []
+
+        for p in plates:
+            batch = p.dewar
+            plate = p.cane
+            if batch not in batches:
+                batches.append(batch)
+
+        batches.reverse()  # more recent first
+        data = {'batches': batches}
+        if batches:
+            batch_id = kwargs.get('batch_id', batches[0])
+            data.update(self.get_sjsm_batch_content(batch_id=batch_id))
+
+        return data
+
+    def get_workers(self, **kwargs):
+        workers = {}
+        for k, v in self.app.dm.get_config('hosts').items():
+            workers[k] = v
+            updated = v.get('updated', '')
+            active = False
+            if updated:
+                u = Pretty.parse_datetime(updated)
+                td = dt.datetime.now() - u
+                active = td < dt.timedelta(minutes=2)
+
+            workers[k].update({
+                'has_specs': bool(v.get('specs', '')),
+                'active': active
+            })
+        return {'workers': workers,
+                'now': Pretty.now()}
+
+    def get_workers_content(self, **kwargs):
+        return self.get_workers()
+
     # --------------------- RAW (development) content --------------------------
     def get_raw_booking_list(self, **kwargs):
         bookings = self.app.dm.get_bookings()
-        return {'bookings': [self.booking_to_event(b) for b in bookings]}
+        return {'bookings': bookings}
 
     def get_raw_applications_list(self, **kwargs):
         return {'applications': self.app.dm.get_visible_applications()}
 
     def get_forms_list(self, **kwargs):
-        return  {'forms': self.app.dm.get_forms()}
+        return {'forms': self.app.dm.get_forms()}
 
     def get_raw_invoice_periods_list(self, **kwargs):
         return {'invoice_periods': self.app.dm.get_invoice_periods()}
@@ -1106,8 +1625,8 @@ class DataContent:
             ip = dm.get_invoice_period_by(id=invoice_period_id)
         else:
             ip = dm.InvoicePeriod(status='active',
-                                 start=dt.datetime.now(),
-                                 end=dt.datetime.now())
+                                  start=dt.datetime.now(),
+                                  end=dt.datetime.now())
 
         return {
             'invoice_period': ip
@@ -1119,7 +1638,7 @@ class DataContent:
 
         def _filter(t):
             return ((period.start < t.date < period.end) and
-                    ('pi' not in kwargs or t.user.id == kwargs['pi'] ))
+                    ('pi' not in kwargs or t.user.id == kwargs['pi']))
 
         transactions = [t for t in dm.get_transactions() if _filter(t)]
         transactions_dict = {}
@@ -1156,9 +1675,9 @@ class DataContent:
             'tabs': tabs,
             'selected_tab': tab,
             'base_url': flask.url_for('main',
-                                 content_id='invoice_period',
-                                 period=period.id,
-                                 tab=tab)
+                                      content_id='invoice_period',
+                                      period=period.id,
+                                      tab=tab)
         }
 
         report_args = {
@@ -1174,20 +1693,104 @@ class DataContent:
 
         return data
 
-    def get_projects_list(self, **kwargs):
+    def get_user_projects(self, user, **kwargs):
+        dm = self.app.dm
+        status = kwargs.get('status', None)
+        extra = 'extra' in kwargs
+        pid = int(kwargs.get('pid', 0))
+        scope = kwargs.get('scope', 'lab')
+
+        permissions = self.app.dm.get_config("projects")['permissions']
+        possible_scopes = permissions['user_can_see_projects']
+
         # FIXME Define access/permissions for other users
-        projects = []
-        for p in self.app.dm.get_projects():
+        projects = {}
+        is_manager = user.is_manager
+
+        if 'pid' in kwargs and not is_manager:
+            raise Exception("You do not have permissions to see these projects")
+
+        scopes_set = set(ps['key'] for ps in possible_scopes)
+        if 'scope' in kwargs and not scope in scopes_set:
+            raise Exception(f"Invalid scope '{scope}', or invalid permissions.")
+
+        pi_select = {}
+
+        for p in dm.get_projects():
+            if status and p.status != status:
+                continue
+
             pi = p.user.get_pi()
+
+            if pi:
+                if pi.id not in pi_select:
+                    pi_select[pi.id] = {'name': pi.name, 'count': 1}
+                else:
+                    pi_select[pi.id]['count'] += 1
+
+            # Check filters to exclude projects from the list
+            if pid and (not pi or pi.id != pid):
+                continue
+
+            # Show as visible if the user is manager or can edit a project
+            # If not, some filters will be applied, based on user's lab
+            if not is_manager and not user.can_edit_project(p):
+                if scope == 'mine':
+                    if user != p.user:
+                        continue
+                elif scope == 'lab':
+                    if not user.same_pi(p.user):
+                        continue
+
             if pi:
                 apps = pi.get_applications()
                 # skip this project from the list if the application is confidential
                 # and the user has not access to it
-                if apps and not apps[0].allows_access(self.app.user):
+                if apps and not apps[0].allows_access(user):
                     continue
-            projects.append(p)
+            p.sessions = []
+            projects[p.id] = p
 
-        return {'projects': projects}
+        # Find sessions for each project (based on project_id or booking's project)
+        for s in dm.get_sessions():
+            if p := s.project:
+                if p.id in projects:
+                    projects[p.id].sessions.append(s)
+
+        # Update Sessions stats
+        for p in projects.values():
+            days = sessions = images = size = 0
+            for b in p.bookings:
+                days += b.days
+                for s in b.session:
+                    sessions += 1
+                    images += s.images
+                    size += s.size
+
+            p.stats = {
+                'days': days,
+                'sessions': sessions,
+                'images': images,
+                'size': Pretty.size(size)
+            }
+            p.user_can_edit = user.can_edit_project(p)
+            p.display_title = 'Hidden title' if (p.is_confidential and not p.user_can_edit) else p.title
+
+        can_create = self.app.dm.user_can_create_projects(self.app.user)
+        return {'projects': projects.values(),
+                'user_can_create_projects': can_create,
+                'show_extra': extra and user.is_admin,
+                'pi_select': pi_select,
+                'pid': pid,
+                'possible_scopes': possible_scopes,
+                'scope': scope
+                }
+
+    def get_projects_list(self, **kwargs):
+        return self.get_user_projects(self.app.user, **kwargs)
+
+    def get_projects_list_table(self, **kwargs):
+        return self.get_projects_list(**kwargs)
 
     def get_project_form(self, **kwargs):
         dm = self.app.dm
@@ -1202,72 +1805,70 @@ class DataContent:
                                  last_update_date=now,
                                  last_update_user_id=user.id,
                                  title='',
-                                 description='')
-            if not self.app.user.is_manager:
+                                 description='',
+                                 extra={'user_can_edit': True})
+            if not user.is_manager:
                 project.creation_user = project.user = user
 
         return {
             'project': project,
-            'possible_owners': self.get_pi_labs()
+            'pi_labs': self.get_pi_labs(all=True)
         }
 
     def get_project_details(self, **kwargs):
         # FIXME Define access/permissions for other users
         user = self.app.user  # shortchut
+        dm = self.app.dm  # shortcut
 
-        project = self.app.dm.get_project_by(id=kwargs['project_id'])
+        project = dm.get_project_by(id=kwargs['project_id'])
 
         if project is None:
             raise Exception("Invalid Project Id %s" % kwargs['project_id'])
 
-        if not user.is_manager and not user.same_pi(project.user):
+        if not (user.can_edit_project(project) or user.same_pi(project.user)):
             raise Exception("You do not have permissions to see this project")
 
+        config = dm.get_config('projects')
 
-        entries = sorted(project.entries, key=lambda e: e.date, reverse=True)
+        def ekey(e):
+            if isinstance(e, dm.Booking): #e.type == 'booking':
+                return e.start, e.start
+            else:
+                return e.date, e.creation_date
+
+        def _update(e):
+            """ Format entries depending on their type.
+            Hardcoded for now :(
+            """
+            if e.type == 'access_microscopes':
+                t = 'Incomplete Request (select microscope)'
+                data = e.extra['data']
+                if micid := data.get('microscope_id', None):
+                    mic = dm.get_resource_by(id=int(micid))
+                    if mic:
+                        t = f"Request for {mic.name}"
+                        if sample := data.get('sample_name', None):
+                            t += f": {sample}"
+                e.title = t
+            return e
+        entries = [_update(e) for e in project.entries]
+
+        # Find all sessions related to this project and their bookings
+        bookings = set()
+        for s in dm.get_sessions():
+            if s.project == project:
+                b = s.booking
+                if b.type == 'booking' and b.id not in bookings:
+                    entries.append(b)
+                    bookings.add(b.id)
+
+        entries.extend([b for b in project.bookings if b.id not in bookings])
+        entries.sort(key=ekey, reverse=True)
 
         return {
             'project': project,
             'entries': entries,
-            'entry_types': self.get_entry_types()
-        }
-
-    def get_entry_types(self):
-        return {
-            'grids_preparation':
-                {'label': 'Grids Preparation',
-                 'group': 1,
-                 'iconClass': "fas fa-th fa-inverse",
-                 'imageClass': "img--picture",
-                 'report': "report_grids_preparation.html"
-                 },
-            'grids_storage':
-                {'label': 'Grids Storage',
-                 'group': 1,
-                 'iconClass': "fas fa-box fa-inverse",
-                 'imageClass': "img--picture",
-                 'report': "report_grids_storage.html"
-                 },
-            'screening':
-                {'label': 'Screening',
-                 'group': 2,
-                 'iconClass': "fas fa-search fa-inverse",
-                 'imageClass': "img--location",
-                 'report': "report_screening.html"
-                 },
-            'data_acquisition':
-                {'label': 'Data Acquisition',
-                 'group': 2,
-                 'iconClass': "far fa-image fa-inverse",
-                 'imageClass': "img--location",
-                 'report': "report_data_acquisition.html"
-                 },
-            'note':
-                {'label': 'Note',
-                 'group': 3,
-                 'iconClass': "fas fa-sticky-note fa-inverse",
-                 'imageClass': "img--picture"
-                 },
+            'config': config,
         }
 
     def get_entry_form(self, **kwargs):
@@ -1298,18 +1899,27 @@ class DataContent:
                              description='',
                              extra={})
 
-        entry_type = self.get_entry_types()[entry.type]
+        entry_config = dm.get_entry_config(entry.type)
         form_id = "entry_form:%s" % entry.type
         form = dm.get_form_by(name=form_id)
+        # Default config for the form
+        form_config = {
+            'show_title': True,
+            'show_desc': True,
+        }
         if form:
             self.set_form_values(form, entry.extra.get('data', {}))
+            if 'config' in form.definition:
+                form_config = form.definition['config']
 
         data = {
             'entry': entry,
-            'entry_type_label': entry_type['label'],
-            'definition': None if form is None else form.definition
+            'entry_type_label': entry_config['label'],
+            'definition': None if form is None else form.definition,
+            'form_config': form_config
         }
         data.update(self.get_grids_storage())
+        data.update(self.get_sjsm_plates())
 
         return data
 
@@ -1321,26 +1931,35 @@ class DataContent:
         if entry is None:
             raise Exception("Please provide a valid Entry id. ")
 
-        entry_type = self.get_entry_types()[entry.type]
+        entry_config = dm.get_entry_config(entry.type)
         data = entry.extra['data']
 
-        if not 'report' in entry_type:
+        if not 'report' in entry_config:
             raise Exception("There is no Report associated with this Entry. ")
 
         images = []
 
-        base64 = image.Base64Converter(max_size=(1024, 1024))
-        for row in data.get('images_table', []):
-            if 'image_file' in row:
-                fn = dm.get_entry_path(entry, row['image_file'])
-                row['image_data'] = 'data:image/%s;base64, ' + base64.from_path(fn)
-                images.append(row)
+        # Convert images in data form to base64
+        base64 = image.Base64Converter(max_size=(512, 512))
+
+        for k, v in data.items():
+            if k.endswith('_image') and v.strip():
+                fn = dm.get_entry_path(entry, v)
+                data[k] = 'data:image/%s;base64, ' + base64.from_path(fn)
+
+        for k, v in data.items():
+            if k.endswith('_images') or k.endswith('images_table'):
+                for row in v:
+                    if 'image_file' in row:
+                        fn = dm.get_entry_path(entry, row['image_file'])
+                        row['image_data'] = 'data:image/%s;base64, ' + base64.from_path(fn)
+                        images.append(row)
 
         # Group data rows by gridboxes (label)
         if entry.type in ['grids_preparation', 'grids_storage']:
-            #TODO: Some possible validations
-            #TODO:      - There are no more that 4 slots per gridbox
-            #TODO:      - There are no duplicated slots
+            # TODO: Some possible validations
+            # TODO:      - There are no more that 4 slots per gridbox
+            # TODO:      - There are no duplicated slots
             table = data[entry.type + '_table']
             gridboxes = {}
 
@@ -1361,15 +1980,18 @@ class DataContent:
 
         pi = entry.project.user.get_pi()
         # TODO: We should store some properties in EMhub and avoid this request
-        pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
+        try:
+            pi_info = self.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
+        except:
+            pi_info = None
 
         # Create a default dict based on data to avoid missing key errors in report
-        ddata = defaultdict(lambda : 'UNKNOWN')
+        ddata = defaultdict(lambda: 'UNKNOWN')
         ddata.update(data)
 
         return {
             'entry': entry,
-            'entry_type': entry_type,
+            'entry_config': entry_config,
             'data': ddata,
             'images': images,
             'pi_info': pi_info,
@@ -1387,7 +2009,7 @@ class DataContent:
 
         pucks = self.app.dm.get_pucks(condition=condStr, orderBy='id')
 
-        dewars = defaultdict(lambda :defaultdict(dict))
+        dewars = defaultdict(lambda: defaultdict(dict))
 
         dewar = int(kwargs.get('dewar', 0) or 0)
         cane = int(kwargs.get('cane', 0) or 0)
@@ -1444,11 +2066,13 @@ class DataContent:
                 }
 
     def get_raw_forms_list(self, **kwargs):
+        self.check_user_access('forms')
+
         return {'forms': [
             {'id': f.id,
              'name': f.name,
              'definition': json.dumps(f.definition)
-        } for f in self.app.dm.get_forms()]}
+             } for f in self.app.dm.get_forms()]}
 
     def get_raw_entries_list(self, **kwargs):
         cond = ['%s="%s"' % (k, kwargs[k]) for k in ['id', 'type'] if k in kwargs]
@@ -1461,15 +2085,42 @@ class DataContent:
 
     def get_create_session_form(self, **kwargs):
         dm = self.app.dm  # shortcut
-        booking_id = kwargs['booking_id']
-        b = dm.get_bookings(condition="id=%s" % booking_id)[0]
+        user = self.app.user
+        booking_id = int(kwargs['booking_id'])
+        b = dm.get_booking_by(id=booking_id)
+        can_edit = b.project and user.can_edit_project(b.project)
 
-        return {
+        if not (user.is_manager or user.same_pi(b.owner) or can_edit):
+            raise Exception("You can not create Sessions for this Booking. "
+                            "Only members of the same lab can do it.")
+
+        # load default acquisition params for the given microscope
+        acq = dm.get_config('sessions')['acquisition'][b.resource.name]
+
+        # We provide cryolo_models to be used with the OTF
+        cryolo_models_pattern = dm.get_config('sessions')['data']['cryolo_models']
+
+        cryolo_models = glob(cryolo_models_pattern)
+
+        if not user.is_manager:
+            group = dm.get_user_group(user)
+            cryolo_models = [cm for cm in cryolo_models if group in cm]
+
+        def _key(model):
+            d, base = os.path.split(model)
+            return base if not user.is_manager else os.path.join(os.path.basename(d), base)
+
+        data = {
             'booking': b,
+            'acquisition': acq,
             'cameras': dm.get_session_cameras(b.resource.id),
             'processing': dm.get_session_processing(),
-            'session_name': dm.get_new_session_info(booking_id)['name']
+            'session_name': dm.get_new_session_info(booking_id)['name'],
+            'hosts':  dm.get_config('sessions')['otf']['hosts'],
+            'cryolo_models': {_key(cm): cm for cm in cryolo_models}
         }
+        data.update(self.get_user_projects(b.owner, status='active'))
+        return data
 
     # --------------------- Internal  helper methods ---------------------------
     def booking_to_event(self, booking, **kwargs):
@@ -1477,22 +2128,26 @@ class DataContent:
         resource = booking.resource
         # Bookings should have resources, just in case an erroneous one
         if resource is None:
-            resource_info = {'id': None, 'name': ''}
-        else:
-            resource_info = {'id': resource.id, 'name': resource.name,
-                             'is_microscope': resource.is_microscope
-                             }
+            resource = self.app.dm.Resource(
+                name='Error: MISSING',
+                status='inactive',
+                tags='',
+                image='',
+                color='rgba(256, 256, 256, 1.0)',
+                extra={})
+
         owner = booking.owner
         owner_name = owner.name
-        o = booking.operator  #  shortcut
-        if o:
-            operator_dict = {'id': o.id, 'name': o.name}
+        operator = booking.operator  # shortcut
+        if operator:
+            operator_dict = {'id': operator.id, 'name': operator.name}
         else:
             operator_dict = {'id': None, 'name': ''}
 
         creator = booking.creator
         a = booking.application
         user = self.app.user
+        dm = self.app.dm
         b_title = booking.title
         b_description = booking.description
 
@@ -1535,44 +2190,32 @@ class DataContent:
             user_can_book = user.can_book_slot(booking)
         else:
             # Show all booking information in title in some cases only
-            appStr = '' if a is None else ', %s' % a.code
-            extra = "%s%s" % (owner.name, appStr)
+            display = dm.get_config('bookings')['display']
+            emptyApp = a is None or not display['show_application']
+            appStr = '' if emptyApp else ', %s' % a.code
+            emptyOp = operator is None or not display['show_operator']
+            opStr = '' if emptyOp else ' -> ' + operator.name
+            extra = "%s%s%s" % (owner.name, appStr, opStr)
             if user_can_view:
-                title = "%s (%s) %s" % (resource_info['name'], extra, b_title)
+                title = "%s (%s) %s" % (resource.name, extra, b_title)
                 if a:
                     application_label = a.code
                     if a.alias:
                         application_label += "  (%s)" % a.alias
             else:
-                title = "%s (%s)" % (resource_info['name'], extra)
+                title = "%s (%s)" % (resource.name, extra)
                 b_title = "Hidden title"
                 b_description = "Hidden description"
 
         bd = {
             'id': booking.id,
             'title': title,
-            'description': b_description,
+            'resource': {'id': resource.id},
             'start': datetime_to_isoformat(booking.start),
             'end': datetime_to_isoformat(booking.end),
             'color': color,
             'textColor': 'white',
-            'resource': resource_info,
-            'creator': {'id': creator.id, 'name': creator.name},
-            'owner': {'id': owner.id, 'name': owner_name},
-            'operator': operator_dict,
-            'type': booking.type,
             'booking_title': b_title,
-            'user_can_book': user_can_book,
-            'user_can_view': user_can_view,
-            'user_can_modify': user_can_modify,
-            'slot_auth': booking.slot_auth,
-            'repeat_id': booking.repeat_id,
-            'repeat_value': booking.repeat_value,
-            'days': booking.days,
-            'experiment': booking.experiment,
-            'application_label': application_label,
-            'costs': booking.costs,
-            'total_cost': booking.total_cost
         }
 
         if kwargs.get('prettyDate', False):
@@ -1590,11 +2233,50 @@ class DataContent:
 
         return bd
 
+    def booking_from_entry(self, entry, scopes):
+        """ Create a booking instance from an existing entry of type
+        'microscope_access'
+        """
+        dm = self.app.dm  # shortcut
+
+        if entry.type == 'access_microscopes':
+            data = entry.extra['data']
+            dstr = data.get('suggested_date', None)
+            rid = int(data.get('microscope_id', 0))
+            if dstr and rid:
+                p = entry.project
+                sdate = dm.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
+                return dm.Booking(
+                    title='',
+                    type='request',
+                    start=sdate.replace(hour=9),
+                    end=sdate.replace(hour=11, minute=59),
+                    owner=p.user,
+                    owner_id=p.user.id,
+                    resource=scopes[rid],
+                    resource_id=rid,
+                    project_id=p.id,
+                    project=p
+                )
+
+    def booking_active_today(self, b):
+        """ Return True if booking is active today. """
+        dm = self.app.dm
+        now = dm.now().date()
+        def _local(dt):
+            return dm.dt_as_local(dt).date()
+
+        return _local(b.start) <= now <= _local(b.end)
+
     def user_profile_image(self, user):
         if getattr(user, 'profile_image', None):
             return flask.url_for('images.user_profile', user_id=user.id)
         else:
             return flask.url_for('images.static', filename='user-icon.png')
+
+    def check_user_access(self, permissionKey):
+        if not self.app.dm.check_user_access(permissionKey):
+            raise Exception('Invalid access')
 
     def _get_facility_staff(self, unit):
         """ Return the list of facility personnel.
@@ -1662,18 +2344,19 @@ class DataContent:
 
         return users
 
-    def get_pi_labs(self):
-        # Send a list of possible owners of bookings
+    def get_pi_labs(self, all=False):
+        # Send a list of labs( used for possible owners of bookings or collaborators)
         # 1) Managers or admins can change the ownership to any user
         # 2) Application managers can change the ownership to any user in their
         #    application
         # 3) Other users can not change the ownership
+        # If all = True, all labs will be returned
         user = self.app.user  # shortcut
         if not user.is_authenticated:
             return []
 
-        if user.is_manager:
-            piList = [u for u in self.app.dm.get_users() if u.is_pi]
+        if user.is_manager or all:
+            piList = [u for u in self.app.dm.get_users(condition='status="active"') if u.is_pi]
         elif user.is_application_manager:
             apps = [a for a in user.created_applications if a.is_active]
             piSet = {user.get_id()}
@@ -1708,14 +2391,23 @@ class DataContent:
         if self.app.user.is_authenticated and self.app.user.is_manager:
             return [{'id': u.id, 'name': u.name}
                     for u in dm.get_users() if 'manager' in u.roles]
-        return  []
+        return []
 
-    def get_booking_in_range(self, kwargs, asJson=True):
+    def get_booking_in_range(self, kwargs,
+                             asJson=True, filter=None, bookingFunc=None):
         """ Return the list of bookings in the given range.
          It will also attach PI information to each booking.
          This function is used from report functions.
          If 'start' and 'end' keys are not in kwargs, the current
          year quarter will be used for the range.
+         Args:
+             kwargs: dict from where to read 'start' and 'end'
+             asJson: if True return json entries for each booking
+             filter: function to filter bookings. If None, the
+                non-slot bookings with non-zero cost resource
+                will be used.
+            bookingFunc: if asJson is True, function used to convert
+                booking into a jsonDict. If it is none, booking_to_event is used.
         """
 
         if 'start' in kwargs and 'end' in kwargs:
@@ -1741,14 +2433,17 @@ class DataContent:
             datetime_from_isoformat(d['end'].replace('/', '-'))
         )
 
+        bookingFunc = bookingFunc or self.booking_to_event
+
         def process_booking(b):
             if not asJson:
                 return b
-            return self.app.dc.booking_to_event(b, prettyDate=True, piApp=True)
+            return bookingFunc(b, prettyDate=True, piApp=True)
 
         def _filter(b):
             return b.resource.daily_cost > 0 and not b.is_slot
 
-        bookings = [process_booking(b) for b in bookings if _filter(b)]
+        filterFunc = filter or _filter
+        bookings = [process_booking(b) for b in bookings if filterFunc(b)]
 
         return bookings, d

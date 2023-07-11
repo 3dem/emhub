@@ -26,7 +26,11 @@
 # *
 # **************************************************************************
 
+import os
+import json
 import datetime as dt
+
+here = os.path.abspath(os.path.dirname(__file__))
 
 
 class TestDataBase:
@@ -60,6 +64,7 @@ class TestDataBase:
         self._populateSessions(dm)
 
     def _populateForms(self, dm):
+
         form1 = {
             'title': 'Sample Form',
             'params': [
@@ -186,6 +191,12 @@ class TestDataBase:
 
         dm.create_form(name='experiment',
                        definition=form2)
+
+        jsonPath = os.path.join(here, 'forms.json')
+        with open(jsonPath) as f:
+            formsJson = json.load(f)
+            for form in formsJson:
+                dm.create_form(**form)
 
     def _populateUsers(self, dm):
         pass

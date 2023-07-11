@@ -1,0 +1,39 @@
+
+<div class="col-xl-9 col-lg-12 col-md-6 col-sm-12 col-12">
+
+    <div class="card">
+        <div class="card-header">Last updated: <h4>{{ now }}</h4></div>
+        <div class="card-body p-0">
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                    <th class="border-0">Alias</th>
+                    <th class="border-0">Hostname</th>
+                    <th class="border-0">Last update</th>
+                    <th class="border-0">Specs</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% for hostname, worker in workers.items() %}
+                            {% set badge_type = 'warning' if worker['has_specs'] else 'danger' %}
+                            {% set badge_type = 'success' if worker['active'] else badge_type %}
+                                <tr>
+                                <td>{{ worker['alias'] }} </td>
+
+                                <td><span class="badge-dot badge-{{ badge_type }} mr-1"></span>{{ hostname }} </td>
+                                <td>{{ worker.get('updated', '') }}</td>
+                                <td>{{ worker.get('specs', '') }}</td>
+                                </tr>
+                        {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+

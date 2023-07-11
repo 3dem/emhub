@@ -1,0 +1,298 @@
+
+<style>
+    .workflow-canvas {
+        width: 100%;
+        height: 700px;
+        border: 1px solid lightgray;
+        {#margin-bottom: 15px;#}
+        background:
+          linear-gradient(90deg, #f0f0f0 21px, transparent 1%) center,
+          linear-gradient(#f0f0f0 21px, transparent 1%) center, #646464;
+           background-size: 22px 22px;
+      }
+
+    .logs_editor {
+        position: relative;
+        width: 100%;
+        height: 350px;
+    }
+
+    .head_span {
+        font-size: 20px;
+        cursor: pointer;
+    }
+
+</style>
+
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Session Workflow" %}
+    {% set navigation = [('Sessions', url_for_content('sessions_list')),
+                         (session.name, url_for_content('session_details', session_id=session.id)),
+                         ('OTF', url_for_content('session_live', session_id=session.id)),
+                         ('Workflow', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="card h-100">
+        <div class="card-body">
+            <div class="row p-0">
+                <div class="col-6 p-2">
+
+                    <div id="session_flowchart" class="col-12 workflow-canvas">
+                    </div>
+
+                    <div id="session_logs" class="col-12 mt-3"  style="height: 400px">
+
+                        <div class="pills-outline">
+                            <ul class="nav nav-pills mb-2" id="logs-tab" role="tablist">
+                                 <li class="nav-item">
+                                    <a class="nav-link active" id="stdout-tab" data-toggle="pill" href="#pills-stdout" role="tab" aria-controls="stdout" aria-selected="true">stdout</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" id="stderr-tab" data-toggle="pill" href="#pills-stderr" role="tab" aria-controls="stderr" aria-selected="false">stderr</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" id="json-tab" data-toggle="pill" href="#pills-json" role="tab" aria-controls="json" aria-selected="false">json</a>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content m-0 p-0" id="logs-tabContent">
+                                <div class="tab-pane fade show active" id="pills-stdout" role="tabpanel" aria-labelledby="stdout-tab">
+
+                                    <div id="stdout-editor" class="logs_editor"></div>
+
+                                </div>
+
+                                <div class="tab-pane fade" id="pills-stderr" role="tabpanel" aria-labelledby="stderr-tab">
+
+                                    <div id="stderr-editor" class="logs_editor"></div>
+
+                                </div>
+
+                                <div class="tab-pane fade" id="pills-json" role="tabpanel" aria-labelledby="stderr-json">
+
+                                    <div id="json-editor" class="logs_editor"></div>
+
+                                </div>
+                            </div>
+                        </div>
+
+
+
+                    </div>
+                </div>
+
+                <div class="col-3" id="run_col">
+{#                        <h3 class="col-12">Run</h3>#}
+                        <h3 class="col-12"><span id='run_span' class="badge badge-dark head_span" style="font-size: 20px" onclick="switchStatus(0);">Run</span></h3>
+
+                        <div class="col-12 p-0 m-0" id="run_row">
+                            <div class="row col-12">
+                                <img src="" id="logo-img" class="col-2">
+                                <h4 id="logo-label"></h4>
+                            </div>
+
+                            <div id="run_general_container" class="col-12">
+                             {% include "session_flowchart_form.html" %}
+                            </div>
+
+                            <div id="run_form_container" class="col-12">
+                            </div>
+                        </div>
+
+                </div>
+
+                <div class="col-3" id="summary_col">
+                    <h3 class="col-12"><span id='summary_span' class="badge badge-dark head_span" style="font-size: 20px" onclick="switchStatus(1);">Summary</span></h3>
+
+                    <div class="card col-12" id="summary_row">
+                        <div class="card-body">
+                            <h4>Inputs</h4>
+                            <ul>
+                                <li>Input particles</li>
+                            </ul>
+                            <h4>Outputs</h4>
+                            <ul>
+                                <li>Output Micrographs</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+<script>
+    var selected_node = null;
+    var workflow = {{ workflow|tojson }};
+    var stdoutEditor, stderrEditor, jsonEditor;
+    var session_id = {{ session.id }};
+    var display_expert = 'none';
+    var forms = {};
+    var runDict = null;
+    var statuses_values = [
+        {id: 'run_', status: 1},
+        {id: 'summary_', status: 1}
+    ];
+    //var status_classes = ['head_span_inactive', 'head_span_active'];
+    var status_classes = ['badge-light', 'badge-dark'];
+    var status_display = ['none', 'block'];
+
+    (function(window, document, $, undefined) {
+        "use strict";
+        $(function() {
+            var container = document.getElementById("session_flowchart");
+            var network = createNetwork(container, workflow);
+
+            network.on("click", clickOnCanvas);
+
+            // Create stdoutEditor
+            stdoutEditor = ace.edit("stdout-editor");
+            stdoutEditor.setTheme("ace/theme/monokai");
+
+            stderrEditor = ace.edit("stderr-editor");
+            stderrEditor.setTheme("ace/theme/monokai");
+
+            jsonEditor = ace.edit("json-editor")
+            jsonEditor.session.setMode("ace/mode/json");
+
+        });
+    })(window, document, window.jQuery);
+
+    function clickOnCanvas(params){
+        var  nodeId = params.nodes[0];
+        selected_node = null;
+
+        // find node with  that id
+          for (var i = 0;  i < workflow.length; i++){
+              var prot = workflow[i];
+              if (prot.id == nodeId) {
+                  selected_node = prot;
+                  break;
+              }
+          }
+
+          if (selected_node) {
+              stdoutEditor.setValue('');
+              stderrEditor.setValue('');
+              jsonEditor.setValue('');
+
+              loadRun(['json']);
+              loadRun(['stdout']);
+              loadRun(['stderr']);
+          }
+    }
+
+    function loadRun(output){
+        var reqRun = $.ajax({
+            url: "{{ url_for('api.get_session_run') }}",
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify({attrs:
+                    {runId : selected_node.id,
+                     sessionId: session_id,
+                     output: output
+                }}),
+            dataType: "json"
+        });
+
+        reqRun.done(function(data) {
+            var run_data = data['run'];
+            var form_data = null;
+
+            //alert(JSON.stringify(data));
+            if ('json' in run_data) {
+                runDict = run_data['json']
+                jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
+                if (selected_node.type in forms)
+                    form_data = forms[selected_node.type]
+                else
+                    loadRun(['form']);
+            }
+            else if ('form' in run_data) {
+                form_data = run_data['form'];
+                forms[selected_node.type] = form_data;
+            }
+
+            if (form_data) {
+                $('#logo-label').text(form_data.package + ' - ' + form_data.name);
+                $('#logo-img').attr('src', 'data:image/png;base64,' + form_data.logo);
+                $('#logo-img').css('display', form_data.logo ? 'flex': 'none');
+
+                let values = runDict.values;
+
+                if ('gpusToUse' in values)
+                    $('#gpuList').val(values.gpusToUse);
+                else
+                    $('#gpuList').val(values.gpuList);
+
+                $('#runLabel').val(runDict['dict'][''].label);
+                $('#numberOfThreads').val(values.numberOfThreads);
+                $('#numberOfMpi').val(values.numberOfMpi);
+
+                form_create(form_data, runDict['values'], 'run_form_container');
+                //jsonEditor.setValue(JSON.stringify(form_data, null, 4));
+            }
+
+            if ('stdout' in run_data)
+                stdoutEditor.setValue(run_data['stdout'], 1)
+
+
+            if ('stderr' in run_data)
+                stderrEditor.setValue(run_data['stderr'], 1)
+        });
+
+        reqRun.fail(function(jqXHR, textStatus) {
+          alert( "Run request failed: " + textStatus );
+        });
+    }
+
+    function clickOnExpert() {
+        display_expert = $('#switch-expert').prop('checked') ? 'flex' : 'none';
+        $('.scn-expert-param').css('display', display_expert);
+    }
+
+    function splitPanels(col1, col2) {
+        console.log('Splitting ', 'col-' + col1, 'col-' + col2);
+        $('#run_col').removeClass().addClass('col-' + col1);
+        $('#summary_col').removeClass().addClass('col-' + col2);
+    }
+
+    function switchStatus(index) {
+        let item = statuses_values[index];
+        console.log('Switching status: ', item);
+        let otherStatus = 1 - item.status;
+        console.log($('#' + item.id + 'row').css('display'));
+
+        $('#' + item.id + 'span').removeClass(status_classes[item.status]).addClass(status_classes[otherStatus]);
+        $('#' + item.id + 'row').css('display', status_display[otherStatus]);
+        item.status = otherStatus;
+
+        // Make arrangements depending on the other panel status
+        let otherItem = statuses_values[1 - index];
+
+        console.log("item: ", item);
+        console.log("other: ", otherItem);
+
+        if (item.status > 0) { // showing current index
+            if (otherItem.status > 0)
+                splitPanels(3, 3);
+            else
+                splitPanels(5, 1);
+        }
+        else { // hiding current index
+            if (otherItem.status > 0)
+                splitPanels(1, 5);
+            else
+                switchStatus(1 - index);
+        }
+
+    }
+
+
+</script>

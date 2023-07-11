@@ -36,6 +36,7 @@ from flask import request
 from flask import current_app as app
 import flask_login
 
+from emtools.utils import Pretty
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data import DataContent
@@ -91,11 +92,13 @@ def register_user():
             pi_id=attrs['pi_id'],
             status='active'
         )
-        app.mm.send_mail(
-            [user.email],
-            "emhub: New account registered",
-            flask.render_template('email/account_registered.txt',
-                                  user=user))
+
+        if app.mm:
+            app.mm.send_mail(
+                [user.email],
+                "emhub: New account registered",
+                flask.render_template('email/account_registered.txt',
+                                      user=user))
         return user
 
     return handle_user(register)
@@ -407,10 +410,11 @@ def poll_sessions():
     while True:
         sessions = app.dm.get_sessions(condition='status=="pending"')
         if sessions:
+            data = []
             for s in sessions:
                 b = s.booking
                 e = app.dc.booking_to_event(b)
-                data = [{
+                data.append({
                     'id': s.id,
                     'name': s.name,
                     'booking_id': s.booking_id,
@@ -420,16 +424,30 @@ def poll_sessions():
                     'operator': _user(b.operator),
                     'folder': session_folders[s.name[:3]],
                     'title': e['title']
-                 }]
-                return send_json_data(data)
+                 })
+            return send_json_data(data)
         time.sleep(3)
+
+
+@api_bp.route('/poll_active_sessions', methods=['POST'])
+@flask_login.login_required
+def poll_active_sessions():
+    #from pprint import pprint
+    #from emhub.data.data_manager import DataManager
+    while True:
+        dm = app.dm  # DataManager(app.instance_path, user=app.user)
+        sessions = dm.get_sessions(condition='status=="active"')
+        data = [s.json() for s in sessions if s.actions]
+        if data:
+            return send_json_data(data)
+        time.sleep(5)
+        dm.commit()
 
 
 @api_bp.route('/create_session', methods=['POST'])
 @flask_login.login_required
 def create_session():
     return handle_session(app.dm.create_session)
-
 
 @api_bp.route('/update_session', methods=['POST'])
 @flask_login.login_required
@@ -455,72 +473,159 @@ def clear_session_data():
     return handle_session(app.dm.clear_session_data)
 
 
-@api_bp.route('/create_session_set', methods=['POST'])
-@flask_login.login_required
-def create_session_set():
-    """ Create a set file without actual session. """
-    def handle(session, set_id, **attrs):
-        session.data.create_set(set_id, attrs)
-        return {'session_set': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
-@api_bp.route('/update_session_set', methods=['POST'])
-@flask_login.login_required
-def update_session_set():
-    """ Create a set file without actual session. """
-    def handle(session, set_id, **attrs):
-        session.data.update_set(set_id, attrs)
-        return {'session_set': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
-@api_bp.route('/get_session_sets', methods=['POST'])
-@flask_login.login_required
-def get_session_sets():
-    """ Return all sets' name of this session. """
-    def handle(session, set_id, **attrs):
-        # set_id is not used here, but passed by default to the handle
-        sets = session.data.get_sets(attrList=attrs)
-        return {'session_sets': sets}
-
-    return handle_session_data(handle, mode="r")
-
-
-@api_bp.route('/add_session_item', methods=['POST'])
-@flask_login.login_required
-def add_session_item():
-    """ Add a new item. """
-    def handle(session, set_id, **attrs):
-        itemId = attrs.pop("item_id")
-        session.data.add_set_item(set_id, itemId, attrs)
-        return {'item': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
-@api_bp.route('/update_session_item', methods=['POST'])
-@flask_login.login_required
-def update_session_item():
-    """ Update existing item. """
-    def handle(session, set_id, **attrs):
-        itemId = attrs.pop("item_id")
-        session.data.update_set_item(set_id, int(itemId), attrs)
-        return {'item': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
 @api_bp.route('/get_session_data', methods=['POST'])
 @flask_login.login_required
 def get_session_data():
     """ Return some information related to session (e.g CTF values, etc). """
-    def handle(session, set_id, **attrs):
-        return DataContent(app).get_session_data(session)
+    def handle(session, **attrs):
+        return DataContent(app).get_session_data(session, **attrs)
 
     return handle_session_data(handle, mode="r")
+
+@api_bp.route('/update_session_extra', methods=['POST'])
+@flask_login.login_required
+def update_session_extra():
+    """ Update only certain elements from the extra property. """
+    return handle_session(app.dm.update_session_extra)
+
+
+@api_bp.route('/get_session_users', methods=['POST'])
+@flask_login.login_required
+def get_session_users():
+
+    def _user(u):
+        return {'id': u.id, 'name': u.name, 'email': u.email} if u else {}
+
+    def _session_users(**attrs):
+        session = app.dm.get_session_by(id=attrs['id'])
+        b = session.booking
+        return {
+            'owner': _user(b.owner),
+            'operator': _user(b.operator),
+            'creator': _user(b.creator),
+            'group': app.dm.get_user_group(b.owner)
+        }
+    return _handle_item(_session_users, 'session_users')
+
+
+def _loadFileLines(fn):
+    lines = ''
+    if os.path.exists(fn):
+        for line in open(fn):
+            lines += line
+
+    return lines
+
+
+
+@api_bp.route('/get_session_run', methods=['POST'])
+@flask_login.login_required
+def get_session_run():
+
+    def _get_run(**attrs):
+        session = app.dm.load_session(attrs['sessionId'])
+        run = session.data.get_run(int(attrs['runId']))
+
+        lines = ''
+        outputs = attrs.get('output', ['json'])
+        from pprint import pprint
+        pprint(attrs)
+        results = {}
+
+        if 'json' in outputs:
+            results['json'] = {'dict': run.dict, 'values': run.getValues()}
+
+        if 'stdout' in outputs:
+            results['stdout'] = _loadFileLines(run.join('logs', 'run.stdout'))
+
+        if 'stderr' in outputs:
+            results['stderr'] = _loadFileLines(run.join('logs', 'run.stderr'))
+
+        if 'form' in outputs:
+            results['form'] = run.getFormDefinition()
+
+        return results
+
+    return _handle_item(_get_run, 'run')
+
+
+
+
+@api_bp.route('/get_session_tasks', methods=['POST'])
+@flask_login.login_required
+def get_session_tasks():
+    def _session_tasks(**attrs):
+        tasks = []
+        worker = attrs['worker']
+        dm = app.dm
+        hosts = dm.get_config('hosts')
+        sconfig = dm.get_config('sessions')
+        raw_hosts = sconfig['raw']['hosts']
+
+        if worker not in hosts:
+            raise Exception("Unregistered host %s" % worker)
+        else:
+            # First register host notification
+            hosts[worker]['updated'] = Pretty.now()
+            print(f"{worker}: get_session_tasks at {hosts[worker]['updated']}")
+            if 'specs' in attrs:
+                hosts[worker]['specs'] = attrs['specs']
+            dm.update_config('hosts', hosts)
+
+            # Let's find tasks now
+            for session in dm.get_sessions(condition='status="active"'):
+                extra = dict(session.extra)
+                session_tasks = extra.get('tasks', [])
+                if not session_tasks:
+                    continue
+                remaining_tasks = []
+                resourceName = session.booking.resource.name
+                for t in session_tasks:
+                    added = False
+                    parts = t.split(':')
+                    taskName = parts[0]
+                    if taskName in ['raw', 'transfer']:
+                        if raw_hosts.get(resourceName) == worker:
+                            tasks.append({"name": taskName,
+                                          "session": session.json(),
+                                          "create": ':create' in t
+                                          })
+                            added = True
+                    elif t.startswith('otf'):
+                        host = session.otf.get('host', '')
+                        if host == 'default':
+                            host = sconfig['otf']['hosts_default'].get(resourceName, '')
+                        if host == worker:
+                            tasks.append({"name": "otf",
+                                          "session": session.json(),
+                                          "create": ':create' in t,
+                                          "stop": ':stop' in t
+                                          })
+                            added = True
+
+                    if not added:
+                        remaining_tasks.append(t)
+                print("Host:", worker, "tasks: ", session_tasks, "remaining: ", remaining_tasks)
+                if len(remaining_tasks) != len(session_tasks):
+                    print("Updating session")
+                    dm.update_session_extra(id=session.id,
+                                            extra={'tasks': remaining_tasks})
+
+        return tasks
+
+    return _handle_item(_session_tasks, 'session_tasks')
+
+
+@api_bp.route('/get_workers', methods=['POST'])
+@flask_login.login_required
+def get_workers():
+    def _user(u):
+        return {'id': u.id, 'name': u.name, 'email': u.email} if u else {}
+
+    def _workers(**attrs):
+        return app.dc.get_workers()['workers']
+
+    return _handle_item(app.dc.get_workers, 'workers')
 
 
 # ---------------------------- INVOICE PERIODS --------------------------------
@@ -601,6 +706,15 @@ def delete_form():
     return handle_form(app.dm.delete_form)
 
 
+@api_bp.route('/get_config', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_config():
+    def _get_config(**attrs):
+        return app.dm.get_config(attrs['config'])
+
+    return _handle_item(_get_config, 'config')
+
+
 # ------------------------------ PROJECTS ---------------------------------
 
 @api_bp.route('/get_projects', methods=['GET', 'POST'])
@@ -642,7 +756,8 @@ def create_entry():
         fix_dates(attrs, 'date')
         entry = app.dm.create_entry(**attrs)
         save_entry_files(entry, entry.extra['data'])
-        entry = app.dm.update_entry(id=entry.id, extra=entry.extra)
+        entry = app.dm.update_entry(id=entry.id, extra=entry.extra,
+                                    validate=False)
         return entry.json()
 
     return _handle_item(handle, 'entry')
@@ -703,6 +818,7 @@ def delete_puck():
     return handle_puck(app.dm.delete_puck)
 
 
+
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
@@ -728,7 +844,10 @@ def fix_dates(attrs, *date_keys):
     for some keys that might be present in the attrs dict. """
     for date_key in date_keys:
         if date_key in attrs:
-            attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+            try:
+                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+            except:
+                attrs[date_key] = None
 
 
 def _handle_item(handle_func, result_key):
@@ -813,17 +932,19 @@ def handle_session(session_func):
 def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
-    set_id = attrs.pop("set_id", None)
     tries = 0
 
     while tries < 3:
         try:
             session = app.dm.load_session(sessionId=session_id, mode=mode)
-            result = handle(session, set_id, **attrs)
-            session.data.close()
+            result = handle(session, **attrs)
+            if session.data:
+                session.data.close()
             break
         except OSError:
-            print("Error with session data, sleeping 3 secs")
+            print(f"Error with session (id={session_id})data, sleeping 3 secs")
+            import traceback
+            traceback.print_exc()
             time.sleep(3)
             result = {}
             tries += 1

@@ -27,447 +27,700 @@
 # **************************************************************************
 
 import os
-from collections import namedtuple
-import numpy as np
-import h5py
-import sqlite3
-import tables as tbl
+import datetime as dt
+from glob import glob
+from collections import defaultdict
+import json
 
-from emhub.utils import image
+import mrcfile
+from emtools.utils import Path, Timer
+from emtools.metadata import StarFile, EPU, SqliteFile
+from emtools.image import Thumbnail
+
+
+def hours(tsFirst, tsLast):
+    dtFirst = dt.datetime.fromtimestamp(tsFirst)
+    dtLast = dt.datetime.fromtimestamp(tsLast)
+    d = dtLast - dtFirst
+    return d.days * 24 + d.seconds / 3600
 
 
 class SessionData:
-    """
-    Class that will handle the underlying data associate with a given Session.
-    It will store information of the acquisition as well as the pre-processing.
-    """
+    """ Base class with common functionality. """
+    def __init__(self, data_path, mode='r'):
+        self._path = data_path
+        self._epuData = None
 
-    def get_sets(self, attrList=None, condition=None):
-        """ Get a list with all or some sets in the session.
+    def join(self, *paths):
+        return os.path.join(self._path, *paths)
 
-        Args:
-            attrList: An optional list of attributes, to avoid returning
-                all properties for each set. If None, only id's will be returned.
-            condition: An optional condition string to filter out the result.
-        """
-        pass
+    def getEpuData(self):
+        if not self._epuData:
+            epuFolder = self.join('EPU')
+            if Path.exists(epuFolder):
+                self._epuData = EPU.Data(epuFolder, epuFolder)
+        return self._epuData
 
-    def create_set(self, setId, attrsDict):
-        """ Create a new set in the session.
-
-        Args:
-            setId: The id of the new set that will be created.
-            attrsDict: Dict-like object with keys and values
-
-        Return:
-            True if the set was successfully created, False otherwise.
-        """
-        pass
-
-    def update_set(self, setId, attrsDict):
-        """ Update existing set attributes.
-
-        Args:
-            setId: The id of the new set that will be created.
-            attrsDict: Dict-like object with keys and values
-
-        Return:
-            True if the set was successfully created, False otherwise.
-        """
-        pass
-
-    def get_set_items(self, setId, attrList=None, condition=None):
-        """ Return a list with all or some items from this set.
-
-        Args:
-            setId: The id of the set containing the items.
-            attrList: An optional list of attributes, to avoid returning
-                all properties for each set. (e.g 'id')
-            condition: An optional condition string to filter out
-                the result list of objects
-        Return:
-            A list with items (dict objects)
-        """
-        pass
-
-    def get_set_item(self, setId, itemId, attrList=None):
-        pass
-
-    def add_set_item(self, setId, itemId, attrDict):
-        pass
-
-    def update_set_item(self, setId, itemId, attrDict):
-        pass
-
-
-class H5SessionData(SessionData):
-    """
-    Container of Session Data based on HDF5 file.
-    """
-    def __init__(self, h5File, mode='r'):
-        #h5py.get_config().track_order = True
-        print("H5SessionData: mode: ", mode)
-
-        if mode == 'r':
-            print("Reading file: ", h5File)
-        elif mode in ['w', 'a']:
-            os.makedirs(os.path.dirname(h5File), exist_ok=True)
-            print("Writing file: ", h5File)
-
-        self._file = h5py.File(h5File, mode)
-
-    def get_sets(self, attrList=None, condition=None):
-        setList = []
-        for k, v in self._file[self._getSetPath('')].items():
-            if not attrList:
-                setAttrs = dict(v.attrs)
-            else:
-                setAttrs = {a: v.attrs[a] for a in attrList}
-            setAttrs['id'] = k
-            setList.append(setAttrs)
-
-        return setList
-
-    def _set_group_attrs(self, group, setId, attrDict):
-        attrs = {'id': setId}
-        attrs.update(attrDict)
-        for k, v in attrs.items():
-            group.attrs[k] = v
-
-    def create_set(self, setId, attrDict):
-        group = self._file.create_group(self._getSetPath(setId))
-        self._set_group_attrs(group, setId, attrDict)
-
-    def update_set(self, setId, attrDict):
-        group = self._file[self._getSetPath(setId)]
-        self._set_group_attrs(group, setId, attrDict)
-
-    def get_set_item(self, setId, itemId, attrList=None):
-        itemAttrs = self._file[self._getItemPath(setId, itemId)].attrs
-        return {a: itemAttrs[a] for a in attrList if a in itemAttrs}
-
-    def get_set_items(self, setId, attrList=None, condition=None):
-        # print(">>> Getting items from ", self._getSetPath(setId))
-        # print(self.get_sets())
-
-        if attrList is None:
-            attrs = list(ImageSessionData.MIC_ATTRS.keys())
-        elif 'id' not in attrList:
-            attrs = ['id'] + attrList
-        else:
-            attrs = attrList
-
-        # Check that all requested attributes in attrList are valid for Micrograph
-        # if any(a not in ImageSessionData.MIC_ALL_ATTRS for a in attrs):
-        #     raise Exception("Invalid attribute for micrograph")
-
-        itemsList = []
-
-        setGroup = self._file[self._getSetPath(setId)]
-
-        for item in setGroup.values():
-            #print("  item: ", item.name)
-            values = {a: item.attrs[a] for a in attrs if a in item.attrs}
-            itemsList.append(values)
-
-        return itemsList
-
-    def add_set_item(self, setId, itemId, attrDict):
-        micGroup = self._file.create_group(self._getItemPath(setId, itemId))
-        micAttrs = micGroup.attrs
-        micAttrs['id'] = itemId
-
-        for key, value in attrDict.items():
-            # try:
-                if isinstance(value, np.ndarray):
-                    micGroup.create_dataset(key, data=value)
-                else:
-                    micAttrs[key] = value
-            # except:
-            #     if value is not None:
-            #         #micGroup.create_dataset(key, data=value)
-            #         print("Setting attribute: ", key)
-            #         print("   type: ", type(value))
-            #         print("   >>> Value is None")
-
-    def update_set_item(self, setId, itemId, attrDict):
-        print("update_set_item:  Getting H5 path: " + self._getItemPath(setId, itemId));
-        micAttrs = self._file[self._getItemPath(setId, itemId)].attrs
-        micAttrs.update(**attrDict)
+    def mtime(self, fn):
+        from emtools.utils import Pretty
+        print(f">>>>>> Getting time from: {self.join(fn)}: {Pretty.timestamp(os.path.getmtime(self.join(fn)))}")
+        mt = os.path.getmtime(self.join(fn))
+        return mt
 
     def close(self):
-        self._file.close()
+        """ Deprecated, just for backward compatibility. """
+        pass
 
-    def _getItemPath(self, setId, itemId):
-        return '%s/item%06d' % (self._getSetPath(setId), itemId)
+    # ------------ Functions to override in subclasses ---------------------
+    def get_stats(self):
+        return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
 
-    def _getSetPath(self, setId):
-        return '/Sets/%s' % setId
+    def get_micrographs(self):
+        return []
+
+    def get_micrograph_data(self):
+        return {}
+
+    def get_micrograph_coordinates(self, micName):
+        return []
+
+    def get_micrograph_gridsquare(self, **kwargs):
+        epuData = self.getEpuData()
+        gsId = kwargs.get('gsId', '')
+        locData = {
+            'gridSquare': {},
+            'foilHole': {}
+        }
+        if epuData is None:
+            return locData
+
+        thumb = Thumbnail(output_format='base64', max_size=(512, 512))
+
+        for row in epuData.gsTable:
+            if row.id == gsId:
+                imgPath = self.join('EPU', row.folder, row.image)
+                locData['gridSquare'] = {
+                    'id': row.id,
+                    'image': row.image,
+                    'folder': row.folder,
+                    'thumbnail': thumb.from_path(imgPath)
+                }
+                break
+
+        def _microns(v):
+            return round(v * 0.0001, 3)
+
+        defocus = []
+        resolution = []
+        particles = 0
+        for mic in self.get_micrographs():
+            micName = mic.get('micName', mic['micrograph'])
+            loc = EPU.get_movie_location(micName)
+            if loc['gs'] == gsId:
+                defocus.append(_microns(mic['ctfDefocus']))
+                resolution.append(round(mic['ctfResolution'], 3))
+                particles += len(self.get_micrograph_coordinates(micName))
+
+        locData.update({'defocus': defocus,
+                        'resolution': resolution,
+                        'particles': particles
+                        })
+
+        return locData
+
+    def get_gridsquares(self, **kwargs):
+        epuData = self.getEpuData()
+        gs = []
+        lastGs = None
+        counter = 0
+        if epuData is not None:
+            for row in epuData.moviesTable:
+                movieGs = row.gsId
+                if movieGs != lastGs:
+                    if lastGs:
+                        gs.append({'gsId': lastGs, 'micrographs': counter})
+                    lastGs = movieGs
+                    counter = 0
+                counter += 1
+            gs.append({'gsId': lastGs, 'count': counter})
+
+        return gs
+
+    def get_classes2d(self):
+        pass
+
+    def get_workflow(self):
+        """ Return protocols and their relations. """
+        return []
 
 
-class ImageSessionData(SessionData):
+class RelionSessionData(SessionData):
     """
-    Very simple implementation of SessionData for testing purposes.
-    This class depends on the definition of EMHUB_TESTDATA environment
-    variable and the t20s_pngs folder inside it.
+    Adapter class for reading Session data from Relion OTF
     """
+    def get_stats(self):
+        print("Getting stats")
+        t = Timer()
+        def _stats_from_star(jobType, starFn, tableName, attribute):
+            fn = self.get_last_star(jobType, starFn)
+            if not fn or not os.path.exists(fn):
+                return {'count': 0}
 
-    MIC_ATTRS = {
-        'id': 'id',
-        'location': 'c11',
-        'ctfDefocus': 'c01',
-        'ctfDefocusU': 'c01',
-        'ctfDefocusV': 'c02',
-        'ctfDefocusAngle': 'c03',
-        'ctfResolution': 'c06',
-        'ctfFit': 'c07'
-    }
+            with StarFile(fn) as sf:
+                if attribute == 'count':
+                    return {'count': sf.getTableSize(tableName)}
+                t = sf.getTable(tableName)
+                firstRow, lastRow = t[0], t[-1]
+                first = self.mtime(getattr(firstRow, attribute))
+                last = self.mtime(getattr(lastRow, attribute))
 
-    MIC_DATA_ATTRS = [
-        'micThumbData', 'psdData', 'ctfFitData', 'shiftPlotData'
-    ]
+                return {
+                    'hours': hours(first, last),
+                    'count': t.size(),
+                    'first': first,
+                    'last': last,
+                }
 
-    MIC_EXTRA_ATTRS = [
-        'coordinates'
-    ]
+        moviesStar = self.get_last_star('Import', 'movies.star')
+        if not moviesStar:
+            return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
 
-    MIC_ALL_ATTRS = list(MIC_ATTRS.keys()) + MIC_DATA_ATTRS + MIC_EXTRA_ATTRS
+        countEpu = 0
+        if epuData := self.getEpuData():
+            moviesTable = epuData.moviesTable
+            first = moviesTable[0].timeStamp
+            last = moviesTable[-1].timeStamp
+            countEpu = moviesTable.size()
+            msEpu = {
+                'count': countEpu, 'first': first, 'last': last,
+                'hours': hours(first, last)
+            }
 
-    def __init__(self, useBase64=True):
-        self._useBase64 = useBase64
+        msImport = _stats_from_star('Import', 'movies.star',
+                                    'movies', 'rlnMicrographMovieName')
+        movieStats = msEpu if countEpu > msImport['count'] else msImport
 
-        testData = os.environ.get('EMHUB_TESTDATA', None)
+        return {
+            'movies': movieStats,
+            'ctfs': _stats_from_star('CtfFind', 'micrographs_ctf.star',
+                                     'micrographs', 'rlnMicrographName'),
+            'classes2d': _stats_from_star('Class2D', 'run_it*_model.star',
+                                          'model_classes', 'count'),
+            'coordinates': {'count': 0}  # FIXME if there are picking jobs or from extraction
+        }
 
-        if testData is None:
-            raise Exception('EMHUB_TESTDATA not defined.')
+        t.toc()
 
-        self.dataDir = os.path.abspath(os.path.join(testData, 't20s_pngs'))
+    def get_micrographs(self):
+        """ Return an iterator over the micrographs' CTF information. """
+        micFn = self._last_micFn()
+        if not micFn:
+            return []
 
-        if not os.path.exists(self.dataDir):
-            raise Exception("Missing %s, defined by EMHUB_TESTDATA"
-                            % self.dataDir)
+        with StarFile(micFn) as sf:
+            for row in sf.iterTable('micrographs'):
+                #micFn = self.join(row.rlnMicrographName)
+                micData = {
+                    'micrograph': row.rlnMicrographName,
+                    #'micTs': os.path.getmtime(micFn),
+                    'ctfImage': row.rlnCtfImage,
+                    'ctfDefocus': row.rlnDefocusU,
+                    'ctfResolution': min(row.rlnCtfMaxResolution, 10),
+                    'ctfDefocusAngle': row.rlnDefocusAngle,
+                    'ctfAstigmatism': row.rlnCtfAstigmatism
+                }
+                yield micData
 
-        self._rows = self.get_micrograph_rows(self.getFile('ctfs.sqlite'))
-        self._rowsDict = {row['id']: row for row in self._rows}
+    def get_micrograph_data(self, micId):
+        micFn = self._last_micFn()
+        if micFn:
+            with StarFile(micFn) as sf:
+                otable = sf.getTable('optics')
+                row = sf.getTableRow('micrographs', micId - 1)
+                micThumb = Thumbnail(output_format='base64',
+                                     max_size=(512, 512),
+                                     contrast_factor=0.15,
+                                     gaussian_filter=0)
+                psdThumb = Thumbnail(output_format='base64',
+                                     max_size=(128, 128),
+                                     contrast_factor=1,
+                                     gaussian_filter=0)
 
-    def getFile(self, *paths):
-        return os.path.join(self.dataDir, *paths)
+                micFn = self.join(row.rlnMicrographName)
+                micThumbBase64 = micThumb.from_mrc(micFn)
+                psdFn = self.join(row.rlnCtfImage).replace(':mrc', '')
+                pixelSize = otable[0].rlnMicrographPixelSize
 
-    def get_sets(self, attrList=None, condition=None):
-        return [{'id': 1}]
+                loc = EPU.get_movie_location(micFn)
 
-    def create_set(self, setId, attrDict):
-        raise Exception("Not supported.")
+                return {
+                    'micThumbData': micThumbBase64,
+                    'psdData': psdThumb.from_mrc(psdFn),
+                    # 'shiftPlotData': None,
+                    'ctfDefocusU': round(row.rlnDefocusU/10000., 2),
+                    'ctfDefocusV': round(row.rlnDefocusV/10000., 2),
+                    'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
+                    'ctfAstigmatism': round(row.rlnCtfAstigmatism/10000, 2),
+                    'ctfResolution': round(row.rlnCtfMaxResolution, 2),
+                    'coordinates': self.get_micrograph_coordinates(micFn),
+                    'micThumbPixelSize': pixelSize * micThumb.scale,
+                    'pixelSize': pixelSize,
+                    'gridSquare': loc['gs'],
+                    'foilHole': loc['fh']
+                }
+        return {}
 
-    def get_set_items(self, setId, attrList=None, condition=None):
-        if condition is not None:
-            raise Exception("condition evaluation not implemented. ")
+    @staticmethod
+    def get_classes2d_from_run(runFolder):
+        """ Get classes information from a class 2d run. """
+        items = []
+        print(f"Relion: getting classes from {runFolder}")
 
-        attrs = self._get_attrs(attrList)
+        if runFolder:
+            avgMrcs = os.path.join(runFolder, '*_it*_classes.mrcs')
+            files = glob(avgMrcs)
+            files.sort()
+            avgMrcs = files[-1]
+            dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
+            modelStar = dataStar.replace('_data.', '_model.')
 
-        return [self._get_dict_from_row(row, attrs) for row in self._rows]
+            mrc_stack = None
+            avgThumb = Thumbnail(max_size=(100, 100),
+                                 output_format='base64')
 
-    def get_set_item(self, setId, itemId, attrList=None):
-        return self._get_dict_from_row(self._rowsDict[itemId],
-                                       self._get_attrs(attrList))
+            with StarFile(dataStar) as sf:
+                n = sf.getTableSize('particles')
 
-    def add_set_item(self, setId, attrDict):
-        raise Exception("Not supported.")
+            with StarFile(modelStar) as sf:
+                modelTable = sf.getTable('model_classes', guessType=False)
 
-    def update_set_item(self, setId, attrDict):
-        raise Exception("Not supported.")
+                for row in modelTable:
+                    i, fn = row.rlnReferenceImage.split('@')
+                    if not mrc_stack:
+                        mrc_stack = mrcfile.open(avgMrcs, permissive=True)
+                    items.append({
+                        'id': '%03d' % int(i),
+                        'size': round(float(row.rlnClassDistribution) * n),
+                        'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
+                    })
+            items.sort(key=lambda c: c['size'], reverse=True)
+            mrc_stack.close()
 
-    # ------------------------ Utility functions ------------------------
-    def _load_image(self, fn):
-        if self._useBase64:
-            return image.fn_to_base64(fn)
-        else:
-            return image.fn_to_blob(fn)
+        return items
 
-    def compute_micThumbData(self, micPrefix):
-        fn = self.getFile('imgMic/%s_thumbnail.png' % micPrefix)
-        return self._load_image(fn)
+    def get_classes2d(self):
+        """ Iterate over 2D classes. """
+        jobs2d = self._jobs('Class2D')
+        runFolder = jobs2d[-1] if jobs2d else None
+        return RelionSessionData.get_classes2d_from_run(runFolder)
 
-    def compute_psdData(self, micPrefix):
-        fn = self.getFile('imgPsd/%s_aligned_mic_ctfEstimation.png'
-                          % micPrefix)
-        return self._load_image(fn)
+    def get_micrograph_coordinates(self, micFn):
+        coords = []
+        pickingDirs = self._jobs('AutoPick')
+        if pickingDirs:
+            lastPicking = pickingDirs[-1]
+            micBase = os.path.splitext(os.path.basename(micFn))[0]
+            coordFn = self.join(lastPicking, 'Frames', micBase + '_autopick.star')
+            if os.path.exists(coordFn):
+                reader = StarFile(coordFn)
+                ctable = reader.getTable('')
+                reader.close()
+                for row in ctable:
+                    coords.append((row.rlnCoordinateX,
+                                   row.rlnCoordinateY))
 
-    def compute_shiftPlotData(self, micPrefix):
-        return self._load_image(self.getFile('imgShift/%s_global_shifts.png'
-                                             % micPrefix))
+        return coords
 
-    def get_micrograph_rows(self, sqliteFn, micId=None):
-        """ Load a sqlite file produced by Scipion. """
-        rows = None
-        try:
-            conn = sqlite3.connect(sqliteFn)
-            conn.row_factory = sqlite3.Row
-            cur = conn.cursor()
-            whereStr = '' if micId is None else ' WHERE id=%s' % micId
-            cur.execute("SELECT * FROM Objects" + whereStr)
-            rows = cur.fetchall()
-            conn.close()
-        except Exception as e:
-            print(e)
+    # ----------------------- UTILS ---------------------------
+    def _jobs(self, jobType):
+        jobs = glob(self.join(jobType, 'job*'))
+        jobs.sort()
+        return jobs
 
-        return rows
+    def get_last_star(self, jobType, starFn):
+        jobDirs = self._jobs(jobType)
+        if not jobDirs:
+            return None
+        fn = self.join(jobDirs[-1], starFn)
+        if '*' in starFn:  # it is a glob pattern, let's find the last file
+            files = glob(fn)
+            files.sort()
+            fn = files[-1]
+        return fn
 
-    def _get_attrs(self, attrList):
-        if attrList is None:
-            attrs = list(self.MIC_ATTRS.keys())
-        elif 'id' not in attrList:
-            attrs = ['id'] + attrList
-        else:
-            attrs = attrList
-
-        # Check that all requested attributes in attrList are valid for Micrograph
-        if any(a not in self.MIC_ALL_ATTRS for a in attrs):
-            raise Exception("Invalid attribute for micrograph")
-
-        return attrs
-
-    def _get_dict_from_row(self, row, attrs):
-        values = {a: row[self.MIC_ATTRS[a]] for a in attrs if a in self.MIC_ATTRS}
-
-        micPrefix = os.path.basename(values['location']).replace('_aligned_mic.mrc', '')
-        for a in attrs:
-            # Compute data for some of the attributes
-            computeFunc = getattr(self, 'compute_%s' % a, None)
-            if computeFunc:
-                values[a] = computeFunc(micPrefix)
-
-        return values
+    def _last_micFn(self):
+        """ Return micrographs star file from the last CTF job or None
+        if there is no run yet or output file.
+        """
+        jobs = self._jobs('CtfFind')
+        if jobs:
+            micFn = self.join(jobs[-1], 'micrographs_ctf.star')
+            if os.path.exists(micFn):
+                return micFn
+        return None
 
 
-class PytablesSessionData(SessionData):
-    """ Implementation of SessionData using pytables. """
-    #TODO: pytables stores strings as bytes, need to decode when reading
-    # they are also fixed size length :(
+class ScipionSessionData(SessionData):
+    """
+    Adapter class for reading Session data from Relion OTF
+    """
+    class Run:
+        """ Helper class to manipulate Scipion run data. """
+        def __init__(self, projectDir, runDict):
+            self.dict = runDict
 
-    class SetOfMicrographs(tbl.IsDescription):
-        id = tbl.Int32Col()
-        extra = tbl.StringCol(256)
+            runRow = runDict['']  # first protocol row, empty name
+            self.id = runRow['id']
+            self.className = runRow['classname']
 
-    class Micrograph(tbl.IsDescription):
-        id = tbl.Int32Col()
-        location = tbl.StringCol(256)
-        ctfDefocus = tbl.Float32Col()
-        ctfDefocusU = tbl.Float32Col()
-        ctfDefocusV = tbl.Float32Col()
-        ctfDefocusAngle = tbl.Float32Col()
-        ctfResolution = tbl.Float32Col()
-        ctfFit = tbl.Float32Col()
-        micThumbData = tbl.StringCol(256000)
-        psdData = tbl.StringCol(256000)
-        ctfFitData = tbl.StringCol(256000)
-        shiftPlotData = tbl.StringCol(256000)
+            wdRow = runDict[f'{self.id}.workingDir']
+            self.workingDir = os.path.join(projectDir, wdRow['value'])
 
-    def __init__(self, h5File, mode='r'):
-        if mode == 'r':
-            print("Reading file: ", h5File)
-        elif mode in ['w', 'a']:
-            os.makedirs(os.path.dirname(h5File), exist_ok=True)
-            print("Writing file: ", h5File)
+        def join(self, *paths):
+            return os.path.join(self.workingDir, *paths)
 
-        self._file = tbl.open_file(h5File, mode)
+        def getFormDefinition(self):
+            return ScipionSessionData.getFormDefinition(self.className)
 
-    def get_sets(self, attrList=None, condition=None, setId=None):
-        setList = []
-        if setId is not None:
-            setTbl = self._file.get_node(self._getMicSet(setId) + '/set_tbl')
-            # setTbl has only one row
-            row = setTbl[0]
-            setList.append({k: row[k] for k in setTbl.colnames})
-        else:
-            for grp in self._file.iter_nodes("/Micrographs"):
-                values = {k: grp.set_tbl[0][k] for k in grp.set_tbl.colnames}
-                setList.append(values)
+        def getValues(self):
+            values = {}
+            parents = {}
+            for k, v in self.dict.items():
+                parts = v['name'].split('.')
+                pid = v['parent_id']
+                if pid == self.id:
+                    name = parts[-1]
+                    values[name] = v['value']
+                    parents[v['id']] = name
+                elif pid in parents:
+                    parent_name = parents[pid]
+                    if values[parent_name] is not None:
+                        values[parent_name] += f".{v['value']}"
 
-        return setList
+            return values
 
-    def create_set(self, setId, attrs):
-        self._file.create_group("/Micrographs", "set%03d" % setId,
-                                createparents=True)
-        setTbl = self._file.create_table(self._getMicSet(setId), 'set_tbl',
-                                         self.SetOfMicrographs,
-                                         "Set table")
-        setRow = setTbl.row
-        attrs.update({'id': setId})
+    def _loadRun(self, runId):
+        prefix = f'{runId}.'
+        runDict = {}
 
-        for key, value in attrs.items():
-            setRow[key] = value
-        setRow.append()
-        setTbl.flush()
-        mics_table = self._file.create_table(self._getMicSet(setId), 'mics_tbl',
-                                             self.Micrograph, "Mics table")
-        mics_table.flush()
+        with SqliteFile(self.join('project.sqlite')) as sf:
+            for row in sf.iterTable('Objects'):
+                name = row['name']
+                if row['id'] == runId or name.startswith(prefix):
+                    runDict[name] = row
 
-    def get_items(self, setId, attrList=None, condition=None,
-                  itemId=None):
-        mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
+        return self.Run(self._path, runDict)
 
-        if attrList is None:
-            keys = mics_table.colnames
-        elif 'id' not in attrList:
-            keys = ['id'] + attrList
-        else:
-            keys = attrList
+    def __init__(self, data_path, mode='r'):
+        SessionData.__init__(self, data_path, mode=mode)
+        projDb = self.join('project.sqlite')
 
-        Micrograph = namedtuple('Micrograph', keys)
-        micList = []
+        if not os.path.exists(projDb):
+            raise Exception("Missing project DB: " + projDb)
 
-        for row in mics_table:
-            values = dict()
-            for k in keys:
-                if isinstance(row[k], bytes):
-                    values[k] = row[k].decode()
-                else:
-                    values[k] = row[k]
+        results = glob(self.join('Runs', '??????_*', '*.sqlite'))
+        results.sort()
+        outputs = {'classes2d': []}
 
-            #values = {k: row[k] for k in keys}
-            micList.append(Micrograph(**values))
+        for r in results:
+            if r.endswith('ProtImportMovies/movies.sqlite'):
+                outputs['movies'] = r
+            elif r.endswith('ctfs.sqlite'):
+                outputs['ctfs'] = r
+            elif r.endswith('coordinates.sqlite'):
+                outputs['coordinates'] = r
+            elif r.endswith('classes2D.sqlite'):
+                outputs['classes2d'].append(r)
 
-        return micList
+        outputs['classes2d'].sort()
 
-    def get_item(self, setId, itemId, dataAttrs=None):
-        print("Requesting item: setId: %s, itemId: %s" % (setId, itemId))
-        mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
-        mic = mics_table[itemId-1]  # pytables rows start from 0
+        outputs['select2d'] = glob(self.join('Runs', '??????_ProtRelionSelectClasses2D'))
+        outputs['select2d'].sort()
+        self.outputs = outputs
 
-        keys = mics_table.colnames if dataAttrs is None else dataAttrs
-        Micrograph = namedtuple('Micrograph',keys)
-        values = dict()
-        for k in keys:
-            if isinstance(mic[k], bytes):
-                values[k] = mic[k].decode()
+    def _stats_from_sqlite(self, sqliteFn, fileKey=None):
+        stats = {
+            'hours': 0,
+            'count': 0,
+            'first': '',
+            'last': '',
+        }
+        if sqliteFn:
+            with SqliteFile(sqliteFn) as sf:
+                size = sf.getTableSize('Objects')
+                stats['count'] = size
+                if fileKey is not None:
+                    first = sf.getTableRow('Objects', 0, classes='Classes')
+                    last = sf.getTableRow('Objects', size - 1, classes='Classes')
+                    stats['first'] = self.mtime(first[fileKey])
+                    stats['last'] = self.mtime(last[fileKey])
+                    stats['hours'] = hours(stats['first'], stats['last'])
+        return stats
+
+    def _stats_from_output(self, outputKey, fileKey=None):
+        return self._stats_from_sqlite(self.outputs.get(outputKey, None), fileKey)
+
+    def get_stats(self):
+        if 'movies' not in self.outputs:
+            return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
+
+        countEpu = 0
+        if epuData := self.getEpuData():
+            moviesTable = epuData.moviesTable
+            first = moviesTable[0].timeStamp
+            last = moviesTable[-1].timeStamp
+            countEpu = moviesTable.size()
+            msEpu = {
+                'count': countEpu, 'first': first, 'last': last,
+                'hours': hours(first, last)
+            }
+
+        return {
+            #'movies': _stats_from_sqlite(self.outputs['movies']),
+            'movies': msEpu,
+            'ctfs': self._stats_from_output('ctfs', fileKey='_psdFile'),
+            'coordinates': self._stats_from_output('coordinates'),
+            'classes2d': len(self.outputs['classes2d'])
+        }
+
+    def get_micrographs(self):
+        """ Return an iterator over the micrographs' CTF information. """
+        if 'ctfs' not in self.outputs:
+            return []
+
+        ctfSqlite = self.outputs['ctfs']
+        with SqliteFile(ctfSqlite) as sf:
+            for row in sf.iterTable('Objects', classes='Classes'):
+                # yield row
+                # continue
+                dU, dV = row['_defocusU'], row['_defocusV']
+                micData = {
+                    'micrograph': row['_micObj._filename'],
+                    'micName': row['_micObj._micName'],
+                    'ctfImage': row['_psdFile'],
+                    'ctfDefocus': row['_defocusU'],
+                    'ctfResolution': min(row['_resolution'], 10),
+                    'ctfDefocusAngle': row['_defocusAngle'],
+                    'ctfAstigmatism': abs(dU - dV)
+                }
+                yield micData
+
+    def get_micrograph_data(self, micId):
+        if ctfSqlite := self.outputs.get('ctfs', None):
+            with SqliteFile(ctfSqlite) as sf:
+                row = sf.getTableRow('Objects', micId - 1, classes='Classes')
+                micThumb = Thumbnail(output_format='base64',
+                                     max_size=(512, 512),
+                                     contrast_factor=0.15,
+                                     gaussian_filter=0)
+                psdThumb = Thumbnail(output_format='base64',
+                                     max_size=(128, 128),
+                                     contrast_factor=1,
+                                     gaussian_filter=0)
+
+                micName = row['_micObj._micName']
+                micFn = self.join(row['_micObj._filename'])
+                micThumbBase64 = micThumb.from_mrc(micFn)
+                psdFn = self.join(row['_psdFile']).replace(':mrc', '')
+                pixelSize = row['_micObj._samplingRate']
+
+                loc = EPU.get_movie_location(micName)
+                dU, dV = row['_defocusU'], row['_defocusV']
+
+                return {
+                    'micThumbData': micThumbBase64,
+                    'psdData': psdThumb.from_mrc(psdFn),
+                    # 'shiftPlotData': None,
+                    'ctfDefocusU': round(dU/10000., 2),
+                    'ctfDefocusV': round(dV/10000., 2),
+                    'ctfDefocusAngle': round(row['_defocusAngle'], 2),
+                    'ctfAstigmatism': round(abs(dU - dV)/10000, 2),
+                    'ctfResolution': round(row['_resolution'], 2),
+                    # TODO: Retrieving coordinates from multiple micrographs is very slow now
+                    'coordinates': self.get_micrograph_coordinates(row['_micObj._micName']),
+                    'micThumbPixelSize': pixelSize * micThumb.scale,
+                    'pixelSize': pixelSize,
+                    'gridSquare': loc['gs'],
+                    'foilHole': loc['fh']
+                }
+        return {}
+
+    def get_classes2d(self, runId=None):
+        """ Iterate over 2D classes. """
+        classes2d = {
+            'runs': [],
+            'items': [],
+            'selection': []
+        }
+
+        if outputs2d := self.outputs['classes2d']:
+            otf_file = self.join('scipion-otf.json')
+            if os.path.exists(otf_file):
+                with open(otf_file) as f:
+                    otf = json.load(f)
             else:
-                values[k] = mic[k]
+                otf = {'2d': {}}
+            def _label(fn):
+                parts = Path.splitall(fn)
+                label = parts[-2]  # Run name
+                print(f"Filename: {fn}")
+                print(f"    label1: {label}")
+                for run in otf['2d'].values():
+                    if label in run['runDir']:
+                        label = run['runName']
+                        break
+                print(f"    label2: {label}")
+                return label
 
-        #values = {k: mic[k] for k in keys}
-        return Micrograph(**values)
+            classes2d['runs'] = [{'id': i, 'label': _label(fn)}
+                                 for i, fn in enumerate(outputs2d)]
 
-    def add_item(self, setId, itemId, **attrDict):
-        mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
-        mic = mics_table.row
+            runIndex = -1 if runId is None else runId
+            classesSqlite = outputs2d[runIndex]
 
-        attrDict.update({'id': itemId})
-        for key, value in attrDict.items():
-            mic[key] = value
+            for sel in self.outputs['select2d']:
+                starFn = os.path.join(sel, 'extra', 'class_averages.star')
+                print(f"Checking {starFn} ")
+                if os.path.exists(starFn) and os.path.getsize(starFn) > 0:
+                    print(f"   - Exists...Reading {starFn} ")
+                    with StarFile(starFn) as sf:
+                        print(f"   - Loading table")
+                        table = sf.getTable('')
+                        path = table[0].rlnReferenceImage
+                        runName = Path.splitall(path)[1]
+                        print(f"   - path: {path}, runName: {runName}")
+                        # We found a selection job for this classification run
+                        if runName in classesSqlite:
+                            print(f"   - FOUND!!!")
+                            classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
+                                                      for row in table if row.rlnEstimatedResolution < 30]
+                            print(f"   - Selection: {classes2d['selection']}")
+                            break
+            runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra')
+            classes2d['items'] = RelionSessionData.get_classes2d_from_run(runFolder)
 
-        mic.append()
-        mics_table.flush()
+        return classes2d
 
-    def update_item(self, setId, itemId, **attrDict):
-        mics_table = self._file.get_node(self._getMicSet(setId), 'mics_tbl')
-        itemId = int(itemId) - 1  # pytables rows start from 0
-        mics_table.modify_columns(itemId, itemId+1,
-                                  columns=[[x] for x in attrDict.values()],
-                                  names=list(attrDict.keys()))
-        mics_table.flush()
+    def get_micrograph_coordinates(self, micFn):
+        self.all_coords = getattr(self, 'all_coords', None)
+        if self.all_coords is None:
+            coords = defaultdict(lambda: [])
+            with Timer():
+                print("Loading all coordinates")
+                if coordSqlite := self.outputs.get('coordinates', None):
+                    with SqliteFile(coordSqlite) as sf:
+                        for row in sf.iterTable('Objects', classes='Classes'):
+                            coords[row['_micName']].append((row['_x'], row['_y']))
+                print("   Total: ", len(coords))
+            self.all_coords = coords
 
-    def close(self):
-        self._file.close()
+        return self.all_coords[micFn]
 
-    def _getMicSet(self, setId):
-        return '/Micrographs/set%03d' % setId
+    def get_workflow(self):
+        protList = []
+        protDict = {}
+
+        with SqliteFile(self.join('project.sqlite')) as sf:
+            for row in sf.iterTable('Objects'):
+                name = row['name']
+                pid = row['parent_id']
+
+                if row['parent_id'] is None and name != 'CreationTime':
+                    prot = {
+                        'id': row['id'],
+                        'label': row['label'],
+                        'links': [],
+                        'status': 'finished',
+                        'type': row['classname']
+                    }
+                    protList.append(prot)
+                    protDict[prot['id']] = prot
+                    #print(row)
+                elif 'outputs' in name:
+                    pass
+                    #print("   OUTPUTS: ", row)
+                elif row['classname'] == 'Pointer':
+                    #print("   POINTER: ", row)
+                    if row['value']:
+                        rid = int(row['value'])
+                        if rid in protDict:
+                            #print("PROTOCOLS DICT: ", protDict)
+                            #print("PROTOCOLS LIST: ", protList)
+                            protDict[rid]['links'].append(pid)
+
+                    if pid in protDict:
+                        pass
+                elif 'status' in name:
+                    # Update protocol status
+                    protDict[pid]['status'] = row['value']
+                    #print("   STATUS:  ", row)
+        return protList
+
+    def get_run(self, runId):
+        return self._loadRun(runId)
+
+    @staticmethod
+    def getFormDefinition(className):
+        """ Return the json definition of a form defined by className. """
+        from pyworkflow.protocol import ElementGroup
+        import pwem
+
+        print(">>> Loading form ", className)
+        ProtClass = pwem.Domain.findClass(className)
+        prot = ProtClass()
+        logoPath = prot.getPluginLogoPath()
+        if logoPath and os.path.exists(logoPath):
+            thumb = Thumbnail(output_format='base64', max_size=(64, 64))
+            logo = thumb.from_path(logoPath)
+        else:
+            logo = ''
+
+        formDef = {
+            'name': className,
+            'logo': logo,
+            'package': prot.getClassPackageName(),
+            'sections': []
+        }
+
+        def getParamDef(name, param):
+            paramDef = {
+                'label': param.getLabel(),
+                'name': name,
+                'paramClass': param.getClassName(),
+                'important': param.isImportant(),
+                'expert': param.expertLevel.get()
+            }
+            if param.hasCondition():
+                paramDef['condition'] = param.condition.get()
+
+            if hasattr(param, 'choices'):
+                paramDef['choices'] = param.choices
+                paramDef['display'] = param.display.get()
+
+            if isinstance(param, ElementGroup):
+                paramDef['params'] = []
+                for subname, subparam in param.iterParams():
+                    paramDef['params'].append(getParamDef(subname, subparam))
+            else:
+                paramDef['valueClass'] = param.paramClass.__name__
+                paramDef['default'] = param.getDefault()
+                paramDef['help'] = param.getHelp()
+
+            return paramDef
+
+
+        #package = prot.getPackage()
+
+        for section in prot.iterDefinitionSections():
+            sectionDef = {
+                'label': section.getLabel(),
+
+                'params': []
+            }
+
+            for name, param in section.iterParams():
+                sectionDef['params'].append(getParamDef(name, param))
+
+            formDef['sections'].append(sectionDef)
+
+        return formDef

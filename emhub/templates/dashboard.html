@@ -9,207 +9,27 @@
     <!-- content -->
     <!-- ============================================================== -->
     <div class="row">
-
-        <!-- ============================================================== -->
-        <!-- profile -->
-        <!-- ============================================================== -->
-        <div class="col-xl-3 col-lg-3 col-md-5 col-sm-12 col-12">
-
-            <!-- card profile -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="text-center">
-                        <h2 class="font-24 mb-0">{{ current_user.name }}</h2>
-                        <div>
-                            <p></br>Roles:
-                                {% for r in current_user.roles %}
-                                <a href="#" class="badge badge-light mr-1">{{ r }}</a>
-                                {% endfor %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body border-top">
-                    <h3 class="font-16">Contact Information</h3>
-                    <div class="">
-                        <ul class="list-unstyled mb-0">
-                        <li class="mb-2"><i class="fas fa-fw fa-envelope mr-2"></i>{{ current_user.email }}</li>
-                        <li class="mb-0"><i class="fas fa-fw fa-phone mr-2"></i>{{ current_user.phone }}</li>
-                    </ul>
-                    </div>
-                </div>
-                <div class="card-body border-top">
-                    {% set head_label = 'Facility Head' if current_user.is_staff else 'PI' %}
-                    {% set members_label = 'Facility Staff' if current_user.is_staff else 'Lab Members' %}
-                    {% set head = lab_members[0] %}
-                    <div class="row">
-                        <h3 class="font-16 pl-3">{{ head_label }}</h3> <a class="pl-3" href="javascript:showUser({{ head['id'] }})">{{ head['name'] }}</a>
-                    </div>
-
-                    <div>
-                        <h3 class="font-16">{{ members_label }} ({{ lab_members|length - 1 }})</h3>
-                        <div>
-                            <ul class="mb-0 list-unstyled">
-                                {% for u in lab_members[1:] %}
-                                    <li class="mb-1"><a href="javascript:showUser({{ u['id'] }})">{{ u['name'] }}</a></li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-body border-top">
-                    <h3 class="font-16">Applications</h3>
-                    <div>
-                        {% for a in current_user.get_applications() %}
-                            <a href="#" class="badge badge-success mr-1">{{ a.code     }}</a>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            <!-- end card profile -->
-        </div>
-        <!-- ============================================================== -->
-        <!-- end profile -->
-        <!-- ============================================================== -->
-
         <!-- ============================================================== -->
         <!-- Dashboard right content -->
         <!-- ============================================================== -->
-        <div class="col-xl-9 col-lg-9 col-md-7 col-sm-12 col-12">
-            <div class="influence-profile-content pills-regular">
-
-                <div class="row">
-                    {% for r in resources %}
-
-                        <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 col-12 pb-4">
-                            <div class="card h-100">
-                                <div class="card-header">
-                                    <div class="row align-items-left justify-content-start">
-                                        <div class="col-2" style="padding-left: 0">
-                                            <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
-                                        </div>
-                                        <div class="col-9" style="padding-left: 7px;">
-                                            <h5>{{ r['name'] }}</h5>
-                                        </div>
-                                        <a href="{{ url_for('main', content_id='booking_calendar', resource_id=r['id']) }}">
-                                                 <i class="fas fa-calendar-alt"></i>   </a>
-                                    </div>
-
-                                </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        {% if r['id'] in resource_bookings %}
-                                            {% set booking = resource_bookings[r['id']] %}
-                                            {% set sessions = booking.session %}
-                                            <div class="col-7 mr-0">
-                                                 <a href="javascript:createSession({{ booking.id }}, {{ sessions|length }})" class="btn btn-primary mr-0">
-                                                        <i class="fas fa-plus-circle"></i>  New Session</a>
-                                            </div>
-                                            <div class="col-5 pl-0">
-                                                {% for s in sessions %}
-                                                    <a href="{{ url_for_content('session_details', session_id=s.id) }}" class="badge badge-success mr-1 mt-1" >{{ s.name }}</a>
-                                                {% endfor %}
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-
-                        <div class="section-block">
-                            <h3 class="section-title">Upcoming Bookings</h3>
-                        </div>
-
-                        <!-- Upcoming Bookings Card -->
-                        <div class="card">
-                            <div class="card-body">
-                            <table class="table">
-                                <tbody>
-
-                                {% for bTitle, bList in bookings %}
-                                    <tr class="table-primary">
-                                        <td colspan="4" >{{ bTitle }}</td>
-                                    </tr>
-
-                                    {% if bList|length > 0 %}
-                                        {%  for b in bList %}
-                                        <tr>
-                                            <td>{{ b['owner'] }}</td>
-                                            <td> {{ b['resource'] }}</td>
-                                            <td> {{ b['start'] }}</td>
-                                            <td> {{ b['end'] }}</td>
-                                            </tr>
-                                        </tr>
-                                        {% endfor %}
-                                    {% else %}
-                                        <tr>
-                                        <td colspan="3" >None</td>
-                                    </tr>
-                                    {% endif %}
-                                {% endfor %}
-                                </tbody>
-                            </table>
-
-                        </div>
-
-                    </div> <!-- Upcoming Bookings Card -->
-
-        </div>
+        {% include dashboard_right %}
         <!-- ============================================================== -->
         <!-- End  of Dashboard right content -->
         <!-- ============================================================== -->
 
-    </div>
 </div>
 </div>
 
-<!-- ============================================================== -->
-<!-- Session Modal -->
-<!-- ============================================================== -->
-<div class="modal fade" id="session-modal" tabindex="-1" role="dialog" aria-labelledby="sessionModal" aria-hidden="true">
-</div>
+
+    <!-- ============================================================== -->
+    <!-- Session Modal -->
+    <!-- ============================================================== -->
+    <div class="modal fade" id="session-modal" tabindex="-1" role="dialog" aria-labelledby="sessionModal" aria-hidden="true">
+    </div>
 
 <!-- javascript  -->
 <script>
     function load_calendar(resource_id) {
         return load_main_content('booking_calendar', {resource_id:resource_id});
-    }
-
-    function showCreateSession(bookingId) {
-        ajaxContent = get_ajax_content("create_session_form", {booking_id: bookingId});
-
-            ajaxContent.done(function(html) {
-                //alert(html);
-                $("#session-modal").html(html);
-                // Show the form after setting html content
-                $('#session-modal').modal('show');
-            });
-
-            ajaxContent.fail(function(jqXHR, textStatus) {
-                showError("Request failed: " + textStatus );
-            });
-    } // function showCreateSession
-
-    /* Show the Resource Form, either for a new booking or an existing one */
-    function createSession(bookingId, totalSessions) {
-        if (totalSessions === 0)
-            showCreateSession(bookingId);
-        else
-            confirm("Create Session", "There are already created sessions, " +
-                    "Do you want to create another one?", 'No', 'Yes', function () {
-                    showCreateSession(bookingId);
-            });
-
-    }  // function showResource
-
-    function toggle_display(elementId){
-        var x = document.getElementById(elementId);
-          if (x.style.display === "none") {
-            x.style.display = "block";
-          } else {
-            x.style.display = "none";
-          }
     }
 </script>
