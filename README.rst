@@ -84,3 +84,26 @@ If we modify the database models, then an update/migration is required.
     # Review the generated script
 
     alembic upgrade head  # or use first the --sql option to see the commands
+
+
+Generating Documentation with Sphinx
+------------------------------------
+A Python environment with Sphinx and other dependencies is required
+to build the documentation.
+
+.. code-block:: bash
+    conda create --name=emhub-docs python=3.8
+    conda activate emhub-docs
+    pip install sphinx furo jaraco.packaging rst.linker sphinx_reredirects sphinx_inline_tabs jaraco.tidelift sphinx-favicon
+
+Then we change to the branch `docs` and build the documentation
+
+.. code-block:: bash
+    git checkout docs    
+    sphinx-build -b html docs/ html/
+    # Rsync the generated html files to the emhub-doc repo
+    rsync -av html/ ../emhub-docs/
+    cd ../emhub-docs/
+    git ci -am "Updated html files"
+
+
