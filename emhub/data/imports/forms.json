@@ -1,15 +1,15 @@
 [
   {
-    "name": "sample",
+    "name": "sample:json",
     "definition": {
             "title": "Sample Form",
             "params": [
                 {"id": "name",
-                 "label": "Name",
+                 "label": "Name"
                  },
                 {"id": "phone",
                  "default": "88546756777",
-                 "label": "Phone",
+                 "label": "Phone"
                  },
                 {"id": "show-phone",
                  "label": "Show phone?",
@@ -31,7 +31,7 @@
                  "enum": {"choices": ["cat", "dog", "horse", "monkey"],
                           "display": "radio"
                           }
-                 },
+                 }
         ]}
   },
   {
