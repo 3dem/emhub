@@ -1,0 +1,9 @@
+sphinx 
+jaraco.packaging
+rst.linker
+sphinx-reredirects
+sphinx-inline-tabs
+sphinxcontrib-towncrier 
+jaraco.tidelift
+sphinx-favicon
+furo 
