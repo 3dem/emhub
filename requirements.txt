@@ -29,4 +29,5 @@ tables==3.6.1
 tzlocal==2.1
 urllib3==1.26.5
 Werkzeug==1.0.1
+xmltodict==0.13.0
 emtools
