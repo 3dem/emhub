@@ -32,28 +32,25 @@ Basic Installation
     conda create --name=emhub python=3.8
     conda activate emhub
 
-    cd ~/work/development
     git clone git@github.com:3dem/emhub.git
-    git clone git@github.com:3dem/emhub-testdata.git
-
     cd emhub
     pip install -e .
 
     export FLASK_APP=emhub
     export FLASK_ENV=development
-    export EMHUB_TESTDATA=~/work/development/emhub-testdata
-    export EMHUB_INSTANCE=~/work/development/emhub/instance
+    export EMHUB_INSTANCE=~/.emhub/instances/test
 
     # Now launch the built-in Flask development server:
     flask run
 
     # or with gunicorn:
-    gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:8080
+    gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:5000
 
+    # Initialize the instance with some test data:
+    python -m emhub.data
 
-To initialize the db:
+    # Then launch a web browser at http://127.0.0.1:5000/
 
-`python -m emhub.data`
 
 Running tests
 -------------
