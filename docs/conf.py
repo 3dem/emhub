@@ -41,7 +41,7 @@ html_theme = 'furo'
 html_logo = "https://github.com/3dem/emhub/wiki/images/emhub-logo-top-gray.svg"
 
 html_context = {
-    'last_updated': dt.datetime.now()
+    'last_updated': dt.datetime.now().date()
 }
 
 templates_path = ["templates"]
