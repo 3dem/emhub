@@ -14,7 +14,7 @@ applications and bookings, providing full traceability and reporting of usage.
 
 Additionally, a REST API is exposed that permits the writing of external scripts to communicate with the
 application. This feature allows to write "workers" that can monitor new data collection
-sessions and handle data transfer or on-the-fly processing tasks. 
+sessions and handle different tasks such as data transfer or on-the-fly processing.
 
 For more detailed information check the documentation at:
 
