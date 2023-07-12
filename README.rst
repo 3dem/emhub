@@ -1,10 +1,31 @@
-emhub
-=====
 
-Web application for monitoring EM results
+.. |logo_image| image:: https://github.com/3dem/emhub/wiki/images/emhub.png
+   :height: 60px
 
-Launching the development server
---------------------------------
+.. |logo_text| image:: https://github.com/3dem/emhub/wiki/images/emhub-default-logo.svg
+   :height: 60px
+
+|logo_image| |logo_text|
+
+EMhub is a web application for data management at scientific core facilities, specially 
+designed for operations of middle-size CryoEM centers. It allows the creation of users and 
+resources (e.g. microscopes or other instruments). It also coordinates access to resources through
+applications and bookings, providing full traceability and reporting of usage. 
+
+Additionally, a REST API is exposed that permits the writing of external scripts to communicate with the
+application. This feature allows to write "workers" that can monitor new data collection
+sessions and handle data transfer or on-the-fly processing tasks. 
+
+For more detailed information check the documentation at:
+
+https://3dem.github.io/emhub-docs
+
+
+Development
+===========
+
+Basic Installation
+------------------
 
 .. code-block:: bash
 
@@ -84,3 +105,29 @@ If we modify the database models, then an update/migration is required.
     # Review the generated script
 
     alembic upgrade head  # or use first the --sql option to see the commands
+
+
+Generating Documentation with Sphinx
+------------------------------------
+A Python environment with Sphinx and other dependencies is required
+to build the documentation.
+
+.. code-block:: bash
+
+    conda create -y --name=emhub-docs python=3.8
+    conda activate emhub-docs
+    pip install sphinx furo jaraco.packaging rst.linker sphinx_reredirects \
+    sphinx_inline_tabs jaraco.tidelift sphinx-favicon
+
+Then we change to the branch `docs` and build the documentation
+
+.. code-block:: bash
+
+    git checkout docs
+    sphinx-build -b html docs/ html/
+    # Rsync the generated html files to the emhub-doc repo
+    rsync -av html/ ../emhub-docs/
+    cd ../emhub-docs/
+    git ci -am "Updated html files"
+
+
