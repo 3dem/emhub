@@ -19,8 +19,8 @@ intersphinx_mapping = {
 
 # Add support for linking usernames
 github_url = 'https://github.com'
-github_repo_org = 'pypa'
-github_repo_name = 'setuptools'
+github_repo_org = '3dem'
+github_repo_name = 'emhub'
 github_repo_slug = f'{github_repo_org}/{github_repo_name}'
 github_repo_url = f'{github_url}/{github_repo_slug}'
 github_sponsors_url = f'{github_url}/sponsors'
@@ -37,7 +37,8 @@ default_role = 'any'
 
 # HTML theme
 html_theme = 'furo'
-html_logo = "images/emhub-logo-top.svg"
+#html_logo = "images/emhub-logo-top.svg"
+html_logo = "https://github.com/3dem/emhub/wiki/images/emhub-logo-top-gray.svg"
 
 html_context = {
     'last_updated': dt.datetime.now()
