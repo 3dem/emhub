@@ -3,6 +3,15 @@
 Resources
 =========
 
+Resources are either instruments or services provided by the facility to its external users.
+Examples of instruments are microscopes, vitrobots, and carbon coater, among others. Regularly
+scheduled drop-in sessions for helping users with their projects can be one of such services.
+
+Resources are a central part of the Bookings or time allocation for Applications. Each resource
+can have different booking rules and also exceptions for specific applications.
+
+
+
 Resources in EMhub define "bookable items" with different properties and rules.
 Resources can represent instruments that are available and which use is coordinated via bookings.
 Different rules can be configured for different instruments. Resources can also be services

@@ -3,6 +3,16 @@
 Sessions
 ========
 
+Sessions start with the usage of the instruments (usually data collection in the microscopes)
+for some users. Sessions are usually dedicated to either do some screening of the sample quality
+or to collect images from the desired specimen. Both types of sessions usually require configuration
+of the microscopes.
+
+In the sessions that data is being acquired, it is usually desired to perform some on-the-fly
+data processing to further evaluate the quality of the data.
+
+
+
 Sessions are related to the data acquisition in one of the microscopes. All sessions are related to a
 booking for the given microscope. A session stores information about where the acquired image files are
 stored and how the user can access them. In some cases, on-the-fly pre-processing of the data can also be

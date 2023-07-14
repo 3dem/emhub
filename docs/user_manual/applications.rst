@@ -3,91 +3,29 @@
 Applications
 ============
 
-User Types
-==========
+Applications
+------------
 
-In EMhub there are four main types of users:
+Applications are created by external users in order to get access time to the facility instruments.
+Different types of applications are enabled by the facility staff by creating application *Templates*.
 
-#. Principal investigators
-#. Lab members
-#. Facility staff
-#. Admin/developers
+Templates
+.........
 
-Principal investigators
------------------------
+Facility staff users (role **admin** or **manager**) can create application *Templates*, which are
+basically a form with input fields required for a certain type of Application. Before opening an application
+period, managers can create new templates and disabled old ones (that will still be linked to previous
+applications).
 
-Principal investigator users are independent researchers that run a lab. In the system they should:
+Read more information about `Templates <https://github.com/3dem/emhub/wiki/Templates>`_.
 
-* Have the **admin** role
-* Their PI field should be **None** (no one else is their PI)
-* Have a non-empty **Invoice reference** field in the portal
-* Belong to an existing Application in the Portal/EMhub (also called Bags)
+Applications
+............
 
-Lab members
------------
-
-Lab members should basically be associated with a given PI. Then, they will
-inherit the booking rights that their PI has (i.e associated Applications,
-booking slots, resources allocation quota, etc)
-
-Facility staff
---------------
-
-These users are **managers** or **admin** in the application and have the rights to
-do administrative tasks (eg. create or modify users, make special bookings,
-handle applications, etc)
-
-Admin/Developers
-----------------
-
-These users are **managers** or **admin** in the application and have the rights to
-do administrative tasks (eg. create or modify users, make special bookings,
-handle applications, etc)
-
-
-Registering new users
-=====================
-
-First of all, users need to register in the Application Portal as stated in `Booking Guideline
-<https://emhub.cryoem.se/pages/?page_id=guidelines>`_.
-
-Then, we (CryoEM-Sweden staff) should do:
-
-In the Portal:
---------------
-
-1. Check if it is PI, in which case it should mark **Yes** in the corresponding
-checkbox and provided a non-empty **Invoice Reference** field.
-2. If the user is not a PI, then provide the PI's email in the **Invoice Reference** field.
-
-In EMhub:
----------
-
-Import users page can be reached from the left panel in:
-
-ADMIN > Import from Portal > Import Users
-
-.. image:: https://github.com/delarosatrevin/scipion-session/wiki/images/import_users.png
-   :width: 100%
-
-
-If the is an error **error: Missing PI**, it means that the field for the **Invoice Reference**
-of this user is not properly set to a valid email of an existing PI in EMhub. This needs to be
- fixed in the Application Portal by editing the user information before importing the user.
-
-After there are some users for whom their PI has been detected, the "Show Ready Users" button
-can be clicked. Then it will show only the list of ready users and the button will change to
-"Import Users (X ready)".
-
-
-Adding PIs to an Application
-============================
-
-For PI users, one must also check that they belong to an exiting Application and if not, add them.
-For adding a PI to an Application, one must open the application and add the PI using its ID in the
-system.
-
-.. image:: https://github.com/delarosatrevin/scipion-session/wiki/images/adding_pi_application.png
-   :width: 100%
+During an application period, PIs can create an application from one of the available templates.
+Then, other PI users can be added to the application and the required information should be provided.
+The application can be in "preparation" mode and can be modified as much as needed. Once the application
+is ready, it can be submitted for inspection of the facility staff for feasibility and also for
+a scientific evaluation by an external committee.
 
 

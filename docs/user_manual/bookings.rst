@@ -3,6 +3,18 @@
 Bookings
 ========
 
+Bookings are used to organize access to each instrument. After some application have been approved,
+users belonging to each active application can book time slots for using different instruments. Some
+instruments and applications are required to book only in specific time *slots* enabled by the facility
+staff. External users are basically divided into national and local users. The main difference is that
+national users will book in these pre-allocated slots, while local users have more freedom to select
+available days.
+
+Other bookings can be made by the facility personnel to define instruments downtime
+or to reserve days for instrument calibration or testing. It is also possible to define recurrent
+events that will repeat with a certain frequency. For example, slots for national users can
+be defined every other week.
+
 Bookings are one of the central pieces of the entire EMhub application. Users can create bookings
 to use a given :doc:`resource <resources>` (e.g instruments, services) in a certain date and time. Managers can also
 bookings to mark maintenance or downtime for instruments. Bookings can be marked as "slots"
