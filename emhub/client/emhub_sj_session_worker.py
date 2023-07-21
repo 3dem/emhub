@@ -269,6 +269,7 @@ class SjSessionWorker(threading.Thread, SessionHandler):
                 with open(infoFile) as f:
                     infoJson = json.load(f)
                     self._transfer_ed.update(infoJson['ed'])
+            logger.info(f"Loading EPU.Data, framesPath: {framesPath}, epuPath: {epuPath}")
             self._epuData = EPU.Data(framesPath, epuPath)
 
         ed = self._transfer_ed
@@ -324,13 +325,13 @@ class SjSessionWorker(threading.Thread, SessionHandler):
                     if f.endswith('fractions.tiff'):
                         self._transfer_movies.append((os.path.relpath(srcFile, framesPath), s))
                         # Only move now the movies files, not other metadata files
-                        self.pl.system(f'rsync -ac --remove-source-files {srcFile} {dstFile}', retry=30)
+                        self.pl.system(f'rsync -ac --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
                     else:  # Copy metadata files into the OTF/EPU folder
-                        self.pl.system(f'cp {srcFile} {dstFile}', retry=30)
+                        self.pl.system(f'cp "{srcFile}" "{dstFile}"', retry=30)
                         dstEpuFile = os.path.join(rootEpu, f)
                         # only backup gridsquares thumbnails and xml files
                         if f.endswith('.xml') or _gsThumb(f):
-                            self.pl.system(f'cp {srcFile} {dstEpuFile}', retry=30)
+                            self.pl.system(f'cp "{srcFile}" "{dstEpuFile}"', retry=30)
 
             if self._files_count >= 32:  # make frequent updates to keep otf updated
                 self.logger.info(f"Transferred {self._files_count} files.")

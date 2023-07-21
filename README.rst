@@ -116,13 +116,9 @@ to build the documentation.
     pip install sphinx furo jaraco.packaging rst.linker sphinx_reredirects \
     sphinx_inline_tabs jaraco.tidelift sphinx-favicon
 
-Then we change to the branch `docs` and build the documentation
-
 .. code-block:: bash
-
-    git checkout docs
     sphinx-build -b html docs/ html/
-    # Rsync the generated html files to the emhub-doc repo
+    # Rsync the generated html files to the emdocs repo
     rsync -av html/ ../emhub-docs/
     cd ../emhub-docs/
     git ci -am "Updated html files"
