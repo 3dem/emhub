@@ -6,13 +6,12 @@ This section provides an overview of the application and describes the main conc
 more information about how to use the system.
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 3
 
     overview
-    users
-    resources
-    bookings
-    sessions
+    users_applications
+    resources_bookings
+    dashboard_sessions
 
 
 

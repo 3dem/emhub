@@ -114,7 +114,7 @@ Applications
 Applications in EMhub are a way to group PIs (and users under their labs) with some logical organization.
 Some rules defined for an application will be shared by all users belonging to that application. For example,
 applications could be different universities accessing the facility or different departments within
-the same university, or just different projects. 
+the same university, or just different projects.
 
 .. note::
     At SciLifeLab, applications are used to request access to the facility instruments. Usually there is one application

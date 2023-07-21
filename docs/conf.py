@@ -1,6 +1,7 @@
 import datetime as dt
 
-extensions = ['sphinx.ext.autodoc', 'jaraco.packaging.sphinx', 'rst.linker']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.autosectionlabel',
+              'jaraco.packaging.sphinx', 'rst.linker']
 
 master_doc = "index"
 

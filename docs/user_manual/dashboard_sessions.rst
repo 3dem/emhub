@@ -1,7 +1,7 @@
 
-========
-Sessions
-========
+======================
+Dashboard and Sessions
+======================
 
 Sessions start with the usage of the instruments (usually data collection in the microscopes)
 for some users. Sessions are usually dedicated to either do some screening of the sample quality
@@ -11,7 +11,28 @@ of the microscopes.
 In the sessions that data is being acquired, it is usually desired to perform some on-the-fly
 data processing to further evaluate the quality of the data.
 
+Dashboards
+==========
 
+Dashboards are pages designed as the entry point for the facility daily operations.
+This is one of the templates that can be configured via the :any:`Instance Configuration`.
+Usually, they provide ways to manage the existing bookings or create new ones.
+
+The following are two example of Dashboards, one used at SciLifeLab and the other at St.Jude.
+
+.. tab:: Dashboard at SciLifeLab
+
+    .. image:: https://github.com/3dem/emhub/wiki/images/202306/dashboard_sll.jpg
+       :width: 100%
+
+.. tab:: Dashboard at St.Jude
+
+    .. image:: https://github.com/3dem/emhub/wiki/images/202306/dashboard_sj.jpg
+       :width: 100%
+
+
+Sessions
+========
 
 Sessions are related to the data acquisition in one of the microscopes. All sessions are related to a
 booking for the given microscope. A session stores information about where the acquired image files are
@@ -35,7 +56,7 @@ following image.
 
 
 Sessions List
-=============
+-------------
 
 Facility staff can see all sessions in the ``Sessions List`` page (accessible from the ``Sessions`` link in the left
 toolbar). For non-staff users, only the sessions related to them will appear in the list.
@@ -50,7 +71,7 @@ Staff users can also delete sessions.
 .. _session-details:
 
 Session Details
-===============
+---------------
 
 .. image:: https://github.com/3dem/emhub/wiki/images/session-details.png
    :width: 100%
@@ -62,7 +83,7 @@ before the data is deleted from the facility servers.
 
 
 Session Live Pre-processing (under development)
-===============================================
+-----------------------------------------------
 
 EMhub can receive notifications from other programs performing on-the-fly pre-processing for a given session
 (via a REST API). This feature is still under development and not fully stable. The idea is that one could

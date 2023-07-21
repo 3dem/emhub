@@ -2,6 +2,7 @@
 Basic Setup
 ===========
 
+
 Installation
 ------------
 
@@ -39,7 +40,8 @@ Environment Variables
 
    "``FLASK_APP``", "Flask variable defining the name of the application, **emhub** in our case."
    "``FLASK_ENV``", "Environment, can be set to *development* for debugging purposes."
-   "``EMHUB_INSTANCE``", "Maximum amount of hours for bookings of this resources. Value 0 means no maximum. "
+   "``EMHUB_INSTANCE``", "This variable should point to the folder where all the data for a given EMhub instance is stored. Inside that folder there will be ``emhub.sqlite`` database, configuration files and images related to entities or user's uploads. "
+
 
 Instance Configuration
 ----------------------
@@ -73,6 +75,7 @@ under the `emhub/templates` folder.
    "``TEMPLATE_DASHBOARD_RIGHT='dashboard_right.html'``", "Right content of the Dashboard page. (TODO: Add link to SLL and StJude dashboards, and development info)."
    "``TEMPLATE_SESSION_CONTENT='session_content.html'``", "Page used to display the information about a given session. (TODO: Add link to SLL and StJude session content, and development info)."
    "``TEMPLATE_SESSION_BODY='create_session_form_body.html'``", "Dialog used when creating a new session. (TODO: Add link to SLL and StJude create session dialogs, and development info)."
+
 
 Authentication
 ~~~~~~~~~~~~~~
