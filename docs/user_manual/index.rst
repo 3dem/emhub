@@ -10,7 +10,6 @@ more information about how to use the system.
 
     overview
     users
-    applications
     resources
     bookings
     sessions
