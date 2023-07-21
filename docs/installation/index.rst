@@ -11,5 +11,5 @@ EMhub in production servers, and running the on-the-fly data processing with Sci
     Basic setup <basic_setup>
     Installation with Scipion <scipion_install>
     Deploying with NGINX <deploy_nginx>
-    Deploying with a Docker container
+    Deploying with a Docker container <deploy_docker>
     Authentication with LDAP <auth_ldap>
