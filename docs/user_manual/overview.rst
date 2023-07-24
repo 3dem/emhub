@@ -33,21 +33,21 @@ Some type of entries allow to generate PDF reports of the task performed.
 
 Basic Concepts
 ==============
-* :doc:`Users </user_manual/users>`
+* :doc:`Users </user_manual/users_applications>`
     User accounts in the system. They can be: admin, staff, PI or lab members.
     Several roles can be associated to each user (e.g ). PI users can also be grouped in Applications.
-* :doc:`Resources </user_manual/resources>`
+* :ref:`Resources`
     Usually instruments that can be booked by users (e.g ).
     Costs can be defined for each resource and different booking rules.
-* :doc:`Bookings </user_manual/users>`
+* :ref:`Bookings`
     Time slot for a given users in a given resource. Facility managers can be assigned to supervise a booking/session.
     There are special booking types: slots, downtime, maintenance and repeating events.
-* :doc:`Sessions </user_manual/users>`:
+* :ref:`Sessions`:
     Usually related to a data collection for a user in an instrument (via a Booking).
     Sessions can be associated to a Project from its user and used for reporting/invoicing.
-* :doc:`Projects </user_manual/users>`:
+* :ref:`Projects`:
     Place to group all bookings, sessions and events related to a research project.
     Different type of entries can be used to annotate a Project.
-* :doc:`Reports </user_manual/users>`:
+* :doc:`Reports`:
     Different reports are available to the Facility staff and site admins.
     Some reports are generated for project entries and others based on sessions and resource usage.

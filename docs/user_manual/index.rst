@@ -12,6 +12,9 @@ more information about how to use the system.
     users_applications
     resources_bookings
     dashboard_sessions
+    projects_entries
+    invoices_reports
+    configuration
 
 
 
