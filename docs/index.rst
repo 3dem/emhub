@@ -19,7 +19,6 @@ Table of Content
     :maxdepth: 2
 
     Installation <installation/index>
-    Overview <overview>
     User Manual <user_manual/index>
     Developer Guide <developer_guide/index>
     Example Instances <instances/index>

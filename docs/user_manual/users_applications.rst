@@ -67,7 +67,7 @@ List All
 
 This page gives access to all users in the system. As many other tables, it has a *search*
 box where it is possible to filter by name or any other text. From this page one can
-edit existing user's information or :ref:`register a new user <register-user>`.
+edit existing user's information or :ref:`register a new user <New users>`.
 
 .. image:: https://github.com/3dem/emhub/wiki/images/202306/users_list.jpg
    :width: 100%
@@ -84,7 +84,7 @@ It is also possible to list users grouped by their PI.
    :width: 100%
 
 New users
-.....................
+.........
 
 From the users list page one can register new users by clicking in the **Register New User**
 button. This will open the following dialog for entering basic information about the new user.

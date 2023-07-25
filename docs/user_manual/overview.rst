@@ -48,6 +48,6 @@ Basic Concepts
 * :ref:`Projects`:
     Place to group all bookings, sessions and events related to a research project.
     Different type of entries can be used to annotate a Project.
-* :doc:`Reports`:
+* :ref:`Reports`:
     Different reports are available to the Facility staff and site admins.
     Some reports are generated for project entries and others based on sessions and resource usage.

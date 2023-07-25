@@ -60,8 +60,8 @@ There are some properties of each resources that are related to the Bookings.
    "**Minimum Booking time**", "Minimum amount of hours for bookings of this resources. Value 0 means no minimum. "
    "**Maximum Booking time**", "Maximum amount of hours for bookings of this resources. Value 0 means no maximum. "
    "**Daily cost**", "Cost of the usage of this resource in a one-day booking. This value is used for invoicing."
-   "**Requires Slot**", "If *Yes* all bookings of this resource should within an allowed `Slots`."
-   "**Requires Application**", "If *Yes* the user that is the `Owner` of the booking should have a valid `Application`."
+   "**Requires Slot**", "If *Yes* all bookings of this resource should within an allowed ``Slots``."
+   "**Requires Application**", "If *Yes* the user that is the ``Owner`` of the booking should have a valid ``Application``."
 
 
 Bookings
@@ -163,8 +163,8 @@ Booking Types
     and give booking access only to certain users. The permission is granted via the :ref:`Applications` access
     in the *Slots* parameter in the Admin panel. One or more Applications can be allowed for a given Slot.
 
-    For example, if a slot is created for `Resource 1` and authorization is set to `applications A and B`,
-    users belonging to `application C` will not be able to book `Resource 1` in that slot.
+    For example, if a slot is created for ``Resource 1`` and authorization is set to applications ``A`` and ``B``,
+    users belonging to application ``C`` will not be able to book ``Resource 1`` in that slot.
 
 * **downtime/maintenance**
 

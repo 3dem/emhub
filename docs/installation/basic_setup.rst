@@ -3,8 +3,8 @@ Basic Setup
 ===========
 
 
-Installation
-------------
+Quickstart
+----------
 
 Basic EMhub installation can be done with one pip command, although it is recommended to create a separated
 Python environment (either venv or conda). For example:
@@ -65,7 +65,7 @@ Templates
 
 There are other variables that allow customization by defining different templates
 for some components of the web application. All templates are html (with Jinja2 templating)
-under the `emhub/templates` folder.
+under the ``emhub/templates`` folder.
 
 .. csv-table:: **Template variables**
    :widths: 10, 50
@@ -81,4 +81,4 @@ Authentication
 ~~~~~~~~~~~~~~
 
 Users can be authenticated in EMhub using the local database with a password. It is also possible to authenticate through
-an external LDAP server. Some variables are required in `config.py` for the :any:`Authentication with LDAP </installation/auth_ldap>`.
+an external LDAP server. Some variables are required in ``config.py`` for the :any:`Authentication with LDAP </installation/auth_ldap>`.
