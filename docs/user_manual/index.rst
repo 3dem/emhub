@@ -14,7 +14,7 @@ more information about how to use the system.
     dashboard_sessions
     projects_entries
     invoices_reports
-    configuration
+    configuration/index
 
 
 
