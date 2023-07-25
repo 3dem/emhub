@@ -20,8 +20,11 @@ Table of Content
 
     Installation <installation/index>
     User Manual <user_manual/index>
-    Developer Guide <developer_guide/index>
     Example Instances <instances/index>
+    Developer Guide <developer_guide/index>
+
+Screenshots
+-----------
 
 .. raw:: html
     :file: gallery.html
