@@ -247,7 +247,7 @@ Permissions Config Form
 
 The following form defines what user's roles have permissions to perform a given action.
 Each key will be an action and the options are specified for tags. In the following example
-there are two groups of permissions, one for tag `microscope` and the other for tag `prep`.
+there are two groups of permissions, one for tag ``microscope`` and the other for tag ``prep``.
 In this case, only ``admin`` or ``manager`` can create bookings for microscopes but any
 ``user`` can create bookings for ``prep`` tagged instruments.
 

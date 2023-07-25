@@ -312,7 +312,8 @@ class DataManager(DbManager):
 
     def update_application(self, **attrs):
         """ Update a given Application with new attributes.
-        Special case are:
+
+        Keyword arguments:
             pi_to_add: ids of PI users to add to the Application.
             pi_to_remove: ids of PI users to remove from the Application
         """
@@ -438,7 +439,7 @@ class DataManager(DbManager):
         return self.get_bookings(condition=conditionStr, orderBy='start')
 
     def delete_booking(self, **attrs):
-        """ Delete one or many bookings (in case of repeating events)
+        """ Delete one or many bookings (in case of repeating events).
 
         Keyword Args:
             id: the of the booking to be deleted

@@ -68,7 +68,7 @@ boxes will be shown as in the following image.
 
 The creation of a new session is commonly link with some actions from ``Workers`` machines. Workers will notice
 the new session and might perform some required tasks (e.g. folders creation, data transfer, etc). Workers can update
-back the status of a sesions that it is being monitored. More information about workers can be found here: :doc:`Workers`.
+back the status of a sesions that it is being monitored. More information about workers can be found here: :ref:`Developing Workers`.
 
 Session Details
 ---------------

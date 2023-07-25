@@ -9,4 +9,5 @@ Developer Guide
     content
     client
     workers
+    API Reference <api/index>
 

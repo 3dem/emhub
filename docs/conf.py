@@ -1,7 +1,10 @@
 import datetime as dt
 
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.autosectionlabel',
-              'jaraco.packaging.sphinx', 'rst.linker']
+extensions = ['sphinx.ext.autodoc',
+              'sphinx.ext.autosectionlabel',
+              'jaraco.packaging.sphinx',
+              'rst.linker',
+              'sphinxcontrib.napoleon']
 
 master_doc = "index"
 
@@ -16,8 +19,6 @@ extensions += ['sphinx.ext.intersphinx']
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
 }
-
-exclude_patterns = ['developer_guide']
 
 # Add support for linking usernames
 github_url = 'https://github.com'

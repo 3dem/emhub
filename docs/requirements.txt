@@ -6,4 +6,5 @@ sphinx-inline-tabs
 sphinxcontrib-towncrier 
 jaraco.tidelift
 sphinx-favicon
-furo 
+furo
+sphinxcontrib-napoleon

@@ -46,8 +46,8 @@ Environment Variables
 Instance Configuration
 ----------------------
 
-Mail
-~~~~
+Mail Config
+~~~~~~~~~~~
 
 It is possible to define some variables related to a Mail Server. In that way,
 EMhub can send emails for some notifications.
@@ -60,8 +60,8 @@ EMhub can send emails for some notifications.
     MAIL_DEFAULT_SENDER = "noreply@emhub.org"
 
 
-Templates
-~~~~~~~~~
+Configuring Templates
+~~~~~~~~~~~~~~~~~~~~~
 
 There are other variables that allow customization by defining different templates
 for some components of the web application. All templates are html (with Jinja2 templating)
