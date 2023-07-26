@@ -58,7 +58,7 @@ class DbManager:
 
         self._create_models()
 
-        # Create the database if it does not exists
+        # Create the database if it does not exist
         if not os.path.exists(dbPath) and create:
             self.Base.metadata.create_all(bind=engine)
 
