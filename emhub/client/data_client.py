@@ -45,7 +45,8 @@ class config:
         EMHUB_PASSWORD: Password for login into the server.
     """
 
-    EMHUB_SERVER_URL = os.environ['EMHUB_SERVER_URL']
+    EMHUB_SERVER_URL = os.environ.get('EMHUB_SERVER_URL',
+                                      'http://127.0.0.1:5000')
     EMHUB_USER = os.environ['EMHUB_USER']
     EMHUB_PASSWORD = os.environ['EMHUB_PASSWORD']
 
@@ -66,8 +67,7 @@ class DataClient:
     Client class to communicate with a remote EMhub server via the REST API.
     """
     def __init__(self, server_url=None):
-        self._server_url = server_url or os.environ.get('EMHUB_SERVER_URL',
-                                                        'http://127.0.0.1:5000')
+        self._server_url = server_url or config.EMHUB_SERVER_URL
         # Store the last request object
         self.cookies = self.r = None
 
@@ -83,9 +83,20 @@ class DataClient:
 
         Returns:
             The request result of the login operation.
+
+        Examples:
+            Login to a remote server providing all credentials::
+
+                dc = DataClient('https://emhub.org')
+                dc.login('admin', 'admin')
+
+            Login using default variables in `config`::
+
+                dc = DataClient()
+                dc.login()
         """
-        username = username or os.environ['EMHUB_USER']
-        password = password or os.environ['EMHUB_PASSWORD']
+        username = username or config.EMHUB_USER
+        password = password or config.EMHUB_PASSWORD
 
         self.r = requests.post('%s/api/login' % self._server_url,
                                json={'username': username,
@@ -128,12 +139,14 @@ class DataClient:
                 be returned.
 
         Examples:
-            with open_client() as dc:
-                # Retrieving all attributes from Session 100
-                sid = 100
-                s1 = dc.get_session(sid)
-                # Just fetching session name and start date
-                s2 = dc.get_session(sid, ['name', 'start'])
+            ::
+
+                with open_client() as dc:
+                    # Retrieving all attributes from Session 100
+                    sid = 100
+                    s1 = dc.get_session(sid)
+                    # Just fetching session name and start date
+                    s2 = dc.get_session(sid, ['name', 'start'])
         """
         return self._method('get_sessions', None, attrs,
                             condition='id=%d' % sessionId)[0]
@@ -156,6 +169,7 @@ class DataClient:
 
     def update_session_extra(self, attrs):
         """ Request the server to update only the ``extra`` attribute of a `Session`.
+
         Args:
             attrs (dict): Attributes to be updated. ``id`` must be in ``attrs``.
 
@@ -166,6 +180,7 @@ class DataClient:
 
     def delete_session(self, attrs):
         """ Request the server to delete a session.
+
         Args:
             attrs (dict): Attributes to be deleted. ``id`` must be in ``attrs``.
 
@@ -176,6 +191,7 @@ class DataClient:
 
     def get_session_tasks(self, specs=False):
         """ Get session task to be handled by this worker.
+
         Args:
             specs: If true, send this host specs.
         """

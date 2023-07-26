@@ -6,5 +6,5 @@ API Reference
     :maxdepth: 2
 
     data
+    api
     client
-

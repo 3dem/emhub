@@ -47,7 +47,6 @@ projects = '--projects' in sys.argv
 def change_user_names():
     with open_client() as dc:
         users = dc.request('get_users', jsonData=None).json()
-
         c = 0
         f = Faker()
         for u in users:

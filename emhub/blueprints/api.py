@@ -25,6 +25,15 @@
 # *  e-mail address 'delarosatrevin@scilifelab.se'
 # *
 # **************************************************************************
+""" This module contains functions from the EMhub's REST API.
+
+The REST API allows to operate with the underlying database entities.
+There are functions to create, update, delete and retrieve existing elements.
+
+This functions will be the channel between the `DataClient` in the client code
+and the server `DataManager`.
+
+"""
 
 import os
 import time
@@ -49,6 +58,15 @@ api_bp = flask.Blueprint('api', __name__)
 
 @api_bp.route('/login', methods=['POST'])
 def login():
+    """ Login a given user in the server.
+
+    Arguments are expected coming in ``request.json``.
+
+    Args:
+        username: Username to login.
+        password: password to login.
+
+    """
     username = request.json['username']
     password = request.json['password']
 
@@ -64,6 +82,7 @@ def login():
 @api_bp.route('/logout', methods=['POST'])
 @flask_login.login_required
 def logout():
+    """ Logout previously logged user. """
     flask_login.logout_user()
 
     return send_json_data('OK')
@@ -74,6 +93,7 @@ def logout():
 @api_bp.route('/create_user', methods=['POST'])
 @flask_login.login_required
 def create_user():
+    """ Create a new `User` in the system. """
     return handle_user(app.dm.create_user)
 
 
@@ -107,12 +127,14 @@ def register_user():
 @api_bp.route('/update_user', methods=['POST'])
 @flask_login.login_required
 def update_user():
+    """ Update a given `User` in the system. """
     return handle_user(app.dm.update_user)
 
 
 @api_bp.route('/delete_user', methods=['POST'])
 @flask_login.login_required
 def delete_user():
+    """ Delete a `User` from the system. """
     return handle_user(app.dm.delete_user)
 
 
@@ -178,48 +200,56 @@ def get_users():
 @api_bp.route('/create_template', methods=['POST'])
 @flask_login.login_required
 def create_template():
+    """ Create a new `Template`. """
     return handle_template(app.dm.create_template)
 
 
 @api_bp.route('/get_templates', methods=['POST'])
 @flask_login.login_required
 def get_templates():
+    """ Get a list of all existing templates. """
     return filter_request(app.dm.get_templates)
 
 
 @api_bp.route('/update_template', methods=['POST'])
 @flask_login.login_required
 def update_template():
+    """ Update an existing `Template`. """
     return handle_template(app.dm.update_template)
 
 
 @api_bp.route('/delete_template', methods=['POST'])
 @flask_login.login_required
 def delete_template():
+    """ Delete a given `Template`. """
     return handle_template(app.dm.delete_template)
 
 
 @api_bp.route('/create_application', methods=['POST'])
 @flask_login.login_required
 def create_application():
+    """ Create an `Application`. """
     return handle_application(app.dm.create_application)
 
 
 @api_bp.route('/get_applications', methods=['POST'])
 @flask_login.login_required
 def get_applications():
+    """ Get all applications. """
     return filter_request(app.dm.get_applications)
 
 
 @api_bp.route('/update_application', methods=['POST'])
 @flask_login.login_required
 def update_application():
+    """ Update an existing `Application`. """
     return handle_application(app.dm.update_application)
 
 
 @api_bp.route('/delete_application', methods=['POST'])
 @flask_login.login_required
 def delete_application():
+    """ Delete an `Application`. """
     return handle_application(app.dm.delete_application)
 
 
@@ -317,22 +347,26 @@ def import_application():
 @api_bp.route('/get_resources', methods=['POST'])
 @flask_login.login_required
 def get_resources():
+    """ Retrieve existing resources. """
     return filter_request(app.dm.get_resources)
 
 
 @api_bp.route('/create_resource', methods=['POST'])
 @flask_login.login_required
 def create_resource():
+    """ Create a new `Resource`. """
     return handle_resource(app.dm.create_resource)
 
 @api_bp.route('/update_resource', methods=['POST'])
 @flask_login.login_required
 def update_resource():
+    """ Update a given `Resource`. """
     return handle_resource(app.dm.update_resource)
 
 @api_bp.route('/delete_resource', methods=['POST'])
 @flask_login.login_required
 def delete_resource():
+    """ Delete a `Resource`. """
     return handle_resource(app.dm.delete_resource)
 
 # ---------------------------- BOOKINGS ---------------------------------------
@@ -340,6 +374,7 @@ def delete_resource():
 @api_bp.route('/create_booking', methods=['POST'])
 @flask_login.login_required
 def create_booking():
+    """ Create a new `Booking`. """
     def create(**attrs):
         check_min = request.json.get('check_min_booking', True)
         check_max = request.json.get('check_max_booking', True)
@@ -353,6 +388,7 @@ def create_booking():
 @api_bp.route('/get_bookings', methods=['POST'])
 @flask_login.login_required
 def get_bookings():
+    """ Retrieve existing bookings. """
     return filter_request(app.dm.get_bookings)
 
 
@@ -360,6 +396,12 @@ def get_bookings():
 @api_bp.route('/get_bookings_range', methods=['POST'])
 @flask_login.login_required
 def get_bookings_range():
+    """ Retrieve booking within a given time range.
+
+    Args:
+        start (str): Starting date (format "YYYY-MM-DD").
+        end (str): Ending date (format "YYYY-MM-DD").
+    """
     d = request.json or request.form
     bookings = app.dm.get_bookings_range(
         datetime_from_isoformat(d['start']),
@@ -372,12 +414,14 @@ def get_bookings_range():
 @api_bp.route('/update_booking', methods=['POST'])
 @flask_login.login_required
 def update_booking():
+    """ Update an existing `Booking`. """
     return handle_booking('bookings_updated', app.dm.update_booking)
 
 
 @api_bp.route('/delete_booking', methods=['POST'])
 @flask_login.login_required
 def delete_booking():
+    """ Delete an existing `Booking`. """
     # When deleting we don't need to send all info back, just ID
     def _transform(b):
         return {'id': b.id}

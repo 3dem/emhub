@@ -628,7 +628,25 @@ def create_data_models(dm):
             return self.__getExtra('representative_id', None)
 
     class Booking(Base):
-        """Model for user accounts."""
+        """ Data Model for bookings in the system, mapped to table ``bookings``.
+
+        Attributes:
+             id (int): Unique identifier.
+             title (str): Title of the booking.
+             description (str): Description of the booking (Optional).
+             start (datetime): Starting date/time of the booking.
+             end (datetime): Ending date/time of the booking.
+             type (str): Type of the booking.
+                Possible values: booking, slot, downtime, maintenance or special
+             slot_auth (dict): JSON field storing slot authorization. This field
+                only make sense when booking type is `slot`. The dict has the two
+                keys and a list of authorizations:
+                    {'applications': [], 'users': []}
+             repeat_id (str): Unique id representing a group of 'repeating' events.
+                This ``id`` is used for modifying all events in the group.
+             resource_id (int): Id of the `Resource` of this booking.
+
+        """
         __tablename__ = 'bookings'
 
         TYPES = ['booking', 'slot', 'downtime', 'maintenance', 'special']
@@ -696,6 +714,11 @@ def create_data_models(dm):
 
         @property
         def duration(self):
+            """ Duration of this booking.
+
+            Returns:
+                timedelta: end - start
+            """
             return self.end - self.start
 
         @property
@@ -709,10 +732,12 @@ def create_data_models(dm):
 
         @property
         def is_booking(self):
+            """ Returns True if ``type=='booking'``. """
             return self.type == 'booking'
 
         @property
         def is_slot(self):
+            """ Returns True if ``type=='slot'``. """
             return self.type == 'slot'
 
         @property
@@ -738,8 +763,7 @@ def create_data_models(dm):
 
         @property
         def costs(self):
-            """ Return extra costs associated with this Booking
-            """
+            """ Extra costs associated with this Booking. """
             return  self.__getExtra('costs', [])
 
         @costs.setter
@@ -748,8 +772,7 @@ def create_data_models(dm):
 
         @property
         def total_cost(self):
-            """ Return all costs associated with this Booking
-            """
+            """ All costs associated with this Booking. """
             cost = self.days * self.resource.daily_cost
             for _, _, c in self.costs:
                 try:
@@ -777,6 +800,12 @@ def create_data_models(dm):
                     any(a.code in allowedApps for a in user.get_applications()))
 
         def application_in_slot(self, application):
+            """ Return True if this booking is slot and the application
+            is within the authorized applications.
+
+            Args:
+                application: `Application` to check if it is in this slot
+            """
             if not self.is_slot:
                 return False
 
