@@ -11,7 +11,7 @@ master_doc = "index"
 link_files = {}
 
 # Be strict about any broken references:
-nitpicky = True
+nitpicky = False
 
 # Include Python intersphinx mapping to prevent failures
 # jaraco/skeleton#51

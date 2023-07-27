@@ -581,8 +581,10 @@ def create_data_models(dm):
 
         def get_quota(self, key):
             """ Return the quota (in days) for this application.
+
             Args:
                 key: the key representing either a resource id or a tag (e.g 1 or 'krios')
+
             Return:
                 the number of days that this application can use a resource or a groups
                 resources with the same tag. It will return None if there is no quota for
@@ -593,8 +595,9 @@ def create_data_models(dm):
         def no_slot(self, resourceKey):
             """ Return True if this application is not forced to create bookings within
             a given slot for certain resource.
-             For example, some applications might be required to book Krios1 only on specific
-             slots, while others will be able to book in free days.
+
+            For example, some applications might be required to book Krios1 only on specific
+            slots, while others will be able to book in free days.
             """
             return resourceKey in self.resource_allocation['noslot']
 
@@ -629,7 +632,7 @@ def create_data_models(dm):
 
     class Booking(Base):
         """ Data Model for bookings in the system, mapped to table ``bookings``.
-
+        
         Attributes:
              id (int): Unique identifier.
              title (str): Title of the booking.
@@ -637,14 +640,16 @@ def create_data_models(dm):
              start (datetime): Starting date/time of the booking.
              end (datetime): Ending date/time of the booking.
              type (str): Type of the booking.
-                Possible values: booking, slot, downtime, maintenance or special
+                Possible values: ``booking``, ``slot``, ``downtime``, ``maintenance`` or ``special``
              slot_auth (dict): JSON field storing slot authorization. This field
-                only make sense when booking type is `slot`. The dict has the two
-                keys and a list of authorizations:
+                only make sense when booking type is ``slot``. The dict has the two
+                keys and a list of authorizations::
+
                     {'applications': [], 'users': []}
              repeat_id (str): Unique id representing a group of 'repeating' events.
                 This ``id`` is used for modifying all events in the group.
              resource_id (int): Id of the `Resource` of this booking.
+    """
 
         """
         __tablename__ = 'bookings'

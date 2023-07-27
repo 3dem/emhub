@@ -605,8 +605,9 @@ class Application(Base):
     def no_slot(self, resourceKey):
         """ Return True if this application is not forced to create bookings within
         a given slot for certain resource.
-         For example, some applications might be required to book Krios1 only on specific
-         slots, while others will be able to book in free days.
+
+        For example, some applications might be required to book Krios1 only on specific
+        slots, while others will be able to book in free days.
         """
         return resourceKey in self.resource_allocation['noslot']
 
@@ -650,15 +651,15 @@ class Booking(Base):
          start (datetime): Starting date/time of the booking.
          end (datetime): Ending date/time of the booking.
          type (str): Type of the booking.
-            Possible values: booking, slot, downtime, maintenance or special
+            Possible values: ``booking``, ``slot``, ``downtime``, ``maintenance`` or ``special``
          slot_auth (dict): JSON field storing slot authorization. This field
-            only make sense when booking type is `slot`. The dict has the two
-            keys and a list of authorizations:
+            only make sense when booking type is ``slot``. The dict has the two
+            keys and a list of authorizations::
+
                 {'applications': [], 'users': []}
          repeat_id (str): Unique id representing a group of 'repeating' events.
             This ``id`` is used for modifying all events in the group.
          resource_id (int): Id of the `Resource` of this booking.
-
     """
     __tablename__ = 'bookings'
 

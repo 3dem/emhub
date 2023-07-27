@@ -2395,17 +2395,18 @@ class DataContent:
 
     def get_booking_in_range(self, kwargs,
                              asJson=True, filter=None, bookingFunc=None):
-        """ Return the list of bookings in the given range.
+        """ Return the list of bookings in the given time range.
+
          It will also attach PI information to each booking.
          This function is used from report functions.
          If 'start' and 'end' keys are not in kwargs, the current
          year quarter will be used for the range.
+
          Args:
-             kwargs: dict from where to read 'start' and 'end'
-             asJson: if True return json entries for each booking
-             filter: function to filter bookings. If None, the
-                non-slot bookings with non-zero cost resource
-                will be used.
+             kwargs (dict): dict from where to read 'start' and 'end'
+             asJson (bool): if True return json entries for each booking
+             filter: function to filter bookings. If None, the non-slot bookings
+                with non-zero cost resource will be used.
             bookingFunc: if asJson is True, function used to convert
                 booking into a jsonDict. If it is none, booking_to_event is used.
         """
