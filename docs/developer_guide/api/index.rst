@@ -8,3 +8,4 @@ API Reference
     data
     api
     client
+    javascript

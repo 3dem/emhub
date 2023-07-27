@@ -632,7 +632,7 @@ def create_data_models(dm):
 
     class Booking(Base):
         """ Data Model for bookings in the system, mapped to table ``bookings``.
-        
+
         Attributes:
              id (int): Unique identifier.
              title (str): Title of the booking.
@@ -649,8 +649,6 @@ def create_data_models(dm):
              repeat_id (str): Unique id representing a group of 'repeating' events.
                 This ``id`` is used for modifying all events in the group.
              resource_id (int): Id of the `Resource` of this booking.
-    """
-
         """
         __tablename__ = 'bookings'
 

@@ -191,16 +191,6 @@ function userAjaxDone(jsonResponse) {
     ajax_request_done(jsonResponse, 'user');
 }
 
-function showResource(resourceId, copyResource) {
-    var params = {
-        resource_id: resourceId,
-        copy_resource: Boolean(copyResource)
-    };
-    show_modal_from_ajax('resource-modal',
-                         get_ajax_content("resource_form", params));
-}  // function showResource
-
-
 /* Show the User Form */
 function showUser(userId) {
     var content = get_ajax_content("user_form", {user_id: userId});

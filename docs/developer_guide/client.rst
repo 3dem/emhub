@@ -13,13 +13,14 @@ Python
 
 Interacting with the EMhub :ref:`REST API` is basically sending requests to the
 remote server and processing the returned response. This could be done with standard
-Python libraries such as `requests`. To facility the communication, EMhub provides
+Python libraries such as ``requests``. To facility the communication, EMhub provides
 the :ref:`emhub.client` module to communicate with the server. Following are some
 examples of it usage.
 
 
 Backing-up Forms in a JSON file
 ...............................
+
 We can fetch all forms from the EMhub server and store it in a JSON file. Similarly
 we can read a JSON file and restore the Forms into another instance. For example,
 let assume we want to get forms from a remote server and set their values in a
@@ -56,8 +57,8 @@ development one.
             dc.request('update_form', jsonData={'attrs': form})
 
 
-Disguising the Database Info
-............................
+Disguising the Database
+.......................
 
 In this example, image that we want to present an EMhub running instance, but
 we don't want to reveal real users' identity neither projects or sessions name.
@@ -94,4 +95,52 @@ the real information.
             extra['is_confidential'] = True
             attrs = {'id': p['id'], 'extra': extra, 'title': 'Project Title'}
             dc.request('update_project', jsonData={'attrs': attrs})
+
+
+Updating Sessions' Acquisition Info
+...................................
+
+In this example we want to update the ``Acquisition Info`` for sessions where this information is missing.
+For that, we will read the acquisition from the configuration for each microscope, based on its name.
+Then we will need to map the microscopes names to their ids, by reading ``resources`` from EMhub. Finally, we
+will go over each session and update the acquisition if necessary.
+
+.. code-block:: python
+
+        from emhub.client import open_client
+
+        with open_client() as dc:
+            # Let's get the resources and create a dict mapping resourceId -> resourceName
+            resources = dc.request('get_resources', jsonData=None).json()
+            rDict = {r['id']: r['name'] for r in resources}
+
+            # Let's get bookings since the resource id comes from the booking
+            # associated with the session
+            bookings = dc.request('get_bookings', jsonData=None).json()
+            # Create a mapping from booking to the resource name: bookingId -> resourceName
+            brDict = {b['id']: rDict[b['resource_id']] for b in bookings}
+
+            # Get sessions and the config related to sessions
+            sessions = dc.request('get_sessions', jsonData=None).json()
+            sconfig = dc.get_config('sessions')
+
+            for s in sessions:
+                # Get the resourceName for this session, based on its corresponding booking
+                rName = brDict[s['booking_id']]
+                # Get pixel size from the session's acquisition
+                acq = s['acquisition']
+                ps = acq.get('pixel_size', None)
+
+                # Fix the acquisition if there is no pixel_size (wrong acquisition info)
+                if ps:
+                    print(f"Session {s['id'] is OK"})
+                else:
+                    # Let's get the proper acquisition from the config and update the session
+                    newAcq = sconfig['acquisition'][rName]
+                    dc.update_session({'id': s['id'], 'acquisition': newAcq})
+
+
+Javascript
+----------
+
 

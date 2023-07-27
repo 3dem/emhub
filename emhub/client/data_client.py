@@ -119,10 +119,12 @@ class DataClient:
         Args:
             attrs (dict): Dict with the attributes of the session.
 
-        ``attrs`` should of the form:
+        ``attrs`` should of the form::
 
             {
                 'name': 'SessionName',
+                'start': '2023-07-27 09:00'
+                'end': '2023-07-27 23:59'
             }
 
         Returns:

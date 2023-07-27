@@ -14,7 +14,12 @@ class Api {
     }
 }
 
-/* Helper function to print object properties */
+/**
+ * Print object's attributes to the console.
+ *
+ * @param obj  Input object to be printed.
+ * @param label Label to print before the object.
+ */
 function printObject(obj, label) {
     var propValue;
     console.log("object: ", label);
@@ -24,10 +29,12 @@ function printObject(obj, label) {
     }
 }
 
-function getObjectValue(obj, key, default_value) {
-    return key in obj ? obj[key] : default_value;
-}
-
+/**
+ * Print an Array to console.
+ *
+ * @param array Array to be printed.
+ * @param label Label to print before the array.
+ */
 function printArray(array, label){
     console.log("Array: ", label);
     var i = 0;
@@ -36,6 +43,12 @@ function printArray(array, label){
     }
 }
 
+/**
+ * Print a list of objects to console.
+ *
+ * @param objList  Input list of objects to be printed.
+ * @param label Label to print before the object.
+ */
 function printList(objList, label) {
     console.log("List: ", label);
     var i = 0;
@@ -45,6 +58,12 @@ function printList(objList, label) {
     }
 }
 
+/**
+ * Print dictionary to the console.
+ *
+ * @param objDict  Input dictionary to be printed.
+ * @param label Label to print before the object.
+ */
 function printDict(objDict, label) {
     for(var key in objDict) {
       var value = objDict[key];
@@ -52,6 +71,27 @@ function printDict(objDict, label) {
     }
 }
 
+/**
+ * Get an attribute value from an object providing a default
+ * value if the object does not have that attribute.
+ *
+ * @param obj  Input object.
+ * @param key Attribute key name.
+ * @param default_value Default value to return in case object does not
+ *  contains that attribute.
+ */
+function getObjectValue(obj, key, default_value) {
+    return key in obj ? obj[key] : default_value;
+}
+
+
+/**
+ * Remove an object from a list.
+ *
+ * @param obj Object to remove
+ * @param objList List of objects
+ * @returns {*[]} A new list without obj.
+ */
 function removeObjectFromList(obj, objList) {
     var newList = [];
     for (var o of objList)
@@ -60,16 +100,27 @@ function removeObjectFromList(obj, objList) {
     return newList;
 }
 
-/* Helper function to pad dates */
+/**
+ * Helper function to pad dates
+ */
 function pad(n) {
     return n < 10 ? '0' + n : n;
 }
 
-/* Get date string in YYYY-MM-DD format */
+/**
+ * Get date string in YYYY-MM-DD format
+ */
 function dateStr(date) {
     return date.getFullYear() + '/' + pad(date.getMonth() + 1) + '/' + pad(date.getDate());
 }
 
+/**
+ * Get a datetime object taking date and time from two different DOM elements.
+ *
+ * @param dateId Id of the DOM element containing the date value
+ * @param timeId Id of the DOM element containing the time value
+ * @returns {Date}
+ */
 function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val();
 
@@ -94,18 +145,29 @@ function dateFromValue(dateId, timeId) {
     return date;
 }
 
+/**
+ * Return the same as `dataFromValue` but in ISO format.
+ * @param dateId Id of the DOM element containing the date value
+ * @param timeId Id of the DOM element containing the time value
+ * @returns {string}
+ */
 function dateIsoFromValue(dateId, timeId) {
     return dateFromValue(dateId, timeId).toISOString();
 }
 
-/* Get hour:minutes string HH:00 format */
+
+/**
+ * Get hour:minutes string HH:00 format
+ */
 function timeStr(date) {
     return pad(date.getHours()) + ":" + pad(date.getMinutes());
 }
 
+/** Compose `dateStr` and `timeStr`.
+ * @returns {string}
+ */
 function datetimeStr(date) {
     return dateStr(date) + ' - ' + timeStr(date);
-    //return date.toUTCString();
 }
 
 /** Return the part of the date without any time */
@@ -114,7 +176,13 @@ function dateNoTime(date) {
     return  d;
 }
 
-/* Date in range */
+/**
+ * Return true if the date is within a given range.
+  * @param date Input date.
+ * @param range Object containing start and end attributes.
+ * @param useTime Whether to use the time or not for the comparison.
+ * @returns {boolean}
+ */
 function dateInRange(date, range, useTime) {
     var d = date;
     var start = range.start;

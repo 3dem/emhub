@@ -2,14 +2,11 @@ import datetime as dt
 
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.autosectionlabel',
-              'jaraco.packaging.sphinx',
               'rst.linker',
               'sphinxcontrib.napoleon',
-              ]
+              'sphinx_js']
 
 master_doc = "index"
-
-exclude_patterns = ['js/*.rst']
 
 link_files = {}
 
@@ -74,50 +71,6 @@ redirects = {
 # Add support for inline tabs
 extensions += ['sphinx_inline_tabs']
 
-# Support for distutils
-
-# Ref: https://stackoverflow.com/a/30624034/595220
-# FIXME: Add our own ignores
-nitpick_ignore = [
-    ('c:func', 'SHGetSpecialFolderPath'),  # ref to MS docs
-    ('envvar', 'DISTUTILS_DEBUG'),  # undocumented
-    ('envvar', 'HOME'),  # undocumented
-    ('envvar', 'PLAT'),  # undocumented
-    ('py:attr', 'CCompiler.language_map'),  # undocumented
-    ('py:attr', 'CCompiler.language_order'),  # undocumented
-    ('py:class', 'distutils.dist.Distribution'),  # undocumented
-    ('py:class', 'distutils.extension.Extension'),  # undocumented
-    ('py:class', 'BorlandCCompiler'),  # undocumented
-    ('py:class', 'CCompiler'),  # undocumented
-    ('py:class', 'CygwinCCompiler'),  # undocumented
-    ('py:class', 'distutils.dist.DistributionMetadata'),  # undocumented
-    ('py:class', 'FileList'),  # undocumented
-    ('py:class', 'IShellLink'),  # ref to MS docs
-    ('py:class', 'MSVCCompiler'),  # undocumented
-    ('py:class', 'OptionDummy'),  # undocumented
-    ('py:class', 'UnixCCompiler'),  # undocumented
-    ('py:exc', 'CompileError'),  # undocumented
-    ('py:exc', 'DistutilsExecError'),  # undocumented
-    ('py:exc', 'DistutilsFileError'),  # undocumented
-    ('py:exc', 'LibError'),  # undocumented
-    ('py:exc', 'LinkError'),  # undocumented
-    ('py:exc', 'PreprocessError'),  # undocumented
-    ('py:func', 'distutils.CCompiler.new_compiler'),  # undocumented
-    # undocumented:
-    ('py:func', 'distutils.dist.DistributionMetadata.read_pkg_file'),
-    ('py:func', 'distutils.file_util._copy_file_contents'),  # undocumented
-    ('py:func', 'distutils.log.debug'),  # undocumented
-    ('py:func', 'distutils.spawn.find_executable'),  # undocumented
-    ('py:func', 'distutils.spawn.spawn'),  # undocumented
-    # TODO: check https://docutils.rtfd.io in the future
-    ('py:mod', 'docutils'),  # there's no Sphinx site documenting this
-]
-
-# Allow linking objects on other Sphinx sites seamlessly:
-intersphinx_mapping.update(
-    #python2=('https://docs.python.org/2', None),
-    python=('https://docs.python.org/3', None),
-)
 
 # Add support for the unreleased "next-version" change notes
 # extensions += ['sphinxcontrib.towncrier']
@@ -147,6 +100,16 @@ favicons = [
         "static-file": "favicon.svg",
         "sizes": "16x16 24x24 32x32 48x48"
     },
+    # rel="apple-touch-icon" does not support SVG yet
 ]
 
+# intersphinx_mapping['pip'] = 'https://pip.pypa.io/en/latest', None
+# intersphinx_mapping['PyPUG'] = ('https://packaging.python.org/en/latest/', None)
+# intersphinx_mapping['packaging'] = ('https://packaging.pypa.io/en/latest/', None)
+# intersphinx_mapping['importlib-resources'] = (
+#     'https://importlib-resources.readthedocs.io/en/latest', None
+# )
 
+# For sphinx_js
+js_source_path = '../../emhub/static/libs/js/'
+primary_domain = 'js'
