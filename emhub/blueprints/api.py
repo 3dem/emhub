@@ -45,7 +45,7 @@ from flask import request
 from flask import current_app as app
 import flask_login
 
-from emtools.utils import Pretty
+from emtools.utils import Pretty, Color
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data import DataContent
@@ -257,7 +257,7 @@ def delete_application():
 @flask_login.login_required
 def import_application():
     try:
-        if not request.json:
+        if not request.is_json:
             raise Exception("Expecting JSON request.")
 
         orderCode = request.json['code'].upper()
@@ -402,7 +402,7 @@ def get_bookings_range():
         start (str): Starting date (format "YYYY-MM-DD").
         end (str): Ending date (format "YYYY-MM-DD").
     """
-    d = request.json or request.form
+    d = request.get_json(silent=True) or request.form
     bookings = app.dm.get_bookings_range(
         datetime_from_isoformat(d['start']),
         datetime_from_isoformat(d['end'])
@@ -896,7 +896,7 @@ def fix_dates(attrs, *date_keys):
 
 def _handle_item(handle_func, result_key):
     try:
-        if request.json:
+        if request.is_json:
             attrs = request.json['attrs']
         elif request.form:
             attrs = json.loads(request.form['attrs'])
