@@ -5,6 +5,7 @@ extensions = ['sphinx.ext.autodoc',
               'jaraco.packaging.sphinx',
               'rst.linker',
               'sphinxcontrib.napoleon',
+              'sphinx_copybutton',
               ]
 
 master_doc = "index"

@@ -113,8 +113,7 @@ to build the documentation.
 
     conda create -y --name=emhub-docs python=3.8
     conda activate emhub-docs
-    pip install sphinx furo jaraco.packaging rst.linker sphinx_reredirects \
-    sphinx_inline_tabs jaraco.tidelift sphinx-favicon sphinxcontrib-napoleon
+    pip install -r docs/requirements.txt
 
 .. code-block:: bash
     sphinx-build -b html docs/ html/

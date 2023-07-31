@@ -2,9 +2,9 @@
 Javascript
 ----------
 
-Debugging Utils
-...............
+Utils
+.....
 
-.. js:function:: printObject
+.. js:function:: removeObjectFromList
 
-
+.. js:function:: pad

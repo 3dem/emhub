@@ -8,3 +8,4 @@ jaraco.tidelift
 sphinx-favicon
 furo
 sphinxcontrib-napoleon
+sphinx-copybutton

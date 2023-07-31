@@ -13,13 +13,6 @@ link_files = {}
 # Be strict about any broken references:
 nitpicky = False
 
-# Include Python intersphinx mapping to prevent failures
-# jaraco/skeleton#51
-extensions += ['sphinx.ext.intersphinx']
-intersphinx_mapping = {
-    'python': ('https://docs.python.org/3', None),
-}
-
 # Add support for linking usernames
 github_url = 'https://github.com'
 github_repo_org = '3dem'
@@ -62,12 +55,6 @@ html_theme_options = {
     },
 }
 
-# Redirect old docs so links and references in the ecosystem don't break
-extensions += ['sphinx_reredirects']
-redirects = {
-    "userguide/keywords": "/deprecated/changed_keywords.html",
-}
-
 # Add support for inline tabs
 extensions += ['sphinx_inline_tabs']
 
@@ -79,11 +66,11 @@ extensions += ['sphinx_inline_tabs']
 # # Avoid an empty section for unpublished changes.
 # towncrier_draft_include_empty = False
 
-extensions += ['jaraco.tidelift']
+#extensions += ['jaraco.tidelift']
 
 # Add icons (aka "favicons") to documentation
 extensions += ['sphinx_favicon']
-html_static_path = ['images']  # should contain the folder with icons
+#html_static_path = ['images']  # should contain the folder with icons
 
 # List of dicts with <link> HTML attributes
 # static-file points to files in the html_static_path (href is computed)

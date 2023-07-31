@@ -270,7 +270,8 @@ function createCalender() {
         eventSources: [
             {
               url: Api.urls.booking.range,
-              method: 'POST'
+              method: 'POST',
+                format: 'json'
             }
         ],
         eventSourceSuccess: function(all_events, xhr) {

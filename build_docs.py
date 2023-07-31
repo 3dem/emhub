@@ -11,6 +11,8 @@ Process.system("sphinx-build -b html docs/js html/js", color=Color.green)
 article_lines = []
 ref_lines = []
 in_article = False
+in_toc = False
+toc_lines = []
 
 js_index = 'html/js/index.html'
 with open(js_index) as f:
@@ -20,16 +22,21 @@ with open(js_index) as f:
             in_article = True
         elif 'article>' in line:
             in_article = False
+        elif '<aside class="toc-drawer">' in line:
+            in_toc = True
+        elif '</aside>' in line:
+            in_toc = False
         else:
             if in_article:
                 article_lines.append(line)
-            if line.startswith('<li><a class="reference internal"'):
-                ref_lines.append(line)
+            elif in_toc:
+                toc_lines.append(line)
 
 all_lines = []
-in_article = False
+in_toc = in_article = False
 
 js_file = 'html/developer_guide/api/javascript.html'
+
 with open(js_file) as f:
     print(f"Parsing {Color.bold(js_file)}")
     for line in f:
@@ -39,17 +46,18 @@ with open(js_file) as f:
             in_article = True
         elif 'article>' in line:
             in_article = False
+        elif '<aside class="toc-drawer">' in line:
+            all_lines.append(line)  # toc line
+            all_lines.extend(toc_lines)
+            in_toc = True
+        elif '</aside>' in line:
+            in_toc = False
 
-        if not in_article:
-            if line.startswith('<li><a class="reference internal"'):
-                if ref_lines:
-                    all_lines.extend(ref_lines)
-                    ref_lines = []
-            else:
-                all_lines.append(line)
+        if not in_article and not in_toc:
+            all_lines.append(line)
 
 with open('html/developer_guide/api/javascript.html', 'w') as f:
     for line in all_lines:
         f.write(line)
 
-Process.system("rm -rf html/js", color=Color.green)
+#Process.system("rm -rf html/js", color=Color.green)

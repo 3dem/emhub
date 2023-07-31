@@ -197,13 +197,21 @@ function dateInRange(date, range, useTime) {
     return (d >= start && d <= end);
 }
 
-/* Check if two events overlap (if have same resource) */
+/**
+ * Check if two events overlap using `dateInRange` function.
+ *
+ * Events should have ``start`` and ``end`` attributes.
+ */
 function rangesOverlap(event1, event2, useTime) {
     return (dateInRange(event1.start, event2, useTime) ||
             dateInRange(event1.end, event2, useTime));
 }
 
-/* Return True if event1 is contained in event2 */
+/**
+ * Check if one event is contained in the other using `dateInRange` function.
+ *
+ * Events should have ``start`` and ``end`` attributes.
+ */
 function rangeInside(event1, event2, useTime) {
     return (dateInRange(event1.start, event2, useTime) &&
             dateInRange(event1.end, event2, useTime));
@@ -223,7 +231,12 @@ function getSelectedValues(sel) {
     return values;
 }
 
-/* Function to show the modal */
+/**
+ * Show a dialog with a message.
+ *
+ * @param title Title of the dialog.
+ * @param msg Message to display.
+ */
 function showMessage(title, msg) {
     var confirmModal =
     $('<div class="modal" id="msg-modal" tabindex="-1" role="dialog" aria-labelledby="msgModal" aria-hidden="true">\n' +
@@ -244,12 +257,24 @@ function showMessage(title, msg) {
     confirmModal.modal('show');
 }
 
-/* Shortcut to show error messages */
+/**
+ * Show a dialog with an ERROR message.
+ *
+ * @param msg Message to display, prepended by 'ERROR'.
+ */
 function showError(msg) {
     showMessage('ERROR', msg);
 }
 
 /* Generic Confirm func */
+/**
+ * Display a confirmation dialog that could trigger a callback function.
+ * @param heading Title to be display for the confirmation.
+ * @param question Question asked for confirmation. (e.g. Do want to delete this entry?)
+ * @param cancelButtonTxt Label for the Cancel-Button (e.g. Cancel)
+ * @param okButtonTxt Label for the OK-Button (e.g. OK, Update, Delete)
+ * @param callback Callback function to be called if the OK-Button is called
+ */
 function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
     var confirmModal =
         $('<div class="modal" id="yesno-modal" tabindex="-1" role="dialog" aria-labelledby="yesnoModal" aria-hidden="true">\n' +
@@ -277,6 +302,9 @@ function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
 };
 /* END Generic Confirm func */
 
+/**
+ * Show a 'NOT IMPLEMENTED' message dialog.
+ */
 function notImplemented(msg) {
     showMessage("NOT IMPLEMENTED", msg);
 }
@@ -428,6 +456,11 @@ function create_sparkline(id, values, args) {
     $(id).sparkline(values, new_args);
 }
 
+/**
+ * Make an AJAX request to the server expecting html result.
+ * @param url URL to make the AJAX request
+ * @param params dictionary with parameters to retrieve the content.
+ */
 function get_ajax_html(url, params) {
     return $.ajax({
         url: url,
@@ -438,8 +471,8 @@ function get_ajax_html(url, params) {
 }
 
 /**
- * Make an AJAX request to the server and render the html result in a container.
- * @param content_id contend id that will be requested to the server
+ * Make an AJAX request to the server, getting the URL for a specific content page
+ * @param content_id content id that will be requested from the server
  * @param params dictionary with extra parameters to retrieve the content.
  */
 function get_ajax_content(content_id, params) {
@@ -453,10 +486,11 @@ function get_ajax_content(content_id, params) {
 }
 
 /**
- * Make an AJAX request to retrieve some content and set it as html of the container
- * @param container_id: Container that Will receive the content
- * @param content_id: id of the content to be retrieved
- * @param params: params passed to retrieving the content
+ * Make an AJAX request to retrieve some content and set it as the HTML
+ * of the container.
+ *
+ * @param container_id: Container that will receive the HTML content
+ * @param ajaxContent: already created AJAX content
  */
 function load_html_from_ajax(container_id, ajaxContent) {
     ajaxContent.done(function(html) {
@@ -466,6 +500,13 @@ function load_html_from_ajax(container_id, ajaxContent) {
     ajaxContent.fail(ajax_request_failed);
 }
 
+/**
+ * Make an AJAX request to retrieve some content and set it as the
+ * HTML of a modal dialog.
+ *
+ * @param container_id: ID of the element used as modal
+ * @param ajaxContent: already created AJAX content
+ */
 function show_modal_from_ajax(container_id, ajaxContent) {
     ajaxContent.done(function(html) {
         $('#' + container_id).html(html);
@@ -499,6 +540,13 @@ function send_ajax_json(url, attrs, done, fail){
     ajaxContent.fail(fail);
 }
 
+/**
+ * Make an AJAX request sending data from a web Form as json to some url in the server
+ * @param url: URL to send the ajax request
+ * @param formData: Form data to be sent as JSON
+ * @param done: callback when the request is done
+ * @param fail: callback when the request failed
+ */
 function send_ajax_form(url, formData, done, fail){
     var ajaxContent = $.ajax({
         url: url,
@@ -515,6 +563,12 @@ function send_ajax_form(url, formData, done, fail){
     ajaxContent.fail(fail);
 }
 
+/**
+ * Generic handler for when an AJAX request is done.
+ *
+ * @param jsonResponse response from the request.
+ * @param expectedKey expected key in the response if it succeeded
+ */
 function ajax_request_done(jsonResponse, expectedKey){
     var error = null;
 
@@ -534,6 +588,9 @@ function ajax_request_done(jsonResponse, expectedKey){
     }
 }
 
+/**
+ * Generic handler for when an AJAX request failed.
+ */
 function ajax_request_failed(jqXHR, textStatus) {
     showError("Ajax Request FAILED: " + textStatus );
 }
