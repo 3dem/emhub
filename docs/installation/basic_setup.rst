@@ -16,7 +16,7 @@ Python environment (either venv or conda). For example:
 
     cd ~/work/development
     git clone git@github.com:3dem/emhub.git
-    git clone git@github.com:3dem/emhub-testdata.git
+
 
     cd emhub
     pip install -e .

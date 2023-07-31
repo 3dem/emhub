@@ -17,6 +17,20 @@ Python libraries such as ``requests``. To facility the communication, EMhub prov
 the :ref:`emhub.client` module to communicate with the server. Following are some
 examples of it usage.
 
+Getting Bookings in a Range
+...........................
+
+A simple example, getting all bookings in a range.
+
+.. code-block:: python
+
+    from emhub.client import open_client
+    with open_client() as dc:
+        r = dc.request('get_bookings_range',
+                       jsonData={'start': '2023-07-01', 'end': '2023-10-01'})
+        for b in r.json():
+            print(b)
+
 
 Backing-up Forms in a JSON file
 ...............................
@@ -142,5 +156,47 @@ will go over each session and update the acquisition if necessary.
 
 Javascript
 ----------
+
+The EMhub's UI also make use the of the :ref:`REST API` from Javascript code. JQuery library is used for sending AJAX
+requests and there are some helper functions in :doc:`EMhub's Javascript </developers_guide/api/javascript>` to make it
+easier to request data and render html based on that.
+
+For example, one can easily display the resulting HTML from a content-query to EMhub in a modal using the following code:
+
+.. code-block:: javascript
+
+    function showRegisterUser() {
+        var content = get_ajax_content("register_user_form", {});
+        show_modal_from_ajax('user-modal', content);
+    }  // function showUser
+
+
+In the previous example one make a request with the ``get_ajax_content`` function and display a modal from the
+resulting html. In this case it is a dialog to register a new user. One can link an action in that modal (usually a
+HTML form coming from the server) and sent another request with that action to the server. In this case that action
+will be to register the user in the database. That is done in the following function:
+
+.. code-block:: javascript
+
+    function onRegisterUser() {
+        var roles = [];
+        // Update user's roles base on checkboxes
+        $(".user-role:checked").each(function(){
+            roles.push(this.name.replace('role-', ''));
+        });
+        // Create a user's data
+        var user = {
+            email: $('#user-email').val(),
+            name: $('#user-name').val(),
+            roles: roles,
+            pi_id: $('#user-pi-select').selectpicker('val')
+        };
+
+        // Send a request to register that user
+        send_ajax_json(Api.urls.user.register, user, handleUserAjaxDone);
+    }  // function onRegisterUser
+
+
+
 
 

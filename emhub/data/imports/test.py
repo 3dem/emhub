@@ -211,8 +211,8 @@ class TestData(TestDataBase):
         for u in ['cruiser']:
             __addPi('CEM00315', u)
 
-        for u in ['molive']:
-            __addPi('CEM00297', 'ernity')
+        for u in ['molive', 'tech', 'ernity']:
+            __addPi('CEM00297', u)
 
         dm.commit()
 
@@ -319,7 +319,6 @@ class TestData(TestDataBase):
             start=self._datetime(2020, 3, 5, 12, 30, 10),
             end=None,
             status='running',
-            #data_path=os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
             acquisition={'voltage': 300,
                          'cs': 2.7,
                          'phasePlate': False,
@@ -340,9 +339,6 @@ class TestData(TestDataBase):
             booking_id=None,
             operator_id=1,  # User  X
         )
-
-        shutil.copyfile(os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
-                        os.path.join(inst, 'sessions/session_000001.h5'))
 
         dm.create_session(
             name='epu-mysession_20122310_234542',

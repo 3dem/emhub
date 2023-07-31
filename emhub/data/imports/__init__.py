@@ -26,9 +26,9 @@
 # *
 # **************************************************************************
 
-import os
-import json
 import datetime as dt
+import json
+import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -203,13 +203,13 @@ class TestDataBase:
 
     def _populateResources(self, dm):
         resources = [
-            {'name': 'Solna Krios α', 'tags': 'microscope krios solna',
+            {'name': 'Krios01', 'tags': 'microscope krios solna',
              'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
              'extra': {'latest_cancellation': 48,
                        'requires_slot': True,
                        'min_booking': 8,
                        'max_booking': 72}},
-            {'name': 'Solna Krios β', 'tags': 'microscope krios solna',
+            {'name': 'Krios02', 'tags': 'microscope krios solna',
              'status': 'inactive',
              'image': 'titan-krios.png', 'color': 'rgba(60, 90, 190, 1.0)',
              'extra': {'latest_cancellation': 48,

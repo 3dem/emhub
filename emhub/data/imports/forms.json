@@ -141,5 +141,18 @@
         "images": ""
     }
 }
-  }
+  },
+  {
+        "id": 18,
+        "name": "config:reports",
+        "definition": {
+            "resources": [
+                "Krios01",
+                "Arctica01",
+                "Talos"
+            ],
+            "microscope_usage": {}
+        }
+    }
+
 ]
