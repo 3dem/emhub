@@ -60,7 +60,7 @@ def user_profile():
             return app.send_static_file(os.path.join('images', 'user-icon.png'))
 
         return flask.send_from_directory(app.config["USER_IMAGES"],
-                                         filename=user.profile_image)
+                                         user.profile_image)
     except FileNotFoundError:
         flask.abort(404)
 
