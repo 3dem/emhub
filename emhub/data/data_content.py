@@ -1571,6 +1571,9 @@ class DataContent:
     def get_raw_applications_list(self, **kwargs):
         return {'applications': self.app.dm.get_visible_applications()}
 
+    def get_raw_templates_list(self, **kwargs):
+        return {'templates': self.app.dm.get_templates()}
+
     def get_forms_list(self, **kwargs):
         return {'forms': self.app.dm.get_forms()}
 
