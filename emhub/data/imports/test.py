@@ -29,15 +29,48 @@
 import os
 import shutil
 import datetime as dt
+import json
 
+from emtools.utils import Process, Color
 from emhub.data import DataManager
-from emhub.data.imports import TestDataBase
+
+here = os.path.abspath(os.path.dirname(__file__))
 
 
-class TestData(TestDataBase):
+class TestData:
     """ Class to create a testing dataset for a given DataManager.
     """
+    def _datetime(self, *args):
+        return self.dm.dt_as_local(dt.datetime(*args))
+
+    def _action(self, title):
+        print(Color.bold(f'\n>>> {title}...'))
+
+    def __init__(self, dm, json_file):
+        self.json_data = None
+        print(f">>> Loading JSON data from {Color.bold(json_file)}")
+        with open(json_file) as f:
+            self.json_data = json.load(f)
+
+        self.dm = dm
+        dm.create_admin()
+        # Create tables with test data for each database model
+        self._populateForms(dm)
+        self._populateUsers(dm)
+        self._populateResources(dm)
+        self._populateApplications(dm)
+        self._populateBookings(dm)
+        self._populateSessions(dm)
+
+    def _populateForms(self, dm):
+        self._action('Populating Forms')
+
+        for form in self.json_data['forms']:
+            dm.create_form(**form)
+
     def _populateUsers(self, dm):
+        self._action('Populating Users')
+
         # Create user table
         usersData = [
             # dev (D)
@@ -88,131 +121,70 @@ class TestData(TestDataBase):
                            roles=roles,
                            pi_id=pi)
 
+    def _populateResources(self, dm):
+        self._action('Populating Resources')
+
+        resources = [
+            {'name': 'Krios01', 'tags': 'microscope krios solna',
+             'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8,
+                       'max_booking': 72}},
+            {'name': 'Krios02', 'tags': 'microscope krios solna',
+             'status': 'inactive',
+             'image': 'titan-krios.png', 'color': 'rgba(60, 90, 190, 1.0)',
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8,
+                       'max_booking': 72}},
+            {'name': 'Talos', 'tags': 'microscope talos solna',
+             'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8,
+                       'max_booking': 72}},
+            {'name': 'Vitrobot 1', 'tags': 'instrument solna',
+             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
+            {'name': 'Vitrobot 2', 'tags': 'instrument solna',
+             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
+            {'name': 'Carbon Coater', 'tags': 'instrument solna',
+             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
+            {'name': 'Users Drop-in', 'tags': 'service solna',
+             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
+             'extra': {'requires_slot': True}},
+
+            # Umeå instruments
+            {'name': 'Umeå Krios', 'tags': 'microscope krios umea',
+             'image': 'titan-krios.png', 'color': 'rgba(15, 40, 130, 1.0)',
+             'extra': {'latest_cancellation': 48,
+                       'requires_slot': True,
+                       'min_booking': 8,
+                       'max_booking': 72}},
+        ]
+
+        for rDict in self.json_data['resources']:
+            dm.create_resource(**rDict)
+
     def _populateApplications(self, dm):
-        templateInfo = [
-            {'title': 'BAG Application Form - 2019/2020',
-             'description': 'Information required in order to submit a request '
-                            'for group allocation time for one year.',
-             'status': 'active',
-             },
-            {'title': 'Rapid Access for SPA and Tomography',
-             'description': 'Application Form required to apply for time on a '
-                            'project for either screening or data-collection. '
-                            'Machine time will be allocate on 24 or 48 hours '
-                            'slots. ',
-             'status': 'active',
-             },
-            {'title': 'BAG Application Form - 2020/2021',
-             'description': 'Information required in order to submit a request '
-                            'for group allocation time for one year.',
-             'status': 'closed'
-             },
-            {'title': 'Single Particle Application 161026',
-             'description': 'Information required to request time for one year.',
-             'status': 'rejected',
-             },
-            {'title': 'Internal Users Template',
-             'description': 'This is a special template used for internal users. ',
-             'status': 'rejected',
-             },
-        ]
+        self._action('Populating Applications')
 
-        templates = [dm.create_template(**ti) for ti in templateInfo]
+        templates = [dm.create_template(**ti)
+                     for ti in self.json_data['templates']]
 
-        applications = [
-            {'code': 'CEM00297',
-             'alias': 'BAG Lund',
-             'status': 'active',
-             'title': 'Bag Application for Lund University 2019/20',
-             'creator': 'agonia',
-             'template_id': templates[0].id,
-             'invoice_reference': 'AAA',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
-                                     'noslot': []},
-             'description': "Current application BAG for Lund University."
-             },
-            {'code': 'CEM00315',
-             'alias': 'BAG SU',
-             'status': 'active',
-             'title': 'Bag Application for Stockholm University',
-             'description': '',
-             'creator': 'tech',
-             'template_id': templates[0].id,
-             'invoice_reference': 'BBB',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
-                                     'noslot': []}
-             },
-            {'code': 'CEM00332',
-             'alias': 'RAA Andersson',
-             'status': 'active',
-             'title': 'Rapid Access application',
-             'description': '',
-             'creator': 'ernity',
-             'template_id': templates[1].id,
-             'invoice_reference': 'ZZZ',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 2, 'krios': 1},
-                                     'noslot': []}
-             },
-            {'code': 'DBB00001',
-             'alias': 'SU-DBB',
-             'status': 'active',
-             'title': 'Internal DBB project',
-             'description': '',
-             'creator': 'tech',
-             'template_id': templates[-1].id,
-             'invoice_reference': 'DDD',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {},
-                                     'noslot': [1, 2]}
-             },
-            {'code': 'CEM00345',
-             'alias': 'BAG Lund 2021',
-             'status': 'review',
-             'title': 'Bag Application for Lund University 2021',
-             'description': '',
-             'creator': 'agonia',
-             'template_id': templates[0].id,
-             'invoice_reference': 'BBB',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
-                                     'noslot': []}
-             },
-            {'code': 'CEM00346',
-             'alias': 'BAG SU 2021',
-             'status': 'review',
-             'title': 'Bag Application for Stockholm University 2021',
-             'description': '',
-             'creator': 'tech',
-             'template_id': templates[0].id,
-             'invoice_reference': 'BBB',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
-                                     'noslot': []}
-             },
-        ]
-
-        for pDict in applications:
-            username = pDict.pop('creator')
+        for appDict in self.json_data['applications']:
+            username = appDict.pop('creator')
             u = dm.get_user_by(username=username)
-            pDict['creator_id'] = u.id
-            dm.create_application(**pDict)
+            appDict['creator_id'] = u.id
+            template_index = appDict.pop('template_index')
+            appDict['template_id'] = templates[template_index].id
+            pi_list = appDict.pop('pi_list', [])
+            a = dm.create_application(**appDict)
 
-        def __addPi(appCode, piUser):
-            a1 = dm.get_application_by(code=appCode)
-            u1 = dm.get_user_by(username=piUser)
-            a1.users.append(u1)
-
-        for u in ['cruiser', 'agonia']:
-            __addPi('DBB00001', u)
-
-        for u in ['cruiser']:
-            __addPi('CEM00315', u)
-
-        for u in ['molive', 'tech', 'ernity']:
-            __addPi('CEM00297', u)
+            # Add PIs
+            for pi in pi_list:
+                pi = dm.get_user_by(username=pi)
+                a.users.append(pi)
 
         dm.commit()
 
@@ -227,8 +199,9 @@ class TestData(TestDataBase):
 
         return prevMonday + td7
 
-
     def _populateBookings(self, dm):
+        self._action('Populating Bookings')
+
         now = dm.now().replace(minute=0, second=0)
         month = now.month
         self.firstMonday = self.__firstMonday(now)
@@ -270,7 +243,7 @@ class TestData(TestDataBase):
                           description="")
 
         # Create booking for normal user
-        dm.create_booking(title='',
+        b1 = dm.create_booking(title='',
                           start=fm(0),
                           end=fm(1).replace(hour=23),
                           type='booking',
@@ -279,7 +252,7 @@ class TestData(TestDataBase):
                           owner_id=13,  # first user for now
                           description="")
 
-        dm.create_booking(title='',
+        b2 = dm.create_booking(title='',
                           start=fm(2),
                           end=fm(4).replace(hour=23),
                           type='booking',
@@ -310,100 +283,68 @@ class TestData(TestDataBase):
                           owner_id=2,  # first user for now
                           description="Recurrent bi-weekly DROPIN slot. ")
 
+        # create some alias for later use of bookings
+        self.bookings = {
+            "b1": b1,
+            "b2": b2,
+        }
+
     def _populateSessions(self, dm):
+        return
+        self._action('Populating Sessions')
+
         td = os.environ.get('EMHUB_TESTDATA')
         inst = os.environ.get('EMHUB_INSTANCE')
 
+        b1 = self.bookings['b1']
         dm.create_session(
             name='supervisor_23423452_20201223_123445',
-            start=self._datetime(2020, 3, 5, 12, 30, 10),
+            start=b1.start,
             end=None,
             status='running',
-            acquisition={'voltage': 300,
-                         'cs': 2.7,
-                         'phasePlate': False,
-                         'detector': 'Falcon2',
-                         'detectorMode': 'Linear',
-                         'pixelSize': 1.1,
-                         'dosePerFrame': 1.0,
-                         'totalDose': 35,
-                         'exposureTime': 1.2,
-                         'numOfFrames': 48,
-                         },
-            stats={'numMovies': 423,
-                   'numMics': 0,
-                   'numCtf': 0,
-                   'numPtcls': 0,
-                   },
-            resource_id=1,  # Krios 1
-            booking_id=None,
+            resource_id=b1.resource_id,  # Krios 1
+            booking_id=b1.id,
             operator_id=1,  # User  X
         )
 
+        b2 = self.bookings['b2']
         dm.create_session(
             name='epu-mysession_20122310_234542',
-            start=self._datetime(2020, 4, 5, 12, 30, 10),
+            start=b2.start,
             end=None,
             status='failed',
-            #data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
-            acquisition={'voltage': 300,
-                         'cs': 2.7,
-                         'phasePlate': False,
-                         'detector': 'Falcon2',
-                         'detectorMode': 'Linear',
-                         'pixelSize': 1.1,
-                         'dosePerFrame': 1.0,
-                         'totalDose': 35,
-                         'exposureTime': 1.2,
-                         'numOfFrames': 48,
-                         },
-            stats={'numMovies': 234,
-                   'numMics': 234,
-                   'numCtf': 234,
-                   'numPtcls': 2,
-                   },
-            resource_id=2,  # Krios 2
-            booking_id=None,
+            resource_id=b2.resource_id,  # Krios 2
+            booking_id=b2.id,
             operator_id=6,  # User  6
         )
 
-        shutil.copyfile(os.path.join(td, 'hdf5/t20s_pngs.h5'),
-                        os.path.join(inst, 'sessions/session_000002.h5'))
-
-        dm.create_session(
-            name='session_very_long_name',
-            start=self._datetime(2020, 5, 7, 12, 30, 10),
-            end=self._datetime(2020, 5, 8, 9, 30, 10),
-            status='finished',
-            data_path=os.path.join(td, 'non-existing-file'),
-            acquisition={'voltage': 300,
-                         'cs': 2.7,
-                         'phasePlate': False,
-                         'detector': 'Falcon2',
-                         'detectorMode': 'Linear',
-                         'pixelSize': 1.1,
-                         'dosePerFrame': 1.0,
-                         'totalDose': 35,
-                         'exposureTime': 1.2,
-                         'numOfFrames': 48,
-                         },
-            stats={'numMovies': 2543,
-                   'numMics': 2543,
-                   'numCtf': 2543,
-                   'numPtcls': 2352534,
-                   },
-            resource_id=3,  # Talos
-            booking_id=None,
-            operator_id=12,  # User  12
-        )
+        #shutil.copyfile(os.path.join(td, 'hdf5/t20s_pngs.h5'),
+        #                os.path.join(inst, 'sessions/session_000002.h5'))
 
 
-if __name__ == '__main__':
-    instance_path = os.path.abspath(os.environ.get("EMHUB_INSTANCE",
-                                                   'instance'))
+def create_instance(instance_path, json_file, force):
+    instance_path = instance_path or '~/.emhub/instances/test'
+    json_file = json_file or os.path.join(here, 'test_instance.json')
 
-    if not os.path.exists(instance_path):
-        raise Exception("Instance folder '%s' not found!!!" % instance_path)
+    if os.path.exists(instance_path):
+        if force:
+            Process.system(f'rm -rf {instance_path}', color=Color.green)
+        else:
+            raise Exception(f"Instance folder '{instance_path}' exists.\n"
+                            f"Use -f to force cleanup.")
+
+    Process.system(f"mkdir -p {instance_path}", color=Color.green)
+
+    if not os.path.exists(json_file):
+        raise Exception(f"Input JSON file '{json_file}' does not exists.")
 
     dm = DataManager(instance_path, cleanDb=True)
-    TestData(dm)
+    TestData(dm, json_file)
+
+    print(f"\n"
+          f"EMhub instance sucessfully created!!!\n"
+          f"To use it do:\n\n"
+          f"export FLASK_APP=emhub\n"
+          f"export EMHUB_INSTANCE={instance_path}\n"
+          f"flask run --debug\n\n"
+          f"And open a browser at: http://127.0.0.1:5000\n")
