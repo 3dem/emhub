@@ -401,13 +401,24 @@ def get_bookings_range():
     Args:
         start (str): Starting date (format "YYYY-MM-DD").
         end (str): Ending date (format "YYYY-MM-DD").
+        func: Function used to process the booking, by default 'to_event'
     """
-    d = request.get_json(silent=True) or request.form
+    d = dict(request.get_json(silent=True) or request.form)
     bookings = app.dm.get_bookings_range(
         datetime_from_isoformat(d['start']),
         datetime_from_isoformat(d['end'])
     )
-    func = app.dc.booking_to_event
+    funcName = d.get('func', 'to_event')
+    print(d)
+    if funcName == 'to_event':
+        func = app.dc.booking_to_event
+    elif funcName == 'to_json':
+        def to_json(b):
+            return b.json()
+        func = to_json
+    else:
+        raise Exception(f"Unknown function {funcName}")
+
     return send_json_data([func(b) for b in bookings])
 
 
