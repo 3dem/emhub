@@ -2,8 +2,9 @@
     <thead>
     <tr>
         <th>id</th>
+        <th>code</th>
         <th>title</th>
-        <th>status</th>
+        <th>description</th>
         <th>portal iuid</th>
         <th>actions</th>
     </tr>
@@ -13,8 +14,9 @@
         {% if t['status'] == status %}
         <tr>
             <td>{{ t['id'] }}</td>
-            <td><a href="javascript:showTemplateFromId({{ t['id'] }})">{{ t['title'] }}</a></td>
-            <td>{{ t.description }}</td>
+            <td>{{ t['code_prefix'] }}</td>
+            <td>{{ t['title'] }}</td>
+            <td>{{ t['description'] }}</td>
             <td>{{ t['iuid'] }}</td>
             <td style="width: 105px;">
                 <button class="btn btn-sm btn-outline-light" onclick="javascript:showTemplateFromId({{ t['id'] }})"><i class="far fa-edit"></i></button>
