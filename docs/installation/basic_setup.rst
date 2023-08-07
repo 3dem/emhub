@@ -21,12 +21,14 @@ Python environment (either venv or conda). For example:
     cd emhub
     pip install -e .
 
+    # Generate some test data
+    emh-data --create_instance
+
     export FLASK_APP=emhub
-    export FLASK_ENV=development
-    export EMHUB_INSTANCE=~/work/development/emhub/instance
+    export EMHUB_INSTANCE=~/.emhub/instances/test
 
     # Now launch the built-in Flask development server:
-    flask run
+    flask run --debug
 
     # or with gunicorn:
     gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:8080
@@ -35,11 +37,10 @@ Python environment (either venv or conda). For example:
 Environment Variables
 ---------------------
 
-.. csv-table:: **Environment variables**
+.. csv-table:: 
    :widths: 10, 50
 
    "``FLASK_APP``", "Flask variable defining the name of the application, **emhub** in our case."
-   "``FLASK_ENV``", "Environment, can be set to *development* for debugging purposes."
    "``EMHUB_INSTANCE``", "This variable should point to the folder where all the data for a given EMhub instance is stored. Inside that folder there will be ``emhub.sqlite`` database, configuration files and images related to entities or user's uploads. "
 
 
