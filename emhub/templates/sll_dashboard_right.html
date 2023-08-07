@@ -1,0 +1,90 @@
+<!-- ============================================================== -->
+<!-- Dashboard right content -->
+<!-- ============================================================== -->
+<div class="col-xl-9 col-lg-9 col-md-7 col-sm-12 col-12">
+    <div class="influence-profile-content pills-regular">
+
+        <div class="row">
+            {% for r in resources %}
+
+                <div class="col-xl-4 col-lg-4 col-md-6 col-sm-12 col-12 pb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div class="row align-items-left justify-content-start">
+                                <div class="col-2" style="padding-left: 0">
+                                    <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
+                                </div>
+                                <div class="col-9" style="padding-left: 7px;">
+                                    <h5>{{ r['name'] }}</h5>
+                                </div>
+                                <a href="{{ url_for('main', content_id='booking_calendar', resource_id=r['id']) }}">
+                                         <i class="fas fa-calendar-alt"></i>   </a>
+                            </div>
+
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% if r['id'] in resource_bookings %}
+                                    {% set booking = resource_bookings[r['id']] %}
+                                    {% set sessions = booking.session %}
+                                    <div class="col-7 mr-0">
+                                         <a href="javascript:createSession({{ booking.id }}, {{ sessions|length }})" class="btn btn-primary mr-0">
+                                                <i class="fas fa-plus-circle"></i>  New Session</a>
+                                    </div>
+                                    <div class="col-5 pl-0">
+                                        {% for s in sessions %}
+                                            <a href="{{ url_for_content('session_details', session_id=s.id) }}" class="badge badge-success mr-1 mt-1" >{{ s.name }}</a>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+                <div class="section-block">
+                    <h3 class="section-title">Upcoming Bookings</h3>
+                </div>
+
+                <!-- Upcoming Bookings Card -->
+                <div class="card">
+                    <div class="card-body">
+                    <table class="table">
+                        <tbody>
+
+                        {% for bTitle, bList in bookings %}
+                            <tr class="table-primary">
+                                <td colspan="4" >{{ bTitle }}</td>
+                            </tr>
+
+                            {% if bList|length > 0 %}
+                                {%  for b in bList %}
+                                <tr>
+                                    <td>{{ b['owner'] }}</td>
+                                    <td> {{ b['resource'] }}</td>
+                                    <td> {{ b['start'] }}</td>
+                                    <td> {{ b['end'] }}</td>
+                                    </tr>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                <td colspan="3" >None</td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                        </tbody>
+                    </table>
+
+                </div>
+
+            </div> <!-- Upcoming Bookings Card -->
+
+</div>
+
+</div>
+<!-- ============================================================== -->
+<!-- End  of Dashboard right content -->
+<!-- ============================================================== -->
