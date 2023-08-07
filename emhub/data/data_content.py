@@ -1262,7 +1262,7 @@ class DataContent:
         self.check_user_access('usage_report')
 
         dm = self.app.dm  # shortcut
-        centers = dm.get_config('sessions')['centers']
+        centers = dm.get_config('sessions').get('centers', {})
 
         def _filter(b):
             return not b.is_slot

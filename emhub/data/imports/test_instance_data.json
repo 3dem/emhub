@@ -1,0 +1,758 @@
+{
+  "forms": [
+  {
+    "name": "sample",
+    "definition": {
+            "title": "Sample Form",
+            "params": [
+                {"id": "name",
+                 "label": "Name"
+                 },
+                {"id": "phone",
+                 "default": "88546756777",
+                 "label": "Phone"
+                 },
+                {"id": "show-phone",
+                 "label": "Show phone?",
+                 "type": "bool"
+                 },
+                {"id": "about",
+                 "label": "About everything that you need",
+                 "type": "text"
+                 },
+                {"label": "Options"},
+                {"id": "level",
+                 "label": "Level",
+                 "enum": {"choices": ["low", "medium", "high"],
+                          "display": "combo"
+                          }
+                 },
+                {"id": "pet",
+                 "label": "Pet",
+                 "enum": {"choices": ["cat", "dog", "horse", "monkey"],
+                          "display": "radio"
+                          }
+                 }
+        ]}
+  },
+    {
+      "name": "experiment",
+      "definition": {
+            "title": "Experiment",
+            "sections": [
+                {"label": "Basic",
+                 "params": [
+                     {"id": "grid_prep_needed",
+                      "label": "Grids preparation needed?",
+                      "type": "bool"
+                      },
+                     {"id": "grid_ready_screen",
+                      "label": "Grids ready to be screened?",
+                      "type": "bool"
+                      },
+                     {"id": "data_collection",
+                      "label": "Data collection?",
+                      "type": "bool"
+                      },
+                     {"id": "grid_clipped",
+                      "label": "Are grids clipped?",
+                      "type": "bool"
+                      },
+                     {"id": "grid_type",
+                      "label": "Grid type"
+                      }
+                 ]},
+                {"label": "Grid Location",
+                 "params": [
+                     {"id": "dewar_number",
+                      "label": "Dewar number"
+                      },
+                     {"id": "cane_number",
+                      "label": "Cane number"
+                      },
+                     {"id": "puck_number",
+                      "label": "Puck number (color/name)"
+                      },
+                     {"id": "gridbox_number",
+                      "label": "Grid box number"
+                      },
+                     {"id": "gridbox_label",
+                      "label": "Grid box label"
+                      },
+                     {"id": "slot_numbers",
+                      "label": " Slot numbers"
+                      }
+                 ]},
+                {"label": "Detector",
+                 "params": [
+                     {"id": "detector_mode",
+                      "label": "Detector mode",
+                      "enum": {"choices": ["linear", "counting"],
+                               "display": "radio"
+                               }
+                      },
+                     {"id": "pixel_size",
+                      "label": "Pixel Size (Å)"
+                      },
+                     {"id": "dose_rate",
+                      "label": "Dose Rate (e/px/s)"
+                      },
+                     {"id": "total_dose",
+                      "label": "Total dose (e/Å2)"
+                      },
+                     {"id": "defocuses",
+                      "label": "Defocuses (um)"
+                      }
+                 ]},
+                {"label": "Other",
+                 "params": [
+                     {"id": "screening_instructions",
+                      "help": "(for instance protein concentration, blotting time and other useful info)",
+                      "label": "Screening instructions",
+                      "type": "text"
+                      },
+                     {"id": "sample_information",
+                      "help": "(Mw, Dimensions (Å), multimerisation state, etc.)",
+                      "label": "Sample Information",
+                      "type": "text"
+                      },
+                     {"id": "aim_experiment",
+                      "label": "Aim of experiment",
+                      "type": "text"
+                      }
+                 ]}
+            ]
+        }
+    },
+  {
+    "name":  "config:bookings",
+    "definition": {
+        "display": {
+            "show_operator": true,
+            "show_application": false,
+            "show_experiment": false
+        },
+        "local_tag": "stjude"
+    }
+  },
+  {
+    "name": "config:permissions",
+    "definition": {
+      "create_booking": {
+        "microscope": ["manager", "admin"],
+        "vitrobot": ["user"],
+        "leica": ["user"]
+      },
+      "delete_booking": {
+        "microscope": ["manager", "admin"],
+        "vitrobot": ["user"]
+      },
+      "create_session": ["manager", "admin"],
+      "content": {
+        "usage_report": ["head", "admin"],
+        "raw": ["admin"]
+      }
+    }
+  },
+  {
+    "name": "config:projects",
+    "definition": {
+        "entries_menu": [
+            ["access_microscopes", "Request Microscope Access"],
+            ["note", "Note"]
+        ],
+        "entries": {
+            "note": {
+                "label": "Note",
+                "group": 3,
+                "iconClass": "fas fa-sticky-note fa-inverse",
+                "imageClass": "img--picture"
+            },
+            "access_microscopes": {
+                "label": "Microscope Request",
+                "group": 2,
+                "iconClass": "fas fa-search fa-inverse",
+                "imageClass": "img--location",
+                "report": "sj_report_access_microscopes.html"
+            },
+            "booking": {
+                "label": "Booking",
+                "group": 3,
+                "iconClass": "far fa-calendar",
+                "imageClass": "img--location"
+            }
+        },
+        "permissions": {
+            "user_can_create_projects": "all",
+            "user_can_see_projects": [
+                {"key": "mine", "label": "My Projects"},
+                {"key": "lab", "label": "Lab Projects"},
+                {"key": "all", "label": "All Projects"}
+            ]
+        }
+    }
+  },
+  {
+    "name": "config:sessions",
+    "definition": {
+    "acquisition": {
+        "Krios01": {
+            "voltage": 300,
+            "magnification": 130000,
+            "pixel_size": 0.6485,
+            "dose": 1.09,
+            "cs": 2.7
+        },
+        "Arctica01": {
+            "voltage": 200,
+            "magnification": 79000,
+            "pixel_size": 1.044,
+            "dose": 1.063,
+            "cs": 2.7
+        }
+    },
+    "data": {
+        "gain": "/jude/facility/data/gains/*{microscope}*gain*.mrc",
+        "images": ""
+    }
+}
+  },
+  {
+        "name": "config:reports",
+        "definition": {
+            "resources": [
+                "Krios01",
+                "Arctica01",
+                "Talos"
+            ],
+            "microscope_usage": {}
+        }
+    }
+
+],
+  
+  "templates": [
+      {"title": "EXTERNAL Application Form",
+       "description": "Template for creating applications for external users to the facility.",
+       "status": "active",
+        "extra": {"code_prefix":  "EXT"}
+       },
+      {"title": "INTERNAL Application Form",
+       "description": "Template for creating applications for external users to the facility.",
+       "status": "active",
+        "extra": {"code_prefix":  "INT"}
+       },
+      {"title": "Rapid Access for SPA and Tomography",
+       "description": "Application Form required to apply for time on a project for either screening or data-collection. Machine time will be allocate on 24 or 48 hours slots. ",
+       "status": "active",
+        "extra": {"code_prefix":  "RAA"}
+       },
+
+      {"title": "Single Particle Application 161026",
+       "description": "Information required to request time for one year.",
+       "status": "closed"
+       },
+      {"title": "Internal Users Template",
+       "description": "This is a special template used for internal users. ",
+       "status": "rejected"
+       }
+  ],
+  
+  "applications": [
+      {"code": "INT00001",
+       "alias": "AAA application",
+       "status": "active",
+       "title": "Bag Application for AAA University",
+        "description": "",
+       "creator": "tammy.ford@emhub.org",
+       "template_index": 0,
+       "invoice_reference": "AAA",
+       "invoice_address": "",
+       "resource_allocation": {"quota": {"talos": 0, "krios": 0},
+                               "noslot": []},
+        "pi_list": []
+       },
+      {"code": "EXT00002",
+       "alias": "BBB Application",
+       "status": "active",
+       "title": "Bag Application for BBB University",
+       "description": "",
+       "creator": "tammy.ford@emhub.org",
+       "template_index": 1,
+       "invoice_reference": "BBB",
+       "invoice_address": "",
+       "resource_allocation": {"quota": {"talos": 0, "krios": 0},
+                               "noslot": []},
+        "pi_list": []
+       },
+      {"code": "RAA00021",
+       "alias": "Rapid Pat Ernity",
+       "status": "active",
+       "title": "Rapid Access application",
+       "description": "",
+       "creator": "tammy.ford@emhub.org",
+       "template_index": 2,
+       "invoice_reference": "ZZZ",
+       "invoice_address": "",
+       "resource_allocation": {"quota": {"talos": 2, "krios": 1},
+                               "noslot": []}
+       }
+  ],
+
+  "resources": [
+        {
+            "id": 1,
+            "name": "Krios01",
+            "status": "active",
+            "tags": "microscope krios stjude",
+            "image": "titan-krios.png",
+            "color": "rgba(58, 186, 232, 1.0)",
+            "extra": {
+                "latest_cancellation": 48,
+                "requires_slot": true,
+                "min_booking": 8,
+                "max_booking": 72,
+                "daily_cost": 0,
+                "requires_application": true
+            }
+        },
+        {
+            "id": 2,
+            "name": "Krios02",
+            "status": "inactive",
+            "tags": "microscope krios stjude",
+            "image": "titan-krios.png",
+            "color": "rgba(60, 90, 190, 1.0)",
+            "extra": {
+                "latest_cancellation": 48,
+                "requires_slot": false,
+                "min_booking": 8,
+                "max_booking": 72,
+                "daily_cost": 0,
+                "requires_application": true
+            }
+        },
+        {
+            "id": 3,
+            "name": "Arctica01",
+            "status": "active",
+            "tags": "microscope arctica stjude",
+            "image": "talos-artica.png",
+            "color": "rgba(43, 84, 36, 1.0)",
+            "extra": {
+                "latest_cancellation": 48,
+                "requires_slot": false,
+                "min_booking": 8,
+                "max_booking": 72,
+                "daily_cost": 0,
+                "requires_application": true
+            }
+        },
+        {
+            "id": 4,
+            "name": "Talos",
+            "status": "active",
+            "tags": "microscope talos stjude",
+            "image": "talos.jpeg",
+            "color": "rgb(129, 204, 142, 1.0)",
+            "extra": {
+                "latest_cancellation": 48,
+                "requires_slot": false,
+                "min_booking": 8,
+                "max_booking": 72,
+                "daily_cost": 0,
+                "requires_application": true
+            }
+        },
+        {
+            "id": 5,
+            "name": "Vitrobot01",
+            "status": "active",
+            "tags": "instrument vitrobot prep stjude",
+            "image": "vitrobot.png",
+            "color": "rgba(104, 92, 9, 1.0)",
+            "extra": {
+                "latest_cancellation": 0,
+                "min_booking": 0,
+                "max_booking": 0,
+                "daily_cost": 0,
+                "requires_slot": false,
+                "requires_application": false
+            }
+        },
+        {
+            "id": 6,
+            "name": "Carbon Coater",
+            "status": "inactive",
+            "tags": "instrument solna",
+            "image": "carbon-coater.png",
+            "color": "rgba(48, 41, 40, 1.0)",
+            "extra": {
+                "latest_cancellation": 0,
+                "min_booking": 0,
+                "max_booking": 0,
+                "daily_cost": 0,
+                "requires_slot": false,
+                "requires_application": true
+            }
+        },
+        {
+            "id": 7,
+            "name": "Users Drop-in",
+            "status": "inactive",
+            "tags": "service solna",
+            "image": "users-dropin.png",
+            "color": "rgba(68, 16, 105, 1.0)",
+            "extra": {
+                "requires_slot": false,
+                "latest_cancellation": 0,
+                "min_booking": 0,
+                "max_booking": 0,
+                "daily_cost": 0,
+                "requires_application": true
+            }
+        },
+        {
+            "id": 8,
+            "name": "Vitrobot02",
+            "status": "active",
+            "tags": "instrument vitrobot prep stjude",
+            "image": "resource-image-000005-vitrobot.png",
+            "color": "rgba(158, 142, 62, 1.0)",
+            "extra": {
+                "latest_cancellation": 0,
+                "min_booking": 0,
+                "max_booking": 0,
+                "daily_cost": 0,
+                "requires_slot": false,
+                "requires_application": false
+            }
+        },
+        {
+            "id": 9,
+            "name": "Leica GP2",
+            "status": "active",
+            "tags": "instrument leica plunge freezer prep stjude",
+            "image": "csm_leica-em-gp2-list_1c1fda699b.jpg",
+            "color": "rgba(215, 195, 113, 1.0)",
+            "extra": {
+                "latest_cancellation": 0,
+                "min_booking": 0,
+                "max_booking": 0,
+                "daily_cost": 0,
+                "requires_slot": false,
+                "requires_application": false
+            }
+        },
+        {
+            "id": 10,
+            "name": "NegStain Bench",
+            "status": "active",
+            "tags": "bench negativestain prep",
+            "image": "negstain-nook.png",
+            "color": "rgba(147, 108, 108, 1.0)",
+            "extra": {
+                "latest_cancellation": 0,
+                "min_booking": 0,
+                "max_booking": 0,
+                "daily_cost": 0,
+                "requires_slot": false,
+                "requires_application": false
+            }
+        }
+    ],
+
+  "users": [
+    {"id": 7, "name": "Jacob Hart", "email": "jacob.hart@emhub.org", "roles": ["pi"], "pi_id": null},
+    {"id": 8, "name": "Danielle Mitchell", "email": "danielle.mitchell@emhub.org", "roles": ["pi"], "pi_id": null},
+    {"id": 10, "name": "Rebecca Stevenson", "email": "rebecca.stevenson@emhub.org", "roles": ["head", "pi"], "pi_id": null},
+    {"id": 11, "name": "Colleen Smith", "email": "colleen.smith@emhub.org", "roles": ["manager", "pi"], "pi_id": null},
+    {"id": 12, "name": "Judy Smith", "email": "judy.smith@emhub.org", "roles": ["pi"], "pi_id": null},
+    {"id": 13, "name": "Kenneth Morris", "email": "kenneth.morris@emhub.org", "roles": ["pi"], "pi_id": null},
+    {"id": 14, "name": "Tammy Ford", "email": "tammy.ford@emhub.org", "roles": ["admin", "manager", "head", "pi"], "pi_id": null},
+    {"id": 15, "name": "Dustin Gray", "email": "dustin.gray@emhub.org", "roles": ["pi"], "pi_id": null},
+    {"id": 16, "name": "Jeremy Hatfield", "email": "jeremy.hatfield@emhub.org", "roles": ["pi"], "pi_id": null},
+    {"id": 17, "name": "Angela Hunter", "email": "angela.hunter@emhub.org", "roles": ["pi"], "pi_id": null},
+    {"id": 18, "name": "Robert Navarro", "email": "robert.navarro@emhub.org", "roles": ["pi"], "pi_id": null},
+    {"id": 22, "name": "Danny Lee", "email": "danny.lee@emhub.org", "roles": ["user"], "pi_id": 10},
+    {"id": 30, "name": "Michael Jackson", "email": "michael.jackson@emhub.org", "roles": ["user"], "pi_id": 16},
+    {"id": 39, "name": "Jessica Hanson", "email": "jessica.hanson@emhub.org", "roles": ["user"], "pi_id": 17},
+    {"id": 41, "name": "Thomas MD", "email": "thomas.md@emhub.org", "roles": ["user", "manager"], "pi_id": 11},
+    {"id": 48, "name": "Rebecca Donaldson", "email": "rebecca.donaldson@emhub.org", "roles": ["user", "admin", "manager"], "pi_id": 14},
+    {"id": 51, "name": "Mark Ward", "email": "mark.ward@emhub.org", "roles": ["user"], "pi_id": 15},
+    {"id": 53, "name": "Kyle Ortega", "email": "kyle.ortega@emhub.org", "roles": ["user"], "pi_id": 12},
+    {"id": 55, "name": "Deborah Hamilton", "email": "deborah.hamilton@emhub.org", "roles": ["user"], "pi_id": 16},
+    {"id": 59, "name": "Charles Webb", "email": "charles.webb@emhub.org", "roles": ["admin", "manager"], "pi_id": 14},
+    {"id": 60, "name": "Holly Wallace", "email": "holly.wallace@emhub.org", "roles": ["user"], "pi_id": 17},
+    {"id": 61, "name": "Danny Gonzalez", "email": "danny.gonzalez@emhub.org", "roles": ["user"], "pi_id": 8},
+    {"id": 62, "name": "Lisa Wong", "email": "lisa.wong@emhub.org", "roles": ["user"], "pi_id": 15},
+    {"id": 65, "name": "Brittany Kelly", "email": "brittany.kelly@emhub.org", "roles": ["user"], "pi_id": 10},
+    {"id": 72, "name": "Tara Baldwin", "email": "tara.baldwin@emhub.org", "roles": ["user"], "pi_id": 12},
+    {"id": 76, "name": "John Sparks", "email": "john.sparks@emhub.org", "roles": ["manager"], "pi_id": 14},
+    {"id": 81, "name": "Deanna Solis", "email": "deanna.solis@emhub.org", "roles": ["user"], "pi_id": 7},
+    {"id": 84, "name": "Justin Hudson", "email": "justin.hudson@emhub.org", "roles": ["user"], "pi_id": 10},
+    {"id": 88, "name": "Elizabeth Hughes", "email": "elizabeth.hughes@emhub.org", "roles": ["user"], "pi_id": 15},
+    {"id": 93, "name": "Cooke Jr.", "email": "cooke.jr.@emhub.org", "roles": ["user", "independent"], "pi_id": 15},
+    {"id": 94, "name": "James Graham", "email": "james.graham@emhub.org", "roles": ["user"], "pi_id": 10},
+    {"id": 109, "name": "Ruben Garcia", "email": "ruben.garcia@emhub.org", "roles": ["user"], "pi_id": 17},
+    {"id": 112, "name": "Lawrence Hill", "email": "lawrence.hill@emhub.org", "roles": ["user"], "pi_id": 13},
+    {"id": 122, "name": "James Powell", "email": "james.powell@emhub.org", "roles": ["user"], "pi_id": 10},
+    {"id": 123, "name": "Gloria Stephens", "email": "gloria.stephens@emhub.org", "roles": ["user"], "pi_id": 12},
+    {"id": 124, "name": "Timothy Bridges", "email": "timothy.bridges@emhub.org", "roles": ["user"], "pi_id": 18},
+    {"id": 129, "name": "Jonathan Campbell", "email": "jonathan.campbell@emhub.org", "roles": ["user"], "pi_id": 16},
+    {"id": 132, "name": "James Johnson", "email": "james.johnson@emhub.org", "roles": ["user"], "pi_id": 18},
+    {"id": 137, "name": "Amanda Gibson", "email": "amanda.gibson@emhub.org", "roles": ["user"], "pi_id": 10},
+    {"id": 139, "name": "Timothy Green", "email": "timothy.green@emhub.org", "roles": ["user"], "pi_id": 7},
+    {"id": 150, "name": "Amber Abbott", "email": "amber.abbott@emhub.org", "roles": ["user"], "pi_id": 17},
+    {"id": 155, "name": "Oscar Chambers", "email": "oscar.chambers@emhub.org", "roles": ["user"], "pi_id": 18},
+    {"id": 157, "name": "Johnny Howard", "email": "johnny.howard@emhub.org", "roles": ["user", "manager"], "pi_id": 7},
+    {"id": 158, "name": "Jamie Foley", "email": "jamie.foley@emhub.org", "roles": ["user"], "pi_id": 8},
+    {"id": 160, "name": "Amanda Schroeder", "email": "amanda.schroeder@emhub.org", "roles": ["manager"], "pi_id": 14},
+    {"id": 167, "name": "Michael Thompson", "email": "michael.thompson@emhub.org", "roles": ["user"], "pi_id": 7},
+    {"id": 179, "name": "Danny Cunningham", "email": "danny.cunningham@emhub.org", "roles": ["user"], "pi_id": 16},
+    {"id": 181, "name": "Billy Castro", "email": "billy.castro@emhub.org", "roles": ["user"], "pi_id": 15},
+    {"id": 182, "name": "David Petty", "email": "david.petty@emhub.org", "roles": ["user", "admin"], "pi_id": ""},
+    {"id": 183, "name": "Jessica Lin", "email": "jessica.lin@emhub.org", "roles": ["pi"], "pi_id": ""},
+    {"id": 184, "name": "Kara Hill", "email": "kara.hill@emhub.org", "roles": ["pi"], "pi_id": ""},
+    {"id": 185, "name": "Brandi Rivera", "email": "brandi.rivera@emhub.org", "roles": ["pi"], "pi_id": ""},
+    {"id": 186, "name": "Ryan Little", "email": "ryan.little@emhub.org", "roles": ["pi"], "pi_id": ""},
+    {"id": 187, "name": "Ryan Gardner", "email": "ryan.gardner@emhub.org", "roles": ["pi"], "pi_id": ""},
+    {"id": 188, "name": "Makayla Lopez", "email": "makayla.lopez@emhub.org", "roles": ["user"], "pi_id": 9},
+    {"id": 189, "name": "Julie Walker", "email": "julie.walker@emhub.org", "roles": ["user"], "pi_id": 10}
+  ],
+
+  "bookings": [
+    {"resource_id": 3, "start": "2023-02-27T14:51:00+00:00", "end": "2023-02-27T17:50:00+00:00", "creator_id": 59, "owner_id": 132, "operator_id": 160},
+    {"resource_id": 1, "start": "2023-02-27T15:00:00+00:00", "end": "2023-02-28T17:50:00+00:00", "creator_id": 59, "owner_id": 60, "operator_id": 48},
+    {"resource_id": 5, "start": "2023-02-27T23:00:00+00:00", "end": "2023-02-28T01:00:00+00:00", "creator_id": 123, "owner_id": 123, "operator_id": null},
+    {"resource_id": 4, "start": "2023-02-28T14:51:00+00:00", "end": "2023-02-28T17:50:00+00:00", "creator_id": 14, "owner_id": 167, "operator_id": 14},
+    {"resource_id": 3, "start": "2023-02-28T15:00:00+00:00", "end": "2023-02-28T17:50:00+00:00", "creator_id": 48, "owner_id": 53, "operator_id": 48},
+    {"resource_id": 5, "start": "2023-02-28T22:30:00+00:00", "end": "2023-03-01T00:00:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 5, "start": "2023-03-01T00:45:00+00:00", "end": "2023-03-01T02:00:00+00:00", "creator_id": 55, "owner_id": 55, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-01T14:51:00+00:00", "end": "2023-03-01T17:50:00+00:00", "creator_id": 59, "owner_id": 55, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-03-01T15:00:00+00:00", "end": "2023-03-01T17:50:00+00:00", "creator_id": 48, "owner_id": 16, "operator_id": 48},
+    {"resource_id": 8, "start": "2023-03-01T21:00:00+00:00", "end": "2023-03-01T22:00:00+00:00", "creator_id": 132, "owner_id": 132, "operator_id": null},
+    {"resource_id": 5, "start": "2023-03-01T21:00:00+00:00", "end": "2023-03-02T01:00:00+00:00", "creator_id": 93, "owner_id": 93, "operator_id": null},
+    {"resource_id": 3, "start": "2023-03-02T16:00:00+00:00", "end": "2023-03-03T03:00:00+00:00", "creator_id": 14, "owner_id": 181, "operator_id": 14},
+    {"resource_id": 5, "start": "2023-03-02T16:00:00+00:00", "end": "2023-03-02T18:00:00+00:00", "creator_id": 123, "owner_id": 123, "operator_id": null},
+    {"resource_id": 4, "start": "2023-03-02T16:00:00+00:00", "end": "2023-03-02T18:00:00+00:00", "creator_id": 14, "owner_id": 72, "operator_id": 14},
+    {"resource_id": 4, "start": "2023-03-02T20:00:00+00:00", "end": "2023-03-03T00:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 5, "start": "2023-03-02T22:30:00+00:00", "end": "2023-03-03T00:00:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-03T14:51:00+00:00", "end": "2023-03-03T17:50:00+00:00", "creator_id": 59, "owner_id": 53, "operator_id": 14},
+    {"resource_id": 3, "start": "2023-03-03T15:00:00+00:00", "end": "2023-03-03T17:50:00+00:00", "creator_id": 14, "owner_id": 60, "operator_id": 48},
+    {"resource_id": 4, "start": "2023-03-03T16:00:00+00:00", "end": "2023-03-03T18:00:00+00:00", "creator_id": 14, "owner_id": 62, "operator_id": 14},
+    {"resource_id": 8, "start": "2023-03-03T19:30:00+00:00", "end": "2023-03-03T21:30:00+00:00", "creator_id": 124, "owner_id": 124, "operator_id": null},
+    {"resource_id": 4, "start": "2023-03-03T20:00:00+00:00", "end": "2023-03-03T23:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 5, "start": "2023-03-03T21:00:00+00:00", "end": "2023-03-03T22:30:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 5, "start": "2023-03-04T20:00:00+00:00", "end": "2023-03-04T21:00:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 3, "start": "2023-03-06T14:51:00+00:00", "end": "2023-03-06T17:50:00+00:00", "creator_id": 48, "owner_id": 55, "operator_id": 160},
+    {"resource_id": 4, "start": "2023-03-06T19:00:00+00:00", "end": "2023-03-06T22:00:00+00:00", "creator_id": 160, "owner_id": 160, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-03-06T19:30:00+00:00", "end": "2023-03-06T21:00:00+00:00", "creator_id": 53, "owner_id": 53, "operator_id": null},
+    {"resource_id": 5, "start": "2023-03-06T21:05:00+00:00", "end": "2023-03-06T23:00:00+00:00", "creator_id": 123, "owner_id": 123, "operator_id": null},
+    {"resource_id": 4, "start": "2023-03-07T14:51:00+00:00", "end": "2023-03-07T17:50:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-03-07T14:51:00+00:00", "end": "2023-03-07T17:50:00+00:00", "creator_id": 48, "owner_id": 183, "operator_id": 76},
+    {"resource_id": 4, "start": "2023-03-07T18:00:00+00:00", "end": "2023-03-08T05:00:00+00:00", "creator_id": 59, "owner_id": 167, "operator_id": 0},
+    {"resource_id": 5, "start": "2023-03-07T19:00:00+00:00", "end": "2023-03-07T20:30:00+00:00", "creator_id": 53, "owner_id": 53, "operator_id": null},
+    {"resource_id": 5, "start": "2023-03-07T22:00:00+00:00", "end": "2023-03-07T23:30:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-07T22:30:00+00:00", "end": "2023-03-08T05:59:00+00:00", "creator_id": 76, "owner_id": 183, "operator_id": 76},
+    {"resource_id": 1, "start": "2023-03-08T14:51:00+00:00", "end": "2023-03-09T17:50:00+00:00", "creator_id": 59, "owner_id": 88, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-03-08T15:00:00+00:00", "end": "2023-03-08T20:00:00+00:00", "creator_id": 48, "owner_id": 53, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-03-08T20:01:00+00:00", "end": "2023-03-09T05:00:00+00:00", "creator_id": 48, "owner_id": 167, "operator_id": 14},
+    {"resource_id": 9, "start": "2023-03-08T21:00:00+00:00", "end": "2023-03-09T00:00:00+00:00", "creator_id": 48, "owner_id": 62, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-03-09T14:51:00+00:00", "end": "2023-03-09T17:50:00+00:00", "creator_id": 59, "owner_id": 81, "operator_id": 14},
+    {"resource_id": 5, "start": "2023-03-09T22:00:00+00:00", "end": "2023-03-10T00:00:00+00:00", "creator_id": 179, "owner_id": 179, "operator_id": null},
+    {"resource_id": 5, "start": "2023-03-10T00:30:00+00:00", "end": "2023-03-10T01:30:00+00:00", "creator_id": 55, "owner_id": 55, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-10T14:51:00+00:00", "end": "2023-03-11T17:50:00+00:00", "creator_id": 59, "owner_id": 179, "operator_id": 76},
+    {"type": "special", "resource_id": 4, "start": "2023-03-10T15:00:00+00:00", "end": "2023-03-10T21:00:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-03-10T15:00:00+00:00", "end": "2023-03-10T17:50:00+00:00", "creator_id": 59, "owner_id": 109, "operator_id": 48},
+    {"resource_id": 5, "start": "2023-03-10T22:30:00+00:00", "end": "2023-03-10T23:30:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 8, "start": "2023-03-13T03:30:00+00:00", "end": "2023-03-13T04:30:00+00:00", "creator_id": 124, "owner_id": 124, "operator_id": null},
+    {"type": "maintenance", "resource_id": 1, "start": "2023-03-13T14:00:00+00:00", "end": "2023-03-18T04:59:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-03-13T14:51:00+00:00", "end": "2023-03-14T04:50:00+00:00", "creator_id": 59, "owner_id": 93, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-03-14T14:51:00+00:00", "end": "2023-03-14T17:50:00+00:00", "creator_id": 59, "owner_id": 39, "operator_id": 14},
+    {"resource_id": 3, "start": "2023-03-14T18:00:00+00:00", "end": "2023-03-15T03:50:00+00:00", "creator_id": 59, "owner_id": 39, "operator_id": 14},
+    {"resource_id": 8, "start": "2023-03-14T20:00:00+00:00", "end": "2023-03-14T21:00:00+00:00", "creator_id": 124, "owner_id": 124, "operator_id": null},
+    {"resource_id": 3, "start": "2023-03-15T14:00:00+00:00", "end": "2023-03-16T04:59:00+00:00", "creator_id": 48, "owner_id": 183, "operator_id": 48},
+    {"resource_id": 4, "start": "2023-03-15T18:00:00+00:00", "end": "2023-03-15T22:00:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-03-16T13:00:00+00:00", "end": "2023-03-16T13:50:00+00:00", "creator_id": 48, "owner_id": 183, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-03-16T14:00:00+00:00", "end": "2023-03-16T15:30:00+00:00", "creator_id": 48, "owner_id": 123, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-03-17T14:51:00+00:00", "end": "2023-03-18T03:50:00+00:00", "creator_id": 59, "owner_id": 55, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-03-17T23:30:00+00:00", "end": "2023-03-18T00:30:00+00:00", "creator_id": 55, "owner_id": 55, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-19T14:00:00+00:00", "end": "2023-03-20T04:59:00+00:00", "creator_id": 76, "owner_id": 22, "operator_id": 76},
+    {"resource_id": 1, "start": "2023-03-20T14:00:00+00:00", "end": "2023-03-22T04:59:00+00:00", "creator_id": 48, "owner_id": 129, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-03-20T14:51:00+00:00", "end": "2023-03-20T17:50:00+00:00", "creator_id": 59, "owner_id": 93, "operator_id": 160},
+    {"resource_id": 4, "start": "2023-03-20T18:00:00+00:00", "end": "2023-03-20T21:59:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-03-21T14:51:00+00:00", "end": "2023-03-21T17:50:00+00:00", "creator_id": 48, "owner_id": 150, "operator_id": 76},
+    {"resource_id": 5, "start": "2023-03-21T23:00:00+00:00", "end": "2023-03-22T00:30:00+00:00", "creator_id": 16, "owner_id": 16, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-22T14:51:00+00:00", "end": "2023-03-23T17:50:00+00:00", "creator_id": 59, "owner_id": 84, "operator_id": 14},
+    {"resource_id": 3, "start": "2023-03-22T14:51:00+00:00", "end": "2023-03-22T17:50:00+00:00", "creator_id": 59, "owner_id": 10, "operator_id": 14},
+    {"resource_id": 4, "start": "2023-03-22T19:00:00+00:00", "end": "2023-03-22T22:00:00+00:00", "creator_id": 160, "owner_id": 160, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-03-22T19:00:00+00:00", "end": "2023-03-22T21:00:00+00:00", "creator_id": 181, "owner_id": 181, "operator_id": null},
+    {"resource_id": 5, "start": "2023-03-22T22:30:00+00:00", "end": "2023-03-23T00:00:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 3, "start": "2023-03-23T14:51:00+00:00", "end": "2023-03-23T17:50:00+00:00", "creator_id": 48, "owner_id": 167, "operator_id": 14},
+    {"resource_id": 10, "start": "2023-03-23T15:00:00+00:00", "end": "2023-03-23T16:00:00+00:00", "creator_id": 39, "owner_id": 39, "operator_id": null},
+    {"resource_id": 5, "start": "2023-03-23T19:30:00+00:00", "end": "2023-03-23T22:30:00+00:00", "creator_id": 93, "owner_id": 93, "operator_id": null},
+    {"resource_id": 5, "start": "2023-03-23T23:30:00+00:00", "end": "2023-03-24T01:00:00+00:00", "creator_id": 55, "owner_id": 55, "operator_id": null},
+    {"resource_id": 3, "start": "2023-03-24T13:30:00+00:00", "end": "2023-03-26T04:59:00+00:00", "creator_id": 48, "owner_id": 55, "operator_id": 48},
+    {"type": "special", "resource_id": 1, "start": "2023-03-24T14:00:00+00:00", "end": "2023-03-24T20:00:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 10, "start": "2023-03-24T19:00:00+00:00", "end": "2023-03-24T21:00:00+00:00", "creator_id": 39, "owner_id": 39, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-24T20:01:00+00:00", "end": "2023-03-27T04:59:00+00:00", "creator_id": 48, "owner_id": 129, "operator_id": 14},
+    {"resource_id": 5, "start": "2023-03-24T22:00:00+00:00", "end": "2023-03-25T00:00:00+00:00", "creator_id": 181, "owner_id": 181, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-27T14:00:00+00:00", "end": "2023-03-28T16:59:00+00:00", "creator_id": 48, "owner_id": 109, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-03-27T14:51:00+00:00", "end": "2023-03-27T17:50:00+00:00", "creator_id": 48, "owner_id": 181, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-03-28T14:51:00+00:00", "end": "2023-03-28T17:50:00+00:00", "creator_id": 48, "owner_id": 60, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-03-29T02:00:00+00:00", "end": "2023-03-29T03:00:00+00:00", "creator_id": 88, "owner_id": 88, "operator_id": null},
+    {"resource_id": 3, "start": "2023-03-29T14:00:00+00:00", "end": "2023-03-29T18:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 10, "start": "2023-03-29T16:30:00+00:00", "end": "2023-03-29T17:30:00+00:00", "creator_id": 62, "owner_id": 62, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-29T18:00:00+00:00", "end": "2023-03-30T04:59:00+00:00", "creator_id": 14, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-03-29T18:01:00+00:00", "end": "2023-03-30T04:59:00+00:00", "creator_id": 160, "owner_id": 160, "operator_id": 160},
+    {"resource_id": 8, "start": "2023-03-29T20:30:00+00:00", "end": "2023-03-29T22:30:00+00:00", "creator_id": 167, "owner_id": 167, "operator_id": null},
+    {"resource_id": 3, "start": "2023-03-30T14:00:00+00:00", "end": "2023-03-31T04:59:00+00:00", "creator_id": 48, "owner_id": 132, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-03-30T14:00:00+00:00", "end": "2023-03-31T04:59:00+00:00", "creator_id": 14, "owner_id": 14, "operator_id": 14},
+    {"resource_id": 10, "start": "2023-03-30T20:10:00+00:00", "end": "2023-03-30T21:00:00+00:00", "creator_id": 39, "owner_id": 39, "operator_id": null},
+    {"resource_id": 1, "start": "2023-03-31T14:00:00+00:00", "end": "2023-04-01T04:59:00+00:00", "creator_id": 48, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 10, "start": "2023-03-31T14:00:00+00:00", "end": "2023-03-31T16:00:00+00:00", "creator_id": 39, "owner_id": 39, "operator_id": null},
+    {"resource_id": 3, "start": "2023-03-31T14:51:00+00:00", "end": "2023-03-31T17:50:00+00:00", "creator_id": 48, "owner_id": 81, "operator_id": 14},
+    {"resource_id": 4, "start": "2023-03-31T14:51:00+00:00", "end": "2023-03-31T17:50:00+00:00", "creator_id": 160, "owner_id": 39, "operator_id": 14},
+    {"resource_id": 5, "start": "2023-03-31T19:00:00+00:00", "end": "2023-03-31T20:30:00+00:00", "creator_id": 88, "owner_id": 88, "operator_id": null},
+    {"type": "maintenance", "resource_id": 1, "start": "2023-04-02T14:00:00+00:00", "end": "2023-04-03T04:59:00+00:00", "creator_id": 59, "owner_id": 76, "operator_id": 76},
+    {"type": "maintenance", "resource_id": 3, "start": "2023-04-02T14:00:00+00:00", "end": "2023-04-03T04:59:00+00:00", "creator_id": 59, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-04-03T14:51:00+00:00", "end": "2023-04-03T17:50:00+00:00", "creator_id": 48, "owner_id": 93, "operator_id": 160},
+    {"resource_id": 1, "start": "2023-04-03T14:51:00+00:00", "end": "2023-04-04T17:50:00+00:00", "creator_id": 48, "owner_id": 81, "operator_id": 14},
+    {"resource_id": 5, "start": "2023-04-03T22:00:00+00:00", "end": "2023-04-03T23:30:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 3, "start": "2023-04-04T14:51:00+00:00", "end": "2023-04-04T17:50:00+00:00", "creator_id": 48, "owner_id": 55, "operator_id": 76},
+    {"resource_id": 4, "start": "2023-04-04T14:51:00+00:00", "end": "2023-04-04T17:50:00+00:00", "creator_id": 14, "owner_id": 109, "operator_id": 14},
+    {"resource_id": 4, "start": "2023-04-04T18:00:00+00:00", "end": "2023-04-04T20:00:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160},
+    {"type": "special", "resource_id": 1, "start": "2023-04-05T14:00:00+00:00", "end": "2023-04-07T04:59:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 8, "start": "2023-04-05T17:00:00+00:00", "end": "2023-04-05T18:30:00+00:00", "creator_id": 81, "owner_id": 81, "operator_id": null},
+    {"resource_id": 4, "start": "2023-04-05T20:00:00+00:00", "end": "2023-04-06T00:00:00+00:00", "creator_id": 48, "owner_id": 122, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-04-06T14:51:00+00:00", "end": "2023-04-06T17:50:00+00:00", "creator_id": 48, "owner_id": 81, "operator_id": 14},
+    {"resource_id": 10, "start": "2023-04-06T16:40:00+00:00", "end": "2023-04-06T18:00:00+00:00", "creator_id": 62, "owner_id": 62, "operator_id": null},
+    {"resource_id": 5, "start": "2023-04-06T19:00:00+00:00", "end": "2023-04-06T22:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 8, "start": "2023-04-06T20:00:00+00:00", "end": "2023-04-06T21:30:00+00:00", "creator_id": 132, "owner_id": 132, "operator_id": null},
+    {"resource_id": 3, "start": "2023-04-07T14:00:00+00:00", "end": "2023-04-07T16:59:00+00:00", "creator_id": 48, "owner_id": 124, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-04-07T14:51:00+00:00", "end": "2023-04-10T13:30:00+00:00", "creator_id": 48, "owner_id": 129, "operator_id": 76},
+    {"resource_id": 1, "start": "2023-04-10T14:00:00+00:00", "end": "2023-04-12T04:59:00+00:00", "creator_id": 48, "owner_id": 109, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-04-10T14:51:00+00:00", "end": "2023-04-10T17:50:00+00:00", "creator_id": 48, "owner_id": 88, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-04-11T14:00:00+00:00", "end": "2023-04-12T04:59:00+00:00", "creator_id": 48, "owner_id": 10, "operator_id": 48},
+    {"resource_id": 4, "start": "2023-04-11T15:00:00+00:00", "end": "2023-04-11T17:00:00+00:00", "creator_id": 59, "owner_id": 122, "operator_id": 160},
+    {"resource_id": 4, "start": "2023-04-11T18:00:00+00:00", "end": "2023-04-11T20:00:00+00:00", "creator_id": 59, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-04-11T23:30:00+00:00", "end": "2023-04-12T01:30:00+00:00", "creator_id": 55, "owner_id": 55, "operator_id": null},
+    {"resource_id": 3, "start": "2023-04-12T14:00:00+00:00", "end": "2023-04-12T21:30:00+00:00", "creator_id": 48, "owner_id": 39, "operator_id": 160},
+    {"resource_id": 1, "start": "2023-04-12T14:00:00+00:00", "end": "2023-04-13T04:59:00+00:00", "creator_id": 48, "owner_id": 14, "operator_id": 14},
+    {"resource_id": 4, "start": "2023-04-12T14:51:00+00:00", "end": "2023-04-12T17:50:00+00:00", "creator_id": 14, "owner_id": 109, "operator_id": 0},
+    {"resource_id": 8, "start": "2023-04-12T20:30:00+00:00", "end": "2023-04-12T22:00:00+00:00", "creator_id": 81, "owner_id": 81, "operator_id": null},
+    {"resource_id": 3, "start": "2023-04-12T21:31:00+00:00", "end": "2023-04-13T04:59:00+00:00", "creator_id": 160, "owner_id": 60, "operator_id": 160},
+    {"resource_id": 1, "start": "2023-04-13T14:00:00+00:00", "end": "2023-04-15T04:59:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-04-13T14:51:00+00:00", "end": "2023-04-13T17:50:00+00:00", "creator_id": 48, "owner_id": 81, "operator_id": 14},
+    {"resource_id": 10, "start": "2023-04-13T18:20:00+00:00", "end": "2023-04-13T19:00:00+00:00", "creator_id": 62, "owner_id": 62, "operator_id": null},
+    {"resource_id": 5, "start": "2023-04-13T22:00:00+00:00", "end": "2023-04-13T23:30:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 3, "start": "2023-04-14T14:51:00+00:00", "end": "2023-04-14T17:50:00+00:00", "creator_id": 48, "owner_id": 55, "operator_id": 76},
+    {"resource_id": 9, "start": "2023-04-14T20:00:00+00:00", "end": "2023-04-14T22:30:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-04-17T14:51:00+00:00", "end": "2023-04-18T17:50:00+00:00", "creator_id": 14, "owner_id": 60, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-04-18T14:00:00+00:00", "end": "2023-04-19T04:59:00+00:00", "creator_id": 48, "owner_id": 10, "operator_id": 48},
+    {"resource_id": 4, "start": "2023-04-18T14:51:00+00:00", "end": "2023-04-18T17:50:00+00:00", "creator_id": 14, "owner_id": 109, "operator_id": 14},
+    {"resource_id": 8, "start": "2023-04-18T19:00:00+00:00", "end": "2023-04-18T21:00:00+00:00", "creator_id": 81, "owner_id": 81, "operator_id": null},
+    {"resource_id": 4, "start": "2023-04-18T19:00:00+00:00", "end": "2023-04-18T20:00:00+00:00", "creator_id": 14, "owner_id": 112, "operator_id": 14},
+    {"resource_id": 10, "start": "2023-04-18T19:10:00+00:00", "end": "2023-04-18T20:00:00+00:00", "creator_id": 62, "owner_id": 62, "operator_id": null},
+    {"resource_id": 5, "start": "2023-04-19T00:00:00+00:00", "end": "2023-04-19T01:00:00+00:00", "creator_id": 62, "owner_id": 62, "operator_id": null},
+    {"resource_id": 3, "start": "2023-04-19T14:00:00+00:00", "end": "2023-04-19T19:00:00+00:00", "creator_id": 14, "owner_id": 109, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-04-19T14:51:00+00:00", "end": "2023-04-20T17:50:00+00:00", "creator_id": 14, "owner_id": 55, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-04-19T19:01:00+00:00", "end": "2023-04-20T04:59:00+00:00", "creator_id": 48, "owner_id": 150, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-04-20T14:51:00+00:00", "end": "2023-04-20T17:50:00+00:00", "creator_id": 14, "owner_id": 167, "operator_id": 14},
+    {"resource_id": 1, "start": "2023-04-21T14:00:00+00:00", "end": "2023-04-23T04:59:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-04-21T14:00:00+00:00", "end": "2023-04-22T04:59:00+00:00", "creator_id": 160, "owner_id": 160, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-04-23T00:40:00+00:00", "end": "2023-04-23T01:40:00+00:00", "creator_id": 55, "owner_id": 55, "operator_id": null},
+    {"resource_id": 5, "start": "2023-04-23T22:00:00+00:00", "end": "2023-04-23T23:30:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"type": "special", "resource_id": 1, "start": "2023-04-24T14:00:00+00:00", "end": "2023-04-25T17:00:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-04-24T14:51:00+00:00", "end": "2023-04-24T17:50:00+00:00", "creator_id": 160, "owner_id": 55, "operator_id": 76},
+    {"resource_id": 4, "start": "2023-04-24T17:00:00+00:00", "end": "2023-04-24T18:00:00+00:00", "creator_id": 160, "owner_id": 122, "operator_id": 160},
+    {"resource_id": 4, "start": "2023-04-24T20:00:00+00:00", "end": "2023-04-24T22:00:00+00:00", "creator_id": 160, "owner_id": 122, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-04-25T14:00:00+00:00", "end": "2023-04-25T17:59:00+00:00", "creator_id": 160, "owner_id": 60, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-04-25T18:00:00+00:00", "end": "2023-04-26T04:59:00+00:00", "creator_id": 160, "owner_id": 39, "operator_id": 48},
+    {"resource_id": 4, "start": "2023-04-25T18:30:00+00:00", "end": "2023-04-25T20:30:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 1, "start": "2023-04-25T21:00:00+00:00", "end": "2023-04-26T04:59:00+00:00", "creator_id": 14, "owner_id": 14, "operator_id": 14},
+    {"resource_id": 4, "start": "2023-04-26T14:00:00+00:00", "end": "2023-04-26T15:00:00+00:00", "creator_id": 160, "owner_id": 122, "operator_id": 160},
+    {"resource_id": 1, "start": "2023-04-26T14:51:00+00:00", "end": "2023-04-29T17:50:00+00:00", "creator_id": 160, "owner_id": 81, "operator_id": 14},
+    {"resource_id": 3, "start": "2023-04-26T14:51:00+00:00", "end": "2023-04-26T17:50:00+00:00", "creator_id": 160, "owner_id": 88, "operator_id": 160},
+    {"resource_id": 4, "start": "2023-04-27T15:00:00+00:00", "end": "2023-04-27T18:00:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-04-27T18:00:00+00:00", "end": "2023-04-27T19:00:00+00:00", "creator_id": 15, "owner_id": 15, "operator_id": null},
+    {"resource_id": 5, "start": "2023-04-27T21:00:00+00:00", "end": "2023-04-27T22:00:00+00:00", "creator_id": 16, "owner_id": 16, "operator_id": null},
+    {"resource_id": 3, "start": "2023-04-28T14:00:00+00:00", "end": "2023-04-29T04:59:00+00:00", "creator_id": 160, "owner_id": 160, "operator_id": 160},
+    {"resource_id": 1, "start": "2023-05-01T14:51:00+00:00", "end": "2023-05-03T17:50:00+00:00", "creator_id": 160, "owner_id": 129, "operator_id": 160},
+    {"resource_id": 4, "start": "2023-05-01T15:00:00+00:00", "end": "2023-05-01T17:00:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-05-02T14:00:00+00:00", "end": "2023-05-02T18:59:00+00:00", "creator_id": 160, "owner_id": 60, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-05-02T19:00:00+00:00", "end": "2023-05-03T04:59:00+00:00", "creator_id": 160, "owner_id": 39, "operator_id": 48},
+    {"resource_id": 4, "start": "2023-05-02T19:30:00+00:00", "end": "2023-05-02T20:30:00+00:00", "creator_id": 160, "owner_id": 112, "operator_id": 76},
+    {"resource_id": 5, "start": "2023-05-02T23:00:00+00:00", "end": "2023-05-03T00:00:00+00:00", "creator_id": 16, "owner_id": 16, "operator_id": null},
+    {"resource_id": 3, "start": "2023-05-03T14:51:00+00:00", "end": "2023-05-03T17:50:00+00:00", "creator_id": 76, "owner_id": 15, "operator_id": 76},
+    {"resource_id": 4, "start": "2023-05-03T18:00:00+00:00", "end": "2023-05-03T20:00:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 1, "start": "2023-05-03T19:00:00+00:00", "end": "2023-05-03T21:00:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 10, "start": "2023-05-03T20:00:00+00:00", "end": "2023-05-03T22:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 4, "start": "2023-05-03T20:30:00+00:00", "end": "2023-05-03T22:00:00+00:00", "creator_id": 160, "owner_id": 62, "operator_id": 76},
+    {"resource_id": 5, "start": "2023-05-03T23:00:00+00:00", "end": "2023-05-04T00:30:00+00:00", "creator_id": 88, "owner_id": 88, "operator_id": null},
+    {"type": "maintenance", "resource_id": 3, "start": "2023-05-04T14:00:00+00:00", "end": "2023-05-05T04:59:00+00:00", "creator_id": 160, "owner_id": 160, "operator_id": 160},
+    {"resource_id": 10, "start": "2023-05-04T17:00:00+00:00", "end": "2023-05-04T20:00:00+00:00", "creator_id": 39, "owner_id": 39, "operator_id": null},
+    {"resource_id": 5, "start": "2023-05-05T00:30:00+00:00", "end": "2023-05-05T01:30:00+00:00", "creator_id": 55, "owner_id": 55, "operator_id": null},
+    {"type": "downtime", "resource_id": 1, "start": "2023-05-05T14:00:00+00:00", "end": "2023-05-06T16:59:00+00:00", "creator_id": 160, "owner_id": 60, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-05-05T14:51:00+00:00", "end": "2023-05-05T17:50:00+00:00", "creator_id": 160, "owner_id": 55, "operator_id": 160},
+    {"resource_id": 9, "start": "2023-05-05T18:00:00+00:00", "end": "2023-05-05T20:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-05-09T14:00:00+00:00", "end": "2023-05-11T04:59:00+00:00", "creator_id": 48, "owner_id": 60, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-05-09T14:51:00+00:00", "end": "2023-05-09T17:50:00+00:00", "creator_id": 48, "owner_id": 65, "operator_id": 76},
+    {"resource_id": 4, "start": "2023-05-09T14:51:00+00:00", "end": "2023-05-09T17:50:00+00:00", "creator_id": 160, "owner_id": 39, "operator_id": 160},
+    {"resource_id": 4, "start": "2023-05-09T19:00:00+00:00", "end": "2023-05-09T22:00:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-05-09T20:00:00+00:00", "end": "2023-05-09T21:30:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null},
+    {"resource_id": 9, "start": "2023-05-10T14:00:00+00:00", "end": "2023-05-11T04:59:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-05-10T14:51:00+00:00", "end": "2023-05-10T17:50:00+00:00", "creator_id": 48, "owner_id": 55, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-05-10T18:00:00+00:00", "end": "2023-05-10T20:00:00+00:00", "creator_id": 109, "owner_id": 109, "operator_id": null},
+    {"resource_id": 4, "start": "2023-05-10T19:00:00+00:00", "end": "2023-05-10T23:00:00+00:00", "creator_id": 48, "owner_id": 10, "operator_id": 48},
+    {"resource_id": 8, "start": "2023-05-10T19:00:00+00:00", "end": "2023-05-10T22:00:00+00:00", "creator_id": 93, "owner_id": 93, "operator_id": null},
+    {"resource_id": 5, "start": "2023-05-10T21:00:00+00:00", "end": "2023-05-10T23:00:00+00:00", "creator_id": 181, "owner_id": 181, "operator_id": null},
+    {"resource_id": 5, "start": "2023-05-11T00:00:00+00:00", "end": "2023-05-11T02:00:00+00:00", "creator_id": 179, "owner_id": 179, "operator_id": null},
+    {"resource_id": 1, "start": "2023-05-11T14:00:00+00:00", "end": "2023-05-12T04:59:00+00:00", "creator_id": 76, "owner_id": 158, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-05-11T14:00:00+00:00", "end": "2023-05-11T18:59:00+00:00", "creator_id": 48, "owner_id": 109, "operator_id": 48},
+    {"resource_id": 10, "start": "2023-05-11T16:00:00+00:00", "end": "2023-05-11T17:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-05-11T19:00:00+00:00", "end": "2023-05-12T04:59:00+00:00", "creator_id": 48, "owner_id": 39, "operator_id": 48},
+    {"resource_id": 4, "start": "2023-05-11T19:00:00+00:00", "end": "2023-05-11T23:00:00+00:00", "creator_id": 48, "owner_id": 10, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-05-12T14:00:00+00:00", "end": "2023-05-13T04:59:00+00:00", "creator_id": 48, "owner_id": 88, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-05-12T14:00:00+00:00", "end": "2023-05-13T00:59:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 5, "start": "2023-05-13T00:55:00+00:00", "end": "2023-05-13T02:20:00+00:00", "creator_id": 55, "owner_id": 55, "operator_id": null},
+    {"resource_id": 1, "start": "2023-05-13T01:00:00+00:00", "end": "2023-05-14T04:59:00+00:00", "creator_id": 48, "owner_id": 10, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-05-15T14:00:00+00:00", "end": "2023-05-17T04:59:00+00:00", "creator_id": 48, "owner_id": 129, "operator_id": 48},
+    {"type": "maintenance", "resource_id": 3, "start": "2023-05-15T14:00:00+00:00", "end": "2023-05-15T18:00:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 9, "start": "2023-05-16T00:00:00+00:00", "end": "2023-05-16T02:00:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-05-16T14:51:00+00:00", "end": "2023-05-16T17:50:00+00:00", "creator_id": 48, "owner_id": 179, "operator_id": 76},
+    {"resource_id": 5, "start": "2023-05-17T00:00:00+00:00", "end": "2023-05-17T01:30:00+00:00", "creator_id": 88, "owner_id": 88, "operator_id": null},
+    {"type": "special", "resource_id": 1, "start": "2023-05-17T14:00:00+00:00", "end": "2023-05-19T04:59:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-05-17T14:51:00+00:00", "end": "2023-05-17T17:50:00+00:00", "creator_id": 48, "owner_id": 93, "operator_id": 160},
+    {"resource_id": 5, "start": "2023-05-17T15:30:00+00:00", "end": "2023-05-17T17:00:00+00:00", "creator_id": 88, "owner_id": 88, "operator_id": null},
+    {"resource_id": 3, "start": "2023-05-18T14:00:00+00:00", "end": "2023-05-18T18:59:00+00:00", "creator_id": 48, "owner_id": 39, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-05-18T19:00:00+00:00", "end": "2023-05-19T04:59:00+00:00", "creator_id": 48, "owner_id": 60, "operator_id": 160},
+    {"resource_id": 9, "start": "2023-05-18T19:00:00+00:00", "end": "2023-05-18T21:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 9, "start": "2023-05-18T23:00:00+00:00", "end": "2023-05-19T01:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 10, "start": "2023-05-19T01:00:00+00:00", "end": "2023-05-19T02:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 5, "start": "2023-05-19T03:00:00+00:00", "end": "2023-05-19T04:30:00+00:00", "creator_id": 88, "owner_id": 88, "operator_id": null},
+    {"resource_id": 3, "start": "2023-05-19T14:00:00+00:00", "end": "2023-05-20T04:59:00+00:00", "creator_id": 48, "owner_id": 10, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-05-19T14:00:00+00:00", "end": "2023-05-21T04:59:00+00:00", "creator_id": 48, "owner_id": 39, "operator_id": 76},
+    {"resource_id": 5, "start": "2023-05-20T17:00:00+00:00", "end": "2023-05-20T19:00:00+00:00", "creator_id": 181, "owner_id": 181, "operator_id": null},
+    {"resource_id": 1, "start": "2023-05-22T14:00:00+00:00", "end": "2023-05-24T04:59:00+00:00", "creator_id": 48, "owner_id": 10, "operator_id": 48},
+    {"resource_id": 3, "start": "2023-05-22T14:51:00+00:00", "end": "2023-05-22T17:50:00+00:00", "creator_id": 59, "owner_id": 181, "operator_id": 76},
+    {"resource_id": 4, "start": "2023-05-22T14:51:00+00:00", "end": "2023-05-22T17:50:00+00:00", "creator_id": 14, "owner_id": 109, "operator_id": 14},
+    {"resource_id": 3, "start": "2023-05-23T14:00:00+00:00", "end": "2023-05-24T04:59:00+00:00", "creator_id": 59, "owner_id": 158, "operator_id": 76},
+    {"resource_id": 4, "start": "2023-05-23T16:00:00+00:00", "end": "2023-05-23T18:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48},
+    {"resource_id": 4, "start": "2023-05-23T21:00:00+00:00", "end": "2023-05-23T22:30:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 1, "start": "2023-05-24T14:51:00+00:00", "end": "2023-05-25T17:50:00+00:00", "creator_id": 59, "owner_id": 181, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-05-24T14:51:00+00:00", "end": "2023-05-24T17:50:00+00:00", "creator_id": 48, "owner_id": 39, "operator_id": 48},
+    {"resource_id": 9, "start": "2023-05-24T19:00:00+00:00", "end": "2023-05-24T21:30:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 5, "start": "2023-05-25T00:00:00+00:00", "end": "2023-05-25T01:30:00+00:00", "creator_id": 88, "owner_id": 88, "operator_id": null},
+    {"resource_id": 3, "start": "2023-05-25T14:00:00+00:00", "end": "2023-05-26T04:59:00+00:00", "creator_id": 48, "owner_id": 10, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-05-26T14:00:00+00:00", "end": "2023-05-27T04:59:00+00:00", "creator_id": 76, "owner_id": 76, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-05-26T14:00:00+00:00", "end": "2023-05-27T04:59:00+00:00", "creator_id": 14, "owner_id": 160, "operator_id": 160},
+    {"resource_id": 3, "start": "2023-05-30T14:00:00+00:00", "end": "2023-05-30T18:59:00+00:00", "creator_id": 160, "owner_id": 88, "operator_id": 48},
+    {"resource_id": 1, "start": "2023-05-30T14:00:00+00:00", "end": "2023-06-01T04:59:00+00:00", "creator_id": 160, "owner_id": 60, "operator_id": 76},
+    {"resource_id": 3, "start": "2023-05-30T19:00:00+00:00", "end": "2023-05-31T04:59:00+00:00", "creator_id": 48, "owner_id": 181, "operator_id": 48}
+  ]
+
+
+  
+}

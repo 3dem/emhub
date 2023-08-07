@@ -33,6 +33,7 @@ import json
 
 from emtools.utils import Process, Color
 from emhub.data import DataManager
+from emhub.utils import datetime_from_isoformat
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -111,6 +112,7 @@ class TestData:
         ]
 
         for name, roles, pi in usersData:
+            break
             first, last = name.lower().split()
             roles = roles.split(',')
             dm.create_user(username=last,
@@ -121,70 +123,54 @@ class TestData:
                            roles=roles,
                            pi_id=pi)
 
+        for uDict in self.json_data['users']:
+            first, last = uDict['name'].lower().split()
+            uDict['username'] = uDict['email']
+            uDict['password'] = last
+            dm.create_user(**uDict)
+
     def _populateResources(self, dm):
         self._action('Populating Resources')
-
-        resources = [
-            {'name': 'Krios01', 'tags': 'microscope krios solna',
-             'image': 'titan-krios.png', 'color': 'rgba(58, 186, 232, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8,
-                       'max_booking': 72}},
-            {'name': 'Krios02', 'tags': 'microscope krios solna',
-             'status': 'inactive',
-             'image': 'titan-krios.png', 'color': 'rgba(60, 90, 190, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8,
-                       'max_booking': 72}},
-            {'name': 'Talos', 'tags': 'microscope talos solna',
-             'image': 'talos-artica.png', 'color': 'rgba(43, 84, 36, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8,
-                       'max_booking': 72}},
-            {'name': 'Vitrobot 1', 'tags': 'instrument solna',
-             'image': 'vitrobot.png', 'color': 'rgba(158, 142, 62, 1.0)'},
-            {'name': 'Vitrobot 2', 'tags': 'instrument solna',
-             'image': 'vitrobot.png', 'color': 'rgba(69, 62, 25, 1.0)'},
-            {'name': 'Carbon Coater', 'tags': 'instrument solna',
-             'image': 'carbon-coater.png', 'color': 'rgba(48, 41, 40, 1.0)'},
-            {'name': 'Users Drop-in', 'tags': 'service solna',
-             'image': 'users-dropin.png', 'color': 'rgba(68, 16, 105, 1.0)',
-             'extra': {'requires_slot': True}},
-
-            # Umeå instruments
-            {'name': 'Umeå Krios', 'tags': 'microscope krios umea',
-             'image': 'titan-krios.png', 'color': 'rgba(15, 40, 130, 1.0)',
-             'extra': {'latest_cancellation': 48,
-                       'requires_slot': True,
-                       'min_booking': 8,
-                       'max_booking': 72}},
-        ]
 
         for rDict in self.json_data['resources']:
             dm.create_resource(**rDict)
 
     def _populateApplications(self, dm):
+        def _getUser(a, username):
+            u = dm.get_user_by(username=username)
+            if u is None:
+                print(f"Application {a['code']}: Invalid user: {username}")
+            return u
+
         self._action('Populating Applications')
 
         templates = [dm.create_template(**ti)
                      for ti in self.json_data['templates']]
 
+        apps = []
         for appDict in self.json_data['applications']:
-            username = appDict.pop('creator')
-            u = dm.get_user_by(username=username)
-            appDict['creator_id'] = u.id
+            creator = _getUser(appDict, appDict.pop('creator'))
+            if creator is None:
+                continue
+            appDict['creator_id'] = creator.id
             template_index = appDict.pop('template_index')
             appDict['template_id'] = templates[template_index].id
             pi_list = appDict.pop('pi_list', [])
             a = dm.create_application(**appDict)
+            apps.append(a)
 
             # Add PIs
-            for pi in pi_list:
-                pi = dm.get_user_by(username=pi)
-                a.users.append(pi)
+            for piName in pi_list:
+                pi = dm.get_user_by(username=piName)
+                if pi:
+                    a.users.append(pi)
+
+        # Let's make random assignment of all pi's to either
+        # first or second application
+        for user in dm.get_users():
+            if user.is_pi:
+                n = len(user.name)
+                apps[n % 2].users.append(user)
 
         dm.commit()
 
@@ -202,129 +188,32 @@ class TestData:
     def _populateBookings(self, dm):
         self._action('Populating Bookings')
 
-        now = dm.now().replace(minute=0, second=0)
-        month = now.month
-        self.firstMonday = self.__firstMonday(now)
+        now = dm.now()
+        feb27 = dm.date(dt.datetime(2023, 2, 27))
+        firstMonday = self.__firstMonday(now - dt.timedelta(days=60))
+        shift = dt.timedelta(days=(firstMonday - feb27).days)
+
+        for bDict in self.json_data['bookings']:
+            bDict['start'] = datetime_from_isoformat(bDict['start']) + shift
+            bDict['end'] = datetime_from_isoformat(bDict['end']) + shift
+            dm.create_booking(**bDict)
+
+        return
+
         td = dt.timedelta  # shortcut
 
         def fm(shift):
             return (self.firstMonday + td(days=shift)).replace(hour=9)
 
-        # Create a booking at the downtime from today to one week later
-        for r in [1, 3]:  # Krios 1 and  Talos
-            for s in [0, 14]:
-                dm.create_booking(title='',
-                                  start=fm(s),
-                                  end=fm(s+5).replace(hour=23),
-                                  type='slot',
-                                  slot_auth={'applications': ['CEM00297', 'CEM00315']},
-                                  resource_id=r,
-                                  creator_id=2,  # first user for now
-                                  owner_id=2,  # first user for now
-                                  description="Slot for National BAGs")
-
-        # Create a downtime from today to one week later
-        dm.create_booking(title='',
-                          start=fm(17),
-                          end=fm(21).replace(hour=23),
-                          type='downtime',
-                          resource_id=1,
-                          creator_id=2,  # first user for now
-                          owner_id=2,  # first user for now
-                          description="Some downtime for some problem")
-
-        dm.create_booking(title='',
-                          start=fm(-7),
-                          end=fm(-6).replace(hour=23),
-                          type='booking',
-                          resource_id=1,
-                          creator_id=3,  # ann mull
-                          owner_id=3,  # mull
-                          description="")
-
-        # Create booking for normal user
-        b1 = dm.create_booking(title='',
-                          start=fm(0),
-                          end=fm(1).replace(hour=23),
-                          type='booking',
-                          resource_id=1,
-                          creator_id=13,  # first user for now
-                          owner_id=13,  # first user for now
-                          description="")
-
-        b2 = dm.create_booking(title='',
-                          start=fm(2),
-                          end=fm(4).replace(hour=23),
-                          type='booking',
-                          resource_id=1,
-                          creator_id=2,  # first user for now
-                          owner_id=16,  # Sara Belum
-                          description="Krios 2 for user 3")
-
-        dm.create_booking(title='Slot 2: RAPID',
-                      start=fm(21),
-                      end=fm(22).replace(hour=23),
-                      type='slot',
-                      slot_auth={'applications': ['CEM00332']},
-                      resource_id=3,
-                      creator_id=2,  # first user for now
-                      owner_id=2,  # first user for now
-                      description="Talos slot for RAPID applications")
-
-        # create a repeating event
-        dm.create_booking(title='Dropin',
-                          start=fm(2),
-                          end=fm(2).replace(hour=16),
-                          type='slot',
-                          repeat_value='bi-weekly',
-                          repeat_stop=now + dt.timedelta(2*30),
-                          resource_id=7,
-                          creator_id=2,  # first user for now
-                          owner_id=2,  # first user for now
-                          description="Recurrent bi-weekly DROPIN slot. ")
-
-        # create some alias for later use of bookings
-        self.bookings = {
-            "b1": b1,
-            "b2": b2,
-        }
-
     def _populateSessions(self, dm):
         return
-        self._action('Populating Sessions')
-
-        td = os.environ.get('EMHUB_TESTDATA')
-        inst = os.environ.get('EMHUB_INSTANCE')
-
-        b1 = self.bookings['b1']
-        dm.create_session(
-            name='supervisor_23423452_20201223_123445',
-            start=b1.start,
-            end=None,
-            status='running',
-            resource_id=b1.resource_id,  # Krios 1
-            booking_id=b1.id,
-            operator_id=1,  # User  X
-        )
-
-        b2 = self.bookings['b2']
-        dm.create_session(
-            name='epu-mysession_20122310_234542',
-            start=b2.start,
-            end=None,
-            status='failed',
-            resource_id=b2.resource_id,  # Krios 2
-            booking_id=b2.id,
-            operator_id=6,  # User  6
-        )
-
-        #shutil.copyfile(os.path.join(td, 'hdf5/t20s_pngs.h5'),
-        #                os.path.join(inst, 'sessions/session_000002.h5'))
 
 
 def create_instance(instance_path, json_file, force):
     instance_path = instance_path or '~/.emhub/instances/test'
-    json_file = json_file or os.path.join(here, 'test_instance.json')
+    instance_path = os.path.expanduser(instance_path)
+
+    json_file = json_file or os.path.join(here, 'test_instance_data.json')
 
     if os.path.exists(instance_path):
         if force:
