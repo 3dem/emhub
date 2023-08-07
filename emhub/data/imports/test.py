@@ -53,6 +53,12 @@ class TestData:
         with open(json_file) as f:
             self.json_data = json.load(f)
 
+        # Some dates to shift events
+        now = dm.now()
+        feb27 = dm.date(dt.datetime(2023, 2, 27))
+        firstMonday = self.__firstMonday(now - dt.timedelta(days=60))
+        self.date_shift = dt.timedelta(days=(firstMonday - feb27).days)
+
         self.dm = dm
         dm.create_admin()
         # Create tables with test data for each database model
@@ -60,6 +66,7 @@ class TestData:
         self._populateUsers(dm)
         self._populateResources(dm)
         self._populateApplications(dm)
+        self._populateProjects(dm)
         self._populateBookings(dm)
         self._populateSessions(dm)
 
@@ -71,57 +78,6 @@ class TestData:
 
     def _populateUsers(self, dm):
         self._action('Populating Users')
-
-        # Create user table
-        usersData = [
-            # dev (D)
-            ('Don Stairs', 'admin', None),  # 2
-
-            # admin (A)
-            ('Anna Mull', 'admin,manager,head', None),   # 3
-            ('Arty Ficial', 'admin', None),  # 4
-
-            # managers (M)
-            ('Monty Carlo', 'manager', None),  # 5
-            ('Moe Fugga', 'manager', None),  # 6
-
-            # pi (P)
-            ('Polly Tech', 'pi', None),  # 7
-            ('Petey Cruiser', 'pi', None),  # 8
-            ('Pat Agonia', 'pi', None),  # 9
-            ('Paul Molive', 'pi', None),  # 10
-            ('Pat Ernity', 'pi', None),  # 11
-
-            # users (R, S)
-            ('Ray Cyst', 'user', 7),  # 12
-            ('Rick Shaw', 'user', 7),  # 13
-            ('Rachel Slurs', 'user', 7),  # 14
-
-            ('Reggie Stration', 'user', 8),  # 15
-            ('Reuben Sandwich', 'user', 8),  # 16
-            ('Sara Bellum', 'user', 8),  # 17
-            ('Sam Owen', 'user', 8),  # 18
-
-            ('Sam Buca', 'user', 10),  # 19
-            ('Sarah Yevo', 'user', 10),  # 20
-            ('Sven Gineer', 'user', 10),  # 21
-            ('Sharon Needles', 'user', 10),  # 22
-
-            ('Ray Diation', 'user', 11),  # 22
-            ('Sal Ami', 'user', 11)   # 23
-        ]
-
-        for name, roles, pi in usersData:
-            break
-            first, last = name.lower().split()
-            roles = roles.split(',')
-            dm.create_user(username=last,
-                           email='%s.%s@emhub.org' % (first, last),
-                           phone='%d-%d%d' % (len(roles), len(first), len(last)),
-                           password=last,
-                           name=name,
-                           roles=roles,
-                           pi_id=pi)
 
         for uDict in self.json_data['users']:
             first, last = uDict['name'].lower().split()
@@ -185,28 +141,37 @@ class TestData:
 
         return prevMonday + td7
 
+    def __shift_date(self, dateIsoStr):
+        return datetime_from_isoformat(dateIsoStr) + self.date_shift
+
+    def __fix_dates(self, attrs, *keys):
+        for k in keys:
+            attrs[k] = self.__shift_date(attrs[k])
+
+    def _populateProjects(self, dm):
+        self._action('Populating Projects')
+        for pDict in self.json_data['projects']:
+            self.__fix_dates(pDict, 'creation_date', 'last_update_date')
+            pDict['title'] = f"Project {pDict['id']} Title"
+            dm.create_project(**pDict)
+
     def _populateBookings(self, dm):
         self._action('Populating Bookings')
 
-        now = dm.now()
-        feb27 = dm.date(dt.datetime(2023, 2, 27))
-        firstMonday = self.__firstMonday(now - dt.timedelta(days=60))
-        shift = dt.timedelta(days=(firstMonday - feb27).days)
-
         for bDict in self.json_data['bookings']:
-            bDict['start'] = datetime_from_isoformat(bDict['start']) + shift
-            bDict['end'] = datetime_from_isoformat(bDict['end']) + shift
+            self.__fix_dates(bDict, 'start', 'end')
             dm.create_booking(**bDict)
 
-        return
-
-        td = dt.timedelta  # shortcut
-
-        def fm(shift):
-            return (self.firstMonday + td(days=shift)).replace(hour=9)
-
     def _populateSessions(self, dm):
-        return
+        self._action('Populating Sessions')
+
+        for sDict in self.json_data['sessions']:
+            self.__fix_dates(sDict, 'start')
+            sDict['check_raw'] = False
+            sDict['name'] = 'S%05d' % sDict['id']
+
+
+            dm.create_session(**sDict)
 
 
 def create_instance(instance_path, json_file, force):

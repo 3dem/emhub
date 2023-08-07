@@ -586,6 +586,8 @@ class DataManager(DbManager):
     def create_session(self, **attrs):
         """ Add a new session row. """
         create_data = attrs.pop('create_data', False)
+        check_raw = attrs.pop('check_raw', True)
+
         b = self.get_booking_by(id=int(attrs['booking_id']))
         attrs['resource_id'] = b.resource.id
         attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
@@ -606,7 +608,7 @@ class DataManager(DbManager):
 
         extra = attrs.get('extra', {})
         raw_folder = extra['raw'].get('path', '')
-        if raw_folder and not os.path.exists(raw_folder):
+        if check_raw and raw_folder and not os.path.exists(raw_folder):
             raise Exception(f"Missing Raw data folder '{raw_folder}'")
 
         otf = extra['otf']
