@@ -163,8 +163,8 @@ class DataContent:
 
         # Sort all entries
         for rbookings in resource_bookings.values():
-            for k, bookings in rbookings.items():
-                bookings.sort(key=lambda b: b.start)
+            for k, bookingValues in rbookings.items():
+                bookingValues.sort(key=lambda b: b.start)
 
         dataDict.update({'bookings': bookings,
                          'resource_bookings': resource_bookings})

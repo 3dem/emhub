@@ -417,7 +417,7 @@
             "name": "Vitrobot02",
             "status": "active",
             "tags": "instrument vitrobot prep stjude",
-            "image": "resource-image-000005-vitrobot.png",
+            "image": "vitrobot.png",
             "color": "rgba(158, 142, 62, 1.0)",
             "extra": {
                 "latest_cancellation": 0,
@@ -433,7 +433,7 @@
             "name": "Leica GP2",
             "status": "active",
             "tags": "instrument leica plunge freezer prep stjude",
-            "image": "csm_leica-em-gp2-list_1c1fda699b.jpg",
+            "image": "leica-gp2.jpg",
             "color": "rgba(215, 195, 113, 1.0)",
             "extra": {
                 "latest_cancellation": 0,
