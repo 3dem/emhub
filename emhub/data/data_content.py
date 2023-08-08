@@ -722,12 +722,15 @@ class DataContent:
                     set_value(p)
 
     def get_experiment_form(self, **kwargs):
-        booking_id = int(kwargs['booking_id'])
-        booking = self.app.dm.get_booking_by(id=booking_id)
-        print("Booking id: ", booking_id, 'experiment', booking.experiment)
+        if kwargs['booking_id']:
+            booking_id = int(kwargs['booking_id'])
+            booking = self.app.dm.get_booking_by(id=booking_id)
+            print("Booking id: ", booking_id, 'experiment', booking.experiment)
+        else:
+            booking = None
 
-        #if 'form_values' not in kwargs:
-        kwargs['form_values'] = json.dumps(booking.experiment)
+        if 'form_values' not in kwargs and booking:
+            kwargs['form_values'] = json.dumps(booking.experiment)
 
         form = self.app.dm.get_form_by(name='experiment')
         data = self._dynamic_form(form, **kwargs)

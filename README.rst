@@ -133,7 +133,7 @@ to build the documentation.
 
     # Rsync the generated html files to the emdocs repo
 
-    rsync -av html/ ../emhub-docs/
+    rsync -av html/ ~/work/documentation/emdocs/emhub/
     cd ../emhub-docs/
     git ci -am "Updated html files"
 

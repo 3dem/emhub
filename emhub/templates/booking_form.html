@@ -130,7 +130,7 @@
 
                     {% if show_experiment %}
                         <div class="form-group row" id="div-describe-experiment">
-                            <a href="javascript: showExperimentForm({{ booking.id }})" class="col-12 col-form-label text-sm-left"><i class="fas fa-edit"></i> Describe Experiment</a>
+                            <a href="javascript: showExperimentForm({{ booking.id|tojson }})" class="col-12 col-form-label text-sm-left"><i class="fas fa-edit"></i> Describe Experiment</a>
                         </div>
                     {% endif %}
 

@@ -318,6 +318,7 @@ function createCalender() {
             return true;
         },
         select: function(info) {
+            last_experiment = null;
             showBookingForm(paramsFromSelection(info));
         },
         eventClick: function(info) {
