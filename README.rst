@@ -32,24 +32,29 @@ Basic Installation
     conda create --name=emhub python=3.8
     conda activate emhub
 
+
     git clone git@github.com:3dem/emhub.git
     cd emhub
+
+    # If you want to use the development branch, then do:
+    # git checkout devel
+
     pip install -e .
 
+    # Generate some test data
+    emh-data --create_instance
+
     export FLASK_APP=emhub
-    export FLASK_ENV=development
     export EMHUB_INSTANCE=~/.emhub/instances/test
 
     # Now launch the built-in Flask development server:
-    flask run
+    flask run --debug
 
     # or with gunicorn:
     gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:5000
 
-    # Initialize the instance with some test data:
-    python -m emhub.data
-
     # Then launch a web browser at http://127.0.0.1:5000/
+    # user: admin, password: admin
 
 
 Running tests
@@ -111,13 +116,23 @@ to build the documentation.
 
 .. code-block:: bash
 
+    # Install environment
+
     conda create -y --name=emhub-docs python=3.8
     conda activate emhub-docs
+    conda install nodejs -y -c conda-forge
+    pip install -e .  # install emhub
     pip install -r docs/requirements.txt
 
-.. code-block:: bash
+    # Build the docs
+
+    python build_docs.py
+
+    # or just
     sphinx-build -b html docs/ html/
+
     # Rsync the generated html files to the emdocs repo
+
     rsync -av html/ ../emhub-docs/
     cd ../emhub-docs/
     git ci -am "Updated html files"

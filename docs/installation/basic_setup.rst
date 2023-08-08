@@ -17,10 +17,11 @@ Python environment (either venv or conda). For example:
     cd ~/work/development
     git clone https://github.com/3dem/emhub.git
 
+    cd emhub
+
     # If you want to use the development branch, then do:
     # git checkout devel
 
-    cd emhub
     pip install -e .
 
     # Generate some test data
@@ -34,6 +35,9 @@ Python environment (either venv or conda). For example:
 
     # or with gunicorn:
     gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:5000
+
+    # Then launch a web browser at http://127.0.0.1:5000/
+    # user: admin, password: admin
 
 
 Environment Variables
