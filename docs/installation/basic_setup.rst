@@ -15,8 +15,10 @@ Python environment (either venv or conda). For example:
     conda activate emhub
 
     cd ~/work/development
-    git clone git@github.com:3dem/emhub.git
+    git clone https://github.com/3dem/emhub.git
 
+    # If you want to use the development branch, then do:
+    # git checkout devel
 
     cd emhub
     pip install -e .
@@ -31,13 +33,13 @@ Python environment (either venv or conda). For example:
     flask run --debug
 
     # or with gunicorn:
-    gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:8080
+    gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:5000
 
 
 Environment Variables
 ---------------------
 
-.. csv-table:: 
+.. csv-table::
    :widths: 10, 50
 
    "``FLASK_APP``", "Flask variable defining the name of the application, **emhub** in our case."

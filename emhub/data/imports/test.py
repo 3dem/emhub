@@ -201,4 +201,5 @@ def create_instance(instance_path, json_file, force):
           f"export FLASK_APP=emhub\n"
           f"export EMHUB_INSTANCE={instance_path}\n"
           f"flask run --debug\n\n"
-          f"And open a browser at: http://127.0.0.1:5000\n")
+          f"And open a browser at: http://127.0.0.1:5000\n"
+          f"user: admin, password: admin")
