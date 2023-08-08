@@ -72,6 +72,7 @@ function handleAjaxFail(jqXHR, textStatus) {
 /* Show the Booking Form from a given id */
 function showBookingForm(booking_params, modalId)
 {
+    last_experiment = null;
     if (!modalId)
         modalId = 'booking-modal';
     show_modal_from_ajax(modalId, get_ajax_content("booking_form",
@@ -318,7 +319,7 @@ function createCalender() {
             return true;
         },
         select: function(info) {
-            last_experiment = null;
+
             showBookingForm(paramsFromSelection(info));
         },
         eventClick: function(info) {
