@@ -29,6 +29,7 @@
 import datetime as dt
 import re
 from collections import OrderedDict
+import math
 import jwt
 
 from sqlalchemy import (Column, Integer, String, JSON,
@@ -727,11 +728,21 @@ def create_data_models(dm):
         @property
         def days(self):
             """ Count how many days these bookings spans.
-            (It is not strictly necessary the total amount of time in in
+            (It is not strictly necessary the total amount of time in
             units of 24h.
             """
             td = self.end.date() - self.start.date() + dt.timedelta(days=1)
             return td.days
+
+        @property
+        def hours(self):
+            """ Calculate the number of hours of this booking. """
+            td = self.end - self.start
+            return td.days * 24 + math.ceil(td.seconds / 3600)
+
+        def units(self, hours=24):
+            """ Get number of 'invoiceable units' """
+            return math.ceil(self.hours / hours)
 
         @property
         def is_booking(self):

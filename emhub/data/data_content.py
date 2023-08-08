@@ -1261,6 +1261,7 @@ class DataContent:
     def get_report_microscopes_usage(self, **kwargs):
         metric = kwargs.get('metric', 'days')
         use_data = metric == 'data'
+        use_days = metric == 'days'
 
         self.check_user_access('usage_report')
 
@@ -1274,7 +1275,7 @@ class DataContent:
         selected_app = dm.get_application_by(id=app_id)
         applications = dm.get_visible_applications()
         if not selected_app:
-            selected_app = applications[-1]
+            selected_app = applications[0]
             pi_list = [u.id for u in dm.get_users() if u.is_pi]
         else:
             pi_list = [pi.id for pi in selected_app.pi_list]
@@ -1303,7 +1304,7 @@ class DataContent:
             selected = [r['id'] for r in resources]
 
         def _value(b):
-            return b.total_size if use_data else b.days
+            return b.total_size if use_data else (b.units() if use_days else b.hours)
 
         for b in bookings:
             if b.resource_id not in selected:
@@ -2143,13 +2144,7 @@ class DataContent:
                 extra={})
 
         owner = booking.owner
-        owner_name = owner.name
         operator = booking.operator  # shortcut
-        if operator:
-            operator_dict = {'id': operator.id, 'name': operator.name}
-        else:
-            operator_dict = {'id': None, 'name': ''}
-
         creator = booking.creator
         a = booking.application
         user = self.app.user
@@ -2199,9 +2194,13 @@ class DataContent:
             display = dm.get_config('bookings')['display']
             emptyApp = a is None or not display['show_application']
             appStr = '' if emptyApp else ', %s' % a.code
-            emptyOp = operator is None or not display['show_operator']
-            opStr = '' if emptyOp else ' -> ' + operator.name
-            extra = "%s%s%s" % (owner.name, appStr, opStr)
+            emptyPi = (owner.is_manager or owner.is_pi or
+                       pi is None or not display.get('show_pi', False))
+            piStr = '' if emptyPi else shortname(pi) + '/'
+            emptyOp = operator is None or not display.get('show_operator', False)
+            opStr = '' if emptyOp else ' -> ' + shortname(operator)
+
+            extra = "%s%s%s%s" % (piStr, shortname(owner), appStr, opStr)
             if user_can_view:
                 title = "%s (%s) %s" % (resource.name, extra, b_title)
                 if a:
