@@ -116,10 +116,10 @@
             columnsDef.push(null)
         columnsDef.push({orderable: false});  // last "View" column
 
-        if (metric == 'days')
-            create_hc_usage('usage_pie', 'pie', pie_data);
+        if (metric == 'data')
+            create_hc_data_plot('usage_pie', data_usage_series);
         else
-            create_hc_data_plot('usage_pie', data_usage_series)
+            create_hc_usage('usage_pie', 'pie', pie_data);
 
         create_hc_usage('usage_column', 'column', bar_data, drilldown);
 

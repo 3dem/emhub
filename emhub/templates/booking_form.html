@@ -152,7 +152,7 @@
 
                             <!-- Operator Row -->
                             <div class="form-group row">
-                                {{ row_label('Operator') }}
+                                {{ row_label('Staff') }}
                                 <div class="col-7">
                                     {% if possible_operators %}
                                         <select id="booking-operator-select" class="selectpicker show-tick" data-live-search="true" data-key="operator_id" >
@@ -163,7 +163,7 @@
                                             {% endfor %}
                                         </select>
                                     {% else %}
-                                        <input type="text" required="" placeholder="Operator" id="booking-owner-text" class="form-control" data-key="operator_id" >
+                                        <input type="text" required="" placeholder="Staff" id="booking-owner-text" class="form-control" data-key="operator_id" >
                                     {% endif %}
                                 </div>
                             </div>
