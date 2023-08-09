@@ -37,6 +37,7 @@ __version__ = '0.7.dev17'
 def create_app(test_config=None):
     import flask
     import flask_login
+    import jinja2
 
     from . import utils
     from .blueprints import api_bp, images_bp, pages_bp
@@ -47,9 +48,6 @@ def create_app(test_config=None):
     from .data.data_content import DataContent
 
     from emtools.utils import Pretty
-
-    here = os.path.abspath(os.path.dirname(__file__))
-    templates = [os.path.basename(f) for f in glob(os.path.join(here, 'templates', '*.html'))]
 
     # create and configure the app
     emhub_instance_path = os.environ.get('EMHUB_INSTANCE', None)
@@ -150,6 +148,18 @@ def create_app(test_config=None):
     for name, value in app.config.items():
         app.logger.debug(f'config: {name} = {value}')
 
+    # Allow to define customized templates in the instance folder
+    # templates should be in: 'extra/templates'
+    # and will take precedence from the ones in the emhub/template folder
+    here = os.path.abspath(os.path.dirname(__file__))
+    template_folders = [os.path.join(emhub_instance_path, 'extra', 'templates'),
+                        os.path.join(here, 'templates')]
+
+    templates = []
+    for folder in template_folders:
+        templates.extend([os.path.basename(f) for f in glob(os.path.join(folder, '*.html'))])
+
+    app.jinja_loader = jinja2.FileSystemLoader(template_folders)
 
     def register_basic_params(kwargs):
         kwargs['is_devel'] = app.is_devel
@@ -387,15 +397,14 @@ def create_app(test_config=None):
         content_template = content_id + '.html'
 
         if content_template in templates:
+            # Render from templates already in EMhub
             register_basic_params(kwargs)
-
             return flask.render_template(content_template, **kwargs)
 
         error = {
             "message": "Template '%s' not found." % content_template
         }
         return flask.render_template('error_dialog.html', error=error)
-
 
     @app.template_filter('basename')
     def basename(filename):
@@ -404,7 +413,6 @@ def create_app(test_config=None):
     @app.template_filter('id_from_label')
     def id_from_label(label):
         return label.translate(label.maketrans("", "", "!#$%^&*()/\\ "))
-        #return label.replace(' ', '_')
 
     @app.template_filter('range_params')
     def range_params(date_range):
