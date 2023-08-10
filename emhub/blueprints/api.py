@@ -48,7 +48,6 @@ import flask_login
 from emtools.utils import Pretty, Color
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
-from emhub.data import DataContent
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -533,7 +532,7 @@ def clear_session_data():
 def get_session_data():
     """ Return some information related to session (e.g CTF values, etc). """
     def handle(session, **attrs):
-        return DataContent(app).get_session_data(session, **attrs)
+        return app.dc.get_session_data(session, **attrs)
 
     return handle_session_data(handle, mode="r")
 
