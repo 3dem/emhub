@@ -151,7 +151,8 @@ def create_app(test_config=None):
     # templates should be in: 'extra/templates'
     # and will take precedence from the ones in the emhub/template folder
     here = os.path.abspath(os.path.dirname(__file__))
-    template_folders = [os.path.join(emhub_instance_path, 'extra', 'templates'),
+    emhub_instance_extra = os.path.join(emhub_instance_path, 'extra')
+    template_folders = [os.path.join(emhub_instance_extra, 'templates'),
                         os.path.join(here, 'templates')]
 
     templates = []
@@ -442,6 +443,16 @@ def create_app(test_config=None):
 
     from .data.data_content import dc
     app.dc = dc
+
+    # Allow to define extra content in the instance folder
+    extra_content_path = os.path.join(emhub_instance_extra, 'data_content.py')
+    if os.path.exists(extra_content_path):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('data_content', extra_content_path)
+        extra_content_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(extra_content_module)
+        if 'register_content' in dir(extra_content_module):
+            extra_content_module.register_content(dc)
 
     app.jinja_env.filters['booking_active_today'] = app.dc.booking_active_today
     app.jinja_env.filters['booking_to_event'] = app.dc.booking_to_event
