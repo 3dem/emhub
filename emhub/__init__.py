@@ -45,7 +45,6 @@ def create_app(test_config=None):
                         pretty_date, pretty_datetime, pretty_quarter,
                         send_json_data, send_error, shortname, pairname)
     from .utils.mail import MailManager
-    from .data.data_content import DataContent
 
     from emtools.utils import Pretty
 
@@ -440,7 +439,9 @@ def create_app(test_config=None):
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user
     app.dm = DataManager(app.instance_path, user=app.user)
-    app.dc = DataContent(app)
+
+    from .data.data_content import DataContent
+    app.dc = DataContent()
 
     app.jinja_env.filters['booking_active_today'] = app.dc.booking_active_today
     app.jinja_env.filters['booking_to_event'] = app.dc.booking_to_event

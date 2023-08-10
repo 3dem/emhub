@@ -120,7 +120,7 @@
                     "id": "plate",
                     "label": "Plate",
                     "type": "custom",
-                    "template": "sjsm_param_select_plate.html"
+                    "template": "param_select_plate.html"
                 },
                 {
                     "id": "channel",
@@ -160,7 +160,7 @@
             "id": "plate",
             "label": "Plate",
             "type": "custom",
-            "template": "sjsm_param_select_plate.html"
+            "template": "param_select_plate.html"
         },
         {
             "id": "channel",

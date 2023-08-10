@@ -35,6 +35,7 @@ from glob import glob
 
 import flask
 import flask_login
+from flask import current_app as app
 
 from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          datetime_from_isoformat, get_quarter, pretty_quarter,
@@ -52,9 +53,10 @@ class DataContent:
     data structure) and prepare the "content" for required views.
     """
 
-    def __init__(self, app):
+    def __init__(self):
         """ Create a new content for the given Flask application. """
         self.app = app
+        self._contentDict = {}
 
     def _dateStr(self, datetime):
         return
@@ -63,10 +65,19 @@ class DataContent:
         content_id = kwargs['content_id']
         get_func_name = 'get_%s' % content_id.replace('-', '_')  # FIXME
         dataDict = {}
-        get_func = getattr(self, get_func_name, None)
+        get_func = self._contentDict.get(get_func_name,
+                                         getattr(self, get_func_name, None))
         if get_func is not None:
             dataDict.update(get_func(**kwargs))
         return dataDict
+
+    def content(self, func):
+        self._contentDict[func.__name__] = func
+
+        def wrapper(**kwargs):
+            func(**kwargs)
+
+        return wrapper
 
     def get_dashboard(self, **kwargs):
         dm = self.app.dm  # shortcut notation
@@ -1480,7 +1491,7 @@ class DataContent:
 
         return data
 
-    def get_sjsm_batch_content(self, **kwargs):
+    def get_batch_content(self, **kwargs):
         batch_id = int(kwargs['batch_id'])
         batch = {
             'id': batch_id,
@@ -1508,7 +1519,7 @@ class DataContent:
                     'project': p,
                     'issues': plate.get('issues', False),
                     'sample': plate.get('sample', ''),
-                    'comments': plate['comments']
+                    'comments': plate.get('comments', '')
                 }
 
         # Fixme: get a range of bookings only
@@ -1528,7 +1539,7 @@ class DataContent:
         }
         return data
 
-    def get_sjsm_plates(self, **kwargs):
+    def get_plates(self, **kwargs):
         plates = self.app.dm.get_pucks()
         batches = []
 
@@ -1542,7 +1553,7 @@ class DataContent:
         data = {'batches': batches}
         if batches:
             batch_id = kwargs.get('batch_id', batches[0])
-            data.update(self.get_sjsm_batch_content(batch_id=batch_id))
+            data.update(self.get_batch_content(batch_id=batch_id))
 
         return data
 
@@ -1926,7 +1937,7 @@ class DataContent:
             'form_config': form_config
         }
         data.update(self.get_grids_storage())
-        data.update(self.get_sjsm_plates())
+        data.update(self.get_plates())
 
         return data
 

@@ -8,6 +8,11 @@
 
     <!-- table row -->
     <div class="row">
+
+        <div class="col-12 mb-3">
+            <a href="javascript:addPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
+        </div>
+
         <div class="col-1">
             <div class="row">
 
@@ -32,7 +37,7 @@
         </div>
 
         <div id="batch-content" class="col-11 p-0 m-0">
-               {% include "sjsm_batch_content.html" %}
+               {% include "batch_content.html" %}
         </div>
 
     </div>
@@ -42,12 +47,15 @@
 
 <script>
     function loadBatch(batch) {
-        var ajaxContent = get_ajax_content('sjsm_batch_content', {batch_id: batch});
+        var ajaxContent = get_ajax_content('batch_content', {batch_id: batch});
         ajaxContent.done(function(html) {
             $('#batch-content').html(html);
         });
         ajaxContent.fail(ajax_request_failed);
+    }
 
+    function addPlate() {
+        showMessage("Adding New Plate");
     }
 
 </script>
