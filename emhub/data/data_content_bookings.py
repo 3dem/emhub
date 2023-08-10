@@ -35,6 +35,12 @@ from emhub.utils import datetime_from_isoformat
 def register_content(dc):
 
     @dc.content
+    def resources_list(**kwargs):
+        kwargs['all'] = True  # show all resources despite status
+        kwargs['image'] = True  # load resource image
+        return dc.get_resources(**kwargs)
+
+    @dc.content
     def resource_form(**kwargs):
         copy_resource = json.loads(kwargs.pop('copy_resource', 'false'))
 

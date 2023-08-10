@@ -550,11 +550,6 @@ class DataContent:
         ]
         return {'resources': resource_list}
 
-    def get_resources_list(self, **kwargs):
-        kwargs['all'] = True  # show all resources despite status
-        kwargs['image'] = True  # load resource image
-        return self.get_resources(**kwargs)
-
     def get_user_projects(self, user, **kwargs):
         dm = self.app.dm
         status = kwargs.get('status', None)
@@ -658,6 +653,7 @@ data_content_users.register_content(dc)
 data_content_bookings.register_content(dc)
 data_content_sessions.register_content(dc)
 data_content_raw.register_content(dc)
+data_content_projects.register_content(dc)
 
 
 
