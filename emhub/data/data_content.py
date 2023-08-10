@@ -119,15 +119,21 @@ class DataContent:
                 for p in section['params']:
                     set_value(p)
 
+    def load_form_content(self, form, data):
+        """ Forms can define several 'content' to be loaded when
+        rendering the form and its components.
+        """
+        if 'content' in form.definition:
+            for contentFunc in form.definition['content']:
+                data.update(self.get(content_id=contentFunc['func'],
+                                     **contentFunc.get('kwargs', {})))
+
     def dynamic_form(self, form, **kwargs):
         form_values_str = kwargs.get('form_values', None) or '{}'
         form_values = json.loads(form_values_str)
         self.set_form_values(form, form_values)
         data = {'form': form}
-        if 'content' in form.definition:
-            for contentFunc in form.definition['content']:
-                data.update(self.get(content_id=contentFunc['func'],
-                                     **contentFunc.get('kwargs', {})))
+        self.load_form_content(form, data)
         return data
 
     def get_period(self, kwargs):
@@ -655,140 +661,7 @@ data_content_sessions.register_content(dc)
 data_content_raw.register_content(dc)
 data_content_projects.register_content(dc)
 
-
-
-
-def get_dynamic_form_modal(**kwargs):
-    form_id = int(kwargs.get('form_id', 1))
-    form = self.app.dm.get_form_by(id=form_id)
-
-    if form is None:
-        raise Exception("Invalid form id: %s" % form_id)
-
-    return self.dynamic_form(form, **kwargs)
-
-def get_logs(**kwargs):
-    dm = self.app.dm
-    logs = int(kwargs.get('n', 100))
-    logs = dm.get_logs()[-logs:]
-    for log in logs:
-        log.user = dm.get_user_by(id=log.user_id)
-
-    return {'logs': logs}
-
-def get_pages(**kwargs):
-    page_id = kwargs['page_id']
-    page_path = os.path.join(self.app.config['PAGES'], '%s.md' % page_id)
-
-    return {
-        'page_id': page_id,
-        'page': 'pages/%s.md' % page_id
-    }
-
-def get_batch_content(**kwargs):
-    batch_id = int(kwargs['batch_id'])
-    batch = {
-        'id': batch_id,
-        'plates': []
-    }
-    plates = self.app.dm.get_pucks()
-    platesDict = {}
-    platesIdMap = {}
-
-    for p in plates:
-        b = p.dewar
-        plate_number = p.cane
-        if batch_id == b:
-            platesDict[plate_number] = {}
-            platesIdMap[p.id] = plate_number
-            batch['plates'].append(plate_number)
-
-    def _infoFromPlate(plate, b=None, p=None):
-        plate_id = int(plate['plate'])
-        if plate_id in platesIdMap:
-            channel_id = int(plate['channel'])
-            plate_number = platesIdMap[plate_id]
-            platesDict[plate_number][channel_id] = {
-                'booking': b,
-                'project': p,
-                'issues': plate.get('issues', False),
-                'sample': plate.get('sample', ''),
-                'comments': plate.get('comments', '')
-            }
-
-    # Fixme: get a range of bookings only
-    for b in self.app.dm.get_bookings(orderBy='start'):
-        e = b.experiment
-        if e and 'plates' in e:
-            for plate in e['plates']:
-                _infoFromPlate(plate, b=b)
-
-    cond = "type=='update_plate'"
-    for entry in self.app.dm.get_entries(condition=cond):
-        _infoFromPlate(entry.extra['data'], p=entry.project)
-
-    data = {
-        'batch': batch,
-        'platesDict': platesDict
-    }
-    return data
-
-def get_plates(**kwargs):
-    plates = self.app.dm.get_pucks()
-    batches = []
-
-    for p in plates:
-        batch = p.dewar
-        plate = p.cane
-        if batch not in batches:
-            batches.append(batch)
-
-    batches.reverse()  # more recent first
-    data = {'batches': batches}
-    if batches:
-        batch_id = kwargs.get('batch_id', batches[0])
-        data.update(self.get_batch_content(batch_id=batch_id))
-
-    return data
-
-def get_workers(**kwargs):
-    workers = {}
-    for k, v in self.app.dm.get_config('hosts').items():
-        workers[k] = v
-        updated = v.get('updated', '')
-        active = False
-        if updated:
-            u = Pretty.parse_datetime(updated)
-            td = dt.datetime.now() - u
-            active = td < dt.timedelta(minutes=2)
-
-        workers[k].update({
-            'has_specs': bool(v.get('specs', '')),
-            'active': active
-        })
-    return {'workers': workers,
-            'now': Pretty.now()}
-
-def get_workers_content(**kwargs):
-    return self.get_workers()
-
 # --------------------- RAW (development) content --------------------------
-
-def get_transaction_form(**kwargs):
-    dm = self.app.dm
-    transaction_id = kwargs['transaction_id']
-    if transaction_id:
-        t = dm.get_transaction_by(id=transaction_id)
-    else:
-        t = dm.Transaction(date=dt.datetime.now(),
-                           amount=0,
-                           comment='')
-
-    return {
-        'transaction': t,
-        'pi_list': [u for u in dm.get_users() if u.is_pi]
-    }
-
 
 @dc.content
 def grids_cane(**kwargs):

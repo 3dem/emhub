@@ -31,6 +31,9 @@ Register content functions related to Sessions
 import os
 import json
 
+import datetime as dt
+from emtools.utils import Pretty
+
 
 def register_content(dc):
 
@@ -102,3 +105,56 @@ def register_content(dc):
     def raw_pucks_list(**kwargs):
         kwargs['content_id'] = 'grids_cane'
         return dc.get(**kwargs)
+
+    @dc.content
+    def dynamic_form_modal(**kwargs):
+        form_id = int(kwargs.get('form_id', 1))
+        form = dc.app.dm.get_form_by(id=form_id)
+
+        if form is None:
+            raise Exception("Invalid form id: %s" % form_id)
+
+        return dc.dynamic_form(form, **kwargs)
+
+    @dc.content
+    def logs(**kwargs):
+        dm = dc.app.dm
+        logs = int(kwargs.get('n', 100))
+        logs = dm.get_logs()[-logs:]
+        for log in logs:
+            log.user = dm.get_user_by(id=log.user_id)
+
+        return {'logs': logs}
+
+    @dc.content
+    def pages(**kwargs):
+        page_id = kwargs['page_id']
+        page_path = os.path.join(dc.app.config['PAGES'], '%s.md' % page_id)
+
+        return {
+            'page_id': page_id,
+            'page': 'pages/%s.md' % page_id
+        }
+
+    @dc.content
+    def get_workers(**kwargs):
+        workers = {}
+        for k, v in dc.app.dm.get_config('hosts').items():
+            workers[k] = v
+            updated = v.get('updated', '')
+            active = False
+            if updated:
+                u = Pretty.parse_datetime(updated)
+                td = dt.datetime.now() - u
+                active = td < dt.timedelta(minutes=2)
+
+            workers[k].update({
+                'has_specs': bool(v.get('specs', '')),
+                'active': active
+            })
+        return {'workers': workers,
+                'now': Pretty.now()}
+
+    @dc.content
+    def get_workers_content(**kwargs):
+        return get_workers()

@@ -126,6 +126,7 @@ def register_content(dc):
     @dc.content
     def entry_form(**kwargs):
         dm = dc.app.dm
+        user_id = dc.app.user.id
         now = dm.now()
         entry_id = kwargs['entry_id']
         if entry_id:
@@ -134,18 +135,18 @@ def register_content(dc):
                 entry.id = None
                 entry.title = "Copy of " + entry.title
                 entry.creation_date = now
-                entry.creation_user_id = self.app.user.id
+                entry.creation_user_id = user_id
                 entry.last_update_date = now
-                entry.last_update_user_id = self.app.user.id
+                entry.last_update_user_id = user_id
         else:
             project_id = kwargs['entry_project_id']
             project = dm.get_project_by(id=project_id)
 
             entry = dm.Entry(date=now,
                              creation_date=now,
-                             creation_user_id=self.app.user.id,
+                             creation_user_id=user_id,
                              last_update_date=now,
-                             last_update_user_id=self.app.user.id,
+                             last_update_user_id=user_id,
                              type=kwargs['entry_type'],
                              project=project,
                              title='',
@@ -160,21 +161,21 @@ def register_content(dc):
             'show_title': True,
             'show_desc': True,
         }
+
+        data = {}
+
         if form:
             dc.set_form_values(form, entry.extra.get('data', {}))
             if 'config' in form.definition:
                 form_config = form.definition['config']
+            dc.load_form_content(form, data)
 
-        data = {
+        data.update({
             'entry': entry,
             'entry_type_label': entry_config['label'],
             'definition': None if form is None else form.definition,
             'form_config': form_config
-        }
-
-        # FIXME: Now we can set content specific for each Dynamic Form
-        data.update(dc.get(content_id='grids_storage'))
-        data.update(dc.get(content_id='plates'))
+        })
 
         return data
 
