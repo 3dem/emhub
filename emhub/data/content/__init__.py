@@ -1,10 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
-# *              Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk) [2]
-# *
-# * [1] SciLifeLab, Stockholm University
-# * [2] MRC Laboratory of Molecular Biology (MRC-LMB)
+# * Authors:     J.M. de la Rosa Trevin (delarosatrevin@gmail.com)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -16,15 +12,16 @@
 # * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # * GNU General Public License for more details.
 # *
-# * You should have received a copy of the GNU General Public License
-# * along with this program; if not, write to the Free Software
-# * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-# * 02111-1307  USA
-# *
-# *  All comments concerning this program package may be sent to the
-# *  e-mail address 'delarosatrevin@scilifelab.se'
-# *
 # **************************************************************************
 
-from .data_manager import DataManager
-from .data_log import DataLog
+from . import (dc_base, dc_raw, dc_users, dc_reports, dc_bookings, dc_invoices,
+               dc_projects, dc_sessions)
+
+dc = dc_base.DataContent()
+
+dc_base.register_content(dc)
+dc_users.register_content(dc)
+dc_bookings.register_content(dc)
+dc_sessions.register_content(dc)
+dc_raw.register_content(dc)
+dc_projects.register_content(dc)

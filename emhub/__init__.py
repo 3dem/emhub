@@ -38,6 +38,7 @@ def create_app(test_config=None):
     import flask
     import flask_login
     import jinja2
+    import importlib.util
 
     from . import utils
     from .blueprints import api_bp, images_bp, pages_bp
@@ -54,6 +55,21 @@ def create_app(test_config=None):
     app = flask.Flask(__name__,
                       instance_path=emhub_instance_path,
                       instance_relative_config=True)
+
+    def load_module(module_name):
+        """ Allow to load a Python module from path for extending EMhub."""
+        module_path = os.path.join(emhub_instance_path, 'extra', module_name) + '.py'
+        if os.path.exists(module_path):
+            spec = importlib.util.spec_from_file_location('data_content', module_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+        return None
+
+    extra_api = load_module('api')
+    if extra_api and 'extend_api' in dir(extra_api):
+        print(f"Extending api from: {extra_api.__file__}")
+        extra_api.extend_api(api_bp)
 
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(images_bp, url_prefix='/images')
@@ -151,7 +167,8 @@ def create_app(test_config=None):
     # templates should be in: 'extra/templates'
     # and will take precedence from the ones in the emhub/template folder
     here = os.path.abspath(os.path.dirname(__file__))
-    template_folders = [os.path.join(emhub_instance_path, 'extra', 'templates'),
+    emhub_instance_extra = os.path.join(emhub_instance_path, 'extra')
+    template_folders = [os.path.join(emhub_instance_extra, 'templates'),
                         os.path.join(here, 'templates')]
 
     templates = []
@@ -440,8 +457,14 @@ def create_app(test_config=None):
     app.user = flask_login.current_user
     app.dm = DataManager(app.instance_path, user=app.user)
 
-    from .data.data_content import DataContent
-    app.dc = DataContent()
+    from .data.content import dc
+    app.dc = dc
+
+    # Allow to define extra content in the instance folder
+    extra_content = load_module('data_content')
+    if extra_content and 'register_content' in dir(extra_content):
+        print(f"Extending content from: {extra_content.__file__}")
+        extra_content.register_content(dc)
 
     app.jinja_env.filters['booking_active_today'] = app.dc.booking_active_today
     app.jinja_env.filters['booking_to_event'] = app.dc.booking_to_event
