@@ -457,7 +457,7 @@ def create_app(test_config=None):
     app.user = flask_login.current_user
     app.dm = DataManager(app.instance_path, user=app.user)
 
-    from .data.data_content import dc
+    from .data.content import dc
     app.dc = dc
 
     # Allow to define extra content in the instance folder

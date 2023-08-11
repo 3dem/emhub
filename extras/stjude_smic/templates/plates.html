@@ -9,9 +9,11 @@
     <!-- table row -->
     <div class="row">
 
+        {% if is_manager %}
         <div class="col-12 mb-3">
             <a href="javascript:showPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
         </div>
+        {% endif %}
 
         <div class="col-1">
             <div class="row">

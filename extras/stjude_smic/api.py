@@ -1,6 +1,6 @@
 
 def extend_api(api_bp):
-    
+
     import flask_login
     from flask import current_app as app
 

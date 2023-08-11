@@ -651,173 +651,162 @@ class DataContent:
                 }
 
 
-dc = DataContent()
-from . import (data_content_sessions, data_content_users, data_content_reports,
-               data_content_projects, data_content_invoices, data_content_raw,
-               data_content_bookings)
+def register_content(dc):
 
-data_content_users.register_content(dc)
-data_content_bookings.register_content(dc)
-data_content_sessions.register_content(dc)
-data_content_raw.register_content(dc)
-data_content_projects.register_content(dc)
+    @dc.content
+    def grids_cane(**kwargs):
+        dm = app.dm  # shortcut
 
-# --------------------- RAW (development) content --------------------------
+        range = kwargs.get('pucks_range', '1-9999')  # by default all
 
-@dc.content
-def grids_cane(**kwargs):
-    dm = app.dm  # shortcut
+        min_id, max_id = range.split('-')
+        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
 
-    range = kwargs.get('pucks_range', '1-9999')  # by default all
+        pucks = dm.get_pucks(condition=condStr, orderBy='id')
 
-    min_id, max_id = range.split('-')
-    condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        dewars = defaultdict(lambda: defaultdict(dict))
 
-    pucks = dm.get_pucks(condition=condStr, orderBy='id')
+        dewar = int(kwargs.get('dewar', 0) or 0)
+        cane = int(kwargs.get('cane', 0) or 0)
 
-    dewars = defaultdict(lambda: defaultdict(dict))
+        storage = dm.PuckStorage(pucks)
 
-    dewar = int(kwargs.get('dewar', 0) or 0)
-    cane = int(kwargs.get('cane', 0) or 0)
+        for puck in storage.pucks():
+            puck['gridboxes'] = defaultdict(dict)
 
-    storage = dm.PuckStorage(pucks)
+        cond = "type=='grids_storage'"
+        for entry in dm.get_entries(condition=cond):
+            table = entry.extra['data']['grids_storage_table']
+            for row in table:
+                try:
+                    slot = int(row['box_position'])
+                    puck = storage.get_puck(int(row['puck_id']))
+                    slot_key = ','.join(row['grid_position'])
+                    row['entry'] = entry
+                    puck['gridboxes'][slot][slot_key] = row
+                except:
+                    pass
 
-    for puck in storage.pucks():
-        puck['gridboxes'] = defaultdict(dict)
+        return {
+            'storage': storage,
+            'pucks_range': range,
+            'dewar': storage.get_dewar(dewar),
+            'cane': storage.get_cane(dewar, cane)
+        }
 
-    cond = "type=='grids_storage'"
-    for entry in dm.get_entries(condition=cond):
-        table = entry.extra['data']['grids_storage_table']
-        for row in table:
-            try:
-                slot = int(row['box_position'])
-                puck = storage.get_puck(int(row['puck_id']))
-                slot_key = ','.join(row['grid_position'])
-                row['entry'] = entry
-                puck['gridboxes'][slot][slot_key] = row
-            except:
-                pass
+    @dc.content
+    def grids_puck(**kwargs):
+        data = grids_cane(**kwargs)
+        data['puck'] = int(kwargs.get('puck', 0) or 0)
+        return data
 
-    return {
-        'storage': storage,
-        'pucks_range': range,
-        'dewar': storage.get_dewar(dewar),
-        'cane': storage.get_cane(dewar, cane)
-    }
-
-@dc.content
-def grids_puck(**kwargs):
-    data = grids_cane(**kwargs)
-    data['puck'] = int(kwargs.get('puck', 0) or 0)
-    return data
-
-@dc.content
-def grids_storage(**kwargs):
-    return grids_cane(**kwargs)
+    @dc.content
+    def grids_storage(**kwargs):
+        return grids_cane(**kwargs)
 
 
-@dc.content
-def dashboard(**kwargs):
-    print(f">>>>> Getting dashboard")
-    dm = app.dm  # shortcut
-    user = app.user  # shortcut
+    @dc.content
+    def dashboard(**kwargs):
+        print(f">>>>> Getting dashboard")
+        dm = app.dm  # shortcut
+        user = app.user  # shortcut
 
-    dataDict = dc.get_resources(image=True)
+        dataDict = dc.get_resources(image=True)
 
-    resource_bookings = {}
+        resource_bookings = {}
 
-    # Provide upcoming bookings sorted by proximity
-    bookings = [('Today', []),
-                ('Next 7 days', []),
-                ('Next 30 days', [])]
+        # Provide upcoming bookings sorted by proximity
+        bookings = [('Today', []),
+                    ('Next 7 days', []),
+                    ('Next 30 days', [])]
 
-    def week_start(d):
-        return (d - dt.timedelta(days=d.weekday())).date()
+        def week_start(d):
+            return (d - dt.timedelta(days=d.weekday())).date()
 
-    if 'date' in kwargs:
-        now = datetime_from_isoformat(kwargs['date'])
-    else:
-        now = dm.now()
-    this_week = week_start(now)
-    d7 = dt.timedelta(days=7)
-    next_week = week_start(now + d7)
-    prev7 = now - dt.timedelta(days=8)
-    next7 = now + d7
-    next30 = now + dt.timedelta(days=30)
-
-    def is_same_week(d):
-        return this_week == week_start(d)
-
-    def is_next_week(d):
-        return this_week == week_start(d - d7)
-
-    def add_booking(b):
-        start = dm.dt_as_local(b.start)
-        end = dm.dt_as_local(b.end)
-
-        r = b.resource
-        if r.id not in resource_bookings:
-            resource_bookings[r.id] = {
-                'today': [],
-                'this_week': [],
-                'next_week': []
-            }
-
-        if is_same_week(start):
-            k = 'this_week'
-        elif is_next_week(start):
-            k = 'next_week'
+        if 'date' in kwargs:
+            now = datetime_from_isoformat(kwargs['date'])
         else:
-            k = None
+            now = dm.now()
+        this_week = week_start(now)
+        d7 = dt.timedelta(days=7)
+        next_week = week_start(now + d7)
+        prev7 = now - dt.timedelta(days=8)
+        next7 = now + d7
+        next30 = now + dt.timedelta(days=30)
 
-        if k:
-            resource_bookings[r.id][k].append(b)
+        def is_same_week(d):
+            return this_week == week_start(d)
 
-            if start.date() <= now.date() <= end.date():  # also add in today
-                resource_bookings[r.id]["today"].append(b)
+        def is_next_week(d):
+            return this_week == week_start(d - d7)
 
-    local_tag = dm.get_config('bookings')['local_tag']
-    local_scopes = {}
+        def add_booking(b):
+            start = dm.dt_as_local(b.start)
+            end = dm.dt_as_local(b.end)
 
-    for b in dm.get_bookings_range(prev7, next30):
-        # if not user.is_manager and not user.same_pi(b.owner):
-        #     continue
-        r = b.resource
-        if local_tag in r.tags:
-            local_scopes[r.id] = r
-            add_booking(b)
+            r = b.resource
+            if r.id not in resource_bookings:
+                resource_bookings[r.id] = {
+                    'today': [],
+                    'this_week': [],
+                    'next_week': []
+                }
 
-    resource_requests = {rid: [] for rid in local_scopes.keys()}
-    scopes = {r.id: r for r in dm.get_resources()}
+            if is_same_week(start):
+                k = 'this_week'
+            elif is_next_week(start):
+                k = 'next_week'
+            else:
+                k = None
 
-    # Retrieve open requests for each scope from entries and bookings
-    for p in dm.get_projects():
-        if p.is_active:
-            last_bookings = {}
-            # Find last bookings for each scope
-            for b in sorted(p.bookings, key=lambda b: b.end, reverse=True):
-                if len(last_bookings) < len(local_scopes) and b.resource_id not in last_bookings:
-                    last_bookings[b.resource.id] = b
+            if k:
+                resource_bookings[r.id][k].append(b)
 
-            reqs = {}
-            for e in reversed(p.entries):
-                # Requests found for each scope, no need to continue
-                if len(reqs) == len(local_scopes):
-                    break
-                if b := dc.booking_from_entry(e, scopes):
-                    rid = b.resource_id
-                    if (rid not in reqs and
-                            (rid not in last_bookings or
-                             b.start.date() > last_bookings[rid].end.date())):
-                        b.id = e.id
-                        add_booking(b)
-                        reqs[rid] = b
+                if start.date() <= now.date() <= end.date():  # also add in today
+                    resource_bookings[r.id]["today"].append(b)
 
-    # Sort all entries
-    for rbookings in resource_bookings.values():
-        for k, bookingValues in rbookings.items():
-            bookingValues.sort(key=lambda b: b.start)
+        local_tag = dm.get_config('bookings')['local_tag']
+        local_scopes = {}
 
-    dataDict.update({'bookings': bookings,
-                     'resource_bookings': resource_bookings})
-    return dataDict
+        for b in dm.get_bookings_range(prev7, next30):
+            # if not user.is_manager and not user.same_pi(b.owner):
+            #     continue
+            r = b.resource
+            if local_tag in r.tags:
+                local_scopes[r.id] = r
+                add_booking(b)
+
+        resource_requests = {rid: [] for rid in local_scopes.keys()}
+        scopes = {r.id: r for r in dm.get_resources()}
+
+        # Retrieve open requests for each scope from entries and bookings
+        for p in dm.get_projects():
+            if p.is_active:
+                last_bookings = {}
+                # Find last bookings for each scope
+                for b in sorted(p.bookings, key=lambda b: b.end, reverse=True):
+                    if len(last_bookings) < len(local_scopes) and b.resource_id not in last_bookings:
+                        last_bookings[b.resource.id] = b
+
+                reqs = {}
+                for e in reversed(p.entries):
+                    # Requests found for each scope, no need to continue
+                    if len(reqs) == len(local_scopes):
+                        break
+                    if b := dc.booking_from_entry(e, scopes):
+                        rid = b.resource_id
+                        if (rid not in reqs and
+                                (rid not in last_bookings or
+                                 b.start.date() > last_bookings[rid].end.date())):
+                            b.id = e.id
+                            add_booking(b)
+                            reqs[rid] = b
+
+        # Sort all entries
+        for rbookings in resource_bookings.values():
+            for k, bookingValues in rbookings.items():
+                bookingValues.sort(key=lambda b: b.start)
+
+        dataDict.update({'bookings': bookings,
+                         'resource_bookings': resource_bookings})
+        return dataDict
