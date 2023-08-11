@@ -29,13 +29,19 @@
 Register content functions related to Sessions
 """
 import os
+import datetime as dt
+from collections import defaultdict
+
+from emhub.utils import shortname, get_quarter
 
 
 def register_content(dc):
+
+    @dc.content
     def get_reports_time_distribution(**kwargs):
 
         def _booking_to_json(booking, **kwargs):
-            bj = self.booking_to_event(booking, **kwargs)
+            bj = dc.booking_to_event(booking, **kwargs)
             bj.update({
                 'total_cost': booking.total_cost,
                 'days': booking.days,
@@ -43,7 +49,7 @@ def register_content(dc):
             })
             return bj
 
-        bookings, range_dict = self.get_booking_in_range(kwargs, bookingFunc=_booking_to_json)
+        bookings, range_dict = dc.get_booking_in_range(kwargs, bookingFunc=_booking_to_json)
 
         from emhub.reports import get_booking_counters
         counters, cem_counters = get_booking_counters(bookings)
@@ -64,7 +70,7 @@ def register_content(dc):
 
             return list(pi_bookings.values())
 
-        app_dict = {a.code: a.alias for a in self.app.dm.get_applications()}
+        app_dict = {a.code: a.alias for a in dc.app.dm.get_applications()}
         if details_key.startswith('CEM') and len(details_key) > 3:
             alias = app_dict.get(details_key, None)
             details_title = details_key + (' (%s)' % alias if alias else '')
@@ -96,11 +102,12 @@ def register_content(dc):
 
         return d
 
+    @dc.content
     def get_reports_invoices(**kwargs):
-        bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
+        bookings, range_dict = dc.get_booking_in_range(kwargs, asJson=False)
 
         portal_users = {
-            pu['email']: pu for pu in self.app.sll_pm.fetchAccountsJson()
+            pu['email']: pu for pu in dc.app.sll_pm.fetchAccountsJson()
             if pu['pi']
         }
 
@@ -124,7 +131,7 @@ def register_content(dc):
         apps_dict = {}
         pi_dict = {}
 
-        for a in self.app.dm.get_applications():
+        for a in dc.app.dm.get_applications():
             apps_dict[a.code] = create_pi_info_dict(a)
             pi_dict.update(create_pi_info_dict(a))
 
@@ -170,33 +177,35 @@ def register_content(dc):
 
         return result
 
+    @dc.content
     def get_reports_invoices_lab(**kwargs):
-        period = self.get_period(kwargs)
-        pi_user = self.get_pi_user(kwargs)
+        period = dc.get_period(kwargs)
+        pi_user = dc.get_pi_user(kwargs)
         app = pi_user.get_applications()[-1]
 
-        data = self.get_reports_invoices(**kwargs)
+        data = dc.get_reports_invoices(**kwargs)
         data['apps_dict'] = {app.code: data['apps_dict'][app.code]}
         data['app'] = app
-        data.update(self.get_transactions_list(period=period.id))
+        data.update(dc.get_transactions_list(period=period.id))
         data['period'] = period
         alias = app.alias
         data['details_title'] = app.code + (' (%s)' % alias if alias else '')
 
         return data
 
+    @dc.content
     def get_invoices_per_pi(**kwargs):
         pi_id = kwargs.get('pi_id', None)
 
         data = {'pi_id': pi_id,
-                'pi_list': [u for u in self.app.dm.get_users() if u.is_pi],
+                'pi_list': [u for u in dc.app.dm.get_users() if u.is_pi],
                 }
 
         if pi_id is None:
             return data
 
-        pi_user = self.get_pi_user(kwargs)
-        dm = self.app.dm  # shortcut
+        pi_user = dc.get_pi_user(kwargs)
+        dm = dc.app.dm  # shortcut
 
         def _filter(b):
             pi = b.owner.get_pi()
@@ -209,7 +218,7 @@ def register_content(dc):
         for b in dm.get_bookings():
             if _filter(b):
                 entries.append({'id': b.id,
-                                'title': self.booking_to_event(b)['title'],
+                                'title': dc.booking_to_event(b)['title'],
                                 'date': b.start,
                                 'amount': b.total_cost,
                                 'type': 'booking'
@@ -224,7 +233,7 @@ def register_content(dc):
                                 'type': 'transaction'
                                 })
 
-        invoice_periods = self.get_invoice_periods_list()['invoice_periods']
+        invoice_periods = dc.get_invoice_periods_list()['invoice_periods']
         for ip in invoice_periods:
             if ip['order'] > 0:
                 entries.append({'id': ip['id'],
@@ -254,12 +263,13 @@ def register_content(dc):
 
         return data
 
+    @dc.content
     def get_invoices_lab_list(**kwargs):
 
-        period = self.get_period(kwargs)
-        bookings, range_dict = self.get_booking_in_range(kwargs)
+        period = dc.get_period(kwargs)
+        bookings, range_dict = dc.get_booking_in_range(kwargs)
 
-        pi_user = self.get_pi_user(kwargs)
+        pi_user = dc.get_pi_user(kwargs)
 
         apps_dict = {a.id: [] for a in pi_user.get_applications()}
         all_bookings = []
@@ -283,15 +293,16 @@ def register_content(dc):
         }
 
         result.update(range_dict)
-        result.update(self.get_transactions_list(period=period.id,
-                                                 pi=pi_user.id))
+        result.update(dc.get_transactions_list(period=period.id,
+                                               pi=pi_user.id))
 
         return result
 
+    @dc.content
     def get_reports_bookings_extracosts(**kwargs):
-        all_bookings, range_dict = self.get_booking_in_range(kwargs)
+        all_bookings, range_dict = dc.get_booking_in_range(kwargs)
 
-        u = self.app.user
+        u = dc.app.user
         if not u.is_manager:
             raise Exception("Only manager users can access this page")
 
@@ -304,7 +315,7 @@ def register_content(dc):
         q1 = get_quarter()
         q0 = get_quarter(q1[0] - dt.timedelta(days=1))
 
-        self.get_transactions_list(**kwargs)
+        dc.get_transactions_list(**kwargs)
 
         result = {
             'bookings': bookings,
@@ -316,25 +327,20 @@ def register_content(dc):
 
         return result
 
-    def get_booking_costs_table(**kwargs):
-        resources = self.app.dm.get_resources()
+    def booking_costs_table(**kwargs):
+        resources = dc.app.dm.get_resources()
 
         return {'data': [(r.name, r.status, r.tags) for r in resources]}
 
-    def get_report_microscopes_usage_content(**kwargs):
-        return self.get_report_microscopes_usage(**kwargs)
-
-    def get_report_microscopes_usage_entrylist(**kwargs):
-        return self.get_report_microscopes_usage(**kwargs)
-
-    def get_report_microscopes_usage(**kwargs):
+    @dc.content
+    def report_microscopes_usage(**kwargs):
         metric = kwargs.get('metric', 'days')
         use_data = metric == 'data'
         use_days = metric == 'days'
 
-        self.check_user_access('usage_report')
+        dc.check_user_access('usage_report')
 
-        dm = self.app.dm  # shortcut
+        dm = dc.app.dm  # shortcut
         centers = dm.get_config('sessions').get('centers', {})
 
         def _filter(b):
@@ -349,9 +355,9 @@ def register_content(dc):
         else:
             pi_list = [pi.id for pi in selected_app.pi_list]
 
-        bookings, range_dict = self.get_booking_in_range(kwargs,
-                                                         asJson=False,
-                                                         filter=_filter)
+        bookings, range_dict = dc.get_booking_in_range(kwargs,
+                                                       asJson=False,
+                                                       filter=_filter)
         entries_usage = {}
         total_usage = 0
         entries_down = {}
@@ -363,7 +369,7 @@ def register_content(dc):
         resources_data_usage = defaultdict(lambda: list())
 
         report_resources = dm.get_config('reports')['resources']
-        resources = [r for r in self.get_resources()['resources']
+        resources = [r for r in dc.get_resources()['resources']
                      if r['name'] in report_resources]
 
         # selected resources
@@ -503,14 +509,24 @@ def register_content(dc):
         }
         data.update(range_dict)
         return data
+    
+    @dc.content
+    def report_microscopes_usage_content(**kwargs):
+        return report_microscopes_usage(**kwargs)
 
-    def get_report_pis_usage(**kwargs):
+    @dc.content
+    def report_microscopes_usage_entrylist(**kwargs):
+        return report_microscopes_usage(**kwargs)
 
-        bookings, range_dict = self.get_booking_in_range(kwargs, asJson=False)
+
+    @dc.content
+    def report_pis_usage(**kwargs):
+
+        bookings, range_dict = dc.get_booking_in_range(kwargs, asJson=False)
 
         pi_dict = {}
         try:
-            univ_dict = self.app.dm.get_universities_dict()
+            univ_dict = dc.app.dm.get_universities_dict()
         except:
             univ_dict = {}
 
