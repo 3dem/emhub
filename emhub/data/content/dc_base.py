@@ -67,12 +67,6 @@ class DataContent:
         dataDict = {}
         get_func = self._contentDict.get(get_func_name,
                                          getattr(self, get_func_name, None))
-        print(f">>>>> DataManager.get "
-              f"\n\tcontent_id: {content_id}"
-              f"\n\tget_func_name: {get_func_name}"
-              f"\n\thasattr: {hasattr(self, get_func_name)}"
-              f"\n\tget_func: {get_func}")
-
         if get_func is None:
             raise Exception(f"Missing content function for '{content_id}'")
 
