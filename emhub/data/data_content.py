@@ -132,7 +132,8 @@ class DataContent:
         form_values_str = kwargs.get('form_values', None) or '{}'
         form_values = json.loads(form_values_str)
         self.set_form_values(form, form_values)
-        data = {'form': form}
+        data = {'form': form,
+                'definition': form.definition}
         self.load_form_content(form, data)
         return data
 

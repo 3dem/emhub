@@ -872,7 +872,6 @@ def delete_puck():
     return handle_puck(app.dm.delete_puck)
 
 
-
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
