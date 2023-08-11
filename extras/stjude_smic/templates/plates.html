@@ -10,7 +10,7 @@
     <div class="row">
 
         <div class="col-12 mb-3">
-            <a href="javascript:addPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
+            <a href="javascript:showPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
         </div>
 
         <div class="col-1">
@@ -37,12 +37,20 @@
         </div>
 
         <div id="batch-content" class="col-11 p-0 m-0">
-               {% include "batch_content.html" %}
+
+           {% include "batch_content.html" %}
+
         </div>
 
     </div>
     <!-- end table row -->
 
+</div>
+
+<!-- ============================================================== -->
+<!-- Resource Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="plate-modal" tabindex="-1" role="dialog" aria-labelledby="plateModal" aria-hidden="true">
 </div>
 
 <script>
@@ -54,8 +62,32 @@
         ajaxContent.fail(ajax_request_failed);
     }
 
-    function addPlate() {
-        showMessage("Adding New Plate");
+    function showPlate(plate_id) {
+        var params = {
+            plate_id: plate_id
+        };
+        show_modal_from_ajax('plate-modal',
+                             get_ajax_content("plate_form", params));
+    }  // function showResource
+
+    function onPlateOkButtonClick() {
+        var values = getFormAsJson('dynamic-form');
+        // Send json data to create the puck
+        var create_plate_url = "{{ url_for('api.create_plate') }}";
+
+        send_ajax_json(create_plate_url, values,
+            function (jsonResponse) {
+                if ('error' in jsonResponse)
+                    showError(jsonResponse.error);
+                else {
+                    // Reload with current batch selected
+                    const base_url = "{{ url_for_content('plates') | safe }}";
+                    window.location.href = base_url + "&batch_id=" + values.batch;
+                }
+            }, // on success reload page
+            function (jqXHR, textStatus) {   // on fail show error message
+                showError("Add Plate Request failed: " + textStatus);
+            });
     }
 
 </script>
