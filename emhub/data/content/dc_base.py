@@ -644,6 +644,98 @@ class DataContent:
                 'scope': scope
                 }
 
+    def get_session_data(self, session, **kwargs):
+        result = kwargs.get('result', 'micrographs')
+
+        defocus = []
+        defocusAngle = []
+        resolution = []
+        astigmatism = []
+        timestamps = []
+        gridsquares = []
+        tsRange = {}
+        beamshifts = []
+
+        sdata = session.data  # shortcut
+
+        def _microns(v):
+            return round(v * 0.0001, 3)
+
+        def _ts(fn):
+            return os.path.getmtime(sdata.join(fn))
+
+        data = {
+            'session': session.json(),
+            'classes2d': []
+        }
+
+        if not sdata:
+            data['stats'] = {'movies': {'count': 0}}
+            return data
+
+        data['stats'] = sdata.get_stats()
+
+        if result == 'micrographs':
+            firstMic = lastMic = None
+            dbins = Bins([1, 2, 3])
+            rbins = Bins([3, 4, 6])
+
+            if data['stats']['ctfs']['count'] > 0:
+                for mic in sdata.get_micrographs():
+                    micFn = mic['micrograph']
+                    micName = mic.get('micName', micFn)
+                    loc = EPU.get_movie_location(micName)
+                    gridsquares.append(loc['gs'])
+                    if not defocus:
+                        firstMic = micFn
+                    lastMic = micFn
+                    d = _microns(mic['ctfDefocus'])
+                    defocus.append(d)
+                    dbins.addValue(d)
+                    defocusAngle.append(mic['ctfDefocusAngle'])
+                    astigmatism.append(_microns(mic['ctfAstigmatism']))
+                    r = round(mic['ctfResolution'], 3)
+                    resolution.append(r)
+                    rbins.addValue(r)
+
+                if firstMic and lastMic:
+                    tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
+                    step = (tsLast - tsFirst) / len(defocus)
+                else:
+                    tsFirst = dt.datetime.timestamp(dt.datetime.now())
+                    step = 1000000
+                    tsLast = tsFirst + len(defocus) * step
+
+                epuData = session.data.getEpuData()
+                if epuData is None:
+                    beamshifts = []
+                else:
+                    beamshifts = [{'x': row.beamShiftX, 'y': row.beamShiftY}
+                                  for row in epuData.moviesTable]
+                tsRange = {'first': tsFirst * 1000,  # Timestamp in milliseconds
+                           'last': tsLast * 1000,
+                           'step': step}
+
+            data.update({
+                'defocus': defocus,
+                'defocusAngle': defocusAngle,
+                'astigmatism': astigmatism,
+                'resolution': resolution,
+                'tsRange': tsRange,
+                'beamshifts': beamshifts,
+                'defocus_bins': dbins.toList(),
+                'resolution_bins': rbins.toList(),
+                'gridsquares': gridsquares,
+            })
+
+        elif result == 'classes2d':
+            runId = int(kwargs.get('run_id', -1))
+            data['classes2d'] = sdata.get_classes2d(runId=runId)
+            print(">>>> Classes 2D: ", len(data['classes2d']))
+
+        sdata.close()
+        return data
+
 
 def register_content(dc):
 

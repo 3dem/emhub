@@ -47,7 +47,7 @@
             "group": 2,
             "iconClass": "fas fa-search fa-inverse",
             "imageClass": "img--location",
-            "report": "sj_report_access_microscopes.html"
+            "report": "report_access_microscopes.html"
             },
             "booking": {
                 "label": "Booking",

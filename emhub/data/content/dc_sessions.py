@@ -29,132 +29,45 @@
 Register content functions related to Sessions
 """
 import os
+from glob import glob
+import datetime as dt
+
+from emtools.utils import Pretty
+from emtools.metadata import Bins, TsBins, EPU
 
 
 def register_content(dc):
 
-    def get_session_data(session, **kwargs):
-        result = kwargs.get('result', 'micrographs')
-
-        defocus = []
-        defocusAngle = []
-        resolution = []
-        astigmatism = []
-        timestamps = []
-        gridsquares = []
-        tsRange = {}
-        beamshifts = []
-
-        sdata = session.data  # shortcut
-
-        def _microns(v):
-            return round(v * 0.0001, 3)
-
-        def _ts(fn):
-            return os.path.getmtime(sdata.join(fn))
-
-        data = {
-            'session': session.json(),
-            'classes2d': []
-        }
-
-        if not sdata:
-            data['stats'] = {'movies': {'count': 0}}
-            return data
-
-        data['stats'] = sdata.get_stats()
-
-        if result == 'micrographs':
-            firstMic = lastMic = None
-            dbins = Bins([1, 2, 3])
-            rbins = Bins([3, 4, 6])
-
-            if data['stats']['ctfs']['count'] > 0:
-                for mic in sdata.get_micrographs():
-                    micFn = mic['micrograph']
-                    micName = mic.get('micName', micFn)
-                    loc = EPU.get_movie_location(micName)
-                    gridsquares.append(loc['gs'])
-                    if not defocus:
-                        firstMic = micFn
-                    lastMic = micFn
-                    d = _microns(mic['ctfDefocus'])
-                    defocus.append(d)
-                    dbins.addValue(d)
-                    defocusAngle.append(mic['ctfDefocusAngle'])
-                    astigmatism.append(_microns(mic['ctfAstigmatism']))
-                    r = round(mic['ctfResolution'], 3)
-                    resolution.append(r)
-                    rbins.addValue(r)
-
-                if firstMic and lastMic:
-                    tsFirst, tsLast = _ts(firstMic), _ts(lastMic)
-                    step = (tsLast - tsFirst) / len(defocus)
-                else:
-                    tsFirst = dt.datetime.timestamp(dt.datetime.now())
-                    step = 1000000
-                    tsLast = tsFirst + len(defocus) * step
-
-                epuData = session.data.getEpuData()
-                if epuData is None:
-                    beamshifts = []
-                else:
-                    beamshifts = [{'x': row.beamShiftX, 'y': row.beamShiftY}
-                                  for row in epuData.moviesTable]
-                tsRange = {'first': tsFirst * 1000,  # Timestamp in milliseconds
-                           'last': tsLast * 1000,
-                           'step': step}
-
-            data.update({
-                'defocus': defocus,
-                'defocusAngle': defocusAngle,
-                'astigmatism': astigmatism,
-                'resolution': resolution,
-                'tsRange': tsRange,
-                'beamshifts': beamshifts,
-                'defocus_bins': dbins.toList(),
-                'resolution_bins': rbins.toList(),
-                'gridsquares': gridsquares,
-            })
-
-        elif result == 'classes2d':
-            runId = int(kwargs.get('run_id', -1))
-            data['classes2d'] = sdata.get_classes2d(runId=runId)
-            print(">>>> Classes 2D: ", len(data['classes2d']))
-
-        sdata.close()
-        return data
-
     @dc.content
-    def get_session_form(**kwargs):
+    def session_form(**kwargs):
         session_id = kwargs['session_id']
         session = dc.app.dm.get_session_by(id=session_id)
         data = {'session': session.json()}
         return data
 
     @dc.content
-    def get_sessions_overview(**kwargs):
+    def sessions_overview(**kwargs):
         sessions = dc.app.dm.get_sessions(condition=dc._get_display_condition(),
                                           orderBy='resource_id')
         return {'sessions': sessions}
 
     @dc.content
-    def get_session_default(**kwargs):
+    def session_default(**kwargs):
         session_id = kwargs['session_id']
         session = dc.app.dm.load_session(session_id)
         otf_status = session.otf_status
 
         if not otf_status or otf_status == 'created':
-            data = dc.get_session_details(**kwargs)
+            data = session_details(**kwargs)
             data['session_default'] = 'session_details.html'
         else:
-            data = dc.get_session_live(**kwargs)
+            data = session_live(**kwargs)
             data['session_default'] = 'session_live.html'
 
         return data
 
     @dc.content
-    def get_session_live(**kwargs):
+    def session_live(**kwargs):
         session_id = kwargs['session_id']
         session = dc.app.dm.load_session(session_id)
         data = dc.get_session_data(session)
@@ -162,7 +75,7 @@ def register_content(dc):
         return data
 
     @dc.content
-    def get_session_details(**kwargs):
+    def session_details(**kwargs):
         session_id = kwargs['session_id']
         session = dc.app.dm.get_session_by(id=session_id)
         if session.booking:
@@ -191,7 +104,7 @@ def register_content(dc):
         }
 
     @dc.content
-    def get_session_hourly_plots(**kwargs):
+    def session_hourly_plots(**kwargs):
         session_id = kwargs['session_id']
         plot = kwargs['plot']
         session = dc.app.dm.load_session(session_id)
@@ -218,21 +131,21 @@ def register_content(dc):
         return data
 
     @dc.content
-    def get_session_data_card(**kwargs):
-        return get_session_details(**kwargs)
+    def session_data_card(**kwargs):
+        return session_details(**kwargs)
 
     @dc.content
-    def get_session_micrographs(**kwargs):
-        data = get_session_live(**kwargs)
+    def session_micrographs(**kwargs):
+        data = session_live(**kwargs)
         return {'micrographs': data['defocus'][:8]}
 
     @dc.content
-    def get_session_gridsquares(**kwargs):
+    def session_gridsquares(**kwargs):
         session = dc.app.dm.load_session(kwargs['session_id'])
         return {'gridsquares': session.data.get_gridsquares()}
 
     @dc.content
-    def get_sessions_list(**kwargs):
+    def sessions_list(**kwargs):
         show_extra = 'extra' in kwargs and dc.app.user.is_admin
         dm = dc.app.dm  # shortcut
         all_sessions = dm.get_sessions()
@@ -255,16 +168,16 @@ def register_content(dc):
         }
 
     @dc.content
-    def get_session_flowchart(**kwargs):
+    def session_flowchart(**kwargs):
         session = dc.app.dm.load_session(kwargs['session_id'])
-        data = dc.get_session_data(session)
+        # data = get_session_data(session)
         return {
             'session': session,
             'workflow': session.data.get_workflow()
         }
 
     @dc.content
-    def get_create_session_form(**kwargs):
+    def create_session_form(**kwargs):
         dm = dc.app.dm  # shortcut
         user = dc.app.user
         booking_id = int(kwargs['booking_id'])

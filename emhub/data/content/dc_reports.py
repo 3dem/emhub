@@ -509,7 +509,7 @@ def register_content(dc):
         }
         data.update(range_dict)
         return data
-    
+
     @dc.content
     def report_microscopes_usage_content(**kwargs):
         return report_microscopes_usage(**kwargs)
