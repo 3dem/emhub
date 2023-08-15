@@ -14,12 +14,13 @@
 # *
 # **************************************************************************
 
+from .dc_base import DataContent, register_content
 from . import (dc_base, dc_raw, dc_users, dc_reports, dc_bookings, dc_invoices,
                dc_projects, dc_sessions)
 
-dc = dc_base.DataContent()
+dc = DataContent()
 
-dc_base.register_content(dc)
+register_content(dc)
 dc_users.register_content(dc)
 dc_bookings.register_content(dc)
 dc_sessions.register_content(dc)
