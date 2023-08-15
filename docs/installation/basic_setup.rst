@@ -53,6 +53,32 @@ Environment Variables
 Instance Configuration
 ----------------------
 
+Templates
+~~~~~~~~~
+
+All pages of the EMhub web application use `Flask <https://flask.palletsprojects.com/en/2.3.x/>`_ templates based on
+`Jinja <https://jinja.palletsprojects.com/en/3.1.x/>`_. Builtin templates are located under the ``emhub/templates`` folder.
+
+To redefine existing templates or to create new ones, one should place template files under the folder ``$EMHUB_INSTANCE/extra/templates``.
+Some common templates to redefine are:
+
+
+.. csv-table::
+   :widths: 10, 50
+
+   "**TEMPLATE**", "**DESCRIPTION**"
+   "``main.html``", "Overall main template of the application. By changing this template one can use a new icon or define a different header."
+   "``main_left_sidebar.html``", "Left panel with sections and links to other pages."
+   "``main_topbar.html``", "Logo and header definition."
+   "``main_left_sidebar.html``", "Left panel with sections and links to other pages. "
+   "``dashboard_right.html``", "Right content of the Dashboard page."
+
+Templates requires underlying ``content`` functions that provides the data source for the templates. New templates might require the definition
+of new content functions in the file ``$EMHUB_INSTANCE/extra/data_content.py``. It is also possible to extend the existing REST API by definition
+new endpoints in ``$EMHUB_INSTANCE/extra/api.py``.
+
+Read more about :any:`Customizing EMhub`.
+
 Mail Config
 ~~~~~~~~~~~
 
@@ -65,23 +91,6 @@ EMhub can send emails for some notifications.
     MAIL_PORT = 587
     MAIL_USE_TLS = 1
     MAIL_DEFAULT_SENDER = "noreply@emhub.org"
-
-
-Configuring Templates
-~~~~~~~~~~~~~~~~~~~~~
-
-There are other variables that allow customization by defining different templates
-for some components of the web application. All templates are html (with Jinja2 templating)
-under the ``emhub/templates`` folder.
-
-.. csv-table:: **Template variables**
-   :widths: 10, 50
-
-   "**VARIABLE**", "**DESCRIPTION**"
-   "``TEMPLATE_MAIN='main.html'``", "Overall main template of the application. By changing this template one can use a new icon or define a different header. Another usage is to change the left panel with links to other pages. "
-   "``TEMPLATE_DASHBOARD_RIGHT='dashboard_right.html'``", "Right content of the Dashboard page. (TODO: Add link to SLL and StJude dashboards, and development info)."
-   "``TEMPLATE_SESSION_CONTENT='session_content.html'``", "Page used to display the information about a given session. (TODO: Add link to SLL and StJude session content, and development info)."
-   "``TEMPLATE_SESSION_BODY='create_session_form_body.html'``", "Dialog used when creating a new session. (TODO: Add link to SLL and StJude create session dialogs, and development info)."
 
 
 Authentication
