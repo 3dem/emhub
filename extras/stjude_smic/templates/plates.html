@@ -11,13 +11,12 @@
 
         {% if is_manager %}
         <div class="col-12 mb-3">
-            <a href="javascript:showPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
+            <a href="javascript:addPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
         </div>
         {% endif %}
 
         <div class="col-1">
             <div class="row">
-
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
@@ -43,10 +42,8 @@
            {% include "batch_content.html" %}
 
         </div>
-
     </div>
     <!-- end table row -->
-
 </div>
 
 <!-- ============================================================== -->
@@ -64,7 +61,7 @@
         ajaxContent.fail(ajax_request_failed);
     }
 
-    function showPlate(plate_id) {
+    function addPlate(plate_id) {
         var params = {
             plate_id: plate_id
         };
