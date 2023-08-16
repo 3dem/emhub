@@ -1086,7 +1086,7 @@ def create_data_models(dm):
         STATUS = ['active', 'inactive']
         # Possible statuses of a Project:
         #   - active: default state when created
-        #   - inactive: it has been closed and it becomes inactive
+        #   - inactive: it has been closed, and it becomes inactive
         status = Column(String(32), default='active')
 
         title = Column(String(256), nullable=False)

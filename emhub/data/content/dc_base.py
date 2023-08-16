@@ -619,7 +619,10 @@ class DataContent:
         for p in projects.values():
             days = sessions = images = size = 0
             for b in p.bookings:
-                days += b.days
+                # Only count days for microscopes
+                if not b.resource.is_microscope:
+                    continue
+                days += b.units(hours=24)
                 for s in b.session:
                     sessions += 1
                     images += s.images
