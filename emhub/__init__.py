@@ -175,6 +175,8 @@ def create_app(test_config=None):
     for folder in template_folders:
         templates.extend([os.path.basename(f) for f in glob(os.path.join(folder, '*.html'))])
 
+    print("Template folders: ", template_folders)
+
     app.jinja_loader = jinja2.FileSystemLoader(template_folders)
 
     def register_basic_params(kwargs):
@@ -475,11 +477,21 @@ def create_app(test_config=None):
     login_manager = flask_login.LoginManager()
     login_manager.init_app(app)
 
+    app.mm = None
+    app.r = None
+
     if app.config.get('USE_DOMAIN_AUTHENTICATION', False):
         import flask_ldap3_login
         ldap_manager = flask_ldap3_login.LDAP3LoginManager(app)
 
-    app.mm = MailManager(app) if app.config.get('MAIL_SERVER', None) else None
+    if app.config.get('MAIL_SERVER', None):
+        app.mm = MailManager(app)
+
+    if redis_config := app.config.get('REDIS', None):
+        import redis
+        app.r = redis.StrictRedis(redis_config['host'], redis_config['port'],
+                                  charset="utf-8", decode_responses=True)
+        app.r.ping()
 
     from flaskext.markdown import Markdown
     Markdown(app)

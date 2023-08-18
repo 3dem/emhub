@@ -603,6 +603,17 @@ def get_session_run():
     return _handle_item(_get_run, 'run')
 
 
+@api_bp.post('/create_task')
+@flask_login.login_required
+def create_task():
+    def _create_task(**attrs):
+        task = attrs['task']
+        task['args'] = json.dumps(task['args'])
+        task_id = app.r.xadd('tasks', attrs['task'])
+        print("task_id", task_id, type(task_id))
+        return {'id': task_id}
+
+    return _handle_item(_create_task, 'task')
 
 
 @api_bp.route('/get_session_tasks', methods=['POST'])
