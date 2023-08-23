@@ -160,9 +160,6 @@ def create_app(test_config=None):
                         'user_reset_password',
                         'pages']
 
-    for name, value in app.config.items():
-        app.logger.debug(f'config: {name} = {value}')
-
     # Allow to define customized templates in the instance folder
     # templates should be in: 'extra/templates'
     # and will take precedence from the ones in the emhub/template folder
@@ -175,7 +172,7 @@ def create_app(test_config=None):
     for folder in template_folders:
         templates.extend([os.path.basename(f) for f in glob(os.path.join(folder, '*.html'))])
 
-    print("Template folders: ", template_folders)
+    app.logger.debug("Template folders: %s" % template_folders)
 
     app.jinja_loader = jinja2.FileSystemLoader(template_folders)
 
@@ -457,7 +454,7 @@ def create_app(test_config=None):
 
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user
-    app.dm = DataManager(app.instance_path, user=app.user)
+
 
     from .data.content import dc
     app.dc = dc
@@ -487,11 +484,20 @@ def create_app(test_config=None):
     if app.config.get('MAIL_SERVER', None):
         app.mm = MailManager(app)
 
-    if redis_config := app.config.get('REDIS', None):
+    redis_config = os.path.join(emhub_instance_path, 'redis.conf')
+    if os.path.exists(redis_config):
+        with open(redis_config) as f:
+            for line in f:
+                if line.startswith('bind'):
+                    host = line.split()[1]
+                elif line.startswith('port'):
+                    port = int(line.split()[1])
         import redis
-        app.r = redis.StrictRedis(redis_config['host'], redis_config['port'],
+        app.r = redis.StrictRedis(host, port,
                                   charset="utf-8", decode_responses=True)
         app.r.ping()
+
+    app.dm = DataManager(app.instance_path, user=app.user, redis=app.r)
 
     from flaskext.markdown import Markdown
     Markdown(app)

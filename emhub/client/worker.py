@@ -54,16 +54,6 @@ class TaskHandler(threading.Thread):
     pass
 
 
-class Worker:
-    def __init__(self):
-        # Login into EMhub and keep a client instance
-        self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
-        self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
-
-    def __del__(self):
-        self.dc.logout()
-
-
 class SessionHandler:
     """ Class with base functionality used by the Worker thread and the
     main SessionManager.
@@ -598,6 +588,21 @@ class SjSessionManager(SessionHandler):
                 self.logger.error("Some error happened: %s" % e)
                 self.logger.error("Waiting 60 seconds before retrying...")
                 time.sleep(60)
+
+
+class Worker:
+    def __init__(self):
+        # Login into EMhub and keep a client instance
+        self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
+        self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+
+    def __del__(self):
+        self.dc.logout()
+
+    def run(self):
+        while True:
+            new_tasks = self.dc.request('get_worker_tasks',
+                                        jsonData={'worker': 'localhost'})
 
 
 if __name__ == '__main__':

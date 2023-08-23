@@ -562,6 +562,16 @@ def get_session_users():
     return _handle_item(_session_users, 'session_users')
 
 
+@api_bp.post('/get_worker_tasks')
+@flask_login.login_required
+def get_worker_tasks():
+    """ This function will return tasks for a given worker when they
+    are available. If not, it will be sleeping waiting for it.
+    """
+    while True:
+        pass
+
+
 def _loadFileLines(fn):
     lines = ''
     if os.path.exists(fn):
@@ -569,7 +579,6 @@ def _loadFileLines(fn):
             lines += line
 
     return lines
-
 
 
 @api_bp.route('/get_session_run', methods=['POST'])
@@ -603,14 +612,39 @@ def get_session_run():
     return _handle_item(_get_run, 'run')
 
 
+@api_bp.post('/connect_worker')
+@flask_login.login_required
+def connect_worker():
+    def connect_worker(**attrs):
+        worker = attrs['worker']
+        name = worker['name']
+        specs = worker.get('specs', {})
+
+        hosts = app.dm.get_config('hosts')
+        worker = task['worker']
+        app.logger.debug(f"attrs: {attrs}")
+        if worker not in hosts:
+            raise Exception("Unregistered host '%s'" % worker)
+
+        task_id = app.r.xadd(f"{worker}:tasks", attrs['task'])
+        return {'result': 'OK'}
+
+    return _handle_item(connect_worker, 'worker')
+
 @api_bp.post('/create_task')
 @flask_login.login_required
 def create_task():
     def _create_task(**attrs):
         task = attrs['task']
         task['args'] = json.dumps(task['args'])
-        task_id = app.r.xadd('tasks', attrs['task'])
-        print("task_id", task_id, type(task_id))
+        hosts = app.dm.get_config('hosts')
+        worker = task['worker']
+        app.logger.debug(f"attrs: {attrs}")
+        if worker not in hosts:
+            raise Exception("Unregistered host '%s'" % worker)
+
+
+        task_id = app.r.xadd(f"{worker}:tasks", attrs['task'])
         return {'id': task_id}
 
     return _handle_item(_create_task, 'task')
