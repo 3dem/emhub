@@ -45,7 +45,7 @@ class DataManager(DbManager):
     """ Main class that will manage the sessions and their information.
     """
     def __init__(self, dataPath, dbName='emhub.sqlite',
-                 user=None, cleanDb=False, create=True):
+                 user=None, cleanDb=False, create=True, redis=None):
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
         self._entryFiles = os.path.join(dataPath, 'entry_files')
@@ -65,6 +65,8 @@ class DataManager(DbManager):
 
             # Create sessions dir if not exists
             os.makedirs(self._sessionsPath, exist_ok=True)
+
+        self.r = redis
 
     def _create_models(self):
         """ Function called from the init_db method. """
@@ -695,6 +697,20 @@ class DataManager(DbManager):
         extra.update(attrs['extra'])
         attrs['extra'] = extra
         return self.update_session(**attrs)
+
+    # -------------------------- WORKERS AND TASKS ----------------------------
+    def get_tasks(self, worker='*'):
+        # Tasks are read from Redis
+        for taskKey in self.r.keys(f"{worker}:tasks"):
+            tasks = []
+            for tid, fields in self.r.xrange(taskKey):
+                tasks.append({
+                    'id': tid,
+                    'name': fields['name'],
+                    'args': fields.get('args', '')
+                })
+            host = taskKey.replace(':tasks', '')
+            yield host, tasks
 
     # -------------------------- INVOICE PERIODS ------------------------------
     def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):

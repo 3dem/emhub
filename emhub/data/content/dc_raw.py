@@ -138,17 +138,9 @@ def register_content(dc):
 
     @dc.content
     def workers(**kwargs):
-        r = dc.app.r
-        tasks = []
-        for tid, fields in r.xrange('tasks'):
-            tasks.append({
-                'id': tid,
-                'name': fields['name'],
-                'args': fields.get('args', '')
-            })
-
+        dm = dc.app.dm
         workers = {}
-        for k, v in dc.app.dm.get_config('hosts').items():
+        for k, v in dm.get_config('hosts').items():
             workers[k] = v
             updated = v.get('updated', '')
             active = False
@@ -162,7 +154,7 @@ def register_content(dc):
                 'active': active
             })
         return {'workers': workers,
-                'tasks': tasks,
+                'taskGroups': {h: tasks for h, tasks in dm.get_tasks()},
                 'now': Pretty.now()}
 
     @dc.content
