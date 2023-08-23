@@ -86,22 +86,22 @@
 
     function onCreateTask(){
         var task = {
-            host: $('#task_host').selectpicker('val'),
+            worker: $('#task_host').selectpicker('val'),
             name: $('#task_name').val(),
             args: JSON.parse(editor.getValue())
         }
+
         alert(JSON.stringify(task));
-        send_ajax_json({{ url_}})
 
         var create_task_url = "{{ url_for('api.create_task') }}";
 
         send_ajax_json(create_task_url, {task: task},
             function (jsonResponse) {
-                alert(JSON.stringify(jsonResponse));
                 if ('error' in jsonResponse)
                     showError(jsonResponse.error);
                 else {
-                    //reloadWorkers();
+                   $('#task_modal').modal('hide');
+                    reloadWorkers();
                 }
             }, // on success reload page
             function (jqXHR, textStatus) {   // on fail show error message

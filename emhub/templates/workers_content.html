@@ -50,8 +50,10 @@
     <a href="javascript:createTask()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Task</a>
 </div>
 
-<div class="card">
-    <div class="card-header"><h3>Tasks</h3></div>
+{% for group, tasks in taskGroups.items() %}
+
+    <div class="card">
+    <div class="card-header"><h3>Tasks - {{ group }}</h3></div>
         <div class="card-body p-0">
 
             <div class="table-responsive">
@@ -78,6 +80,8 @@
 
         </div>
     </div>
+
+{% endfor %}
 
 </div>
 
