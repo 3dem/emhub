@@ -29,6 +29,7 @@
 import datetime as dt
 import os
 import uuid
+import json
 from collections import defaultdict
 
 import sqlalchemy
@@ -699,18 +700,7 @@ class DataManager(DbManager):
         return self.update_session(**attrs)
 
     # -------------------------- WORKERS AND TASKS ----------------------------
-    def get_tasks(self, worker='*'):
-        # Tasks are read from Redis
-        for taskKey in self.r.keys(f"{worker}:tasks"):
-            tasks = []
-            for tid, fields in self.r.xrange(taskKey):
-                tasks.append({
-                    'id': tid,
-                    'name': fields['name'],
-                    'args': fields.get('args', '')
-                })
-            host = taskKey.replace(':tasks', '')
-            yield host, tasks
+
 
     # -------------------------- INVOICE PERIODS ------------------------------
     def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):
@@ -1326,6 +1316,90 @@ class DataManager(DbManager):
         if not session.data_path:
             return ''
         return os.path.join(self._sessionsPath, session.data_path)
+
+    class WorkerStream:
+        """ Helper class to centralize functions related to a
+        Redis stream for a worker machine.
+        """
+        def __init__(self, worker, r):
+            self.worker = worker
+            self.name = f"{worker}:tasks"
+            self.r = r
+
+        def _unpack(self, results):
+            for i in enumerate(results):
+                if i % 2 == 0:
+                    yield results[i], results[i + 1]
+        def connect(self):
+            # Create new group and stream for this worker if not exists
+            if not self.r.exists(self.name):
+                return self.r.xgroup_create(self.name, 'group', mkstream=True)
+            return True
+
+        def create_task(self, task):
+            task_id = self.r.xadd(self.name, task)
+            # Create a stream for this task history
+            self.update_task(task_id, {'created': Pretty.now()})
+            return task_id
+
+        def update_task(self, task_id, event):
+            self.r.xadd(f"task_history:{task_id}", event)
+            if 'done' in event:
+                self.finish_task(task_id)
+
+        def finish_task(self, task_id):
+            self.r.xack(self.name, 'group', task_id)
+
+        def get_new_tasks(self):
+            results = self.r.xreadgroup('group', self.worker, {self.name: '>'},
+                                        block=60000)
+            new_tasks = []
+            print(f"results: {results}")
+            if results:
+                for task_id, task in results[0][1]:
+                    task['id'] = task_id
+                    new_tasks.append({
+                        'id': task_id,
+                        'name': task['name'],
+                        'args': json.loads(task.get('args', '{}')),
+                })
+            return new_tasks
+
+        def get_all_tasks(self):
+            tasks = []
+            for tid, fields in self.r.xrange(self.name):
+                histKey = f"task_history:{tid}"
+                history = self.r.xlen(histKey)
+                tasks.append({
+                    'id': tid,
+                    'name': fields['name'],
+                    'args': json.loads(fields.get('args', '{}')),
+                    'history': history
+                })
+            return tasks
+
+    def connect_worker(self, worker, specs):
+        self.get_worker_stream(worker).connect()
+        now = Pretty.now()
+        hosts = self.get_config('hosts')
+        hosts[worker]['updated'] = now
+        hosts[worker]['specs'] = specs
+        self.update_config('hosts', hosts)
+
+    def get_worker_stream(self, worker):
+        hosts = self.get_config('hosts')
+
+        if worker not in hosts:
+            raise Exception("Unregistered host %s" % worker)
+
+        return DataManager.WorkerStream(worker, self.r)
+
+    def get_all_tasks(self):
+        hosts = self.get_config('hosts')
+
+        for k in hosts.keys():
+            yield k, self.get_worker_stream(k).get_all_tasks()
+
 
 
 class RepeatRanges:

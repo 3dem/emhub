@@ -154,9 +154,13 @@ def register_content(dc):
                 'active': active
             })
         return {'workers': workers,
-                'taskGroups': {h: tasks for h, tasks in dm.get_tasks()},
+                'taskGroups': {h: tasks for h, tasks in dm.get_all_tasks()},
                 'now': Pretty.now()}
 
     @dc.content
     def workers_content(**kwargs):
         return workers()
+
+    @dc.content
+    def task_history(**kwargs):
+        return dc.app.dm.get_task_history(kwargs['task_id'])

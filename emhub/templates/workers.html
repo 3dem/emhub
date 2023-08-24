@@ -15,9 +15,10 @@
 
 
 <!-- ============================================================== -->
-<!-- Edit Form -->
+<!-- Create Task Dialog -->
 <!-- ============================================================== -->
 <div class="modal" id="task_modal" tabindex="-1" role="dialog" aria-labelledby="taskModal" aria-hidden="true">
+
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document"  data-backdrop="static" data-keyboard="false">
     <div class="modal-content">
       <div class="modal-header">
@@ -75,8 +76,12 @@
       </div>
     </div>
   </div>
+
 </div>
 
+<div class="modal" id="task_history" tabindex="-1" role="dialog" aria-labelledby="taskHistory" aria-hidden="true">
+
+</div>
 
 <script>
     var editor = null;
@@ -85,17 +90,17 @@
     var timeOutId = null;
 
     function onCreateTask(){
+        var worker = $('#task_host').selectpicker('val');
         var task = {
-            worker: $('#task_host').selectpicker('val'),
             name: $('#task_name').val(),
             args: JSON.parse(editor.getValue())
         }
 
-        alert(JSON.stringify(task));
+        //alert(JSON.stringify(task));
 
         var create_task_url = "{{ url_for('api.create_task') }}";
 
-        send_ajax_json(create_task_url, {task: task},
+        send_ajax_json(create_task_url, {worker: worker, task: task},
             function (jsonResponse) {
                 if ('error' in jsonResponse)
                     showError(jsonResponse.error);

@@ -562,16 +562,6 @@ def get_session_users():
     return _handle_item(_session_users, 'session_users')
 
 
-@api_bp.post('/get_worker_tasks')
-@flask_login.login_required
-def get_worker_tasks():
-    """ This function will return tasks for a given worker when they
-    are available. If not, it will be sleeping waiting for it.
-    """
-    while True:
-        pass
-
-
 def _loadFileLines(fn):
     lines = ''
     if os.path.exists(fn):
@@ -615,40 +605,56 @@ def get_session_run():
 @api_bp.post('/connect_worker')
 @flask_login.login_required
 def connect_worker():
-    def connect_worker(**attrs):
+    def _connect_worker(**attrs):
         worker = attrs['worker']
-        name = worker['name']
-        specs = worker.get('specs', {})
-
-        hosts = app.dm.get_config('hosts')
-        worker = task['worker']
-        app.logger.debug(f"attrs: {attrs}")
-        if worker not in hosts:
-            raise Exception("Unregistered host '%s'" % worker)
-
-        task_id = app.r.xadd(f"{worker}:tasks", attrs['task'])
+        specs = attrs['specs']
+        app.dm.connect_worker(worker, specs)
         return {'result': 'OK'}
 
-    return _handle_item(connect_worker, 'worker')
+    return _handle_item(_connect_worker, 'worker')
 
 @api_bp.post('/create_task')
 @flask_login.login_required
 def create_task():
     def _create_task(**attrs):
+        worker = attrs['worker']
         task = attrs['task']
         task['args'] = json.dumps(task['args'])
-        hosts = app.dm.get_config('hosts')
-        worker = task['worker']
         app.logger.debug(f"attrs: {attrs}")
-        if worker not in hosts:
-            raise Exception("Unregistered host '%s'" % worker)
-
-
-        task_id = app.r.xadd(f"{worker}:tasks", attrs['task'])
+        task_id = app.dm.get_worker_stream(worker).create_task(task)
         return {'id': task_id}
 
     return _handle_item(_create_task, 'task')
 
+
+@api_bp.post('/update_task')
+@flask_login.login_required
+def update_task():
+    def _update_task(**attrs):
+        worker = attrs['worker']
+        task_id = attrs['task_id']
+        event = attrs['event']
+        app.dm.get_worker_stream(worker).update_task(task_id, event)
+        return {'result': 'OK'}
+
+    return _handle_item(_update_task, 'task')
+
+
+@api_bp.post('/get_new_tasks')
+@flask_login.login_required
+def get_new_tasks():
+    """ This function will return tasks for a given worker when they
+    are available. If not, it will be sleeping waiting for it.
+    """
+
+    def _get_new_tasks(**attrs):
+        worker = attrs['worker']
+        print("get_new_task: Serving tasks")
+        tasks = app.dm.get_worker_stream(worker).get_new_tasks()
+        print(f"get_new_task: Found {len(tasks)} new tasks")
+        return tasks
+
+    return _handle_item(_get_new_tasks, 'tasks')
 
 @api_bp.route('/get_session_tasks', methods=['POST'])
 @flask_login.login_required
