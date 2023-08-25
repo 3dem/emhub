@@ -72,7 +72,14 @@
                                 <td>{{ task['id'] }} </td>
                                 <td>{{ task['name'] }}</td>
                                 <td>{{ task['args'] }}</td>
-                            <td>{{ task['history'] }}</td>
+                                <td>
+                                    {% set n = task['history'] %}
+                                    {% if n > 1 %}
+                                        <a href="javascript:showTaskHistory('{{ task['id'] }}')"><span class="badge badge-pill badge-info">{{ n }}</span></a>
+                                    {% else %}
+                                        <span>{{ n }}</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                         {% endfor %}
 

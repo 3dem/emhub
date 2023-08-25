@@ -111,11 +111,27 @@ class DefaultTaskHandler(TaskHandler):
         })
         self.stop()
 
+
 class CmdTaskHandler(TaskHandler):
     def process(self):
-        args = self.task['args']['cmd'].split()
-        p = Process(*args, doRaise=False)
-        self.update_task({'output': p.stdout, 'done': 1})
+        repeat = self.task['args'].get('repeat', 1)
+        sleep = self.task['args'].get('sleep', 10)
+        print("repeat: ", repeat)
+        for i in range(repeat):
+            print("i = ", i)
+            try:
+                if i > 0:
+                    time.sleep(sleep)
+
+                args = self.task['args']['cmd'].split()
+                p = Process(*args, doRaise=False)
+                event = {'output': p.stdout}
+            except Exception as e:
+                event = {'error': str(e),
+                         'stack': traceback.format_exc()}
+            self.update_task(event)
+
+        self.update_task({'done': 1})
         self.stop()
 
 
@@ -123,6 +139,7 @@ class Worker:
     def __init__(self, **kwargs):
         # Login into EMhub and keep a client instance
         self.name = kwargs.get('name', 'localhost')
+        self.logFile = kwargs.get('logFile', 'worker.log')
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
 
@@ -139,7 +156,7 @@ class Worker:
             return result[key] if key else result
 
     def run(self):
-        create_logger(self, '.', 'worker.log',
+        create_logger(self, '.', self.logFile,
                       toFile=False, debug=True)
         data = {'worker': self.name, 'specs': System.specs()}
         self.logger.info("Connecting worker...")

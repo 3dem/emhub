@@ -163,4 +163,4 @@ def register_content(dc):
 
     @dc.content
     def task_history(**kwargs):
-        return dc.app.dm.get_task_history(kwargs['task_id'])
+        return {'task_events': dc.app.dm.get_task_history(kwargs['task_id'])}

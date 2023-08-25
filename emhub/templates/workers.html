@@ -119,6 +119,12 @@
         $('#task_modal').modal('show');
     }  // function showResource
 
+    function showTaskHistory(task_id){
+        show_modal_from_ajax('task_history',
+            get_ajax_content('task_history', {task_id: task_id})
+        )
+    }
+
     function reloadWorkers(){
         var ajaxContent = get_ajax_content('workers_content');
             ajaxContent.done(function(html) {

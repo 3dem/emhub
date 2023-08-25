@@ -1,12 +1,6 @@
 <!-- ============================================================== -->
-<!-- Application Modal Content -->
+<!-- Task History Modal Content -->
 <!-- ============================================================== -->
-{% set is_manager = current_user.is_manager %}
-{% set is_representative = current_user.id == application.representative_id %}
-{% set readonly = '' if is_manager else 'readonly' %}
-{% set disabled = '' if is_manager else 'disabled' %}
-{% set create = not application.id  %}
-
 
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document"  data-backdrop="static" data-keyboard="false">
     <div class="modal-content">
@@ -33,7 +27,7 @@
                     <tbody>
                         {% for event_id, event in task_events %}
                                 <td>{{ event_id }}</td>
-                                <td>{{ event }}</td>
+                                <td>{{ event|tojson }}</td>
                                 </tr>
                         {% endfor %}
 
@@ -47,9 +41,7 @@
       </div>
 
       <div class="modal-footer">
-
         <button type="button" id="application-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
-
       </div>
     </div>
   </div>

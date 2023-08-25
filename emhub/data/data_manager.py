@@ -1326,10 +1326,6 @@ class DataManager(DbManager):
             self.name = f"{worker}:tasks"
             self.r = r
 
-        def _unpack(self, results):
-            for i in enumerate(results):
-                if i % 2 == 0:
-                    yield results[i], results[i + 1]
         def connect(self):
             # Create new group and stream for this worker if not exists
             if not self.r.exists(self.name):
@@ -1400,6 +1396,11 @@ class DataManager(DbManager):
         for k in hosts.keys():
             yield k, self.get_worker_stream(k).get_all_tasks()
 
+    def get_task_history(self, task_id, count=None, reverse=True):
+        taskHistoryKey = f"task_history:{task_id}"
+        funcName = 'xrevrange' if reverse else 'xrange'
+        result = getattr(self.r, funcName)(taskHistoryKey, count=count)
+        return result
 
 
 class RepeatRanges:
