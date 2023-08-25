@@ -343,9 +343,28 @@ class SjSessionWorker(threading.Thread, SessionHandler):
         _update()
         self.logger.info(f"Sleeping {self._sleep} seconds.")
         info = epuData.info()
-        lastMovieDt = datetime.fromtimestamp(info['last_movie_creation'])
         now = datetime.now()
-        lastMovieDays = (now - lastMovieDt).days
+
+        if 'last_movie_creation' in info:
+            lastMovieDt = datetime.fromtimestamp(info['last_movie_creation'])
+            lastMovieDays = (now - lastMovieDt).days
+        else:
+            lastMovieDays = None
+
+        def _cleanUp():
+            self.stop()
+            sessionId = self.session['id']
+            thread = self.manager.threadsDict.get((sessionId, 'otf'), None)
+            self.manager.stop_otf(thread, self.session)
+            self.dc.update_session({'id': sessionId, 'status': 'finished'})
+
+            self.logger.info(f"OTF: {otf_path}, "
+                             f"exists: {os.path.exists(otf_path)}, "
+                             f"created: {otfCreation}, STOPPED")
+
+            if os.path.exists(framesPath):
+                self.logger.info(f"Deleting frames folder: {framesPath}")
+                self.pl.system(f"rm -rf {framesPath}")
 
         if lastMovieDays:
             self.logger.info(f"Last movie: {lastMovieDt} ({lastMovieDays} days ago)")
@@ -357,19 +376,15 @@ class SjSessionWorker(threading.Thread, SessionHandler):
                 otfCreation = f"{otfDays} days ago"
                 if otfDays:
                     # Both transfer and otf are done, so we can mark this session as finished
-                    self.stop()
-                    sessionId = self.session['id']
-                    thread = self.manager.threadsDict.get((sessionId, 'otf'), None)
-                    self.manager.stop_otf(thread, self.session)
-                    self.dc.update_session({'id': sessionId, 'status': 'finished'})
+                    _cleanUp()
+        else:
+            lastFile = os.path.join(framesPath, 'ScreeningSession.dm')
+            if os.path.exists(lastFile):
+                lastFileDt = os.path.getmtime(lastFile)
+                lastFileDays = (now - lastFileDt).days
+                if lastFileDays > 3:
+                    _cleanUp()
 
-                    self.logger.info(f"OTF: {otf_path}, "
-                                     f"exists: {os.path.exists(otf_path)}, "
-                                     f"created: {otfCreation}, STOPPED")
-
-                    if os.path.exists(framesPath):
-                        self.logger.info(f"Deleting frames folder: {framesPath}")
-                        self.pl.system(f"rm -rf {framesPath}")
 
     def update_raw(self):
         extra = self.session['extra']
