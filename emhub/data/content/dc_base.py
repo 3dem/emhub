@@ -84,8 +84,9 @@ class DataContent:
         return wrapper
 
     def get_lab_members(self, user):
-        if user.is_staff:
-            return [u.json() for u in self._get_facility_staff(user.staff_unit)]
+        unit = user.staff_unit
+        if user.is_staff(unit):
+            return [u.json() for u in self._get_facility_staff(unit)]
 
         pi = user.get_pi()
         if pi is None:
@@ -347,7 +348,7 @@ class DataContent:
         staff = []
 
         for u in self.app.dm.get_users():
-            if u.is_staff and u.staff_unit == unit:
+            if u.is_staff(unit):
                 if 'head' in u.roles:
                     staff.insert(0, u)
                 else:
@@ -414,11 +415,13 @@ class DataContent:
         # 3) Other users can not change the ownership
         # If all = True, all labs will be returned
         user = self.app.user  # shortcut
+        dm = self.app.dm
+
         if not user.is_authenticated:
             return []
 
         if user.is_manager or all:
-            piList = [u for u in self.app.dm.get_users(condition='status="active"') if u.is_pi]
+            piList = [u for u in dm.get_users(condition='status="active"') if u.is_pi]
         elif user.is_application_manager:
             apps = [a for a in user.created_applications if a.is_active]
             piSet = {user.get_id()}
@@ -442,8 +445,10 @@ class DataContent:
                 lab = [_userjson(u)] + [_userjson(u2) for u2 in u.get_lab_members()]
                 labs.append(lab)
 
-        if user.is_staff:
-            labs.append([_userjson(u) for u in self._get_facility_staff(user.staff_unit)])
+        # Group managers by staff units
+        if user.is_manager:
+            for unit in dm.get_staff_units():
+                labs.append([_userjson(u) for u in self._get_facility_staff(unit)])
 
         return labs
 
