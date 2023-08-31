@@ -83,6 +83,20 @@ class DataManager(DbManager):
         return self._db_log.get_logs()
 
     # ------------------------- USERS ----------------------------------
+    def get_user_extra_roles(self):
+        return self.get_config('users').get('extra_roles', [])
+
+    def get_staff_units(self):
+        for role in self.get_user_extra_roles():
+            if role.startswith('staff-'):
+                yield role.replace('staff-', '')
+
+    @property
+    def USER_ROLES(self):
+        roles = list(self.User.ROLES)
+        roles.extend(self.get_user_extra_roles())
+        return roles
+
     def create_admin(self, password='admin'):
         """ Create special user 'admin'. """
         admin = self.create_user(username='admin',
