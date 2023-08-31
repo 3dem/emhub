@@ -294,11 +294,11 @@ def register_content(dc):
 
             app = dm.Application(code='%s%05d' % (template.code_prefix.upper(), max_code + 1),
                                  title='', alias='', description='',
-                                 creator=self.app.user,
+                                 creator=dc.app.user,
                                  resource_allocation=dm.Application.DEFAULT_ALLOCATION,
                                  extra={})
 
-        # Microscopes info to setup some permissions on the Application form
+        # Microscopes info to set up some permissions on the Application form
         mics = [{'id': r.id,
                  'name': r.name,
                  'noslot': app.no_slot(r.id),
@@ -318,7 +318,7 @@ def register_content(dc):
                              'status': 'representative' if u.id == app.representative_id else ''
                              }
                             for u in dm.get_users() if u.is_pi],
-                'users': [u for u in dm.get_users() if u.is_staff]
+                'users': [u for u in dm.get_users() if u.is_manager]
                 }
 
 

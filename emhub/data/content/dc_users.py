@@ -121,7 +121,7 @@ def register_content(dc):
             'possible_pis': [{'id': u.id, 'name': u.name}
                              for u in dm.get_users() if u.is_pi],
             'pi_label': None,
-            'roles': dm.User.ROLES
+            'roles': dm.USER_ROLES
         }
 
     @dc.content

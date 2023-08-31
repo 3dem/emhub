@@ -183,8 +183,7 @@ ApplicationUser = Table('application_user', Base.metadata,
 class User(UserMixin, Base):
     """Model for user accounts."""
     __tablename__ = 'users'
-    ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent',
-             'staff-solna', 'staff-umea']
+    ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent']
 
     STATUSES = ['pending', 'active', 'inactive']
 
@@ -213,7 +212,7 @@ class User(UserMixin, Base):
     # Possible statuses of a User:
     #   - pending: when then account is created and pending approval
     #   - active: user is ready for operation
-    #   - inactive: user is not not longer active
+    #   - inactive: user is no longer active
     status = Column(String(32), default='active')
 
     # Default role should be: 'user'
@@ -316,9 +315,9 @@ class User(UserMixin, Base):
     def is_head(self):
         return 'head' in self.roles
 
-    @property
-    def is_staff(self):
-        return any(r.startswith('staff-') for r in self.roles)
+    def is_staff(self, unit=None):
+        role = f'staff-{unit}'
+        return self.is_manager if unit is None else role in self.roles
 
     @property
     def staff_unit(self):
@@ -346,7 +345,7 @@ class User(UserMixin, Base):
     @property
     def rolesmap(self):
         return {role: role in self.roles
-                for role in self.ROLES}
+                for role in dm.USER_ROLES}
 
     def get_pi(self):
         """ Return the PI of this user. PI are consider PI of themselves.
