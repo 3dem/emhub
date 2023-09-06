@@ -505,7 +505,8 @@ def register_content(dc):
             'data_usage_series': data_usage_series,
             'resources': resources,
             'metric': metric,
-            'use_data': use_data
+            'use_data': use_data,
+            'use_days': use_days
         }
         data.update(range_dict)
         return data
@@ -517,7 +518,6 @@ def register_content(dc):
     @dc.content
     def report_microscopes_usage_entrylist(**kwargs):
         return report_microscopes_usage(**kwargs)
-
 
     @dc.content
     def report_pis_usage(**kwargs):

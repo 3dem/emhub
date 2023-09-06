@@ -60,6 +60,10 @@ def register_content(dc):
             if not user.is_manager:
                 project.creation_user = project.user = user
 
+        pi_labs = dc.get_pi_labs(all=True)
+        from pprint import pprint
+        pprint(pi_labs)
+
         return {
             'project': project,
             'pi_labs': dc.get_pi_labs(all=True)

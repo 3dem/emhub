@@ -448,7 +448,9 @@ class DataContent:
         # Group managers by staff units
         if user.is_manager:
             for unit in dm.get_staff_units():
-                labs.append([_userjson(u) for u in self._get_facility_staff(unit)])
+                unit_members = [_userjson(u) for u in self._get_facility_staff(unit)]
+                if unit_members:
+                    labs.append(unit_members)
 
         return labs
 
