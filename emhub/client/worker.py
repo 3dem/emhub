@@ -155,6 +155,11 @@ class Worker:
         else:
             return result[key] if key else result
 
+    def handle_tasks(self, tasks):
+        """ This method should be implemented in subclasses to associated
+        different task handlers base on each task. """
+        pass
+
     def run(self):
         create_logger(self, '.', self.logFile,
                       toFile=False, debug=True)
@@ -169,12 +174,7 @@ class Worker:
                 tasks = self.request('get_new_tasks', data, 'tasks')
                 if tasks is not None:
                     self.logger.info(f"Got {len(tasks)} tasks.")
-                    for t in tasks:
-                        if t['name'] == 'command':
-                            handler = CmdTaskHandler(self, t)
-                        else:
-                            handler = DefaultTaskHandler(self, t)
-                        handler.start()
+                    self.handle_tasks(tasks)
 
             except Exception as e:
                 self.logger.error('FATAL ERROR: ' + str(e))
@@ -182,6 +182,16 @@ class Worker:
                 time.sleep(30)
 
 
+class TestWorker(Worker):
+    def handle_tasks(self, tasks):
+        for t in tasks:
+            if t['name'] == 'command':
+                handler = CmdTaskHandler(self, t)
+            else:
+                handler = DefaultTaskHandler(self, t)
+            handler.start()
+
+
 if __name__ == '__main__':
-    worker = Worker(debug=True)
+    worker = TestWorker(debug=True)
     worker.run()
