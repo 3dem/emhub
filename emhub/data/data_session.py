@@ -33,7 +33,7 @@ from collections import defaultdict
 import json
 
 import mrcfile
-from emtools.utils import Path, Timer
+from emtools.utils import Path, Timer, Pretty
 from emtools.metadata import StarFile, EPU, SqliteFile
 from emtools.image import Thumbnail
 
@@ -62,7 +62,6 @@ class SessionData:
         return self._epuData
 
     def mtime(self, fn):
-        from emtools.utils import Pretty
         print(f">>>>>> Getting time from: {self.join(fn)}: {Pretty.timestamp(os.path.getmtime(self.join(fn)))}")
         mt = os.path.getmtime(self.join(fn))
         return mt
