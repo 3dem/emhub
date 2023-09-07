@@ -28,7 +28,7 @@
                         {% set b_size = b.total_size %}
                         <td>{% if b_size %}{{ b_size|pretty_size }} {% endif %}</td>
                     {% else %}
-                        <td>{{ b.units() if use_days else b.hours }}</td>
+                        <td>{{ b.units(hours=12) / 2 if use_days else b.hours }}</td>
                     {% endif %}
                     <td>{{ b.owner.name }}</td>
                     <td><span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span></td>

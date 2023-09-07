@@ -41,7 +41,8 @@
                                             {% if use_data %}
                                                 {{ entry['days'][r]|pretty_size}}
                                             {% else %}
-                                                {{ entry['days'][r] }}
+                                                {% set days = entry['days'][r] %}
+                                                {{ days / 2 if use_days else days }}
                                             {% endif %}
                                         </th>
                                     {% endfor %}

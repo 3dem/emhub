@@ -379,7 +379,7 @@ def register_content(dc):
             selected = [r['id'] for r in resources]
 
         def _value(b):
-            return b.total_size if use_data else (b.units() if use_days else b.hours)
+            return b.total_size if use_data else (b.units(hours=12) if use_days else b.hours)
 
         for b in bookings:
             if b.resource_id not in selected:
