@@ -29,7 +29,7 @@ from pprint import pprint
 import traceback
 
 from emtools.utils import Pretty, Process, Path, Color, System
-from emtools.metadata import EPU
+from emtools.metadata import EPU, DataFiles
 
 from emhub.client.worker import (TaskHandler, DefaultTaskHandler, CmdTaskHandler,
                                  Worker)
@@ -63,20 +63,24 @@ class SessionTaskHandler(TaskHandler):
         now = datetime.now()
         td = timedelta(minutes=1)
 
+        def _mkdir(root, folder=''):
+            folderPath = os.path.join(root, folder)
+            if not os.path.exists(folderPath):
+                self.pl.system(f"mkdir {folderPath}")
+
         #  First time the process function is called for this execution
         if self.count == 1:
-            self._transfer_ed = Path.ExtDict()
-            self._transferred_files = set()
+            if not os.path.exists(framesPath):
+                _mkdir(framesPath)
+
+            self._data_files = DataFiles(lambda fn: fn.endswith('fractions.tiff'))
 
             if os.path.exists(rawPath):
                 logger.info("Restarting transfer task, loading transferred files.")
-                for root, dirs, files in os.walk(rawPath):
-                    for f in files:
-                        dstFile = os.path.join(root, f)
-                        self._transferred_files.add(dstFile)
-                        self._transfer_ed.register(dstFile)
+                self._data_files.scan(rawPath)
             else:
                 logger.info("Starting transfer task")
+                _mkdir()
 
         ed = self._transfer_ed
         self._transfer_movies = []
@@ -103,10 +107,6 @@ class SessionTaskHandler(TaskHandler):
             self._transfer_movies = []
             self._files_count = 0
 
-        def _mkdir(root, folder):
-            folderPath = os.path.join(root, folder)
-            if not os.path.exists(folderPath):
-                self.pl.system(f"mkdir {folderPath}")
 
         def _gsThumb(f):
             return f.startswith('GridSquare') and f.endswith('.jpg')

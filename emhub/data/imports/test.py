@@ -169,8 +169,6 @@ class TestData:
             self.__fix_dates(sDict, 'start')
             sDict['check_raw'] = False
             sDict['name'] = 'S%05d' % sDict['id']
-
-
             dm.create_session(**sDict)
 
 
