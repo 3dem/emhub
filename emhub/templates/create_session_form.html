@@ -86,12 +86,12 @@
 
         // If there is a session
         {#if (attrs.extra.raw_folder)#}
-        var regex = /^[a-zA-Z0-9-_]{2,16}$/;
+        var regex = /^[a-zA-Z0-9-_]{2,32}$/;
         var valid_name = nonEmpty(attrs.name) && regex.test(attrs.name);
 
         if (!valid_name) {
             showError("Provide a valid <strong>Session Name</strong>.<br>" +
-                "<p>It must have from 2 to 16 digits, containing letters, numbers, slash or underscore.</p>");
+                "<p>It must have from 2 to 32 digits, containing letters, numbers, slash or underscore.</p>");
             return;
         }
 
