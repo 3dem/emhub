@@ -959,7 +959,8 @@ def create_data_models(dm):
         @property
         def project(self):
             """ Get the project based on project_id or the booking's project. """
-            return dm.get_project_by(id=self.project_id) or self.booking.project
+            return (dm.get_project_by(id=self.project_id) or
+                    (self.booking.project if self.booking else None))
 
         @property
         def images(self):

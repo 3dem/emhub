@@ -688,11 +688,8 @@ class DataManager(DbManager):
         return session
 
     def _create_data_instance(self, session, mode):
-        if not session.data_path:
+        if not session.data_path or session.data_path.endswith('h5'):
             return None
-
-        if session.data_path.endswith('h5'):
-            return H5SessionData(self._session_data_path(session), mode)
         else:
             projectSqlite = os.path.join(session.data_path, 'project.sqlite')
             if os.path.exists(projectSqlite):
@@ -845,8 +842,8 @@ class DataManager(DbManager):
         if user.is_manager:
             return True
 
-        permissions = self.get_config("projects")['permissions']
-        value = permissions['user_can_create_projects']
+        permissions = self.get_config("permissions")['projects']
+        value = permissions['can_create']
 
         if (value == 'all'
             or (value == 'independent' and user.is_independent)):

@@ -6,90 +6,68 @@
     {% include 'include_header.html' %}
 
     <div class="card card-body">
+        <div class="row col-12 text-left">
 
-    <div class="row col-12 text-left">
+            <div class="col-2">
 
-        <div class="col-2">
+    {#            <div class="col-12 text-left" style="margin-top: 7px;">#}
+                    <h5>Application</h5>
+                        {% if applications|length == 1 %}
+                            {% set a = applications[0] %}
+                            <span class="mt-1 ml-1">{{ a.code }}</span>
+                            <input type="hidden" value="{{ a.id }}" id="application-id">
+                        {% else %}
+                            <select id="selectpicker-app" class="selectpicker" data-live-search="true" data-width="auto">
+                                {% set selected = 'selected' if app_id == 'all' else '' %}
+                                <option value="all" {{ selected }}>All</option>
+                                {% for a in applications %}
+                                    {% set selected = 'selected' if a['id'] == app_id|int else '' %}
+                                    {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None else '' %}
+                                    <option value="{{ a['id'] }}" {{selected}}>{{ a['code'] }} {{ alias }}</option>
+                                {% endfor %}
+                            </select>
+                        {%  endif %}
+    {#            </div>#}
 
-            <div class="col-12 text-left" style="margin-top: 7px;">
-                <div class="row col-12">
-                <h5> Application: </h5>
-                    {% if applications|length == 1 %}
-                        {% set a = applications[0] %}
-                        <span class="mt-1 ml-1">{{ a.code }}</span>
-                        <input type="hidden" value="{{ a.id }}" id="application-id">
-                    {% else %}
-                        <select id="selectpicker-app" class="selectpicker" data-live-search="true" data-width="auto">
-                            <option value=""></option>
-                            {% for a in applications %}
-                                {% set selected = 'selected' if a['id'] == selected_app.id else '' %}
-                                {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None else '' %}
-                                <option value="{{ a['id'] }}" {{selected}}>{{ a['code'] }} {{ alias }}</option>
-                            {% endfor %}
-                        </select>
-                    {%  endif %}
-                </div>
             </div>
 
-        </div>
-
-        <div class="col-2">
-            <div class="row">
-                <div class="col text-right" style="margin-top: 7px;">
-                    <h5> Usage Metric </h5>
-                </div>
-                <div class="col col-auto">
-                    <select id="selectpicker-metric" class="selectpicker show-tick" data-width="100%" data-key="metric" style="color: white">
-                        {% for m in ['days', 'hours', 'data'] %}
-                          {% set selected = 'selected' if metric == m else '' %}
-                            <option {{ selected }} value="{{m}}">{{ m }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <div class="col-2">
+                <h5> Usage Metric </h5>
+                <select id="selectpicker-metric" class="selectpicker show-tick" data-width="100%" data-key="metric" style="color: white">
+                    {% for m in ['days', 'hours', 'data'] %}
+                      {% set selected = 'selected' if metric == m else '' %}
+                        <option {{ selected }} value="{{m}}">{{ m }}</option>
+                    {% endfor %}
+                </select>
             </div>
-        </div>
 
-        <div class="col-2">
-            <div class="row">
-                <div class="col text-right" style="margin-top: 7px;">
-                    <h5> Date Range </h5>
-                </div>
-                <div class="col col-auto">
-                    <input class="form-control" type="text" id="daterange" value="{{ start }} - {{ end }}" />
-                </div>
+            <div class="col-2">
+                <h5> Date Range </h5>
+                <input class="form-control" type="text" id="daterange" value="{{ start }} - {{ end }}" />
             </div>
-        </div>
 
-        <div class="col-4">
-            <div class="row col-12">
-                <div class="col-3 text-right" style="margin-top: 7px;">
-                        <h5> Resources: </h5>
-                    </div>
-                <div class="col-9">
-                    <select id="selectpicker-resource" class="selectpicker show-tick" data-width="100%" data-key="resource_id" title="Select Resources..." multiple style="color: white">
-                        {% for r in resources %}
-                          {% set selected = 'selected' if r['id'] in selected_resources else '' %}
-                            <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+            <div class="col-3">
+                <h5>Resources</h5>
+                <select id="selectpicker-resource" class="selectpicker show-tick" data-width="100%" data-key="resource_id" title="Select Resources..." multiple style="color: white">
+                    {% for r in resources %}
+                      {% set selected = 'selected' if r['id'] in selected_resources else '' %}
+                        <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                    {% endfor %}
+                </select>
             </div>
-        </div>
 
-        <div class="col-1">
-            <div class="col text-left" style="margin-top: 7px;">
-                <a href="javascript:updateReport()" class="btn btn-primary"> Update </a>
-
+            <div class="col-2 text-right" style="margin-top: 7px;">
+                <a href="javascript:updateReport()" class="btn btn-primary"> Update Plots</a>
             </div>
         </div>
     </div>
-    </div>
 
-    <div class="row" id="report-content">
+    <div class="card card-body" id="report-content">
         {% include 'report_microscopes_usage_content.html' %}
-
-    </div> <!-- Overall and CEM row -->
+    </div>
 </div>
+
+
 
 
 <script>
@@ -140,7 +118,7 @@
 
     function selectEntryList(key) {
         last_key = key;
-        load_html_from_ajax('entrylist-content',
+        show_modal_from_ajax('show-entries-modal',
             get_ajax_content('report_microscopes_usage_entrylist', getArgs()));
     }
 
