@@ -299,18 +299,21 @@ function create_hc_files_pie(containerId, filesData) {
 }
 
 
-function create_hc_usage(containerId, chartType, usageData, drilldownData){
+function create_hc_usage(containerId, chartType, usageData, drilldownData, args){
     // Create the chart
+    var title = getObjectValue(args, 'title', '');
+    var subtitle = getObjectValue(args, 'subtitle', '');
+
     Highcharts.chart(containerId, {
     chart: {
         type: chartType,
     },
     title: {
-        text: '',
+        text: title,
         align: 'left'
     },
     subtitle: {
-        text: 'Click to view detailed usage.',
+        text: subtitle,
         align: 'left'
     },
 
