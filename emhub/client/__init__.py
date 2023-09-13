@@ -35,7 +35,7 @@ By default, the `DataClient` class will use the configuration read from
 A helper function `open_client` is provided for creating a context
 where a `DataClient` instance is created, logged in and out.
 """
-
 from .data_client import config, open_client, DataClient
+
 
 __all__ = ['config', 'open_client', 'DataClient']
