@@ -41,10 +41,22 @@ class SessionTaskHandler(TaskHandler):
         args = self.task['args']
         session_id = args['session_id']
         action = args['action']
-        self.session = self.dc.get_session(self.session['id'])
+        self.session = self.dc.get_session(session_id)
 
         if action == 'transfer':
             self.process = self.transfer_files
+        elif action == 'monitor':
+            self.process = self.monitor_files
+
+    def monitor_files(self):
+        if self.count == 1:
+            self.df = DataFiles(filters=[lambda fn: fn.endswith('fractions.tiff')])
+            self.sleep = 30
+
+        extra = self.session['extra']
+        raw = extra['raw']
+        self.df.scan(raw)
+
 
     def transfer_files(self):
         """ Move files from the Raw folder to the Offload folder.

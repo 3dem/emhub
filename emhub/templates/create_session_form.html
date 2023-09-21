@@ -53,7 +53,7 @@
                 pixel_size: formValues.acq_pixel_size,
                 dose: formValues.acq_dose,
                 cs: formValues.acq_cs
-            }
+            },
         }
 
         if (formValues.session_name) {
@@ -65,13 +65,14 @@
                     raw: {},
                     project_id: formValues.project_id,
                 }
+                attrs.tasks = ["transfer", "otf"]  // FIXME
             }
             else {
                 attrs.extra = {
-                    tasks: ["raw", "otf"],
                     raw: {path: formValues.raw_folder},
-                    project_id: formValues.project_id,
+                    project_id: formValues.project_id
                 }
+                attrs.tasks = ["monitor"]
             }
 
             if (!formValues.otf_folder)

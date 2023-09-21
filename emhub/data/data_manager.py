@@ -185,8 +185,7 @@ class DataManager(DbManager):
         """
         form = self.get_form_by(name=formName)
         if form is None:
-            raise Exception("Missing Form '%s' from the database!!!" % formName)
-
+            print(">>>>> ERROR: Missing Form '%s' from the database!!!" % formName)
         return form
 
     # ---------------------------- RESOURCES ---------------------------------
@@ -604,6 +603,7 @@ class DataManager(DbManager):
         """ Add a new session row. """
         create_data = attrs.pop('create_data', False)
         check_raw = attrs.pop('check_raw', True)
+        tasks = attrs.pop('tasks', [])
 
         b = self.get_booking_by(id=int(attrs['booking_id']))
         attrs['resource_id'] = b.resource.id
@@ -640,6 +640,16 @@ class DataManager(DbManager):
         if session_info:
             self.update_session_counter(session_info['code'],
                                         session_info['counter'] + 1)
+
+        task = {
+            'name': 'session',
+            'args': {'session_id': session.id}
+        }
+
+        for t in tasks:
+            worker = 'localhost'  # FIXME
+            task['args']['actions'] = t
+            self.get_worker_stream(worker).create_task(task)
 
         return session
 
@@ -822,10 +832,11 @@ class DataManager(DbManager):
         return self.__item_by(self.Project, **kwargs)
 
     # ---------------------------- ENTRIES ---------------------------------
-    def get_config(self, configName):
+    def get_config(self, configName, default={}):
         """ Find a form named config:configName and return
         the associated JSON definition. """
-        return self.get_form_by_name(f'config:{configName}').definition
+        form = self.get_form_by_name(f'config:{configName}')
+        return form.definition if form else default
 
     def update_config(self, configName, definition):
         form = self.get_form_by_name(f'config:{configName}')
@@ -1344,6 +1355,7 @@ class DataManager(DbManager):
             return True
 
         def create_task(self, task):
+            task['args'] = json.dumps(task['args'])
             task_id = self.r.xadd(self.name, task)
             # Create a stream for this task history
             self.update_task(task_id, {'created': Pretty.now()})

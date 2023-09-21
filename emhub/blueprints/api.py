@@ -619,7 +619,6 @@ def create_task():
     def _create_task(**attrs):
         worker = attrs['worker']
         task = attrs['task']
-        task['args'] = json.dumps(task['args'])
         app.logger.debug(f"attrs: {attrs}")
         task_id = app.dm.get_worker_stream(worker).create_task(task)
         return {'id': task_id}
