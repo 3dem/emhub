@@ -19,6 +19,7 @@
                         {{ macros.trow('Size', session.size|pretty_size) }}
                         {{ macros.trow('Files', session.total_files) }}
                         {{ macros.trow('Images', session.images) }}
+                        {{ macros.trow('Updated', extra['raw'].get('updated', '')) }}
 
                     </tbody>
                 </table>

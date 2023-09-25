@@ -1380,6 +1380,15 @@ class DataManager(DbManager):
         def finish_task(self, task_id):
             self.r.xack(self.name, 'group', task_id)
 
+        def delete_task(self, task_id):
+            try:
+                self.finish_task(task_id)
+                self.r.xdel(self.name, task_id)
+                self.r.delete(f"task_history:{task_id}")
+            except:
+                return 0
+            return 1
+
         def get_new_tasks(self):
             results = self.r.xreadgroup('group', self.worker, {self.name: '>'},
                                         block=60000)
@@ -1416,7 +1425,6 @@ class DataManager(DbManager):
             pending = set()
             if self.stream_exists() and self.group_exists():
                 n = self.r.xpending(self.name, 'group')['pending']
-                print(f"\t n = {n}")
                 for t in self.r.xpending_range(self.name, 'group', '-', '+', n):
                     pending.add(t['message_id'])
 

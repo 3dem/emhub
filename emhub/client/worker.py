@@ -106,7 +106,7 @@ class DefaultTaskHandler(TaskHandler):
     def process(self):
         name = self.task['name']
         self.update_task({
-            'error': 'There is no handler for task {name}',
+            'error': f'There is no handler for task {name}',
             'done': 1
         })
         self.stop()

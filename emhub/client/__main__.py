@@ -35,6 +35,7 @@ By default, the `DataClient` class will use the configuration read from
 A helper function `open_client` is provided for creating a context
 where a `DataClient` instance is created, logged in and out.
 """
+import os
 import sys
 import json
 import argparse
@@ -81,14 +82,14 @@ def process_forms(args):
 
 
 def main():
-    print("EMHUB_SERVER_URL: ", config.EMHUB_SERVER_URL)
+
 
     p = argparse.ArgumentParser(prog='emh-client')
 
     subparsers = p.add_subparsers(dest='entity')
 
+    # ------------------------- Form subparser -------------------------------
     form_p = subparsers.add_parser("form")
-    session_p = subparsers.add_parser("session")
 
     g = form_p.add_mutually_exclusive_group()
     # g.add_argument('--method', '-m', nargs=2, metavar=('METHOD', 'JSON'),
@@ -100,6 +101,13 @@ def main():
                    help="Update forms with data from the json file. ")
     g.add_argument('--list', '-l')
 
+    # ------------------------- Session subparser -------------------------------
+    session_p = subparsers.add_parser("session")
+
+    # ------------------------- Method subparser -------------------------------
+    method_p = subparsers.add_parser("method")
+    method_p.add_argument('method', metavar='METHOD_NAME')
+    method_p.add_argument('attrs', metavar='ATTRS', nargs='?')
     # g.add_argument('--transfer', nargs=3, metavar=('FRAMES', 'RAW', 'EPU'),
     #                help='Transfer (move) files from SRC to DST')
     # g.add_argument('--parse', metavar='DIR',
@@ -112,16 +120,24 @@ def main():
         process_forms(args)
 
     elif args.entity == 'method':
-        method, jsonData = args.method
-        print("method: ", method)
-        print("jsonData: ", jsonData)
+        print("method: ", args.method)
+        print("jsonData: ", args.attrs)
 
         with open_client() as dc:
-            r = dc.request(method, jsonData=None)
-            for item in r.json():
-                if 'extra' in item:
-                    del item['extra']
-                pprint(item)
+            r = dc.request(args.method, jsonData={'attrs': json.loads(args.attrs)})
+            result = r.json()
+
+            if isinstance(result, list):
+                for item in result:
+                    if 'extra' in item:
+                        del item['extra']
+                    pprint(item)
+            else:
+                pprint(result)
+    else:
+        for k, v in os.environ.items():
+            if k.startswith('EMHUB_'):
+                print(f"export {k}={v}")
 
 
 if __name__ == '__main__':

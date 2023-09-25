@@ -61,7 +61,6 @@
 
             if (!formValues.raw_folder){
                 attrs.extra = {
-                    tasks: ["transfer", "otf"],
                     raw: {},
                     project_id: formValues.project_id,
                 }
@@ -72,7 +71,7 @@
                     raw: {path: formValues.raw_folder},
                     project_id: formValues.project_id
                 }
-                attrs.tasks = ["monitor"]
+                attrs.tasks = ["monitor", "otf"]
             }
 
             if (!formValues.otf_folder)

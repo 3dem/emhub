@@ -625,6 +625,25 @@ def create_task():
 
     return _handle_item(_create_task, 'task')
 
+@api_bp.post('/delete_task')
+@flask_login.login_required
+def delete_task():
+    def _delete_task(**attrs):
+        worker = attrs['worker']
+        wstream = app.dm.get_worker_stream(worker)
+        result = 0
+        task_id = attrs['task_id']
+        if task_id.startswith('<'):
+            task_id.replace('<', '')
+            for t in wstream.get_all_tasks():
+                if t['id'] < task_id:
+                    result += wstream.delete_task(t['id'])
+        else:
+            result = wstream.delete_task(task_id)
+        return {'result': result}
+
+    return _handle_item(_delete_task, 'task')
+
 
 @api_bp.post('/update_task')
 @flask_login.login_required
@@ -645,15 +664,27 @@ def get_new_tasks():
     """ This function will return tasks for a given worker when they
     are available. If not, it will be sleeping waiting for it.
     """
-
     def _get_new_tasks(**attrs):
         worker = attrs['worker']
-        print("get_new_task: Serving tasks")
         tasks = app.dm.get_worker_stream(worker).get_new_tasks()
-        print(f"get_new_task: Found {len(tasks)} new tasks")
         return tasks
 
     return _handle_item(_get_new_tasks, 'tasks')
+
+@api_bp.post('/get_pending_tasks')
+@flask_login.login_required
+def get_pending_tasks():
+    """ This function will return pending tasks for a given worker.
+    A task is pending if it was claimed by the worker, but it has not been
+    acknowledged as completed.
+    """
+    def _get_pending_tasks(**attrs):
+        worker = attrs['worker']
+        tasks = [t for t in app.dm.get_worker_stream(worker).get_all_tasks()
+                 if t['status'] == 'pending']
+        return tasks
+
+    return _handle_item(_get_pending_tasks, 'tasks')
 
 @api_bp.route('/get_session_tasks', methods=['POST'])
 @flask_login.login_required

@@ -56,7 +56,7 @@ def register_content(dc):
 
     @dc.content
     def raw_booking_list(**kwargs):
-        bookings = dc.app.dm.get_bookings()
+        bookings = [b for b in dc.app.dm.get_bookings() if b.owner.id == 132]
         return {'bookings': bookings}
 
     @dc.content
@@ -119,8 +119,11 @@ def register_content(dc):
     @dc.content
     def logs(**kwargs):
         dm = dc.app.dm
-        logs = int(kwargs.get('n', 100))
-        logs = dm.get_logs()[-logs:]
+        n = int(kwargs.get('n', 100))
+        name = kwargs.get('name', '')
+        all_logs = [log for log in dm.get_logs() if log.name == name]
+        logs = all_logs[-n:]
+
         for log in logs:
             log.user = dm.get_user_by(id=log.user_id)
 
