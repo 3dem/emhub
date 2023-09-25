@@ -60,9 +60,10 @@
                 <table class="table">
                     <thead class="bg-light">
                     <tr class="border-0">
-                    <th class="border-0">id</th>
-                    <th class="border-0">name</th>
-                    <th class="border-0">args</th>
+                        <th class="border-0">id</th>
+                        <th class="border-0">name</th>
+                        <th class="border-0">args</th>
+                        <th class="border-0">status</th>
                         <th class="border-0">history</th>
                     </tr>
                     </thead>
@@ -71,7 +72,8 @@
                             <tr>
                                 <td>{{ task['id'] }} </td>
                                 <td>{{ task['name'] }}</td>
-                                <td>{{ task['args'] }}</td>
+                                <td>{{ task['args']|tojson }}</td>
+                                <td>{{ task['status'] }}</td>
                                 <td>
                                     {% set n = task['history'] %}
                                     {% if n > 1 %}
@@ -80,6 +82,7 @@
                                         <span>{{ n }}</span>
                                     {% endif %}
                                 </td>
+
                             </tr>
                         {% endfor %}
 
