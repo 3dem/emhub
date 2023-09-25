@@ -1343,15 +1343,26 @@ class DataManager(DbManager):
         """ Helper class to centralize functions related to a
         Redis stream for a worker machine.
         """
-        def __init__(self, worker, r):
+        def __init__(self, worker, dm):
             self.worker = worker
             self.name = f"{worker}:tasks"
-            self.r = r
+            self.dm = dm
+            self.r = dm.r
+
+        def stream_exists(self):
+            return self.r.exists(self.name)
+
+        def group_exists(self):
+            groups = self.r.xinfo_groups(self.name)
+            return len(groups) > 0 and groups[0]['name'] == 'group'
 
         def connect(self):
             # Create new group and stream for this worker if not exists
-            if not self.r.exists(self.name):
+            if not self.stream_exists():
                 return self.r.xgroup_create(self.name, 'group', mkstream=True)
+            elif not self.group_exists():
+                return self.r.xgroup_create(self.name, 'group')
+
             return True
 
         def create_task(self, task):
@@ -1386,16 +1397,30 @@ class DataManager(DbManager):
 
         def get_all_tasks(self):
             tasks = []
+            pending = self.get_pending_tasks()
+
             for tid, fields in self.r.xrange(self.name):
                 histKey = f"task_history:{tid}"
                 history = self.r.xlen(histKey)
+                done = self.dm.is_task_done(tid)
                 tasks.append({
                     'id': tid,
                     'name': fields['name'],
                     'args': json.loads(fields.get('args', '{}')),
-                    'history': history
+                    'history': history,
+                    'status': 'pending' if tid in pending else ('done' if done else ''),
                 })
             return tasks
+
+        def get_pending_tasks(self):
+            pending = set()
+            if self.stream_exists() and self.group_exists():
+                n = self.r.xpending(self.name, 'group')['pending']
+                print(f"\t n = {n}")
+                for t in self.r.xpending_range(self.name, 'group', '-', '+', n):
+                    pending.add(t['message_id'])
+
+            return pending
 
     def connect_worker(self, worker, specs):
         self.get_worker_stream(worker).connect()
@@ -1411,7 +1436,7 @@ class DataManager(DbManager):
         if worker not in hosts:
             raise Exception("Unregistered host %s" % worker)
 
-        return DataManager.WorkerStream(worker, self.r)
+        return DataManager.WorkerStream(worker, self)
 
     def get_all_tasks(self):
         hosts = self.get_config('hosts')
@@ -1424,6 +1449,10 @@ class DataManager(DbManager):
         funcName = 'xrevrange' if reverse else 'xrange'
         result = getattr(self.r, funcName)(taskHistoryKey, count=count)
         return result
+
+    def is_task_done(self, task_id):
+        eid, event = self.get_task_history(task_id, count=1, reverse=True)[0]
+        return 'done' in event
 
 
 class RepeatRanges:
