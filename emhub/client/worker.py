@@ -116,9 +116,7 @@ class CmdTaskHandler(TaskHandler):
     def process(self):
         repeat = self.task['args'].get('repeat', 1)
         sleep = self.task['args'].get('sleep', 10)
-        print("repeat: ", repeat)
         for i in range(repeat):
-            print("i = ", i)
             try:
                 if i > 0:
                     time.sleep(sleep)
@@ -160,6 +158,13 @@ class Worker:
         different task handlers base on each task. """
         pass
 
+    def get_tasks(self, key, data):
+        self.logger.info(f"Retrieving {key} tasks...")
+        tasks = self.request(f'get_{key}_tasks', data, 'tasks')
+        if tasks is not None:
+            self.logger.info(f"Got {len(tasks)} tasks.")
+            self.handle_tasks(tasks)
+
     def run(self):
         create_logger(self, '.', self.logFile,
                       toFile=False, debug=True)
@@ -168,14 +173,12 @@ class Worker:
         result = self.request('connect_worker', data)
         del data['specs']
 
+        # Handling pending tasks
+        self.get_tasks('pending', data)
+
         while True:
             try:
-                self.logger.info("Retrieving new tasks...")
-                tasks = self.request('get_new_tasks', data, 'tasks')
-                if tasks is not None:
-                    self.logger.info(f"Got {len(tasks)} tasks.")
-                    self.handle_tasks(tasks)
-
+                self.get_tasks('new', data)
             except Exception as e:
                 self.logger.error('FATAL ERROR: ' + str(e))
                 self.logger.error(traceback.format_exc())

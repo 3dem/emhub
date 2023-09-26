@@ -97,6 +97,7 @@ class SessionTaskHandler(TaskHandler):
             update_args['done'] = 1
 
         # Remove dict from the task update
+        pprint(update_args)
         del update_args['files']
         self.update_task(update_args)
 
@@ -109,25 +110,31 @@ class SessionTaskHandler(TaskHandler):
         logger = self.logger
         raw = extra['raw']
 
+        def _endslash(p):
+            return p if p.endswith('/') else p + '/'
+
         # Real raw path where frames are being recorded
-        framesPath = raw['frames']
+        framesPath = _endslash(raw['frames'])
 
         # Offload server path where to transfer the files
-        rawPath = raw['path']
+        rawPath = _endslash(raw['path'])
 
         def _mkdir(root, folder=''):
             folderPath = os.path.join(root, folder)
             if not os.path.exists(folderPath):
-                self.pl.system(f"mkdir {folderPath}")
+                self.pl.system(f"mkdir -p '{folderPath}'")
 
         #  First time the process function is called for this execution
         if self.count == 1:
             _mkdir(framesPath)
-            self.mf = MovieFiles()
+            self.mf = MovieFiles(root=rawPath)
 
             if os.path.exists(rawPath):
                 logger.info("Restarting transfer task, loading transferred files.")
                 self.mf.scan(rawPath)
+                pprint(self.mf.info())
+                raw.update(self.mf.info())
+                self.update_session_extra({'raw': raw})
             else:
                 logger.info("Starting transfer task")
                 _mkdir(rawPath)
@@ -174,6 +181,8 @@ class SessionTaskHandler(TaskHandler):
                     mf.register(dstFile, stat=s)
                     transferred = True
                     self.n_files += 1
+                    self.logger.info(f"n_files {self.n_files}")
+                    time.sleep(1)
                     # Register creation time of movie files
                     if f.endswith('fractions.tiff'):
                         self.n_movies += 1
@@ -187,8 +196,8 @@ class SessionTaskHandler(TaskHandler):
                         #if f.endswith('.xml') or _gsThumb(f):
                         #    self.pl.system(f'cp "{srcFile}" "{dstEpuFile}"', retry=30)
 
-            if self.n_files >= 32:  # make frequent updates to keep otf updated
-                _update()
+                if self.n_files >= 32:  # make frequent updates to keep otf updated
+                    _update()
 
         # Only sleep when no data was found
         self.sleep = 0 if transferred else 60

@@ -1459,8 +1459,12 @@ class DataManager(DbManager):
         return result
 
     def is_task_done(self, task_id):
-        eid, event = self.get_task_history(task_id, count=1, reverse=True)[0]
-        return 'done' in event
+        history = self.get_task_history(task_id, count=1, reverse=True)
+        if history:
+            eid, event = history[0]
+            return 'done' in event
+        else:
+            return False
 
 
 class RepeatRanges:
