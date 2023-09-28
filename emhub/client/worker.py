@@ -60,9 +60,13 @@ class TaskHandler(threading.Thread):
         self.sleep = 10  # seconds to sleep while handling the task
         self.count = 0  # number of times the process function has executed
         self._stopEvent = threading.Event()
-        create_logger(self, '.',
-                      f"task-{task['name']}-{task['id']}.log",
-                      toFile=False, debug=True)
+        # Register this task handler in the current worker
+        worker.tasks[task['id']] = self
+        create_logger(self, self.worker.logsFolder, self.getLogName(),
+                      toFile=True, debug=True)
+
+    def getLogName(self):
+        return f"task-{self.task['name']}-{self.task['id']}.log"
 
     def stop(self):
         self._stopEvent.set()
@@ -76,12 +80,18 @@ class TaskHandler(threading.Thread):
         self.worker.request('update_task', data)
 
     def run(self):
+        self.logger.info(f"Running task handler {self.__class__} "
+                         f"for task {self.task['id']}")
+        self.logger.info(f"LOG_FILE: {self.logFile}")
+
         while True:
             try:
                 if self.count:
                     time.sleep(self.sleep)
                     if self._stopEvent.is_set():
-                        self.logger.info("Stopping worker thread.")
+                        self.logger.info(f"Stopping task handler for "
+                                         f"{self.task['id']}.")
+                        del self.worker.tasks[self.task['id']]
                         break
 
                 self.count += 1
@@ -138,8 +148,10 @@ class Worker:
         # Login into EMhub and keep a client instance
         self.name = kwargs.get('name', 'localhost')
         self.logFile = kwargs.get('logFile', 'worker.log')
+        self.logsFolder = os.path.expanduser('~/.emhub/sessions/logs')
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+        self.tasks = {}
 
     def __del__(self):
         self.dc.logout()
@@ -166,10 +178,15 @@ class Worker:
             self.handle_tasks(tasks)
 
     def run(self):
-        create_logger(self, '.', self.logFile,
-                      toFile=False, debug=True)
+        create_logger(self, self.logsFolder, self.logFile,
+                      toFile=True, debug=True)
+
+        self.logger.info(f"Running worker: {self.name}")
+        self.logger.info(f"      LOG_FILE: {self.logFile}")
+        self.logger.info(f"Connecting to EMHUB...")
+        self.logger.info(f"     SERVER_URL: {config.EMHUB_SERVER_URL}")
+
         data = {'worker': self.name, 'specs': System.specs()}
-        self.logger.info("Connecting worker...")
         result = self.request('connect_worker', data)
         del data['specs']
 

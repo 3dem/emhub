@@ -39,12 +39,23 @@ from emhub.client.worker import (TaskHandler, DefaultTaskHandler, CmdTaskHandler
 class SessionTaskHandler(TaskHandler):
     def __init__(self, *args, **kwargs):
         TaskHandler.__init__(self, *args, **kwargs)
+        self.mf = None
+        self.dc = self.worker.dc
+
         targs = self.task['args']
         session_id = targs['session_id']
         self.action = targs.get('action', 'Empty-Action')
+
+        self.logger.info("Getting config and session data from EMhub.")
         self.session = self.dc.get_session(session_id)
+        attrs = {"attrs": {"id": self.session['id']}}
+        self.sconfig = self.request_config('sessions')
+        self.users = self.request_data('get_session_users', attrs)['session_users']
+        self.resources = self.request_dict('get_resources',
+                                           {"attrs": ["id", "name"]})
+        self.microscope = self.resources[self.session['resource_id']]['name']
+
         self.sleep = targs.get('sleep', 60)
-        self.mf = None
 
         print(Color.bold(f">>> Handling task for session {self.session['id']}"))
         print(f"\t action: {self.action}")
@@ -54,19 +65,30 @@ class SessionTaskHandler(TaskHandler):
             self.process = self.transfer_files
         elif self.action == 'monitor':
             self.process = self.monitor_files
+        elif self.action == 'otf':
+            self.process = self.otf
         else:
             self.process = self.unknown_action
 
     def update_session_extra(self, extra):
-        w = self.worker
         extra['updated'] = Pretty.now()
         try:
-            w.dc.update_session_extra({'id': self.session['id'], 'extra': extra})
+            self.dc.update_session_extra({'id': self.session['id'], 'extra': extra})
             return True
         except Exception as e:
-            w.logger.error(f"Error connecting to {config.EMHUB_SERVER_URL} "
-                           f"to update session.")
+            self.logger.error(f"Error connecting to {config.EMHUB_SERVER_URL} "
+                              f"to update session.")
             return False
+
+    def request_data(self, endpoint, jsonData=None):
+        return self.dc.request(endpoint, jsonData=jsonData).json()
+
+    def request_dict(self, endpoint, jsonData=None):
+        return {s['id']: s for s in self.request_data(endpoint, jsonData=jsonData)}
+
+    def request_config(self, config):
+        data = {'attrs': {'config': config}}
+        return self.request_data('get_config', jsonData=data)['config']
 
     def unknown_action(self):
         self.update_task({
@@ -101,6 +123,19 @@ class SessionTaskHandler(TaskHandler):
         del update_args['files']
         self.update_task(update_args)
 
+    def _mkdir(self, d):
+        if not os.path.exists(d):
+            self.pl.system(f"mkdir -p '{d}'")
+
+    def _cp(self, src, dst, **kwargs):
+        self.pl.system(f"cp '{src}' '{dst}'", **kwargs)
+
+    def _addslash(self, p):
+        return p if p.endswith('/') else p + '/'
+
+    def _rmslash(self, p):
+        return p[:-1] if p.endswith('/') else p
+
     def transfer_files(self):
         """ Move files from the Raw folder to the Offload folder.
         Files will be moved when there has been a time without modification
@@ -110,23 +145,15 @@ class SessionTaskHandler(TaskHandler):
         logger = self.logger
         raw = extra['raw']
 
-        def _endslash(p):
-            return p if p.endswith('/') else p + '/'
-
         # Real raw path where frames are being recorded
-        framesPath = _endslash(raw['frames'])
+        framesPath = self._addslash(raw['frames'])
 
         # Offload server path where to transfer the files
-        rawPath = _endslash(raw['path'])
-
-        def _mkdir(root, folder=''):
-            folderPath = os.path.join(root, folder)
-            if not os.path.exists(folderPath):
-                self.pl.system(f"mkdir -p '{folderPath}'")
+        rawPath = self._addslash(raw['path'])
 
         #  First time the process function is called for this execution
         if self.count == 1:
-            _mkdir(framesPath)
+            self._mkdir(framesPath)
             self.mf = MovieFiles(root=rawPath)
 
             if os.path.exists(rawPath):
@@ -137,7 +164,7 @@ class SessionTaskHandler(TaskHandler):
                 self.update_session_extra({'raw': raw})
             else:
                 logger.info("Starting transfer task")
-                _mkdir(rawPath)
+                self._mkdir(rawPath)
 
         mf = self.mf  # shortcut
 
@@ -148,6 +175,7 @@ class SessionTaskHandler(TaskHandler):
             self.logger.info(f"Found {self.n_files} new files, "
                              f"{self.n_movies} new movies")
             if self.n_files > 0:
+                pprint(mf.info())
                 raw.update(mf.info())
                 self.update_session_extra({'raw': raw})
                 # Remove dict from the task update
@@ -181,20 +209,14 @@ class SessionTaskHandler(TaskHandler):
                     mf.register(dstFile, stat=s)
                     transferred = True
                     self.n_files += 1
-                    self.logger.info(f"n_files {self.n_files}")
                     time.sleep(1)
                     # Register creation time of movie files
                     if f.endswith('fractions.tiff'):
                         self.n_movies += 1
                         # Only move now the movies files, not other metadata files
                         self.pl.system(f'rsync -ac --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
-                    else:  # Copy metadata files into the OTF/EPU folder
-                        self.pl.system(f'cp "{srcFile}" "{dstFile}"', retry=30)
-                        # Not doing the EPU backup for now
-                        #dstEpuFile = os.path.join(rootEpu, f)
-                        # only backup gridsquares thumbnails and xml files
-                        #if f.endswith('.xml') or _gsThumb(f):
-                        #    self.pl.system(f'cp "{srcFile}" "{dstEpuFile}"', retry=30)
+                    else:  # Copy metadata files
+                        self._cp(srcFile, dstFile, retry=30)
 
                 if self.n_files >= 32:  # make frequent updates to keep otf updated
                     _update()
@@ -203,7 +225,6 @@ class SessionTaskHandler(TaskHandler):
         self.sleep = 0 if transferred else 60
         _update()
         self.logger.info(f"Sleeping {self.sleep} seconds.")
-
 
         # FIXME
         # Implement cleanup
@@ -253,6 +274,153 @@ class SessionTaskHandler(TaskHandler):
         #         if lastFileDays > 3:
         #             _cleanUp()
 
+    def otf(self):
+        # Stop all OTF tasks running in this worker
+        if 'stop' in self.task['args']:
+            self.logger.info("Stopping all OTF tasks.")
+            stopped = self.worker.notify_launch_otf(self.task)
+            self.logger.info(f"Stopped: {stopped}")
+            self.update_task({
+                'stopped_tasks': json.dumps(stopped),
+                'done': 1
+            })
+            self.stop()
+            return
+
+        extra = self.session['extra']
+        # logger = self.logger
+        # raw = extra['raw']
+        otf = extra['otf']
+        # otf_path = otf['path']
+
+        # if not self.launched:
+        #     n = raw.get('movies', 0)
+        #     if n > 16:
+        #         pass
+
+        try:
+            if self.count == 1:
+                self.worker.notify_launch_otf(self.task)
+                self.create_otf_folder()
+                self.launch_otf()
+                self.update_task({'otf_path': otf['path'],
+                                  'otf_status': otf['status'],
+                                  'count': self.count})
+            else:
+                self.update_task({'count': self.count})
+        except Exception as e:
+            self.logger.error(str(e))
+            self.logger.exception(e)
+            self.update_task({
+                'error': f'Exception {str(e)}',
+                'done': 1
+            })
+            self.stop()
+
+    def create_otf_folder(self):
+        extra = self.session['extra']
+        otf = extra['otf']
+        raw_path = extra['raw']['path']
+        otf_folder = os.path.basename(self._rmslash(raw_path)) + '_OTF'
+        otf_root = self.sconfig['otf']['root']
+        otf_path = os.path.join(otf_root, otf_folder)
+        otf.update({'path': otf_path, 'status': 'created'})
+        self.pl.system(f"rm -rf '{otf_path}'")
+
+        def _path(*paths):
+            return os.path.join(otf_path, *paths)
+
+        self._mkdir(os.path.join(otf_path, 'EPU'))
+        os.symlink(raw_path, _path('data'))
+
+        gain_pattern = self.sconfig['data']['gain']
+        possible_gains = glob(gain_pattern.format(microscope=self.microscope))
+        if possible_gains:
+            possible_gains.sort(key=lambda g: os.path.getmtime(g))
+            gain = possible_gains[-1]  # Use updated gain
+            real_gain = os.path.realpath(gain)
+            base_gain = os.path.basename(real_gain)
+            self._cp(real_gain, _path(base_gain))
+            os.symlink(base_gain, _path('gain.mrc'))
+
+        # Create a general ini file with config/information of the session
+        config = configparser.ConfigParser()
+
+        operator = self.users['operator'].get('name', 'No-operator')
+        config['GENERAL'] = {
+            'group': self.users['group'],
+            'user': self.users['owner']['name'],
+            'operator': operator,
+            'microscope': self.microscope,
+            'raw_data': raw_path
+        }
+
+        acq = dict(self.sconfig['acquisition'][self.microscope])
+        acq.update(self.session['acquisition'])
+        config['ACQUISITION'] = acq
+
+        config['PREPROCESSING'] = {
+            'images': 'data/Images-Disc1/GridSquare_*/Data/Foil*fractions.tiff',
+            'software': 'None',  # or Relion or Scipion
+        }
+
+        with open(_path('README.txt'), 'w') as configfile:
+            config.write(configfile)
+
+        opts = self.sconfig['otf']['relion']['options']
+        with open(_path('relion_it_options.py'), 'w') as f:
+            optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
+            f.write("{\n%s\n}\n" % optStr)
+
+        opts = self.sconfig['otf']['scipion']['options']
+        cryolo_model = otf.get('cryolo_model', None)
+
+        if cryolo_model:
+            model = os.path.basename(cryolo_model)
+            os.symlink(cryolo_model, _path(model))
+            opts['picking'] = {'cryolo_model': model}
+
+        with open(_path('scipion_otf_options.json'), 'w') as f:
+            opts['acquisition'] = acq
+            json.dump(opts, f, indent=4)
+
+        # Update OTF status
+        self.update_session_extra({'otf': otf})
+
+    def launch_otf(self):
+        """ Launch OTF for a session. """
+        self.logger.info(f"Running OTF")
+        otf = self.session['extra']['otf']
+        otf_path = otf['path']
+        workflow = otf.get('workflow', 'default')
+        if workflow == 'default':
+            workflow = self.sconfig['otf']['workflow']['default']
+        elif workflow == 'none':
+            self.pl.logger.info('OTF workflow is None, so no doing anything.')
+            return
+
+        command = self.sconfig['otf'][workflow]['command']
+        cmd = command.format(otf_path=otf_path, session_id=self.session['id'])
+        self.pl.system(cmd + ' &')
+
+    def stop_otf(self):
+        """ Stop the thread that is doing OTF and all subprocess.
+        Also update the internal dictionary of threads-sessions-tasks
+        """
+        self.stop()
+        otf = self.session['extra']['otf']
+        processes = Process.ps('scipion', workingDir=otf['path'], children=True)
+        for folder, procs in processes.items():
+            try:
+                self.logger.info(f"Killing processes for Session {self.session['id']}")
+                for p in procs:
+                    p.kill()
+                otf['status'] = 'stopped'
+                self.update_session_extra({'otf': otf})
+            except Exception as e:
+                self.logger.error(Color.red("Error: %s" % str(e)))
+        self.update_task({'msg': 'Forced to stop ', 'done': 1})
+
 
 class SessionWorker(Worker):
     def handle_tasks(self, tasks):
@@ -264,6 +432,22 @@ class SessionWorker(Worker):
             else:
                 handler = DefaultTaskHandler(self, t)
             handler.start()
+
+    def notify_launch_otf(self, task):
+        """ This method should be called from tasks handlers to notify
+        that a OTF is going ot be launched. Then, we must stop any other
+        OTF tasks running in this host. (only one OTF running per host)
+        """
+        task_id = task['id']
+        self.logger.info(f"Task handler {task_id} notified launching OTF")
+        stopped = []
+        for k, v in self.tasks.items():
+            if task_id != k:
+                t = v.task
+                if t['name'] == 'session' and t['args']['action'] == 'otf':
+                    v.stop_otf()
+                    stopped.append(t['id'])
+        return stopped
 
 
 if __name__ == '__main__':
