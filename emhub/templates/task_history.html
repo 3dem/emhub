@@ -21,12 +21,14 @@
                     <thead class="bg-light">
                     <tr class="border-0">
                         <th class="border-0">event id</th>
+                        <th class="border-0">time</th>
                         <th class="border-0">info</th>
                     </tr>
                     </thead>
                     <tbody>
                         {% for event_id, event in task_events %}
                                 <td>{{ event_id }}</td>
+                                <td>{{ event_id|redis_datetime }}</td>
                                 <td>{{ event|tojson }}</td>
                                 </tr>
                         {% endfor %}

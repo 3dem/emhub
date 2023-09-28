@@ -65,6 +65,7 @@
                         <th class="border-0">args</th>
                         <th class="border-0">status</th>
                         <th class="border-0">history</th>
+                        <th class="border-0">actions</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -81,6 +82,10 @@
                                     {% else %}
                                         <span>{{ n }}</span>
                                     {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-light" onclick="deleteTask('{{ group }}','{{ task['id'] }}')">
+                                                <i class="far fa-trash-alt"></i></button>
                                 </td>
 
                             </tr>

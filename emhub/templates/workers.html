@@ -125,6 +125,20 @@
         )
     }
 
+    function deleteTask(worker, task_id){
+        send_ajax_json("{{ url_for('api.delete_task') }}", {worker: worker, task_id: task_id},
+            function (jsonResponse) {
+                if ('error' in jsonResponse)
+                    showError(jsonResponse.error);
+                else {
+                    reloadWorkers();
+                }
+            }, // on success reload page
+            function (jqXHR, textStatus) {   // on fail show error message
+                showError("Create Task Request failed: " + textStatus);
+            });
+    }
+
     function reloadWorkers(){
         var ajaxContent = get_ajax_content('workers_content');
             ajaxContent.done(function(html) {

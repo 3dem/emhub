@@ -25,7 +25,7 @@
 # *  e-mail address 'delarosatrevin@scilifelab.se'
 # *
 # **************************************************************************
-
+import datetime
 import os
 import sys
 from glob import glob
@@ -438,6 +438,12 @@ def create_app(test_config=None):
     @app.template_filter('weekday')
     def weekday(dt):
         return app.dm.local_weekday(dt)
+
+    @app.template_filter('redis_datetime')
+    def redis_datetime(task_id):
+        ms = int(task_id.split('-')[0])
+        dt = datetime.datetime.fromtimestamp(ms/1000)
+        return app.dm.dt_as_local(dt).strftime("%Y/%m/%d %H:%M:%S")
 
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
