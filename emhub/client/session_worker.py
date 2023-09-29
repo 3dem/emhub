@@ -198,7 +198,7 @@ class SessionTaskHandler(TaskHandler):
             rootRaw = root.replace(framesPath, rawPath)
             # rootEpu = root.replace(framesPath, epuPath)
             for d in dirs:
-                _mkdir(rootRaw, d)
+                self._mkdir(os.path.join(rootRaw, d))
                 # _mkdir(rootEpu, d)
             for f in files:
                 srcFile = os.path.join(root, f)
