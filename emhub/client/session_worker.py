@@ -130,12 +130,6 @@ class SessionTaskHandler(TaskHandler):
     def _cp(self, src, dst, **kwargs):
         self.pl.system(f"cp '{src}' '{dst}'", **kwargs)
 
-    def _addslash(self, p):
-        return p if p.endswith('/') else p + '/'
-
-    def _rmslash(self, p):
-        return p[:-1] if p.endswith('/') else p
-
     def transfer_files(self):
         """ Move files from the Raw folder to the Offload folder.
         Files will be moved when there has been a time without modification
@@ -146,10 +140,10 @@ class SessionTaskHandler(TaskHandler):
         raw = extra['raw']
 
         # Real raw path where frames are being recorded
-        framesPath = self._addslash(raw['frames'])
+        framesPath = Path.addslash(raw['frames'])
 
         # Offload server path where to transfer the files
-        rawPath = self._addslash(raw['path'])
+        rawPath = Path.addslash(raw['path'])
 
         #  First time the process function is called for this execution
         if self.count == 1:
@@ -209,7 +203,6 @@ class SessionTaskHandler(TaskHandler):
                     mf.register(dstFile, stat=s)
                     transferred = True
                     self.n_files += 1
-                    time.sleep(1)
                     # Register creation time of movie files
                     if f.endswith('fractions.tiff'):
                         self.n_movies += 1
@@ -309,7 +302,6 @@ class SessionTaskHandler(TaskHandler):
             else:
                 self.update_task({'count': self.count})
         except Exception as e:
-            self.logger.error(str(e))
             self.logger.exception(e)
             self.update_task({
                 'error': f'Exception {str(e)}',
