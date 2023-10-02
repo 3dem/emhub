@@ -57,8 +57,9 @@ class SessionData:
     def getEpuData(self):
         if not self._epuData:
             epuFolder = self.join('EPU')
-            if Path.exists(epuFolder):
-                self._epuData = EPU.Data(epuFolder, epuFolder)
+            moviesStarFile = self.join('EPU', 'movies.star')
+            if Path.exists(moviesStarFile):
+                self._epuData = EPU.Data(epuFolder, moviesStarFile)
         return self._epuData
 
     def mtime(self, fn):

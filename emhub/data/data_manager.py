@@ -648,7 +648,10 @@ class DataManager(DbManager):
 
         for t in tasks:
             worker = 'localhost'  # FIXME
-            task['args']['actions'] = t
+            task = {
+                'name': 'session',
+                'args': {'session_id': session.id, 'action': t}
+            }
             self.get_worker_stream(worker).create_task(task)
 
         return session
