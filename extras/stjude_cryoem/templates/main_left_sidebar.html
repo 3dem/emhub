@@ -69,22 +69,27 @@
                             </li>
 
 
+                            <!-- Workers -->
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('workers') }}">
+                                    <i class="fas fa-server"></i>Workers</a>
+                            </li>
 
                             <!-- Workers Machines -->
-                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-workers" aria-controls="submenu-workers">
-                                    <i class="fas fa-cogs"></i>Workers</a>
-
-                            <div id="submenu-workers" class="collapse submenu" style="">
-                                <ul class="nav flex-column">
-
-                                    <a class="nav-link" href="{{ url_for_content('workers') }}">
-                                    <i class="fas fa-server"></i>Machines</a>
-
-                                    <a class="nav-link" href="{{ url_for_content('tasks') }}">
-                                    <i class="fas fa-tasks"></i>Tasks</a>
-
-                                </ul>
-                            </div>
+{#                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-workers" aria-controls="submenu-workers">#}
+{#                                    <i class="fas fa-cogs"></i>Workers</a>#}
+{##}
+{#                            <div id="submenu-workers" class="collapse submenu" style="">#}
+{#                                <ul class="nav flex-column">#}
+{##}
+{#                                    <a class="nav-link" href="{{ url_for_content('workers') }}">#}
+{#                                    <i class="fas fa-server"></i>Machines</a>#}
+{##}
+{#                                    <a class="nav-link" href="{{ url_for_content('tasks') }}">#}
+{#                                    <i class="fas fa-tasks"></i>Tasks</a>#}
+{##}
+{#                                </ul>#}
+{#                            </div>#}
 
                         </ul>
 
