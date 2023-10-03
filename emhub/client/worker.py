@@ -35,7 +35,8 @@ from emhub.client import open_client, config, DataClient
 
 
 def create_logger(self, logsFolder, logName, debug=True, toFile=True):
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    prefix = self.getLogPrefix()
+    formatter = logging.Formatter(f'%(asctime)s {prefix} %(levelname)s %(message)s')
     logger = logging.getLogger(logName)
     if toFile:
         self.logFile = os.path.join(logsFolder, logName)
@@ -46,7 +47,10 @@ def create_logger(self, logsFolder, logName, debug=True, toFile=True):
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
         logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+
     self.logger = logger
     self.pl = Process.Logger(logger)
 
@@ -67,6 +71,9 @@ class TaskHandler(threading.Thread):
 
     def getLogName(self):
         return f"task-{self.task['name']}-{self.task['id']}.log"
+
+    def getLogPrefix(self):
+        return f"TASK {self.task['id']}"
 
     def stop(self):
         self._stopEvent.set()
@@ -155,6 +162,9 @@ class Worker:
 
     def __del__(self):
         self.dc.logout()
+
+    def getLogPrefix(self):
+        return f"WORKER {self.name}"
 
     def request(self, method, data, key=None):
         r = self.dc.request(method, jsonData={'attrs': data})

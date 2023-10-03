@@ -70,6 +70,10 @@ class SessionTaskHandler(TaskHandler):
         else:
             self.process = self.unknown_action
 
+    def getLogPrefix(self):
+        prefix = self.task['args']['action'].upper()
+        return f"{prefix}-{self.task['args']['session_id']}"
+
     def update_session_extra(self, extra):
         extra['updated'] = Pretty.now()
         try:
@@ -123,12 +127,13 @@ class SessionTaskHandler(TaskHandler):
         del update_args['files']
         self.update_task(update_args)
 
-    def _mkdir(self, d):
-        if not os.path.exists(d):
-            self.pl.system(f"mkdir -p '{d}'")
-
-    def _cp(self, src, dst, **kwargs):
-        self.pl.system(f"cp '{src}' '{dst}'", **kwargs)
+    def get_frames_path(self):
+        """ Unique folder based on session info. """
+        date_ts = Pretty.now()  # Fixme Maybe use first file creation (for old sessions)
+        date = date_ts.split()[0].replace('-', '')
+        name = self.session['name']
+        return os.path.join(self.sconfig['raw']['root_frames'],
+                            f"{date}_{self.microscope}_{name}/")
 
     def transfer_files(self):
         """ Move files from the Raw folder to the Offload folder.
@@ -140,25 +145,30 @@ class SessionTaskHandler(TaskHandler):
         raw = extra['raw']
 
         # Real raw path where frames are being recorded
-        framesPath = Path.addslash(raw['frames'])
+        framesPath = raw.get('frames', '') or self.get_frames_path()
+        #framesPath = Path.addslash(raw['frames'])
 
         # Offload server path where to transfer the files
-        rawPath = Path.addslash(raw['path'])
+        rawPath = self.get_path_from(raw, framesPath, self.sconfig['raw']['root'])
+        rawPath = Path.addslash(rawPath)
 
         #  First time the process function is called for this execution
         if self.count == 1:
-            self._mkdir(framesPath)
+            self.logger.info(f"Monitoring FRAMES FOLDER: {framesPath}")
+            self.pl.mkdir(framesPath)
+            raw['frames'] = framesPath
             self.mf = MovieFiles(root=rawPath)
 
             if os.path.exists(rawPath):
                 logger.info("Restarting transfer task, loading transferred files.")
                 self.mf.scan(rawPath)
-                pprint(self.mf.info())
                 raw.update(self.mf.info())
-                self.update_session_extra({'raw': raw})
             else:
                 logger.info("Starting transfer task")
-                self._mkdir(rawPath)
+                self.pl.mkdir(rawPath)
+                raw['path'] = rawPath
+
+            self.update_session_extra({'raw': raw})
 
         mf = self.mf  # shortcut
 
@@ -188,17 +198,18 @@ class SessionTaskHandler(TaskHandler):
         td = timedelta(minutes=1)
         transferred = False
 
+        self.logger.info(f"Scanning framesPath: {framesPath}")
         for root, dirs, files in os.walk(framesPath):
             rootRaw = root.replace(framesPath, rawPath)
             # rootEpu = root.replace(framesPath, epuPath)
             for d in dirs:
-                self._mkdir(os.path.join(rootRaw, d))
-                # _mkdir(rootEpu, d)
+                self.pl.mkdir(os.path.join(rootRaw, d))
             for f in files:
                 srcFile = os.path.join(root, f)
                 dstFile = os.path.join(rootRaw, f)
                 s = os.stat(srcFile)
                 dt = datetime.fromtimestamp(s.st_mtime)
+
                 if now - dt >= td and dstFile not in mf:
                     mf.register(dstFile, stat=s)
                     transferred = True
@@ -209,7 +220,7 @@ class SessionTaskHandler(TaskHandler):
                         # Only move now the movies files, not other metadata files
                         self.pl.system(f'rsync -ac --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
                     else:  # Copy metadata files
-                        self._cp(srcFile, dstFile, retry=30)
+                        self.pl.cp(srcFile, dstFile, retry=30)
 
                 if self.n_files >= 32:  # make frequent updates to keep otf updated
                     _update()
@@ -222,83 +233,57 @@ class SessionTaskHandler(TaskHandler):
         # FIXME
         # Implement cleanup
 
+    def stop_all_otf(self, done=False):
+        self.logger.info("Stopping all OTF tasks.")
+        stopped = self.worker.notify_launch_otf(self.task)
+        self.logger.info(f"Stopped: {stopped}")
+        event = {'stopped_tasks': json.dumps(stopped)}
+        if done:
+            event['done'] = 1
+            self.stop()
+        self.update_task(event)
 
-        # now = datetime.now()
-        #
-        # if 'last_movie_creation' in info:
-        #     lastMovieDt = datetime.fromtimestamp(info['last_movie_creation'])
-        #     lastMovieDays = (now - lastMovieDt).days
-        # else:
-        #     lastMovieDays = None
-
-
-        #
-        # def _cleanUp():
-        #     self.stop()
-        #     sessionId = self.session['id']
-        #     thread = self.manager.threadsDict.get((sessionId, 'otf'), None)
-        #     self.manager.stop_otf(thread, self.session)
-        #     self.dc.update_session({'id': sessionId, 'status': 'finished'})
-        #
-        #     self.logger.info(f"OTF: {otf_path}, "
-        #                      f"exists: {os.path.exists(otf_path)}, "
-        #                      f"created: {otfCreation}, STOPPED")
-        #
-        #     if os.path.exists(framesPath):
-        #         self.logger.info(f"Deleting frames folder: {framesPath}")
-        #         self.pl.system(f"rm -rf {framesPath}")
-        #
-        # if lastMovieDays:
-        #     self.logger.info(f"Last movie: {lastMovieDt} ({lastMovieDays} days ago)")
-        #     self.logger.info(f"Frames: {framesPath}, exists: {os.path.exists(framesPath)}")
-        #     otfCreation = 'Unknown'
-        #     if os.path.exists(otf_path):
-        #         otfMt = datetime.fromtimestamp(os.path.getctime(os.path.join(otf_path, 'README.txt')))
-        #         otfDays = (now - otfMt).days
-        #         otfCreation = f"{otfDays} days ago"
-        #         if otfDays:
-        #             # Both transfer and otf are done, so we can mark this session as finished
-        #             _cleanUp()
-        # else:
-        #     lastFile = os.path.join(framesPath, 'ScreeningSession.dm')
-        #     if os.path.exists(lastFile):
-        #         lastFileDt = os.path.getmtime(lastFile)
-        #         lastFileDays = (now - lastFileDt).days
-        #         if lastFileDays > 3:
-        #             _cleanUp()
+    def get_path_from(self, pathDict, referencePath, root, suffix=''):
+        path = pathDict.get('path', None)
+        if not path:
+            folder = os.path.basename(Path.rmslash(referencePath)) + suffix
+            path = os.path.join(root, folder)
+        return path
 
     def otf(self):
+        extra = self.session['extra']
+        raw = extra['raw']
+
         # Stop all OTF tasks running in this worker
         if 'stop' in self.task['args']:
-            self.logger.info("Stopping all OTF tasks.")
-            stopped = self.worker.notify_launch_otf(self.task)
-            self.logger.info(f"Stopped: {stopped}")
-            self.update_task({
-                'stopped_tasks': json.dumps(stopped),
-                'done': 1
-            })
-            self.stop()
-            return
+            self.stop_all_otf(done=True)
 
-        extra = self.session['extra']
-        # logger = self.logger
-        # raw = extra['raw']
-        otf = extra['otf']
-        # otf_path = otf['path']
+        clear = 'clear' in self.task['args']
 
-        # if not self.launched:
-        #     n = raw.get('movies', 0)
-        #     if n > 16:
-        #         pass
+        if clear and self.count == 1:
+            self.stop_all_otf(done=False)
 
         try:
-            if self.count == 1:
-                self.worker.notify_launch_otf(self.task)
-                self.create_otf_folder()
-                self.launch_otf()
-                self.update_task({'otf_path': otf['path'],
-                                  'otf_status': otf['status'],
-                                  'count': self.count})
+            n = raw.get('movies', 0)
+
+            raw_path = raw.get('path', '')
+            # logger = self.logger
+            otf = extra['otf']
+            otf_path = self.get_path_from(otf, raw_path, self.sconfig['otf']['root'],
+                                          suffix='_OTF')
+
+            self.logger.info(f"OTF path: {otf_path}, do clear: {clear}")
+
+            if not os.path.exists(otf_path) or clear:
+                # OTF is not running, let's check if we need to launch it
+                if n > 16:
+                    self.logger.info(f"Launching OTF after {n} images found.")
+                    self.worker.notify_launch_otf(self.task)
+                    self.create_otf_folder(otf_path)
+                    self.launch_otf()
+                    self.update_task({'otf_path': otf['path'],
+                                      'otf_status': otf['status'],
+                                      'count': self.count})
             else:
                 self.update_task({'count': self.count})
         except Exception as e:
@@ -309,20 +294,17 @@ class SessionTaskHandler(TaskHandler):
             })
             self.stop()
 
-    def create_otf_folder(self):
+    def create_otf_folder(self, otf_path):
         extra = self.session['extra']
-        otf = extra['otf']
         raw_path = extra['raw']['path']
-        otf_folder = os.path.basename(self._rmslash(raw_path)) + '_OTF'
-        otf_root = self.sconfig['otf']['root']
-        otf_path = os.path.join(otf_root, otf_folder)
+        otf = extra['otf']
         otf.update({'path': otf_path, 'status': 'created'})
-        self.pl.system(f"rm -rf '{otf_path}'")
+        self.pl.rm(otf_path)
 
         def _path(*paths):
             return os.path.join(otf_path, *paths)
 
-        self._mkdir(os.path.join(otf_path, 'EPU'))
+        self.pl.mkdir(os.path.join(otf_path, 'EPU'))
         os.symlink(raw_path, _path('data'))
 
         gain_pattern = self.sconfig['data']['gain']
@@ -332,7 +314,7 @@ class SessionTaskHandler(TaskHandler):
             gain = possible_gains[-1]  # Use updated gain
             real_gain = os.path.realpath(gain)
             base_gain = os.path.basename(real_gain)
-            self._cp(real_gain, _path(base_gain))
+            self.pl.cp(real_gain, _path(base_gain))
             os.symlink(base_gain, _path('gain.mrc'))
 
         # Create a general ini file with config/information of the session
@@ -388,7 +370,10 @@ class SessionTaskHandler(TaskHandler):
         if workflow == 'default':
             workflow = self.sconfig['otf']['workflow']['default']
         elif workflow == 'none':
-            self.pl.logger.info('OTF workflow is None, so no doing anything.')
+            msg = 'OTF workflow is None, so no doing anything.'
+            self.pl.logger.info(msg)
+            self.update_task({'msg': msg, 'done': 1})
+            self.stop()
             return
 
         command = self.sconfig['otf'][workflow]['command']
@@ -401,16 +386,18 @@ class SessionTaskHandler(TaskHandler):
         """
         self.stop()
         otf = self.session['extra']['otf']
-        processes = Process.ps('scipion', workingDir=otf['path'], children=True)
-        for folder, procs in processes.items():
-            try:
-                self.logger.info(f"Killing processes for Session {self.session['id']}")
-                for p in procs:
-                    p.kill()
-                otf['status'] = 'stopped'
-                self.update_session_extra({'otf': otf})
-            except Exception as e:
-                self.logger.error(Color.red("Error: %s" % str(e)))
+        otf_path = otf.get('path', '')
+        try:
+            if otf_path:
+                processes = Process.ps('scipion', workingDir=otf['path'], children=True)
+                for folder, procs in processes.items():
+                    self.logger.info(f"Killing processes for Session {self.session['id']}")
+                    for p in procs:
+                        p.kill()
+            otf['status'] = 'stopped'
+            self.update_session_extra({'otf': otf})
+        except Exception as e:
+            self.logger.error(Color.red("Error: %s" % str(e)))
         self.update_task({'msg': 'Forced to stop ', 'done': 1})
 
 
@@ -434,11 +421,10 @@ class SessionWorker(Worker):
         self.logger.info(f"Task handler {task_id} notified launching OTF")
         stopped = []
         for k, v in self.tasks.items():
-            if task_id != k:
-                t = v.task
-                if t['name'] == 'session' and t['args']['action'] == 'otf':
-                    v.stop_otf()
-                    stopped.append(t['id'])
+            t = v.task
+            if t['id'] != task_id and t['name'] == 'session' and t['args']['action'] == 'otf':
+                v.stop_otf()
+                stopped.append(t['id'])
         return stopped
 
 
