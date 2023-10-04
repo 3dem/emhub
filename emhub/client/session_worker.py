@@ -29,7 +29,7 @@ from pprint import pprint
 import traceback
 
 from emtools.utils import Pretty, Process, Path, Color, System
-from emtools.metadata import EPU, MovieFiles
+from emtools.metadata import EPU, MovieFiles, StarFile
 
 from emhub.client import config
 from emhub.client.worker import (TaskHandler, DefaultTaskHandler, CmdTaskHandler,
@@ -40,7 +40,9 @@ class SessionTaskHandler(TaskHandler):
     def __init__(self, *args, **kwargs):
         TaskHandler.__init__(self, *args, **kwargs)
         self.mf = None
+        self.epu_session = None  # for EPU parsing during OTF
         self.dc = self.worker.dc
+        self.update_session = False
 
         targs = self.task['args']
         session_id = targs['session_id']
@@ -57,18 +59,19 @@ class SessionTaskHandler(TaskHandler):
 
         self.sleep = targs.get('sleep', 60)
 
-        print(Color.bold(f">>> Handling task for session {self.session['id']}"))
-        print(f"\t action: {self.action}")
-        print(f"\t   args: {targs}")
+        self.logger.info(f">>> Handling task for session {self.session['id']}")
+        self.logger.info(f"\t action: {self.action}")
+        self.logger.info(f"\t   args: {targs}")
 
-        if self.action == 'transfer':
-            self.process = self.transfer_files
-        elif self.action == 'monitor':
-            self.process = self.monitor_files
-        elif self.action == 'otf':
-            self.process = self.otf
-        else:
-            self.process = self.unknown_action
+    def process(self):
+        func = getattr(self, self.action, None)
+        if func is None:
+            return self.unknown_action()
+
+        func()
+        if self.update_session:
+            # Update session information
+            self.session = self.dc.get_session(self.session['id'])
 
     def getLogPrefix(self):
         prefix = self.task['args']['action'].upper()
@@ -101,7 +104,7 @@ class SessionTaskHandler(TaskHandler):
         })
         self.stop()
 
-    def monitor_files(self):
+    def monitor(self):
         extra = self.session['extra']
         raw = extra['raw']
         # If repeat != 0, then repeat the scanning this number of times
@@ -135,7 +138,7 @@ class SessionTaskHandler(TaskHandler):
         return os.path.join(self.sconfig['raw']['root_frames'],
                             f"{date}_{self.microscope}_{name}/")
 
-    def transfer_files(self):
+    def transfer(self):
         """ Move files from the Raw folder to the Offload folder.
         Files will be moved when there has been a time without modification
         (file's timeout).
@@ -253,6 +256,7 @@ class SessionTaskHandler(TaskHandler):
     def otf(self):
         extra = self.session['extra']
         raw = extra['raw']
+        self.update_session = True  # update session to check for new images
 
         # Stop all OTF tasks running in this worker
         if 'stop' in self.task['args']:
@@ -272,11 +276,25 @@ class SessionTaskHandler(TaskHandler):
             otf_path = self.get_path_from(otf, raw_path, self.sconfig['otf']['root'],
                                           suffix='_OTF')
 
-            self.logger.info(f"OTF path: {otf_path}, do clear: {clear}")
+            self.logger.info(f"OTF path: {otf_path}, do clear: {clear}, movies: {n}")
+
+            if os.path.exists(raw_path) and os.path.exists(otf_path):
+                epuFolder = os.path.join(otf_path, 'EPU')
+                epuStar = os.path.join(epuFolder, 'movies.star')
+
+                if self.epu_session is None:
+                    self.epu_session = EPU.Session(raw_path,
+                                                   outputStar=epuStar,
+                                                   backupFolder=epuFolder,
+                                                   pl=self.pl)
+                self.epu_session.scan()
+                with StarFile(epuStar) as sf:
+                    self.logger.info(f"Scanned EPU folder, "
+                                     f"movies: {sf.getTableSize('Movies')}")
 
             if not os.path.exists(otf_path) or clear:
                 # OTF is not running, let's check if we need to launch it
-                if n > 16:
+                if raw_path and n > 16:
                     self.logger.info(f"Launching OTF after {n} images found.")
                     self.worker.notify_launch_otf(self.task)
                     self.create_otf_folder(otf_path)
@@ -284,6 +302,7 @@ class SessionTaskHandler(TaskHandler):
                     self.update_task({'otf_path': otf['path'],
                                       'otf_status': otf['status'],
                                       'count': self.count})
+                    self.update_session = False  # after launching no need to update
             else:
                 self.update_task({'count': self.count})
         except Exception as e:

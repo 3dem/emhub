@@ -81,7 +81,6 @@ class TaskHandler(threading.Thread):
     def update_task(self, event):
         data = {
             'task_id': self.task['id'],
-            'worker': self.worker.name,
             'event': event
         }
         self.worker.request('update_task', data)
@@ -153,6 +152,7 @@ class CmdTaskHandler(TaskHandler):
 class Worker:
     def __init__(self, **kwargs):
         # Login into EMhub and keep a client instance
+        self.token = None  # API token used after connection
         self.name = kwargs.get('name', 'localhost')
         self.logFile = kwargs.get('logFile', 'worker.log')
         self.logsFolder = os.path.expanduser('~/.emhub/sessions/logs')
@@ -167,7 +167,9 @@ class Worker:
         return f"WORKER {self.name}"
 
     def request(self, method, data, key=None):
-        r = self.dc.request(method, jsonData={'attrs': data})
+        data['token'] = self.token
+        r = self.dc.request(method,
+                            jsonData={'attrs': data})
         result = r.json()
         if 'error' in result:
             self.logger.error(f"Error from server: {result['error']}")
@@ -197,7 +199,7 @@ class Worker:
         self.logger.info(f"     SERVER_URL: {config.EMHUB_SERVER_URL}")
 
         data = {'worker': self.name, 'specs': System.specs()}
-        result = self.request('connect_worker', data)
+        self.token = self.request('connect_worker', data, key='token')
         del data['specs']
 
         # Handling pending tasks
