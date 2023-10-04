@@ -464,7 +464,7 @@ class ScipionSessionData(SessionData):
         if 'movies' not in self.outputs:
             return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
 
-        countEpu = 0
+        msEPU = None
         if epuData := self.getEpuData():
             moviesTable = epuData.moviesTable
             first = moviesTable[0].timeStamp
@@ -476,8 +476,7 @@ class ScipionSessionData(SessionData):
             }
 
         return {
-            #'movies': _stats_from_sqlite(self.outputs['movies']),
-            'movies': msEpu,
+            'movies': msEpu or self._stats_from_output('movies'),
             'ctfs': self._stats_from_output('ctfs', fileKey='_psdFile'),
             'coordinates': self._stats_from_output('coordinates'),
             'classes2d': len(self.outputs['classes2d'])
@@ -494,12 +493,13 @@ class ScipionSessionData(SessionData):
                 # yield row
                 # continue
                 dU, dV = row['_defocusU'], row['_defocusV']
+                r = row['_resolution']
                 micData = {
                     'micrograph': row['_micObj._filename'],
                     'micName': row['_micObj._micName'],
                     'ctfImage': row['_psdFile'],
                     'ctfDefocus': row['_defocusU'],
-                    'ctfResolution': min(row['_resolution'], 10),
+                    'ctfResolution': max(min(r, 10), 0),
                     'ctfDefocusAngle': row['_defocusAngle'],
                     'ctfAstigmatism': abs(dU - dV)
                 }
@@ -563,13 +563,10 @@ class ScipionSessionData(SessionData):
             def _label(fn):
                 parts = Path.splitall(fn)
                 label = parts[-2]  # Run name
-                print(f"Filename: {fn}")
-                print(f"    label1: {label}")
                 for run in otf['2d'].values():
                     if label in run['runDir']:
                         label = run['runName']
                         break
-                print(f"    label2: {label}")
                 return label
 
             classes2d['runs'] = [{'id': i, 'label': _label(fn)}
@@ -580,21 +577,15 @@ class ScipionSessionData(SessionData):
 
             for sel in self.outputs['select2d']:
                 starFn = os.path.join(sel, 'extra', 'class_averages.star')
-                print(f"Checking {starFn} ")
                 if os.path.exists(starFn) and os.path.getsize(starFn) > 0:
-                    print(f"   - Exists...Reading {starFn} ")
                     with StarFile(starFn) as sf:
-                        print(f"   - Loading table")
                         table = sf.getTable('')
                         path = table[0].rlnReferenceImage
                         runName = Path.splitall(path)[1]
-                        print(f"   - path: {path}, runName: {runName}")
                         # We found a selection job for this classification run
                         if runName in classesSqlite:
-                            print(f"   - FOUND!!!")
                             classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
                                                       for row in table if row.rlnEstimatedResolution < 30]
-                            print(f"   - Selection: {classes2d['selection']}")
                             break
             runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra')
             classes2d['items'] = RelionSessionData.get_classes2d_from_run(runFolder)
@@ -635,17 +626,12 @@ class ScipionSessionData(SessionData):
                     }
                     protList.append(prot)
                     protDict[prot['id']] = prot
-                    #print(row)
                 elif 'outputs' in name:
                     pass
-                    #print("   OUTPUTS: ", row)
                 elif row['classname'] == 'Pointer':
-                    #print("   POINTER: ", row)
                     if row['value']:
                         rid = int(row['value'])
                         if rid in protDict:
-                            #print("PROTOCOLS DICT: ", protDict)
-                            #print("PROTOCOLS LIST: ", protList)
                             protDict[rid]['links'].append(pid)
 
                     if pid in protDict:
@@ -653,7 +639,6 @@ class ScipionSessionData(SessionData):
                 elif 'status' in name:
                     # Update protocol status
                     protDict[pid]['status'] = row['value']
-                    #print("   STATUS:  ", row)
         return protList
 
     def get_run(self, runId):
@@ -665,7 +650,6 @@ class ScipionSessionData(SessionData):
         from pyworkflow.protocol import ElementGroup
         import pwem
 
-        print(">>> Loading form ", className)
         ProtClass = pwem.Domain.findClass(className)
         prot = ProtClass()
         logoPath = prot.getPluginLogoPath()
@@ -707,9 +691,6 @@ class ScipionSessionData(SessionData):
                 paramDef['help'] = param.getHelp()
 
             return paramDef
-
-
-        #package = prot.getPackage()
 
         for section in prot.iterDefinitionSections():
             sectionDef = {

@@ -32,7 +32,7 @@ import os
 from glob import glob
 import datetime as dt
 
-from emtools.utils import Pretty
+from emtools.utils import Pretty, Path
 from emtools.metadata import Bins, TsBins, EPU
 
 
@@ -92,8 +92,10 @@ def register_content(dc):
         if status_info.lower().startswith('error:'):
             errors.append(status_info)
 
+        frames = Path.rmslash(session.extra['raw']['frames'])
         return {
             'session': session,
+            'epu_session': os.path.basename(frames),
             'deletion_days': td.days,
             'errors': errors,
             'files': [{'name': k.replace('.', ''),
