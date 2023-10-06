@@ -28,6 +28,8 @@
 <script>
     $('select').selectpicker();
 
+    var transfer_host = {{ transfer_host|tojson }};
+
     function onProcessingClick(inputRadio) {
         var rows = document.getElementsByClassName("processing-row");
         for (var i = 0; i < rows.length; i++) {
@@ -57,6 +59,9 @@
         }
 
         if (formValues.session_name) {
+            var otf_host = getObjectValue(formValues, 'otf_host', 'default');
+            var otf_task = ["otf", otf_host];
+
             attrs.name = formValues.session_name;
 
             if (!formValues.raw_folder){
@@ -64,14 +69,14 @@
                     raw: {},
                     project_id: formValues.project_id,
                 }
-                attrs.tasks = ["transfer", "otf"]  // FIXME
+                attrs.tasks = [["transfer", transfer_host], otf_task]
             }
             else {
                 attrs.extra = {
                     raw: {path: formValues.raw_folder},
                     project_id: formValues.project_id
                 }
-                attrs.tasks = ["monitor", "otf"]
+                attrs.tasks = [["monitor", transfer_host], otf_task]
             }
 
             if (!formValues.otf_folder)
@@ -95,8 +100,8 @@
             return;
         }
 
-        //alert(JSON.stringify(attrs, null, 4));
-        //return
+        // showError(JSON.stringify(attrs, null, 4));
+        // return
 
         var ajaxContent = $.ajax({
             url: "{{ url_for('api.create_session') }}",

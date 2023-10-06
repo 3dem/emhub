@@ -641,16 +641,11 @@ class DataManager(DbManager):
             self.update_session_counter(session_info['code'],
                                         session_info['counter'] + 1)
 
-        task = {
-            'name': 'session',
-            'args': {'session_id': session.id}
-        }
-
-        for t in tasks:
-            worker = 'localhost'  # FIXME
+        for action, worker in tasks:
+            # Update some values for the task
             task = {
                 'name': 'session',
-                'args': {'session_id': session.id, 'action': t}
+                'args': {'session_id': session.id, 'action': action}
             }
             self.get_worker_stream(worker).create_task(task)
 

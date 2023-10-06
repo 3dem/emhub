@@ -92,7 +92,7 @@ def register_content(dc):
         if status_info.lower().startswith('error:'):
             errors.append(status_info)
 
-        frames = Path.rmslash(session.extra['raw']['frames'])
+        frames = Path.rmslash(session.extra['raw'].get('frames', ''))
         return {
             'session': session,
             'epu_session': os.path.basename(frames),
@@ -190,8 +190,11 @@ def register_content(dc):
             raise Exception("You can not create Sessions for this Booking. "
                             "Only members of the same lab can do it.")
 
+        sconfig = dm.get_config('sessions')
+
         # load default acquisition params for the given microscope
-        acq = dm.get_config('sessions')['acquisition'][b.resource.name]
+        micName = b.resource.name
+        acq = sconfig['acquisition'][micName]
 
         # We provide cryolo_models to be used with the OTF
         cryolo_models_pattern = dm.get_config('sessions')['data']['cryolo_models']
@@ -212,7 +215,11 @@ def register_content(dc):
             'cameras': dm.get_session_cameras(b.resource.id),
             'processing': dm.get_session_processing(),
             'session_name': dm.get_new_session_info(booking_id)['name'],
-            'hosts': dm.get_config('sessions')['otf']['hosts'],
+            'otf_hosts': sconfig['otf']['hosts'],
+            'otf_host_default': sconfig['otf']['hosts_default'][micName],
+            'workflows': sconfig['otf']['workflows'],
+            'workflow_default': sconfig['otf']['workflow_default'],
+            'transfer_host': sconfig['raw']['hosts_default'][micName],
             'cryolo_models': {_key(cm): cm for cm in cryolo_models}
         }
         data.update(dc.get_user_projects(b.owner, status='active'))

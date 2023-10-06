@@ -153,7 +153,7 @@ class Worker:
     def __init__(self, **kwargs):
         # Login into EMhub and keep a client instance
         self.token = None  # API token used after connection
-        self.name = kwargs.get('name', 'localhost')
+        self.name = kwargs.get('name', System.hostname())
         self.logFile = kwargs.get('logFile', 'worker.log')
         self.logsFolder = os.path.expanduser('~/.emhub/sessions/logs')
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
