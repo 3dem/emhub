@@ -267,37 +267,25 @@ def create_app(test_config=None):
         if not app.config.get('CASE_SENSITIVE_USERNAMES', True):
             username = username.lower()
 
-        # If domain authentication is enabled then usernames that look even
-        # a little like e-mail addresses (on account of containing an '@') are
-        # authenticated against the domain.
-        #
-        # TODO: consider adding an attribute to the database to control whether to
-        #       authenticate against the domain, instead of judging based on the
-        #       form of the username.
-        if '@' in username and app.config.get('USE_DOMAIN_AUTHENTICATION', False):
-            response = ldap_manager.authenticate(username, password)
-            authenticated = (response.status == flask_ldap3_login.AuthenticationResponseStatus.success)
-            # Specifics are configurable.  That information is not presently used.
+        user = app.dm.get_user_by(username=username)
 
-        if authenticated is not False:  # True or None
-            # Whether domain authentication succeeded or was skipped,
-            # we need to lookup the user in the DB
-            user = app.dm.get_user_by(username=username)
+        if user:  # First check that the user in the db, then try to authenticate
+            use_ldap = app.config.get('USE_DOMAIN_AUTHENTICATION', False)
+            auth_local = user.auth_local or not use_ldap
 
-            if user is None:
-                # Even if domain auth previously succeeded, we reject the user
-                # if they are not in our DB
-                authenticated = False
-            elif authenticated is None:
-                # Only if domain auth was skipped do we check the provided
-                # password against the one, if any, stored in our DB
-                authenticated = user.check_password(password)
+            if auth_local:
+                if not user.check_password(password):
+                    user = None
+            else:
+                response = ldap_manager.authenticate(username, password)
+                # Specifics are configurable.  That information is not presently used.
+                if response.status != flask_ldap3_login.AuthenticationResponseStatus.success:
+                    user = None  # Failed authentication
 
-        if not authenticated:
+        if not user:
             flask.flash('Invalid username or password')
             return _redirect('login')
 
-        assert(user is not None)
         flask_login.login_user(user)
 
         if next_content == 'user_login':

@@ -261,7 +261,7 @@ def create_data_models(dm):
                 {'reset_password': self.id,
                  'exp': dm.now() + dt.timedelta(seconds=expires_in)},
                 app.config['SECRET_KEY'], algorithm='HS256').decode('utf-8')
-            self.extra = {'reset_token': token}
+            self.reset_token = token
 
             return token
 
@@ -275,11 +275,10 @@ def create_data_models(dm):
             user = User.query.get(user_id)
 
             if user is not None:
-                if token != user.extra.get('reset_token', None):
+                if token != user.reset_token:
                     return None
                 # Valid token, let's make it invalid from now
-                user.extra = {'reset_token': None}
-
+                user.reset_token = None
             return user
 
         def __repr__(self):
@@ -409,6 +408,36 @@ def create_data_models(dm):
             """ Return True if this user can delete a project. """
             u = p.creation_user
             return self.is_manager or self == u or self == u.get_pi()
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def auth_local(self):
+            """ Use local authentication despite global configuration for
+            authentication. For example, LDAP can be set globally as the authentication
+            method, but we could set auth_local for some specific users.
+            """
+            return self.__getExtra('auth_local', False)
+
+        @auth_local.setter
+        def auth_local(self, value):
+            self.__setExtra('auth_local', value)
+
+        @property
+        def reset_token(self):
+            """ Reset password token. """
+            return self.__getExtra('reset_token', None)
+
+        @reset_token.setter
+        def reset_token(self, value):
+            self.__setExtra('reset_token', value)
+
 
     class Template(Base):
         """ Classes used as template to create Applications.
@@ -550,7 +579,7 @@ def create_data_models(dm):
             return self.__getExtra('confidential', False)
 
         @confidential.setter
-        def costs(self, value):
+        def confidential(self, value):
             self.__setExtra('confidential', value)
 
         @property

@@ -82,8 +82,6 @@ def process_forms(args):
 
 
 def main():
-
-
     p = argparse.ArgumentParser(prog='emh-client')
 
     subparsers = p.add_subparsers(dest='entity')
