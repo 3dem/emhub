@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '0.7.dev17'
+__version__ = '1.0.0rc01'
 
 
 def create_app(test_config=None):
