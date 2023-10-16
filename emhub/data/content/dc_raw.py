@@ -81,8 +81,11 @@ def register_content(dc):
 
     @dc.content
     def raw_user_issues(**kwargs):
-        users = dc.get_users_list()['users']
         filterKey = kwargs.get('filter', 'noroles')
+        args = {}
+        if filterKey == 'noactive':
+            args['status'] = 'all'
+        users = dc.get_users_list(**args)['users']
         filterName = '_filter_%s' % filterKey
 
         def _filter_noapp(u):
@@ -92,6 +95,10 @@ def register_content(dc):
         def _filter_noroles(u):
             """ Users with No Roles """
             return not u.is_manager and not u.roles
+
+        def _filter_noactive(u):
+            """ Users No Active. """
+            return u.status != 'active'
 
         _filter = locals()[filterName]
 

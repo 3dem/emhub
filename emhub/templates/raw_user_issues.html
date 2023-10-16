@@ -7,10 +7,17 @@
 
     <!-- table row -->
     <div class="row">
+
+
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Filter: {{ filterDesc }} </h5>
+                    <div class="row">
+                        <a href="{{ url_for_content('raw_user_issues', filter='noroles') }}" class="btn btn-primary ml-2 mb-5"></i> Users with NO ROLES</a>
+                        <a href="{{ url_for_content('raw_user_issues', filter='noapp') }}" class="btn btn-primary ml-2 mb-5"></i> Users with NO APPLICATION</a>
+                        <a href="{{ url_for_content('raw_user_issues', filter='noactive') }}" class="btn btn-primary ml-2 mb-5"></i> Users NO ACTIVE</a>
+                    </div>
+                    <h3 class="mb-0">Current Filter: <label style="color: red; font-size: medium">{{ filterDesc }}</label> Total: {{ users|length }}</h3>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">

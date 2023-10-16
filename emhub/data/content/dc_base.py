@@ -337,6 +337,18 @@ class DataContent:
         else:
             return flask.url_for('images.static', filename='user-icon.png')
 
+    def get_users_list(self, **kwargs):
+        status = kwargs.get('status', 'active')
+        all_users = self.app.dm.get_users()
+        users = []
+        for u in all_users:
+            if status == 'all' or u.status == status:
+                u.image = self.user_profile_image(u)
+                u.project_codes = [p.code for p in u.get_applications()]
+                users.append(u)
+
+        return {'users': users}
+
     def check_user_access(self, permissionKey):
         if not self.app.dm.check_user_access(permissionKey):
             raise Exception('Invalid access')
