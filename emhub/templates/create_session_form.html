@@ -29,6 +29,8 @@
     $('select').selectpicker();
 
     var transfer_host = {{ transfer_host|tojson }};
+    var workflow_default = {{ workflow_default|tojson }};
+    var otf_host_default = {{ otf_host_default|tojson }};
 
     function onProcessingClick(inputRadio) {
         var rows = document.getElementsByClassName("processing-row");
@@ -81,8 +83,8 @@
 
             if (!formValues.otf_folder)
                 attrs.extra.otf = {
-                    workflow: getObjectValue(formValues, 'otf_workflow', 'default'),
-                    host: getObjectValue(formValues, 'otf_host', 'default'),
+                    workflow: getObjectValue(formValues, 'otf_workflow', workflow_default),
+                    host: getObjectValue(formValues, 'otf_host', otf_host_default),
                     cryolo_model: getObjectValue(formValues, 'cryolo_model', '')
                 }
             else

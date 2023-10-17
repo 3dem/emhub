@@ -116,6 +116,7 @@
                                     <div class="col-12 col-sm-8 col-lg-6">
                                        <select id="otf_host-select" class="selectpicker" data-key="otf_host">
                                             {% for h in otf_hosts %}
+                                                {% set selected = 'selected' if h == otf_host_default else '' %}
                                                 <option value="{{ h }}" {{ selected }}>{{ h }}</option>
                                             {% endfor %}
                                         </select>

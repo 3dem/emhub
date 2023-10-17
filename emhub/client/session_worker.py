@@ -385,19 +385,21 @@ class SessionTaskHandler(TaskHandler):
         self.logger.info(f"Running OTF")
         otf = self.session['extra']['otf']
         otf_path = otf['path']
-        workflow = otf.get('workflow', 'default')
-        if workflow == 'default':
-            workflow = self.sconfig['otf']['workflow']['default']
-        elif workflow == 'none':
+        workflow = otf.get('workflow', '')
+        if workflow == 'none':
             msg = 'OTF workflow is None, so no doing anything.'
             self.pl.logger.info(msg)
             self.update_task({'msg': msg, 'done': 1})
             self.stop()
-            return
+        else:
+            workflow_conf = self.sconfig['otf'].get(workflow, None)
+            if not workflow_conf:
+                raise Exception(f"Missing workflow '{workflow}' from "
+                                f"sessions::config OTF section. ")
 
-        command = self.sconfig['otf'][workflow]['command']
-        cmd = command.format(otf_path=otf_path, session_id=self.session['id'])
-        self.pl.system(cmd + ' &')
+            command = workflow_conf['command']
+            cmd = command.format(otf_path=otf_path, session_id=self.session['id'])
+            self.pl.system(cmd + ' &')
 
     def stop_otf(self):
         """ Stop the thread that is doing OTF and all subprocess.
