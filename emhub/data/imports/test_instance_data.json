@@ -151,6 +151,24 @@
       "content": {
         "usage_report": ["head", "admin"],
         "raw": ["admin"]
+      },
+      "projects": {
+          "can_create": "all",
+          "view_options": [
+              {
+                  "key": "mine",
+                  "label": "My Projects"
+              },
+              {
+                  "key": "lab",
+                  "label": "Lab's Projects"
+              },
+              {
+                  "key": "all",
+                  "label": "All Projects"
+              }
+          ]
+
       }
     }
   },
@@ -181,14 +199,6 @@
                 "iconClass": "far fa-calendar",
                 "imageClass": "img--location"
             }
-        },
-        "permissions": {
-            "user_can_create_projects": "all",
-            "user_can_see_projects": [
-                {"key": "mine", "label": "My Projects"},
-                {"key": "lab", "label": "Lab Projects"},
-                {"key": "all", "label": "All Projects"}
-            ]
         }
     }
   },
