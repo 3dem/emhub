@@ -56,8 +56,7 @@ def register_content(dc):
 
     @dc.content
     def raw_booking_list(**kwargs):
-        bookings = [b for b in dc.app.dm.get_bookings() if b.owner.id == 132]
-        return {'bookings': bookings}
+        return {'bookings': dc.app.dm.get_bookings()}
 
     @dc.content
     def raw_applications_list(**kwargs):
