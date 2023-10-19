@@ -81,7 +81,8 @@ function printDict(objDict, label) {
  *  contains that attribute.
  */
 function getObjectValue(obj, key, default_value) {
-    return key in obj ? obj[key] : default_value;
+    const objDict = nonEmpty(obj) ? obj : {};
+    return key in objDict ? obj[key] : default_value;
 }
 
 

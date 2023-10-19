@@ -29,6 +29,7 @@
 import datetime as dt
 import os
 import uuid
+import json
 from collections import defaultdict
 
 import sqlalchemy
@@ -45,7 +46,7 @@ class DataManager(DbManager):
     """ Main class that will manage the sessions and their information.
     """
     def __init__(self, dataPath, dbName='emhub.sqlite',
-                 user=None, cleanDb=False, create=True):
+                 user=None, cleanDb=False, create=True, redis=None):
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
         self._entryFiles = os.path.join(dataPath, 'entry_files')
@@ -65,6 +66,8 @@ class DataManager(DbManager):
 
             # Create sessions dir if not exists
             os.makedirs(self._sessionsPath, exist_ok=True)
+
+        self.r = redis
 
     def _create_models(self):
         """ Function called from the init_db method. """
@@ -182,8 +185,7 @@ class DataManager(DbManager):
         """
         form = self.get_form_by(name=formName)
         if form is None:
-            raise Exception("Missing Form '%s' from the database!!!" % formName)
-
+            print(">>>>> ERROR: Missing Form '%s' from the database!!!" % formName)
         return form
 
     # ---------------------------- RESOURCES ---------------------------------
@@ -601,6 +603,7 @@ class DataManager(DbManager):
         """ Add a new session row. """
         create_data = attrs.pop('create_data', False)
         check_raw = attrs.pop('check_raw', True)
+        tasks = attrs.pop('tasks', [])
 
         b = self.get_booking_by(id=int(attrs['booking_id']))
         attrs['resource_id'] = b.resource.id
@@ -637,6 +640,14 @@ class DataManager(DbManager):
         if session_info:
             self.update_session_counter(session_info['code'],
                                         session_info['counter'] + 1)
+
+        for action, worker in tasks:
+            # Update some values for the task
+            task = {
+                'name': 'session',
+                'args': {'session_id': session.id, 'action': action}
+            }
+            self.get_worker_stream(worker).create_task(task)
 
         return session
 
@@ -685,11 +696,8 @@ class DataManager(DbManager):
         return session
 
     def _create_data_instance(self, session, mode):
-        if not session.data_path:
+        if not session.data_path or session.data_path.endswith('h5'):
             return None
-
-        if session.data_path.endswith('h5'):
-            return H5SessionData(self._session_data_path(session), mode)
         else:
             projectSqlite = os.path.join(session.data_path, 'project.sqlite')
             if os.path.exists(projectSqlite):
@@ -709,6 +717,9 @@ class DataManager(DbManager):
         extra.update(attrs['extra'])
         attrs['extra'] = extra
         return self.update_session(**attrs)
+
+    # -------------------------- WORKERS AND TASKS ----------------------------
+
 
     # -------------------------- INVOICE PERIODS ------------------------------
     def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):
@@ -819,10 +830,11 @@ class DataManager(DbManager):
         return self.__item_by(self.Project, **kwargs)
 
     # ---------------------------- ENTRIES ---------------------------------
-    def get_config(self, configName):
+    def get_config(self, configName, default={}):
         """ Find a form named config:configName and return
         the associated JSON definition. """
-        return self.get_form_by_name(f'config:{configName}').definition
+        form = self.get_form_by_name(f'config:{configName}')
+        return form.definition if form else default
 
     def update_config(self, configName, definition):
         form = self.get_form_by_name(f'config:{configName}')
@@ -839,8 +851,8 @@ class DataManager(DbManager):
         if user.is_manager:
             return True
 
-        permissions = self.get_config("projects")['permissions']
-        value = permissions['user_can_create_projects']
+        permissions = self.get_config("permissions")['projects']
+        value = permissions['can_create']
 
         if (value == 'all'
             or (value == 'independent' and user.is_independent)):
@@ -1324,6 +1336,133 @@ class DataManager(DbManager):
         if not session.data_path:
             return ''
         return os.path.join(self._sessionsPath, session.data_path)
+
+    class WorkerStream:
+        """ Helper class to centralize functions related to a
+        Redis stream for a worker machine.
+        """
+        def __init__(self, worker, dm):
+            self.worker = worker
+            self.name = f"{worker}:tasks"
+            self.dm = dm
+            self.r = dm.r
+
+        def stream_exists(self):
+            return self.r.exists(self.name)
+
+        def group_exists(self):
+            groups = self.r.xinfo_groups(self.name)
+            return len(groups) > 0 and groups[0]['name'] == 'group'
+
+        def connect(self):
+            # Create new group and stream for this worker if not exists
+            if not self.stream_exists():
+                return self.r.xgroup_create(self.name, 'group', mkstream=True)
+            elif not self.group_exists():
+                return self.r.xgroup_create(self.name, 'group')
+
+            return True
+
+        def create_task(self, task):
+            task['args'] = json.dumps(task['args'])
+            task_id = self.r.xadd(self.name, task)
+            # Create a stream for this task history
+            self.update_task(task_id, {'created': Pretty.now()})
+            return task_id
+
+        def update_task(self, task_id, event):
+            self.r.xadd(f"task_history:{task_id}", event)
+            if 'done' in event:
+                self.finish_task(task_id)
+
+        def finish_task(self, task_id):
+            self.r.xack(self.name, 'group', task_id)
+
+        def delete_task(self, task_id):
+            try:
+                self.finish_task(task_id)
+                self.r.xdel(self.name, task_id)
+                self.r.delete(f"task_history:{task_id}")
+            except:
+                return 0
+            return 1
+
+        def get_new_tasks(self):
+            results = self.r.xreadgroup('group', self.worker, {self.name: '>'},
+                                        block=60000)
+            new_tasks = []
+            print(f"results: {results}")
+            if results:
+                for task_id, task in results[0][1]:
+                    task['id'] = task_id
+                    new_tasks.append({
+                        'id': task_id,
+                        'name': task['name'],
+                        'args': json.loads(task.get('args', '{}')),
+                })
+            return new_tasks
+
+        def get_all_tasks(self):
+            tasks = []
+            pending = self.get_pending_tasks()
+
+            for tid, fields in self.r.xrange(self.name):
+                histKey = f"task_history:{tid}"
+                history = self.r.xlen(histKey)
+                done = self.dm.is_task_done(tid)
+                tasks.append({
+                    'id': tid,
+                    'name': fields['name'],
+                    'args': json.loads(fields.get('args', '{}')),
+                    'history': history,
+                    'status': 'pending' if tid in pending else ('done' if done else ''),
+                })
+            return tasks
+
+        def get_pending_tasks(self):
+            pending = set()
+            if self.stream_exists() and self.group_exists():
+                n = self.r.xpending(self.name, 'group')['pending']
+                for t in self.r.xpending_range(self.name, 'group', '-', '+', n):
+                    pending.add(t['message_id'])
+
+            return pending
+
+    def connect_worker(self, worker, specs):
+        self.get_worker_stream(worker).connect()
+        now = Pretty.now()
+        hosts = self.get_config('hosts')
+        hosts[worker]['updated'] = now
+        hosts[worker]['specs'] = specs
+        self.update_config('hosts', hosts)
+
+    def get_worker_stream(self, worker):
+        hosts = self.get_config('hosts')
+
+        if worker not in hosts:
+            raise Exception("Unregistered host %s" % worker)
+
+        return DataManager.WorkerStream(worker, self)
+
+    def get_all_tasks(self):
+        hosts = self.get_config('hosts')
+
+        for k in hosts.keys():
+            yield k, self.get_worker_stream(k).get_all_tasks()
+
+    def get_task_history(self, task_id, count=None, reverse=True):
+        taskHistoryKey = f"task_history:{task_id}"
+        funcName = 'xrevrange' if reverse else 'xrange'
+        result = getattr(self.r, funcName)(taskHistoryKey, count=count)
+        return result
+
+    def is_task_done(self, task_id):
+        history = self.get_task_history(task_id, count=1, reverse=True)
+        if history:
+            eid, event = history[0]
+            return 'done' in event
+        else:
+            return False
 
 
 class RepeatRanges:

@@ -28,6 +28,10 @@
 <script>
     $('select').selectpicker();
 
+    var transfer_host = {{ transfer_host|tojson }};
+    var workflow_default = {{ workflow_default|tojson }};
+    var otf_host_default = {{ otf_host_default|tojson }};
+
     function onProcessingClick(inputRadio) {
         var rows = document.getElementsByClassName("processing-row");
         for (var i = 0; i < rows.length; i++) {
@@ -53,31 +57,34 @@
                 pixel_size: formValues.acq_pixel_size,
                 dose: formValues.acq_dose,
                 cs: formValues.acq_cs
-            }
+            },
         }
 
         if (formValues.session_name) {
+            var otf_host = getObjectValue(formValues, 'otf_host', 'default');
+            var otf_task = ["otf", otf_host];
+
             attrs.name = formValues.session_name;
 
             if (!formValues.raw_folder){
                 attrs.extra = {
-                    tasks: ["transfer", "otf"],
                     raw: {},
                     project_id: formValues.project_id,
                 }
+                attrs.tasks = [["transfer", transfer_host], otf_task]
             }
             else {
                 attrs.extra = {
-                    tasks: ["raw", "otf"],
                     raw: {path: formValues.raw_folder},
-                    project_id: formValues.project_id,
+                    project_id: formValues.project_id
                 }
+                attrs.tasks = [["monitor", transfer_host], otf_task]
             }
 
             if (!formValues.otf_folder)
                 attrs.extra.otf = {
-                    workflow: getObjectValue(formValues, 'otf_workflow', 'default'),
-                    host: getObjectValue(formValues, 'otf_host', 'default'),
+                    workflow: getObjectValue(formValues, 'otf_workflow', workflow_default),
+                    host: getObjectValue(formValues, 'otf_host', otf_host_default),
                     cryolo_model: getObjectValue(formValues, 'cryolo_model', '')
                 }
             else
@@ -86,17 +93,17 @@
 
         // If there is a session
         {#if (attrs.extra.raw_folder)#}
-        var regex = /^[a-zA-Z0-9-_]{2,16}$/;
+        var regex = /^[a-zA-Z0-9-_]{2,32}$/;
         var valid_name = nonEmpty(attrs.name) && regex.test(attrs.name);
 
         if (!valid_name) {
             showError("Provide a valid <strong>Session Name</strong>.<br>" +
-                "<p>It must have from 2 to 16 digits, containing letters, numbers, slash or underscore.</p>");
+                "<p>It must have from 2 to 32 digits, containing letters, numbers, slash or underscore.</p>");
             return;
         }
 
-        //alert(JSON.stringify(attrs, null, 4));
-        //return
+        // showError(JSON.stringify(attrs, null, 4));
+        // return
 
         var ajaxContent = $.ajax({
             url: "{{ url_for('api.create_session') }}",

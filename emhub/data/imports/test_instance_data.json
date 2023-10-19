@@ -227,6 +227,15 @@
             ],
             "microscope_usage": {}
         }
+    },
+    {
+        "name": "config:users",
+        "definition": {
+            "extra_roles": [
+                "staff-cryoem",
+                "staff-other"
+            ]
+        }
     }
 
 ],

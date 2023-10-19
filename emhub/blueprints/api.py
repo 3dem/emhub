@@ -44,6 +44,7 @@ import flask
 from flask import request
 from flask import current_app as app
 import flask_login
+import jwt
 
 from emtools.utils import Pretty, Color
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
@@ -571,7 +572,6 @@ def _loadFileLines(fn):
     return lines
 
 
-
 @api_bp.route('/get_session_run', methods=['POST'])
 @flask_login.login_required
 def get_session_run():
@@ -603,6 +603,105 @@ def get_session_run():
     return _handle_item(_get_run, 'run')
 
 
+def get_worker_token(worker):
+    print(f"app.config['SECRET_KEY'] = {app.config['SECRET_KEY']}, type: {type(app.config['SECRET_KEY'])}")
+    return jwt.encode(
+        {'worker': worker},
+        app.config['SECRET_KEY'], algorithm='HS256')
+
+
+def validate_worker_token(token):
+    result = None
+    try:
+        token = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        result = token.get('worker', None)
+    except:
+        raise Exception("Invalid token for this worker")
+
+    return result
+
+
+@api_bp.post('/connect_worker')
+@flask_login.login_required
+def connect_worker():
+    def _connect_worker(**attrs):
+        worker = attrs['worker']
+        specs = attrs['specs']
+        app.dm.connect_worker(worker, specs)
+        return get_worker_token(worker)
+
+    return _handle_item(_connect_worker, 'token')
+
+@api_bp.post('/create_task')
+@flask_login.login_required
+def create_task():
+    def _create_task(**attrs):
+        worker = attrs['worker']
+        task = attrs['task']
+        app.logger.debug(f"attrs: {attrs}")
+        task_id = app.dm.get_worker_stream(worker).create_task(task)
+        return {'id': task_id}
+
+    return _handle_item(_create_task, 'task')
+
+@api_bp.post('/delete_task')
+@flask_login.login_required
+def delete_task():
+    def _delete_task(**attrs):
+        worker = attrs['worker']
+        wstream = app.dm.get_worker_stream(worker)
+        result = 0
+        task_id = attrs['task_id']
+        if task_id.startswith('<'):
+            task_id.replace('<', '')
+            for t in wstream.get_all_tasks():
+                if t['id'] < task_id:
+                    result += wstream.delete_task(t['id'])
+        else:
+            result = wstream.delete_task(task_id)
+        return {'result': result}
+
+    return _handle_item(_delete_task, 'task')
+
+
+@api_bp.post('/update_task')
+def update_task():
+    def _update_task(**attrs):
+        worker = validate_worker_token(attrs['token'])
+        task_id = attrs['task_id']
+        event = attrs['event']
+        app.dm.get_worker_stream(worker).update_task(task_id, event)
+        return {'result': 'OK'}
+
+    return _handle_item(_update_task, 'task')
+
+
+@api_bp.post('/get_new_tasks')
+def get_new_tasks():
+    """ This function will return tasks for a given worker when they
+    are available. If not, it will be sleeping waiting for it.
+    """
+    def _get_new_tasks(**attrs):
+        worker = validate_worker_token(attrs['token'])
+        tasks = app.dm.get_worker_stream(worker).get_new_tasks()
+        return tasks
+
+    return _handle_item(_get_new_tasks, 'tasks')
+
+
+@api_bp.post('/get_pending_tasks')
+def get_pending_tasks():
+    """ This function will return pending tasks for a given worker.
+    A task is pending if it was claimed by the worker, but it has not been
+    acknowledged as completed.
+    """
+    def _get_pending_tasks(**attrs):
+        worker = validate_worker_token(attrs['token'])
+        tasks = [t for t in app.dm.get_worker_stream(worker).get_all_tasks()
+                 if t['status'] == 'pending']
+        return tasks
+
+    return _handle_item(_get_pending_tasks, 'tasks')
 
 
 @api_bp.route('/get_session_tasks', methods=['POST'])

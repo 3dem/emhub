@@ -2,7 +2,18 @@
 <div class="col-xl-9 col-lg-12 col-md-6 col-sm-12 col-12">
 
     <div class="card">
-        <div class="card-header">Last updated: <h4>{{ now }}</h4></div>
+        <div class="card-header">
+            <div class="row">
+                <div class="col-4">Last updated: <h4>{{ now }}</h4></div>
+                <div class="col-4">Next update in: <h4 id="reload_label"></h4></div>
+                <div class="col-4"><a href="javascript:reloadWorkers()" class="btn btn-primary"><i class="fas fa-redo"></i> Refresh</a></div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><h3>Hosts</h3></div>
         <div class="card-body p-0">
 
             <div class="table-responsive">
@@ -34,6 +45,64 @@
 
         </div>
     </div>
+
+{% if current_user.is_admin %}
+
+<div class="col-12 mb-3 mt-5 pl-0">
+    <a href="javascript:createTask()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create Task</a>
+</div>
+
+{% for group, tasks in taskGroups.items() %}
+
+    <div class="card">
+    <div class="card-header"><h3>Tasks - {{ group }}</h3></div>
+        <div class="card-body p-0">
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                        <th class="border-0">id</th>
+                        <th class="border-0">name</th>
+                        <th class="border-0">args</th>
+                        <th class="border-0">status</th>
+                        <th class="border-0">history</th>
+                        <th class="border-0">actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% for task in tasks %}
+                            <tr>
+                                <td>{{ task['id'] }} </td>
+                                <td>{{ task['name'] }}</td>
+                                <td>{{ task['args']|tojson }}</td>
+                                <td>{{ task['status'] }}</td>
+                                <td>
+                                    {% set n = task['history'] %}
+                                    {% if n > 1 %}
+                                        <a href="javascript:showTaskHistory('{{ task['id'] }}')"><span class="badge badge-pill badge-info">{{ n }}</span></a>
+                                    {% else %}
+                                        <span>{{ n }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-light" onclick="deleteTask('{{ group }}','{{ task['id'] }}')">
+                                                <i class="far fa-trash-alt"></i></button>
+                                </td>
+
+                            </tr>
+                        {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+{% endfor %}
+
+{% endif %}
 
 </div>
 

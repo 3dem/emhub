@@ -35,16 +35,7 @@ def register_content(dc):
 
     @dc.content
     def users_list(**kwargs):
-        status = kwargs.get('status', 'active')
-        all_users = dc.app.dm.get_users()
-        users = []
-        for u in all_users:
-            if status == 'all' or u.status == status:
-                u.image = dc.user_profile_image(u)
-                u.project_codes = [p.code for p in u.get_applications()]
-                users.append(u)
-
-        return {'users': users}
+        return dc.get_users_list()
 
     @dc.content
     def users_groups_cards(**kwargs):

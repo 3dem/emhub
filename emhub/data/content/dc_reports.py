@@ -346,14 +346,21 @@ def register_content(dc):
         def _filter(b):
             return not b.is_slot
 
-        app_id = int(kwargs.get('application', 0))
-        selected_app = dm.get_application_by(id=app_id)
+        app_id = kwargs.get('application', 'all')
+
         applications = dm.get_visible_applications()
-        if not selected_app:
-            selected_app = applications[0]
-            pi_list = [u.id for u in dm.get_users() if u.is_pi]
+        if app_id == 'all':
+            selected_apps = [a for a in applications]
         else:
-            pi_list = [pi.id for pi in selected_app.pi_list]
+            app = dm.get_application_by(id=int(app_id))
+            selected_apps = [app]
+
+        pi_list = []
+        pi_apps = {}
+        for app in selected_apps:
+            for pi in app.pi_list:
+                pi_list.append(pi.id)
+                pi_apps[pi.id] = app
 
         bookings, range_dict = dc.get_booking_in_range(kwargs,
                                                        asJson=False,
@@ -379,7 +386,7 @@ def register_content(dc):
             selected = [r['id'] for r in resources]
 
         def _value(b):
-            return b.total_size if use_data else (b.units() if use_days else b.hours)
+            return b.total_size if use_data else (b.units(hours=12) if use_days else b.hours)
 
         for b in bookings:
             if b.resource_id not in selected:
@@ -387,6 +394,7 @@ def register_content(dc):
 
             rid = b.resource.id
             b_value = _value(b)
+            entry_app = ''
 
             if b.type in ['downtime', 'maintenance', 'special']:
                 entry_key = b.type
@@ -402,6 +410,7 @@ def register_content(dc):
                 if not pi or pi.id not in pi_list:
                     continue
                 entry_key = str(pi.id)
+                entry_app = pi_apps[pi.id].code
                 entry_label = centers.get(pi.email, pi.name)
                 entry_email = pi.email
                 entries = entries_usage
@@ -413,6 +422,7 @@ def register_content(dc):
             if entry_key not in entries:
                 entries[entry_key] = entry = {
                     'key': entry_key,
+                    'app': entry_app,
                     'label': entry_label,
                     'email': entry_email,
                     'bookings': [],
@@ -448,32 +458,62 @@ def register_content(dc):
             name = centers.get(e['email'], e['label'])
             return shortname(name)
 
+        def _sorted_entries(values):
+            for v in sorted(values, key=lambda x: x['total_days'], reverse=True):
+                yield v
+
         pie_data = [{'name': e['label'], 'y': e['total_days'] * percent}
                     for e in entries_down.values()]
         pie_data.append({'name': 'Usage', 'y': total_usage * percent})
 
-        bar_data = [{
-            'name': _name(e),
-            'y': e['total_days'] * percent_usage,
-            'drilldown': e['label']
-        } for e in entries_sorted]
-
+        bar_data = []
         drilldown_data = []
 
-        for e in entries_sorted:
-            percent = _percent(e['total_days'])
-            usage = {}
-            for b in e['bookings']:
-                name = b.owner.name
-                if name not in usage:
-                    usage[name] = 0
-                usage[name] += _value(b)
+        if len(selected_apps) > 1:
+            app_entries = {}
+            for e in entries_sorted:
+                app = e['app']
+                if app not in app_entries:
+                    app_entries[app] = {'name': app, 'total_days': 0,
+                                        'data': []}
+                app_entries[app]['total_days'] += e['total_days']
+                app_entries[app]['data'].append(e)
 
-            drilldown_data.append({
+            for ae in _sorted_entries(app_entries.values()):
+                bar_data.append({
+                    'name': ae['name'],
+                    'y': ae['total_days'] * percent_usage,
+                    'drilldown': ae['name']
+                })
+
+                drilldown_data.append({
+                    'name': ae['name'],
+                    'id': ae['name'],
+                    'data': [(e['label'], e['total_days'] * percent_usage)
+                             for e in _sorted_entries(ae['data'])]
+                })
+
+        else:
+            bar_data = [{
                 'name': _name(e),
-                'id': e['label'],
-                'data': [(k, v * percent) for k, v in usage.items()]
-            })
+                'y': e['total_days'] * percent_usage,
+                'drilldown': e['label']
+            } for e in entries_sorted]
+
+            for e in entries_sorted:
+                percent = _percent(e['total_days'])
+                usage = {}
+                for b in e['bookings']:
+                    name = b.owner.name
+                    if name not in usage:
+                        usage[name] = 0
+                    usage[name] += _value(b)
+
+                drilldown_data.append({
+                    'name': _name(e),
+                    'id': e['label'],
+                    'data': [(k, v * percent) for k, v in usage.items()]
+                })
 
         # Add a total entry
         entries_sorted.insert(0, {
@@ -498,14 +538,17 @@ def register_content(dc):
             'selected_resources': selected,
             'selected_entry': selected_entry,
             'applications': applications,
-            'selected_app': selected_app,
+            'selected_apps': selected_apps,
+            'n_apps': len(selected_apps),
+            'app_id': app_id,
             'pie_data': pie_data,
             'bar_data': bar_data,
             'drilldown_data': drilldown_data,
             'data_usage_series': data_usage_series,
             'resources': resources,
             'metric': metric,
-            'use_data': use_data
+            'use_data': use_data,
+            'use_days': use_days
         }
         data.update(range_dict)
         return data
@@ -517,7 +560,6 @@ def register_content(dc):
     @dc.content
     def report_microscopes_usage_entrylist(**kwargs):
         return report_microscopes_usage(**kwargs)
-
 
     @dc.content
     def report_pis_usage(**kwargs):

@@ -31,10 +31,9 @@ import requests
 
 from emhub.utils import datetime_from_isoformat
 from emhub.data import DataManager
-from emhub.data.imports import TestDataBase
 
 
-class PortalData(TestDataBase):
+class PortalData:
     """ Class to import data (users, templates, applications) from the
      Application Portal at SciLifeLab.
     """
@@ -49,8 +48,9 @@ class PortalData(TestDataBase):
                 * forms (Templates here)
                 * orders (Applications here)
         """
-        dm.create_admin()
-        self.__importData(dm, dataJsonPath, bookingsJsonPath)
+        pass
+        # dm.create_admin()
+        # self.__importData(dm, dataJsonPath, bookingsJsonPath)
 
     def __importData(self, dm, dataJsonPath, bookingsJsonPath):
         print("Populating forms...")

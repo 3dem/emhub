@@ -56,7 +56,7 @@ def register_content(dc):
 
     @dc.content
     def raw_booking_list(**kwargs):
-        bookings = dc.app.dm.get_bookings()
+        bookings = [b for b in dc.app.dm.get_bookings() if b.owner.id == 132]
         return {'bookings': bookings}
 
     @dc.content
@@ -81,8 +81,11 @@ def register_content(dc):
 
     @dc.content
     def raw_user_issues(**kwargs):
-        users = dc.get_users_list()['users']
         filterKey = kwargs.get('filter', 'noroles')
+        args = {}
+        if filterKey == 'noactive':
+            args['status'] = 'all'
+        users = dc.get_users_list(**args)['users']
         filterName = '_filter_%s' % filterKey
 
         def _filter_noapp(u):
@@ -92,6 +95,10 @@ def register_content(dc):
         def _filter_noroles(u):
             """ Users with No Roles """
             return not u.is_manager and not u.roles
+
+        def _filter_noactive(u):
+            """ Users No Active. """
+            return u.status != 'active'
 
         _filter = locals()[filterName]
 
@@ -119,8 +126,11 @@ def register_content(dc):
     @dc.content
     def logs(**kwargs):
         dm = dc.app.dm
-        logs = int(kwargs.get('n', 100))
-        logs = dm.get_logs()[-logs:]
+        n = int(kwargs.get('n', 100))
+        name = kwargs.get('name', '')
+        all_logs = [log for log in dm.get_logs() if log.name == name]
+        logs = all_logs[-n:]
+
         for log in logs:
             log.user = dm.get_user_by(id=log.user_id)
 
@@ -137,9 +147,10 @@ def register_content(dc):
         }
 
     @dc.content
-    def get_workers(**kwargs):
+    def workers(**kwargs):
+        dm = dc.app.dm
         workers = {}
-        for k, v in dc.app.dm.get_config('hosts').items():
+        for k, v in dm.get_config('hosts').items():
             workers[k] = v
             updated = v.get('updated', '')
             active = False
@@ -153,8 +164,13 @@ def register_content(dc):
                 'active': active
             })
         return {'workers': workers,
+                'taskGroups': {h: tasks for h, tasks in dm.get_all_tasks()},
                 'now': Pretty.now()}
 
     @dc.content
-    def get_workers_content(**kwargs):
-        return get_workers()
+    def workers_content(**kwargs):
+        return workers()
+
+    @dc.content
+    def task_history(**kwargs):
+        return {'task_events': dc.app.dm.get_task_history(kwargs['task_id'])}

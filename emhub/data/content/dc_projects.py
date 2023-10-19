@@ -60,6 +60,10 @@ def register_content(dc):
             if not user.is_manager:
                 project.creation_user = project.user = user
 
+        pi_labs = dc.get_pi_labs(all=True)
+        from pprint import pprint
+        pprint(pi_labs)
+
         return {
             'project': project,
             'pi_labs': dc.get_pi_labs(all=True)
@@ -107,14 +111,18 @@ def register_content(dc):
 
         # Find all sessions related to this project and their bookings
         bookings = set()
+
+        def _new_booking(b):
+            return b.type == 'booking' and b.id not in bookings
+
         for s in dm.get_sessions():
             if s.project == project:
                 b = s.booking
-                if b.type == 'booking' and b.id not in bookings:
+                if _new_booking(b):
                     entries.append(b)
                     bookings.add(b.id)
 
-        entries.extend([b for b in project.bookings if b.id not in bookings])
+        entries.extend([b for b in project.bookings if _new_booking(b)])
         entries.sort(key=ekey, reverse=True)
 
         return {

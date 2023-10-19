@@ -25,13 +25,13 @@
 # *  e-mail address 'delarosatrevin@scilifelab.se'
 # *
 # **************************************************************************
-
+import datetime
 import os
 import sys
 from glob import glob
 
 
-__version__ = '0.7.dev17'
+__version__ = '1.0.0rc01'
 
 
 def create_app(test_config=None):
@@ -160,9 +160,6 @@ def create_app(test_config=None):
                         'user_reset_password',
                         'pages']
 
-    for name, value in app.config.items():
-        app.logger.debug(f'config: {name} = {value}')
-
     # Allow to define customized templates in the instance folder
     # templates should be in: 'extra/templates'
     # and will take precedence from the ones in the emhub/template folder
@@ -174,6 +171,8 @@ def create_app(test_config=None):
     templates = []
     for folder in template_folders:
         templates.extend([os.path.basename(f) for f in glob(os.path.join(folder, '*.html'))])
+
+    app.logger.debug("Template folders: %s" % template_folders)
 
     app.jinja_loader = jinja2.FileSystemLoader(template_folders)
 
@@ -268,37 +267,25 @@ def create_app(test_config=None):
         if not app.config.get('CASE_SENSITIVE_USERNAMES', True):
             username = username.lower()
 
-        # If domain authentication is enabled then usernames that look even
-        # a little like e-mail addresses (on account of containing an '@') are
-        # authenticated against the domain.
-        #
-        # TODO: consider adding an attribute to the database to control whether to
-        #       authenticate against the domain, instead of judging based on the
-        #       form of the username.
-        if '@' in username and app.config.get('USE_DOMAIN_AUTHENTICATION', False):
-            response = ldap_manager.authenticate(username, password)
-            authenticated = (response.status == flask_ldap3_login.AuthenticationResponseStatus.success)
-            # Specifics are configurable.  That information is not presently used.
+        user = app.dm.get_user_by(username=username)
 
-        if authenticated is not False:  # True or None
-            # Whether domain authentication succeeded or was skipped,
-            # we need to lookup the user in the DB
-            user = app.dm.get_user_by(username=username)
+        if user:  # First check that the user in the db, then try to authenticate
+            use_ldap = app.config.get('USE_DOMAIN_AUTHENTICATION', False)
+            auth_local = user.auth_local or not use_ldap
 
-            if user is None:
-                # Even if domain auth previously succeeded, we reject the user
-                # if they are not in our DB
-                authenticated = False
-            elif authenticated is None:
-                # Only if domain auth was skipped do we check the provided
-                # password against the one, if any, stored in our DB
-                authenticated = user.check_password(password)
+            if auth_local:
+                if not user.check_password(password):
+                    user = None
+            else:
+                response = ldap_manager.authenticate(username, password)
+                # Specifics are configurable.  That information is not presently used.
+                if response.status != flask_ldap3_login.AuthenticationResponseStatus.success:
+                    user = None  # Failed authentication
 
-        if not authenticated:
+        if not user:
             flask.flash('Invalid username or password')
             return _redirect('login')
 
-        assert(user is not None)
         flask_login.login_user(user)
 
         if next_content == 'user_login':
@@ -440,6 +427,12 @@ def create_app(test_config=None):
     def weekday(dt):
         return app.dm.local_weekday(dt)
 
+    @app.template_filter('redis_datetime')
+    def redis_datetime(task_id):
+        ms = int(task_id.split('-')[0])
+        dt = datetime.datetime.fromtimestamp(ms/1000)
+        return app.dm.dt_as_local(dt).strftime("%Y/%m/%d %H:%M:%S")
+
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
 
@@ -455,7 +448,7 @@ def create_app(test_config=None):
 
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user
-    app.dm = DataManager(app.instance_path, user=app.user)
+
 
     from .data.content import dc
     app.dc = dc
@@ -475,11 +468,30 @@ def create_app(test_config=None):
     login_manager = flask_login.LoginManager()
     login_manager.init_app(app)
 
+    app.mm = None
+    app.r = None
+
     if app.config.get('USE_DOMAIN_AUTHENTICATION', False):
         import flask_ldap3_login
         ldap_manager = flask_ldap3_login.LDAP3LoginManager(app)
 
-    app.mm = MailManager(app) if app.config.get('MAIL_SERVER', None) else None
+    if app.config.get('MAIL_SERVER', None):
+        app.mm = MailManager(app)
+
+    redis_config = os.path.join(emhub_instance_path, 'redis.conf')
+    if os.path.exists(redis_config):
+        with open(redis_config) as f:
+            for line in f:
+                if line.startswith('bind'):
+                    host = line.split()[1]
+                elif line.startswith('port'):
+                    port = int(line.split()[1])
+        import redis
+        app.r = redis.StrictRedis(host, port,
+                                  charset="utf-8", decode_responses=True)
+        app.r.ping()
+
+    app.dm = DataManager(app.instance_path, user=app.user, redis=app.r)
 
     from flaskext.markdown import Markdown
     Markdown(app)

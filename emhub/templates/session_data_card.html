@@ -12,13 +12,14 @@
                 {% set otf_path = extra.get('otf', {}).get('path', '') if session.data_path else '' %}
                 <table class="table table-striped table-bordered">
                     <tbody>
-                        {{ macros.trow('EPU Session Name', extra['raw']['frames']|basename, 'h3') }}
+                        {{ macros.trow('EPU Session Name', epu_session, 'h3') }}
                         {{ macros.trow('Frames Folder', extra['raw']['frames']) }}
                         {{ macros.trow('Raw path', extra['raw']['path']) }}
                         {{ macros.trow('OTF path', otf_path) }}
                         {{ macros.trow('Size', session.size|pretty_size) }}
                         {{ macros.trow('Files', session.total_files) }}
                         {{ macros.trow('Images', session.images) }}
+                        {{ macros.trow('Updated', extra.get('updated', '')) }}
 
                     </tbody>
                 </table>

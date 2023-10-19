@@ -337,6 +337,18 @@ class DataContent:
         else:
             return flask.url_for('images.static', filename='user-icon.png')
 
+    def get_users_list(self, **kwargs):
+        status = kwargs.get('status', 'active')
+        all_users = self.app.dm.get_users()
+        users = []
+        for u in all_users:
+            if status == 'all' or u.status == status:
+                u.image = self.user_profile_image(u)
+                u.project_codes = [p.code for p in u.get_applications()]
+                users.append(u)
+
+        return {'users': users}
+
     def check_user_access(self, permissionKey):
         if not self.app.dm.check_user_access(permissionKey):
             raise Exception('Invalid access')
@@ -448,7 +460,9 @@ class DataContent:
         # Group managers by staff units
         if user.is_manager:
             for unit in dm.get_staff_units():
-                labs.extend([[_userjson(u)] for u in self._get_facility_staff(unit)])
+                unit_members = [_userjson(u) for u in self._get_facility_staff(unit)]
+                if unit_members:
+                    labs.append(unit_members)
 
         return labs
 
@@ -563,8 +577,8 @@ class DataContent:
         pid = int(kwargs.get('pid', 0))
         scope = kwargs.get('scope', 'lab')
 
-        permissions = self.app.dm.get_config("projects")['permissions']
-        possible_scopes = permissions['user_can_see_projects']
+        project_perms = self.app.dm.get_config("permissions")['projects']
+        view_options = project_perms['view_options']
 
         # FIXME Define access/permissions for other users
         projects = {}
@@ -573,7 +587,7 @@ class DataContent:
         if 'pid' in kwargs and not is_manager:
             raise Exception("You do not have permissions to see these projects")
 
-        scopes_set = set(ps['key'] for ps in possible_scopes)
+        scopes_set = set(ps['key'] for ps in view_options)
         if 'scope' in kwargs and not scope in scopes_set:
             raise Exception(f"Invalid scope '{scope}', or invalid permissions.")
 
@@ -648,7 +662,7 @@ class DataContent:
                 'show_extra': extra and user.is_admin,
                 'pi_select': pi_select,
                 'pid': pid,
-                'possible_scopes': possible_scopes,
+                'possible_scopes': view_options,
                 'scope': scope
                 }
 
@@ -801,12 +815,9 @@ def register_content(dc):
 
     @dc.content
     def dashboard(**kwargs):
-        print(f">>>>> Getting dashboard")
         dm = app.dm  # shortcut
         user = app.user  # shortcut
-
         dataDict = dc.get_resources(image=True)
-
         resource_bookings = {}
 
         # Provide upcoming bookings sorted by proximity
