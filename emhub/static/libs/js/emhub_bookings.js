@@ -83,8 +83,8 @@ function showBookingForm(booking_params, modalId)
  * Retrieve the booking parameters from the Form
  */
 function getBookingParams() {
-    booking = getFormAsJson('booking-form')
-    jQuery.extend(booking, getFormAsJson('booking-form-admin'))
+    booking = getFormAsJson('booking-form', true);
+    jQuery.extend(booking, getFormAsJson('booking-form-admin', true));
 
     booking.start = getDateAndTime('booking-start');
     booking.end = getDateAndTime('booking-end');
