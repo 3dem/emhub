@@ -139,7 +139,7 @@ class SessionTaskHandler(TaskHandler):
         date = date_ts.split()[0].replace('-', '')
         name = self.session['name']
         return os.path.join(self.sconfig['raw']['root_frames'],
-                            f"{date}_{self.microscope}_{name}/")
+                            f"{date}_{self.microscope}_{name}")
 
     def transfer(self):
         """ Move files from the Raw folder to the Offload folder.
@@ -159,11 +159,13 @@ class SessionTaskHandler(TaskHandler):
         rawPath = os.path.join(rawRoot, self.users['group'], self.microscope,
                                       str(datetime.now().year), 'raw', 'EPU',
                                       userFolder, os.path.basename(framesPath))
+        framesPath = Path.addslash(framesPath)
         rawPath = Path.addslash(rawPath)
 
         #  First time the process function is called for this execution
         if self.count == 1:
             self.logger.info(f"Monitoring FRAMES FOLDER: {framesPath}")
+            self.logger.info(f"Offloading to RAW FOLDER: {rawPath}")
             self.pl.mkdir(framesPath)
             raw['frames'] = framesPath
             self.mf = MovieFiles(root=rawPath)
