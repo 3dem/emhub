@@ -126,7 +126,6 @@ class SessionTaskHandler(TaskHandler):
             update_args['done'] = 1
 
         # Remove dict from the task update
-        pprint(update_args)
         del update_args['files']
         self.update_task(update_args)
 
@@ -149,10 +148,13 @@ class SessionTaskHandler(TaskHandler):
 
         # Real raw path where frames are being recorded
         framesPath = raw.get('frames', '') or self.get_frames_path()
-        #framesPath = Path.addslash(raw['frames'])
-
+        parts = self.users['owner']['email'].split('@')[0].split('.')
+        userFolder = parts[0][0] + parts[1]
+        rawRoot = self.sconfig['raw']['root']
         # Offload server path where to transfer the files
-        rawPath = self.get_path_from(raw, framesPath, self.sconfig['raw']['root'])
+        rawPath = os.path.join(rawRoot, self.users['group'], self.microscope,
+                                      str(datetime.now().year), 'raw', 'EPU',
+                                      userFolder, os.path.basename(framesPath))
         rawPath = Path.addslash(rawPath)
 
         #  First time the process function is called for this execution
@@ -182,7 +184,6 @@ class SessionTaskHandler(TaskHandler):
             self.logger.info(f"Found {self.n_files} new files, "
                              f"{self.n_movies} new movies")
             if self.n_files > 0:
-                pprint(mf.info())
                 raw.update(mf.info())
                 self.update_session_extra({'raw': raw})
                 # Remove dict from the task update
