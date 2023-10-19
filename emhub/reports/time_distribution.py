@@ -64,9 +64,12 @@ class CounterList:
 
     def data(self):
         total = self._counters[0].days
-        data = [[c._name, c.counter, c.days,
-                 '%0.2f' % (c.days * 100 / total), c.cost]
-                for c in self._counters]
+        if total > 0:
+            data = [[c._name, c.counter, c.days,
+                     '%0.2f' % (c.days * 100 / total), c.cost]
+                    for c in self._counters]
+        else:
+            data = [[]]
 
         return data
 

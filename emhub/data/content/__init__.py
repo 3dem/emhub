@@ -15,7 +15,7 @@
 # **************************************************************************
 
 from .dc_base import DataContent, register_content
-from . import (dc_base, dc_raw, dc_users, dc_reports, dc_bookings, dc_invoices,
+from . import (dc_base, dc_raw, dc_users, dc_reports, dc_bookings,
                dc_projects, dc_sessions)
 
 dc = DataContent()

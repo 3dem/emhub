@@ -345,8 +345,7 @@ def create_data_models(dm):
             return other is not None and self.get_pi() == other.get_pi()
 
         def get_applications(self, status='active'):
-            """ Return the applications of this user.
-            """
+            """ Return the applications of this user. """
             applications = []
             pi = self.get_pi()
             if pi is not None:
@@ -437,6 +436,25 @@ def create_data_models(dm):
         @reset_token.setter
         def reset_token(self, value):
             self.__setExtra('reset_token', value)
+
+        @property
+        def invoice(self):
+            """ Property for invoice reference and address. """
+            return self.__getExtra('invoice', {'reference': '', 'address': ''})
+
+        @invoice.setter
+        def invoice(self, value):
+            self.__setExtra('invoice', value)
+
+        @property
+        def university(self):
+            """ Property for university. """
+            return self.__getExtra('university', '')
+
+        @university.setter
+        def university(self, value):
+            self.__setExtra('university', value)
+
 
 
     class Template(Base):
