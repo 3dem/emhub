@@ -52,7 +52,8 @@ class SessionTaskHandler(TaskHandler):
         self.session = self.dc.get_session(session_id)
         attrs = {"attrs": {"id": self.session['id']}}
         self.sconfig = self.request_config('sessions')
-        self.users = self.request_data('get_session_users', attrs)['session_users']
+        session_users = self.request_data('get_session_users', attrs)
+        self.users = session_users.get('session_users', None)
         self.resources = self.request_dict('get_resources',
                                            {"attrs": ["id", "name"]})
         self.microscope = self.resources[self.session['resource_id']]['name']
@@ -64,6 +65,9 @@ class SessionTaskHandler(TaskHandler):
         self.logger.info(f"\t   args: {targs}")
 
     def process(self):
+        if self.users is None:
+            raise Exception("Could not retrieve users information for this session")
+
         func = getattr(self, self.action, None)
         if func is None:
             return self.unknown_action()
