@@ -52,7 +52,8 @@ class SessionTaskHandler(TaskHandler):
         self.session = self.dc.get_session(session_id)
         attrs = {"attrs": {"id": self.session['id']}}
         self.sconfig = self.request_config('sessions')
-        self.users = self.request_data('get_session_users', attrs)['session_users']
+        session_users = self.request_data('get_session_users', attrs)
+        self.users = session_users.get('session_users', None)
         self.resources = self.request_dict('get_resources',
                                            {"attrs": ["id", "name"]})
         self.microscope = self.resources[self.session['resource_id']]['name']
@@ -64,6 +65,9 @@ class SessionTaskHandler(TaskHandler):
         self.logger.info(f"\t   args: {targs}")
 
     def process(self):
+        if self.users is None:
+            raise Exception("Could not retrieve users information for this session")
+
         func = getattr(self, self.action, None)
         if func is None:
             return self.unknown_action()
@@ -126,7 +130,6 @@ class SessionTaskHandler(TaskHandler):
             update_args['done'] = 1
 
         # Remove dict from the task update
-        pprint(update_args)
         del update_args['files']
         self.update_task(update_args)
 
@@ -136,7 +139,7 @@ class SessionTaskHandler(TaskHandler):
         date = date_ts.split()[0].replace('-', '')
         name = self.session['name']
         return os.path.join(self.sconfig['raw']['root_frames'],
-                            f"{date}_{self.microscope}_{name}/")
+                            f"{date}_{self.microscope}_{name}")
 
     def transfer(self):
         """ Move files from the Raw folder to the Offload folder.
@@ -149,15 +152,20 @@ class SessionTaskHandler(TaskHandler):
 
         # Real raw path where frames are being recorded
         framesPath = raw.get('frames', '') or self.get_frames_path()
-        #framesPath = Path.addslash(raw['frames'])
-
+        parts = self.users['owner']['email'].split('@')[0].split('.')
+        userFolder = parts[0][0] + parts[1]
+        rawRoot = self.sconfig['raw']['root']
         # Offload server path where to transfer the files
-        rawPath = self.get_path_from(raw, framesPath, self.sconfig['raw']['root'])
+        rawPath = os.path.join(rawRoot, self.users['group'], self.microscope,
+                                      str(datetime.now().year), 'raw', 'EPU',
+                                      userFolder, os.path.basename(framesPath))
+        framesPath = Path.addslash(framesPath)
         rawPath = Path.addslash(rawPath)
 
         #  First time the process function is called for this execution
         if self.count == 1:
             self.logger.info(f"Monitoring FRAMES FOLDER: {framesPath}")
+            self.logger.info(f"Offloading to RAW FOLDER: {rawPath}")
             self.pl.mkdir(framesPath)
             raw['frames'] = framesPath
             self.mf = MovieFiles(root=rawPath)
@@ -182,7 +190,6 @@ class SessionTaskHandler(TaskHandler):
             self.logger.info(f"Found {self.n_files} new files, "
                              f"{self.n_movies} new movies")
             if self.n_files > 0:
-                pprint(mf.info())
                 raw.update(mf.info())
                 self.update_session_extra({'raw': raw})
                 # Remove dict from the task update

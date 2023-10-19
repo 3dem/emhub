@@ -31,14 +31,16 @@ Register content functions related to Sessions
 import os
 import datetime as dt
 from collections import defaultdict
+from pprint import pprint
 
-from emhub.utils import shortname, get_quarter
+from emhub.utils import shortname, get_quarter, pretty_quarter, pretty_date
 
 
 def register_content(dc):
+    import flask
 
     @dc.content
-    def get_reports_time_distribution(**kwargs):
+    def reports_time_distribution(**kwargs):
 
         def _booking_to_json(booking, **kwargs):
             bj = dc.booking_to_event(booking, **kwargs)
@@ -103,13 +105,16 @@ def register_content(dc):
         return d
 
     @dc.content
-    def get_reports_invoices(**kwargs):
+    def reports_invoices(**kwargs):
         bookings, range_dict = dc.get_booking_in_range(kwargs, asJson=False)
 
-        portal_users = {
-            pu['email']: pu for pu in dc.app.sll_pm.fetchAccountsJson()
-            if pu['pi']
-        }
+        if hasattr(dc.app, 'sll_pm'):  # Portal Manager
+            portal_users = {
+                pu['email']: pu for pu in dc.app.sll_pm.fetchAccountsJson()
+                if pu['pi']
+            }
+        else:
+            portal_users = {}
 
         def create_pi_info_dict(a):
             return {pi.id: {
@@ -156,6 +161,7 @@ def register_content(dc):
                 continue
 
             try:
+                print("Updating info...")
                 update_pi_info(apps_dict[app_id][pi.id], b)
                 update_pi_info(pi_dict[pi.id], b)
 
@@ -178,7 +184,7 @@ def register_content(dc):
         return result
 
     @dc.content
-    def get_reports_invoices_lab(**kwargs):
+    def reports_invoices_lab(**kwargs):
         period = dc.get_period(kwargs)
         pi_user = dc.get_pi_user(kwargs)
         app = pi_user.get_applications()[-1]
@@ -186,7 +192,7 @@ def register_content(dc):
         data = dc.get_reports_invoices(**kwargs)
         data['apps_dict'] = {app.code: data['apps_dict'][app.code]}
         data['app'] = app
-        data.update(dc.get_transactions_list(period=period.id))
+        data.update(transactions_list(period=period.id))
         data['period'] = period
         alias = app.alias
         data['details_title'] = app.code + (' (%s)' % alias if alias else '')
@@ -194,7 +200,7 @@ def register_content(dc):
         return data
 
     @dc.content
-    def get_invoices_per_pi(**kwargs):
+    def invoices_per_pi(**kwargs):
         pi_id = kwargs.get('pi_id', None)
 
         data = {'pi_id': pi_id,
@@ -264,17 +270,23 @@ def register_content(dc):
         return data
 
     @dc.content
-    def get_invoices_lab_list(**kwargs):
+    def invoices_lab_list(**kwargs):
+
+        def _booking(b, **kwargs):
+            bjson = dc.booking_to_event(b, **kwargs)
+            bjson['total_cost'] = b.total_cost
+            return bjson
 
         period = dc.get_period(kwargs)
-        bookings, range_dict = dc.get_booking_in_range(kwargs)
+        bookings, range_dict = dc.get_booking_in_range(kwargs, bookingFunc=_booking)
 
         pi_user = dc.get_pi_user(kwargs)
 
         apps_dict = {a.id: [] for a in pi_user.get_applications()}
         all_bookings = []
         for b in bookings:
-            if b.get('pi_id', None) != pi_user.id or b['type'] != 'booking':
+            pprint(b)
+            if b.get('pi_id', None) != pi_user.id:  # or b.get('type', '') != 'booking':
                 continue
 
             app_id = b.get('app_id', None)
@@ -293,13 +305,12 @@ def register_content(dc):
         }
 
         result.update(range_dict)
-        result.update(dc.get_transactions_list(period=period.id,
-                                               pi=pi_user.id))
+        result.update(transactions_list(period=period.id, pi=pi_user.id))
 
         return result
 
     @dc.content
-    def get_reports_bookings_extracosts(**kwargs):
+    def reports_bookings_extracosts(**kwargs):
         all_bookings, range_dict = dc.get_booking_in_range(kwargs)
 
         u = dc.app.user
@@ -315,7 +326,7 @@ def register_content(dc):
         q1 = get_quarter()
         q0 = get_quarter(q1[0] - dt.timedelta(days=1))
 
-        dc.get_transactions_list(**kwargs)
+        transactions_list(**kwargs)
 
         result = {
             'bookings': bookings,
@@ -606,3 +617,123 @@ def register_content(dc):
         data.update(range_dict)
 
         return data
+
+
+    @dc.content
+    def invoice_periods_list(**kwargs):
+        c = 0
+        periods = []
+
+        for ip in dc.app.dm.get_invoice_periods(orderBy='start'):
+            p = {
+                'id': ip.id,
+                'status': ip.status,
+                'start': ip.start,
+                'end': ip.end,
+                'period': pretty_quarter((ip.start, ip.end))
+            }
+            if ip.status != 'disabled':
+                c += 1
+                p['order'] = c
+            else:
+                p['order'] = 0
+            periods.append(p)
+
+        periods.sort(key=lambda p: p['order'], reverse=True)
+
+        return {'invoice_periods': periods}
+
+    @dc.content
+    def invoice_period_form(**kwargs):
+        dm = dc.app.dm
+        invoice_period_id = kwargs['invoice_period_id']
+        if invoice_period_id:
+            ip = dm.get_invoice_period_by(id=invoice_period_id)
+        else:
+            ip = dm.InvoicePeriod(status='active',
+                                  start=dt.datetime.now(),
+                                  end=dt.datetime.now())
+
+        return {
+            'invoice_period': ip
+        }
+
+    @dc.content
+    def transactions_list(**kwargs):
+        dm = dc.app.dm  # shortcut
+        period = dm.get_invoice_period_by(id=int(kwargs['period']))
+
+        def _filter(t):
+            return ((period.start < t.date < period.end) and
+                    ('pi' not in kwargs or t.user.id == kwargs['pi']))
+
+        transactions = [t for t in dm.get_transactions() if _filter(t)]
+        transactions_dict = {}
+
+        for t in transactions:
+            user_id = t.user.id
+            if user_id not in transactions_dict:
+                transactions_dict[user_id] = 0
+            transactions_dict[user_id] += int(float(t.amount))
+
+        return {
+            'transactions': transactions,
+            'period': period,
+            'transactions_dict': transactions_dict
+        }
+
+    @dc.content
+    def invoice_period(**kwargs):
+        dm = dc.app.dm  # shortcut
+        period = dm.get_invoice_period_by(id=int(kwargs['period']))
+        tabs = [
+            {'label': 'overall',
+             'template': 'time_distribution.html'
+             },
+            {'label': 'invoices',
+             'template': 'invoices_list.html'
+             },
+            {'label': 'transactions',
+             'template': 'transactions_list.html',
+             }
+        ]
+        tab = kwargs.get('tab', tabs[0]['label'])
+        data = {
+            'period': period,
+            'tabs': tabs,
+            'selected_tab': tab,
+            'base_url': flask.url_for('main',
+                                      content_id='invoice_period',
+                                      period=period.id,
+                                      tab=tab)
+        }
+
+        report_args = {
+            'start': pretty_date(period.start),
+            'end': pretty_date(period.end),
+            'details': kwargs.get('details', None),
+            'group': kwargs.get('group', 1)
+        }
+
+        data.update(transactions_list(period=period.id))
+        data.update(reports_invoices(**report_args))
+        data.update(reports_time_distribution(**report_args))
+
+        return data
+
+    @dc.content
+    def transaction_form(**kwargs):
+        dm = dc.app.dm
+        transaction_id = kwargs['transaction_id']
+        if transaction_id:
+            t = dm.get_transaction_by(id=transaction_id)
+        else:
+            t = dm.Transaction(date=dt.datetime.now(),
+                               amount=0,
+                               comment='')
+
+        return {
+            'transaction': t,
+            'pi_list': [u for u in dm.get_users() if u.is_pi]
+        }
+

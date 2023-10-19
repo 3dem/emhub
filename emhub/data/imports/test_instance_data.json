@@ -151,6 +151,24 @@
       "content": {
         "usage_report": ["head", "admin"],
         "raw": ["admin"]
+      },
+      "projects": {
+          "can_create": "all",
+          "view_options": [
+              {
+                  "key": "mine",
+                  "label": "My Projects"
+              },
+              {
+                  "key": "lab",
+                  "label": "Lab's Projects"
+              },
+              {
+                  "key": "all",
+                  "label": "All Projects"
+              }
+          ]
+
       }
     }
   },
@@ -181,14 +199,6 @@
                 "iconClass": "far fa-calendar",
                 "imageClass": "img--location"
             }
-        },
-        "permissions": {
-            "user_can_create_projects": "all",
-            "user_can_see_projects": [
-                {"key": "mine", "label": "My Projects"},
-                {"key": "lab", "label": "Lab Projects"},
-                {"key": "all", "label": "All Projects"}
-            ]
         }
     }
   },
@@ -236,6 +246,11 @@
                 "staff-other"
             ]
         }
+    },
+    {
+      "name": "config:resources",
+      "definition":
+        {"currency": "$"}
     }
 
 ],
@@ -321,7 +336,7 @@
                 "requires_slot": true,
                 "min_booking": 8,
                 "max_booking": 72,
-                "daily_cost": 0,
+                "daily_cost": 1000,
                 "requires_application": true
             }
         },
@@ -329,7 +344,7 @@
             "id": 2,
             "name": "Krios02",
             "status": "inactive",
-            "tags": "microscope krios stjude",
+            "tags": "microscope krios",
             "image": "titan-krios.png",
             "color": "rgba(60, 90, 190, 1.0)",
             "extra": {
@@ -345,7 +360,7 @@
             "id": 3,
             "name": "Arctica01",
             "status": "active",
-            "tags": "microscope arctica stjude",
+            "tags": "microscope arctica",
             "image": "talos-artica.png",
             "color": "rgba(43, 84, 36, 1.0)",
             "extra": {
@@ -353,7 +368,7 @@
                 "requires_slot": false,
                 "min_booking": 8,
                 "max_booking": 72,
-                "daily_cost": 0,
+                "daily_cost": 500,
                 "requires_application": true
             }
         },
@@ -361,7 +376,7 @@
             "id": 4,
             "name": "Talos",
             "status": "active",
-            "tags": "microscope talos stjude",
+            "tags": "microscope talos",
             "image": "talos.jpeg",
             "color": "rgb(129, 204, 142, 1.0)",
             "extra": {
@@ -377,7 +392,7 @@
             "id": 5,
             "name": "Vitrobot01",
             "status": "active",
-            "tags": "instrument vitrobot prep stjude",
+            "tags": "instrument vitrobot prep",
             "image": "vitrobot.png",
             "color": "rgba(104, 92, 9, 1.0)",
             "extra": {
@@ -425,7 +440,7 @@
             "id": 8,
             "name": "Vitrobot02",
             "status": "active",
-            "tags": "instrument vitrobot prep stjude",
+            "tags": "instrument vitrobot prep",
             "image": "vitrobot.png",
             "color": "rgba(158, 142, 62, 1.0)",
             "extra": {
@@ -441,7 +456,7 @@
             "id": 9,
             "name": "Leica GP2",
             "status": "active",
-            "tags": "instrument leica plunge freezer prep stjude",
+            "tags": "instrument leica plunge freezer prep",
             "image": "leica-gp2.jpg",
             "color": "rgba(215, 195, 113, 1.0)",
             "extra": {

@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '1.0.0rc01'
+__version__ = '1.0.0rc02'
 
 
 def create_app(test_config=None):
@@ -190,7 +190,7 @@ def create_app(test_config=None):
                                                 'create_session_form_body.html')
         kwargs['dashboard_right'] = app.config.get('TEMPLATE_DASHBOARD_RIGHT',
                                                    'dashboard_right.html')
-
+        kwargs['currency'] = app.dm.get_config('resources').get('currency', '$')
         try:
             display = app.dm.get_config('bookings')['display']
             kwargs['show_application'] = display['show_application']

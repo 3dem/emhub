@@ -566,7 +566,7 @@ class DataContent:
              'max_booking': r.max_booking,
              'daily_cost': r.daily_cost
              }
-            for r in self.app.dm.get_resources() if _filter(r)
+            for r in dm.get_resources() if _filter(r)
         ]
         return {'resources': resource_list}
 
