@@ -151,7 +151,7 @@ class SessionTaskHandler(TaskHandler):
         raw = extra['raw']
 
         # Real raw path where frames are being recorded
-        framesPath = raw.get('frames', '') or self.get_frames_path()
+        framesPath = Path.rmslash(raw.get('frames', '')) or self.get_frames_path()
         parts = self.users['owner']['email'].split('@')[0].split('.')
         userFolder = parts[0][0] + parts[1]
         rawRoot = self.sconfig['raw']['root']
@@ -211,7 +211,6 @@ class SessionTaskHandler(TaskHandler):
         self.logger.info(f"Scanning framesPath: {framesPath}")
         for root, dirs, files in os.walk(framesPath):
             rootRaw = root.replace(framesPath, rawPath)
-            # rootEpu = root.replace(framesPath, epuPath)
             for d in dirs:
                 self.pl.mkdir(os.path.join(rootRaw, d))
             for f in files:
