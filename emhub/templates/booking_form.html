@@ -260,7 +260,7 @@
                     <button type="button" id="booking-btn-delete" class="btn btn-outline-danger" onclick="onDeleteButtonClick()">Delete</button>
                 {% endif %}
 
-                <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="onOkButtonClick()">{{ submit }}</button>
+                <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="onOkButtonClick({{ is_new|tojson }})">{{ submit }}</button>
 
             {% endif %}
 
