@@ -66,6 +66,5 @@ def main():
         dump(args.dump[0].split(','), args.dump[1])
 
 
-
 if __name__ == '__main__':
     main()

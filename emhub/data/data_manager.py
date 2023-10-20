@@ -207,6 +207,11 @@ class DataManager(DbManager):
 
     def delete_resource(self, **attrs):
         resource = self.__item_by(self.Resource, id=attrs['id'])
+
+        for b in self.get_bookings():
+            if b.resource_id == resource.id:
+                raise Exception("Can not delete resource, there are existing "
+                                "bookings.")
         self.delete(resource)
         return resource
 
@@ -464,6 +469,9 @@ class DataManager(DbManager):
         """
         def delete(b):
             self.__check_cancellation(b)
+            if b.session:
+                raise Exception("Can not delete Booking, there are existing "
+                                "sessions.")
             self.delete(b, commit=False)
 
         result = self._modify_bookings(attrs, delete)

@@ -70,6 +70,10 @@ class TestData:
         self._populateBookings(dm)
         self._populateSessions(dm)
 
+        # Create one invoice period
+        dm.create_invoice_period(start=firstMonday,
+                                 end=firstMonday + dt.timedelta(days=90))
+
     def _populateForms(self, dm):
         self._action('Populating Forms')
 

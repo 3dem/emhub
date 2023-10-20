@@ -456,7 +456,6 @@ def create_data_models(dm):
             self.__setExtra('university', value)
 
 
-
     class Template(Base):
         """ Classes used as template to create Applications.
         Template instances that are 'active' will allow to
