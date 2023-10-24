@@ -82,9 +82,9 @@ function showBookingForm(booking_params, modalId)
 /**
  * Retrieve the booking parameters from the Form
  */
-function getBookingParams() {
-    booking = getFormAsJson('booking-form', true);
-    jQuery.extend(booking, getFormAsJson('booking-form-admin', true));
+function getBookingParams(includeEmpty) {
+    booking = getFormAsJson('booking-form', includeEmpty);
+    jQuery.extend(booking, getFormAsJson('booking-form-admin', includeEmpty));
 
     booking.start = getDateAndTime('booking-start');
     booking.end = getDateAndTime('booking-end');
@@ -116,13 +116,13 @@ function invalidRepeatParams(booking) {
 /** This function will be called when the OK button in the Booking form
  * is clicked. It can be either Create or Update action.
  */
-function onOkButtonClick() {
+function onOkButtonClick(is_new) {
 
     let endpoint = null;
     var booking = null;
 
     try {
-        booking = getBookingParams();
+        booking = getBookingParams(!is_new);
     }
     catch (err) {
         showError("Error: " + err.toString());
@@ -163,10 +163,10 @@ function onOkButtonClick() {
 }  // function onOkButtonClick
 
     /** This function will be called when the Delete button in the Booking form
- * is clicked. It can be either Create or Update action.
+ * is clicked.
  */
 function onDeleteButtonClick() {
-    const booking = getBookingParams();
+    const booking = getBookingParams(false);
 
     confirm("Delete Booking",
         "Are you sure to DELETE this Booking?",

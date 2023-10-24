@@ -161,7 +161,6 @@ def register_content(dc):
                 continue
 
             try:
-                print("Updating info...")
                 update_pi_info(apps_dict[app_id][pi.id], b)
                 update_pi_info(pi_dict[pi.id], b)
 
