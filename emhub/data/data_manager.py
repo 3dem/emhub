@@ -623,13 +623,18 @@ class DataManager(DbManager):
         if 'status' not in attrs:
             attrs['status'] = 'active'
 
-        # Name of the session can be passed and it will be used
-        # If not, then a name will be picked from the booking/group/application
+        # If the session name is not provided,
+        # it will be picked from the booking/group/application
         if 'name' not in attrs:
             session_info = self.get_new_session_info(b.id)
             attrs['name'] = session_info['name']
         else:
             session_info = None
+
+        s = self.get_session_by(name=attrs['name'])
+        if s is not None:
+            raise Exception("Session name already exist, "
+                            "choose a different one.")
 
         extra = attrs.get('extra', {})
         raw_folder = extra['raw'].get('path', '')
