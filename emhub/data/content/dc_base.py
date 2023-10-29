@@ -533,19 +533,23 @@ class DataContent:
     def get_resources(self, **kwargs):
         user = self.app.user
         dm = self.app.dm
+
         if not user.is_authenticated:
             return {'resources': []}
 
+        all = kwargs.get('all', False)
+        get_image = kwargs.get('image', False)
+
         def _image(r):
+            if not get_image or r.id is None:
+                return None
+
             fn = dm.get_resource_image_path(r)
             if os.path.exists(fn):
                 base64 = image.Base64Converter(max_size=(128, 128))
                 return 'data:image/%s;base64, ' + base64.from_path(fn)
             else:
                 return flask.url_for('images.static', filename=r.image)
-
-        all = kwargs.get('all', False)
-        get_image = kwargs.get('image', False)
 
         def _filter(r):
             return all or r.is_active
@@ -558,7 +562,7 @@ class DataContent:
              'requires_slot': r.requires_slot,
              'latest_cancellation': r.latest_cancellation,
              'color': r.color,
-             'image': _image(r) if get_image else None,
+             'image': _image(r),
              'user_can_book': dm.check_resource_access(r, 'create_booking'),
              'is_microscope': r.is_microscope,
              'is_active': r.is_active,

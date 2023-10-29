@@ -72,7 +72,7 @@
                                 <tr>
                                     <td> {{ r['id'] }} </td>
                                     <td>
-                                        {% if r['images'] %}
+                                        {% if r['image'] %}
                                             <div class="m-r-10"><img src="{{ r['image'] }}" alt="user" class="rounded" width="75"></div>
                                         {% endif %}
                                     </td>
@@ -87,8 +87,8 @@
                                     <td> {{ r['daily_cost'] }}</td>
                                     {% if current_user.is_manager %}
                                     <td>
-                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id'] }})"><i class="far fa-edit"></i></button>
-                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id'] }}, true)"><i class="far fa-copy"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id']|tojson }})"><i class="far fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id']|tojson }}, true)"><i class="far fa-copy"></i></button>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:deleteResource({{ r['id'] }})"
                                                 data-id="{{ r['id'] }}" data-name="{{ r['name'] }}"><i class="far fa-trash-alt"></i></button>
                                     </td>
