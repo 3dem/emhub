@@ -1114,7 +1114,7 @@ class DataManager(DbManager):
         perms = self.get_config('permissions')
         return (self._user.can_book_resource(resource) and
                 any(t in resource.tags and 'user' in u
-                    for t, u in perms[permissionKey].items()))
+                    for t, u in perms.get(permissionKey, {}).items()))
 
     # ------------------- BOOKING helper functions -----------------------------
     def create_basic_booking(self, attrs, **kwargs):
@@ -1164,7 +1164,8 @@ class DataManager(DbManager):
                 raise Exception("Selected resource is inactive now. ")
 
             # Booking can not be made in the past
-            if booking.start.date() < self.now().date():
+            if (booking.start.date() < self.now().date() and
+                    not self.check_resource_access(r, 'past_bookings')):
                 raise Exception("The booking 'start' can not be in the past. ")
 
             # Booking time should be bigger than the minimum for this resource
