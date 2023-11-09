@@ -166,7 +166,12 @@ class SessionTaskHandler(TaskHandler):
         if self.count == 1:
             self.logger.info(f"Monitoring FRAMES FOLDER: {framesPath}")
             self.logger.info(f"Offloading to RAW FOLDER: {rawPath}")
-            self.pl.mkdir(framesPath)
+
+            # JMRT 2023/11/08 We are not longer creating the Frames path because
+            # new version of EPU requires that the folder does not exist for
+            # starting a new session
+            #self.pl.mkdir(framesPath)
+
             raw['frames'] = framesPath
             self.mf = MovieFiles(root=rawPath)
 
@@ -359,7 +364,7 @@ class SessionTaskHandler(TaskHandler):
         config['ACQUISITION'] = acq
 
         config['PREPROCESSING'] = {
-            'images': 'data/Images-Disc1/GridSquare_*/Data/Foil*fractions.tiff',
+            'images': 'data/Images-Disc*/GridSquare_*/Data/Foil*fractions.tiff',
             'software': 'None',  # or Relion or Scipion
         }
 

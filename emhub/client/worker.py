@@ -78,6 +78,14 @@ class TaskHandler(threading.Thread):
     def stop(self):
         self._stopEvent.set()
 
+    def _stop_thread(self, error=None):
+        self.logger.info(f"Stopping task handler for "
+                         f"{self.task['id']}.")
+        if error:
+            self.logger.error(error)
+
+        del self.worker.tasks[self.task['id']]
+
     def update_task(self, event):
         data = {
             'task_id': self.task['id'],
@@ -95,17 +103,19 @@ class TaskHandler(threading.Thread):
                 if self.count:
                     time.sleep(self.sleep)
                     if self._stopEvent.is_set():
-                        self.logger.info(f"Stopping task handler for "
-                                         f"{self.task['id']}.")
-                        del self.worker.tasks[self.task['id']]
+                        self._stop_thread()
                         break
 
                 self.count += 1
                 self.process()
 
             except Exception as e:
-                self.logger.error('FATAL ERROR: ' + str(e))
-                self.logger.error(traceback.format_exc())
+                errorTrace = traceback.format_exc()
+                self._stop_thread(error=errorTrace)
+                try:
+                    self.update_task({'error': errorTrace, 'done': 1})
+                except:
+                    pass
                 print(e)
             first = False
 
