@@ -4,7 +4,7 @@
 <div class="col-12">
 <div class="card">
     <div class="card-body">
-        <h3>Batch {{ batch['id'] }}</h3>
+        <h3>Batch {{ batch.id }}</h3>
         <table id="plates-table" class="table table-striped table-bordered" style="width:100%">
             <thead>
             <tr>
@@ -15,12 +15,17 @@
             </tr>
             </thead>
             <tbody>
-            {% for plate in batch['plates']|sort %}
+
+            {% set platesAvailable = batch.platesAvailable() %}
+
+            {% for plate in batch.plates %}
                 <tr>
-                    <td style="width:5%"> {{ plate }}</td>
+
+                    <td style="width:5%"> {{ plate['number'] }} ({{ platesAvailable[plate['id']]|length }}) </td>
+                    {% set channels = plate['channels'] %}
                     {% for i in range(1, 11) %}
                         <td style="width:9.5%" class="p-1">
-                            {% set info = platesDict.get(plate, {}).get(i, None) %}
+                            {% set info = channels.get(i, None) %}
                             {% if info %}
                                 <div class="row" style="width: 100%">
                                     <div class="row col-12">
@@ -29,10 +34,14 @@
                                                 <a href="javascript:showBookingForm({booking_id: {{ info['booking'].id }}})"><i class="far fa-calendar-alt"></i></a>
                                             </div>
                                             <div class="col-6">{{ macros.resource(info['booking'].resource) }}</div>
-                                        {% endif %}
-                                        {% if info['project'] %}
+                                        {% elif info['project'] %}
+                                            <div class="col-6"> <a href="javascript:newPlateEntry({{ plate['number'] }}, {{ i }})">
+                                                <i class="fas fa-edit"></i></a>
+                                            </div>
                                             <div class="col-6">{{ macros.project(info['project']) }}</div>
+
                                         {% endif %}
+
                                         <div class="col-2 ml-2">
                                             {% if info['issues'] %}
                                                 <i class="fas fa-info-circle" style="color: red"></i>
@@ -43,9 +52,15 @@
                                     </div>
                                 </div>
 
-                                    <div class="row col-12">{{ info['sample'] }}</div>
+                                <div class="row col-12">{{ info['sample'] }}</div>
                                 <div class="row col-12">{{  info['comments'] }}</div>
-                            {% endif %}
+
+                            {% else %}
+
+                                <div class="col-6"> <a href="javascript:newPlateEntry({{ plate['number'] }}, {{ i }})"><i class="fas fa-edit"></i></a></div>
+
+                            {% endif %} {# if info #}
+
                         </td>
                     {% endfor %}
                 </tr>
