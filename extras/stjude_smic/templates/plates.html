@@ -26,7 +26,8 @@
                             <div class="row">
                                 {% for batch in batches %}
                                     <div class="col-12 mb-2">
-                                        <a href="javascript:loadBatch({{ batch }})" class="badge badge-dark mr-1">B{{ batch }}</a>
+                                        {% set badgeType = 'dark' if batch.active else 'light' %}
+                                        <a href="javascript:loadBatch({{ batch.id }})" class="badge badge-{{ badgeType }} mr-1" id="batch_tag_{{ batch.id }}">B{{ batch.id }}</a>
                                     </div>
                                 {% endfor %}
                             </div>
@@ -38,7 +39,6 @@
         </div>
 
         <div id="batch-content" class="col-11 p-0 m-0">
-
            {% include "batch_content.html" %}
 
         </div>
@@ -53,10 +53,40 @@
 </div>
 
 <script>
+    function onBatchStateChanged() {
+        var current_batch = $('#batch_id_hidden').val();
+        var status = $('#batch_status_select').selectpicker('val');
+
+
+        send_ajax_json("{{ url_for('api.update_batch') }}", {batch: current_batch, status: status},
+            function (jsonResponse) {
+                if ('error' in jsonResponse)
+                    showError(jsonResponse.error);
+                else {
+                    // on success update Batch label
+                    var batch_tag_id = '#batch_tag_' + current_batch;
+                    var classes = ['badge-dark', 'badge-light']
+                    var i = status == 'inactive' ? 0 : 1;
+                    $(batch_tag_id).removeClass(classes[i]);
+                    $(batch_tag_id).addClass(classes[1-i]);
+                    //alert("updating " + current_batch + " status: " + status);
+                }
+            },
+            function (jqXHR, textStatus) {   // on fail show error message
+                showError("Update Batch Request failed: " + textStatus);
+            });
+    }
+
+    function onPlateStateChanged(plateId) {
+        alert("Plate: " + plateId);
+    }
+
     function loadBatch(batch) {
         var ajaxContent = get_ajax_content('batch_content', {batch_id: batch});
         ajaxContent.done(function(html) {
             $('#batch-content').html(html);
+            $('#batch_status_select').selectpicker();
+            $('#batch_status_select').on('change', onBatchStateChanged);
         });
         ajaxContent.fail(ajax_request_failed);
     }
@@ -72,9 +102,7 @@
     function onPlateOkButtonClick() {
         var values = getFormAsJson('dynamic-form');
         // Send json data to create the puck
-        var create_plate_url = "{{ url_for('api.create_plate') }}";
-
-        send_ajax_json(create_plate_url, values,
+        send_ajax_json("{{ url_for('api.create_plate') }}", values,
             function (jsonResponse) {
                 if ('error' in jsonResponse)
                     showError(jsonResponse.error);
@@ -88,5 +116,14 @@
                 showError("Add Plate Request failed: " + textStatus);
             });
     }
+
+    (function(window, document, $, undefined) {
+        "use strict";
+
+        $('#batch_status_select').selectpicker();
+        $('#batch_status_select').on('change', onBatchStateChanged);
+
+
+    })(window, document, window.jQuery);
 
 </script>

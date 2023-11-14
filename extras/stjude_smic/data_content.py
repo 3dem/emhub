@@ -1,16 +1,26 @@
 
 class Batch:
     """ Helper class to store plates information. """
-    def __init__(self, batch_id):
+    def __init__(self, batch_id, status):
         # Store info about plates (e.g. number and channels)
         self.id = batch_id
+        self.status = status
         self._plates = {}
 
-    def addPlate(self, p):
+    @property
+    def active(self):
+        return self.status == 'active'
+
+    @property
+    def inactive(self):
+        return self.status == 'inactive'
+
+    def addPlate(self, p, status):
         self._plates[p.id] = {
             'id': p.id,
             'number': p.cane,
             'label': p.label,
+            'status': status,
             'channels': {}
         }
 
@@ -45,6 +55,10 @@ def register_content(dc):
     def load_batches(batch_id=None):
         """ Load one of all batches. """
         dm = dc.app.dm  # shortcut
+        platesConfig = dm.get_config('plates')
+        inactive_batches = platesConfig['inactive_batches']
+        inactive_plates = platesConfig['inactive_plates']
+
         batches = {}
         plateBatches = {}
 
@@ -52,8 +66,10 @@ def register_content(dc):
             b = p.dewar
             if batch_id is None or batch_id == b:
                 if b not in batches:
-                    batches[b] = Batch(b)
-                batches[b].addPlate(p)
+                    bstatus = 'inactive' if b in inactive_batches else 'active'
+                    batches[b] = Batch(b, bstatus)
+                pstatus = 'inactive' if p.id in inactive_plates else 'active'
+                batches[b].addPlate(p, pstatus)
                 plateBatches[p.id] = batches[b]
 
         def _registerInfo(plate, **kwargs):
@@ -84,20 +100,15 @@ def register_content(dc):
 
     @dc.content
     def plates(**kwargs):
-        plates = dc.app.dm.get_pucks()
-        batches = []
+        data = {'batches': list(batches_map()['batches'])}
 
-        for p in plates:
-            batch = p.dewar
-            plate = p.cane
-            if batch not in batches:
-                batches.append(batch)
-
-        batches.reverse()  # more recent first
-        data = {'batches': batches}
-        if batches:
-            batch_id = kwargs.get('batch_id', batches[0])
-            data.update(batch_content(batch_id=batch_id))
+        if 'batch_id' in kwargs:
+            batch_id = int(kwargs['batch_id'])
+            for b in batches:
+                if b.id == batch_id:
+                    data['batch'] = b
+        else:
+            data['batch'] = data['batches'][0]
 
         return data
 
@@ -105,13 +116,14 @@ def register_content(dc):
     def plate_form(**kwargs):
         form = dc.app.dm.get_form_by(name='form:plate')
         data = dc.dynamic_form(form, **kwargs)
-        data.update(batches_map())
+        data['batches'] = [b for b in batches_map()['batches'] if b.active]
         return data
 
     @dc.content
     def batches_map(**kwargs):
         batches = sorted(load_batches().values(),
                          key=lambda b: b.id, reverse=True)
+
         return {'batches': batches}
 
 

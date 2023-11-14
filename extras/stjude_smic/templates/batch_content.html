@@ -4,7 +4,17 @@
 <div class="col-12">
 <div class="card">
     <div class="card-body">
+        <input type="hidden", value="{{ batch.id }}" id="batch_id_hidden">
         <h3>Batch {{ batch.id }}</h3>
+
+        <div class="row mb-3">
+            <label class="ml-3 mt-2">Status: </label>
+            <select class="selectpicker ml-3 mr-3" data-width="auto"  title="" id="batch_status_select">
+                <option value="active" {{ 'selected' if batch.active else '' }}>active</option>
+                <option value="inactive"  {{ 'selected' if batch.inactive else '' }}>inactive</option>
+            </select>
+        </div>
+
         <table id="plates-table" class="table table-striped table-bordered" style="width:100%">
             <thead>
             <tr>
@@ -21,7 +31,17 @@
             {% for plate in batch.plates %}
                 <tr>
 
-                    <td style="width:5%"> {{ plate['number'] }} ({{ platesAvailable[plate['id']]|length }}) </td>
+                    <td style="min-width: 50px;">
+                        <div class="row col-12">
+                            <label class="col-4">{{ plate['number'] }} </label>
+                            {% set switch_name = "switch_active_plate_%s"|format(plate['id']) %}
+                            <div class="switch-button switch-button-xs ml-1 col-8">
+                                <input type="checkbox" name="{{ switch_name }}" id="{{ switch_name }}"
+                                       onclick="onPlateStateChanged({{ plate['id'] }})" {{ 'checked' if plate['status'] == 'active' else '' }}>
+                                <span><label for="{{ switch_name }}"></label></span>
+                            </div>
+                        </div>
+                    </td>
                     {% set channels = plate['channels'] %}
                     {% for i in range(1, 11) %}
                         <td style="width:9.5%" class="p-1">
