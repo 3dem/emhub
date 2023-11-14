@@ -58,7 +58,7 @@
         var status = $('#batch_status_select').selectpicker('val');
 
 
-        send_ajax_json("{{ url_for('api.update_batch') }}", {batch: current_batch, status: status},
+        send_ajax_json("{{ url_for('api.update_batch_status') }}", {batch: current_batch, status: status},
             function (jsonResponse) {
                 if ('error' in jsonResponse)
                     showError(jsonResponse.error);
@@ -78,7 +78,21 @@
     }
 
     function onPlateStateChanged(plateId) {
-        alert("Plate: " + plateId);
+        var switch_id = '#switch_active_plate_' + plateId;
+        var status = $(switch_id).prop('checked') ? "active" : "inactive";
+        //alert("Plate: " + plateId + " status: " + status);
+
+        send_ajax_json("{{ url_for('api.update_plate_status') }}", {plate: plateId, status: status},
+            function (jsonResponse) {
+                if ('error' in jsonResponse)
+                    showError(jsonResponse.error);
+                else {
+                }
+            },
+            function (jqXHR, textStatus) {   // on fail show error message
+                showError("Update Plate Request failed: " + textStatus);
+            });
+
     }
 
     function loadBatch(batch) {

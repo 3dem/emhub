@@ -48,7 +48,12 @@ class Batch:
         def __availableChannels(p):
             return [c for c in range(1, 11)
                     if c not in p['channels']]
-        return {p['id']: __availableChannels(p) for p in self.plates}
+        def __availablePlate(p):
+            return p['status'] == 'active' and len(p['channels']) < 10
+
+        for p in self.plates:
+            if p['status'] == 'active' and len(p['channels']) < 10:
+                yield p
 
 
 def register_content(dc):
@@ -116,6 +121,7 @@ def register_content(dc):
     def plate_form(**kwargs):
         form = dc.app.dm.get_form_by(name='form:plate')
         data = dc.dynamic_form(form, **kwargs)
+
         data['batches'] = [b for b in batches_map()['batches'] if b.active]
         return data
 

@@ -13,7 +13,7 @@
 
     {% for batch in batches %}
         <option data-divider="true"></option>
-        {% for p in batch.plates %}
+        {% for p in batch.platesAvailable() %}
             {% set selected = 'selected' if value|default(0)|int == p['id'] else '' %}
             <option value="{{ p['id'] }}" {{ selected }}>{{ p['label'] }}</option>
         {% endfor %}

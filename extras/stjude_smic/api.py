@@ -38,10 +38,10 @@ def extend_api(api_bp):
 
         if status == 'inactive':
             if itemId not in inactive_list:
-                inactive_list.append(batch)
+                inactive_list.append(itemId)
         elif status == 'active':
             if itemId in inactive_list:
-                inactive_list.remove(batch)
+                inactive_list.remove(itemId)
         else:
             raise Exception("Unknow status %s" % status)
 
@@ -66,4 +66,4 @@ def extend_api(api_bp):
             return _update_status(int(args['plate']), args['status'],
                                   'inactive_plates')
 
-        return _handle_item(_update_batch, 'result')
+        return _handle_item(_update_plate, 'result')
