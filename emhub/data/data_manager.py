@@ -1013,7 +1013,7 @@ class DataManager(DbManager):
                                        asJson=asJson)
 
     def get_puck_by(self, **kwargs):
-        return self.__item_by(self.Entry, **kwargs)
+        return self.__item_by(self.Puck, **kwargs)
 
     # --------------- Internal implementation methods -------------------------
     def get_universities_dict(self):
