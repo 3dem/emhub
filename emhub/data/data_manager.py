@@ -1067,10 +1067,10 @@ class DataManager(DbManager):
 
         for attr, value in kwargs.items():
             if attr == 'extra' and not extra_replace:
-                if not extra_replace:
-                    extra = dict(item.extra)
-                    extra.update(value)
-                    value = extra
+                extra = dict(item.extra)
+                extra.update(value)
+                value = extra
+
             setattr(item, attr, value)
         self.commit()
         self.log('operation', 'update_%s' % ModelClass.__name__, attrs=jsonArgs)
