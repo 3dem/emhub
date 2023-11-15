@@ -106,12 +106,15 @@
     }
 
     function addPlate(plate_id) {
-        var params = {
-            plate_id: plate_id
-        };
         show_modal_from_ajax('plate-modal',
-                             get_ajax_content("plate_form", params));
+                             get_ajax_content("plate_form", {plate_id: plate_id}));
     }  // function showResource
+
+    function editPlateChannel(plate_id, channel) {
+        show_modal_from_ajax('plate-modal',
+                             get_ajax_content("plate_channel_form",
+                                 {plate_id: plate_id, channel: channel}));
+    }
 
     function onPlateOkButtonClick() {
         var values = getFormAsJson('dynamic-form');

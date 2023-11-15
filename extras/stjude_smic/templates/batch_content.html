@@ -31,11 +31,11 @@
             {% for plate in batch.plates %}
                 <tr>
 
-                    <td style="min-width: 50px;">
+                    <td style="width: 5%;">
                         <div class="row col-12">
-                            <label class="col-4">{{ plate['number'] }} </label>
+                            <label class="col-12">{{ plate['number'] }} </label>
                             {% set switch_name = "switch_active_plate_%s"|format(plate['id']) %}
-                            <div class="switch-button switch-button-xs ml-1 col-8">
+                            <div class="switch-button switch-button-xs col-12">
                                 <input type="checkbox" name="{{ switch_name }}" id="{{ switch_name }}"
                                        onclick="onPlateStateChanged({{ plate['id'] }})" {{ 'checked' if plate['status'] == 'active' else '' }}>
                                 <span><label for="{{ switch_name }}"></label></span>
@@ -77,7 +77,7 @@
 
                             {% else %}
 
-                                <div class="col-6"> <a href="javascript:newPlateEntry({{ plate['number'] }}, {{ i }})"><i class="fas fa-edit"></i></a></div>
+                                <div class="col-6"> <a href="javascript:editPlateChannel({{ plate['id'] }}, {{ i }})"><i class="fas fa-edit"></i></a></div>
 
                             {% endif %} {# if info #}
 

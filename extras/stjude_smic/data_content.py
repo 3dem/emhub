@@ -24,7 +24,7 @@ class Batch:
             'channels': {}
         }
 
-    def registerPlateInfo(self, plate, booking=None, project=None):
+    def registerPlateChannelInfo(self, plate, booking=None, project=None):
         plate_id = int(plate['plate'])
         if plate_id in self._plates:
             channel_id = int(plate['channel'])
@@ -80,7 +80,7 @@ def register_content(dc):
         def _registerInfo(plate, **kwargs):
             plate_id = int(plate['plate'])
             if plate_id in plateBatches:
-                plateBatches[plate_id].registerPlateInfo(plate, **kwargs)
+                plateBatches[plate_id].registerPlateChannelInfo(plate, **kwargs)
 
         # Fixme: get a range of bookings only
         for b in dm.get_bookings(orderBy='start'):
@@ -123,6 +123,29 @@ def register_content(dc):
         data = dc.dynamic_form(form, **kwargs)
 
         data['batches'] = [b for b in batches_map()['batches'] if b.active]
+        return data
+
+    @dc.content
+    def plate_channel_form(**kwargs):
+        form = dc.app.dm.get_form_by(name='form:plate_channel')
+        plate_id = int(kwargs['plate_id'])
+        p = dc.app.dm.get_puck_by(id=plate_id)
+
+        if p is None:
+            raise Exception("Invalid Plate with id %s" % plate_id)
+
+        plate = {
+            'id': p.id,
+            'number': p.cane,
+            'label': p.label,
+            'batch': p.dewar
+        }
+        data = {
+            'plate': plate,
+            'channel': kwargs['channel']
+        }
+        data.update(dc.dynamic_form(form, **kwargs))
+
         return data
 
     @dc.content
