@@ -18,8 +18,6 @@ def extend_api(api_bp):
             except:
                 raise Exception("Provide valid 'batch' and 'plate' numbers.")
 
-            print("args: ", args)
-
             newArgs = {
                 'code': code,
                 'label': code,
@@ -67,3 +65,23 @@ def extend_api(api_bp):
                                   'inactive_plates')
 
         return _handle_item(_update_plate, 'result')
+
+    @api_bp.route('/update_plate_channel', methods=['POST'])
+    @flask_login.login_required
+    def update_plate_channel():
+        def _update_plate_channel(**args):
+            plate_id = int(args['plate'])
+            channel = int(args['channel'])
+            info = args['info']
+            info['channel'] = channel
+            p = app.dm.get_puck_by(id=plate_id)
+
+            if p is None:
+                raise Exception("Invalid Plate with id %s" % plate_id)
+
+            channels = dict(p.extra.get('channels', {}))
+            channels[str(channel)] = info
+            app.dm.update_puck(id=plate_id, extra={'channels': channels})
+            return 'OK'
+
+        return _handle_item(_update_plate_channel, 'result')

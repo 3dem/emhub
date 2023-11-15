@@ -23,18 +23,20 @@ class Batch:
             'status': status,
             'channels': {}
         }
+        if channels := p.extra.get('channels', {}):
+            for channel, info in channels.items():
+                self.registerPlateChannelInfo(p.id, int(channel), info)
 
-    def registerPlateChannelInfo(self, plate, booking=None, project=None):
-        plate_id = int(plate['plate'])
+    def registerPlateChannelInfo(self, plate_id, channel, info,
+                                 booking=None, project=None):
         if plate_id in self._plates:
-            channel_id = int(plate['channel'])
             channels = self._plates[plate_id]['channels']
-            channels[channel_id] = {
+            channels[channel] = {
                 'booking': booking,
                 'project': project,
-                'issues': plate.get('issues', False),
-                'sample': plate.get('sample', ''),
-                'comments': plate.get('comments', '')
+                'issues': info.get('issues', False),
+                'sample': info.get('sample', ''),
+                'comments': info.get('comments', '')
             }
 
     @property
@@ -77,17 +79,18 @@ def register_content(dc):
                 batches[b].addPlate(p, pstatus)
                 plateBatches[p.id] = batches[b]
 
-        def _registerInfo(plate, **kwargs):
-            plate_id = int(plate['plate'])
+        def _registerInfo(info, **kwargs):
+            plate_id = int(info['plate'])
             if plate_id in plateBatches:
-                plateBatches[plate_id].registerPlateChannelInfo(plate, **kwargs)
+                channel = int(info['channel'])
+                plateBatches[plate_id].registerPlateChannelInfo(plate_id, channel, info, **kwargs)
 
         # Fixme: get a range of bookings only
         for b in dm.get_bookings(orderBy='start'):
             e = b.experiment
             if e and 'plates' in e:
-                for plate in e['plates']:
-                    _registerInfo(plate, booking=b)
+                for plateInfo in e['plates']:
+                    _registerInfo(plateInfo, booking=b)
 
         cond = "type=='update_plate'"
         for entry in dm.get_entries(condition=cond):
@@ -97,7 +100,7 @@ def register_content(dc):
 
     @dc.content
     def batch_content(**kwargs):
-        batch_id = int(kwargs['batch_id'])
+        batch_id = int(kwargs['batch'])
         data = {
             'batch': load_batches(batch_id)[batch_id]
         }
@@ -105,30 +108,32 @@ def register_content(dc):
 
     @dc.content
     def plates(**kwargs):
-        data = {'batches': list(batches_map()['batches'])}
+        batches = list(batches_map()['batches'])
+        batch= batches[0]
 
-        if 'batch_id' in kwargs:
-            batch_id = int(kwargs['batch_id'])
+        if 'batch' in kwargs:
+            batch_id = int(kwargs['batch'])
             for b in batches:
                 if b.id == batch_id:
-                    data['batch'] = b
-        else:
-            data['batch'] = data['batches'][0]
-
-        return data
+                    batch = b
+        return {
+            'batches': batches,
+            'batch': batch
+        }
 
     @dc.content
     def plate_form(**kwargs):
         form = dc.app.dm.get_form_by(name='form:plate')
         data = dc.dynamic_form(form, **kwargs)
-
-        data['batches'] = [b for b in batches_map()['batches'] if b.active]
+        data.update(plates(**kwargs))
+        # data['batches'] = [b for b in batches_map()['batches'] if b.active]
         return data
 
     @dc.content
     def plate_channel_form(**kwargs):
         form = dc.app.dm.get_form_by(name='form:plate_channel')
-        plate_id = int(kwargs['plate_id'])
+        plate_id = int(kwargs['plate'])
+        channel = int(kwargs['channel'])
         p = dc.app.dm.get_puck_by(id=plate_id)
 
         if p is None:
@@ -142,9 +147,10 @@ def register_content(dc):
         }
         data = {
             'plate': plate,
-            'channel': kwargs['channel']
+            'channel': channel
         }
-        data.update(dc.dynamic_form(form, **kwargs))
+        info = p.extra.get('channels', {}).get(str(channel))
+        data.update(dc.dynamic_form(form, form_values=info))
 
         return data
 
