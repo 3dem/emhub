@@ -12,11 +12,13 @@
 <select class="{{ classStr }}" data-width="auto"  title="None"  data-live-search="true" {{ data_key }}  data-dropup-auto="true">
 
     {% for batch in batches %}
-        <option data-divider="true"></option>
-        {% for p in batch.platesAvailable() %}
-            {% set selected = 'selected' if value|default(0)|int == p['id'] else '' %}
-            <option value="{{ p['id'] }}" {{ selected }}>{{ p['label'] }}</option>
-        {% endfor %}
+        {% if batch.active %}
+            <option data-divider="true"></option>
+            {% for p in batch.platesAvailable() %}
+                {% set selected = 'selected' if value|default(0)|int == p['id'] else '' %}
+                <option value="{{ p['id'] }}" {{ selected }}>{{ p['label'] }}</option>
+            {% endfor %}
+        {% endif %}
     {% endfor %}
 </select>
 

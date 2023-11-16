@@ -109,7 +109,7 @@ def register_content(dc):
     @dc.content
     def plates(**kwargs):
         batches = list(batches_map()['batches'])
-        batch= batches[0]
+        batch = batches[0]
 
         if 'batch' in kwargs:
             batch_id = int(kwargs['batch'])
@@ -126,7 +126,6 @@ def register_content(dc):
         form = dc.app.dm.get_form_by(name='form:plate')
         data = dc.dynamic_form(form, **kwargs)
         data.update(plates(**kwargs))
-        # data['batches'] = [b for b in batches_map()['batches'] if b.active]
         return data
 
     @dc.content
