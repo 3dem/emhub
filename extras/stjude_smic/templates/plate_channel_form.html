@@ -11,15 +11,14 @@
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title"> Batch {{ batch.id }}: &nbsp; &nbsp;Add Plate</h3>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+        <h3 class="modal-title col-12"> Batch {{ plate['batch'] }}: &nbsp; &nbsp;Plate {{ plate['number'] }} - Channel {{ channel }}</h3>
       </div>
+
       <div class="modal-body">
         <div class="row">
 
             <div class="simple-outline-card col-11 ml-4">
+                <h3> </h3>
 
                 {% include "dynamic_form.html" %}
 
@@ -32,7 +31,7 @@
       <div class="modal-footer">
 
           <button type="button" id="entry-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
-          <button class="btn btn-outline-dark" onclick="onPlateOkButtonClick()">OK</button>
+          <button class="btn btn-outline-dark" onclick="onPlateChannelOkButtonClick({{ plate['id'] }}, {{ channel }})">OK</button>
 
       </div>
     </div>

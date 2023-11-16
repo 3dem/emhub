@@ -124,8 +124,9 @@ class DataContent:
                                      **contentFunc.get('kwargs', {})))
 
     def dynamic_form(self, form, **kwargs):
-        form_values_str = kwargs.get('form_values', None) or '{}'
-        form_values = json.loads(form_values_str)
+        form_values = kwargs.get('form_values', None) or {}
+        if isinstance(form_values, str):
+            form_values = json.loads(form_values)
         self.set_form_values(form, form_values)
         data = {'form': form,
                 'definition': form.definition}
