@@ -13,7 +13,7 @@
                 <option value="active" {{ 'selected' if batch.active else '' }}>active</option>
                 <option value="inactive"  {{ 'selected' if batch.inactive else '' }}>inactive</option>
             </select>
-            {% if is_manager %}
+            {% if current_user.is_manager %}
                 <div class="ml-3">
                     <a href="javascript:addPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
                 </div>
