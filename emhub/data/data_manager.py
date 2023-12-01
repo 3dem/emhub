@@ -623,13 +623,18 @@ class DataManager(DbManager):
         if 'status' not in attrs:
             attrs['status'] = 'active'
 
-        # Name of the session can be passed and it will be used
-        # If not, then a name will be picked from the booking/group/application
+        # If the session name is not provided,
+        # it will be picked from the booking/group/application
         if 'name' not in attrs:
             session_info = self.get_new_session_info(b.id)
             attrs['name'] = session_info['name']
         else:
             session_info = None
+
+        s = self.get_session_by(name=attrs['name'])
+        if s is not None:
+            raise Exception("Session name already exist, "
+                            "choose a different one.")
 
         extra = attrs.get('extra', {})
         raw_folder = extra['raw'].get('path', '')
@@ -1008,7 +1013,7 @@ class DataManager(DbManager):
                                        asJson=asJson)
 
     def get_puck_by(self, **kwargs):
-        return self.__item_by(self.Entry, **kwargs)
+        return self.__item_by(self.Puck, **kwargs)
 
     # --------------- Internal implementation methods -------------------------
     def get_universities_dict(self):
@@ -1062,10 +1067,10 @@ class DataManager(DbManager):
 
         for attr, value in kwargs.items():
             if attr == 'extra' and not extra_replace:
-                if not extra_replace:
-                    extra = dict(item.extra)
-                    extra.update(value)
-                    value = extra
+                extra = dict(item.extra)
+                extra.update(value)
+                value = extra
+
             setattr(item, attr, value)
         self.commit()
         self.log('operation', 'update_%s' % ModelClass.__name__, attrs=jsonArgs)
@@ -1109,7 +1114,7 @@ class DataManager(DbManager):
         perms = self.get_config('permissions')
         return (self._user.can_book_resource(resource) and
                 any(t in resource.tags and 'user' in u
-                    for t, u in perms[permissionKey].items()))
+                    for t, u in perms.get(permissionKey, {}).items()))
 
     # ------------------- BOOKING helper functions -----------------------------
     def create_basic_booking(self, attrs, **kwargs):
@@ -1159,7 +1164,8 @@ class DataManager(DbManager):
                 raise Exception("Selected resource is inactive now. ")
 
             # Booking can not be made in the past
-            if booking.start.date() < self.now().date():
+            if (booking.start.date() < self.now().date() and
+                    not self.check_resource_access(r, 'past_bookings')):
                 raise Exception("The booking 'start' can not be in the past. ")
 
             # Booking time should be bigger than the minimum for this resource

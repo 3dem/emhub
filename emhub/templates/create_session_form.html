@@ -61,8 +61,10 @@
         }
 
         if (formValues.session_name) {
-            var otf_host = getObjectValue(formValues, 'otf_host', 'default');
-            var otf_task = ["otf", otf_host];
+            var otf_task = [
+                "otf",
+                getObjectValue(formValues, 'otf_host', otf_host_default)
+            ];
 
             attrs.name = formValues.session_name;
 

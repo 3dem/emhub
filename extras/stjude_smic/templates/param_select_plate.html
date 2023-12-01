@@ -11,11 +11,15 @@
 {% set classStr = 'selectpicker show-tick' if selectpicker else '' %}
 <select class="{{ classStr }}" data-width="auto"  title="None"  data-live-search="true" {{ data_key }}  data-dropup-auto="true">
 
-    {% for puck in storage.pucks() %}
-        {% set selected = 'selected' if value|default(0)|int == puck['id'] else '' %}
-         <option value="{{ puck['id'] }}" {{ selected }}>{{ puck['label'] }}</option>
+    {% for batch in batches %}
+        {% if batch.active %}
+            <option data-divider="true"></option>
+            {% for p in batch.platesAvailable() %}
+                {% set selected = 'selected' if value|default(0)|int == p['id'] else '' %}
+                <option value="{{ p['id'] }}" {{ selected }}>{{ p['label'] }}</option>
+            {% endfor %}
+        {% endif %}
     {% endfor %}
-
 </select>
 
 

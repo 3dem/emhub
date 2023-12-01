@@ -1,80 +1,163 @@
 
-def register_content(dc):
+class Batch:
+    """ Helper class to store plates information. """
+    def __init__(self, batch_id, status):
+        # Store info about plates (e.g. number and channels)
+        self.id = batch_id
+        self.status = status
+        self._plates = {}
 
-    @dc.content
-    def batch_content(**kwargs):
-        dm = dc.app.dm  # shortcut
+    @property
+    def active(self):
+        return self.status == 'active'
 
-        batch_id = int(kwargs['batch_id'])
-        batch = {
-            'id': batch_id,
-            'plates': []
+    @property
+    def inactive(self):
+        return self.status == 'inactive'
+
+    def addPlate(self, p, status):
+        self._plates[p.id] = {
+            'id': p.id,
+            'number': p.cane,
+            'label': p.label,
+            'status': status,
+            'channels': {}
         }
-        plates = dm.get_pucks()
-        platesDict = {}
-        platesIdMap = {}
+        if channels := p.extra.get('channels', {}):
+            for channel, info in channels.items():
+                self.registerPlateChannelInfo(p.id, int(channel), info)
 
-        for p in plates:
+    def registerPlateChannelInfo(self, plate_id, channel, info,
+                                 booking=None, project=None):
+        if plate_id in self._plates:
+            channels = self._plates[plate_id]['channels']
+            channels[channel] = {
+                'booking': booking,
+                'project': project,
+                'issues': info.get('issues', False),
+                'sample': info.get('sample', ''),
+                'comments': info.get('comments', '')
+            }
+
+    @property
+    def plates(self):
+        """ Iterate over the plates sorted by plate_number. """
+        return sorted(self._plates.values(),
+                      key=lambda p: p['number'])
+
+    def platesAvailable(self):
+        """ Return available plates and channels. """
+        def __availableChannels(p):
+            return [c for c in range(1, 11)
+                    if c not in p['channels']]
+        def __availablePlate(p):
+            return p['status'] == 'active' and len(p['channels']) < 10
+
+        for p in self.plates:
+            if p['status'] == 'active' and len(p['channels']) < 10:
+                yield p
+
+
+def register_content(dc):
+    def load_batches(batch_id=None):
+        """ Load one of all batches. """
+        dm = dc.app.dm  # shortcut
+        platesConfig = dm.get_config('plates')
+        inactive_batches = platesConfig['inactive_batches']
+        inactive_plates = platesConfig['inactive_plates']
+
+        batches = {}
+        plateBatches = {}
+
+        for p in dm.get_pucks():
             b = p.dewar
-            plate_number = p.cane
-            if batch_id == b:
-                platesDict[plate_number] = {}
-                platesIdMap[p.id] = plate_number
-                batch['plates'].append(plate_number)
+            if batch_id is None or batch_id == b:
+                if b not in batches:
+                    bstatus = 'inactive' if b in inactive_batches else 'active'
+                    batches[b] = Batch(b, bstatus)
+                pstatus = 'inactive' if p.id in inactive_plates else 'active'
+                batches[b].addPlate(p, pstatus)
+                plateBatches[p.id] = batches[b]
 
-        def _infoFromPlate(plate, b=None, p=None):
-            plate_id = int(plate['plate'])
-            if plate_id in platesIdMap:
-                channel_id = int(plate['channel'])
-                plate_number = platesIdMap[plate_id]
-                platesDict[plate_number][channel_id] = {
-                    'booking': b,
-                    'project': p,
-                    'issues': plate.get('issues', False),
-                    'sample': plate.get('sample', ''),
-                    'comments': plate.get('comments', '')
-                }
+        def _registerInfo(info, **kwargs):
+            plate_id = int(info['plate'])
+            if plate_id in plateBatches:
+                channel = int(info['channel'])
+                plateBatches[plate_id].registerPlateChannelInfo(plate_id, channel, info, **kwargs)
 
         # Fixme: get a range of bookings only
         for b in dm.get_bookings(orderBy='start'):
             e = b.experiment
             if e and 'plates' in e:
-                for plate in e['plates']:
-                    _infoFromPlate(plate, b=b)
+                for plateInfo in e['plates']:
+                    _registerInfo(plateInfo, booking=b)
 
         cond = "type=='update_plate'"
         for entry in dm.get_entries(condition=cond):
-            _infoFromPlate(entry.extra['data'], p=entry.project)
+            _registerInfo(entry.extra['data'], project=entry.project)
 
+        return batches
+
+    @dc.content
+    def batch_content(**kwargs):
+        batch_id = int(kwargs['batch'])
         data = {
-            'batch': batch,
-            'platesDict': platesDict
+            'batch': load_batches(batch_id)[batch_id]
         }
         return data
 
     @dc.content
     def plates(**kwargs):
-        plates = dc.app.dm.get_pucks()
-        batches = []
+        batches = list(batches_map()['batches'])
+        batch = batches[0]
 
-        for p in plates:
-            batch = p.dewar
-            plate = p.cane
-            if batch not in batches:
-                batches.append(batch)
-
-        batches.reverse()  # more recent first
-        data = {'batches': batches}
-        if batches:
-            batch_id = kwargs.get('batch_id', batches[0])
-            data.update(batch_content(batch_id=batch_id))
-
-        return data
+        if 'batch' in kwargs:
+            batch_id = int(kwargs['batch'])
+            for b in batches:
+                if b.id == batch_id:
+                    batch = b
+        return {
+            'batches': batches,
+            'batch': batch
+        }
 
     @dc.content
     def plate_form(**kwargs):
         form = dc.app.dm.get_form_by(name='form:plate')
         data = dc.dynamic_form(form, **kwargs)
-        data.update(plates())
+        data.update(plates(**kwargs))
+        return data
+
+    @dc.content
+    def plate_channel_form(**kwargs):
+        form = dc.app.dm.get_form_by(name='form:plate_channel')
+        plate_id = int(kwargs['plate'])
+        channel = int(kwargs['channel'])
+        p = dc.app.dm.get_puck_by(id=plate_id)
+
+        if p is None:
+            raise Exception("Invalid Plate with id %s" % plate_id)
+
+        plate = {
+            'id': p.id,
+            'number': p.cane,
+            'label': p.label,
+            'batch': p.dewar
+        }
+        data = {
+            'plate': plate,
+            'channel': channel
+        }
+        info = p.extra.get('channels', {}).get(str(channel))
+        data.update(dc.dynamic_form(form, form_values=info))
 
         return data
+
+    @dc.content
+    def batches_map(**kwargs):
+        batches = sorted(load_batches().values(),
+                         key=lambda b: b.id, reverse=True)
+
+        return {'batches': batches}
+
+
