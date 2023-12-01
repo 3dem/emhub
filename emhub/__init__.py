@@ -60,7 +60,7 @@ def create_app(test_config=None):
         """ Allow to load a Python module from path for extending EMhub."""
         module_path = os.path.join(emhub_instance_path, 'extra', module_name) + '.py'
         if os.path.exists(module_path):
-            spec = importlib.util.spec_from_file_location('data_content', module_path)
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             return module
@@ -497,6 +497,11 @@ def create_app(test_config=None):
     Markdown(app)
 
     app.jinja_env.filters['pretty_datetime'] = app.dm.local_datetime
+
+    extra_setup = load_module('app_setup')
+    if extra_setup and 'setup_app' in dir(extra_setup):
+        print(f"Extending app setup from: {extra_setup.__file__}")
+        extra_setup.setup_app(app)
 
     @login_manager.user_loader
     def load_user(user_id):
