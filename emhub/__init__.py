@@ -498,6 +498,11 @@ def create_app(test_config=None):
 
     app.jinja_env.filters['pretty_datetime'] = app.dm.local_datetime
 
+    extra_setup = load_module('app_setup')
+    if extra_setup and 'setup_app' in dir(extra_setup):
+        print(f"Extending app setup from: {extra_setup.__file__}")
+        extra_setup.setup_app(app)
+
     @login_manager.user_loader
     def load_user(user_id):
         return app.dm.get_user_by(id=int(user_id))
