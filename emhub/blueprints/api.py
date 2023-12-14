@@ -649,10 +649,16 @@ def create_task():
 def delete_task():
     def _delete_task(**attrs):
         worker = attrs['worker']
-        wstream = app.dm.get_worker_stream(worker)
+        dm = app.dm
+        wstream = dm.get_worker_stream(worker)
         result = 0
         task_id = attrs['task_id']
-        if task_id.startswith('<'):
+        if task_id == 'all_done':
+            for t in wstream.get_all_tasks():
+                if dm.is_task_done(t['id']):
+                    result += wstream.delete_task(t['id'])
+
+        elif task_id.startswith('<'):
             task_id.replace('<', '')
             for t in wstream.get_all_tasks():
                 if t['id'] < task_id:
@@ -702,71 +708,6 @@ def get_pending_tasks():
         return tasks
 
     return _handle_item(_get_pending_tasks, 'tasks')
-
-
-@api_bp.route('/get_session_tasks', methods=['POST'])
-@flask_login.login_required
-def get_session_tasks():
-    def _session_tasks(**attrs):
-        tasks = []
-        worker = attrs['worker']
-        dm = app.dm
-        hosts = dm.get_config('hosts')
-        sconfig = dm.get_config('sessions')
-        raw_hosts = sconfig['raw']['hosts']
-
-        if worker not in hosts:
-            raise Exception("Unregistered host %s" % worker)
-        else:
-            # First register host notification
-            hosts[worker]['updated'] = Pretty.now()
-            print(f"{worker}: get_session_tasks at {hosts[worker]['updated']}")
-            if 'specs' in attrs:
-                hosts[worker]['specs'] = attrs['specs']
-            dm.update_config('hosts', hosts)
-
-            # Let's find tasks now
-            for session in dm.get_sessions(condition='status="active"'):
-                extra = dict(session.extra)
-                session_tasks = extra.get('tasks', [])
-                if not session_tasks:
-                    continue
-                remaining_tasks = []
-                resourceName = session.booking.resource.name
-                for t in session_tasks:
-                    added = False
-                    parts = t.split(':')
-                    taskName = parts[0]
-                    if taskName in ['raw', 'transfer']:
-                        if raw_hosts.get(resourceName) == worker:
-                            tasks.append({"name": taskName,
-                                          "session": session.json(),
-                                          "create": ':create' in t
-                                          })
-                            added = True
-                    elif t.startswith('otf'):
-                        host = session.otf.get('host', '')
-                        if host == 'default':
-                            host = sconfig['otf']['hosts_default'].get(resourceName, '')
-                        if host == worker:
-                            tasks.append({"name": "otf",
-                                          "session": session.json(),
-                                          "create": ':create' in t,
-                                          "stop": ':stop' in t
-                                          })
-                            added = True
-
-                    if not added:
-                        remaining_tasks.append(t)
-                print("Host:", worker, "tasks: ", session_tasks, "remaining: ", remaining_tasks)
-                if len(remaining_tasks) != len(session_tasks):
-                    print("Updating session")
-                    dm.update_session_extra(id=session.id,
-                                            extra={'tasks': remaining_tasks})
-
-        return tasks
-
-    return _handle_item(_session_tasks, 'session_tasks')
 
 
 @api_bp.route('/get_workers', methods=['POST'])
