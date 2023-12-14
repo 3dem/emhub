@@ -31,9 +31,9 @@ Register content functions related to Sessions
 import os
 import datetime as dt
 from collections import defaultdict
-from pprint import pprint
 
-from emhub.utils import shortname, get_quarter, pretty_quarter, pretty_date
+from emhub.utils import (shortname, get_quarter, pretty_quarter, pretty_date,
+                         datetime_from_isoformat)
 
 
 def register_content(dc):
@@ -284,7 +284,6 @@ def register_content(dc):
         apps_dict = {a.id: [] for a in pi_user.get_applications()}
         all_bookings = []
         for b in bookings:
-            pprint(b)
             if b.get('pi_id', None) != pi_user.id:  # or b.get('type', '') != 'booking':
                 continue
 
@@ -398,6 +397,20 @@ def register_content(dc):
         def _value(b):
             return b.total_size if use_data else (b.units(hours=12) if use_days else b.hours)
 
+        def _entry(key, label, app='', email='', total_days=0):
+            return {
+                'key': key,
+                'app': app,
+                'label': label,
+                'email': email,
+                'bookings': [],
+                'days': defaultdict(lambda: 0),
+                'data': defaultdict(lambda: {'size': 0, 'files': 0}),
+                'total_data': {'size': 0, 'files': 0},
+                'total_days': total_days,
+                'users': set()
+            }
+
         for b in bookings:
             if b.resource_id not in selected:
                 continue
@@ -430,21 +443,10 @@ def register_content(dc):
                 resources_data_usage[rid].append((ts * 1000, b_value))
 
             if entry_key not in entries:
-                entries[entry_key] = entry = {
-                    'key': entry_key,
-                    'app': entry_app,
-                    'label': entry_label,
-                    'email': entry_email,
-                    'bookings': [],
-                    'days': defaultdict(lambda: 0),
-                    'data': defaultdict(lambda: {'size': 0, 'files': 0}),
-                    'total_data': {'size': 0, 'files': 0},
-                    'total_days': 0,
-                    'users': set()
-                }
-            else:
-                entry = entries[entry_key]
+                entries[entry_key] = _entry(entry_key, entry_label,
+                                            entry_app, entry_email)
 
+            entry = entries[entry_key]
             entry['bookings'].append(b)
             entry['days'][rid] += b_value
             entry['total_days'] += b_value
@@ -472,9 +474,38 @@ def register_content(dc):
             for v in sorted(values, key=lambda x: x['total_days'], reverse=True):
                 yield v
 
-        pie_data = [{'name': e['label'], 'y': e['total_days'] * percent}
+        def _days_value(v):
+            return v / 2 if use_days else v
+
+        def _selected_resources():
+            for r in resources:
+                if r['id'] in selected:
+                    yield r
+
+        # Compute used and unused days per microscope based on
+        # total days minus usage (including maintenance, downtime, or special)
+        start = datetime_from_isoformat(range_dict['start'].replace('/', '-'))
+        end = datetime_from_isoformat(range_dict['end'].replace('/', '-'))
+        period_days = (end - start).days
+        period_units = period_days * 2
+
+        other_total = sum(e['total_days'] for e in entries_down.values())
+        unused_total = (period_units * len(selected)) - total_usage - other_total
+
+        used_entry = _entry(key='usage', label='Usage', total_days=total_usage)
+        unused_entry = _entry(key='unused', label='Unused', total_days=unused_total)
+        for r in _selected_resources():
+            used_r = sum(e['days'][r['id']] for e in entries_sorted)
+            other_r = sum(e['days'][r['id']] for e in entries_down.values())
+            unused_r = period_units - used_r - other_r
+            used_entry['days'][r['id']] = used_r
+            unused_entry['days'][r['id']] = unused_r
+
+        entries_down.update({'used': used_entry, 'unused': unused_entry})
+        percent_pie = _percent(period_units)
+        pie_data = [{'name': e['label'], 'y': e['total_days'] * percent_pie,
+                     'days': _days_value(e['total_days'])}
                     for e in entries_down.values()]
-        pie_data.append({'name': 'Usage', 'y': total_usage * percent})
 
         bar_data = []
         drilldown_data = []
@@ -533,19 +564,30 @@ def register_content(dc):
         })
 
         data_usage_series = []
-        for r in resources:
-            if r['id'] in selected:
-                resources_data_usage[r['id']].sort(key=lambda item: item[0])
-                data_usage_series.append({'name': r['name'],
-                                          'color': r['color'],
-                                          'data': resources_data_usage[r['id']]})
+        entries_overall = []
+
+        for r in _selected_resources():
+            resources_data_usage[r['id']].sort(key=lambda item: item[0])
+            data_usage_series.append({'name': r['name'],
+                                      'color': r['color'],
+                                      'data': resources_data_usage[r['id']]})
+
+            # Compute overall time distribution
+            def _days(k, r):
+                return _days_value(entries_down.get(k, {}).get('days', {}).get(r['id'], 0))
+
+            data = {k: _days(k, r)
+                    for k in ['used', 'maintenance', 'downtime', 'special', 'unused']}
+            entries_overall.append({'r': r, 'data': data})
 
         data = {
             'entries': entries_sorted,
+            'entries_overall': entries_overall,
             'total_days': total_days,
             'total_usage': total_usage,
             'resources_dict': {r['id']: r for r in resources},
             'selected_resources': selected,
+            'resource_names': ', '.join(r['name'] for r in _selected_resources()),
             'selected_entry': selected_entry,
             'applications': applications,
             'selected_apps': selected_apps,
@@ -558,7 +600,9 @@ def register_content(dc):
             'resources': resources,
             'metric': metric,
             'use_data': use_data,
-            'use_days': use_days
+            'use_days': use_days,
+            'period_days': period_days,
+            'period': start.strftime('%b %Y')
         }
         data.update(range_dict)
         return data

@@ -806,11 +806,11 @@ def create_data_models(dm):
 
         def __repr__(self):
             def _timestr(dt):
-                return dt.strftime('%Y/%m/%d')
+                return dt.strftime('%Y/%m/%d ')
 
-            return ('<Booking: resource=%s, owner=%s, dates: %s - %s>'
+            return ('<Booking: %s, %s, dates: %s - %s>'
                     % (self.resource.name, self.owner.name,
-                       _timestr(self.start), _timestr(self.end)))
+                       self.start, self.end))
 
         def __getExtra(self, key, default):
             return self.extra.get(key, default)

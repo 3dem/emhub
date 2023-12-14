@@ -427,13 +427,10 @@ class DataManager(DbManager):
 
     def get_bookings_range(self, start, end, resource=None):
         """ Shortcut function to retrieve a range of bookings. """
-        # JMRT: For some reason the retrieval of the date ranges is not working
-        # as expected for the time. So we are taking on day before for the start
-        # and one day after for the end and filter later
-        newStart = (start - dt.timedelta(days=1)).replace(hour=23, minute=59)
-        newEnd = (end + dt.timedelta(days=1)).replace(hour=0, minute=0)
+        # JMRT: We need to convert the start and end to UTC before getting the range
+        newStart = self.date(start.date()).astimezone(dt.timezone.utc)
+        newEnd = self.date(end.date()).astimezone(dt.timezone.utc) + dt.timedelta(days=1)
         rangeStr = datetime_to_isoformat(newStart), datetime_to_isoformat(newEnd)
-
         startBetween = "(start>='%s' AND start<='%s')" % rangeStr
         endBetween = "(end>='%s' AND end<='%s')" % rangeStr
         rangeOver = "(start<='%s' AND end>='%s')" % rangeStr
@@ -444,12 +441,14 @@ class DataManager(DbManager):
 
         def in_range(b):
             s, e = b.start, b.end
-            return ((s >= start and s <= end) or
-                    (e >= start and e <= end) or
-                    (s <= start and e >= end))
+            return ((s >= newStart and s <= newEnd) or
+                    (e >= newStart and e <= newEnd) or
+                    (s <= newStart and e >= newEnd))
 
-        return [b for b in self.get_bookings(condition=conditionStr, orderBy='start')
-                if in_range(b)]
+        bookings = [b for b in self.get_bookings(condition=conditionStr, orderBy='start')
+                    if in_range(b)]
+
+        return bookings
 
     def get_next_bookings(self, user):
         """ Retrieve upcoming (from now) bookings for this user. """

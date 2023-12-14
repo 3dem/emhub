@@ -76,7 +76,6 @@ class DataContent:
     def content(self, func):
 
         def wrapper(**kwargs):
-            print(f">>>>> Getting content func: {func.__name__}")
             return func(**kwargs)
 
         self._contentDict[func.__name__] = wrapper
