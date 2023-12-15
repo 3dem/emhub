@@ -464,7 +464,8 @@ class ScipionSessionData(SessionData):
         if 'movies' not in self.outputs:
             return {'movies': {'count': 0}, 'ctfs': {'count': 0}}
 
-        msEPU = None
+        msEpu = None
+
         if epuData := self.getEpuData():
             moviesTable = epuData.moviesTable
             first = moviesTable[0].timeStamp

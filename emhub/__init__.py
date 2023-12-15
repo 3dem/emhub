@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '1.0.0rc05'
+__version__ = '1.0.0rc06'
 
 
 def create_app(test_config=None):
@@ -428,10 +428,13 @@ def create_app(test_config=None):
         return app.dm.local_weekday(dt)
 
     @app.template_filter('redis_datetime')
-    def redis_datetime(task_id):
+    def redis_datetime(task_id, elapsed=False):
         ms = int(task_id.split('-')[0])
         dt = datetime.datetime.fromtimestamp(ms/1000)
-        return app.dm.dt_as_local(dt).strftime("%Y/%m/%d %H:%M:%S")
+        dtStr = app.dm.dt_as_local(dt).strftime("%Y/%m/%d %H:%M:%S")
+        if elapsed:
+            dtStr += f" ({Pretty.elapsed(dt)})"
+        return dtStr
 
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)

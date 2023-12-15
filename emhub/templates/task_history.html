@@ -28,7 +28,7 @@
                     <tbody>
                         {% for event_id, event in task_events %}
                                 <td>{{ event_id }}</td>
-                                <td>{{ event_id|redis_datetime }}</td>
+                                <td>{{ event_id|redis_datetime(elapsed=True) }}</td>
                                 <td>{{ event|tojson }}</td>
                                 </tr>
                         {% endfor %}

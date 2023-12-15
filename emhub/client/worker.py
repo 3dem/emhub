@@ -86,12 +86,26 @@ class TaskHandler(threading.Thread):
 
         del self.worker.tasks[self.task['id']]
 
-    def update_task(self, event):
-        data = {
-            'task_id': self.task['id'],
-            'event': event
-        }
-        self.worker.request('update_task', data)
+    def update_task(self, event, tries=-1, wait=10):
+        """ Update task info.
+        Args:
+            event: info that will be sent as part of the update
+            tries: try this many times to update the task, if less than zero, try forever
+            wait: seconds to wait between tries
+        """
+        while tries:
+            try:
+                data = {
+                    'task_id': self.task['id'],
+                    'event': event
+                }
+                self.worker.request('update_task', data)
+                return True
+            except Exception as e:
+                self.logger.error(f"Exception while updating task: {e}")
+                time.sleep(wait)
+            tries -= 1
+        return False
 
     def run(self):
         self.logger.info(f"Running task handler {self.__class__} "
@@ -112,10 +126,7 @@ class TaskHandler(threading.Thread):
             except Exception as e:
                 errorTrace = traceback.format_exc()
                 self._stop_thread(error=errorTrace)
-                try:
-                    self.update_task({'error': errorTrace, 'done': 1})
-                except:
-                    pass
+                self.update_task({'error': errorTrace, 'done': 1})
                 print(e)
             first = False
 

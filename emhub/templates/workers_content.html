@@ -71,6 +71,7 @@
                     <thead class="bg-light">
                     <tr class="border-0">
                         <th class="border-0">id</th>
+                        <th class="border-0">time</th>
                         <th class="border-0">name</th>
                         <th class="border-0">args</th>
                         <th class="border-0">status</th>
@@ -82,6 +83,7 @@
                         {% for task in tasks %}
                             <tr>
                                 <td>{{ task['id'] }} </td>
+                                <td>{{ task['id']|redis_datetime(elapsed=True) }}</td>
                                 <td>{{ task['name'] }}</td>
                                 <td>{{ task['args']|tojson }}</td>
                                 <td>{{ task['status'] }}</td>

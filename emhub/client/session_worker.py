@@ -45,11 +45,11 @@ class SessionTaskHandler(TaskHandler):
         self.update_session = False
 
         targs = self.task['args']
-        session_id = targs['session_id']
+        self.session_id = int(targs['session_id'])
         self.action = targs.get('action', 'Empty-Action')
 
-        self.logger.info("Getting config and session data from EMhub.")
-        self.session = self.dc.get_session(session_id)
+        self.get_session()
+        self.logger.info("Getting config from EMhub.")
         attrs = {"attrs": {"id": self.session['id']}}
         self.sconfig = self.request_config('sessions')
         session_users = self.request_data('get_session_users', attrs)
@@ -60,7 +60,7 @@ class SessionTaskHandler(TaskHandler):
 
         self.sleep = targs.get('sleep', 60)
 
-        self.logger.info(f">>> Handling task for session {self.session['id']}")
+        self.logger.info(f">>> Handling task for session {self.session_id}")
         self.logger.info(f"\t action: {self.action}")
         self.logger.info(f"\t   args: {targs}")
 
@@ -75,24 +75,58 @@ class SessionTaskHandler(TaskHandler):
         func()
         if self.update_session:
             # Update session information
-            self.session = self.dc.get_session(self.session['id'])
+            self.session = self.get_session()
 
     def getLogPrefix(self):
         prefix = self.task['args']['action'].upper()
         return f"{prefix}-{self.task['args']['session_id']}"
 
+    def _request(self, requestFunc, errorMsg, tries=10):
+        """ Make a request to the server, trying many times if it fails. """
+        wait = 5  # Initial wait for 5 seconds and increment it until max 60
+        while tries:
+            tries -= 1
+            try:
+                return requestFunc()
+            except Exception as e:
+                retryMsg = f"Waiting {wait} seconds to retry." if tries else 'Not trying anymore.'
+                self.logger.error(f"ERROR {errorMsg}. {retryMsg}")
+                time.sleep(wait)
+                wait = min(60, wait * 2)
+
+        return None
+
     def update_session_extra(self, extra):
-        extra['updated'] = Pretty.now()
-        try:
+        def _update_extra():
+            extra['updated'] = Pretty.now()
             self.dc.update_session_extra({'id': self.session['id'], 'extra': extra})
             return True
-        except Exception as e:
-            self.logger.error(f"Error connecting to {config.EMHUB_SERVER_URL} "
-                              f"to update session.")
-            return False
+
+        return self.request(_update_extra, 'updating session extra')
+
+    def get_session(self, tries=10):
+        """ Retrieve session info to update local data. """
+        def _get_session():
+            self.logger.info(f"Retrieving session {self.session_id} from EMhub "
+                             f"({config.EMHUB_SERVER_URL})")
+            return self.dc.get_session(self.session_id)
+
+        errorMsg = f"retrieving session {self.session_id} info."
+        session = self._request(_get_session, errorMsg)
+
+        if session:
+            return session
+
+        error = f"Could not retrieve session {self.session_id} after {tries} attempts."
+        self.logger.error(error)
+        raise Exception(error)
 
     def request_data(self, endpoint, jsonData=None):
-        return self.dc.request(endpoint, jsonData=jsonData).json()
+        def _get_data():
+            return self.dc.request(endpoint, jsonData=jsonData).json()
+
+        errorMsg = f"retrieving data from endpoint: {endpoint}"
+        return self._request(_get_data, errorMsg)
 
     def request_dict(self, endpoint, jsonData=None):
         return {s['id']: s for s in self.request_data(endpoint, jsonData=jsonData)}
@@ -299,9 +333,12 @@ class SessionTaskHandler(TaskHandler):
                                                    backupFolder=epuFolder,
                                                    pl=self.pl)
                 self.epu_session.scan()
-                with StarFile(epuStar) as sf:
-                    self.logger.info(f"Scanned EPU folder, "
-                                     f"movies: {sf.getTableSize('Movies')}")
+                if not os.path.exists(epuFolder):
+                    self.logger.info(f"File {epuStar} does not exist yet.")
+                else:
+                    with StarFile(epuStar) as sf:
+                        self.logger.info(f"Scanned EPU folder, "
+                                         f"movies: {sf.getTableSize('Movies')}")
 
             if not os.path.exists(otf_path) or clear:
                 # OTF is not running, let's check if we need to launch it
