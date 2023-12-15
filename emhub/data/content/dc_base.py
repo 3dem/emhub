@@ -312,7 +312,7 @@ class DataContent:
                     title='',
                     type='request',
                     start=sdate.replace(hour=9),
-                    end=sdate.replace(hour=11, minute=59),
+                    end=sdate.replace(hour=23, minute=59),
                     owner=p.user,
                     owner_id=p.user.id,
                     resource=scopes[rid],
