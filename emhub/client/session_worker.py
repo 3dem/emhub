@@ -48,9 +48,9 @@ class SessionTaskHandler(TaskHandler):
         self.session_id = int(targs['session_id'])
         self.action = targs.get('action', 'Empty-Action')
 
-        self.get_session()
+        self.session = self.get_session()
         self.logger.info("Getting config from EMhub.")
-        attrs = {"attrs": {"id": self.session['id']}}
+        attrs = {"attrs": {"id": self.session_id}}
         self.sconfig = self.request_config('sessions')
         session_users = self.request_data('get_session_users', attrs)
         self.users = session_users.get('session_users', None)
@@ -102,7 +102,7 @@ class SessionTaskHandler(TaskHandler):
             self.dc.update_session_extra({'id': self.session['id'], 'extra': extra})
             return True
 
-        return self.request(_update_extra, 'updating session extra')
+        return self._request(_update_extra, 'updating session extra')
 
     def get_session(self, tries=10):
         """ Retrieve session info to update local data. """
@@ -146,7 +146,7 @@ class SessionTaskHandler(TaskHandler):
         extra = self.session['extra']
         raw = extra['raw']
         # If repeat != 0, then repeat the scanning this number of times
-        repeat = self.task['args'].get('repeat', 0)
+        repeat = self.task['args'].get('repeat', 1)
 
         print(Color.bold(f"session_id = {self.session['id']}, monitoring files..."))
         print(f"    path: {raw['path']}")
@@ -162,6 +162,20 @@ class SessionTaskHandler(TaskHandler):
         if repeat and self.count == repeat:
             self.stop()
             update_args['done'] = 1
+
+            if 'check_frames' in self.task['args']:
+                frames = raw.get('frames', '')
+                uargs = {'frames': frames}
+                if os.path.exists(frames):
+                    mff = MovieFiles()
+                    mff.scan(frames)
+                    mffInfo = mff.info()
+                    uargs.update({
+                        'movies': mffInfo['movies'],
+                        'size': mffInfo['sizeH'],
+                        'lastFile': Pretty.elapsed(mffInfo['last_file'])
+                    })
+                self.update_task(uargs)
 
         # Remove dict from the task update
         del update_args['files']
@@ -201,7 +215,7 @@ class SessionTaskHandler(TaskHandler):
             self.logger.info(f"Monitoring FRAMES FOLDER: {framesPath}")
             self.logger.info(f"Offloading to RAW FOLDER: {rawPath}")
 
-            # JMRT 2023/11/08 We are not longer creating the Frames path because
+            # JMRT 2023/11/08 We are no longer creating the Frames path because
             # new version of EPU requires that the folder does not exist for
             # starting a new session
             #self.pl.mkdir(framesPath)
@@ -280,6 +294,14 @@ class SessionTaskHandler(TaskHandler):
 
         # FIXME
         # Implement cleanup
+        lastTs = mf.info['last_file_creation']
+        if now - lastTs > timedelta(days=3):
+            update_args = mf.info()
+            update_args['done'] = 1
+            # Remove dict from the task update
+            del update_args['files']
+            self.update_task(update_args)
+            self.stop()
 
     def stop_all_otf(self, done=False):
         self.logger.info("Stopping all OTF tasks.")
@@ -489,7 +511,8 @@ class SessionWorker(Worker):
         task_id = task['id']
         self.logger.info(f"Task handler {task_id} notified launching OTF")
         stopped = []
-        for k, v in self.tasks.items():
+        current_threads = [v for v in self.tasks.values()]
+        for v in current_threads:
             t = v.task
             if t['id'] != task_id and t['name'] == 'session' and t['args']['action'] == 'otf':
                 v.stop_otf()

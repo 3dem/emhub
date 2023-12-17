@@ -429,11 +429,10 @@ def create_app(test_config=None):
 
     @app.template_filter('redis_datetime')
     def redis_datetime(task_id, elapsed=False):
-        ms = int(task_id.split('-')[0])
-        dt = datetime.datetime.fromtimestamp(ms/1000)
-        dtStr = app.dm.dt_as_local(dt).strftime("%Y/%m/%d %H:%M:%S")
+        dt = app.dm.dt_from_redis(task_id)
+        dtStr = dt.strftime("%Y/%m/%d %H:%M:%S")
         if elapsed:
-            dtStr += f" ({Pretty.elapsed(dt)})"
+            dtStr += f" ({Pretty.elapsed(dt, now=app.dm.now())})"
         return dtStr
 
     def url_for_content(contentId, **kwargs):

@@ -1478,14 +1478,17 @@ class DataManager(DbManager):
         result = getattr(self.r, funcName)(taskHistoryKey, count=count)
         return result
 
-    def is_task_done(self, task_id):
+    def get_task_lastevent(self, task_id):
         history = self.get_task_history(task_id, count=1, reverse=True)
-        if history:
-            eid, event = history[0]
-            return 'done' in event
-        else:
-            return False
+        return history[0] if history else None
 
+    def is_task_done(self, task_id):
+        last_event = self.get_task_lastevent(task_id)
+        return 'done' in last_event[1] if last_event else False
+
+    def get_task_lastupdate(self, task_id):
+        last_event = self.get_task_lastevent(task_id)
+        return self.dt_from_redis(last_event[0] if last_event else task_id)
 
 class RepeatRanges:
     """ Helper class to generate a series of events with start, end. """
