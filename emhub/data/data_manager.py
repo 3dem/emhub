@@ -1206,22 +1206,30 @@ class DataManager(DbManager):
                                         " of pending bookings for resource tag "
                                         "'%s'" % tagName)
 
-        overlap = self.get_bookings_range(booking.start,
-                                          booking.end,
-                                          resource=r)
+        s, e = booking.start, booking.end
+        week = dt.timedelta(days=7)
+        overlap = self.get_bookings_range(s - week, e + week, resource=r)
 
         app = None
 
         if not booking.is_slot:
+            margin = dt.timedelta(seconds=1)
+            def _in_range(x):
+                return s < x < e
+            def _soft_overlap(b):
+                """ Allow events to start/end at the same time without reporting
+                it as overlap. """
+                return b.id != booking.id and _in_range(b.start) or _in_range(b.end)
+
             # Check there is not overlapping with other non-slot events
             overlap_noslots = [b for b in overlap
-                               if not b.is_slot and b.id != booking.id]
+                               if not b.is_slot and _soft_overlap(b)]
             if overlap_noslots:
                 raise Exception("Booking is overlapping with other events: %s"
                                 % overlap_noslots)
 
             overlap_slots = [b for b in overlap
-                             if b.is_slot and b.id != booking.id]
+                             if b.is_slot and _soft_overlap(b)]
 
             # Always try to find the Application to set in the booking unless
             # the owner is a manager
