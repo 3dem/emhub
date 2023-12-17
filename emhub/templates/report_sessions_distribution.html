@@ -5,41 +5,11 @@
     {% set navigation = [('Reports', ''), ('Microscopes Usage', '')] %}
     {% include 'include_header.html' %}
 
+    {% set a = applications[0] %}
+    <input type="hidden" value="{{ a.id }}" id="application-id">
+
     <div class="card card-body">
         <div class="row col-12 text-left">
-
-            <div class="col-2">
-
-    {#            <div class="col-12 text-left" style="margin-top: 7px;">#}
-                    <h5>Application</h5>
-                        {% if applications|length == 1 %}
-                            {% set a = applications[0] %}
-                            <span class="mt-1 ml-1">{{ a.code }}</span>
-                            <input type="hidden" value="{{ a.id }}" id="application-id">
-                        {% else %}
-                            <select id="selectpicker-app" class="selectpicker" data-live-search="true" data-width="auto">
-                                {% set selected = 'selected' if app_id == 'all' else '' %}
-                                <option value="all" {{ selected }}>All</option>
-                                {% for a in applications %}
-                                    {% set selected = 'selected' if a['id'] == app_id|int else '' %}
-                                    {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None else '' %}
-                                    <option value="{{ a['id'] }}" {{selected}}>{{ a['code'] }} {{ alias }}</option>
-                                {% endfor %}
-                            </select>
-                        {%  endif %}
-    {#            </div>#}
-
-            </div>
-
-            <div class="col-2">
-                <h5> Usage Metric </h5>
-                <select id="selectpicker-metric" class="selectpicker show-tick" data-width="100%" data-key="metric" style="color: white">
-                    {% for m in ['days', 'hours', 'data'] %}
-                      {% set selected = 'selected' if metric == m else '' %}
-                        <option {{ selected }} value="{{m}}">{{ m }}</option>
-                    {% endfor %}
-                </select>
-            </div>
 
             <div class="col-2">
                 <h5> Date Range </h5>
@@ -63,7 +33,7 @@
     </div>
 
     <div class="card card-body" id="report-content">
-        {% include 'report_microscopes_usage_content.html' %}
+        {% include 'report_sessions_distribution_content.html' %}
     </div>
 </div>
 
@@ -97,28 +67,19 @@
     function getArgs() {
         var app_id = $('#application-id').val();
 
-        if (!app_id)
-            app_id = $('#selectpicker-app').selectpicker('val');
-
         return {
             key: last_key,
             start: start_date,
             end: end_date,
             selected: $('#selectpicker-resource').selectpicker('val').join(','),
-            metric: $('#selectpicker-metric').selectpicker('val'),
+            metric: 'days',
             application: app_id
         }
     }
 
     function updateReport() {
         load_html_from_ajax('report-content',
-            get_ajax_content('report_microscopes_usage_content', getArgs()));
-    }
-
-    function selectEntryList(key) {
-        last_key = key;
-        show_modal_from_ajax('show-entries-modal',
-            get_ajax_content('report_microscopes_usage_entrylist', getArgs()));
+            get_ajax_content('report_sessions_distribution_content', getArgs()));
     }
 
 </script>

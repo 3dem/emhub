@@ -375,6 +375,7 @@ def register_content(dc):
                                                        asJson=False,
                                                        filter=_filter)
         entries_usage = {}
+        entries_operators = {}
         total_usage = 0
         entries_down = {}
         total_down = 0
@@ -441,6 +442,15 @@ def register_content(dc):
                 totalDays[rid] += b_value
                 ts = dt.datetime.timestamp(b.end)
                 resources_data_usage[rid].append((ts * 1000, b_value))
+
+                # Store entries by operator
+                op = b.operator
+                opKey = op.name if op else 'Unknown'
+                if opKey not in entries_operators:
+                    entries_operators[opKey] = _entry(opKey, opKey)
+                entry = entries_operators[opKey]
+                entry['days'][rid] += 1
+                entry['total_days'] += 1
 
             if entry_key not in entries:
                 entries[entry_key] = _entry(entry_key, entry_label,
@@ -583,6 +593,9 @@ def register_content(dc):
         data = {
             'entries': entries_sorted,
             'entries_overall': entries_overall,
+            'entries_operators': [e for e in sorted(entries_operators.values(),
+                                                    key=lambda e: e['total_days'],
+                                                    reverse=True)],
             'total_days': total_days,
             'total_usage': total_usage,
             'resources_dict': {r['id']: r for r in resources},
@@ -610,6 +623,14 @@ def register_content(dc):
     @dc.content
     def report_microscopes_usage_content(**kwargs):
         return report_microscopes_usage(**kwargs)
+
+    @dc.content
+    def report_sessions_distribution(**kwargs):
+        return report_microscopes_usage(**kwargs)
+
+    @dc.content
+    def report_sessions_distribution_content(**kwargs):
+        return report_sessions_distribution(**kwargs)
 
     @dc.content
     def report_microscopes_usage_entrylist(**kwargs):
