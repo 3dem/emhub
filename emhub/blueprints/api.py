@@ -39,6 +39,7 @@ import os
 import time
 import json
 from glob import glob
+import datetime as dt
 
 import flask
 from flask import request
@@ -654,8 +655,11 @@ def delete_task():
         result = 0
         task_id = attrs['task_id']
         if task_id == 'all_done':
+            done_days = attrs.get('days', 7)
+            td = dt.timedelta(days=done_days)
+            now = dm.now()
             for t in wstream.get_all_tasks():
-                if dm.is_task_done(t['id']):
+                if now - dm.get_task_lastupdate(t['id']) >= td:
                     result += wstream.delete_task(t['id'])
 
         elif task_id.startswith('<'):
