@@ -134,11 +134,20 @@ class DataManager(DbManager):
             attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
             del attrs['password']
 
+        if 'roles' in attrs and not self._user.is_admin:
+            # Only 'admin' users can add or remove 'admin' role
+            if 'admin' in attrs['roles']:
+                raise Exception("Only 'admin' users can assign 'admin' role.")
+            else:
+                user = self.get_user_by(id=attrs['id'])
+                if user.is_admin:
+                    raise Exception("Only 'admin' users can remove 'admin' role.")
+
         return self.__update_item(self.User, **attrs)
 
     def delete_user(self, **attrs):
         """ Delete a given user. """
-        user = self.__item_by(self.User, id=attrs['id'])
+        user = self.get_user_by(id=attrs['id'])
         self.delete(user)
         return user
 
