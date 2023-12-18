@@ -881,7 +881,7 @@ def register_content(dc):
             # if not user.is_manager and not user.same_pi(b.owner):
             #     continue
             r = b.resource
-            if local_tag in r.tags:
+            if not local_tag or local_tag in r.tags:
                 local_scopes[r.id] = r
                 add_booking(b)
 

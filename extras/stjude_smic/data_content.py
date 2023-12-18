@@ -64,8 +64,6 @@ def register_content(dc):
         dm = dc.app.dm  # shortcut
         platesConfig = dm.get_config('plates')
         inactive_batches = platesConfig['inactive_batches']
-        inactive_plates = platesConfig['inactive_plates']
-
         batches = {}
         plateBatches = {}
 
@@ -75,7 +73,7 @@ def register_content(dc):
                 if b not in batches:
                     bstatus = 'inactive' if b in inactive_batches else 'active'
                     batches[b] = Batch(b, bstatus)
-                pstatus = 'inactive' if p.id in inactive_plates else 'active'
+                pstatus = p.extra.get('status', 'active')
                 batches[b].addPlate(p, pstatus)
                 plateBatches[p.id] = batches[b]
 
@@ -123,9 +121,25 @@ def register_content(dc):
 
     @dc.content
     def plate_form(**kwargs):
-        form = dc.app.dm.get_form_by(name='form:plate')
-        data = dc.dynamic_form(form, **kwargs)
+        dm = dc.app.dm
+        form = dm.get_form_by(name='form:plate')
+        info = {'status': 'active'}
+        plateDict = {}
+        plate_id = int(kwargs.get('plate', 0))
+
+        if plate_id:
+            plate = dm.get_puck_by(id=plate_id)
+            extra = plate.extra
+            info = {
+                'plate': plate.cane,
+                'status': extra.get('status', 'active'),
+                'comments': extra.get('comments', '')
+            }
+            plateDict = {'id': plate_id, 'number': plate.cane}
+
+        data = dc.dynamic_form(form, form_values=info)
         data.update(plates(**kwargs))
+        data['plate'] = plateDict
         return data
 
     @dc.content

@@ -57,31 +57,48 @@ def extend_api(api_bp):
 
         return _handle_item(_update_batch, 'result')
 
-    @api_bp.route('/update_plate_status', methods=['POST'])
-    @flask_login.login_required
-    def update_plate_status():
-        def _update_plate(**args):
-            return _update_status(int(args['plate']), args['status'],
-                                  'inactive_plates')
+    def _get_plate(args):
+        plate_id = int(args['plate'])
+        p = app.dm.get_puck_by(id=plate_id)
 
-        return _handle_item(_update_plate, 'result')
+        if p is None:
+            raise Exception("Invalid Plate with id %s" % plate_id)
+
+        return p
 
     @api_bp.route('/update_plate_channel', methods=['POST'])
     @flask_login.login_required
     def update_plate_channel():
         def _update_plate_channel(**args):
-            plate_id = int(args['plate'])
             channel = int(args['channel'])
             info = args['info']
             info['channel'] = channel
-            p = app.dm.get_puck_by(id=plate_id)
-
-            if p is None:
-                raise Exception("Invalid Plate with id %s" % plate_id)
-
+            p = _get_plate(args)
             channels = dict(p.extra.get('channels', {}))
             channels[str(channel)] = info
-            app.dm.update_puck(id=plate_id, extra={'channels': channels})
+            app.dm.update_puck(id=p.id, extra={'channels': channels})
             return 'OK'
 
         return _handle_item(_update_plate_channel, 'result')
+
+    @api_bp.route('/update_plate', methods=['POST'])
+    @flask_login.login_required
+    def update_plate():
+        def _update_plate(**args):
+            p = _get_plate(args)
+            app.dm.update_puck(id=p.id,
+                               extra={'status': args['status'],
+                                      'comments': args.get('comments', '')})
+            return 'OK'
+
+        return _handle_item(_update_plate, 'result')
+
+    @api_bp.route('/delete_plate', methods=['POST'])
+    @flask_login.login_required
+    def delete_plate():
+        def _delete_plate(**args):
+            p = _get_plate(args)
+            app.dm.delete_puck(id=p.id)
+            return 'OK'
+
+        return _handle_item(_delete_plate, 'result')

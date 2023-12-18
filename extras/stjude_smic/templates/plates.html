@@ -65,30 +65,11 @@
                     var i = status == 'inactive' ? 0 : 1;
                     $(batch_tag_id).removeClass(classes[i]);
                     $(batch_tag_id).addClass(classes[1-i]);
-                    //alert("updating " + current_batch + " status: " + status);
                 }
             },
             function (jqXHR, textStatus) {   // on fail show error message
                 showError("Update Batch Request failed: " + textStatus);
             });
-    }
-
-    function onPlateStateChanged(plateId) {
-        var switch_id = '#switch_active_plate_' + plateId;
-        var status = $(switch_id).prop('checked') ? "active" : "inactive";
-        //alert("Plate: " + plateId + " status: " + status);
-
-        send_ajax_json("{{ url_for('api.update_plate_status') }}", {plate: plateId, status: status},
-            function (jsonResponse) {
-                if ('error' in jsonResponse)
-                    showError(jsonResponse.error);
-                else {
-                }
-            },
-            function (jqXHR, textStatus) {   // on fail show error message
-                showError("Update Plate Request failed: " + textStatus);
-            });
-
     }
 
     function loadBatch(batch) {
@@ -101,7 +82,7 @@
         ajaxContent.fail(ajax_request_failed);
     }
 
-    function addPlate(plate_id) {
+    function showPlate(plate_id) {
         show_modal_from_ajax('plate-modal',
                              get_ajax_content("plate_form", {plate: plate_id}));
     }  // function showResource
@@ -112,47 +93,53 @@
                                  {plate: plate_id, channel: channel}));
     }
 
-    function onPlateOkButtonClick() {
+    function sendAjaxAndReload(url, values, reqMsg){
         var current_batch = $('#batch_id_hidden').val();
-        var values = getFormAsJson('dynamic-form');
-        values.batch = current_batch;
+
         // Send json data to create the puck
-        send_ajax_json("{{ url_for('api.create_plate') }}", values,
+        send_ajax_json(url, values,
             function (jsonResponse) {
                 if ('error' in jsonResponse)
                     showError(jsonResponse.error);
                 else {
                     // Reload with current batch selected
-                    //const base_url = "{{ url_for_content('plates') | safe }}";
-                    // window.location.href = base_url + "&batch=" + values.batch;
                     $('#plate-modal').modal('hide');
                     loadBatch(current_batch);
                 }
             }, // on success reload page
             function (jqXHR, textStatus) {   // on fail show error message
-                showError("Add Plate Request failed: " + textStatus);
+                showError(reqMsg + " Request failed: " + textStatus);
             });
     }
 
-    function onPlateChannelOkButtonClick(plate_id, channel){
+    function onPlateOkButtonClick() {
         var current_batch = $('#batch_id_hidden').val();
+        var plate_id = parseInt($('#plate_id_hidden').val());
+
+        var create_url = "{{ url_for('api.create_plate') }}";
+        var update_url = "{{ url_for('api.update_plate') }}";
+        var url = plate_id > 0 ? update_url : create_url;
+
+        var values = getFormAsJson('dynamic-form');
+        values.batch = current_batch;
+        if (plate_id > 0)
+            values.plate = plate_id;
+
+        sendAjaxAndReload(url, values, "Add Plate");
+    }
+
+    function onPlateDeleteClick(plate_id){
+        confirm("DELETE Plate", "Do you want to DELETE this plate?", "Cancel", "Delete", function (){
+            sendAjaxAndReload("{{ url_for('api.delete_plate') }}", {plate: plate_id}, "Delete Plate");
+        })
+    }
+
+    function onPlateChannelOkButtonClick(plate_id, channel){
+
         var values = getFormAsJson('dynamic-form');
 
-        send_ajax_json("{{ url_for('api.update_plate_channel') }}", {
-            plate: plate_id, channel: channel, info: values},
-            function (jsonResponse) {
-                if ('error' in jsonResponse)
-                    showError(jsonResponse.error);
-                else {
-                    $('#plate-modal').modal('hide');
-                    loadBatch(current_batch);
-                    // const base_url = "{{ url_for_content('plates') | safe }}";
-                    // window.location.href = base_url + "&batch=" + current_batch;
-                }
-            }, // on success reload page
-            function (jqXHR, textStatus) {   // on fail show error message
-                showError("Add Plate Request failed: " + textStatus);
-            });
+        sendAjaxAndReload("{{ url_for('api.update_plate_channel') }}",
+            {plate: plate_id, channel: channel, info: values}, "Add Plate");
     }
 
     (function(window, document, $, undefined) {
