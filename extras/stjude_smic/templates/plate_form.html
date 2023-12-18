@@ -11,7 +11,8 @@
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-          <input type="hidden", value="{{ plate.get('id', 0) }}" id="plate_id_hidden">
+          {% set plate_id = plate.get('id', 0) %}
+          <input type="hidden", value="{{ plate_id }}" id="plate_id_hidden">
 
           {% set title = "Plate %d"|format(plate['number']) if plate else "Add Plate" %}
         <h3 class="modal-title"> Batch {{ batch.id }}: &nbsp; &nbsp;{{ title }}</h3>
@@ -34,8 +35,13 @@
 
       <div class="modal-footer">
 
+          {% if plate_id and current_user.is_admin %}
+            <button type="button" id="entry-btn-delete"  class="btn btn-outline-secondary mr-5" onclick="onPlateDeleteClick({{ plate_id }})">Delete</button>
+          {% endif %}
+
           <button type="button" id="entry-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
           <button class="btn btn-outline-dark" onclick="onPlateOkButtonClick()">OK</button>
+
 
       </div>
     </div>

@@ -25,9 +25,9 @@
         <table id="plates-table" class="table table-bordered" style="width:100%">
             <thead>
             <tr>
-                <th>Plate</th>
+                <th class="bg-light">Plate</th>
                 {% for i in range(1, 11) %}
-                    <th>Channel {{ i }}</th>
+                    <th class="bg-light">Channel {{ i }}</th>
                 {% endfor %}
             </tr>
             </thead>
@@ -46,17 +46,7 @@
                             <div class="col-5">
                             {% set badgeType = 'dark' if plate['status'] == 'active' else 'light' %}
                                         <a href="javascript:showPlate({{ plate['id'] }})" class="badge badge-{{ badgeType }} mr-1" style="min-width: 30px">{{plate['number']}}</a>
-{#                            <label class="col-12">{{ plate['number'] }} </label>#}
                             </div>
-{#                            {% set switch_name = "switch_active_plate_%s"|format(plate['id']) %}#}
-{#                            <div class="switch-button switch-button-xs col-12">#}
-{#                                <input type="checkbox" name="{{ switch_name }}" id="{{ switch_name }}"#}
-{#                                       onclick="onPlateStateChanged({{ plate['id'] }})" {{ 'checked' if plate['status'] == 'active' else '' }}>#}
-{#                                <span><label for="{{ switch_name }}"></label></span>#}
-{#                            </div>#}
-
-
-
                         </div>
                     </td>
                     {% set channels = plate['channels'] %}

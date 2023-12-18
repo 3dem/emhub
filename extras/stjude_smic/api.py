@@ -92,3 +92,13 @@ def extend_api(api_bp):
             return 'OK'
 
         return _handle_item(_update_plate, 'result')
+
+    @api_bp.route('/delete_plate', methods=['POST'])
+    @flask_login.login_required
+    def delete_plate():
+        def _delete_plate(**args):
+            p = _get_plate(args)
+            app.dm.delete_puck(id=p.id)
+            return 'OK'
+
+        return _handle_item(_delete_plate, 'result')
