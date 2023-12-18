@@ -191,17 +191,6 @@ class DataClient:
         """
         return self._method('delete_session', 'session', attrs)
 
-    def get_session_tasks(self, specs=False):
-        """ Get session task to be handled by this worker.
-
-        Args:
-            specs: If true, send this host specs.
-        """
-        attrs = {'worker': socket.gethostname()}
-        if specs:
-            attrs['specs'] = System.specs()
-        return self._method('get_session_tasks', 'session_tasks', attrs)
-
     def get_config(self, configName):
         return self._method('get_config', None, {'config': configName})['config']
 

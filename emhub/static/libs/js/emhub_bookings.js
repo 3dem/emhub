@@ -285,8 +285,6 @@ function createCalender() {
             var i;
             var e;
 
-            calendar.removeAllEvents();
-
             var all_ids = [];
             for (i = 0; i < all_events.length; i++) {
                 e = all_events[i];

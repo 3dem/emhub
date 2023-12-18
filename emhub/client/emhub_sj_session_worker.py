@@ -581,6 +581,7 @@ class SjSessionManager(SessionHandler):
         while True:
             try:
                 with open_client() as dc:
+                    # DEPRECATED
                     tasks = dc.get_session_tasks(specs=first)
 
                 for t in tasks:

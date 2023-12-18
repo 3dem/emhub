@@ -134,11 +134,20 @@ class DataManager(DbManager):
             attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
             del attrs['password']
 
+        if 'roles' in attrs and not self._user.is_admin:
+            # Only 'admin' users can add or remove 'admin' role
+            if 'admin' in attrs['roles']:
+                raise Exception("Only 'admin' users can assign 'admin' role.")
+            else:
+                user = self.get_user_by(id=attrs['id'])
+                if user.is_admin:
+                    raise Exception("Only 'admin' users can remove 'admin' role.")
+
         return self.__update_item(self.User, **attrs)
 
     def delete_user(self, **attrs):
         """ Delete a given user. """
-        user = self.__item_by(self.User, id=attrs['id'])
+        user = self.get_user_by(id=attrs['id'])
         self.delete(user)
         return user
 
@@ -427,13 +436,10 @@ class DataManager(DbManager):
 
     def get_bookings_range(self, start, end, resource=None):
         """ Shortcut function to retrieve a range of bookings. """
-        # JMRT: For some reason the retrieval of the date ranges is not working
-        # as expected for the time. So we are taking on day before for the start
-        # and one day after for the end and filter later
-        newStart = (start - dt.timedelta(days=1)).replace(hour=23, minute=59)
-        newEnd = (end + dt.timedelta(days=1)).replace(hour=0, minute=0)
+        # JMRT: We need to convert the start and end to UTC before getting the range
+        newStart = self.date(start.date()).astimezone(dt.timezone.utc)
+        newEnd = self.date(end.date()).astimezone(dt.timezone.utc) + dt.timedelta(days=1)
         rangeStr = datetime_to_isoformat(newStart), datetime_to_isoformat(newEnd)
-
         startBetween = "(start>='%s' AND start<='%s')" % rangeStr
         endBetween = "(end>='%s' AND end<='%s')" % rangeStr
         rangeOver = "(start<='%s' AND end>='%s')" % rangeStr
@@ -444,12 +450,14 @@ class DataManager(DbManager):
 
         def in_range(b):
             s, e = b.start, b.end
-            return ((s >= start and s <= end) or
-                    (e >= start and e <= end) or
-                    (s <= start and e >= end))
+            return ((s >= newStart and s <= newEnd) or
+                    (e >= newStart and e <= newEnd) or
+                    (s <= newStart and e >= newEnd))
 
-        return [b for b in self.get_bookings(condition=conditionStr, orderBy='start')
-                if in_range(b)]
+        bookings = [b for b in self.get_bookings(condition=conditionStr, orderBy='start')
+                    if in_range(b)]
+
+        return bookings
 
     def get_next_bookings(self, user):
         """ Retrieve upcoming (from now) bookings for this user. """
@@ -1198,22 +1206,30 @@ class DataManager(DbManager):
                                         " of pending bookings for resource tag "
                                         "'%s'" % tagName)
 
-        overlap = self.get_bookings_range(booking.start,
-                                          booking.end,
-                                          resource=r)
+        s, e = booking.start, booking.end
+        week = dt.timedelta(days=7)
+        overlap = self.get_bookings_range(s - week, e + week, resource=r)
 
         app = None
 
         if not booking.is_slot:
+            margin = dt.timedelta(seconds=1)
+            def _in_range(x):
+                return s < x < e
+            def _soft_overlap(b):
+                """ Allow events to start/end at the same time without reporting
+                it as overlap. """
+                return b.id != booking.id and _in_range(b.start) or _in_range(b.end)
+
             # Check there is not overlapping with other non-slot events
             overlap_noslots = [b for b in overlap
-                               if not b.is_slot and b.id != booking.id]
+                               if not b.is_slot and _soft_overlap(b)]
             if overlap_noslots:
                 raise Exception("Booking is overlapping with other events: %s"
                                 % overlap_noslots)
 
             overlap_slots = [b for b in overlap
-                             if b.is_slot and b.id != booking.id]
+                             if b.is_slot and _soft_overlap(b)]
 
             # Always try to find the Application to set in the booking unless
             # the owner is a manager
@@ -1470,14 +1486,17 @@ class DataManager(DbManager):
         result = getattr(self.r, funcName)(taskHistoryKey, count=count)
         return result
 
-    def is_task_done(self, task_id):
+    def get_task_lastevent(self, task_id):
         history = self.get_task_history(task_id, count=1, reverse=True)
-        if history:
-            eid, event = history[0]
-            return 'done' in event
-        else:
-            return False
+        return history[0] if history else None
 
+    def is_task_done(self, task_id):
+        last_event = self.get_task_lastevent(task_id)
+        return 'done' in last_event[1] if last_event else False
+
+    def get_task_lastupdate(self, task_id):
+        last_event = self.get_task_lastevent(task_id)
+        return self.dt_from_redis(last_event[0] if last_event else task_id)
 
 class RepeatRanges:
     """ Helper class to generate a series of events with start, end. """

@@ -81,20 +81,25 @@ class DbManager:
     def date(self, date):
         return dt.datetime.combine(date, dt.time(), self.timezone)
 
-    def dt_as_local(self, dt):
-        return dt.astimezone(self.timezone)
+    def dt_as_local(self, inputDt):
+        return inputDt.astimezone(self.timezone)
 
-    def local_weekday(self, dt):
-        return self.dt_as_local(dt).strftime("%a, %b %d")
+    def local_weekday(self, inputDt):
+        return self.dt_as_local(inputDt).strftime("%a, %b %d")
 
-    def local_datetime(self, dt):
-        if dt is None:
+    def local_datetime(self, inputDt):
+        if inputDt is None:
             return 'None'
 
-        if isinstance(dt, str):
-            dt = datetime_from_isoformat(dt)
+        if isinstance(inputDt, str):
+            inputDt = datetime_from_isoformat(inputDt)
 
-        return self.dt_as_local(dt).strftime("%Y/%m/%d %I:%M %p")
+        return self.dt_as_local(inputDt).strftime("%Y/%m/%d %I:%M %p")
+
+    def dt_from_redis(self, redisId):
+        """ Get a datetime object from a Redis stream id. """
+        ms = int(redisId.split('-')[0])
+        return self.dt_as_local(dt.datetime.fromtimestamp(ms/1000))
 
     @staticmethod
     def json_from_value(v):

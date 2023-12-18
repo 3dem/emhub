@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '1.0.0rc05'
+__version__ = '1.0.0rc06'
 
 
 def create_app(test_config=None):
@@ -60,7 +60,7 @@ def create_app(test_config=None):
         """ Allow to load a Python module from path for extending EMhub."""
         module_path = os.path.join(emhub_instance_path, 'extra', module_name) + '.py'
         if os.path.exists(module_path):
-            spec = importlib.util.spec_from_file_location('data_content', module_path)
+            spec = importlib.util.spec_from_file_location(module_name, module_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             return module
@@ -428,10 +428,12 @@ def create_app(test_config=None):
         return app.dm.local_weekday(dt)
 
     @app.template_filter('redis_datetime')
-    def redis_datetime(task_id):
-        ms = int(task_id.split('-')[0])
-        dt = datetime.datetime.fromtimestamp(ms/1000)
-        return app.dm.dt_as_local(dt).strftime("%Y/%m/%d %H:%M:%S")
+    def redis_datetime(task_id, elapsed=False):
+        dt = app.dm.dt_from_redis(task_id)
+        dtStr = dt.strftime("%Y/%m/%d %H:%M:%S")
+        if elapsed:
+            dtStr += f" ({Pretty.elapsed(dt, now=app.dm.now())})"
+        return dtStr
 
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
@@ -497,6 +499,11 @@ def create_app(test_config=None):
     Markdown(app)
 
     app.jinja_env.filters['pretty_datetime'] = app.dm.local_datetime
+
+    extra_setup = load_module('app_setup')
+    if extra_setup and 'setup_app' in dir(extra_setup):
+        print(f"Extending app setup from: {extra_setup.__file__}")
+        extra_setup.setup_app(app)
 
     @login_manager.user_loader
     def load_user(user_id):
