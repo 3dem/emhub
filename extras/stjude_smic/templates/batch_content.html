@@ -15,14 +15,14 @@
             </select>
             {% if current_user.is_manager %}
                 <div class="ml-3">
-                    <a href="javascript:addPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
+                    <a href="javascript:showPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
                 </div>
             {% endif %}
         </div>
 
 
 
-        <table id="plates-table" class="table table-striped table-bordered" style="width:100%">
+        <table id="plates-table" class="table table-bordered" style="width:100%">
             <thead>
             <tr>
                 <th>Plate</th>
@@ -39,14 +39,24 @@
                 <tr>
 
                     <td style="width: 5%;">
-                        <div class="row col-12">
-                            <label class="col-12">{{ plate['number'] }} </label>
-                            {% set switch_name = "switch_active_plate_%s"|format(plate['id']) %}
-                            <div class="switch-button switch-button-xs col-12">
-                                <input type="checkbox" name="{{ switch_name }}" id="{{ switch_name }}"
-                                       onclick="onPlateStateChanged({{ plate['id'] }})" {{ 'checked' if plate['status'] == 'active' else '' }}>
-                                <span><label for="{{ switch_name }}"></label></span>
+                        <div class="row col-12 p-0">
+                            <div class="col-5">
+                                <a href="javascript:showPlate({{ plate['id'] }})"><i class="fas fa-edit"></i></a>
                             </div>
+                            <div class="col-5">
+                            {% set badgeType = 'dark' if plate['status'] == 'active' else 'light' %}
+                                        <a href="javascript:showPlate({{ plate['id'] }})" class="badge badge-{{ badgeType }} mr-1" style="min-width: 30px">{{plate['number']}}</a>
+{#                            <label class="col-12">{{ plate['number'] }} </label>#}
+                            </div>
+{#                            {% set switch_name = "switch_active_plate_%s"|format(plate['id']) %}#}
+{#                            <div class="switch-button switch-button-xs col-12">#}
+{#                                <input type="checkbox" name="{{ switch_name }}" id="{{ switch_name }}"#}
+{#                                       onclick="onPlateStateChanged({{ plate['id'] }})" {{ 'checked' if plate['status'] == 'active' else '' }}>#}
+{#                                <span><label for="{{ switch_name }}"></label></span>#}
+{#                            </div>#}
+
+
+
                         </div>
                     </td>
                     {% set channels = plate['channels'] %}

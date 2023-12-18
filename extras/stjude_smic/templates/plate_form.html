@@ -11,7 +11,10 @@
   <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title"> Batch {{ batch.id }}: &nbsp; &nbsp;Add Plate</h3>
+          <input type="hidden", value="{{ plate.get('id', 0) }}" id="plate_id_hidden">
+
+          {% set title = "Plate %d"|format(plate['number']) if plate else "Add Plate" %}
+        <h3 class="modal-title"> Batch {{ batch.id }}: &nbsp; &nbsp;{{ title }}</h3>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>

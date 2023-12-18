@@ -101,7 +101,7 @@
         ajaxContent.fail(ajax_request_failed);
     }
 
-    function addPlate(plate_id) {
+    function showPlate(plate_id) {
         show_modal_from_ajax('plate-modal',
                              get_ajax_content("plate_form", {plate: plate_id}));
     }  // function showResource
@@ -114,17 +114,24 @@
 
     function onPlateOkButtonClick() {
         var current_batch = $('#batch_id_hidden').val();
+        var plate_id = parseInt($('#plate_id_hidden').val());
+
+
+        var create_url = "{{ url_for('api.create_plate') }}";
+        var update_url = "{{ url_for('api.update_plate') }}";
+        var url = plate_id > 0 ? update_url : create_url;
+
         var values = getFormAsJson('dynamic-form');
         values.batch = current_batch;
+        values.plate = plate_id;
+
         // Send json data to create the puck
-        send_ajax_json("{{ url_for('api.create_plate') }}", values,
+        send_ajax_json(url, values,
             function (jsonResponse) {
                 if ('error' in jsonResponse)
                     showError(jsonResponse.error);
                 else {
                     // Reload with current batch selected
-                    //const base_url = "{{ url_for_content('plates') | safe }}";
-                    // window.location.href = base_url + "&batch=" + values.batch;
                     $('#plate-modal').modal('hide');
                     loadBatch(current_batch);
                 }
