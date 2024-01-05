@@ -78,8 +78,9 @@ class DbManager:
         # get local timezone
         return dt.datetime.now(self.timezone)
 
-    def date(self, date):
-        return dt.datetime.combine(date, dt.time(), self.timezone)
+    def date(self, date, time=None):
+        t = time or dt.time()
+        return dt.datetime.combine(date, t, self.timezone)
 
     def dt_as_local(self, inputDt):
         return inputDt.astimezone(self.timezone)
