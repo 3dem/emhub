@@ -38,7 +38,7 @@
             {% for plate in batch.plates %}
                 <tr>
 
-                    <td style="width: 5%;">
+                    <td style="width: 5%;" class="align-top p-1">
                         <div class="row col-12 p-0">
                             <div class="col-5">
                                 <a href="javascript:showPlate({{ plate['id'] }})"><i class="fas fa-edit"></i></a>
@@ -51,7 +51,7 @@
                     </td>
                     {% set channels = plate['channels'] %}
                     {% for i in range(1, 11) %}
-                        <td style="width:9.5%" class="p-1">
+                        <td style="width:9.5%" class="p-1  align-top">
                             {% set info = channels.get(i, None) %}
                             {% if info %}
                                 <div class="row" style="width: 100%">
