@@ -126,10 +126,12 @@ def register_content(dc):
         info = {'status': 'active'}
         plateDict = {}
         plate_id = int(kwargs.get('plate', 0))
+        batch_id = int(kwargs.get('batch', 0))
 
         if plate_id:
             plate = dm.get_puck_by(id=plate_id)
             extra = plate.extra
+            batch_id = plate.dewar
             info = {
                 'plate': plate.cane,
                 'status': extra.get('status', 'active'),
@@ -139,7 +141,10 @@ def register_content(dc):
 
         data = dc.dynamic_form(form, form_values=info)
         data.update(plates(**kwargs))
-        data['plate'] = plateDict
+        data.update({
+            'plate': plateDict,
+            'batch_id': batch_id
+        })
         return data
 
     @dc.content

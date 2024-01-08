@@ -18,6 +18,10 @@ def extend_api(api_bp):
             except:
                 raise Exception("Provide valid 'batch' and 'plate' numbers.")
 
+            p = app.dm.get_puck_by(code=code)
+            if p is not None:
+                raise Exception(f"Batch {batch} already have plate {plate}.")
+
             newArgs = {
                 'code': code,
                 'label': code,
