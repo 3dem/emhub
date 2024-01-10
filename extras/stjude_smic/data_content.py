@@ -53,9 +53,22 @@ class Batch:
         def __availablePlate(p):
             return p['status'] == 'active' and len(p['channels']) < 10
 
+        def _usedChannel(p):
+            return (p['booking'] is not None or
+                    p['project'] is not None or
+                    p['issues'] or p['sample'].strip() or p['comments'].strip())
+
         for p in self.plates:
-            if p['status'] == 'active' and len(p['channels']) < 10:
-                yield p
+            if p['status'] == 'active':
+                if self.id == 27:
+                    print(">>> Plate ", p['number'])
+                    for k in sorted(p['channels'].keys()):
+                        print(f"   {k} ->    {p['channels'][k]}")
+
+                used_channels = len([c for c, cInfo in p['channels'].items()
+                                     if _usedChannel(cInfo)])
+                if used_channels < 10:
+                    yield p
 
 
 def register_content(dc):
