@@ -18,7 +18,7 @@ sessions and handle different tasks such as data transfer or on-the-fly processi
 
 For more detailed information check the documentation at:
 
-https://3dem.github.io/emhub-docs
+https://3dem.github.io/emdocs/emhub/
 
 
 Development
