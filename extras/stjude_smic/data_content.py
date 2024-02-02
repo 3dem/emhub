@@ -60,11 +60,6 @@ class Batch:
 
         for p in self.plates:
             if p['status'] == 'active':
-                if self.id == 27:
-                    print(">>> Plate ", p['number'])
-                    for k in sorted(p['channels'].keys()):
-                        print(f"   {k} ->    {p['channels'][k]}")
-
                 used_channels = len([c for c, cInfo in p['channels'].items()
                                      if _usedChannel(cInfo)])
                 if used_channels < 10:
@@ -91,7 +86,7 @@ def register_content(dc):
                 plateBatches[p.id] = batches[b]
 
         def _registerInfo(info, **kwargs):
-            plate_id = int(info['plate'])
+            plate_id = int(info.get('plate', -1))
             if plate_id in plateBatches:
                 channel = int(info['channel'])
                 plateBatches[plate_id].registerPlateChannelInfo(plate_id, channel, info, **kwargs)
