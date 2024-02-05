@@ -222,6 +222,7 @@ class SessionTaskHandler(TaskHandler):
 
             raw['frames'] = framesPath
             self.mf = MovieFiles(root=rawPath)
+            self.seen = {}
 
             if os.path.exists(rawPath):
                 logger.info("Restarting transfer task, loading transferred files.")
@@ -235,6 +236,7 @@ class SessionTaskHandler(TaskHandler):
             self.update_session_extra({'raw': raw})
 
         mf = self.mf  # shortcut
+        seen = self.seen
 
         self.n_files = 0
         self.n_movies = 0
@@ -257,11 +259,12 @@ class SessionTaskHandler(TaskHandler):
         def _gsThumb(f):
             return f.startswith('GridSquare') and f.endswith('.jpg')
 
-        now = datetime.now()
         td = timedelta(minutes=1)
         transferred = False
 
+        now = datetime.now()
         self.logger.info(f"Scanning framesPath: {framesPath}")
+
         for root, dirs, files in os.walk(framesPath):
             rootRaw = root.replace(framesPath, rawPath)
             for d in dirs:
@@ -269,15 +272,41 @@ class SessionTaskHandler(TaskHandler):
             for f in files:
                 srcFile = os.path.join(root, f)
                 dstFile = os.path.join(rootRaw, f)
+
+                # Do not waste time on already processed files
+                if dstFile in mf:
+                    continue
+
+                now = datetime.now()
                 s = os.stat(srcFile)
                 dt = datetime.fromtimestamp(s.st_mtime)
+                unmodified = False
 
-                if now - dt >= td and dstFile not in mf:
+                # JMRT 20240130: We are having issues with the modified date in
+                # the Krios G4 DMP server, where files are in the future
+                # so we are changing how to detect if a file is modified or not
+                if dstFile in seen:
+                    print(f"now - seen: {now - seen[dstFile]['t']}")
+                    print(f"mtime: {s.st_mtime}, seen mtime: {seen[dstFile]['mt']}")
+                    unmodified = (now - seen[dstFile]['t'] >= td and
+                                  s.st_mtime == seen[dstFile]['mt'])
+                else:
+                    seen[dstFile] = {'mt': s.st_mtime, 't': now}
+                    print(f"Not seen, storing... len = {len(seen)}")
+
+                full_fn = os.path.join(root, f)
+                self.logger.info(f"File: {full_fn}, ts: {Pretty.datetime(dt)}, delta: {now -dt}, unmodified: {unmodified}")
+                time.sleep(1)
+
+                # Old way to check modification
+                # unmodified = now - dt >= td
+                if unmodified:
                     mf.register(dstFile, stat=s)
+                    del seen[dstFile]
                     transferred = True
                     self.n_files += 1
                     # Register creation time of movie files
-                    if f.endswith('fractions.tiff'):
+                    if EPU.is_movie_fn(f):
                         self.n_movies += 1
                         # Only move now the movies files, not other metadata files
                         self.pl.system(f'rsync -ac --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
@@ -294,8 +323,10 @@ class SessionTaskHandler(TaskHandler):
 
         # FIXME
         # Implement cleanup
-        lastTs = mf.info['last_file_creation']
-        if now - lastTs > timedelta(days=3):
+        info = mf.info()
+        lastTs = info.get('last_file_creation', None)
+
+        if lastTs and now - datetime.fromtimestamp(lastTs) > timedelta(days=3):
             update_args = mf.info()
             update_args['done'] = 1
             # Remove dict from the task update
@@ -420,10 +451,12 @@ class SessionTaskHandler(TaskHandler):
 
         acq = dict(self.sconfig['acquisition'][self.microscope])
         acq.update(self.session['acquisition'])
+        images_pattern = acq.pop('images_pattern',
+                                 "Images-Disc*/GridSquare_*/Data/Foil*fractions.tiff")
         config['ACQUISITION'] = acq
 
         config['PREPROCESSING'] = {
-            'images': 'data/Images-Disc*/GridSquare_*/Data/Foil*fractions.tiff',
+            'images': 'data/' + images_pattern,
             'software': 'None',  # or Relion or Scipion
         }
 
