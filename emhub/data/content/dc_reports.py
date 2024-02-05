@@ -504,15 +504,17 @@ def register_content(dc):
 
         used_entry = _entry(key='usage', label='Usage', total_days=total_usage)
         unused_entry = _entry(key='unused', label='Unused', total_days=unused_total)
+        count_selected = 0
         for r in _selected_resources():
             used_r = sum(e['days'][r['id']] for e in entries_sorted)
             other_r = sum(e['days'][r['id']] for e in entries_down.values())
             unused_r = period_units - used_r - other_r
             used_entry['days'][r['id']] = used_r
             unused_entry['days'][r['id']] = unused_r
+            count_selected += 1
 
         entries_down.update({'used': used_entry, 'unused': unused_entry})
-        percent_pie = _percent(period_units)
+        percent_pie = _percent(period_units) / count_selected
         pie_data = [{'name': e['label'], 'y': e['total_days'] * percent_pie,
                      'days': _days_value(e['total_days'])}
                     for e in entries_down.values()]
