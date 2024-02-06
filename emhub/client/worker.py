@@ -79,12 +79,15 @@ class TaskHandler(threading.Thread):
         self._stopEvent.set()
 
     def _stop_thread(self, error=None):
-        self.logger.info(f"Stopping task handler for "
-                         f"{self.task['id']}.")
+        task_id = self.task['id']
+
+        self.logger.info(f"Stopping task handler for {task_id}.")
+
         if error:
             self.logger.error(error)
 
-        del self.worker.tasks[self.task['id']]
+        if task_id in self.worker.tasks:
+            del self.worker.tasks[task_id]
 
     def update_task(self, event, tries=-1, wait=10):
         """ Update task info.
