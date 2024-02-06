@@ -1401,7 +1401,8 @@ class DataManager(DbManager):
             return task_id
 
         def update_task(self, task_id, event):
-            self.r.xadd(f"task_history:{task_id}", event)
+            self.r.xadd(f"task_history:{task_id}", event,
+                        maxlen=event.get('maxlen', None))
             if 'done' in event:
                 self.finish_task(task_id)
 
@@ -1497,6 +1498,7 @@ class DataManager(DbManager):
     def get_task_lastupdate(self, task_id):
         last_event = self.get_task_lastevent(task_id)
         return self.dt_from_redis(last_event[0] if last_event else task_id)
+
 
 class RepeatRanges:
     """ Helper class to generate a series of events with start, end. """
