@@ -1,0 +1,81 @@
+
+<div class="col-12 row p-0">
+    <div class="card col-5">
+        <div class="card-header">
+            <div class="row">
+                <div class="col-4">Last updated: <h4>{{ updated }}</h4></div>
+                <div class="col-4">Next refresh: <h4 id="reload_label"></h4></div>
+                <div class="col-4"><a href="javascript:reloadQueues()" class="btn btn-primary"><i class="fas fa-redo"></i> Refresh</a></div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="col-12 row p-0">
+
+
+
+    {% for queue in queues %}
+    <div class="card col-5 mr-3">
+        <div class="card-header"><h3>{{ queue['label'] }}</h3></div>
+        <div class="card-body p-0">
+
+            <div class="table-responsive mb-2">
+                <table class="table" style="width: 98%">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                    <th class="border-0" style="width: 15%">Host</th>
+                    <th class="border-0" style="width: 15%">Cores Used/Total</th>
+                    <th class="border-0" style="width: 70%">Users/Jobs</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+
+                    {% for host in queue['nodes'] %}
+                        {% set hostJobs = jobs.get(host, {}) %}
+                        {% set users = hostJobs.get('users', {}) %}
+                        {% set cores = hostJobs.get('run', 0)|int %}
+                        {% set coresMax = hostJobs.get('max', 0)|int %}
+                        {% set status = hostJobs.get('status', '') %}
+                        {% set bgColor = '#EFFDEE' if cores == 0 else 'transparent' %}
+                        {% set unavail = ('closed' in status or 'unavail' in status) %}
+                        {% set bgColor = '#fbd9d3' if unavail else bgColor %}
+                        <tr style="background-color: {{ bgColor }}">
+                            <td><h5>{{ host }}</h5></td>
+                            <td>{{ cores }} / {{ coresMax }}</td>
+                            <td>
+                                {% for u, ujobs in users.items() %}
+                                   <div class="row" style="border-style: none; border-width: 1px; border-color: black">
+                                        <a href="{{ url_for_content('cluster_user', user=u) }}" class="badge-pill badge-dark mr-1 mt-1" >{{ u }}</a>
+                                       &nbsp;
+
+                                        {% for j in ujobs %}
+                                            <a href="{{ url_for_content('cluster_job_details', job_id=j['jobid']) }}" class="badge badge-info mr-1 mt-1" >{{ j['jobid'] }}</a>
+                                        {% endfor %}
+                                   </div>
+
+
+                                {% endfor %}
+
+                            {% if unavail %}
+                               <div class="row mt-2"><strong>{{ status }}</strong></div>
+                            {% endif %}
+
+                            </td>
+
+                        </tr>
+                    {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    {% endfor %}
+
+
+</div>
+
