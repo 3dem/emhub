@@ -107,9 +107,10 @@
 
 <script>
     var bookingDict = {{ bookingDict|tojson }};
+    var order_col = {{  1 if is_admin else 0 }};
 
     $('#sessions-table').DataTable({
-        order: [[0, "desc"]]
+        order: [[order_col, "desc"]]
     });
 
 </script>

@@ -106,6 +106,7 @@ def main():
     method_p = subparsers.add_parser("method")
     method_p.add_argument('method', metavar='METHOD_NAME')
     method_p.add_argument('attrs', metavar='ATTRS', nargs='?')
+    method_p.add_argument('--extra', action="store_true")
     # g.add_argument('--transfer', nargs=3, metavar=('FRAMES', 'RAW', 'EPU'),
     #                help='Transfer (move) files from SRC to DST')
     # g.add_argument('--parse', metavar='DIR',
@@ -127,7 +128,7 @@ def main():
 
             if isinstance(result, list):
                 for item in result:
-                    if 'extra' in item:
+                    if 'extra' in item and not args.extra:
                         del item['extra']
                     pprint(item)
             else:

@@ -296,7 +296,6 @@ class SessionTaskHandler(TaskHandler):
 
                 full_fn = os.path.join(root, f)
                 self.logger.info(f"File: {full_fn}, ts: {Pretty.datetime(dt)}, delta: {now -dt}, unmodified: {unmodified}")
-                time.sleep(1)
 
                 # Old way to check modification
                 # unmodified = now - dt >= td
@@ -435,7 +434,7 @@ class SessionTaskHandler(TaskHandler):
             real_gain = os.path.realpath(gain)
             base_gain = os.path.basename(real_gain)
             self.pl.cp(real_gain, _path(base_gain))
-            os.symlink(base_gain, _path('gain.mrc'))
+            #os.symlink(base_gain, _path('gain.mrc'))
 
         # Create a general ini file with config/information of the session
         config = configparser.ConfigParser()
@@ -450,8 +449,9 @@ class SessionTaskHandler(TaskHandler):
         }
 
         acq = dict(self.sconfig['acquisition'][self.microscope])
+        acq['gain'] = base_gain
         acq.update(self.session['acquisition'])
-        images_pattern = acq.pop('images_pattern',
+        images_pattern = acq.get('images_pattern',
                                  "Images-Disc*/GridSquare_*/Data/Foil*fractions.tiff")
         config['ACQUISITION'] = acq
 

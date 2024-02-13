@@ -719,8 +719,11 @@ class DataManager(DbManager):
     def _create_data_instance(self, session, mode):
         if not session.data_path or session.data_path.endswith('h5'):
             return None
+        elif not os.path.exists(session.data_path):
+            raise Exception(f"ERROR: can't load session data path: {session.data_path}")
         else:
             projectSqlite = os.path.join(session.data_path, 'project.sqlite')
+            print(f"projectSqlite: {projectSqlite}, exists: {os.path.exists(projectSqlite)}")
             if os.path.exists(projectSqlite):
                 return ScipionSessionData(session.data_path, mode)
             return RelionSessionData(session.data_path, mode)
