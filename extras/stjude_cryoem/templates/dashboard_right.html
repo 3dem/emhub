@@ -48,6 +48,10 @@
                             {% if active %}
                                     <a href="javascript:createSession({{ b.id }}, {{ sessions|length }})" class="btn btn-primary mr-0">
                                                     <i class="fas fa-plus-circle"></i> New Session </a>
+                            {% else %}
+                                {% if current_user.is_manager %}
+                                    <a href="javascript:createSession({{ b.id }}, {{ sessions|length }})"><i class="fas fa-plus-circle"></i></a>
+                                {% endif %}
                             {% endif %}
                             {% if b.session %}
                                 <span class="ml-5 mr-2">Sessions:</span>
