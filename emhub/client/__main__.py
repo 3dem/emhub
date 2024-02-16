@@ -41,7 +41,9 @@ import json
 import argparse
 from pprint import pprint
 
-from .data_client import config, open_client, DataClient
+from .data_client import open_client, config
+
+from emtools.utils import Pretty
 
 
 def process_forms(args):
@@ -81,8 +83,27 @@ def process_forms(args):
                     pprint(f)
 
 
+def process_sessions(args):
+    with open_client() as dc:
+        sessions = dc.request('get_sessions', jsonData=None).json()
+        sessions_dict = {s['id']: s for s in sessions}
+
+        if args.list:
+            if args.list == 'all':
+                row_format = u"{:<6}{:<12}{:<35}"
+                print(row_format.format("ID", "Date", "Name"))
+                for s in sessions:
+                    sd = s['start'].split('T')[0]
+                    print(row_format.format(s['id'], sd, s['name']))
+            else:
+                for s in sessions:
+                    if str(s['id']) == args.list or s['name'] == args.list:
+                        pprint(s)
+
+
 def main():
     p = argparse.ArgumentParser(prog='emh-client')
+    p.add_argument('--url', default='')
 
     subparsers = p.add_subparsers(dest='entity')
 
@@ -102,6 +123,11 @@ def main():
     # ------------------------- Session subparser -------------------------------
     session_p = subparsers.add_parser("session")
 
+    g = session_p.add_mutually_exclusive_group()
+    # g.add_argument('--method', '-m', nargs=2, metavar=('METHOD', 'JSON'),
+    #                help='Execute a method from the client')
+    g.add_argument('--list', '-l')
+
     # ------------------------- Method subparser -------------------------------
     method_p = subparsers.add_parser("method")
     method_p.add_argument('method', metavar='METHOD_NAME')
@@ -115,8 +141,15 @@ def main():
     #                help="Parse EPU input folder and makes a backup")
     args = p.parse_args()
 
+    if args.url:
+        config.EMHUB_SERVER_URL = args.url
+        os.environ['EMHUB_SERVER_URL'] = args.url
+
     if args.entity == 'form':
         process_forms(args)
+
+    elif args.entity == 'session':
+        process_sessions(args)
 
     elif args.entity == 'method':
         print("method: ", args.method)
