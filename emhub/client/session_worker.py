@@ -359,23 +359,40 @@ class SessionTaskHandler(TaskHandler):
         if 'stop' in self.task['args']:
             self.stop_all_otf(done=True)
 
-        clear = 'clear' in self.task['args']
+        clear = 'clear' in self.task['args'] and self.count == 1
 
-        if clear and self.count == 1:
+        if clear:
             self.stop_all_otf(done=False)
 
         try:
             n = raw.get('movies', 0)
 
             raw_path = raw.get('path', '')
+            raw_exists = os.path.exists(raw_path)
             # logger = self.logger
             otf = extra['otf']
             otf_path = self.get_path_from(otf, raw_path, self.sconfig['otf']['root'],
                                           suffix='_OTF')
+            otf_exists = os.path.exists(otf_path)
 
             self.logger.info(f"OTF path: {otf_path}, do clear: {clear}, movies: {n}")
 
-            if os.path.exists(raw_path) and os.path.exists(otf_path):
+            if not otf_exists or clear:
+                # OTF is not running, let's check if we need to launch it
+                if raw_exists and n > 16:
+                    self.logger.info(f"Launching OTF after {n} images found.")
+                    self.worker.notify_launch_otf(self.task)
+                    self.create_otf_folder(otf_path)
+                    otf_exists = True
+                    self.launch_otf()
+                    self.update_task({'otf_path': otf['path'],
+                                      'otf_status': otf['status'],
+                                      'count': self.count})
+                    self.update_session = False  # after launching no need to update
+            else:
+                self.update_task({'count': self.count})
+
+            if otf_exists and raw_exists:
                 epuFolder = os.path.join(otf_path, 'EPU')
                 epuStar = os.path.join(epuFolder, 'movies.star')
 
@@ -385,26 +402,14 @@ class SessionTaskHandler(TaskHandler):
                                                    backupFolder=epuFolder,
                                                    pl=self.pl)
                 self.epu_session.scan()
-                if not os.path.exists(epuFolder):
+                if not os.path.exists(epuStar):
                     self.logger.info(f"File {epuStar} does not exist yet.")
                 else:
                     with StarFile(epuStar) as sf:
                         self.logger.info(f"Scanned EPU folder, "
                                          f"movies: {sf.getTableSize('Movies')}")
 
-            if not os.path.exists(otf_path) or clear:
-                # OTF is not running, let's check if we need to launch it
-                if raw_path and n > 16:
-                    self.logger.info(f"Launching OTF after {n} images found.")
-                    self.worker.notify_launch_otf(self.task)
-                    self.create_otf_folder(otf_path)
-                    self.launch_otf()
-                    self.update_task({'otf_path': otf['path'],
-                                      'otf_status': otf['status'],
-                                      'count': self.count})
-                    self.update_session = False  # after launching no need to update
-            else:
-                self.update_task({'count': self.count})
+
         except Exception as e:
             self.logger.exception(e)
             self.update_task({
