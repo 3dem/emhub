@@ -90,7 +90,9 @@ class SessionTaskHandler(TaskHandler):
                 return requestFunc()
             except Exception as e:
                 retryMsg = f"Waiting {wait} seconds to retry." if tries else 'Not trying anymore.'
-                self.logger.error(f"ERROR {errorMsg}. {retryMsg}")
+                self.logger.error(f"{errorMsg}. {retryMsg}")
+                if self.worker.debug:
+                    self.logger.error(traceback.format_exc())
                 time.sleep(wait)
                 wait = min(60, wait * 2)
 
@@ -99,10 +101,15 @@ class SessionTaskHandler(TaskHandler):
     def update_session_extra(self, extra):
         def _update_extra():
             extra['updated'] = Pretty.now()
-            self.dc.update_session_extra({'id': self.session['id'], 'extra': extra})
+            self.worker.request('update_session_extra',
+                         {'id': self.session['id'], 'extra': extra})
             return True
 
         return self._request(_update_extra, 'updating session extra')
+
+    def delete_task(self):
+        def _delete():
+            self.worker.request('delete')
 
     def get_session(self, tries=10):
         """ Retrieve session info to update local data. """
@@ -286,16 +293,12 @@ class SessionTaskHandler(TaskHandler):
                 # the Krios G4 DMP server, where files are in the future
                 # so we are changing how to detect if a file is modified or not
                 if dstFile in seen:
-                    print(f"now - seen: {now - seen[dstFile]['t']}")
-                    print(f"mtime: {s.st_mtime}, seen mtime: {seen[dstFile]['mt']}")
                     unmodified = (now - seen[dstFile]['t'] >= td and
                                   s.st_mtime == seen[dstFile]['mt'])
                 else:
                     seen[dstFile] = {'mt': s.st_mtime, 't': now}
-                    print(f"Not seen, storing... len = {len(seen)}")
 
                 full_fn = os.path.join(root, f)
-                self.logger.info(f"File: {full_fn}, ts: {Pretty.datetime(dt)}, delta: {now -dt}, unmodified: {unmodified}")
 
                 # Old way to check modification
                 # unmodified = now - dt >= td
@@ -322,14 +325,52 @@ class SessionTaskHandler(TaskHandler):
 
         # FIXME
         # Implement cleanup
-        info = mf.info()
-        lastTs = info.get('last_file_creation', None)
 
-        if lastTs and now - datetime.fromtimestamp(lastTs) > timedelta(days=3):
-            update_args = mf.info()
+        info = mf.info()
+        self.framesInfo = None
+
+        def _elapsed(key, info, days):
+            if ts := info.get(f'{key}_creation', None):
+                td = now - datetime.fromtimestamp(ts)
+                f = info.get(key, 'No-file')
+                self.logger.info(f'{key}: {f}, '
+                                 f'{Pretty.timestamp(ts)} -> '
+                                 f'{Pretty.elapsed(ts)}')
+                if td > timedelta(days=days):
+                    return True
+            return False
+        def _stop():
+            ''' Check various conditions that will make the TRANSFER task
+            to stop. For example, last raw file older than 3 days. '''
+            if self.n_files:  # Do not check stop while finding new files
+                return False
+
+            if os.path.exists(framesPath):
+                mf = MovieFiles()
+                mf.scan(framesPath)
+                self.framesInfo = mf.info()
+                frames = _elapsed('last_file', self.framesInfo, 3)
+            else:
+                frames = True
+                self.logger.info(f'Frames path: {framesPath} is missing, '
+                                 f'stoping transfer task. ')
+
+            return (frames or
+                    _elapsed('first_file', info, 5) or
+                    _elapsed('last_file', info, 3))
+
+        if _stop():
+            update_args = info
             update_args['done'] = 1
             # Remove dict from the task update
-            del update_args['files']
+            if 'files' in info:
+                del update_args['files']
+
+            if self.framesInfo:
+                if int(self.framesInfo['movies']) == 0:
+                    self.logger.info(f'Stopping transfer, cleaning frames folder: '
+                                     f'{framesPath}.')
+                    self.pl.rm(framesPath)
             self.update_task(update_args)
             self.stop()
 
@@ -375,7 +416,8 @@ class SessionTaskHandler(TaskHandler):
                                           suffix='_OTF')
             otf_exists = os.path.exists(otf_path)
 
-            self.logger.info(f"OTF path: {otf_path}, do clear: {clear}, movies: {n}")
+            otfStr = otf_path if len(otf_path) > 4 else 'NOT READY'
+            self.logger.info(f"OTF path: {otfStr}, do clear: {clear}, movies: {n}")
 
             if not otf_exists or clear:
                 # OTF is not running, let's check if we need to launch it
@@ -408,6 +450,8 @@ class SessionTaskHandler(TaskHandler):
                     with StarFile(epuStar) as sf:
                         self.logger.info(f"Scanned EPU folder, "
                                          f"movies: {sf.getTableSize('Movies')}")
+                self.logger.info(f"No longer need to update session.")
+                self.update_session = False  # after launching no need to update
 
 
         except Exception as e:

@@ -115,7 +115,8 @@
 
     }
 
-    function createTask() {
+    function createTask(hostname) {
+        $('#task_host').selectpicker('val', hostname);
         $('#task_modal').modal('show');
     }  // function showResource
 

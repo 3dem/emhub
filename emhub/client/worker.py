@@ -180,9 +180,10 @@ class Worker:
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
         self.tasks = {}
+        self.debug = kwargs.get('debug', False)
 
-    def __del__(self):
-        self.dc.logout()
+    # def __del__(self):
+    #     self.dc.logout()
 
     def getLogPrefix(self):
         return f"WORKER {self.name}"
@@ -203,32 +204,37 @@ class Worker:
         different task handlers base on each task. """
         pass
 
-    def get_tasks(self, key, data):
+    def get_tasks(self, key):
         self.logger.info(f"Retrieving {key} tasks...")
-        tasks = self.request(f'get_{key}_tasks', data, 'tasks')
+        return self.request(f'get_{key}_tasks',
+                            {'worker': self.name}, 'tasks')
+
+    def process_tasks(self, key):
+        tasks = self.get_tasks(key)
         if tasks is not None:
             self.logger.info(f"Got {len(tasks)} tasks.")
             self.handle_tasks(tasks)
 
-    def run(self):
+    def setup(self):
         create_logger(self, self.logsFolder, self.logFile,
                       toFile=True, debug=True)
 
-        self.logger.info(f"Running worker: {self.name}")
+        self.logger.info(f"Setting up worker: {self.name}")
         self.logger.info(f"      LOG_FILE: {self.logFile}")
-        self.logger.info(f"Connecting to EMHUB...")
+        self.logger.info(f"EMHUB server...")
         self.logger.info(f"     SERVER_URL: {config.EMHUB_SERVER_URL}")
 
-        data = {'worker': self.name, 'specs': System.specs()}
-        self.token = self.request('connect_worker', data, key='token')
-        del data['specs']
-
+        self.token = self.request('connect_worker',
+                                  {'worker': self.name, 'specs': System.specs()},
+                                  key='token')
+    def run(self):
+        self.setup()
         # Handling pending tasks
-        self.get_tasks('pending', data)
+        self.process_tasks('pending')
 
         while True:
             try:
-                self.get_tasks('new', data)
+                self.process_tasks('new')
             except Exception as e:
                 self.logger.error('FATAL ERROR: ' + str(e))
                 self.logger.error(traceback.format_exc())

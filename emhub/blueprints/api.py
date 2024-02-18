@@ -659,11 +659,11 @@ def delete_task():
         result = 0
         task_id = attrs['task_id']
         if task_id == 'all_done':
-            done_days = attrs.get('days', 7)
+            done_days = attrs.get('days', 3)
             td = dt.timedelta(days=done_days)
             now = dm.now()
             for t in wstream.get_all_tasks():
-                if now - dm.get_task_lastupdate(t['id']) >= td:
+                if t['status'] == 'done' or now - dm.get_task_lastupdate(t['id']) >= td:
                     result += wstream.delete_task(t['id'])
 
         elif task_id.startswith('<'):
