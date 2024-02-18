@@ -719,8 +719,11 @@ class DataManager(DbManager):
     def _create_data_instance(self, session, mode):
         if not session.data_path or session.data_path.endswith('h5'):
             return None
+        elif not os.path.exists(session.data_path):
+            raise Exception(f"ERROR: can't load session data path: {session.data_path}")
         else:
             projectSqlite = os.path.join(session.data_path, 'project.sqlite')
+            print(f"projectSqlite: {projectSqlite}, exists: {os.path.exists(projectSqlite)}")
             if os.path.exists(projectSqlite):
                 return ScipionSessionData(session.data_path, mode)
             return RelionSessionData(session.data_path, mode)
@@ -737,6 +740,11 @@ class DataManager(DbManager):
         extra = dict(session.extra)
         extra.update(attrs['extra'])
         attrs['extra'] = extra
+
+        # We usually update the extra from workers notification and
+        # it is preferable to avoid logging the operation, that can be too much
+        attrs['log_operation'] = False
+
         return self.update_session(**attrs)
 
     # -------------------------- WORKERS AND TASKS ----------------------------
@@ -1060,6 +1068,11 @@ class DataManager(DbManager):
     def __update_item(self, ModelClass, **kwargs):
         special_update = kwargs.pop('special_update', None)
 
+        # Allow to pass log_operation = False to avoid logging
+        # This may be useful for workers notification that add too many
+        # entries in the logs and are not necessary
+        log_operation = kwargs.pop('log_operation', True)
+
         jsonArgs = self.json_from_dict(kwargs)
 
         item_id = kwargs.pop('id')
@@ -1081,7 +1094,9 @@ class DataManager(DbManager):
 
             setattr(item, attr, value)
         self.commit()
-        self.log('operation', 'update_%s' % ModelClass.__name__, attrs=jsonArgs)
+
+        if log_operation:
+            self.log('operation', 'update_%s' % ModelClass.__name__, attrs=jsonArgs)
 
         return item
 

@@ -539,10 +539,14 @@ def get_session_data():
     return handle_session_data(handle, mode="r")
 
 @api_bp.route('/update_session_extra', methods=['POST'])
-@flask_login.login_required
 def update_session_extra():
     """ Update only certain elements from the extra property. """
-    return handle_session(app.dm.update_session_extra)
+    def handle(**attrs):
+        token = attrs.pop('token')
+        worker = validate_worker_token(token)
+        return app.dm.update_session_extra(**attrs)
+
+    return handle_session(handle)
 
 
 @api_bp.route('/get_session_users', methods=['POST'])
@@ -712,6 +716,28 @@ def get_pending_tasks():
         return tasks
 
     return _handle_item(_get_pending_tasks, 'tasks')
+
+
+@api_bp.post('/get_all_tasks')
+def get_all_tasks():
+    """ This function will return pending tasks for a given worker.
+    A task is pending if it was claimed by the worker, but it has not been
+    acknowledged as completed.
+    """
+    def _get_all_tasks(**attrs):
+        worker = validate_worker_token(attrs['token'])
+        tasks = []
+
+        print("hosts: ", [k for k in app.dm.get_config('hosts').keys()])
+        for w in app.dm.get_config('hosts').keys():
+            for t in app.dm.get_worker_stream(w).get_all_tasks():
+                # Add worker info
+                t['worker'] = w
+                tasks.append(t)
+
+        return tasks
+
+    return _handle_item(_get_all_tasks, 'tasks')
 
 
 @api_bp.route('/get_workers', methods=['POST'])
