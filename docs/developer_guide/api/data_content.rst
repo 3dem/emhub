@@ -2,5 +2,5 @@
 Data Content
 ============
 
-.. autoclass:: emhub.data.DataContent
+.. autoclass:: emhub.data.content.DataContent
    :members:
