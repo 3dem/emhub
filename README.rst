@@ -118,11 +118,12 @@ to build the documentation.
 
     # Install environment
 
-    conda create -y --name=emhub-docs python=3.8 nodejs=20
+    conda create -y --name=emhub-docs python=3.8
     conda activate emhub-docs
+    conda install nodejs=20 -c conda-forge -y
     npm install -g jsdoc
-    pip install -r docs/requirements.txt
     pip install -e .  # install emhub
+    pip install -r docs/requirements.txt  # install doc requirements
 
     # Build the docs
 
