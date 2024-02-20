@@ -323,9 +323,6 @@ class SessionTaskHandler(TaskHandler):
         _update()
         self.logger.info(f"Sleeping {self.sleep} seconds.")
 
-        # FIXME
-        # Implement cleanup
-
         info = mf.info()
         self.framesInfo = None
 
@@ -450,8 +447,11 @@ class SessionTaskHandler(TaskHandler):
                     with StarFile(epuStar) as sf:
                         self.logger.info(f"Scanned EPU folder, "
                                          f"movies: {sf.getTableSize('Movies')}")
-                self.logger.info(f"No longer need to update session.")
-                self.update_session = False  # after launching no need to update
+                if self.update_session:
+                    self.logger.info(f"No longer need to update session.")
+                    self.update_session = False  # after launching no need to update
+
+
 
 
         except Exception as e:

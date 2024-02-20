@@ -212,8 +212,9 @@ class Worker:
     def process_tasks(self, key):
         tasks = self.get_tasks(key)
         if tasks is not None:
-            self.logger.info(f"Got {len(tasks)} tasks.")
-            self.handle_tasks(tasks)
+            new_tasks = [t for t in tasks if t['id'] not in self.tasks]
+            self.logger.info(f"Got {len(new_tasks)} tasks.")
+            self.handle_tasks(new_tasks)
 
     def setup(self):
         create_logger(self, self.logsFolder, self.logFile,
@@ -229,12 +230,11 @@ class Worker:
                                   key='token')
     def run(self):
         self.setup()
-        # Handling pending tasks
-        self.process_tasks('pending')
+        self.process_tasks('pending')  # get pending tasks
 
         while True:
             try:
-                self.process_tasks('new')
+                self.process_tasks('new')  # sleep for 1 min while not new tasks
             except Exception as e:
                 self.logger.error('FATAL ERROR: ' + str(e))
                 self.logger.error(traceback.format_exc())
