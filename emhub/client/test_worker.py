@@ -34,7 +34,7 @@ from emtools.metadata import EPU, MovieFiles, StarFile
 from emhub.client import config
 from emhub.client.worker import (TaskHandler, DefaultTaskHandler, CmdTaskHandler,
                                  Worker)
-from emhub.client.session_worker import SessionTaskHandler
+from emhub.client.session_worker import SessionTaskHandler, SessionWorker
 
 
 class TestSessionTaskHandler(SessionTaskHandler):
@@ -78,44 +78,27 @@ class TestSessionTaskHandler(SessionTaskHandler):
             self.stop()
 
 
-    def otf(self):
+    def scan(self):
         extra = self.session['extra']
         raw = extra['raw']
-        self.update_session = True  # update session to check for new images
+        raw_path = raw['path']
 
-        try:
-            n = raw.get('movies', 0)
+        if os.path.exists(raw_path):
+            for root, dirs, files in os.walk(raw_path):
+                self.info(f"Root: {root}")
+                if dirs:
+                    self.info(f"   Dirs: {len(dirs)}")
+                    for d in dirs:
+                        self.info(f"     {d}")
 
-            raw_path = raw.get('path', '')
-            raw_exists = os.path.exists(raw_path)
-            # logger = self.logger
-            otf = extra['otf']
-            otf_path = self.get_path_from(otf, raw_path, self.sconfig['otf']['root'],
-                                          suffix='_OTF')
-            otf_exists = os.path.exists(otf_path)
+                if files:
+                    self.info(f"   Files: {len(files)}")
+                    for f in files:
+                        self.info(f"     {f}")
 
-            otfStr = otf_path if len(otf_path) > 4 else 'NOT READY'
-            self.logger.info(f"OTF path: {otfStr}, do clear: {clear}, movies: {n}")
-
-            if not otf_exists or clear:
-                # OTF is not running, let's check if we need to launch it
-                if raw_exists and n > 16:
-                    self.logger.info(f"OTF should be launched after {n} images found.")
-            else:
-                self.update_task({'count': self.count})
-
-            if otf_exists and raw_exists:
-                epuFolder = os.path.join(otf_path, 'EPU')
-                epuStar = os.path.join(epuFolder, 'movies.star')
-                self.logger.info(f"File {epuStar} exists: {os.path.exists(epuStar)}.")
-
-        except Exception as e:
-            self.logger.exception(e)
-            self.update_task({
-                'error': f'Exception {str(e)}',
-                'done': 1
-            })
+        if self.count == 10:
             self.stop()
+
 
 
 class TestSessionWorker(Worker):
@@ -124,7 +107,7 @@ class TestSessionWorker(Worker):
             if t['name'] == 'command':
                 handler = CmdTaskHandler(self, t)
             elif t['name'] == 'session':
-                handler = TestSessionWorker(self, t)
+                handler = TestSessionTaskHandler(self, t)
             else:
                 handler = DefaultTaskHandler(self, t)
             handler.start()
@@ -155,7 +138,10 @@ def update_task(worker, tasks):
 
     pprint(task)
 
-    sid = t['args']['session_id']
+    if task is None:
+        return
+
+    sid = task['args']['session_id']
     s = worker.dc.get_session(sid)
     extra = {'updated': Pretty.now()}
     worker.request('update_session_extra',
@@ -179,14 +165,14 @@ def update_task(worker, tasks):
 if __name__ == '__main__':
     worker = TestSessionWorker(debug=True)
 
-    #worker.run()
-    worker.setup()
+    worker.run()
+    #worker.setup()
 
     #all_tasks = worker.get_tasks('all')
-    all_tasks = worker.get_tasks('pending')
+    #all_tasks = worker.get_tasks('pending')
 
     #print_groups(all_tasks)
-    update_task(worker, all_tasks)
+    #update_task(worker, all_tasks)
 
 
 

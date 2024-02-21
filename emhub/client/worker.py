@@ -19,6 +19,7 @@ import os
 import sys
 import time
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import argparse
 import threading
 from datetime import datetime, timedelta
@@ -35,12 +36,13 @@ from emhub.client import open_client, config, DataClient
 
 
 def create_logger(self, logsFolder, logName, debug=True, toFile=True):
-    prefix = self.getLogPrefix()
-    formatter = logging.Formatter(f'%(asctime)s {prefix} %(levelname)s %(message)s')
+    formatter = logging.Formatter(f'%(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger(logName)
     if toFile:
         self.logFile = os.path.join(logsFolder, logName)
-        handler = logging.FileHandler(self.logFile)
+        #handler = logging.FileHandler(self.logFile)
+        handler = TimedRotatingFileHandler(self.logFile,
+                                           when='w0', interval=1, backupCount=5)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
     if debug:
@@ -59,6 +61,7 @@ class TaskHandler(threading.Thread):
     def __init__(self, worker, task):
         threading.Thread.__init__(self)
         self.worker = worker
+        self.pl = self.worker.pl
         self.dc = worker.dc
         self.task = task
         self.sleep = 10  # seconds to sleep while handling the task
@@ -66,23 +69,25 @@ class TaskHandler(threading.Thread):
         self._stopEvent = threading.Event()
         # Register this task handler in the current worker
         worker.tasks[task['id']] = self
-        create_logger(self, self.worker.logsFolder, self.getLogName(),
-                      toFile=True, debug=True)
-
-    def getLogName(self):
-        return f"task-{self.task['name']}-{self.task['id']}.log"
+        self._logPrefix = self.getLogPrefix()
 
     def getLogPrefix(self):
-        return f"TASK {self.task['id']}"
+        return f"TASK-{self.task['id']}"
+
+    def info(self, msg):
+        self.worker.logger.info(f"{self._logPrefix} {msg}")
+
+    def error(self, msg):
+        self.worker.logger.error(f"{self._logPrefix} {msg}")
 
     def stop(self):
         self._stopEvent.set()
 
     def _stop_thread(self, error=None):
-        self.logger.info(f"Stopping task handler for "
+        self.info(f"Stopping task handler for "
                          f"{self.task['id']}.")
         if error:
-            self.logger.error(error)
+            self.error(error)
 
         del self.worker.tasks[self.task['id']]
 
@@ -102,16 +107,14 @@ class TaskHandler(threading.Thread):
                 self.worker.request('update_task', data)
                 return True
             except Exception as e:
-                self.logger.error(f"Exception while updating task: {e}")
+                self.error(f"Exception while updating task: {e}")
                 time.sleep(wait)
             tries -= 1
         return False
 
     def run(self):
-        self.logger.info(f"Running task handler {self.__class__} "
+        self.info(f"Running task handler {self.__class__} "
                          f"for task {self.task['id']}")
-        self.logger.info(f"LOG_FILE: {self.logFile}")
-
         while True:
             try:
                 if self.count:
@@ -181,12 +184,13 @@ class Worker:
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
         self.tasks = {}
         self.debug = kwargs.get('debug', False)
+        self._logPrefix = f"WORKER-{self.name}"
 
-    # def __del__(self):
-    #     self.dc.logout()
+    def info(self, msg):
+        self.logger.info(f"{self._logPrefix} {msg}")
 
-    def getLogPrefix(self):
-        return f"WORKER {self.name}"
+    def error(self, msg):
+        self.logger.error(f"{self._logPrefix} {msg}")
 
     def request(self, method, data, key=None):
         data['token'] = self.token
@@ -194,7 +198,7 @@ class Worker:
                             jsonData={'attrs': data})
         result = r.json()
         if 'error' in result:
-            self.logger.error(f"Error from server: {result['error']}")
+            self.error(f"Error from server: {result['error']}")
             return None
         else:
             return result[key] if key else result
@@ -205,7 +209,7 @@ class Worker:
         pass
 
     def get_tasks(self, key):
-        self.logger.info(f"Retrieving {key} tasks...")
+        self.info(f"Retrieving {key} tasks...")
         return self.request(f'get_{key}_tasks',
                             {'worker': self.name}, 'tasks')
 
@@ -213,17 +217,17 @@ class Worker:
         tasks = self.get_tasks(key)
         if tasks is not None:
             new_tasks = [t for t in tasks if t['id'] not in self.tasks]
-            self.logger.info(f"Got {len(new_tasks)} tasks.")
+            self.info(f"Got {len(new_tasks)} tasks.")
             self.handle_tasks(new_tasks)
 
     def setup(self):
         create_logger(self, self.logsFolder, self.logFile,
                       toFile=True, debug=True)
 
-        self.logger.info(f"Setting up worker: {self.name}")
-        self.logger.info(f"      LOG_FILE: {self.logFile}")
-        self.logger.info(f"EMHUB server...")
-        self.logger.info(f"     SERVER_URL: {config.EMHUB_SERVER_URL}")
+        self.info(f"Setting up worker: {self.name}")
+        self.info(f"      LOG_FILE: {self.logFile}")
+        self.info(f"EMHUB server...")
+        self.info(f"     SERVER_URL: {config.EMHUB_SERVER_URL}")
 
         self.token = self.request('connect_worker',
                                   {'worker': self.name, 'specs': System.specs()},
@@ -236,8 +240,8 @@ class Worker:
             try:
                 self.process_tasks('new')  # sleep for 1 min while not new tasks
             except Exception as e:
-                self.logger.error('FATAL ERROR: ' + str(e))
-                self.logger.error(traceback.format_exc())
+                self.error('FATAL ERROR: ' + str(e))
+                self.error(traceback.format_exc())
                 time.sleep(30)
 
 
