@@ -393,6 +393,15 @@ class SessionTaskHandler(TaskHandler):
         raw = extra['raw']
         self.update_session = True  # update session to check for new images
 
+        # Debugging option to only create the OTF folder and exit
+        if otf_folder := self.task['args'].get('create_otf_folder'):
+            self.create_otf_folder(otf_folder, update_session=False)
+            self.update_task({
+                'done': 1
+            })
+            self.stop()
+            return
+
         # Stop all OTF tasks running in this worker
         if 'stop' in self.task['args']:
             self.stop_all_otf(done=True)
@@ -404,7 +413,6 @@ class SessionTaskHandler(TaskHandler):
 
         try:
             n = raw.get('movies', 0)
-
             raw_path = raw.get('path', '')
             raw_exists = os.path.exists(raw_path)
             # logger = self.logger
@@ -451,9 +459,6 @@ class SessionTaskHandler(TaskHandler):
                     self.info(f"No longer need to update session.")
                     self.update_session = False  # after launching no need to update
 
-
-
-
         except Exception as e:
             self.worker.logger.exception(e)
             self.update_task({
@@ -462,7 +467,7 @@ class SessionTaskHandler(TaskHandler):
             })
             self.stop()
 
-    def create_otf_folder(self, otf_path):
+    def create_otf_folder(self, otf_path, update_session=True):
         extra = self.session['extra']
         raw_path = extra['raw']['path']
         otf = extra['otf']
@@ -475,15 +480,36 @@ class SessionTaskHandler(TaskHandler):
         self.pl.mkdir(os.path.join(otf_path, 'EPU'))
         os.symlink(raw_path, _path('data'))
 
-        gain_pattern = self.sconfig['data']['gain']
-        possible_gains = glob(gain_pattern.format(microscope=self.microscope))
-        if possible_gains:
-            possible_gains.sort(key=lambda g: os.path.getmtime(g))
-            gain = possible_gains[-1]  # Use updated gain
-            real_gain = os.path.realpath(gain)
-            base_gain = os.path.basename(real_gain)
-            self.pl.cp(real_gain, _path(base_gain))
-            #os.symlink(base_gain, _path('gain.mrc'))
+        gain_path = os.path.dirname(self.sconfig['data']['gain'])
+        acq = dict(self.sconfig['acquisition'][self.microscope])
+
+        # Copy the gain reference file to the OTF folder and set it for processing
+        # We will try to get the gain from the following places:
+        # 1. From the Raw data folder (now it is copied there with EPU-Falcon4i)
+        # 2. From our storage of gains
+        # We will copy to the raw folder if it is not there
+        # We will copy to the storage if it is not there
+        gain_pattern = acq.pop('gain_pattern').format(microscope=self.microscope)
+
+        def _last_gain(path, pattern):
+            if gains := glob(os.path.join(path, pattern)):
+                gains.sort(key=lambda g: os.path.getmtime(g))
+                return os.path.realpath(gains[-1])
+            return None
+
+        # Check first if there is a gain in the raw folder
+        raw_gain = _last_gain(raw_path, gain_pattern)
+        real_gain = raw_gain or _last_gain(gain_path, gain_pattern)
+        base_gain = os.path.basename(real_gain)
+        self.pl.cp(real_gain, _path(base_gain))
+
+        if not raw_gain:
+            self.pl.cp(real_gain, os.path.join(raw_path, base_gain))
+        else:
+            # Let's backup the gain if does not exists
+            back_gain = os.path.join(gain_path, base_gain)
+            if not os.path.exists(back_gain):
+                self.pl.cp(real_gain, back_gain)
 
         # Create a general ini file with config/information of the session
         config = configparser.ConfigParser()
@@ -497,7 +523,7 @@ class SessionTaskHandler(TaskHandler):
             'raw_data': raw_path
         }
 
-        acq = dict(self.sconfig['acquisition'][self.microscope])
+
         acq['gain'] = base_gain
         acq.update(self.session['acquisition'])
         images_pattern = acq.get('images_pattern',
@@ -530,7 +556,8 @@ class SessionTaskHandler(TaskHandler):
             json.dump(opts, f, indent=4)
 
         # Update OTF status
-        self.update_session_extra({'otf': otf})
+        if update_session:
+            self.update_session_extra({'otf': otf})
 
     def launch_otf(self):
         """ Launch OTF for a session. """
