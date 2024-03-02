@@ -342,15 +342,12 @@ class SessionTaskHandler(TaskHandler):
             if self.n_files:  # Do not check stop while finding new files
                 return False
 
+            frames = False
             if os.path.exists(framesPath):
                 mf = MovieFiles()
                 mf.scan(framesPath)
                 self.framesInfo = mf.info()
                 frames = _elapsed('last_file', self.framesInfo, 3)
-            else:
-                frames = True
-                self.info(f'Frames path: {framesPath} is missing, '
-                                 f'stoping transfer task. ')
 
             return (frames or
                     _elapsed('first_file', info, 5) or
