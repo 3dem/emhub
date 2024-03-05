@@ -187,4 +187,8 @@ def register_content(dc):
 
         return {'batches': batches}
 
-
+    @dc.content
+    def raw_plates_list(**kwargs):
+        pucks = sorted(dc.app.dm.get_pucks(),
+                       key=lambda p: (p.dewar, p.id), reverse=True)
+        return {'pucks': pucks}
