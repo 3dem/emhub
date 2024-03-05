@@ -1317,21 +1317,22 @@ class DataManager(DbManager):
             raise Exception("Users can not delete/modify bookings for "
                             "this type of resource.")
 
-        now = self.now()
-        latest = booking.resource.latest_cancellation
+        # latest_cancellation might be defined as a measure to prevent users
+        # to delete bookings before that amount of time
+        # latest_cancellation = 0 means that there is not restriction
+        if latest := booking.resource.latest_cancellation:
+            def _error(action):
+                raise Exception('This booking can not be %s. \n'
+                                'Should be %d hours in advance. '
+                                % (action, latest))
 
-        def _error(action):
-            raise Exception('This booking can not be %s. \n'
-                            'Should be %d hours in advance. '
-                            % (action, latest))
-
-        start, end = booking.start, booking.end
-        if start - dt.timedelta(hours=latest) < now:
-            if attrs:  # Update case, where we allow modification except dates
-                if start != attrs['start'] or end != attrs['end']:
-                   _error('updated')
-            else:  # Delete case
-                _error('deleted')
+            start, end = booking.start, booking.end
+            if start - dt.timedelta(hours=latest) < self.now():
+                if attrs:  # Update case, where we allow modification except dates
+                    if start != attrs['start'] or end != attrs['end']:
+                       _error('updated')
+                else:  # Delete case
+                    _error('deleted')
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
