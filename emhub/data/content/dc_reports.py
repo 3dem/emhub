@@ -592,6 +592,9 @@ def register_content(dc):
                     for k in ['used', 'maintenance', 'downtime', 'special', 'unused']}
             entries_overall.append({'r': r, 'data': data})
 
+        if total_usage == 0:
+            raise Exception("There is no usage for the selected metric. ")
+
         data = {
             'entries': entries_sorted,
             'entries_overall': entries_overall,
