@@ -7,10 +7,10 @@
                 <th>last updated</th>
                 <th>user/pi</th>
                 <th>title</th>
-                <th>microscope days</th>
-                <th>sessions</th>
-                <th>images</th>
-                <th>data</th>
+                <th>{{ resource_days_tag }} days</th>
+                {% if 'sessions' in extra_columns %} <th>sessions</th> {% endif %}
+                {% if 'images' in extra_columns %} <th>images</th> {% endif %}
+                {% if 'data' in extra_columns %} <th>data</th> {% endif %}
 
                 {% if show_extra %}
                     <th>extra</th>
@@ -41,12 +41,19 @@
                     <td>{{ p.user|pairname }} {{ app }}</td>
                     <td>{{ p.display_title }}</td>
                     <td>{{ p.stats['days'] }}</td>
-                    <td style="max-width: 300px">
-{#                                            {{ p.stats['sessions'] }}#}
+
+                    {% if 'sessions' in extra_columns %}
+                       <td style="max-width: 300px">
                         {{ macros.session_list(p.sessions) }}
                     </td>
-                    <td>{{ p.stats['images'] }}</td>
-                    <td>{{ p.stats['size'] }}</td>
+                    {% endif %}
+                    {% if 'images' in extra_columns %}
+                        <td>{{ p.stats['images'] }}</td>
+                    {% endif %}
+                    {% if 'data' in extra_columns %}
+                        <td>{{ p.stats['size'] }}</td>
+                    {% endif %}
+
                     {%  if show_extra %}
                         <td> {{ p.extra }} </td>
                     {% endif %}

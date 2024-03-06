@@ -581,7 +581,9 @@ class DataContent:
         pid = int(kwargs.get('pid', 0))
         scope = kwargs.get('scope', 'lab')
 
-        project_perms = self.app.dm.get_config("permissions")['projects']
+        project_perms = dm.get_config("permissions")['projects']
+        project_config = dm.get_config("projects")
+
         view_options = project_perms['view_options']
 
         # FIXME Define access/permissions for other users
@@ -638,12 +640,18 @@ class DataContent:
                 if p.id in projects:
                     projects[p.id].sessions.append(s)
 
+        display_table = project_config.get('display_table', {})
+        resource_days_tag = display_table.get('resource_days_tag', 'instrument')
+        extra_columns = display_table.get('extra_columns',
+                                          ['days', 'sessions', 'images', 'data'])
+
         # Update Sessions stats
         for p in projects.values():
             days = sessions = images = size = 0
             for b in p.bookings:
                 # Only count days for microscopes
-                if not b.resource.is_microscope:
+
+                if resource_days_tag not in b.resource.tags:
                     continue
                 days += b.units(hours=24)
                 for s in b.session:
@@ -667,7 +675,9 @@ class DataContent:
                 'pi_select': pi_select,
                 'pid': pid,
                 'possible_scopes': view_options,
-                'scope': scope
+                'scope': scope,
+                'resource_days_tag': resource_days_tag,
+                'extra_columns': extra_columns
                 }
 
     def get_session_data(self, session, **kwargs):
