@@ -285,8 +285,14 @@ class SessionTaskHandler(TaskHandler):
                     continue
 
                 now = datetime.now()
-                s = os.stat(srcFile)
-                dt = datetime.fromtimestamp(s.st_mtime)
+                # Sometimes there are temporary files that does not
+                # exist and the os.stat fails, we will ignore these entries
+                try:
+                    s = os.stat(srcFile)
+                except:
+                    continue
+
+
                 unmodified = False
 
                 # JMRT 20240130: We are having issues with the modified date in
@@ -298,9 +304,8 @@ class SessionTaskHandler(TaskHandler):
                 else:
                     seen[dstFile] = {'mt': s.st_mtime, 't': now}
 
-                full_fn = os.path.join(root, f)
-
                 # Old way to check modification
+                # dt = datetime.fromtimestamp(s.st_mtime)
                 # unmodified = now - dt >= td
                 if unmodified:
                     mf.register(dstFile, stat=s)
