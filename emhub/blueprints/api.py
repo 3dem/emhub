@@ -727,8 +727,6 @@ def get_all_tasks():
     def _get_all_tasks(**attrs):
         worker = validate_worker_token(attrs['token'])
         tasks = []
-
-        print("hosts: ", [k for k in app.dm.get_config('hosts').keys()])
         for w in app.dm.get_config('hosts').keys():
             for t in app.dm.get_worker_stream(w).get_all_tasks():
                 # Add worker info

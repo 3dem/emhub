@@ -865,6 +865,12 @@ class DataManager(DbManager):
         form = self.get_form_by_name(f'config:{configName}')
         return form.definition if form else default
 
+    def get_form_definition(self, formName, default={}):
+        """ Find a form named entry_form:formName and return
+        the associated JSON definition. """
+        form = self.get_form_by_name(f'entry_form:{formName}')
+        return form.definition if form else default
+
     def update_config(self, configName, definition):
         form = self.get_form_by_name(f'config:{configName}')
         self.update_form(id=form.id, definition=definition)

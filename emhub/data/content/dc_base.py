@@ -302,20 +302,33 @@ class DataContent:
         dm = self.app.dm  # shortcut
 
         if entry.type == 'access_microscopes':
+
             data = entry.extra['data']
             dstr = data.get('suggested_date', None)
             rid = int(data.get('microscope_id', 0))
+
             if dstr and rid:
-                p = entry.project
+                r = scopes[rid]
+                days = data.get('days', '1')
+                # When using 'default', we read the config in the entry form
+                if days == 'default':
+                    formDef = dm.get_form_definition('access_microscopes')
+                    reqResources = formDef['config']['request_resources']
+                    days = reqResources.get(r.name, {'days': '1'})['days']
+
                 sdate = dm.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
+                endDay = sdate.day + int(days) - 1
+                p = entry.project
+
+                edate = sdate.replace(day=endDay, hour=23, minute=59)
                 return dm.Booking(
                     title='',
                     type='request',
                     start=sdate.replace(hour=9),
-                    end=sdate.replace(hour=23, minute=59),
+                    end=edate,
                     owner=p.user,
                     owner_id=p.user.id,
-                    resource=scopes[rid],
+                    resource=r,
                     resource_id=rid,
                     project_id=p.id,
                     project=p

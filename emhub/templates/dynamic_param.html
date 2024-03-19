@@ -55,6 +55,8 @@
     {% elif type == "date" %}
 {#        <input type="text" class="form-control datetimepicker-input" data-target="#entry-date" id="entry-date" data-toggle="datetimepicker" />#}
         <input type="text" required="" placeholder="{{ help }}"  class="form-control datetimepicker-input" value="{{ value }}" style="min-width: 100px;" id="{{ param_id }}" data-target="#{{ param_id }}" {{ data_key }} data-toggle="datetimepicker">
+    {% elif type == "label" %}
+        <div>{{ value }}</div>
     {% else %}
         <input type="text" required="" placeholder="{{ help }}"  class="form-control" value="{{ value }}" style="min-width: 100px;" {{ data_key }}>
     {% endif %}
