@@ -1455,7 +1455,8 @@ class DataManager(DbManager):
             return task_id
 
         def update_task(self, task_id, event):
-            self.r.xadd(f"task_history:{task_id}", event)
+            self.r.xadd(f"task_history:{task_id}", event,
+                        maxlen=event.get('maxlen', None))
             if 'done' in event:
                 self.finish_task(task_id)
 
