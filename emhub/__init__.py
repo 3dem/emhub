@@ -435,6 +435,10 @@ def create_app(test_config=None):
             dtStr += f" ({Pretty.elapsed(dt, now=app.dm.now())})"
         return dtStr
 
+    @app.template_filter('pretty_elapsed')
+    def pretty_elapsed(ts):
+        return Pretty.elapsed(ts, now=app.dm.now())
+
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
 
