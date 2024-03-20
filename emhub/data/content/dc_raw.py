@@ -149,22 +149,26 @@ def register_content(dc):
     def workers(**kwargs):
         dm = dc.app.dm
         workers = {}
-        for k, v in dm.get_config('hosts').items():
-            workers[k] = v
-            updated = v.get('updated', '')
+        now = dt.datetime.now()
+        for k, v in dm.get_hosts().items():
+            workers[k] = w = dict(v)
+            updated = w.get('updated', '')
             active = False
             if updated:
                 u = Pretty.parse_datetime(updated)
-                td = dt.datetime.now() - u
+                td = now - u
                 active = td < dt.timedelta(minutes=2)
+                #v['updated'] = updated + f" ({Pretty.elapsed(u, now=now)})"
+                w['elapsed'] = f"({Pretty.elapsed(u, now=now)})"
 
-            workers[k].update({
-                'has_specs': bool(v.get('specs', '')),
+            w.update({
+                'has_specs': bool(w.get('specs', '')),
                 'active': active
             })
         return {'workers': workers,
                 'taskGroups': {h: tasks for h, tasks in dm.get_all_tasks()},
-                'now': Pretty.now()}
+                'now': Pretty.now()
+                }
 
     @dc.content
     def workers_content(**kwargs):
@@ -173,3 +177,16 @@ def register_content(dc):
     @dc.content
     def task_history(**kwargs):
         return {'task_events': dc.app.dm.get_task_history(kwargs['task_id'])}
+
+    @dc.content
+    def workers_frames(**kwargs):
+        data = workers()
+        folderGroups = {}
+        for w, tasks in data['taskGroups'].items():
+            folderGroups[w] = [{'name': t['name'],
+                                'size': 0,
+                                'modified': dc.app.dm.dt_from_redis(t['id'])}
+                               for t in tasks]
+        data['folderGroups'] = folderGroups
+
+        return data
