@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import time
+import shutil
 import logging
 import argparse
 import threading
@@ -578,21 +579,62 @@ class FramesTaskHandler(TaskHandler):
         self.root_frames = self.sconfig['raw']['root_frames']
 
     def process(self):
-        args = {'maxlen': 2}
-        try:
-            dirs = {}
-            for d in os.listdir(self.root_frames):
-                s = os.stat(os.path.join(self.root_frames, d))
-                dirs[d] = Pretty.elapsed(s.st_mtime)
+        if self.count == 1:
+            self.entries = {}
 
-            args['dirs'] = json.dumps(dirs)
+        args = {'maxlen': 2}
+        updated = False
+
+        try:
+            for e in os.listdir(self.root_frames):
+                entryPath = os.path.join(self.root_frames, e)
+                s = os.stat(entryPath)
+                if os.path.isdir(entryPath):
+                    if e not in self.entries:
+                        self.entries[e] = {'mf': MovieFiles(), 'ts': 0}
+                    dirEntry = self.entries[e]
+                    if dirEntry['ts'] < s.st_mtime:
+                        dirEntry['mf'].scan(entryPath)
+                        dirEntry['ts'] = s.st_mtime
+                        updated = True
+                elif os.path.isfile(entryPath):
+                    if e not in self.entries or self.entries[e]['ts'] < s.st_mtime:
+                        self.entries[e] = {
+                            'type': 'file',
+                            'size': s.st_size,
+                            'ts': s.st_mtime
+                        }
+                        updated = True
+
+            if updated:
+                entries = []
+                for e, entry in self.entries.items():
+                    if 'mf' in entry:  # is a directory
+                        newEntry = {
+                            'type': 'dir',
+                            'size': entry['mf'].total_size,
+                            'movies': entry['mf'].total_movies,
+                            'ts': entry['ts']
+                        }
+                    else:
+                        newEntry = entry
+                    newEntry['name'] = e
+                    entries.append(newEntry)
+
+                args['entries'] = json.dumps(entries)
+                u = shutil.disk_usage(self.root_frames)
+                args['usage'] = json.dumps({'total': u.total, 'used': u.used})
+
         except Exception as e:
+            updated = True  # Update error
             args['error'] = f"Error: {e}"
             args.update({'error': str(e),
                          'stack': traceback.format_exc()})
 
-        self.info("Sending queues info")
-        self.update_task(args)
+        if updated:
+            self.info("Sending frames folder info")
+            self.update_task(args)
+
         time.sleep(30)
 
 
