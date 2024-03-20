@@ -180,13 +180,37 @@ def register_content(dc):
 
     @dc.content
     def workers_frames(**kwargs):
-        data = workers()
-        folderGroups = {}
-        for w, tasks in data['taskGroups'].items():
-            folderGroups[w] = [{'name': t['name'],
-                                'size': 0,
-                                'modified': dc.app.dm.dt_from_redis(t['id'])}
-                               for t in tasks]
-        data['folderGroups'] = folderGroups
+        # Some optional parameters
+        days = int(kwargs.get('days', 0))
+        td = dt.timedelta(days=days)
 
-        return data
+        sortKey = kwargs.get('sort', 'ts')
+        reverse = int(kwargs.get('reverse', 1))
+
+        dm = dc.app.dm
+        hosts = dm.get_hosts()
+
+        folderGroups = {}
+        # TODO: Get worker that monitor cluster from config
+        for h, host in hosts.items():
+            ws = dm.get_worker_stream(h)
+            for t in ws.get_all_tasks():
+                if t['name'] == 'frames' and t['status'] == 'pending':
+                    event_id, event = dm.get_task_lastevent(t['id'])
+                    entries = json.loads(event['entries'])
+                    usage = json.loads(event['usage'])
+                    folders = []
+                    now = dm.now()
+                    for e in entries:
+                        ddt = dm.dt_from_timestamp(e['ts'])
+                        if days == 0 or now - ddt < td:
+                            e['modified'] = ddt
+                            folders.append(e)
+
+                    folders.sort(key=lambda f: f[sortKey], reverse=bool(reverse))
+                    folderGroups[h] = {'usage': usage, 'entries': folders}
+                    break
+
+        return {
+            'folderGroups': folderGroups
+        }
