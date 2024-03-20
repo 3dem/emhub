@@ -41,7 +41,6 @@ class SessionTaskHandler(TaskHandler):
         TaskHandler.__init__(self, *args, **kwargs)
         self.mf = None
         self.epu_session = None  # for EPU parsing during OTF
-        self.dc = self.worker.dc
         self.update_session = False
 
         targs = self.task['args']
@@ -81,23 +80,6 @@ class SessionTaskHandler(TaskHandler):
         prefix = self.task['args']['action'].upper()
         return f"{prefix}-{self.task['args']['session_id']}"
 
-    def _request(self, requestFunc, errorMsg, tries=10):
-        """ Make a request to the server, trying many times if it fails. """
-        wait = 5  # Initial wait for 5 seconds and increment it until max 60
-        while tries:
-            tries -= 1
-            try:
-                return requestFunc()
-            except Exception as e:
-                retryMsg = f"Waiting {wait} seconds to retry." if tries else 'Not trying anymore.'
-                self.error(f"{errorMsg}. {retryMsg}")
-                if self.worker.debug:
-                    self.error(traceback.format_exc())
-                time.sleep(wait)
-                wait = min(60, wait * 2)
-
-        return None
-
     def update_session_extra(self, extra):
         def _update_extra():
             extra['updated'] = Pretty.now()
@@ -127,20 +109,6 @@ class SessionTaskHandler(TaskHandler):
         error = f"Could not retrieve session {self.session_id} after {tries} attempts."
         self.error(error)
         raise Exception(error)
-
-    def request_data(self, endpoint, jsonData=None):
-        def _get_data():
-            return self.dc.request(endpoint, jsonData=jsonData).json()
-
-        errorMsg = f"retrieving data from endpoint: {endpoint}"
-        return self._request(_get_data, errorMsg)
-
-    def request_dict(self, endpoint, jsonData=None):
-        return {s['id']: s for s in self.request_data(endpoint, jsonData=jsonData)}
-
-    def request_config(self, config):
-        data = {'attrs': {'config': config}}
-        return self.request_data('get_config', jsonData=data)['config']
 
     def unknown_action(self):
         self.update_task({
@@ -244,7 +212,6 @@ class SessionTaskHandler(TaskHandler):
 
         mf = self.mf  # shortcut
         seen = self.seen
-
         self.n_files = 0
         self.n_movies = 0
 
@@ -524,8 +491,6 @@ class SessionTaskHandler(TaskHandler):
             'microscope': self.microscope,
             'raw_data': raw_path
         }
-
-
         acq['gain'] = base_gain
         acq.update(self.session['acquisition'])
         images_pattern = acq.get('images_pattern',
@@ -603,15 +568,45 @@ class SessionTaskHandler(TaskHandler):
         self.update_task({'msg': 'Forced to stop ', 'done': 1})
 
 
+class FramesTaskHandler(TaskHandler):
+    """ Monitor frames folder located at
+    config:sessions['raw']['root_frames']. """
+    def __init__(self, *args, **kwargs):
+        TaskHandler.__init__(self, *args, **kwargs)
+        # Load config
+        self.sconfig = self.request_config('sessions')
+        self.root_frames = self.sconfig['raw']['root_frames']
+
+    def process(self):
+        args = {'maxlen': 2}
+        try:
+            dirs = {}
+            for d in os.listdir(self.root_frames):
+                s = os.stat(os.path.join(self.root_frames, d))
+                dirs[d] = Pretty.elapsed(s.st_mtime)
+
+            args['dirs'] = json.dumps(dirs)
+        except Exception as e:
+            args['error'] = f"Error: {e}"
+            args.update({'error': str(e),
+                         'stack': traceback.format_exc()})
+
+        self.info("Sending queues info")
+        self.update_task(args)
+        time.sleep(30)
+
+
 class SessionWorker(Worker):
     def handle_tasks(self, tasks):
+        handlers = {
+            'command': CmdTaskHandler,
+            'session': SessionTaskHandler,
+            'frames': FramesTaskHandler
+        }
+
         for t in tasks:
-            if t['name'] == 'command':
-                handler = CmdTaskHandler(self, t)
-            elif t['name'] == 'session':
-                handler = SessionTaskHandler(self, t)
-            else:
-                handler = DefaultTaskHandler(self, t)
+            HandlerClass = handlers.get(t['name'], DefaultTaskHandler)
+            handler = HandlerClass(self, t)
             handler.start()
 
     def notify_launch_otf(self, task):

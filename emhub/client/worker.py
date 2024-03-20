@@ -91,6 +91,37 @@ class TaskHandler(threading.Thread):
 
         del self.worker.tasks[self.task['id']]
 
+    def _request(self, requestFunc, errorMsg, tries=10):
+        """ Make a request to the server, trying many times if it fails. """
+        wait = 5  # Initial wait for 5 seconds and increment it until max 60
+        while tries:
+            tries -= 1
+            try:
+                return requestFunc()
+            except Exception as e:
+                retryMsg = f"Waiting {wait} seconds to retry." if tries else 'Not trying anymore.'
+                self.error(f"{errorMsg}. {retryMsg}")
+                if self.worker.debug:
+                    self.error(traceback.format_exc())
+                time.sleep(wait)
+                wait = min(60, wait * 2)
+
+        return None
+
+    def request_data(self, endpoint, jsonData=None):
+        def _get_data():
+            return self.dc.request(endpoint, jsonData=jsonData).json()
+
+        errorMsg = f"retrieving data from endpoint: {endpoint}"
+        return self._request(_get_data, errorMsg)
+
+    def request_dict(self, endpoint, jsonData=None):
+        return {s['id']: s for s in self.request_data(endpoint, jsonData=jsonData)}
+
+    def request_config(self, config):
+        data = {'attrs': {'config': config}}
+        return self.request_data('get_config', jsonData=data)['config']
+
     def update_task(self, event, tries=-1, wait=10):
         """ Update task info.
         Args:
