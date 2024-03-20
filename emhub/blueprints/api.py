@@ -684,7 +684,7 @@ def update_task():
         worker = validate_worker_token(attrs['token'])
         task_id = attrs['task_id']
         event = attrs['event']
-        app.dm.get_worker_stream(worker).update_task(task_id, event)
+        app.dm.get_worker_stream(worker, update=True).update_task(task_id, event)
         return {'result': 'OK'}
 
     return _handle_item(_update_task, 'task')
@@ -697,7 +697,7 @@ def get_new_tasks():
     """
     def _get_new_tasks(**attrs):
         worker = validate_worker_token(attrs['token'])
-        tasks = app.dm.get_worker_stream(worker).get_new_tasks()
+        tasks = app.dm.get_worker_stream(worker, update=True).get_new_tasks()
         return tasks
 
     return _handle_item(_get_new_tasks, 'tasks')
@@ -711,8 +711,8 @@ def get_pending_tasks():
     """
     def _get_pending_tasks(**attrs):
         worker = validate_worker_token(attrs['token'])
-        tasks = [t for t in app.dm.get_worker_stream(worker).get_all_tasks()
-                 if t['status'] == 'pending']
+        ws = app.dm.get_worker_stream(worker, update=True)
+        tasks = [t for t in ws.get_all_tasks() if t['status'] == 'pending']
         return tasks
 
     return _handle_item(_get_pending_tasks, 'tasks')
@@ -726,14 +726,14 @@ def get_all_tasks():
     """
     def _get_all_tasks(**attrs):
         worker = validate_worker_token(attrs['token'])
-        tasks = []
-        for w in app.dm.get_config('hosts').keys():
-            for t in app.dm.get_worker_stream(w).get_all_tasks():
+        all_tasks = []
+        for w, tasks in app.dm.get_all_tasks():
+            for t in tasks:
                 # Add worker info
                 t['worker'] = w
-                tasks.append(t)
+                all_tasks.append(t)
 
-        return tasks
+        return all_tasks
 
     return _handle_item(_get_all_tasks, 'tasks')
 
