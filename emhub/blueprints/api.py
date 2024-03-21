@@ -358,11 +358,13 @@ def create_resource():
     """ Create a new `Resource`. """
     return handle_resource(app.dm.create_resource)
 
+
 @api_bp.route('/update_resource', methods=['POST'])
 @flask_login.login_required
 def update_resource():
     """ Update a given `Resource`. """
     return handle_resource(app.dm.update_resource)
+
 
 @api_bp.route('/delete_resource', methods=['POST'])
 @flask_login.login_required
@@ -370,8 +372,8 @@ def delete_resource():
     """ Delete a `Resource`. """
     return handle_resource(app.dm.delete_resource)
 
-# ---------------------------- BOOKINGS ---------------------------------------
 
+# ---------------------------- BOOKINGS ---------------------------------------
 @api_bp.route('/create_booking', methods=['POST'])
 @flask_login.login_required
 def create_booking():
@@ -453,6 +455,8 @@ def get_sessions():
 @api_bp.route('/poll_sessions', methods=['POST'])
 @flask_login.login_required
 def poll_sessions():
+    # FIXME: this fuction is very old (used in SLL) and
+    # FIXME: needs to be updated
     session_folders = app.dm.get_session_folders()
 
     def _user(u):
@@ -488,8 +492,6 @@ def poll_sessions():
 @api_bp.route('/poll_active_sessions', methods=['POST'])
 @flask_login.login_required
 def poll_active_sessions():
-    #from pprint import pprint
-    #from emhub.data.data_manager import DataManager
     while True:
         dm = app.dm  # DataManager(app.instance_path, user=app.user)
         sessions = dm.get_sessions(condition='status=="active"')
@@ -504,6 +506,7 @@ def poll_active_sessions():
 @flask_login.login_required
 def create_session():
     return handle_session(app.dm.create_session)
+
 
 @api_bp.route('/update_session', methods=['POST'])
 @flask_login.login_required
@@ -684,7 +687,7 @@ def update_task():
         worker = validate_worker_token(attrs['token'])
         task_id = attrs['task_id']
         event = attrs['event']
-        app.dm.get_worker_stream(worker).update_task(task_id, event)
+        app.dm.get_worker_stream(worker, update=True).update_task(task_id, event)
         return {'result': 'OK'}
 
     return _handle_item(_update_task, 'task')
@@ -697,7 +700,7 @@ def get_new_tasks():
     """
     def _get_new_tasks(**attrs):
         worker = validate_worker_token(attrs['token'])
-        tasks = app.dm.get_worker_stream(worker).get_new_tasks()
+        tasks = app.dm.get_worker_stream(worker, update=True).get_new_tasks()
         return tasks
 
     return _handle_item(_get_new_tasks, 'tasks')
@@ -711,8 +714,8 @@ def get_pending_tasks():
     """
     def _get_pending_tasks(**attrs):
         worker = validate_worker_token(attrs['token'])
-        tasks = [t for t in app.dm.get_worker_stream(worker).get_all_tasks()
-                 if t['status'] == 'pending']
+        ws = app.dm.get_worker_stream(worker, update=True)
+        tasks = [t for t in ws.get_all_tasks() if t['status'] == 'pending']
         return tasks
 
     return _handle_item(_get_pending_tasks, 'tasks')
@@ -726,14 +729,14 @@ def get_all_tasks():
     """
     def _get_all_tasks(**attrs):
         worker = validate_worker_token(attrs['token'])
-        tasks = []
-        for w in app.dm.get_config('hosts').keys():
-            for t in app.dm.get_worker_stream(w).get_all_tasks():
+        all_tasks = []
+        for w, tasks in app.dm.get_all_tasks():
+            for t in tasks:
                 # Add worker info
                 t['worker'] = w
-                tasks.append(t)
+                all_tasks.append(t)
 
-        return tasks
+        return all_tasks
 
     return _handle_item(_get_all_tasks, 'tasks')
 

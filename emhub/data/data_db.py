@@ -102,6 +102,9 @@ class DbManager:
         ms = int(redisId.split('-')[0])
         return self.dt_as_local(dt.datetime.fromtimestamp(ms/1000))
 
+    def dt_from_timestamp(self, ts):
+        return self.dt_as_local(dt.datetime.fromtimestamp(ts))
+
     @staticmethod
     def json_from_value(v):
         if isinstance(v, dt.date) or isinstance(v, dt.datetime):

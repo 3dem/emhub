@@ -1,0 +1,68 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Worker Frames " %}
+    {% include 'include_header.html' %}
+
+    <!-- workers row -->
+    <div class="row" id="workers_frames_content">
+
+
+<div class="col-7">
+
+
+{% if current_user.is_admin %}
+
+{% for group, info in folderGroups.items() %}
+
+    <div class="card">
+        <div class="card-header">
+           <div class="row">
+               <h3 class="col-7">Frames: {{ group }}</h3>
+               {% set u = info['usage']['used'] %}
+               {% set t = info['usage']['total'] %}
+               {% set p = '%0.f' % (u * 100.0 / t) %}
+               <h3 class="col-4">Used: {{ u|pretty_size }} of {{ t|pretty_size }} ({{ p }} %)</h3>
+           </div>
+        </div>
+        <div class="card-body p-0">
+
+            <div class="table-responsive">
+                <table class="table">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                        <th class="border-0">modified (ts)</th>
+                        <th class="border-0">name</th>
+                        <th class="border-0">movies</th>
+                        <th class="border-0">size</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in info['entries'] %}
+                            <tr>
+                                <td>{{ entry['modified']|pretty_date }} ({{ entry['modified']|pretty_elapsed }})</td>
+                                <td>{{ entry['name'] }}</td>
+                                <td>{{ entry.get('movies', '') }}</td>
+                                <td>{{ entry['size']|pretty_size }}</td>
+                            </tr>
+                        {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+{% endfor %}
+
+{% endif %}
+
+</div>
+
+
+
+    </div>
+
+</div>
+

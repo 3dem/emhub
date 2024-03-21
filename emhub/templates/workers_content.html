@@ -34,7 +34,7 @@
                                 <td>{{ worker['alias'] }} </td>
 
                                 <td><span class="badge-dot badge-{{ badge_type }} mr-1"></span>{{ hostname }} </td>
-                                <td>{{ worker.get('updated', '') }}</td>
+                                <td>{{ worker.get('updated', '') }} {{worker.get('elapsed', '')}}</td>
                                 <td>{{ worker.get('specs', '') }}</td>
                                 </tr>
                         {% endfor %}

@@ -33,7 +33,7 @@
                                     </div>
                                     <div class="col-5 pl-0">
                                         {% for s in sessions %}
-                                            <a href="{{ url_for_content('session_details', session_id=s.id) }}" class="badge badge-success mr-1 mt-1" >{{ s.name }}</a>
+                                            <a href="{{ url_for_content('session_details', session_id=s.id) }}" class="badge badge-success mr-1 mt-1" >{{ s.shortname }}</a>
                                         {% endfor %}
                                     </div>
                                 {% endif %}

@@ -171,7 +171,14 @@ class DataManager(DbManager):
         return self.__create_item(self.Form, **attrs)
 
     def update_form(self, **attrs):
-        return self.__update_item(self.Form, **attrs)
+        cache = attrs.pop('cache', True)
+        form = self.__update_item(self.Form, **attrs)
+        # Check if we need to update Redis cache
+        if cache and self.r is not None and form.name.startswith('config:'):
+            configName = form.name.replace('config:', '')
+            self.set_rconfig(configName, form.definition)
+
+        return form
 
     def delete_form(self, **attrs):
         form = self.__item_by(self.Form, id=attrs['id'])
@@ -554,7 +561,7 @@ class DataManager(DbManager):
                                       'value': new_counter})
 
         form = self.get_form_by_name('sessions_config')
-        self.update_form(id=form.id, definition=formDef)
+        self.update_form(id=form.id, definition=formDef, cache=False)
 
     def get_session_cameras(self, resourceId):
         cameras = []
@@ -570,23 +577,11 @@ class DataManager(DbManager):
     def get_session_data_deletion(self, group_code):
         return int(self.__get_session_dict('data_deletion').get(group_code, 0))
 
-    def get_session_processing(self):
-        # Load processing options from the 'processing' Form
-        form_proc = self.get_form_by_name('processing')
-
-        processing = []
-        for section in form_proc.definition['sections']:
-            steps = []
-            processing.append({'name': section['label'], 'steps': steps})
-            for param in section['params']:
-                steps.append({'name': param['label'], 'options': param['enum']['choices']})
-
-        return processing
-
     def get_session_data_path(self, session):
         return os.path.join(self._sessionsPath, session.data_path)
 
     def get_new_session_info(self, booking_id):
+        # FIXME: This is specific to SLL and needs cleanup/refactoring
         """ Return the name for the new session, base on the booking and
         the previous sessions counter (stored in Form 'counters').
         """
@@ -626,7 +621,7 @@ class DataManager(DbManager):
         attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
 
         if 'start' not in attrs:
-            attrs['start'] = self.now()
+            attrs['start'] = b.start
 
         if 'status' not in attrs:
             attrs['status'] = 'active'
@@ -859,11 +854,35 @@ class DataManager(DbManager):
         return self.__item_by(self.Project, **kwargs)
 
     # ---------------------------- ENTRIES ---------------------------------
-    def get_config(self, configName, default={}):
+    def set_rconfig(self, configName, configData):
+        """ Update configuration entry in Redis. """
+        self.r.set(f'config:{configName}', json.dumps(configData))
+
+    def get_rconfig(self, configName):
+        return json.loads(self.r.get(f'config:{configName}'))
+
+    def get_config(self, configName, default={}, cache=True):
         """ Find a form named config:configName and return
-        the associated JSON definition. """
+        the associated JSON definition.
+        Args:
+            configName: name of the entry to load.
+            default: default value if the entry does not exist.
+            cache: If true, will use Redis cache
+            """
+        rcache = self.r is not None and cache
+
+        if rcache and self.r.exists(f'config:{configName}'):
+            return self.get_rconfig(configName)
+
         form = self.get_form_by_name(f'config:{configName}')
-        return form.definition if form else default
+        if not form:
+            return default
+
+        configData = form.definition
+        if rcache:  # update the cache if enabled
+            self.set_rconfig(configName, configData)
+
+        return configData
 
     def get_form_definition(self, formName, default={}):
         """ Find a form named entry_form:formName and return
@@ -871,9 +890,9 @@ class DataManager(DbManager):
         form = self.get_form_by_name(f'entry_form:{formName}')
         return form.definition if form else default
 
-    def update_config(self, configName, definition):
+    def update_config(self, configName, definition, cache=False):
         form = self.get_form_by_name(f'config:{configName}')
-        self.update_form(id=form.id, definition=definition)
+        self.update_form(id=form.id, definition=definition, cache=cache)
 
     def get_entry_config(self, entry_type):
         return self.get_config('projects')['entries'][entry_type]
@@ -1423,7 +1442,8 @@ class DataManager(DbManager):
             return task_id
 
         def update_task(self, task_id, event):
-            self.r.xadd(f"task_history:{task_id}", event)
+            self.r.xadd(f"task_history:{task_id}", event,
+                        maxlen=event.get('maxlen', None))
             if 'done' in event:
                 self.finish_task(task_id)
 
@@ -1480,26 +1500,31 @@ class DataManager(DbManager):
 
             return pending
 
+    def get_hosts(self):
+        """ Use Redis to cache hosts information, avoiding
+        reading it from the config all the time. """
+        self._hosts = getattr(self, '_hosts', self.get_config('hosts'))
+        return self._hosts
+
     def connect_worker(self, worker, specs):
-        self.get_worker_stream(worker).connect()
-        now = Pretty.now()
-        hosts = self.get_config('hosts')
-        hosts[worker]['updated'] = now
+        self.get_worker_stream(worker, update=True).connect()
+        hosts = self.get_hosts()
         hosts[worker]['specs'] = specs
-        self.update_config('hosts', hosts)
+        self.update_config('hosts', hosts, cache=True)
 
-    def get_worker_stream(self, worker):
-        hosts = self.get_config('hosts')
+    def get_worker_stream(self, worker, update=False):
+        host = self.get_hosts().get(worker, None)
 
-        if worker not in hosts:
+        if host is None:
             raise Exception("Unregistered host %s" % worker)
+
+        if update:
+            host['updated'] = Pretty.now()
 
         return DataManager.WorkerStream(worker, self)
 
     def get_all_tasks(self):
-        hosts = self.get_config('hosts')
-
-        for k in hosts.keys():
+        for k in self.get_hosts().keys():
             yield k, self.get_worker_stream(k).get_all_tasks()
 
     def get_task_history(self, task_id, count=None, reverse=True):
@@ -1519,6 +1544,7 @@ class DataManager(DbManager):
     def get_task_lastupdate(self, task_id):
         last_event = self.get_task_lastevent(task_id)
         return self.dt_from_redis(last_event[0] if last_event else task_id)
+
 
 class RepeatRanges:
     """ Helper class to generate a series of events with start, end. """

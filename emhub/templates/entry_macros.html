@@ -193,7 +193,7 @@
 
 
 {% macro session(s) -%}
-    <a href="{{ url_for_content('session_default', session_id=s.id) }}" class="badge badge-info mr-1 mt-1" >{{ s.name }}</a>
+    <a href="{{ url_for_content('session_default', session_id=s.id) }}" class="badge badge-info mr-1 mt-1" >{{ s.shortname }}</a>
 {%- endmacro %}
 
 
