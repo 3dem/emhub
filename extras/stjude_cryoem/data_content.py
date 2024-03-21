@@ -1,5 +1,9 @@
 import os
 from glob import glob
+import json
+import datetime as dt
+
+from emtools.utils import Pretty
 
 
 def register_content(dc):
@@ -46,10 +50,13 @@ def register_content(dc):
             d, base = os.path.split(model)
             return base if not user.is_manager else os.path.join(os.path.basename(d), base)
 
+        dateStr = Pretty.date(b.start).replace('-', '')
+
         otf = sconfig['otf']
         data = {
             'booking': b,
             'acquisition': acq,
+            'session_name_prefix': f'{dateStr}{b.resource.name}:',
             'otf_hosts': otf['hosts'],
             'otf_host_default': otf['hosts_default'][micName],
             'workflows': otf['workflows'],
@@ -60,3 +67,43 @@ def register_content(dc):
         data.update(dc.get_user_projects(b.owner, status='active'))
         return data
 
+    @dc.content
+    def workers_frames(**kwargs):
+        # Some optional parameters
+        days = int(kwargs.get('days', 0))
+        td = dt.timedelta(days=days)
+
+        sortKey = kwargs.get('sort', 'ts')
+        reverse = int(kwargs.get('reverse', 1))
+
+        dm = dc.app.dm
+        hosts = dm.get_hosts()
+
+        folderGroups = {}
+        # TODO: Get worker that monitor cluster from config
+        for h, host in hosts.items():
+            ws = dm.get_worker_stream(h)
+            for t in ws.get_all_tasks():
+                if t['name'] == 'frames' and t['status'] == 'pending':
+                    event_id, event = dm.get_task_lastevent(t['id'])
+                    if 'error' in event:
+                        continue
+                    from pprint import pprint
+                    pprint(event)
+                    entries = json.loads(event['entries'])
+                    usage = json.loads(event['usage'])
+                    folders = []
+                    now = dm.now()
+                    for e in entries:
+                        ddt = dm.dt_from_timestamp(e['ts'])
+                        if days == 0 or now - ddt < td:
+                            e['modified'] = ddt
+                            folders.append(e)
+
+                    folders.sort(key=lambda f: f[sortKey], reverse=bool(reverse))
+                    folderGroups[h] = {'usage': usage, 'entries': folders}
+                    break
+
+        return {
+            'folderGroups': folderGroups
+        }
