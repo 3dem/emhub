@@ -183,21 +183,6 @@
     var workflow_default = {{ workflow_default|tojson }};
     var otf_host_default = {{ otf_host_default|tojson }};
 
-    function onProcessingClick(inputRadio) {
-        var rows = document.getElementsByClassName("processing-row");
-        for (var i = 0; i < rows.length; i++) {
-            var r = rows[i];
-            r.style.display = r.id === "row-" + inputRadio.value ? "block" : "none";
-        }
-    }
-
-    function advancedOnClick(checkbox){
-         if (checkbox.checked)
-             $(".advanced").show();
-         else
-             $(".advanced").hide();
-    }
-
     function onCreateClick(){
         var formValues = getFormAsJson('session-form');
         var attrs = {
@@ -258,6 +243,9 @@
         // showError(JSON.stringify(attrs, null, 4));
         // return
 
+        // Add unique prefix to avoid session name clashes
+        attrs.name = "{{ session_name_prefix }}" + attrs.name;
+
         var ajaxContent = $.ajax({
             url: "{{ url_for('api.create_session') }}",
             type: "POST",
@@ -283,10 +271,7 @@
     }
 
     (function(window, document, $, undefined) {
-        var checkbox = document.getElementById('advanced-checkbox');
-        console.log("loading page: checked: " + checkbox.checked);
-        advancedOnClick(checkbox);
-
+        // Initialization code goes here
     })(window, document, window.jQuery);
 
 </script>

@@ -160,8 +160,10 @@ class SessionTaskHandler(TaskHandler):
     def get_frames_path(self):
         """ Unique folder based on session info. """
         date_ts = Pretty.now()  # Fixme Maybe use first file creation (for old sessions)
-        date = date_ts.split()[0].replace('-', '')
-        name = self.session['name']
+        date_ts = self.session['start']
+        date = date_ts.split('T')[0].replace('-', '')
+        n = self.session['name']
+        name = n if ':' not in n else n.split(':')[1]
         return os.path.join(self.sconfig['raw']['root_frames'],
                             f"{date}_{self.microscope}_{name}")
 
@@ -260,7 +262,6 @@ class SessionTaskHandler(TaskHandler):
                 except:
                     continue
 
-
                 unmodified = False
 
                 # JMRT 20240130: We are having issues with the modified date in
@@ -304,14 +305,15 @@ class SessionTaskHandler(TaskHandler):
                 td = now - datetime.fromtimestamp(ts)
                 f = info.get(key, 'No-file')
                 self.info(f'{key}: {f}, '
-                                 f'{Pretty.timestamp(ts)} -> '
-                                 f'{Pretty.elapsed(ts)}')
+                          f'{Pretty.timestamp(ts)} -> '
+                          f'{Pretty.elapsed(ts)}')
                 if td > timedelta(days=days):
                     return True
             return False
+
         def _stop():
-            ''' Check various conditions that will make the TRANSFER task
-            to stop. For example, last raw file older than 3 days. '''
+            """ Check various conditions that will make the TRANSFER task
+            to stop. For example, last raw file older than 3 days. """
             if self.n_files:  # Do not check stop while finding new files
                 return False
 
@@ -336,7 +338,7 @@ class SessionTaskHandler(TaskHandler):
             if self.framesInfo:
                 if int(self.framesInfo['movies']) == 0:
                     self.info(f'Stopping transfer, cleaning frames folder: '
-                                     f'{framesPath}.')
+                              f'{framesPath}.')
                     self.pl.rm(framesPath)
             self.update_task(update_args)
             self.stop()
