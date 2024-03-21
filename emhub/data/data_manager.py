@@ -171,7 +171,14 @@ class DataManager(DbManager):
         return self.__create_item(self.Form, **attrs)
 
     def update_form(self, **attrs):
-        return self.__update_item(self.Form, **attrs)
+        cache = attrs.pop('cache', True)
+        form = self.__update_item(self.Form, **attrs)
+        # Check if we need to update Redis cache
+        if cache and self.r is not None and form.name.startswith('config:'):
+            configName = form.name.replace('config:', '')
+            self.set_rconfig(configName, form.definition)
+
+        return form
 
     def delete_form(self, **attrs):
         form = self.__item_by(self.Form, id=attrs['id'])
@@ -554,7 +561,7 @@ class DataManager(DbManager):
                                       'value': new_counter})
 
         form = self.get_form_by_name('sessions_config')
-        self.update_form(id=form.id, definition=formDef)
+        self.update_form(id=form.id, definition=formDef, cache=False)
 
     def get_session_cameras(self, resourceId):
         cameras = []
@@ -613,7 +620,7 @@ class DataManager(DbManager):
         attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
 
         if 'start' not in attrs:
-            attrs['start'] = self.now()
+            attrs['start'] = b.start
 
         if 'status' not in attrs:
             attrs['status'] = 'active'
@@ -884,9 +891,7 @@ class DataManager(DbManager):
 
     def update_config(self, configName, definition, cache=False):
         form = self.get_form_by_name(f'config:{configName}')
-        if cache:
-            self.set_rconfig(configName, definition)
-        self.update_form(id=form.id, definition=definition)
+        self.update_form(id=form.id, definition=definition, cache=cache)
 
     def get_entry_config(self, entry_type):
         return self.get_config('projects')['entries'][entry_type]
