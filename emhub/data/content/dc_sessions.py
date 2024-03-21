@@ -180,47 +180,5 @@ def register_content(dc):
 
     @dc.content
     def create_session_form(**kwargs):
-        dm = dc.app.dm  # shortcut
-        user = dc.app.user
-        booking_id = int(kwargs['booking_id'])
-        b = dm.get_booking_by(id=booking_id)
-        can_edit = b.project and user.can_edit_project(b.project)
-
-        if not (user.is_manager or user.same_pi(b.owner) or can_edit):
-            raise Exception("You can not create Sessions for this Booking. "
-                            "Only members of the same lab can do it.")
-
-        sconfig = dm.get_config('sessions')
-
-        # load default acquisition params for the given microscope
-        micName = b.resource.name
-        acq = sconfig['acquisition'][micName]
-
-        # We provide cryolo_models to be used with the OTF
-        cryolo_models_pattern = dm.get_config('sessions')['data']['cryolo_models']
-
-        cryolo_models = glob(cryolo_models_pattern)
-
-        if not user.is_manager:
-            group = dm.get_user_group(user)
-            cryolo_models = [cm for cm in cryolo_models if group in cm]
-
-        def _key(model):
-            d, base = os.path.split(model)
-            return base if not user.is_manager else os.path.join(os.path.basename(d), base)
-
-        data = {
-            'booking': b,
-            'acquisition': acq,
-            'cameras': dm.get_session_cameras(b.resource.id),
-            'processing': dm.get_session_processing(),
-            'session_name': dm.get_new_session_info(booking_id)['name'],
-            'otf_hosts': sconfig['otf']['hosts'],
-            'otf_host_default': sconfig['otf']['hosts_default'][micName],
-            'workflows': sconfig['otf']['workflows'],
-            'workflow_default': sconfig['otf']['workflow_default'],
-            'transfer_host': sconfig['raw']['hosts_default'][micName],
-            'cryolo_models': {_key(cm): cm for cm in cryolo_models}
-        }
-        data.update(dc.get_user_projects(b.owner, status='active'))
-        return data
+        raise Exception("How to create sessions needs to be defined "
+                        "on the extras for each specific EMhub customization.")
