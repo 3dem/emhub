@@ -44,7 +44,7 @@
                                 <div class="col-12">
                                     <form id="session-form" data-parsley-validate="" novalidate="">
 
-                                        {{ row('Session Name', session.name, 'h4') }}
+                                        {{ row('Session Name', session.shortname, 'h4') }}
                                         {{ row('Owner', owner.name, 'h4') }}
                                         {{ row('PI', owner.pi.name) }}
                                         {{ row('Project', macros.project(session.project, True), 'div') }}
