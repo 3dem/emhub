@@ -69,7 +69,6 @@ class DataManager(DbManager):
 
         self.r = redis
 
-
     def _create_models(self):
         """ Function called from the init_db method. """
         create_data_models(self)
@@ -194,13 +193,6 @@ class DataManager(DbManager):
         If the form does not exist, an Exception is thrown.
         """
         form = self.get_form_by(name=formName)
-
-
-        print(">>>>> DEBUG: get_form_by_name: ", formName)
-        if 'hosts' in formName:
-            import traceback
-            print(traceback.print_stack())
-
         if form is None:
             print(">>>>> ERROR: Missing Form '%s' from the database!!!" % formName)
         return form
@@ -578,19 +570,6 @@ class DataManager(DbManager):
     def get_session_data_deletion(self, group_code):
         return int(self.__get_session_dict('data_deletion').get(group_code, 0))
 
-    def get_session_processing(self):
-        # Load processing options from the 'processing' Form
-        form_proc = self.get_form_by_name('processing')
-
-        processing = []
-        for section in form_proc.definition['sections']:
-            steps = []
-            processing.append({'name': section['label'], 'steps': steps})
-            for param in section['params']:
-                steps.append({'name': param['label'], 'options': param['enum']['choices']})
-
-        return processing
-
     def get_session_data_path(self, session):
         return os.path.join(self._sessionsPath, session.data_path)
 
@@ -874,7 +853,7 @@ class DataManager(DbManager):
     def get_rconfig(self, configName):
         return json.loads(self.r.get(f'config:{configName}'))
 
-    def get_config(self, configName, default={}, cache=False):
+    def get_config(self, configName, default={}, cache=True):
         """ Find a form named config:configName and return
         the associated JSON definition.
         Args:
@@ -882,7 +861,9 @@ class DataManager(DbManager):
             default: default value if the entry does not exist.
             cache: If true, will use Redis cache
             """
-        if cache and self.r.exists(f'config:{configName}'):
+        rcache = self.r is not None and cache
+
+        if rcache and self.r.exists(f'config:{configName}'):
             return self.get_rconfig(configName)
 
         form = self.get_form_by_name(f'config:{configName}')
@@ -890,7 +871,7 @@ class DataManager(DbManager):
             return default
 
         configData = form.definition
-        if cache:  # update the cache if enabled
+        if rcache:  # update the cache if enabled
             self.set_rconfig(configName, configData)
 
         return configData
@@ -1516,8 +1497,7 @@ class DataManager(DbManager):
     def get_hosts(self):
         """ Use Redis to cache hosts information, avoiding
         reading it from the config all the time. """
-        self._hosts = getattr(self, '_hosts', self.get_config('hosts',
-                                                              cache=True))
+        self._hosts = getattr(self, '_hosts', self.get_config('hosts'))
         return self._hosts
 
     def connect_worker(self, worker, specs):
