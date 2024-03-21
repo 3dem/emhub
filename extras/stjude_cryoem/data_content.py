@@ -46,16 +46,14 @@ def register_content(dc):
             d, base = os.path.split(model)
             return base if not user.is_manager else os.path.join(os.path.basename(d), base)
 
+        otf = sconfig['otf']
         data = {
             'booking': b,
             'acquisition': acq,
-            'cameras': dm.get_session_cameras(b.resource.id),
-            'processing': {},
-            'session_name': dm.get_new_session_info(booking_id)['name'],
-            'otf_hosts': sconfig['otf']['hosts'],
-            'otf_host_default': sconfig['otf']['hosts_default'][micName],
-            'workflows': sconfig['otf']['workflows'],
-            'workflow_default': sconfig['otf']['workflow_default'],
+            'otf_hosts': otf['hosts'],
+            'otf_host_default': otf['hosts_default'][micName],
+            'workflows': otf['workflows'],
+            'workflow_default': otf['workflow_default'],
             'transfer_host': sconfig['raw']['hosts_default'][micName],
             'cryolo_models': {_key(cm): cm for cm in cryolo_models}
         }
