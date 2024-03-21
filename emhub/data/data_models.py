@@ -1032,6 +1032,11 @@ def create_data_models(dm):
         def otf_path(self):
             return self.otf.get('path', '')
 
+        @property
+        def shortname(self):
+            n = self.name
+            return n if ':' not in n else n.split(':')[1]
+
         def json(self):
             return dm.json_from_object(self)
 

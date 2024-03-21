@@ -581,6 +581,7 @@ class DataManager(DbManager):
         return os.path.join(self._sessionsPath, session.data_path)
 
     def get_new_session_info(self, booking_id):
+        # FIXME: This is specific to SLL and needs cleanup/refactoring
         """ Return the name for the new session, base on the booking and
         the previous sessions counter (stored in Form 'counters').
         """

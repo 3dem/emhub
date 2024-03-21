@@ -358,11 +358,13 @@ def create_resource():
     """ Create a new `Resource`. """
     return handle_resource(app.dm.create_resource)
 
+
 @api_bp.route('/update_resource', methods=['POST'])
 @flask_login.login_required
 def update_resource():
     """ Update a given `Resource`. """
     return handle_resource(app.dm.update_resource)
+
 
 @api_bp.route('/delete_resource', methods=['POST'])
 @flask_login.login_required
@@ -370,8 +372,8 @@ def delete_resource():
     """ Delete a `Resource`. """
     return handle_resource(app.dm.delete_resource)
 
-# ---------------------------- BOOKINGS ---------------------------------------
 
+# ---------------------------- BOOKINGS ---------------------------------------
 @api_bp.route('/create_booking', methods=['POST'])
 @flask_login.login_required
 def create_booking():
@@ -453,6 +455,8 @@ def get_sessions():
 @api_bp.route('/poll_sessions', methods=['POST'])
 @flask_login.login_required
 def poll_sessions():
+    # FIXME: this fuction is very old (used in SLL) and
+    # FIXME: needs to be updated
     session_folders = app.dm.get_session_folders()
 
     def _user(u):
@@ -488,8 +492,6 @@ def poll_sessions():
 @api_bp.route('/poll_active_sessions', methods=['POST'])
 @flask_login.login_required
 def poll_active_sessions():
-    #from pprint import pprint
-    #from emhub.data.data_manager import DataManager
     while True:
         dm = app.dm  # DataManager(app.instance_path, user=app.user)
         sessions = dm.get_sessions(condition='status=="active"')
@@ -504,6 +506,7 @@ def poll_active_sessions():
 @flask_login.login_required
 def create_session():
     return handle_session(app.dm.create_session)
+
 
 @api_bp.route('/update_session', methods=['POST'])
 @flask_login.login_required
