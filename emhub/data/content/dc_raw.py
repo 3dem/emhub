@@ -56,6 +56,9 @@ def register_content(dc):
 
     @dc.content
     def raw_booking_list(**kwargs):
+        if 'user' in kwargs:
+            return {'bookings': dc.app.dm.get_user_bookings(kwargs['user'])}
+
         return {'bookings': dc.app.dm.get_bookings()}
 
     @dc.content

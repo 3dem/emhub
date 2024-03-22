@@ -147,7 +147,22 @@ class DataManager(DbManager):
 
     def delete_user(self, **attrs):
         """ Delete a given user. """
-        user = self.get_user_by(id=attrs['id'])
+        uid = attrs['id']
+
+        # Check that there are not bookings related to this user
+        bookings = self.get_user_bookings(uid)
+
+        def _error(msg):
+            raise Exception(f"This user can not be deleted, {msg}.")
+
+        if bookings:
+            _error("deleted, there are associated bookings. ")
+
+        user = self.get_user_by(id=uid)
+
+        if user.lab_members:
+            _error("there are associated lab members.")
+
         self.delete(user)
         return user
 
@@ -465,6 +480,13 @@ class DataManager(DbManager):
                     if in_range(b)]
 
         return bookings
+
+    def get_user_bookings(self, uid):
+        """ Return bookings related to this user.
+        User might be creator, owner or operator of the booking.
+        """
+        condStr = f"owner_id={uid} OR operator_id={uid} OR creator_id={uid}"
+        return self.get_bookings(condition=condStr)
 
     def get_next_bookings(self, user):
         """ Retrieve upcoming (from now) bookings for this user. """
@@ -834,7 +856,7 @@ class DataManager(DbManager):
         return self.__update_item(self.Project, **attrs)
 
     def delete_project(self, **attrs):
-        """ Remove a session row. """
+        """ Remove a project. """
         project = self.get_project_by(id=attrs['id'])
         # Delete all entries of this project
         # (since I haven't configured cascade-delete in SqlAlchemy models)
