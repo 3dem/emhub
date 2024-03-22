@@ -36,6 +36,7 @@ def register_content(dc):
         # load default acquisition params for the given microscope
         micName = b.resource.name
         acq = sconfig['acquisition'][micName]
+        transfer_host = sconfig['raw']['hosts_default'][micName]
 
         # We provide cryolo_models to be used with the OTF
         cryolo_models_pattern = dm.get_config('sessions')['data']['cryolo_models']
@@ -61,17 +62,21 @@ def register_content(dc):
             'otf_host_default': otf['hosts_default'][micName],
             'workflows': otf['workflows'],
             'workflow_default': otf['workflow_default'],
-            'transfer_host': sconfig['raw']['hosts_default'][micName],
+            'transfer_host': transfer_host,
             'cryolo_models': {_key(cm): cm for cm in cryolo_models}
         }
         data.update(dc.get_user_projects(b.owner, status='active'))
+        r = workers_frames(hours=10)['folderGroups'][transfer_host]
+        data['frame_folders'] = r['entries']
         return data
 
     @dc.content
     def workers_frames(**kwargs):
         # Some optional parameters
         days = int(kwargs.get('days', 0))
-        td = dt.timedelta(days=days)
+        hours = int(kwargs.get('hours', 0))
+        total_hours = days * 24 + hours
+        td = dt.timedelta(hours=total_hours)
 
         sortKey = kwargs.get('sort', 'ts')
         reverse = int(kwargs.get('reverse', 1))
@@ -96,7 +101,7 @@ def register_content(dc):
                     now = dm.now()
                     for e in entries:
                         ddt = dm.dt_from_timestamp(e['ts'])
-                        if days == 0 or now - ddt < td:
+                        if total_hours == 0 or now - ddt < td:
                             e['modified'] = ddt
                             folders.append(e)
 
