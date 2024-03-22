@@ -1,4 +1,8 @@
-
+{% macro name_id(user) -%}
+    {% if user %}
+        {{ user|shortname }} ({{ user.id }})
+    {% endif %}
+{%- endmacro %}
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = "Bookings List" %}
@@ -21,7 +25,9 @@
                                 <th>id</th>
                                 <th>resource</th>
                                 <th>type</th>
+                                <th>creator</th>
                                 <th>owner</th>
+                                <th>operator</th>
                                 <th>pi</th>
                                 <th>project</th>
                                 <th>dates</th>
@@ -37,7 +43,9 @@
                                 <td>{{ '%03d'|format(b.id) }}</td>
                                 <td>{{ b.resource.name }}</td>
                                 <td>{{ b.type }}</td>
-                                <td>{{ b.owner.name }} (id = {{ b.owner.id }})</td>
+                                <td>{{ name_id(b.creator) }}</td>
+                                <td>{{ name_id(b.owner) }}</td>
+                                <td>{{ name_id(b.operator) }}</td>
                                 {% set pi = b.owner.get_pi() %}
                                 {% set pi_name = pi.name if pi else '' %}
                                 <td>{{ pi_name }}</td>
