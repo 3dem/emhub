@@ -52,9 +52,14 @@
 
                             <!-- Session's Name -->
                             <div class="form-group row">
-                                <h3 class="col-12 col-sm-3 col-form-label text-sm-right">Session Name</h3>
+                                <h3 class="col-12 col-sm-3 col-form-label text-sm-right">Session Folder</h3>
                                 <div class="col-12 col-sm-8 col-lg-6">
-                                    <input type="text" required="" placeholder="Provide a session name (up to 16 digits: letters, numbers, underscore or dash)" id="session-name" data-key="session_name" class="form-control" value="">
+                                        <select id="session-folder-select" class="selectpicker show-tick" data-key="session_name">
+                                            <option value=""></option>
+                                            {% for f in frame_folders %}
+                                                <option value="{{ f['name'] }}" data-subtext="{{ f['modified']|pretty_elapsed }}">{{ f['name'] }}</option>
+                                            {% endfor %}
+                                        </select>
                                 </div>
                             </div>
 
