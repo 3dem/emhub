@@ -99,6 +99,18 @@ def process_sessions(args):
                 for s in sessions:
                     if str(s['id']) == args.list or s['name'] == args.list:
                         pprint(s)
+        elif args.update_acq:
+            session_id = int(args.update_acq[0])
+            new_acq = json.loads(args.update_acq[1])
+            for s in sessions:
+                if s['id'] == session_id:
+                    print("Updating session ", session_id)
+                    acq = s['acquisition']
+                    acq.update(new_acq)
+                    us = dc.update_session({'id': session_id,
+                                            'acquisition': acq})
+                    pprint(us)
+
 
 
 def main():
@@ -127,6 +139,8 @@ def main():
     # g.add_argument('--method', '-m', nargs=2, metavar=('METHOD', 'JSON'),
     #                help='Execute a method from the client')
     g.add_argument('--list', '-l')
+    g.add_argument('--update_acq', nargs=2,
+                   metavar=('SESSION_ID', 'JSON_ACQ'))
 
     # ------------------------- Method subparser -------------------------------
     method_p = subparsers.add_parser("method")
