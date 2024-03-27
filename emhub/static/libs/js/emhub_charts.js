@@ -482,6 +482,13 @@ class MicrographCard {
             }
         });
 
+        $(self.jid('mic_left')).on('click', function (e) {
+           self.loadMicData(parseInt($(self.jid('mic_id')).val()) - 1);
+        });
+        $(self.jid('mic_right')).on('click', function (e) {
+            self.loadMicData(parseInt($(self.jid('mic_id')).val()) + 1);
+        });
+
         // Bind to on/off coordinates display
         $(self.jid('show_particles')).change(function() {
             self.drawMicrograph();
@@ -761,8 +768,16 @@ function session_updateCounters(){
     let nMovies = stats.movies.count;
     let nCtfs = stats.ctfs.count;
 
-    session_timespan.first = stats.movies.first * 1000;
-    session_timespan.step = (stats.movies.last - stats.movies.first) * 1000 / nMovies;
+    if (stats.movies.first > 0) {
+       first = stats.movies.first;
+       last = stats.movies.last;
+    } else {
+       first = stats.ctfs.first;
+       last = stats.ctfs.last;
+    }
+
+    session_timespan.first = first * 1000;
+    session_timespan.step = (last - first) * 1000 / nMovies;
 
     session_setCounter('counter_imported', nMovies);
     //setCounter('counter_aligned', stats['numOfMics']);
