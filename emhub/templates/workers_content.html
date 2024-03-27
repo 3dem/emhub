@@ -1,5 +1,5 @@
 
-<div class="col-xl-9 col-lg-12 col-md-6 col-sm-12 col-12">
+<div class="col-12">
 
     <div class="card">
         <div class="card-header">
@@ -22,8 +22,9 @@
                     <tr class="border-0">
                     <th class="border-0">Alias</th>
                     <th class="border-0">Hostname</th>
+                    <th class="border-0">Connected (uptime)</th>
                     <th class="border-0">Last update</th>
-                    <th class="border-0">Specs</th>
+                    <th class="border-0" style="width: 30%">Specs</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -32,9 +33,9 @@
                             {% set badge_type = 'success' if worker['active'] else badge_type %}
                                 <tr>
                                 <td>{{ worker['alias'] }} </td>
-
                                 <td><span class="badge-dot badge-{{ badge_type }} mr-1"></span>{{ hostname }} </td>
-                                <td>{{ worker.get('updated', '') }} {{worker.get('elapsed', '')}}</td>
+                                <td>{{ worker.get('connected', '')}} {{worker.get('connected_elapsed', '')}}</td>
+                                <td>{{ worker.get('updated', '') }} {{worker.get('updated_elapsed', '')}}</td>
                                 <td>{{ worker.get('specs', '') }}</td>
                                 </tr>
                         {% endfor %}

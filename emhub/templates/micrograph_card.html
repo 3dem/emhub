@@ -32,9 +32,13 @@
                 <br/>
                     <div class="input-group input-group-sm mb-3">
                       <div class="input-group-prepend">
-                        <h5 class="input-group-text" id="inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
+                        <h5 class="input-group-text" id="{{ card_id }}_inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
                       </div>
-                      <input type="text" id="{{ card_id }}_mic_id" class="form-control" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
+                      <input type="text" id="{{ card_id }}_mic_id" class="form-control" aria-label="Small" aria-describedby="{{ card_id }}_inputGroup-sizing-sm">
+                       <div class="row ml-2 mr-2">
+                            <a id="{{ card_id }}_mic_left"><i class="fas fa-arrow-circle-left mr-1"></i></a>
+                            <a id="{{ card_id }}_mic_right"><i class="fas fa-arrow-circle-right"></i></a>
+                       </div>
                     </div>
                 {% if card_compact %}
                     {{ mic_row('Defocus U, V, A (µm, µm, °)', '', card_id + '_mic_defocus_uva') }}
