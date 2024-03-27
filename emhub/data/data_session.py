@@ -45,10 +45,35 @@ def hours(tsFirst, tsLast):
     return d.days * 24 + d.seconds / 3600
 
 
+class SessionRun:
+    """ Group functions related to a run in a Session. """
+    def __init__(self, path):
+        self._path = path
+        self._epuData = None
+
+    def join(self, *paths):
+        return os.path.join(self._path, *paths)
+
+    def getFormDefinition(self):
+        """ Return the class definition for this run type. """
+        return {}
+
+    def getValues(self):
+        return {}
+
+    def getStdOut(self):
+        """ Return run's stdout file. """
+        return None
+
+    def getStdError(self):
+        """ Return run's stdout file. """
+        return None
+
+
 class SessionData:
     """ Base class with common functionality. """
-    def __init__(self, data_path, mode='r'):
-        self._path = data_path
+    def __init__(self, path, mode='r'):
+        self._path = path
         self._epuData = None
 
     def join(self, *paths):
@@ -63,7 +88,6 @@ class SessionData:
         return self._epuData
 
     def mtime(self, fn):
-        print(f">>>>>> Getting time from: {self.join(fn)}: {Pretty.timestamp(os.path.getmtime(self.join(fn)))}")
         mt = os.path.getmtime(self.join(fn))
         return mt
 
@@ -153,29 +177,56 @@ class SessionData:
         """ Return protocols and their relations. """
         return []
 
+    def get_run(self, runId):
+        """ Retrieve Run class. """
+        return None
+
+
+class RelionRun(SessionRun):
+    """ Helper class to manipulate Relion run data. """
+    def __init__(self, path):
+        SessionRun.__init__(self, path)
+
+    def getFormDefinition(self):
+        return {}
+
+    def getValues(self):
+        values = {}
+        return values
+
+    def getStdOut(self):
+        """ Return run's stdout file. """
+        return self.join('run.out')
+
+    def getStdError(self):
+        """ Return run's stdout file. """
+        return self.join('run.err')
+
 
 class RelionSessionData(SessionData):
     """
     Adapter class for reading Session data from Relion OTF
     """
     def get_stats(self):
-        print("Getting stats")
-        t = Timer()
+
         def _stats_from_star(jobType, starFn, tableName, attribute):
             fn = self.get_last_star(jobType, starFn)
             if not fn or not os.path.exists(fn):
                 return {'count': 0}
-
             with StarFile(fn) as sf:
                 if attribute == 'count':
                     return {'count': sf.getTableSize(tableName)}
                 t = sf.getTable(tableName)
                 firstRow, lastRow = t[0], t[-1]
-                first = self.mtime(getattr(firstRow, attribute))
-                last = self.mtime(getattr(lastRow, attribute))
+                try:
+                    first = self.mtime(getattr(firstRow, attribute))
+                    last = self.mtime(getattr(lastRow, attribute))
+                    h = hours(first, last)
+                except:
+                    first = last = h = 0
 
                 return {
-                    'hours': hours(first, last),
+                    'hours': h,
                     'count': t.size(),
                     'first': first,
                     'last': last,
@@ -204,8 +255,7 @@ class RelionSessionData(SessionData):
             'movies': movieStats,
             'ctfs': _stats_from_star('CtfFind', 'micrographs_ctf.star',
                                      'micrographs', 'rlnMicrographName'),
-            'classes2d': _stats_from_star('Class2D', 'run_it*_model.star',
-                                          'model_classes', 'count'),
+            'classes2d': len(self.get_classes2d_runs()),
             'coordinates': {'count': 0}  # FIXME if there are picking jobs or from extraction
         }
 
@@ -214,15 +264,14 @@ class RelionSessionData(SessionData):
     def get_micrographs(self):
         """ Return an iterator over the micrographs' CTF information. """
         micFn = self._last_micFn()
+
         if not micFn:
             return []
 
         with StarFile(micFn) as sf:
             for row in sf.iterTable('micrographs'):
-                #micFn = self.join(row.rlnMicrographName)
                 micData = {
                     'micrograph': row.rlnMicrographName,
-                    #'micTs': os.path.getmtime(micFn),
                     'ctfImage': row.rlnCtfImage,
                     'ctfDefocus': row.rlnDefocusU,
                     'ctfResolution': min(row.rlnCtfMaxResolution, 10),
@@ -233,6 +282,7 @@ class RelionSessionData(SessionData):
 
     def get_micrograph_data(self, micId):
         micFn = self._last_micFn()
+        data = {}
         if micFn:
             with StarFile(micFn) as sf:
                 otable = sf.getTable('optics')
@@ -240,7 +290,8 @@ class RelionSessionData(SessionData):
                 micThumb = Thumbnail(output_format='base64',
                                      max_size=(512, 512),
                                      contrast_factor=0.15,
-                                     gaussian_filter=0)
+                                     gaussian_filter=0,
+                                     std_threshold=1)
                 psdThumb = Thumbnail(output_format='base64',
                                      max_size=(128, 128),
                                      contrast_factor=1,
@@ -253,7 +304,9 @@ class RelionSessionData(SessionData):
 
                 loc = EPU.get_movie_location(micFn)
 
-                return {
+                coords = self.get_micrograph_coordinates(row.rlnMicrographName)
+
+                data = {
                     'micThumbData': micThumbBase64,
                     'psdData': psdThumb.from_mrc(psdFn),
                     # 'shiftPlotData': None,
@@ -262,20 +315,18 @@ class RelionSessionData(SessionData):
                     'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
                     'ctfAstigmatism': round(row.rlnCtfAstigmatism/10000, 2),
                     'ctfResolution': round(row.rlnCtfMaxResolution, 2),
-                    'coordinates': self.get_micrograph_coordinates(micFn),
+                    'coordinates': coords,
                     'micThumbPixelSize': pixelSize * micThumb.scale,
                     'pixelSize': pixelSize,
                     'gridSquare': loc['gs'],
                     'foilHole': loc['fh']
                 }
-        return {}
+        return data
 
     @staticmethod
     def get_classes2d_from_run(runFolder):
         """ Get classes information from a class 2d run. """
         items = []
-        print(f"Relion: getting classes from {runFolder}")
-
         if runFolder:
             avgMrcs = os.path.join(runFolder, '*_it*_classes.mrcs')
             files = glob(avgMrcs)
@@ -308,33 +359,90 @@ class RelionSessionData(SessionData):
 
         return items
 
-    def get_classes2d(self):
+    def get_workflow(self):
+        protList = []
+        protDict = {}
+        status_map = {
+            'Succeeded': 'finished',
+            'Running': 'running',
+            'Aborted': 'aborted',
+            'Failed': 'failed'
+        }
+        pipelineStar = self.join('default_pipeline.star')
+        outputs = {}
+
+        with StarFile(pipelineStar) as sf:
+            for row in sf.iterTable('pipeline_processes'):
+                name = row.rlnPipeLineProcessName
+                alias = row.rlnPipeLineProcessAlias
+                status = status_map.get(row.rlnPipeLineProcessStatusLabel, 'unknown')
+                prot = {
+                    'id': name,
+                    'label': alias if alias != 'None' else name,
+                    'links': [],
+                    'status': status,
+                    'type': row.rlnPipeLineProcessTypeLabel
+                }
+                protList.append(prot)
+                protDict[name] = prot
+
+            for row in sf.iterTable('pipeline_output_edges'):
+                outputs[row.rlnPipeLineEdgeToNode] = row.rlnPipeLineEdgeProcess
+
+            for row in sf.iterTable('pipeline_input_edges'):
+                node = row.rlnPipeLineEdgeFromNode
+                procName = row.rlnPipeLineEdgeProcess
+                childProt = protDict[procName]
+                parentProt = protDict[outputs[node]]
+                if childProt not in parentProt['links']:
+                    parentProt['links'].append(procName)
+
+        return protList
+
+    def get_run(self, runId):
+        return RelionRun(self.join(runId))
+
+    def get_classes2d_runs(self):
+        return [r.replace(self._path, '')[1:] for r in self._jobs('Class2D')]
+
+    def get_classes2d(self, runId=None):
         """ Iterate over 2D classes. """
-        jobs2d = self._jobs('Class2D')
-        runFolder = jobs2d[-1] if jobs2d else None
-        return RelionSessionData.get_classes2d_from_run(runFolder)
+        runs2d = self.get_classes2d_runs()
+        return {
+            'runs': [{'id': i, 'label': r} for i, r in enumerate(runs2d)],
+            'items': [] if runId is None else self.get_classes2d_from_run(self.join(runs2d[runId])),
+            'selection': []
+        }
+
+    def get_coords_from_star(self, starFn):
+        """ Return x,y coordinates from a given star file,
+        from the root of the project. """
+        coords = []
+        starPath = self.join(starFn)
+
+        with StarFile(self.join(starPath)) as sf:
+            for row in sf.iterTable(''):
+                coords.append((round(row.rlnCoordinateX),
+                               round(row.rlnCoordinateY)))
+        return coords
 
     def get_micrograph_coordinates(self, micFn):
-        coords = []
-        pickingDirs = self._jobs('AutoPick')
-        if pickingDirs:
-            lastPicking = pickingDirs[-1]
-            micBase = os.path.splitext(os.path.basename(micFn))[0]
-            coordFn = self.join(lastPicking, 'Frames', micBase + '_autopick.star')
-            if os.path.exists(coordFn):
-                reader = StarFile(coordFn)
-                ctable = reader.getTable('')
-                reader.close()
-                for row in ctable:
-                    coords.append((row.rlnCoordinateX,
-                                   row.rlnCoordinateY))
-
-        return coords
+        if pickStar := self.get_last_star('*Pick', '*pick.star'):
+            with StarFile(self.join(pickStar)) as sf:
+                for row in sf.iterTable('coordinate_files'):
+                    if micFn in row.rlnMicrographName:
+                        return self.get_coords_from_star(row.rlnMicrographCoordinates)
+        return []
 
     # ----------------------- UTILS ---------------------------
     def _jobs(self, jobType):
         jobs = glob(self.join(jobType, 'job*'))
-        jobs.sort()
+
+        def _jobNumber(j):
+            return int(j.split('/job')[1])
+
+        jobs.sort(key=_jobNumber)
+
         return jobs
 
     def get_last_star(self, jobType, starFn):
@@ -345,7 +453,7 @@ class RelionSessionData(SessionData):
         if '*' in starFn:  # it is a glob pattern, let's find the last file
             files = glob(fn)
             files.sort()
-            fn = files[-1]
+            fn = files[-1] if files else None
         return fn
 
     def _last_micFn(self):
@@ -360,57 +468,51 @@ class RelionSessionData(SessionData):
         return None
 
 
+class ScipionRun(SessionRun):
+    """ Helper class to manipulate Scipion run data. """
+    def __init__(self, projectDir, runDict):
+        self.dict = runDict
+
+        runRow = runDict['']  # first protocol row, empty name
+        self.id = runRow['id']
+        self.className = runRow['classname']
+
+        wdRow = runDict[f'{self.id}.workingDir']
+        SessionRun.__init__(self, os.path.join(projectDir, wdRow['value']))
+
+    def getFormDefinition(self):
+        return ScipionSessionData.getFormDefinition(self.className)
+
+    def getValues(self):
+        values = {}
+        parents = {}
+        for k, v in self.dict.items():
+            parts = v['name'].split('.')
+            pid = v['parent_id']
+            if pid == self.id:
+                name = parts[-1]
+                values[name] = v['value']
+                parents[v['id']] = name
+            elif pid in parents:
+                parent_name = parents[pid]
+                if values[parent_name] is not None:
+                    values[parent_name] += f".{v['value']}"
+
+        return values
+
+    def getStdOut(self):
+        """ Return run's stdout file. """
+        return self.join('logs', 'run.stdout')
+
+    def getStdError(self):
+        """ Return run's stdout file. """
+        return self.join('logs', 'run.stderr')
+
+
 class ScipionSessionData(SessionData):
     """
     Adapter class for reading Session data from Relion OTF
     """
-    class Run:
-        """ Helper class to manipulate Scipion run data. """
-        def __init__(self, projectDir, runDict):
-            self.dict = runDict
-
-            runRow = runDict['']  # first protocol row, empty name
-            self.id = runRow['id']
-            self.className = runRow['classname']
-
-            wdRow = runDict[f'{self.id}.workingDir']
-            self.workingDir = os.path.join(projectDir, wdRow['value'])
-
-        def join(self, *paths):
-            return os.path.join(self.workingDir, *paths)
-
-        def getFormDefinition(self):
-            return ScipionSessionData.getFormDefinition(self.className)
-
-        def getValues(self):
-            values = {}
-            parents = {}
-            for k, v in self.dict.items():
-                parts = v['name'].split('.')
-                pid = v['parent_id']
-                if pid == self.id:
-                    name = parts[-1]
-                    values[name] = v['value']
-                    parents[v['id']] = name
-                elif pid in parents:
-                    parent_name = parents[pid]
-                    if values[parent_name] is not None:
-                        values[parent_name] += f".{v['value']}"
-
-            return values
-
-    def _loadRun(self, runId):
-        prefix = f'{runId}.'
-        runDict = {}
-
-        with SqliteFile(self.join('project.sqlite')) as sf:
-            for row in sf.iterTable('Objects'):
-                name = row['name']
-                if row['id'] == runId or name.startswith(prefix):
-                    runDict[name] = row
-
-        return self.Run(self._path, runDict)
-
     def __init__(self, data_path, mode='r'):
         SessionData.__init__(self, data_path, mode=mode)
         projDb = self.join('project.sqlite')
@@ -598,12 +700,10 @@ class ScipionSessionData(SessionData):
         if self.all_coords is None:
             coords = defaultdict(lambda: [])
             with Timer():
-                print("Loading all coordinates")
                 if coordSqlite := self.outputs.get('coordinates', None):
                     with SqliteFile(coordSqlite) as sf:
                         for row in sf.iterTable('Objects', classes='Classes'):
                             coords[row['_micName']].append((row['_x'], row['_y']))
-                print("   Total: ", len(coords))
             self.all_coords = coords
 
         return self.all_coords[micFn]
@@ -643,7 +743,17 @@ class ScipionSessionData(SessionData):
         return protList
 
     def get_run(self, runId):
-        return self._loadRun(runId)
+        prefix = f'{runId}.'
+        runDict = {}
+        rid = int(runId)
+
+        with SqliteFile(self.join('project.sqlite')) as sf:
+            for row in sf.iterTable('Objects'):
+                name = row['name']
+                if row['id'] == rid or name.startswith(prefix):
+                    runDict[name] = row
+
+        return ScipionRun(self._path, runDict)
 
     @staticmethod
     def getFormDefinition(className):

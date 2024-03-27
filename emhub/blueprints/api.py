@@ -586,22 +586,18 @@ def get_session_run():
 
     def _get_run(**attrs):
         session = app.dm.load_session(attrs['sessionId'])
-        run = session.data.get_run(int(attrs['runId']))
-
-        lines = ''
+        run = session.data.get_run(attrs['runId'])
         outputs = attrs.get('output', ['json'])
-        from pprint import pprint
-        pprint(attrs)
         results = {}
 
         if 'json' in outputs:
             results['json'] = {'dict': run.dict, 'values': run.getValues()}
 
         if 'stdout' in outputs:
-            results['stdout'] = _loadFileLines(run.join('logs', 'run.stdout'))
+            results['stdout'] = _loadFileLines(run.getStdOut())
 
         if 'stderr' in outputs:
-            results['stderr'] = _loadFileLines(run.join('logs', 'run.stderr'))
+            results['stderr'] = _loadFileLines(run.getStdError())
 
         if 'form' in outputs:
             results['form'] = run.getFormDefinition()

@@ -752,7 +752,7 @@ class DataContent:
                     step = (tsLast - tsFirst) / len(defocus)
                 else:
                     tsFirst = dt.datetime.timestamp(dt.datetime.now())
-                    step = 1000000
+                    step = 1000
                     tsLast = tsFirst + len(defocus) * step
 
                 epuData = session.data.getEpuData()
@@ -763,8 +763,8 @@ class DataContent:
                                   for row in epuData.moviesTable]
                 tsRange = {'first': tsFirst * 1000,  # Timestamp in milliseconds
                            'last': tsLast * 1000,
-                           'step': step}
-
+                           'step': step * 1000}
+                
             data.update({
                 'defocus': defocus,
                 'defocusAngle': defocusAngle,
@@ -780,7 +780,6 @@ class DataContent:
         elif result == 'classes2d':
             runId = int(kwargs.get('run_id', -1))
             data['classes2d'] = sdata.get_classes2d(runId=runId)
-            print(">>>> Classes 2D: ", len(data['classes2d']))
 
         sdata.close()
         return data
