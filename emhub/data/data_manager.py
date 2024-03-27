@@ -1529,9 +1529,12 @@ class DataManager(DbManager):
         return self._hosts
 
     def connect_worker(self, worker, specs):
+        now = self.now()
         self.get_worker_stream(worker, update=True).connect()
         hosts = self.get_hosts()
-        hosts[worker]['specs'] = specs
+        w = hosts[worker]
+        w.update({'specs': specs,
+                  'connected': Pretty.datetime(now)})
         self.update_config('hosts', hosts, cache=True)
 
     def get_worker_stream(self, worker, update=False):

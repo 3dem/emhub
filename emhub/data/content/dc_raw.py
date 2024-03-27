@@ -155,15 +155,15 @@ def register_content(dc):
         now = dt.datetime.now()
         for k, v in dm.get_hosts().items():
             workers[k] = w = dict(v)
-            updated = w.get('updated', '')
             active = False
-            if updated:
+            if updated := w.get('updated', ''):
                 u = Pretty.parse_datetime(updated)
                 td = now - u
                 active = td < dt.timedelta(minutes=2)
-                #v['updated'] = updated + f" ({Pretty.elapsed(u, now=now)})"
-                w['elapsed'] = f"({Pretty.elapsed(u, now=now)})"
-
+                w['updated_elapsed'] = f"({Pretty.elapsed(u, now=now)})"
+            if connected := w.get('connected', ''):
+                c = Pretty.parse_datetime(connected)
+                w['connected_elapsed'] = f"({Pretty.elapsed(c, now=now)})"
             w.update({
                 'has_specs': bool(w.get('specs', '')),
                 'active': active
