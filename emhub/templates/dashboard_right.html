@@ -10,7 +10,7 @@
                     {% set style = 'font-weight: bold' if active else '' %}
                     {% set row_style = 'background-color: #ededed' if active else '' %}
                     <tr class="row p-0 m-0" style="{{ row_style }}" >
-                        <td class="col-3 text-left" style="{{ style }}">{{ b.start|weekday }}</td>
+                        <td class="col-3 text-left" style="{{ style }}">{{ b|booking_span }}</td>
                         {% if b.type == 'downtime' %}
 {#                            <td class="col-4"><span class="badge" style="color: white; background-color: rgb(181,4,0);">Downtime</span></td>#}
                             <td class="col-4"><span style="color: rgb(181,4,0);">Downtime</span></td>

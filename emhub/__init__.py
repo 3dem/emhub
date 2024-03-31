@@ -422,6 +422,13 @@ def create_app(test_config=None):
     def weekday(dt):
         return app.dm.local_weekday(dt)
 
+    @app.template_filter('booking_span')
+    def booking_span(b):
+        s = weekday(b.start)
+        if b.hours > 24:
+            s += ' - ' + weekday(b.end)
+        return s
+
     @app.template_filter('redis_datetime')
     def redis_datetime(task_id, elapsed=False):
         dt = app.dm.dt_from_redis(task_id)

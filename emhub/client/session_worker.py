@@ -157,15 +157,16 @@ class SessionTaskHandler(TaskHandler):
         del update_args['files']
         self.update_task(update_args)
 
-    def get_frames_path(self):
-        """ Unique folder based on session info. """
-        date_ts = Pretty.now()  # Fixme Maybe use first file creation (for old sessions)
+    def get_session_name(self):
+        """ Strip down : for uniqueness. """
+        n = self.session['name']
+        return n if ':' not in n else n.split(':')[1]
+
+    def get_session_fullname(self):
+        """ Unique folder based on session name, date and instrument. """
         date_ts = self.session['start']
         date = date_ts.split('T')[0].replace('-', '')
-        n = self.session['name']
-        name = n if ':' not in n else n.split(':')[1]
-        return os.path.join(self.sconfig['raw']['root_frames'],
-                            f"{date}_{self.microscope}_{name}")
+        return f"{date}_{self.microscope}_{self.get_session_name()}"
 
     def transfer(self):
         """ Move files from the Raw folder to the Offload folder.
@@ -175,16 +176,18 @@ class SessionTaskHandler(TaskHandler):
         extra = self.session['extra']
         logger = self.worker.logger
         raw = extra['raw']
-
-        # Real raw path where frames are being recorded
-        framesPath = Path.rmslash(raw.get('frames', '')) or self.get_frames_path()
+        framesRoot = self.sconfig['raw']['root_frames']
+        sessionName = self.get_session_name()
+        framesPath = Path.rmslash(raw.get('frames',
+                                          os.path.join(framesRoot, sessionName)))
         parts = self.users['owner']['email'].split('@')[0].split('.')
         userFolder = parts[0][0] + parts[1]
         rawRoot = self.sconfig['raw']['root']
+        fullName = self.get_session_fullname()
         # Offload server path where to transfer the files
         rawPath = os.path.join(rawRoot, self.users['group'], self.microscope,
                                       str(datetime.now().year), 'raw', 'EPU',
-                                      userFolder, os.path.basename(framesPath))
+                                      userFolder, fullName)
         framesPath = Path.addslash(framesPath)
         rawPath = Path.addslash(rawPath)
 
@@ -199,6 +202,7 @@ class SessionTaskHandler(TaskHandler):
             #self.pl.mkdir(framesPath)
 
             raw['frames'] = framesPath
+            raw['path'] = rawPath
             self.mf = MovieFiles(root=rawPath)
             self.seen = {}
 
@@ -209,7 +213,6 @@ class SessionTaskHandler(TaskHandler):
             else:
                 self.info("Starting transfer task")
                 self.pl.mkdir(rawPath)
-                raw['path'] = rawPath
 
             self.update_session_extra({'raw': raw})
 
