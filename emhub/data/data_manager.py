@@ -729,7 +729,7 @@ class DataManager(DbManager):
         return session
 
     def load_session(self, sessionId, mode="r"):
-        session = self.Session.query.get(sessionId)
+        session = self.get_session_by(id=sessionId)
         session.data = self._create_data_instance(session, mode)
         return session
 
