@@ -74,6 +74,9 @@
 <div class="col-xl-12 col-lg-12 col-md-7 col-sm-12 col-12">
     <div class="influence-profile-content pills-regular">
 
+        {% include 'dashboard_news.html' %}
+
+        <h3 class="col-12">Instruments</h3>
         <div class="row">
             {% for r in resources %}
 
@@ -133,6 +136,8 @@
         makeSameHeight('current_session');
         makeSameHeight('this_week_container');
         makeSameHeight('next_week_container');
+
+        makeSameHeight('news-card');
 
     })(window, document, window.jQuery);
 

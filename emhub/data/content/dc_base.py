@@ -838,7 +838,6 @@ def register_content(dc):
     def grids_storage(**kwargs):
         return grids_cane(**kwargs)
 
-
     @dc.content
     def dashboard(**kwargs):
         dm = app.dm  # shortcut
@@ -938,6 +937,13 @@ def register_content(dc):
             for k, bookingValues in rbookings.items():
                 bookingValues.sort(key=lambda b: b.start)
 
+        newsConfig = dm.get_config('news')
+        allNews = newsConfig['news'] if newsConfig else []
+        news = [n for n in allNews if n['status'] == 'active']
+
         dataDict.update({'bookings': bookings,
-                         'resource_bookings': resource_bookings})
+                         'resource_bookings': resource_bookings,
+                         'news': news
+                         })
         return dataDict
+

@@ -1,0 +1,19 @@
+
+{% if news %}
+    <div class="row">
+        <h3 class="col-12">News</h3>
+        {% for n in news %}
+{#        {% for type in ['info', 'warning', 'danger'] * 1 %}#}
+        <div class="col-auto m-0 p-0 mb-3" style="min-width: 700px; max-width: 700px;">
+            <div class="card-body pl-1 ml-1 mb-0 mt-0 pb-0 pt-0 h-100 news-card">
+                <div class="alert alert-{{ n['type'] }} m-0" role="alert">
+                    <h4 class="alert-heading">{{ n['title'] }}</h4>
+                    <hr>
+                    <p>{{ n['text'] }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
