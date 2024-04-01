@@ -30,12 +30,10 @@
                     <li class="nav-item">
                         <a class="nav-link active" id="session-general-tab" data-toggle="tab" href="#session-general" role="tab" aria-controls="current" aria-selected="true">General</a>
                     </li>
-
-                    {% if is_manager %}
-                    <li class="nav-item">
-                        <a class="nav-link" id="session-acq-tab" data-toggle="tab" href="#session-acq" role="tab" aria-controls="past" aria-selected="false">Acquisition</a>
-                    </li>
-                    {% endif %}
+{##}
+{#                    <li class="nav-item">#}
+{#                        <a class="nav-link" id="session-acq-tab" data-toggle="tab" href="#session-acq" role="tab" aria-controls="past" aria-selected="false">Acquisition</a>#}
+{#                    </li>#}
 
                     {% if is_admin %}
                     <li class="nav-item">
@@ -50,8 +48,10 @@
                     <!-- tab "Current" -->
                     <div class="tab-pane fade show active" id="session-general" role="tabpanel" aria-labelledby="session-general-tab">
 
+                    <div class="row">
+                        <div class="col-7">
                             <!-- Session's Name -->
-                            <div class="form-group row">
+                            <div class="form-group row col">
                                 <h3 class="col-12 col-sm-3 col-form-label text-sm-right">Session Folder</h3>
                                 <div class="col-12 col-sm-8 col-lg-6">
                                         <select id="session-folder-select" class="selectpicker show-tick" data-key="session_name">
@@ -108,16 +108,24 @@
                                     </select>
                                 </div>
                             </div>
+
+                        </div>
+
+                        <div class="col-5 p-0 m-0">
+                            {{ macros.session_dialog_row('Voltage (kV)', 'acq_voltage', acquisition['voltage'], '') }}
+                            {{ macros.session_dialog_row('Magnification', 'acq_magnification', acquisition['magnification'], '') }}
+                            {{ macros.session_dialog_row('Pixel Size (A/px)', 'acq_pixel_size', acquisition['pixel_size'], '') }}
+                            {{ macros.session_dialog_row('CS', 'acq_cs', acquisition['cs'], '') }}
+                            {{ macros.session_dialog_row('Dose (per frame)', 'acq_dose', acquisition['dose'], '') }}
+                        </div>
+
                     </div>
 
-                <!-- OTF extra params only visible to manager for now -->
-                <div class="tab-pane fade" id="session-acq" role="tabpanel" aria-labelledby="session-acq-tab">
-                    {{ macros.session_dialog_row('Voltage (kV)', 'acq_voltage', acquisition['voltage'], '') }}
-                    {{ macros.session_dialog_row('Magnification', 'acq_magnification', acquisition['magnification'], '') }}
-                    {{ macros.session_dialog_row('Pixel Size (A/px)', 'acq_pixel_size', acquisition['pixel_size'], '') }}
-                    {{ macros.session_dialog_row('CS', 'acq_cs', acquisition['cs'], '') }}
-                    {{ macros.session_dialog_row('Dose (per frame)', 'acq_dose', acquisition['dose'], '') }}
-                </div>
+                    </div>
+
+{#                <div class="tab-pane fade" id="session-acq" role="tabpanel" aria-labelledby="session-acq-tab">#}
+{##}
+{#                </div>#}
 
                 {% if is_admin %}
                     <div class="tab-pane fade" id="session-advanced" role="tabpanel" aria-labelledby="session-advanced-tab">

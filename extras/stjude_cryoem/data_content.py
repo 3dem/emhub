@@ -93,9 +93,7 @@ def register_content(dc):
                     event_id, event = dm.get_task_lastevent(t['id'])
                     if 'error' in event:
                         continue
-                    from pprint import pprint
-                    pprint(event)
-                    entries = json.loads(event['entries'])
+                    entries = json.loads(event.get('entries', []))
                     usage = json.loads(event['usage'])
                     folders = []
                     now = dm.now()
