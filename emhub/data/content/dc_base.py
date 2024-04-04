@@ -937,9 +937,16 @@ def register_content(dc):
             for k, bookingValues in rbookings.items():
                 bookingValues.sort(key=lambda b: b.start)
 
+        from markupsafe import Markup
+        value = Markup('<strong>The HTML String</strong>')
+
         newsConfig = dm.get_config('news')
         allNews = newsConfig['news'] if newsConfig else []
-        news = [n for n in allNews if n['status'] == 'active']
+        news = []
+        for n in allNews:
+            if n['status'] == 'active':
+                n['html'] = Markup(n['text'])
+                news.append(n)
 
         dataDict.update({'bookings': bookings,
                          'resource_bookings': resource_bookings,
