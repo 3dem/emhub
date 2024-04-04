@@ -740,7 +740,6 @@ class DataManager(DbManager):
             raise Exception(f"ERROR: can't load session data path: {session.data_path}")
         else:
             projectSqlite = os.path.join(session.data_path, 'project.sqlite')
-            print(f"projectSqlite: {projectSqlite}, exists: {os.path.exists(projectSqlite)}")
             if os.path.exists(projectSqlite):
                 return ScipionSessionData(session.data_path, mode)
             return RelionSessionData(session.data_path, mode)
@@ -1485,7 +1484,6 @@ class DataManager(DbManager):
             results = self.r.xreadgroup('group', self.worker, {self.name: '>'},
                                         block=60000)
             new_tasks = []
-            print(f"results: {results}")
             if results:
                 for task_id, task in results[0][1]:
                     task['id'] = task_id

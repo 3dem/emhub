@@ -287,16 +287,8 @@ class RelionSessionData(SessionData):
             with StarFile(micFn) as sf:
                 otable = sf.getTable('optics')
                 row = sf.getTableRow('micrographs', micId - 1)
-                micThumb = Thumbnail(output_format='base64',
-                                     max_size=(512, 512),
-                                     contrast_factor=0.15,
-                                     gaussian_filter=0,
-                                     std_threshold=1)
-                psdThumb = Thumbnail(output_format='base64',
-                                     max_size=(128, 128),
-                                     contrast_factor=1,
-                                     gaussian_filter=0)
-
+                micThumb = Thumbnail.Micrograph()
+                psdThumb = Thumbnail.Psd()
                 micFn = self.join(row.rlnMicrographName)
                 micThumbBase64 = micThumb.from_mrc(micFn)
                 psdFn = self.join(row.rlnCtfImage).replace(':mrc', '')
@@ -612,15 +604,8 @@ class ScipionSessionData(SessionData):
         if ctfSqlite := self.outputs.get('ctfs', None):
             with SqliteFile(ctfSqlite) as sf:
                 row = sf.getTableRow('Objects', micId - 1, classes='Classes')
-                micThumb = Thumbnail(output_format='base64',
-                                     max_size=(512, 512),
-                                     contrast_factor=0.15,
-                                     gaussian_filter=0)
-                psdThumb = Thumbnail(output_format='base64',
-                                     max_size=(128, 128),
-                                     contrast_factor=1,
-                                     gaussian_filter=0)
-
+                micThumb = Thumbnail.Micrograph()
+                psdThumb = Thumbnail.Psd()
                 micName = row['_micObj._micName']
                 micFn = self.join(row['_micObj._filename'])
                 micThumbBase64 = micThumb.from_mrc(micFn)
