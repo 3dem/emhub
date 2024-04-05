@@ -3,7 +3,7 @@
 Entry Forms
 ===========
 
-Entry forms define entries that can be used in projects. Each entry needs a parameters definition in JSON format
+Entry forms define entries that can be used in projects. Each entry needs parameters definition in JSON format
 from which the GUI will be generated and the data will be stored.
 
 
@@ -13,7 +13,7 @@ Parameters Definition
 Example Entry Forms
 ===================
 
-The following sections show some example entry forms that illustrate the usage of the parameters definition
+The following sections show example entry forms that illustrate the usage of the parameters definition
 described previously.
 
 Screening Entry Form

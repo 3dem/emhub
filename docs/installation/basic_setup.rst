@@ -6,7 +6,7 @@ Basic Setup
 Quickstart
 ----------
 
-Basic EMhub installation can be done with one pip command, although it is recommended to create a separated
+Basic EMhub installation can be done with one pip command, although it is recommended to create a separate
 Python environment (either venv or conda). For example:
 
 .. code-block:: bash
@@ -57,7 +57,7 @@ Templates
 ~~~~~~~~~
 
 All pages of the EMhub web application use `Flask <https://flask.palletsprojects.com/en/2.3.x/>`_ templates based on
-`Jinja <https://jinja.palletsprojects.com/en/3.1.x/>`_. Builtin templates are located under the ``emhub/templates`` folder.
+`Jinja <https://jinja.palletsprojects.com/en/3.1.x/>`_. Built-in templates are located under the ``emhub/templates`` folder.
 
 To redefine existing templates or to create new ones, one should place template files under the folder ``$EMHUB_INSTANCE/extra/templates``.
 Some common templates to redefine are:
@@ -73,8 +73,8 @@ Some common templates to redefine are:
    "``main_left_sidebar.html``", "Left panel with sections and links to other pages. "
    "``dashboard_right.html``", "Right content of the Dashboard page."
 
-Templates requires underlying ``content`` functions that provides the data source for the templates. New templates might require the definition
-of new content functions in the file ``$EMHUB_INSTANCE/extra/data_content.py``. It is also possible to extend the existing REST API by definition
+Templates requires underlying ``content`` functions that provide the data source for the templates. New templates might require the definition
+of new content functions in the file ``$EMHUB_INSTANCE/extra/data_content.py``. It is also possible to extend the existing REST API by defining
 new endpoints in ``$EMHUB_INSTANCE/extra/api.py``.
 
 Read more about :any:`Customizing EMhub`.
@@ -82,8 +82,8 @@ Read more about :any:`Customizing EMhub`.
 Mail Config
 ~~~~~~~~~~~
 
-It is possible to define some variables related to a Mail Server. In that way,
-EMhub can send emails for some notifications.
+It is possible to define variables related to a Mail Server.
+This allows EMhub to send emails for various notifications.
 
 .. code-block:: python
 
@@ -97,4 +97,5 @@ Authentication
 ~~~~~~~~~~~~~~
 
 Users can be authenticated in EMhub using the local database with a password. It is also possible to authenticate through
-an external LDAP server. Some variables are required in ``config.py`` for the :any:`Authentication with LDAP </installation/auth_ldap>`.
+an external LDAP server. Some variables are required in `config.py` for configuring authentication with LDAP.
+See :any:`Authentication with LDAP </installation/auth_ldap>` for more details.

@@ -5,27 +5,29 @@ Resources and Bookings
 Resources
 =========
 
-Resources are either instruments or services provided by the facility to its external users.
-Examples of instruments are microscopes, vitrobots, and carbon coater, among others. Regularly
-scheduled drop-in sessions for helping users with their projects can be one of such services.
+Resources within EMhub can be categorized as either instruments or services provided
+by the facility to its external users. Examples of instruments include microscopes,
+vitrobots, and carbon coaters, among others. Additionally, regularly scheduled drop-in
+sessions for assisting users with their projects can be classified as services.
 
-Resources are a central part of the Bookings or time allocation for Applications. Each resource
-can have different booking rules and also exceptions for specific applications.
+Resources play a central role in the Booking system or time allocation for Applications.
+Each resource can have different booking rules and exceptions tailored to specific applications.
 
 
 Resource List
 -------------
 
-The list of resources can be reached from the `Resources` link in the left sidebar. The following
-page shows the resources in a table where the main properties are listed. This *Actions* column requires
-to have admin or manager roles. Resource properties can not be changed by other users.
+The list of resources can be accessed from the `Resources` link in the left sidebar.
+The following page displays the resources in a table where the main properties are listed.
+The *Actions* column requires users to have admin or manager roles. Resource properties
+cannot be changed by other users.
 
 .. image:: https://github.com/3dem/emhub/wiki/images/resources-list.png
    :width: 100%
 
-From this page a new resource can be created. Also existing resources can be modified as shown in
-the next image. A new resource can be created as a copy of an existing one if they share some
-properties and only some need to be modified.
+From this page, a new resource can be created. Additionally, existing resources can be
+modified, as shown in the next image. A new resource can be created as a copy of an
+existing one if they share some properties and only some need to be modified.
 
 .. image:: https://github.com/3dem/emhub/wiki/images/resources-edit.png
    :width: 100%
@@ -40,7 +42,7 @@ Basic Properties
    :widths: 10, 50
 
    "**Name**", "Name of the resource that will be mainly used for display."
-   "**Status**", "*active* or *inactive*, in which case that resource can not be booked or used."
+   "**Status**", "*active* or *inactive*, in which case that resource cannot be booked or used."
    "**Tags**", "Free list of tag names that allows to group resources by categories. "
    "**Icon image**", "Image file used as icon for the resource."
    "**Color**", "Color to display the bookings related to this resource."
@@ -49,7 +51,7 @@ Basic Properties
 Booking Related Properties
 ..........................
 
-There are some properties of each resources that are related to the Bookings.
+There are a few properties of each resource that are related to the Bookings.
 
 .. csv-table:: **Booking related Parameters**
    :widths: 10, 50
@@ -60,31 +62,31 @@ There are some properties of each resources that are related to the Bookings.
    "**Minimum Booking time**", "Minimum amount of hours for bookings of this resources. Value 0 means no minimum. "
    "**Maximum Booking time**", "Maximum amount of hours for bookings of this resources. Value 0 means no maximum. "
    "**Daily cost**", "Cost of the usage of this resource in a one-day booking. This value is used for invoicing."
-   "**Requires Slot**", "If *Yes* all bookings of this resource should within an allowed ``Slots``."
+   "**Requires Slot**", "If *Yes* all bookings of this resource should be within allowed ``Slots``."
    "**Requires Application**", "If *Yes* the user that is the ``Owner`` of the booking should have a valid ``Application``."
 
 
 Bookings
 ========
 
-Bookings are used to organize access to each resource (e.g instruments, services). After some application have been approved,
-users belonging to each active application can book time slots for using different instruments. Some
-instruments and applications are required to book only in specific time *slots* enabled by the facility
-staff.
+Bookings are used to organize access to each resource (e.g., instruments, services).
+After some applications have been approved, users belonging to each active application
+can book time slots for using different instruments. Some instruments and applications
+are required to book only in specific time slots enabled by the facility staff.
 
-Other bookings can be made by the facility personnel to define instruments downtime
-or to reserve days for instrument calibration or testing. It is also possible to define repeating
-events that will occur with a certain frequency. For example, slots for some group of users can
-be defined every other week.
+Other bookings can be made by the facility personnel to define instrument downtime or
+to reserve days for instrument calibration or testing. It is also possible to define
+repeating events that will occur with a certain frequency. For example, slots for some
+group of users can be defined every other week.
 
 
 Booking Calendar
 ----------------
 
-The central page to manage all bookings is the ``Booking Calendar``.
-This page shows all bookings for all resources. It is possible to filter what resources
-to display by selecting one or several resources in the ``Display`` dropdown list at
-the top right corner.
+The central page to manage all bookings is the "Booking Calendar." This page
+displays all bookings for all resources. It is possible to filter which resources
+to display by selecting one or several resources in the "Display" dropdown list
+at the top right corner.
 
 
 .. image:: https://github.com/3dem/emhub/wiki/images/calendar-all.png

@@ -2,8 +2,9 @@
 Installation
 ============
 
-Check the next sections for information about a quick setup or how to configure and deploy
-EMhub in production servers, and running the on-the-fly data processing with Scipion.
+Check the next sections for information about a quick setup, or how to configure
+and deploy EMhub on production servers, and how to run on-the-fly data processing
+with Scipion.
 
 .. toctree::
     :maxdepth: 2
