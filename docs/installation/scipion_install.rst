@@ -13,11 +13,11 @@ Steps
 .....
 
 The following steps will guide you through the Scipion installation. Just be patient
-for conda to resolve dependencies and environment libraries. Installation should not
-require any admin privileges in your computer or compiler tools.
+while conda resolves dependencies and environment libraries. Installation does not
+require any admin privileges on your computer or compiler tools.
 
 
-Replace ``SCIPION_FOLDER`` in the following command with the path where you want to
+Replace ``SCIPION_FOLDER`` in the following command with the path where you wish to
 install Scipion.
 
 .. code-block:: bash
@@ -33,26 +33,25 @@ You can load the Scipion environment by:
 
     source SCIPION_FOLDER/bashrc
 
-EMhub should also be available and ready to launch as in the previous way of
-installation.
+EMhub should also be available and ready to launch as it was in the
+previous installation method.
 
 Installing other EM programs
 ............................
 
-If we are installing EMhub with Scipion it is because we want to use some external
-CryoEM programs to run the on-the-fly processing. Following are some instructions
+If we are installing EMhub with Scipion, it is because we want to use some external
+CryoEM programs to run on-the-fly processing. The following are some instructions
 to install the binaries and configure Scipion to use them.
 
 First, let's install the binaries of some of these packages and then update
-the configuration accordingly. In our case, binaries will be download/installed
-under ``SCIPION_FOLDER/EM`` and this path is referred as *$EM_ROOT* in the configuration
-file: ``SCIPION_FOLDER/config/scipion.conf``
+the configuration accordingly. In our case, binaries will be downloaded/installed
+under ``SCIPION_FOLDER/EM``, and this path is referred to as *$EM_ROOT* in the configuration
+file: ``SCIPION_FOLDER/config/scipion.conf``.
 
-After programs installation and configuration to be used within Scipion, one
-can run some tests to check it is working fine. Most of these tests will download
+After program installation and configuration to be used within Scipion, one
+can run some tests to check if it is working fine. Most of these tests will download
 test data under the folder ``SCIPION_FOLDER/data/tests``. Each test dataset will only
-be download once if there are no changes on its files.
-
+be downloaded once if there are no changes to its files."
 
 Motioncor
 ~~~~~~~~~
@@ -62,11 +61,11 @@ Motioncor
     scipion installb motioncor2
 
 This command should download binaries and create a folder under SCIPION_FOLDER/EM.
-At the moment of this writing it was ``motioncor2-1.6.4``. It should contain a *bin*
-folder and under it many binaries for several CUDA versions.
+At the moment of this writing, it was ``motioncor2-1.6.4``. The folder should contain a *bin*
+directory with multiple binaries for several CUDA versions.
 
-Then edit SCIPION_FOLDER/config/scipion.config and set proper values for motioncor related
-variables:
+Next, edit SCIPION_FOLDER/config/scipion.config and set proper values for
+motioncor-related variables:
 
 .. code-block:: ini
 
@@ -107,12 +106,12 @@ Cryolo
 
     scipion installb cryolo cryoCPU cryolo_model
 
-In this case, it will install two new conda environments, one for using
-cryolo in GPU and another one that could be used without GPU (cryoloCPU).
-Addionally, the latest cryolo trained models will be download. The config
-variables specify how to active these environments. If cryolo is already
-installed in your system, you can skip the previous command and just edit
-the configuration accordingly.
+In this case, it will install two new conda environments: one for using cryolo
+on GPU and another one that could be used without GPU (cryoloCPU).
+Additionally, the latest cryolo trained models will be downloaded.
+The config variables specify how to activate these environments. If cryolo
+is already installed on your system, you can skip the previous command and just
+edit the configuration accordingly.
 
 .. code-block:: ini
 
@@ -146,7 +145,7 @@ Config variables could be something like:
     # Activation of the environment used for selection of good 2D classes
     RELION_ENV_ACTIVATION = conda activate topaz-0.2.5
 
-Some test to check relion is configured properly:
+Some tests to check if relion is configured properly:
 
 .. code-block:: bash
 

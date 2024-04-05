@@ -3,28 +3,28 @@ Customizing EMhub
 =================
 
 This section explains how one can modify some pages from EMhub or add new ones.
-For that, it might be required to provide "content" functions that prepare the
-data that will be used in the pages (`Jinja <https://jinja.palletsprojects.com/en/3.1.x/>`_
-templates). Additionally, the REST API could also be extended.
+For that, it might be required to provide "content" functions that prepare the data
+to be used in the pages (using `Jinja <https://jinja.palletsprojects.com/en/3.1.x/>`_ templates).
+Additionally, the REST API could also be extended.
 
-For modifying existing templates or creating a new one it might be helpful to learn
+For modifying existing templates or creating a new one, it might be helpful to learn
 the basics of `Jinja Templates <https://jinja.palletsprojects.com/en/3.1.x/templates/>`_.
 
 In this section, we will use the customization of EMhub for the Single Molecule Imaging
-Center (EMhub-SMIC) at StJude as an example.
+Center (EMhub-SMIC) at St. Jude as an example.
 
 
 Changing Existing Templates
 ---------------------------
 
-Builtin templates in EMhub are stored in the ``emhub/templates``. To modify existing
-templates, the recommended procedure is to create an ``extra/templates`` folder inside
-the ``$EMHUB_INSTANCE`` folder.
+Builtin templates in EMhub are stored in the ``emhub/templates`` directory.
+To modify existing templates, the recommended procedure is to create an ``extra/templates``
+folder inside the ``$EMHUB_INSTANCE`` directory.
 
-For example, if we want to use a different logo, we should make a copy of the ``main_topbar.html``
-template and place it under ``$EMHUB_INSTACE/extra/templates``. In that copy, we can replace the default
-logo url with a new one. The following block shows the differences between the default file
-and the modified one.
+For example, if we want to use a different logo, we should make a copy of the
+``main_topbar.html`` template and place it under ``$EMHUB_INSTANCE/extra/templates``.
+In that copy, we can replace the default logo URL with a new one. The following block shows
+the differences between the default file and the modified one.
 
 .. code-block:: diff
 
@@ -34,24 +34,25 @@ and the modified one.
     >             <h3 class="mt-3">Single-Molecule Imaging Center</h3>
 
 
-Any template in the ``$EMHUB_INSTACE/extra/templates`` folder will take precedence over the ones in ``emhub/templates``.
+Any template in the ``$EMHUB_INSTANCE/extra/templates`` folder will take precedence over the ones in ``emhub/templates``.
 One needs to be careful not use an existing filename that is not intended to be replaced.
 
 Adding New Templates
 --------------------
 
-New templates can be added into the ``$EMHUB_INSTACE/extra/templates`` folder. Usually, new templates should define
-an associated "content" function with the same name, that will provide the data required for rendering
-the template.
+New templates can be added into the ``$EMHUB_INSTANCE/extra/templates`` folder.
+Usually, new templates should define an associated "content" function with the same name,
+which will provide the data required for rendering the template.
 
-For example, for the EMhub-SMIC, we added a ``Plates`` page. For that, we created a new file:
-``$EMHUB_INSTACE/extra/templates/plates.html``.
+For example, for the EMhub-SMIC, we added a ``Plates`` page. For that, we created a new
+file: ``$EMHUB_INSTANCE/extra/templates/plates.html``.
 
-This template is composed by two main parts: the html template and some javascript code.
-The following HTML part defines a `<div>` with the "content" that will be rendered inside the
-main layout. It uses the ``current_user`` variable render different content depending on
-the user's permissions. In this case, the ``Add Plate`` button link is only rendered if
-the logged user is a manager.
+This template is composed of two main parts: the HTML template and some JavaScript code.
+The following HTML part defines a `<div>` with the "content" that will be rendered inside
+the main layout. It uses the ``current_user`` variable to render different content depending
+on the user's permissions. In this case, the ``Add Plate`` button link is only rendered if
+the logged-in user is a manager.
+
 
 .. tab:: HTML
 
@@ -150,13 +151,13 @@ the logged user is a manager.
     .. image:: https://github.com/3dem/emhub/wiki/images/202306/plates.jpg
         :width: 100%
 
-The template also uses the ``batches`` variable, that is a list of batches. This data should be provided by the
-corresponding "content" function. For adding more content, one needs to define the ``$EMHUB_INSTACE/extra/data_content.py``
+The template also uses the ``batches`` variable that is a list of batches. This data should be provided by the
+corresponding "content" function. For adding more content, one needs to define the ``$EMHUB_INSTANCE/extra/data_content.py``
 file with a ``register_content`` function. In our example it looks like the following:
 
 
 .. code-block:: python
-    :caption: $EMHUB_INSTACE/extra/data_content.py
+    :caption: $EMHUB_INSTANCE/extra/data_content.py
 
     def register_content(dc):
 
@@ -196,13 +197,15 @@ interact with the server. Following is a description of the three functions ther
 Extending the REST API
 ----------------------
 
-In the Javascript code of this example, the function ``onPlateOkButtonClick`` send a request to the REST API endpoint ``api.create_plate``. This
-was not part of the builtin EMhub API but it was an extension. To do that, one can provide a ``$EMHUB_INSTACE/extra/api.py`` file that will take
-the api Flask Blueprint object and define a function ``extend_api`` to define more endpoints. In this case it looks like this:
+In the JavaScript code of this example, the function ``onPlateOkButtonClick`` sends a
+request to the REST API endpoint ``api.create_plate``. This was not part of the built-in
+EMhub API but was an extension. To achieve this, one can provide a ``$EMHUB_INSTANCE/extra/api.py``
+file that will take the API Flask Blueprint object and define a function ``extend_api`` to define
+more endpoints. In this case, it looks like this:
 
 
 .. code-block:: python
-    :caption: $EMHUB_INSTACE/extra/api.py
+    :caption: $EMHUB_INSTANCE/extra/api.py
 
     def extend_api(api_bp):
 
@@ -243,11 +246,9 @@ Summary
 
 .. important::
 
-    Regarding templates and their corresponding "content" one needs to keep in mind:
+Regarding templates and their corresponding "content", one needs to keep in mind:
 
-    * Templates in ``$EMHUB_INSTACE/extra/templates/`` will take precedence over builtin ones.
+    * Templates in ``$EMHUB_INSTANCE/extra/templates/`` will take precedence over built-in ones.
     * Every template must have a corresponding "content" function with the **same name**.
-    * New content function can be defined in: ``$EMHUB_INSTACE/extra/data_content.py``
+    * New content functions can be defined in: ``$EMHUB_INSTANCE/extra/data_content.py``
     * A content function must return a dictionary with keys for each variable used in the template.
-
-

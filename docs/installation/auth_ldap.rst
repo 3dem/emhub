@@ -63,9 +63,3 @@ Authentication with LDAP
     # to filter out groups that should be ignored.  If specified, must be a valid
     # LDAP filter expression.
     LDAP_GROUP_OBJECT_FILTER = '(&(objectclass=group)(!(cn=stjudeUsers)))'
-
-
-
-
-
-

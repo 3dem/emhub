@@ -6,8 +6,8 @@ Example config
 --------------
 
 The following is an example of a working Nginx configuration file. Ngnix is used
-as a reversed proxy to redirect request to a local running process, also using
-SSL certificates. In the next section you can see the `Key Options`_ that were modified.
+as a reverse proxy to redirect requests to a locally running process, also using
+SSL certificates. In the next section, you can see the `Key Options`_ that were modified.
 
 .. tab:: /etc/nginx/nginx.conf
 
@@ -98,7 +98,7 @@ SSL certificates. In the next section you can see the `Key Options`_ that were m
 Key Options
 -----------
 
-Some of the explicit changes are commented below:
+Some of the recommended changes are mentioned below:
 
 .. code-block:: nginx
 
@@ -113,7 +113,7 @@ Some of the explicit changes are commented below:
     ssl_certificate_key "/opt/ssl/certssl/myemhub.key";
 
     # Increase the size of allowed file uploads
-    # (Useful in EMhub when uplading images for Project's Entries)
+    # (Useful in EMhub when uploading images for Project's Entries)
     client_max_body_size 16M;
 
 Moreover, we define two *locations* for the reverse proxy:
