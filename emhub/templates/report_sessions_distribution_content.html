@@ -1,11 +1,20 @@
 <div class="row col-12">
         <!-- Plots -->
+        <div class="col-12">
+            <h3>Period: &nbsp; {{ period }} ({{ period_days }} days)  &nbsp;&nbsp;-&nbsp;&nbsp;  {{ resource_names }}</h3>
+        </div>
+
+        <div class="col-12">
+            <div id="plot-div"></div>
+        </div>
+
         <div class="col-6">
+
             <div class="card">
 
                 <div class="card-header">
                     {% set nres = selected_resources|length %}
-                    <h3>Period: &nbsp; {{ period }} ({{ period_days }} days)  &nbsp;&nbsp;-&nbsp;&nbsp;  {{ resource_names }}</h3>
+                    <h3>Sesssions: {{ sessions|length }}</h3>
                 </div>
 
                 <div class="card-body">
@@ -66,6 +75,7 @@
     $(function() {
 
         var n = {{ selected_resources|length }};
+        var sessions_monthly = {{ sessions_monthly|tojson }};
         var total_cols = n + 2;
         var columnsDef = [
             { orderable: false }
@@ -74,6 +84,7 @@
         for (var i = 0; i < total_cols; ++i)
             columnsDef.push(null)
 
+        create_hc_time_columns('plot-div', sessions_monthly);
         {#$('#table-operators').DataTable({#}
         {#    sDom: 'Blrtip',#}
         {#    paging: false,#}

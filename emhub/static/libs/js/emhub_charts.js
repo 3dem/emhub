@@ -974,6 +974,92 @@ function create_hc_data_plot(containerId, data_usage_series) {
     });
 }
 
+function create_hc_time_columns(containerId, data) {
+    //var dates = ["2019-06-01", "2019-07-01", "2021-08-01"],
+    //frequencies = [2, 6, 12];
+
+    Highcharts.chart(containerId, {
+      // chart: {
+      //   type: 'column'
+      //   //zoomType: 'x'
+      // },
+      title: {
+        text: 'Number of Sessions'
+      },
+      xAxis: {
+        type: 'datetime',
+        // This is from the Highcharts Stock - Stock license required
+        ordinal: true,
+        labels: {
+          // Format the date
+          // formatter: function() {
+          //  return Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.value);
+          // }
+        },
+         tickPositioner: function() {
+          return data.map(function(point) {
+            return Date.parse(point[0]);
+          });
+        }
+      },
+      yAxis: [{
+          min: 0,
+          title: {
+              text: 'Sessions'
+            }},{
+          min: 0,
+          title: {
+              text: 'Data'
+          },
+          opposite: true
+      },{
+          min: 0,
+          title: {
+              text: 'Images'
+          },
+          opposite: true
+      }
+      ],
+      plotOptions: {
+        column: {
+          pointPadding: 0.2,
+          borderWidth: 0
+        }
+      },
+/*   legend: {
+    title: {
+      text: 'Observations'
+    }
+  }, */
+      series: [
+          {
+              name: 'Sessions',
+              type: 'column',
+              showInLegend: false,
+              data: (function() {
+                  return data.map(function(point) {
+                    return [Date.parse(point[0]), point[1]];
+                  });
+              })()
+          }
+          ,
+          {
+              name: 'Data',
+              type: 'spline',
+              yAxis: 1,
+              showInLegend: false,
+              data: (function() {
+                  return data.map(function(point) {
+                    return [Date.parse(point[0]), point[2]];
+                  });
+              })()
+          }
+      ]
+
+});
+
+}
+
 
 // ---------- Network related functions ----------------
 var network_colors = {

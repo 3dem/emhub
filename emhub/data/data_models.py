@@ -993,6 +993,10 @@ def create_data_models(dm):
             return sum(fi['size'] for fi in self.files.values())
 
         @property
+        def total_movies(self):
+            return self.__getExtra('raw', {}).get('movies', 0)
+
+        @property
         def project_id(self):
             """ Get the project based on project_id or the booking's project. """
             return self.__getExtra('project_id', 0)

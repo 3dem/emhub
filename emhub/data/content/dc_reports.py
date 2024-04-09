@@ -631,7 +631,31 @@ def register_content(dc):
 
     @dc.content
     def report_sessions_distribution(**kwargs):
-        return report_microscopes_usage(**kwargs)
+        data = report_microscopes_usage(**kwargs)
+        sessions = dc.app.dm.get_sessions()
+        selected = data['selected_resources']
+
+        # Create monthly histogram for plotting (Highcharts)
+        sessions_monthly = defaultdict(lambda : [0, 0, 0])
+        for s in sessions:
+            movies = s.total_movies
+            if s.resource_id not in selected or movies <= 0:
+                continue
+            dkey = s.start.strftime('%Y-%m-01')
+            sm = sessions_monthly[dkey]
+            sm[0] += 1
+            sm[1] += s.total_size
+            sm[2] += movies
+
+
+        data.update(
+            {'sessions': sessions,
+             'sessions_monthly': [(k, v[0], v[1], v[2]) for k, v in sessions_monthly.items()]
+        })
+
+        print(data['sessions_monthly'])
+
+        return data
 
     @dc.content
     def report_sessions_distribution_content(**kwargs):

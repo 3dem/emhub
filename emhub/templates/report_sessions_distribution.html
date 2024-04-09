@@ -1,8 +1,8 @@
 
 <div class="container-fluid dashboard-content">
     <!-- Header -->
-    {% set title = "Microscopes Usage" %}
-    {% set navigation = [('Reports', ''), ('Microscopes Usage', '')] %}
+    {% set title = "Sesssions Overview" %}
+    {% set navigation = [('Reports', ''), ('Sessions Overview', '')] %}
     {% include 'include_header.html' %}
 
     {% set a = applications[0] %}
@@ -57,7 +57,8 @@
            'Last 30 Days': [moment().subtract(29, 'days'), moment()],
             'Last 6 Months': [moment().subtract(6, 'months'), moment()],
            'This Year': [moment().startOf('year'), moment().endOf('year')],
-           'Last Year': [moment().subtract(1, 'year').startOf('year'), moment().subtract(1, 'year').endOf('year')]
+           'Last Year': [moment().subtract(1, 'year').startOf('year'), moment().subtract(1, 'year').endOf('year')],
+            'All': [new Date(2022, 1, 1), moment()]
         }
     }, function(start, end, label) {
         start_date = start.format('YYYY/MM/DD');
