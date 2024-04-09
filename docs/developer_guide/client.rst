@@ -4,8 +4,8 @@ Using EMhub Client
 
 The EMhub :ref:`REST API` is a powerful way for external programs/scripts to
 interact with the application and extend its functionalities. In the following section,
-there are some examples of how to use the API via the `DataClient` class in Python
-and also from JavaScript.
+there are some examples of how to use the API from Python (via the `DataClient` class)
+and from JavaScript.
 
 
 Python
