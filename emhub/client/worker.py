@@ -59,6 +59,11 @@ def create_logger(self, logsFolder, logName, debug=True, toFile=True):
 
 class TaskHandler(threading.Thread):
     def __init__(self, worker, task):
+        """ Initialize the TaskHandler
+        Args:
+            worker: xxx
+            task: Task to be handled.
+        """
         threading.Thread.__init__(self)
         self.worker = worker
         self.pl = self.worker.pl
@@ -72,20 +77,23 @@ class TaskHandler(threading.Thread):
         self._logPrefix = self.getLogPrefix()
 
     def getLogPrefix(self):
+        """ Internal function to have a unique Log prefix. """
         return f"TASK-{self.task['id']}"
 
     def info(self, msg):
+        """ Log some info using the internal logger. """
         self.worker.logger.info(f"{self._logPrefix} {msg}")
 
     def error(self, msg):
+        """ Log some error using the internal logger. """
         self.worker.logger.error(f"{self._logPrefix} {msg}")
 
     def stop(self):
+        """ Stop the current thread. """
         self._stopEvent.set()
 
     def _stop_thread(self, error=None):
-        self.info(f"Stopping task handler for "
-                         f"{self.task['id']}.")
+        self.info(f"Stopping task handler for {self.task['id']}.")
         if error:
             self.error(error)
 
@@ -109,6 +117,10 @@ class TaskHandler(threading.Thread):
         return None
 
     def request_data(self, endpoint, jsonData=None):
+        """ Make a request to one of the server's endpoints.
+        Args:
+            jsonData: arguments that will send as JSON to the request.
+        """
         def _get_data():
             return self.dc.request(endpoint, jsonData=jsonData).json()
 
@@ -116,9 +128,13 @@ class TaskHandler(threading.Thread):
         return self._request(_get_data, errorMsg)
 
     def request_dict(self, endpoint, jsonData=None):
+        """ Shortcut function to `request_data` that return the
+        result as a dict.
+        """
         return {s['id']: s for s in self.request_data(endpoint, jsonData=jsonData)}
 
     def request_config(self, config):
+        """ Shortcut function to `request_data` that retrieve a config form. """
         data = {'attrs': {'config': config}}
         return self.request_data('get_config', jsonData=data)['config']
 
@@ -144,8 +160,10 @@ class TaskHandler(threading.Thread):
         return False
 
     def run(self):
-        self.info(f"Running task handler {self.__class__} "
-                         f"for task {self.task['id']}")
+        """ Implement thread's activity, running an infite loop calling
+        `process` until the `stop` method is called.
+        """
+        self.info(f"Running task handler {self.__class__} for task {self.task['id']}")
         while True:
             try:
                 if self.count:
