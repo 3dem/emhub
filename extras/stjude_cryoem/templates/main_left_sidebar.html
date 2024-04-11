@@ -46,7 +46,11 @@
 
                                     {% if current_user.is_admin %}
                                         <li class="nav-item">
-                                            <a class="nav-link" href="{{ url_for_content('report_sessions_distribution') }}">Sessions Distribution</a>
+                                            <a class="nav-link" href="{{ url_for_content('report_projects_overview') }}">Projects Overview</a>
+                                        </li>
+
+                                        <li class="nav-item">
+                                            <a class="nav-link" href="{{ url_for_content('report_sessions_distribution') }}">Sessions Overview</a>
                                         </li>
                                     {% endif %}
 

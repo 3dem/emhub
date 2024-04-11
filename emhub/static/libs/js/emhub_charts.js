@@ -974,27 +974,30 @@ function create_hc_data_plot(containerId, data_usage_series) {
     });
 }
 
-function create_hc_time_columns(containerId, data) {
+function create_hc_sessions_time(containerId, data, config) {
     //var dates = ["2019-06-01", "2019-07-01", "2021-08-01"],
     //frequencies = [2, 6, 12];
+    var columnsColor = getObjectValue(config, 'columnsColor', null);
+    var splineColor = getObjectValue(config, 'splineColor', '#4d4d4d');
+    var yAxis = null;
+
+    // We can have one or two yAxis
+    if (config.yAxis.length > 1){
+        yAxis = [{min: 0, title: {text: config.yAxis[0]}},
+                 {min: 0, title: {text: config.yAxis[1]}, opposite: true}];
+    }
+    else {
+        yAxis = {min: 0, title: {text: config.yAxis[0]}};
+    }
 
     Highcharts.chart(containerId, {
-      // chart: {
-      //   type: 'column'
-      //   //zoomType: 'x'
-      // },
       title: {
-        text: 'Number of Sessions'
+        text: config.title
       },
       xAxis: {
         type: 'datetime',
-        // This is from the Highcharts Stock - Stock license required
         ordinal: true,
         labels: {
-          // Format the date
-          // formatter: function() {
-          //  return Highcharts.dateFormat('%Y-%m-%d %H:%M:%S', this.value);
-          // }
         },
          tickPositioner: function() {
           return data.map(function(point) {
@@ -1002,40 +1005,19 @@ function create_hc_time_columns(containerId, data) {
           });
         }
       },
-      yAxis: [{
-          min: 0,
-          title: {
-              text: 'Sessions'
-            }},{
-          min: 0,
-          title: {
-              text: 'Data'
-          },
-          opposite: true
-      },{
-          min: 0,
-          title: {
-              text: 'Images'
-          },
-          opposite: true
-      }
-      ],
+      yAxis: yAxis,
       plotOptions: {
         column: {
           pointPadding: 0.2,
           borderWidth: 0
         }
       },
-/*   legend: {
-    title: {
-      text: 'Observations'
-    }
-  }, */
       series: [
           {
-              name: 'Sessions',
+              name: config.dataNames[0],
               type: 'column',
-              showInLegend: false,
+              showInLegend: true,
+              color: columnsColor,
               data: (function() {
                   return data.map(function(point) {
                     return [Date.parse(point[0]), point[1]];
@@ -1044,10 +1026,11 @@ function create_hc_time_columns(containerId, data) {
           }
           ,
           {
-              name: 'Data',
+              name: config.dataNames[1],
               type: 'spline',
-              yAxis: 1,
-              showInLegend: false,
+              yAxis: config.yAxis.length > 1 ? 1 : 0,
+              showInLegend: true,
+              color: splineColor,
               data: (function() {
                   return data.map(function(point) {
                     return [Date.parse(point[0]), point[2]];
@@ -1058,7 +1041,43 @@ function create_hc_time_columns(containerId, data) {
 
 });
 
-}
+} // function hc_create_sessions_time
+
+function create_hc_sessions_histogram(containerId, data) {
+    Highcharts.chart(containerId, {
+    title: {
+        text: 'Images per Session'
+    },
+
+    xAxis: {
+        title: { text: 'Images' },
+        alignTicks: true
+    },
+
+    yAxis: {
+        title: { text: 'Sessions' }
+    },
+
+    plotOptions: {
+        histogram: {
+            accessibility: {
+                point: {
+                    valueDescriptionFormat: '{index}. {point.x} to {point.x2}, {point.y}.'
+                }
+            }
+        }
+    },
+
+    series: [{
+        name: 'Number of Images',
+        type: 'histogram',
+        data: data,
+        baseSeries: 's1',
+        id: 's1',
+        showInLegend: false
+    }]
+});
+} // function hc_create_histogram
 
 
 // ---------- Network related functions ----------------

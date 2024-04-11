@@ -32,6 +32,7 @@ import os
 import datetime as dt
 from collections import defaultdict
 
+from emtools.utils import Pretty
 from emhub.utils import (shortname, get_quarter, pretty_quarter, pretty_date,
                          datetime_from_isoformat)
 
@@ -595,6 +596,10 @@ def register_content(dc):
         if total_usage == 0:
             raise Exception("There is no usage for the selected metric. ")
 
+        periodStr = start.strftime('%b %y')
+        if period_days > 31:
+            periodStr += ' - ' + end.strftime('%b %y')
+
         data = {
             'entries': entries_sorted,
             'entries_overall': entries_overall,
@@ -619,8 +624,10 @@ def register_content(dc):
             'metric': metric,
             'use_data': use_data,
             'use_days': use_days,
+            'start_date': start,
+            'end_date': end,
             'period_days': period_days,
-            'period': start.strftime('%b %Y')
+            'period': periodStr
         }
         data.update(range_dict)
         return data
@@ -632,34 +639,83 @@ def register_content(dc):
     @dc.content
     def report_sessions_distribution(**kwargs):
         data = report_microscopes_usage(**kwargs)
-        sessions = dc.app.dm.get_sessions()
+        dm = dc.app.dm  # shortcut
+        sessions = dm.get_sessions()
         selected = data['selected_resources']
+        start_date = data['start_date']
+        end_date = data['end_date']
+        sessions_images = []
+        sessions_size = []
+        active_users = {}
+        biggest = [0, 0]
+
+        all_users = {u.email: u for u in dm.get_users()}
+
+        for e in data['entries']:
+            for u in e.get('users', []):
+                active_users[u] = all_users[u]
 
         # Create monthly histogram for plotting (Highcharts)
         sessions_monthly = defaultdict(lambda : [0, 0, 0])
         for s in sessions:
             movies = s.total_movies
-            if s.resource_id not in selected or movies <= 0:
+            b = s.booking
+            if (s.resource_id not in selected or movies <= 0 or
+                b is None or b.start < start_date or b.end > end_date):
                 continue
             dkey = s.start.strftime('%Y-%m-01')
             sm = sessions_monthly[dkey]
             sm[0] += 1
-            sm[1] += s.total_size
+            size = s.total_size
+            sm[1] += size
             sm[2] += movies
+            if movies > biggest[0]:
+                biggest = [movies, size]
+            sessions_images.append(movies)
+            sessions_size.append(size)
+            active_users[b.owner.email] = b.owner
 
+        n = len(sessions_images)
 
         data.update(
             {'sessions': sessions,
-             'sessions_monthly': [(k, v[0], v[1], v[2]) for k, v in sessions_monthly.items()]
+             'sessions_monthly': [(k, v[0], v[1], v[2]) for k, v in sessions_monthly.items()],
+             'sessions_images': sessions_images,
+             'sessions_size': sessions_size,
+             'avg_images': sum(sessions_images) // n,
+             'avg_size': sum(sessions_size) // n,
+             'active_users': active_users,
+             'biggest': '%d images (%s)' % (biggest[0], Pretty.size(biggest[1]))
         })
-
-        print(data['sessions_monthly'])
 
         return data
 
     @dc.content
     def report_sessions_distribution_content(**kwargs):
         return report_sessions_distribution(**kwargs)
+
+    @dc.content
+    def report_projects_overview(**kwargs):
+        data = report_sessions_distribution(**kwargs)
+        projects_monthly = defaultdict(lambda : [0, set()])
+
+        for p in dc.app.dm.get_projects():
+            dkey = p.creation_date.strftime('%Y-%m-01')
+            projects_monthly[dkey][0] += 1
+
+        for s in dc.app.dm.get_sessions():
+            b = s.booking
+            p = s.project
+            if p:
+                dkey = s.start.strftime('%Y-%m-01')
+                projects_monthly[dkey][1].add(p.id)
+
+        data.update({
+            'projects_monthly': [(k, v[0], len(v[1]))
+                                 for k, v in sorted(projects_monthly.items(), key=lambda kv: kv[0])],
+        })
+        return data
+
 
     @dc.content
     def report_microscopes_usage_entrylist(**kwargs):
