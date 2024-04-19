@@ -12,22 +12,31 @@ def register_content(dc):
     def cluster_queues(**kwargs):
         dm = dc.app.dm
         queuesConf = dm.get_config('queues')
+        queuesLayout = queuesConf['layout']
+        queueWorker = queuesConf['worker']
+
+        # FIXME: this is just for debugging purposes,
+        # get real data from the worker task results
+        jobsJson = queuesConf['sample_json']
 
         task = None
-        # TODO: Get worker that monitor cluster from config
-        ws = dm.get_worker_stream('svlpcryosparc01.stjude.org')
-        for t in ws.get_pending_tasks():
-            task = t
+        # # TODO: Get worker that monitor cluster from config
+        # ws = dm.get_worker_stream(queueWorker)
+        # for t in ws.get_pending_tasks():
+        #     task = t
 
         if task:
             event_id, event = dm.get_task_lastevent(task)
-            jobs = json.loads(event['queues'])
+            jobsJson = json.loads(event['queues'])
+            updated = Pretty.datetime(dm.dt_from_redis(event_id))
+        else:
+            updated = ''
 
         return {
-            'queues': queuesConf,
-            'jobs': jobs,
+            'queues': queuesLayout,
+            'jobs': jobsJson,
             'task': task,
-            'updated': Pretty.datetime(dm.dt_from_redis(event_id))
+            'updated': updated
         }
 
     @dc.content
