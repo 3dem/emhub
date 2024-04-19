@@ -895,7 +895,7 @@ def register_content(dc):
                 if start.date() <= now.date() <= end.date():  # also add in today
                     resource_bookings[r.id]["today"].append(b)
 
-        local_tag = dm.get_config('bookings')['local_tag']
+        local_tag = dm.get_config('bookings').get('local_tag', '')
         local_scopes = {}
 
         for b in dm.get_bookings_range(prev7, next30):
