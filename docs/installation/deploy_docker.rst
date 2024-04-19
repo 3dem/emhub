@@ -42,7 +42,7 @@ After saving the file above as ``Dockerfile``, run:
     # the host machine and mapping a volume containing the instance data folder
     docker run -d --rm -p 127.0.0.1:8080:8080 --name=emhub -v /home/hubby/emhub-data/:/emhub-data emhub:latest
 
-    # Check the container is properly running
+    # Check the container is running properly
     docker ps
 
     # Checking logs

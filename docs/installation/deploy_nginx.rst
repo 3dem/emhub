@@ -7,7 +7,7 @@ Example config
 
 The following is an example of a working Nginx configuration file. Ngnix is used
 as a reverse proxy to redirect requests to a locally running process, also using
-SSL certificates. In the next section, you can see the `Key Options`_ that were modified.
+SSL certificates. In the next section, you can see the modified `Key Options`_.
 
 .. tab:: /etc/nginx/nginx.conf
 
