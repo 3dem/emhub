@@ -19,16 +19,7 @@ github_repo_org = '3dem'
 github_repo_name = 'emhub'
 github_repo_slug = f'{github_repo_org}/{github_repo_name}'
 github_repo_url = f'{github_url}/{github_repo_slug}'
-github_sponsors_url = f'{github_url}/sponsors'
-extlinks = {
-    'user': (f'{github_sponsors_url}/%s', '@'),  # noqa: WPS323
-    'pypi': ('https://pypi.org/project/%s', '%s'),  # noqa: WPS323
-    'wiki': ('https://wikipedia.org/wiki/%s', '%s'),  # noqa: WPS323
-}
-extensions += ['sphinx.ext.extlinks']
 
-# Ref: https://github.com/python-attrs/attrs/pull/571/files\
-#      #diff-85987f48f1258d9ee486e3191495582dR82
 default_role = 'any'
 
 # HTML theme
