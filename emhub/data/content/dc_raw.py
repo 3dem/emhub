@@ -56,6 +56,9 @@ def register_content(dc):
 
     @dc.content
     def raw_booking_list(**kwargs):
+        if 'user' in kwargs:
+            return {'bookings': dc.app.dm.get_user_bookings(kwargs['user'])}
+
         return {'bookings': dc.app.dm.get_bookings()}
 
     @dc.content
@@ -149,22 +152,26 @@ def register_content(dc):
     def workers(**kwargs):
         dm = dc.app.dm
         workers = {}
-        for k, v in dm.get_config('hosts').items():
-            workers[k] = v
-            updated = v.get('updated', '')
+        now = dt.datetime.now()
+        for k, v in dm.get_hosts().items():
+            workers[k] = w = dict(v)
             active = False
-            if updated:
+            if updated := w.get('updated', ''):
                 u = Pretty.parse_datetime(updated)
-                td = dt.datetime.now() - u
+                td = now - u
                 active = td < dt.timedelta(minutes=2)
-
-            workers[k].update({
-                'has_specs': bool(v.get('specs', '')),
+                w['updated_elapsed'] = f"({Pretty.elapsed(u, now=now)})"
+            if connected := w.get('connected', ''):
+                c = Pretty.parse_datetime(connected)
+                w['connected_elapsed'] = f"({Pretty.elapsed(c, now=now)})"
+            w.update({
+                'has_specs': bool(w.get('specs', '')),
                 'active': active
             })
         return {'workers': workers,
                 'taskGroups': {h: tasks for h, tasks in dm.get_all_tasks()},
-                'now': Pretty.now()}
+                'now': Pretty.now()
+                }
 
     @dc.content
     def workers_content(**kwargs):
@@ -173,3 +180,4 @@ def register_content(dc):
     @dc.content
     def task_history(**kwargs):
         return {'task_events': dc.app.dm.get_task_history(kwargs['task_id'])}
+

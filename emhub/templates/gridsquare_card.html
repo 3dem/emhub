@@ -5,6 +5,7 @@
     </div>
 {%- endmacro  %}
 
+{% set card_compact = card_compact or False %}
 
 <div class="col-12">
      <div class="card card-figure image_card" id="{{ card }}">
@@ -18,10 +19,11 @@
             <div class="col-12 pt-2 pb-2">
                 <h4 id="{{ card_id }}_name"></h4>
             </div>
-             <div class="col-6 p-0 m-0">{{ mic_row('Micrographs', '0', card_id + '_micrographs') }}</div>
-             <div class="col-6 p-0 m-0">{{ mic_row('Particles', '0', card_id + '_particles') }}</div>
-            <div class="col-6 p-0 m-0" id="{{ card_id }}_defocus_hist" ></div>
-            <div class="col-6 p-0 m-0" id="{{ card_id }}_resolution_hist"></div>
+             {% set col = 12 if card_compact else 6 %}
+            <div class="col-{{col}} p-0 m-0">{{ mic_row('Micrographs', '0', card_id + '_micrographs') }}</div>
+            <div class="col-{{col}} p-0 m-0">{{ mic_row('Particles', '0', card_id + '_particles') }}</div>
+            <div class="col-{{col}} p-0 m-0" id="{{ card_id }}_defocus_hist" ></div>
+            <div class="col-{{col}} p-0 m-0" id="{{ card_id }}_resolution_hist"></div>
         </div>
 
      </div>

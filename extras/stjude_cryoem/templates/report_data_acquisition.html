@@ -7,7 +7,7 @@
 {% import "entry_macros.html" as macros %}
 
 {% if session %}
-    {% set session_name = session.name %}
+    {% set session_name = session.shortname %}
     {% set start_date = session.start|pretty_datetime %}
 {% else %}
     {% set session_name = 'Invalid session name: %s'|format(data['session_name']) %}

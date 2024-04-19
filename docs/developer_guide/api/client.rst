@@ -11,3 +11,10 @@ emhub.client
 
 .. autoclass:: emhub.client.DataClient
     :members:
+
+.. autoclass:: emhub.client.TaskHandler
+    :members:
+
+.. autoclass:: emhub.client.Worker
+    :members:
+

@@ -482,6 +482,13 @@ class MicrographCard {
             }
         });
 
+        $(self.jid('mic_left')).on('click', function (e) {
+           self.loadMicData(parseInt($(self.jid('mic_id')).val()) - 1);
+        });
+        $(self.jid('mic_right')).on('click', function (e) {
+            self.loadMicData(parseInt($(self.jid('mic_id')).val()) + 1);
+        });
+
         // Bind to on/off coordinates display
         $(self.jid('show_particles')).change(function() {
             self.drawMicrograph();
@@ -761,8 +768,16 @@ function session_updateCounters(){
     let nMovies = stats.movies.count;
     let nCtfs = stats.ctfs.count;
 
-    session_timespan.first = stats.movies.first * 1000;
-    session_timespan.step = (stats.movies.last - stats.movies.first) * 1000 / nMovies;
+    if (stats.movies.first > 0) {
+       first = stats.movies.first;
+       last = stats.movies.last;
+    } else {
+       first = stats.ctfs.first;
+       last = stats.ctfs.last;
+    }
+
+    session_timespan.first = first * 1000;
+    session_timespan.step = (last - first) * 1000 / nMovies;
 
     session_setCounter('counter_imported', nMovies);
     //setCounter('counter_aligned', stats['numOfMics']);
@@ -958,6 +973,111 @@ function create_hc_data_plot(containerId, data_usage_series) {
         series: data_usage_series
     });
 }
+
+function create_hc_sessions_time(containerId, data, config) {
+    //var dates = ["2019-06-01", "2019-07-01", "2021-08-01"],
+    //frequencies = [2, 6, 12];
+    var columnsColor = getObjectValue(config, 'columnsColor', null);
+    var splineColor = getObjectValue(config, 'splineColor', '#4d4d4d');
+    var yAxis = null;
+
+    // We can have one or two yAxis
+    if (config.yAxis.length > 1){
+        yAxis = [{min: 0, title: {text: config.yAxis[0]}},
+                 {min: 0, title: {text: config.yAxis[1]}, opposite: true}];
+    }
+    else {
+        yAxis = {min: 0, title: {text: config.yAxis[0]}};
+    }
+
+    Highcharts.chart(containerId, {
+      title: {
+        text: config.title
+      },
+      xAxis: {
+        type: 'datetime',
+        ordinal: true,
+        labels: {
+        },
+         tickPositioner: function() {
+          return data.map(function(point) {
+            return Date.parse(point[0]);
+          });
+        }
+      },
+      yAxis: yAxis,
+      plotOptions: {
+        column: {
+          pointPadding: 0.2,
+          borderWidth: 0
+        }
+      },
+      series: [
+          {
+              name: config.dataNames[0],
+              type: 'column',
+              showInLegend: true,
+              color: columnsColor,
+              data: (function() {
+                  return data.map(function(point) {
+                    return [Date.parse(point[0]), point[1]];
+                  });
+              })()
+          }
+          ,
+          {
+              name: config.dataNames[1],
+              type: 'spline',
+              yAxis: config.yAxis.length > 1 ? 1 : 0,
+              showInLegend: true,
+              color: splineColor,
+              data: (function() {
+                  return data.map(function(point) {
+                    return [Date.parse(point[0]), point[2]];
+                  });
+              })()
+          }
+      ]
+
+});
+
+} // function hc_create_sessions_time
+
+function create_hc_sessions_histogram(containerId, data) {
+    Highcharts.chart(containerId, {
+    title: {
+        text: 'Images per Session'
+    },
+
+    xAxis: {
+        title: { text: 'Images' },
+        alignTicks: true
+    },
+
+    yAxis: {
+        title: { text: 'Sessions' }
+    },
+
+    plotOptions: {
+        histogram: {
+            accessibility: {
+                point: {
+                    valueDescriptionFormat: '{index}. {point.x} to {point.x2}, {point.y}.'
+                }
+            }
+        }
+    },
+
+    series: [{
+        name: 'Number of Images',
+        type: 'histogram',
+        data: data,
+        baseSeries: 's1',
+        id: 's1',
+        showInLegend: false
+    }]
+});
+} // function hc_create_histogram
 
 
 // ---------- Network related functions ----------------

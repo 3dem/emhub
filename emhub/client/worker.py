@@ -19,6 +19,7 @@ import os
 import sys
 import time
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import argparse
 import threading
 from datetime import datetime, timedelta
@@ -35,12 +36,13 @@ from emhub.client import open_client, config, DataClient
 
 
 def create_logger(self, logsFolder, logName, debug=True, toFile=True):
-    prefix = self.getLogPrefix()
-    formatter = logging.Formatter(f'%(asctime)s {prefix} %(levelname)s %(message)s')
+    formatter = logging.Formatter(f'%(asctime)s %(levelname)s %(message)s')
     logger = logging.getLogger(logName)
     if toFile:
         self.logFile = os.path.join(logsFolder, logName)
-        handler = logging.FileHandler(self.logFile)
+        #handler = logging.FileHandler(self.logFile)
+        handler = TimedRotatingFileHandler(self.logFile,
+                                           when='w0', interval=1, backupCount=5)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
     if debug:
@@ -57,8 +59,14 @@ def create_logger(self, logsFolder, logName, debug=True, toFile=True):
 
 class TaskHandler(threading.Thread):
     def __init__(self, worker, task):
+        """ Initialize the TaskHandler
+        Args:
+            worker: xxx
+            task: Task to be handled.
+        """
         threading.Thread.__init__(self)
         self.worker = worker
+        self.pl = self.worker.pl
         self.dc = worker.dc
         self.task = task
         self.sleep = 10  # seconds to sleep while handling the task
@@ -66,28 +74,71 @@ class TaskHandler(threading.Thread):
         self._stopEvent = threading.Event()
         # Register this task handler in the current worker
         worker.tasks[task['id']] = self
-        create_logger(self, self.worker.logsFolder, self.getLogName(),
-                      toFile=True, debug=True)
-
-    def getLogName(self):
-        return f"task-{self.task['name']}-{self.task['id']}.log"
+        self._logPrefix = self.getLogPrefix()
 
     def getLogPrefix(self):
-        return f"TASK {self.task['id']}"
+        """ Internal function to have a unique Log prefix. """
+        return f"TASK-{self.task['id']}"
+
+    def info(self, msg):
+        """ Log some info using the internal logger. """
+        self.worker.logger.info(f"{self._logPrefix} {msg}")
+
+    def error(self, msg):
+        """ Log some error using the internal logger. """
+        self.worker.logger.error(f"{self._logPrefix} {msg}")
 
     def stop(self):
+        """ Stop the current thread. """
         self._stopEvent.set()
 
     def _stop_thread(self, error=None):
         task_id = self.task['id']
-
-        self.logger.info(f"Stopping task handler for {task_id}.")
-
+        self.info(f"Stopping task handler for {self.task['id']}.")
         if error:
-            self.logger.error(error)
+            self.error(error)
 
         if task_id in self.worker.tasks:
             del self.worker.tasks[task_id]
+
+    def _request(self, requestFunc, errorMsg, tries=10):
+        """ Make a request to the server, trying many times if it fails. """
+        wait = 5  # Initial wait for 5 seconds and increment it until max 60
+        while tries:
+            tries -= 1
+            try:
+                return requestFunc()
+            except Exception as e:
+                retryMsg = f"Waiting {wait} seconds to retry." if tries else 'Not trying anymore.'
+                self.error(f"{errorMsg}. {retryMsg}")
+                if self.worker.debug:
+                    self.error(traceback.format_exc())
+                time.sleep(wait)
+                wait = min(60, wait * 2)
+
+        return None
+
+    def request_data(self, endpoint, jsonData=None):
+        """ Make a request to one of the server's endpoints.
+        Args:
+            jsonData: arguments that will send as JSON to the request.
+        """
+        def _get_data():
+            return self.dc.request(endpoint, jsonData=jsonData).json()
+
+        errorMsg = f"retrieving data from endpoint: {endpoint}"
+        return self._request(_get_data, errorMsg)
+
+    def request_dict(self, endpoint, jsonData=None):
+        """ Shortcut function to `request_data` that return the
+        result as a dict.
+        """
+        return {s['id']: s for s in self.request_data(endpoint, jsonData=jsonData)}
+
+    def request_config(self, config):
+        """ Shortcut function to `request_data` that retrieve a config form. """
+        data = {'attrs': {'config': config}}
+        return self.request_data('get_config', jsonData=data)['config']
 
     def update_task(self, event, tries=-1, wait=10):
         """ Update task info.
@@ -105,16 +156,16 @@ class TaskHandler(threading.Thread):
                 self.worker.request('update_task', data)
                 return True
             except Exception as e:
-                self.logger.error(f"Exception while updating task: {e}")
+                self.error(f"Exception while updating task: {e}")
                 time.sleep(wait)
             tries -= 1
         return False
 
     def run(self):
-        self.logger.info(f"Running task handler {self.__class__} "
-                         f"for task {self.task['id']}")
-        self.logger.info(f"LOG_FILE: {self.logFile}")
-
+        """ Implement thread's activity, running an infite loop calling
+        `process` until the `stop` method is called.
+        """
+        self.info(f"Running task handler {self.__class__} for task {self.task['id']}")
         while True:
             try:
                 if self.count:
@@ -183,12 +234,14 @@ class Worker:
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
         self.tasks = {}
+        self.debug = kwargs.get('debug', False)
+        self._logPrefix = f"WORKER-{self.name}"
 
-    def __del__(self):
-        self.dc.logout()
+    def info(self, msg):
+        self.logger.info(f"{self._logPrefix} {msg}")
 
-    def getLogPrefix(self):
-        return f"WORKER {self.name}"
+    def error(self, msg):
+        self.logger.error(f"{self._logPrefix} {msg}")
 
     def request(self, method, data, key=None):
         data['token'] = self.token
@@ -196,7 +249,7 @@ class Worker:
                             jsonData={'attrs': data})
         result = r.json()
         if 'error' in result:
-            self.logger.error(f"Error from server: {result['error']}")
+            self.error(f"Error from server: {result['error']}")
             return None
         else:
             return result[key] if key else result
@@ -206,35 +259,40 @@ class Worker:
         different task handlers base on each task. """
         pass
 
-    def get_tasks(self, key, data):
-        self.logger.info(f"Retrieving {key} tasks...")
-        tasks = self.request(f'get_{key}_tasks', data, 'tasks')
-        if tasks is not None:
-            self.logger.info(f"Got {len(tasks)} tasks.")
-            self.handle_tasks(tasks)
+    def get_tasks(self, key):
+        self.info(f"Retrieving {key} tasks...")
+        return self.request(f'get_{key}_tasks',
+                            {'worker': self.name}, 'tasks')
 
-    def run(self):
+    def process_tasks(self, key):
+        tasks = self.get_tasks(key)
+        if tasks is not None:
+            new_tasks = [t for t in tasks if t['id'] not in self.tasks]
+            self.info(f"Got {len(new_tasks)} tasks.")
+            self.handle_tasks(new_tasks)
+
+    def setup(self):
         create_logger(self, self.logsFolder, self.logFile,
                       toFile=True, debug=True)
 
-        self.logger.info(f"Running worker: {self.name}")
-        self.logger.info(f"      LOG_FILE: {self.logFile}")
-        self.logger.info(f"Connecting to EMHUB...")
-        self.logger.info(f"     SERVER_URL: {config.EMHUB_SERVER_URL}")
+        self.info(f"Setting up worker: {self.name}")
+        self.info(f"      LOG_FILE: {self.logFile}")
+        self.info(f"EMHUB server...")
+        self.info(f"     SERVER_URL: {config.EMHUB_SERVER_URL}")
 
-        data = {'worker': self.name, 'specs': System.specs()}
-        self.token = self.request('connect_worker', data, key='token')
-        del data['specs']
-
-        # Handling pending tasks
-        self.get_tasks('pending', data)
+        self.token = self.request('connect_worker',
+                                  {'worker': self.name, 'specs': System.specs()},
+                                  key='token')
+    def run(self):
+        self.setup()
+        self.process_tasks('pending')  # get pending tasks
 
         while True:
             try:
-                self.get_tasks('new', data)
+                self.process_tasks('new')  # sleep for 1 min while not new tasks
             except Exception as e:
-                self.logger.error('FATAL ERROR: ' + str(e))
-                self.logger.error(traceback.format_exc())
+                self.error('FATAL ERROR: ' + str(e))
+                self.error(traceback.format_exc())
                 time.sleep(30)
 
 

@@ -3,17 +3,19 @@
 Dashboard and Sessions
 ======================
 
-Sessions usually represent a user's usage of an instrument (e.g. data collection in a microscope).
-For CryoEM, microscope sessions are mainly used for screening of the sample quality
-or for collecting images from the desired specimen. In most cases, it is convenient to some type of on-the-fly
-data processing to further evaluate the quality of the data.
+Sessions usually represent a user's usage of an instrument (e.g., data collection
+on a microscope). For CryoEM, microscope sessions are mainly used for screening
+the sample quality or for collecting images from the desired specimen. In most cases,
+it is convenient to perform some type of on-the-fly data processing to further
+evaluate the quality of the data.
 
-Dashboards in EMhub serve to launch a new session or to manage on-going sessions.
+Dashboards in EMhub serve to launch a new session or to manage ongoing sessions.
+
 
 Dashboards
 ==========
 
-Dashboards are pages designed as the entry point for the facility daily operations.
+Dashboards are pages designed as the entry point for the facility's daily operations.
 This is one of the templates that can be customized via the :any:`Instance Configuration`.
 Usually, they provide ways to manage the existing bookings or create new ones.
 
@@ -43,10 +45,10 @@ Sessions
 New Session
 -----------
 
-A new session can be created from the ``New Session`` button that is shown in the microscope (in the Dashboard page)
-if there is a booking for it. After clicking the button, a new dialog will appear to confirm the session
-information and its creation (see images below). This dialog is another template that can be customized via
-the :any:`Instance Configuration`.
+A new session can be created from the ``New Session`` button shown in the microscope
+(on the Dashboard page) if there is a booking for it. After clicking the button, a
+new dialog will appear to confirm the session information and its creation (see images below).
+This dialog is another template that can be customized via the :any:`Instance Configuration`.
 
 .. tab:: SciLifeLab
 
@@ -59,21 +61,23 @@ the :any:`Instance Configuration`.
        :width: 100%
 
 
-After the session is created, a green box will appears with the session name Sometimes, more than one data acquisition
-can be done for the same booking, so more than one session can be created. After created another session, more green
+After the session is created, a green box will appear with the session name.
+Sometimes, more than one data acquisition can be done for the same booking,
+so more than one session can be created. After creating another session, more green
 boxes will be shown as in the following image.
 
 .. image:: https://github.com/3dem/emhub/wiki/images/session-pills.png
    :width: 50%
 
-The creation of a new session is commonly link with some actions from ``Workers`` machines. Workers will notice
-the new session and might perform some required tasks (e.g. folders creation, data transfer, etc). Workers can update
-back the status of a sesions that it is being monitored. More information about workers can be found here: :ref:`Developing Workers`.
+The creation of a new session is commonly linked with some actions from ``Workers`` machines.
+Workers will notice the new session and might perform some required tasks (e.g., folder creation,
+data transfer, etc.). Workers can update back the status of a session that is being monitored.
+More information about workers can be found here: :ref:`Developing Workers`.
 
 Session Details
 ---------------
 
-This page serve to show information for a given session and it is another template that can be customized via
+This page serves to show information for a given session. It is another template that can be customized via
 the :any:`Instance Configuration`.
 
 .. tab:: SciLifeLab
@@ -90,9 +94,10 @@ the :any:`Instance Configuration`.
 Sessions List
 -------------
 
-Facility staff can see all sessions in the ``Sessions List`` page (accessible from the ``Sessions`` link in the left
-toolbar). For non-staff users, only the sessions related to them will appear in the list. From this list one can easily
-access the booking to a session or go the session details. Staff users can also delete sessions.
+Facility staff can see all sessions in the ``Sessions List`` page (accessible from
+the ``Sessions`` link on the left toolbar). For non-staff users, only the sessions
+related to them will appear in the list. From this list, one can easily access the
+booking for a session or go to the session details. Staff users can also delete sessions.
 
 .. image:: https://github.com/3dem/emhub/wiki/images/sessions-list.png
    :width: 100%
@@ -102,25 +107,26 @@ access the booking to a session or go the session details. Staff users can also 
 On-the-fly Data Processing
 --------------------------
 
-EMhub has a REST API that allows external programs to communicate with the system. A usage of this feature is the
-implementation of workers that perform On-The-Fly (OTF) data processing. The progress of the processing can be
-updated back to the associated session. Currently, we have implemented OTF using Relion and Scipion as the underlying
-pipelines.
+EMhub has a REST API that allows external programs to communicate with the system.
+One usage of this feature is the implementation of workers that perform On-The-Fly
+(OTF) data processing. The progress of the processing can be updated back to the
+associated session. Currently, OTF is implemented using Relion and Scipion as the
+underlying pipelines.
 
 
 .. image:: https://github.com/3dem/emhub/wiki/images/202306/session_otf_overview.jpg
    :width: 100%
 
-From that page, it is possible to show information per grid square or display several micrographs together (with their
-CTF information and particles picked)
+From that page, it is possible to show information per grid square or display several
+micrographs together, along with their CTF information and picked particles.
 
-Map showing CTF and particles statistics per Grid Square:
+Map showing CTF and particle statistics per Grid Square:
 
 .. image:: https://github.com/3dem/emhub/wiki/images/202306/session_otf_gridsquares.jpg
    :width: 100%
 
 
-Map with some Micrographs and their particles:
+Map with a few Micrographs and corresponding particles:
 
 .. image:: https://github.com/3dem/emhub/wiki/images/202306/session_otf_micrographs.jpg
    :width: 100%

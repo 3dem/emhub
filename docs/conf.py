@@ -2,7 +2,7 @@ import datetime as dt
 
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.autosectionlabel',
-              'jaraco.packaging.sphinx',
+              #'jaraco.packaging.sphinx',
               'rst.linker',
               'sphinxcontrib.napoleon',
               'sphinx_copybutton',
@@ -19,10 +19,10 @@ nitpicky = False
 
 # Include Python intersphinx mapping to prevent failures
 # jaraco/skeleton#51
-extensions += ['sphinx.ext.intersphinx']
-intersphinx_mapping = {
-    'python': ('https://docs.python.org/3', None),
-}
+#extensions += ['sphinx.ext.intersphinx']
+# intersphinx_mapping = {
+#     'python': ('https://docs.python.org/3', None),
+# }
 
 # Add support for linking usernames
 github_url = 'https://github.com'
@@ -115,10 +115,10 @@ nitpick_ignore = [
 ]
 
 # Allow linking objects on other Sphinx sites seamlessly:
-intersphinx_mapping.update(
+#intersphinx_mapping.update(
     #python2=('https://docs.python.org/2', None),
-    python=('https://docs.python.org/3', None),
-)
+#     python=('https://docs.python.org/3', None),
+# )
 
 # Add support for the unreleased "next-version" change notes
 # extensions += ['sphinxcontrib.towncrier']
@@ -127,7 +127,7 @@ intersphinx_mapping.update(
 # # Avoid an empty section for unpublished changes.
 # towncrier_draft_include_empty = False
 
-extensions += ['jaraco.tidelift']
+#extensions += ['jaraco.tidelift']
 
 # Add icons (aka "favicons") to documentation
 extensions += ['sphinx_favicon']

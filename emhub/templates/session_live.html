@@ -68,9 +68,9 @@
 
     <div class="container-fluid dashboard-content ">
         <!-- Header -->
-        {% set title = "Session Live Pre-processing" %}
+        {% set title = "Session Live Pre-processing " %}
         {% set navigation = [('Sessions', url_for_content('sessions_list')),
-                             (session.name, url_for_content('session_details', session_id=session.id)),
+                             (s.shortname, url_for_content('session_details', session_id=s.id)),
                              ('OTF', '')] %}
         {% include 'include_header.html' %}
         {% import "entry_macros.html" as macros %}
@@ -200,7 +200,7 @@
                             <div class="row col-12">
 
                                 <!-- GridSquare and FoilHole card -->
-                                <div class="col-6">
+                                <div class="col-5">
                                     <!-- Div for GridSquare -->
                                     {% set card_id = 'gs_card' %}
                                     {% include 'gridsquare_card.html' %}
@@ -211,7 +211,7 @@
                                 </div>
 
                                 <!-- Div for PSD and Micrograph info -->
-                                <div class="col-6">
+                                <div class="col-7">
 
                                      <!-- Div for Micrograph -->
                                     {% set card_id = 'mic_card' %}

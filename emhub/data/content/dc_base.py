@@ -302,20 +302,33 @@ class DataContent:
         dm = self.app.dm  # shortcut
 
         if entry.type == 'access_microscopes':
+
             data = entry.extra['data']
             dstr = data.get('suggested_date', None)
             rid = int(data.get('microscope_id', 0))
+
             if dstr and rid:
-                p = entry.project
+                r = scopes[rid]
+                days = data.get('days', '1')
+                # When using 'default', we read the config in the entry form
+                if days == 'default':
+                    formDef = dm.get_form_definition('access_microscopes')
+                    reqResources = formDef['config']['request_resources']
+                    days = reqResources.get(r.name, {'days': '1'})['days']
+
                 sdate = dm.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
+                endDay = sdate.day + int(days) - 1
+                p = entry.project
+
+                edate = sdate.replace(day=endDay, hour=23, minute=59)
                 return dm.Booking(
                     title='',
                     type='request',
                     start=sdate.replace(hour=9),
-                    end=sdate.replace(hour=23, minute=59),
+                    end=edate,
                     owner=p.user,
                     owner_id=p.user.id,
-                    resource=scopes[rid],
+                    resource=r,
                     resource_id=rid,
                     project_id=p.id,
                     project=p
@@ -581,7 +594,9 @@ class DataContent:
         pid = int(kwargs.get('pid', 0))
         scope = kwargs.get('scope', 'lab')
 
-        project_perms = self.app.dm.get_config("permissions")['projects']
+        project_perms = dm.get_config("permissions")['projects']
+        project_config = dm.get_config("projects")
+
         view_options = project_perms['view_options']
 
         # FIXME Define access/permissions for other users
@@ -638,12 +653,18 @@ class DataContent:
                 if p.id in projects:
                     projects[p.id].sessions.append(s)
 
+        display_table = project_config.get('display_table', {})
+        resource_days_tag = display_table.get('resource_days_tag', 'instrument')
+        extra_columns = display_table.get('extra_columns',
+                                          ['days', 'sessions', 'images', 'data'])
+
         # Update Sessions stats
         for p in projects.values():
             days = sessions = images = size = 0
             for b in p.bookings:
                 # Only count days for microscopes
-                if not b.resource.is_microscope:
+
+                if resource_days_tag not in b.resource.tags:
                     continue
                 days += b.units(hours=24)
                 for s in b.session:
@@ -667,7 +688,9 @@ class DataContent:
                 'pi_select': pi_select,
                 'pid': pid,
                 'possible_scopes': view_options,
-                'scope': scope
+                'scope': scope,
+                'resource_days_tag': resource_days_tag,
+                'extra_columns': extra_columns
                 }
 
     def get_session_data(self, session, **kwargs):
@@ -729,7 +752,7 @@ class DataContent:
                     step = (tsLast - tsFirst) / len(defocus)
                 else:
                     tsFirst = dt.datetime.timestamp(dt.datetime.now())
-                    step = 1000000
+                    step = 1000
                     tsLast = tsFirst + len(defocus) * step
 
                 epuData = session.data.getEpuData()
@@ -740,8 +763,8 @@ class DataContent:
                                   for row in epuData.moviesTable]
                 tsRange = {'first': tsFirst * 1000,  # Timestamp in milliseconds
                            'last': tsLast * 1000,
-                           'step': step}
-
+                           'step': step * 1000}
+                
             data.update({
                 'defocus': defocus,
                 'defocusAngle': defocusAngle,
@@ -757,7 +780,6 @@ class DataContent:
         elif result == 'classes2d':
             runId = int(kwargs.get('run_id', -1))
             data['classes2d'] = sdata.get_classes2d(runId=runId)
-            print(">>>> Classes 2D: ", len(data['classes2d']))
 
         sdata.close()
         return data
@@ -815,7 +837,6 @@ def register_content(dc):
     @dc.content
     def grids_storage(**kwargs):
         return grids_cane(**kwargs)
-
 
     @dc.content
     def dashboard(**kwargs):
@@ -916,6 +937,20 @@ def register_content(dc):
             for k, bookingValues in rbookings.items():
                 bookingValues.sort(key=lambda b: b.start)
 
+        from markupsafe import Markup
+        value = Markup('<strong>The HTML String</strong>')
+
+        newsConfig = dm.get_config('news')
+        allNews = newsConfig['news'] if newsConfig else []
+        news = []
+        for n in allNews:
+            if n['status'] == 'active':
+                n['html'] = Markup(n['text'])
+                news.append(n)
+
         dataDict.update({'bookings': bookings,
-                         'resource_bookings': resource_bookings})
+                         'resource_bookings': resource_bookings,
+                         'news': news
+                         })
         return dataDict
+

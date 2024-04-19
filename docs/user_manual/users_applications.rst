@@ -10,10 +10,9 @@ In EMhub, there are four main types of users:
 * **Principal investigators**
 
     Principal investigator users are independent researchers that run a lab.
-    In the system they accounts will:
 
     * Their PI field should be **None** (no one else is their PI)
-    * Have some sort of admin rights for the bookings of their labs
+    * Their accounts have some sort of admin rights for the bookings of their labs
 
     .. tip::
         For example, in SciLifeLab the users are linked to the OrderPortal and
@@ -45,7 +44,7 @@ In EMhub, there are four main types of users:
 
 
 .. note::
-    There are general properties that are common to all user types:
+    Below are general properties common to all user types:
 
     .. csv-table::
        :widths: 10, 50
@@ -60,20 +59,20 @@ Users Pages
 -----------
 
 There are several pages in EMhub that display users' information and allow admins
-to modify users' information.
+to modify it.
 
 List All
 ........
 
-This page gives access to all users in the system. As many other tables, it has a *search*
-box where it is possible to filter by name or any other text. From this page one can
-edit existing user's information or :ref:`register a new user <New users>`.
+This page provides access to all users in the system. Like many other tables,
+it features a *search* box where it is possible to filter by name or any other text.
+From this page, one can edit existing user information or :ref:`register a new user <New users>`.
 
 .. image:: https://github.com/3dem/emhub/wiki/images/202306/users_list.jpg
    :width: 100%
 
-The *actions* column is only shown for Admins. It allows to modify or delete a given users
-and even log in the systems as that user (for development/debugging purposes).
+The *actions* column is only shown to Admins. It allows to modify or delete given users
+and even log in the system as that user (for development/debugging purposes).
 
 Groups
 ......
@@ -111,10 +110,11 @@ The registration process might vary from one place to another.
 Applications
 ------------
 
-Applications in EMhub are a way to group PIs (and users under their labs) with some logical organization.
-Some rules defined for an application will be shared by all users belonging to that application. For example,
-applications could be different universities accessing the facility or different departments within
-the same university, or just different projects.
+Applications in EMhub serve as a way to group PIs (and users under their labs) with
+some logical organization. Rules defined for an application will be shared by all users
+belonging to that application. For example, applications could represent different
+universities accessing the facility, different departments within the same university,
+or simply different projects.
 
 .. note::
     At SciLifeLab, applications are used to request access to the facility instruments. Usually there is one application
@@ -127,8 +127,8 @@ the same university, or just different projects.
 Templates
 .........
 
-Facility staff users (role **admin** or **manager**) can create application *Templates*, which are
-basically a form with input fields required for a certain type of Application. Before opening an application
-period, managers can create new templates and disabled old ones (that will still be linked to previous
-applications). (*WORK IN PROGRESS*)
+Facility staff users (roles **admin** or **manager**) can create application *Templates*,
+which are essentially forms with input fields required for a certain type of Application.
+Before opening an application period, managers can create new templates and disable old ones
+(which will still be linked to previous applications). (*WORK IN PROGRESS*)
 

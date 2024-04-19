@@ -2,25 +2,25 @@
 Using EMhub Client
 ==================
 
-The EMhub :ref:`REST API` is a powerful way for external programs/scripts
-to interact with the application and extends its functionalities. In the following
-section there are some examples about how to use the API via the `DataClient` class
-in Python and also from Javascript.
+The EMhub :ref:`REST API` is a powerful way for external programs/scripts to
+interact with the application and extend its functionalities. In the following section,
+there are some examples of how to use the API from Python (via the `DataClient` class)
+and from JavaScript.
 
 
 Python
 ------
 
-Interacting with the EMhub :ref:`REST API` is basically sending requests to the
-remote server and processing the returned response. This could be done with standard
-Python libraries such as ``requests``. To facility the communication, EMhub provides
-the :ref:`emhub.client` module to communicate with the server. Following are some
-examples of it usage.
+Interacting with the EMhub :ref:`REST API` basically involves sending requests
+to the remote server and processing the returned response. This can be done with
+standard Python libraries such as ``requests``. To facilitate communication, EMhub
+provides the :ref:`emhub.client` module to communicate with the server.
+Below are some examples of its usage.
 
-Getting Bookings in a Range
-...........................
+Getting Bookings within a time range
+....................................
 
-A simple example, getting all bookings in a range.
+A simple example:
 
 .. code-block:: python
 
@@ -32,13 +32,13 @@ A simple example, getting all bookings in a range.
             print(b)
 
 
-Backing-up Forms in a JSON file
-...............................
+Backing-up Forms into a JSON file
+.................................
 
-We can fetch all forms from the EMhub server and store it in a JSON file. Similarly
-we can read a JSON file and restore the Forms into another instance. For example,
-let assume we want to get forms from a remote server and set their values in a
-development one.
+We can fetch all forms from the EMhub server and store them in a JSON file.
+Similarly, we can read a JSON file and restore the forms into another instance.
+For example, let's assume we want to retrieve forms from a remote server and set
+their values in a development environment.
 
 .. code-block:: python
 
@@ -74,11 +74,9 @@ development one.
 Disguising the Database
 .......................
 
-In this example, image that we want to present an EMhub running instance, but
-we don't want to reveal real users' identity neither projects or sessions name.
-We can modify run a development instance and modify the database for hidding
-the real information.
-
+In this example, imagine that we want to present a running instance of EMhub,
+but we don't want to reveal real users' identities, projects, or session names.
+We can run a development instance and modify the database to hide the real information.
 
 .. code-block:: python
 
@@ -114,10 +112,11 @@ the real information.
 Updating Sessions' Acquisition Info
 ...................................
 
-In this example we want to update the ``Acquisition Info`` for sessions where this information is missing.
-For that, we will read the acquisition from the configuration for each microscope, based on its name.
-Then we will need to map the microscopes names to their ids, by reading ``resources`` from EMhub. Finally, we
-will go over each session and update the acquisition if necessary.
+In this example, we want to update the ``Acquisition Info`` for sessions where
+this information is missing. To do that, we will read the acquisition from the configuration
+for each microscope, based on its name. Then, we will need to map the microscope names to
+their IDs by reading the ``resources`` from EMhub. Finally, we will iterate over each session
+and update the acquisition if necessary.
 
 .. code-block:: python
 
@@ -157,11 +156,13 @@ will go over each session and update the acquisition if necessary.
 Javascript
 ----------
 
-The EMhub's UI also make use the of the :ref:`REST API` from Javascript code. JQuery library is used for sending AJAX
-requests and there are some helper functions in :doc:`EMhub's Javascript </developers_guide/api/javascript>` to make it
-easier to request data and render html based on that.
+The EMhub's UI also makes use of the :ref:`REST API` from JavaScript code. The JQuery
+library is used for sending AJAX requests, and there are some helper functions in the
+:doc:`EMhub's JavaScript </developers_guide/api/javascript>` to make it easier to request
+data and render HTML based on that.
 
-For example, one can easily display the resulting HTML from a content-query to EMhub in a modal using the following code:
+For example, one can easily display the resulting HTML from a content-query to EMhub
+in a modal using the following code:
 
 .. code-block:: javascript
 
@@ -171,10 +172,11 @@ For example, one can easily display the resulting HTML from a content-query to E
     }  // function showUser
 
 
-In the previous example one make a request with the ``get_ajax_content`` function and display a modal from the
-resulting html. In this case it is a dialog to register a new user. One can link an action in that modal (usually a
-HTML form coming from the server) and sent another request with that action to the server. In this case that action
-will be to register the user in the database. That is done in the following function:
+In the previous example, one makes a request with the ``get_ajax_content`` function
+and displays a modal with the resulting HTML. In this case, it is a dialog to register
+a new user. One can link an action in that modal (usually an HTML form coming from the
+server) and send another request with that action to the server. In this case, the action
+will be to register the user in the database. This is done in the following function:
 
 .. code-block:: javascript
 
@@ -195,8 +197,3 @@ will be to register the user in the database. That is done in the following func
         // Send a request to register that user
         send_ajax_json(Api.urls.user.register, user, handleUserAjaxDone);
     }  // function onRegisterUser
-
-
-
-
-

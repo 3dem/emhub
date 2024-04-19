@@ -2,11 +2,11 @@
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = "Session Details" %}
-    {% set navigation = [('Sessions', url_for_content('sessions_list')), (session.name, '')] %}
+    {% set navigation = [('Sessions', url_for_content('sessions_list')), (session.shortname, '')] %}
     {% include 'include_header.html' %}
 
     <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-        {% include session_content %}
+        {% include "session_content.html" %}
     </div>
     <div class="row col-6">
         <div class="row col-12"><h5 id="reload_label">Reloading in seconds</h5></div>

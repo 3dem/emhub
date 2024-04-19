@@ -42,7 +42,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 
 def create_data_models(dm):
-    """ Define the Data Models that will be use by the DataManager. """
+    """ Define the Data Models that will be used by the DataManager. """
 
     Base = dm.Base
 
@@ -878,7 +878,6 @@ def create_data_models(dm):
                     primary_key=True)
 
         name = Column(String(256),
-                      unique=True,
                       nullable=False)
 
         start = Column(UtcDateTime)
@@ -994,6 +993,10 @@ def create_data_models(dm):
             return sum(fi['size'] for fi in self.files.values())
 
         @property
+        def total_movies(self):
+            return self.__getExtra('raw', {}).get('movies', 0)
+
+        @property
         def project_id(self):
             """ Get the project based on project_id or the booking's project. """
             return self.__getExtra('project_id', 0)
@@ -1032,6 +1035,11 @@ def create_data_models(dm):
         @property
         def otf_path(self):
             return self.otf.get('path', '')
+
+        @property
+        def shortname(self):
+            n = self.name
+            return n if ':' not in n else n.split(':')[1]
 
         def json(self):
             return dm.json_from_object(self)

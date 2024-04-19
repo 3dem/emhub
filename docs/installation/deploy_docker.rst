@@ -26,7 +26,7 @@ A Docker image for running EMhub can be created with the following dockerfile:
 Running the Container
 ---------------------
 
-Then one can save that in a file named ``Dockerfile`` and run there:
+After saving the file above as ``Dockerfile``, run:
 
 .. code-block:: bash
 
@@ -50,8 +50,3 @@ Then one can save that in a file named ``Dockerfile`` and run there:
 
     # Stopping the app
     docker stop emhub
-
-
-
-
-

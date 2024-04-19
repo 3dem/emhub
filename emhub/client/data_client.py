@@ -36,19 +36,19 @@ from emtools.utils import System
 
 
 class config:
-    """ Store configuration variables read from `os.environ`.
+    """ Store configuration variables read from os.environ.
 
     Attributes:
         EMHUB_SERVER_URL: EMhub server URL
-            (e.g https://emhub.org or http://127.0.0.1:5000).
+            (e.g. https://emhub.org or http://127.0.0.1:5000).
         EMHUB_USER: Username for login into the remote EMhub server.
         EMHUB_PASSWORD: Password for login into the server.
     """
 
     EMHUB_SERVER_URL = os.environ.get('EMHUB_SERVER_URL',
                                       'http://127.0.0.1:5000')
-    EMHUB_USER = os.environ['EMHUB_USER']
-    EMHUB_PASSWORD = os.environ['EMHUB_PASSWORD']
+    EMHUB_USER = os.environ.get('EMHUB_USER', 'NO-USER')
+    EMHUB_PASSWORD = os.environ.get('EMHUB_PASSWORD', '')
 
 
 @contextmanager

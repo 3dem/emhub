@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '1.0.0rc06'
+__version__ = '1.0.0rc11'
 
 
 def create_app(test_config=None):
@@ -140,9 +140,6 @@ def create_app(test_config=None):
                 'name',             # Simple name
                 ]
 
-    if not "TEMPLATE_MAIN" in app.config:
-        app.config["TEMPLATE_MAIN"] = 'main.html'
-
     portalAPI = app.config.get('SLL_PORTAL_API', None)
     if portalAPI is not None:
         from .data.imports.scilifelab import PortalManager
@@ -184,12 +181,6 @@ def create_app(test_config=None):
         kwargs['possible_booking_owners'] = app.dc.get_pi_labs()
         kwargs['possible_operators'] = app.dc.get_possible_operators()
         kwargs['booking_types'] = app.dm.Booking.TYPES
-        kwargs['session_content'] = app.config.get('TEMPLATE_SESSION_CONTENT',
-                                                   'session_content.html')
-        kwargs['session_body'] = app.config.get('TEMPLATE_SESSION_BODY',
-                                                'create_session_form_body.html')
-        kwargs['dashboard_right'] = app.config.get('TEMPLATE_DASHBOARD_RIGHT',
-                                                   'dashboard_right.html')
         kwargs['currency'] = app.dm.get_config('resources').get('currency', '$')
         try:
             display = app.dm.get_config('bookings')['display']
@@ -235,7 +226,7 @@ def create_app(test_config=None):
 
         register_basic_params(kwargs)
 
-        return flask.render_template(app.config['TEMPLATE_MAIN'], **kwargs)
+        return flask.render_template("main.html", **kwargs)
 
     def _redirect(endpoint, **kwargs):
         return flask.redirect(flask.url_for(endpoint, _external=True, **kwargs))
@@ -402,6 +393,10 @@ def create_app(test_config=None):
         if content_template in templates:
             # Render from templates already in EMhub
             register_basic_params(kwargs)
+
+            if app.is_devel:
+                app.logger.debug(f"template: {content_template}, kwargs: {content_kwargs}")
+
             return flask.render_template(content_template, **kwargs)
 
         error = {
@@ -427,6 +422,13 @@ def create_app(test_config=None):
     def weekday(dt):
         return app.dm.local_weekday(dt)
 
+    @app.template_filter('booking_span')
+    def booking_span(b):
+        s = weekday(b.start)
+        if b.hours > 24:
+            s += ' - ' + weekday(b.end)
+        return s
+
     @app.template_filter('redis_datetime')
     def redis_datetime(task_id, elapsed=False):
         dt = app.dm.dt_from_redis(task_id)
@@ -434,6 +436,10 @@ def create_app(test_config=None):
         if elapsed:
             dtStr += f" ({Pretty.elapsed(dt, now=app.dm.now())})"
         return dtStr
+
+    @app.template_filter('pretty_elapsed')
+    def pretty_elapsed(ts):
+        return Pretty.elapsed(ts, now=app.dm.now())
 
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=True, content_id=contentId, **kwargs)

@@ -147,7 +147,22 @@ class DataManager(DbManager):
 
     def delete_user(self, **attrs):
         """ Delete a given user. """
-        user = self.get_user_by(id=attrs['id'])
+        uid = attrs['id']
+
+        # Check that there are not bookings related to this user
+        bookings = self.get_user_bookings(uid)
+
+        def _error(msg):
+            raise Exception(f"This user can not be deleted, {msg}.")
+
+        if bookings:
+            _error("deleted, there are associated bookings. ")
+
+        user = self.get_user_by(id=uid)
+
+        if user.lab_members:
+            _error("there are associated lab members.")
+
         self.delete(user)
         return user
 
@@ -171,7 +186,14 @@ class DataManager(DbManager):
         return self.__create_item(self.Form, **attrs)
 
     def update_form(self, **attrs):
-        return self.__update_item(self.Form, **attrs)
+        cache = attrs.pop('cache', True)
+        form = self.__update_item(self.Form, **attrs)
+        # Check if we need to update Redis cache
+        if cache and self.r is not None and form.name.startswith('config:'):
+            configName = form.name.replace('config:', '')
+            self.set_rconfig(configName, form.definition)
+
+        return form
 
     def delete_form(self, **attrs):
         form = self.__item_by(self.Form, id=attrs['id'])
@@ -459,6 +481,13 @@ class DataManager(DbManager):
 
         return bookings
 
+    def get_user_bookings(self, uid):
+        """ Return bookings related to this user.
+        User might be creator, owner or operator of the booking.
+        """
+        condStr = f"owner_id={uid} OR operator_id={uid} OR creator_id={uid}"
+        return self.get_bookings(condition=condStr)
+
     def get_next_bookings(self, user):
         """ Retrieve upcoming (from now) bookings for this user. """
         conditionStr = "start>='%s'" % datetime_to_isoformat(self.now())
@@ -554,7 +583,7 @@ class DataManager(DbManager):
                                       'value': new_counter})
 
         form = self.get_form_by_name('sessions_config')
-        self.update_form(id=form.id, definition=formDef)
+        self.update_form(id=form.id, definition=formDef, cache=False)
 
     def get_session_cameras(self, resourceId):
         cameras = []
@@ -570,23 +599,11 @@ class DataManager(DbManager):
     def get_session_data_deletion(self, group_code):
         return int(self.__get_session_dict('data_deletion').get(group_code, 0))
 
-    def get_session_processing(self):
-        # Load processing options from the 'processing' Form
-        form_proc = self.get_form_by_name('processing')
-
-        processing = []
-        for section in form_proc.definition['sections']:
-            steps = []
-            processing.append({'name': section['label'], 'steps': steps})
-            for param in section['params']:
-                steps.append({'name': param['label'], 'options': param['enum']['choices']})
-
-        return processing
-
     def get_session_data_path(self, session):
         return os.path.join(self._sessionsPath, session.data_path)
 
     def get_new_session_info(self, booking_id):
+        # FIXME: This is specific to SLL and needs cleanup/refactoring
         """ Return the name for the new session, base on the booking and
         the previous sessions counter (stored in Form 'counters').
         """
@@ -626,7 +643,7 @@ class DataManager(DbManager):
         attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
 
         if 'start' not in attrs:
-            attrs['start'] = self.now()
+            attrs['start'] = b.start
 
         if 'status' not in attrs:
             attrs['status'] = 'active'
@@ -712,7 +729,7 @@ class DataManager(DbManager):
         return session
 
     def load_session(self, sessionId, mode="r"):
-        session = self.Session.query.get(sessionId)
+        session = self.get_session_by(id=sessionId)
         session.data = self._create_data_instance(session, mode)
         return session
 
@@ -723,7 +740,6 @@ class DataManager(DbManager):
             raise Exception(f"ERROR: can't load session data path: {session.data_path}")
         else:
             projectSqlite = os.path.join(session.data_path, 'project.sqlite')
-            print(f"projectSqlite: {projectSqlite}, exists: {os.path.exists(projectSqlite)}")
             if os.path.exists(projectSqlite):
                 return ScipionSessionData(session.data_path, mode)
             return RelionSessionData(session.data_path, mode)
@@ -839,7 +855,7 @@ class DataManager(DbManager):
         return self.__update_item(self.Project, **attrs)
 
     def delete_project(self, **attrs):
-        """ Remove a session row. """
+        """ Remove a project. """
         project = self.get_project_by(id=attrs['id'])
         # Delete all entries of this project
         # (since I haven't configured cascade-delete in SqlAlchemy models)
@@ -859,15 +875,45 @@ class DataManager(DbManager):
         return self.__item_by(self.Project, **kwargs)
 
     # ---------------------------- ENTRIES ---------------------------------
-    def get_config(self, configName, default={}):
+    def set_rconfig(self, configName, configData):
+        """ Update configuration entry in Redis. """
+        self.r.set(f'config:{configName}', json.dumps(configData))
+
+    def get_rconfig(self, configName):
+        return json.loads(self.r.get(f'config:{configName}'))
+
+    def get_config(self, configName, default={}, cache=True):
         """ Find a form named config:configName and return
-        the associated JSON definition. """
+        the associated JSON definition.
+        Args:
+            configName: name of the entry to load.
+            default: default value if the entry does not exist.
+            cache: If true, will use Redis cache
+            """
+        rcache = self.r is not None and cache
+
+        if rcache and self.r.exists(f'config:{configName}'):
+            return self.get_rconfig(configName)
+
         form = self.get_form_by_name(f'config:{configName}')
+        if not form:
+            return default
+
+        configData = form.definition
+        if rcache:  # update the cache if enabled
+            self.set_rconfig(configName, configData)
+
+        return configData
+
+    def get_form_definition(self, formName, default={}):
+        """ Find a form named entry_form:formName and return
+        the associated JSON definition. """
+        form = self.get_form_by_name(f'entry_form:{formName}')
         return form.definition if form else default
 
-    def update_config(self, configName, definition):
+    def update_config(self, configName, definition, cache=False):
         form = self.get_form_by_name(f'config:{configName}')
-        self.update_form(id=form.id, definition=definition)
+        self.update_form(id=form.id, definition=definition, cache=cache)
 
     def get_entry_config(self, entry_type):
         return self.get_config('projects')['entries'][entry_type]
@@ -937,7 +983,7 @@ class DataManager(DbManager):
 
         now = self.now()
         attrs.update({
-            'date': now,
+            'date': attrs.get('date', now),
             'creation_date': now,
             'creation_user_id': self._user.id,
             'last_update_date': now,
@@ -1317,21 +1363,22 @@ class DataManager(DbManager):
             raise Exception("Users can not delete/modify bookings for "
                             "this type of resource.")
 
-        now = self.now()
-        latest = booking.resource.latest_cancellation
+        # latest_cancellation might be defined as a measure to prevent users
+        # to delete bookings before that amount of time
+        # latest_cancellation = 0 means that there is not restriction
+        if latest := booking.resource.latest_cancellation:
+            def _error(action):
+                raise Exception('This booking can not be %s. \n'
+                                'Should be %d hours in advance. '
+                                % (action, latest))
 
-        def _error(action):
-            raise Exception('This booking can not be %s. \n'
-                            'Should be %d hours in advance. '
-                            % (action, latest))
-
-        start, end = booking.start, booking.end
-        if start - dt.timedelta(hours=latest) < now:
-            if attrs:  # Update case, where we allow modification except dates
-                if start != attrs['start'] or end != attrs['end']:
-                   _error('updated')
-            else:  # Delete case
-                _error('deleted')
+            start, end = booking.start, booking.end
+            if start - dt.timedelta(hours=latest) < self.now():
+                if attrs:  # Update case, where we allow modification except dates
+                    if start != attrs['start'] or end != attrs['end']:
+                       _error('updated')
+                else:  # Delete case
+                    _error('deleted')
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
@@ -1437,7 +1484,6 @@ class DataManager(DbManager):
             results = self.r.xreadgroup('group', self.worker, {self.name: '>'},
                                         block=60000)
             new_tasks = []
-            print(f"results: {results}")
             if results:
                 for task_id, task in results[0][1]:
                     task['id'] = task_id
@@ -1474,26 +1520,34 @@ class DataManager(DbManager):
 
             return pending
 
+    def get_hosts(self):
+        """ Use Redis to cache hosts information, avoiding
+        reading it from the config all the time. """
+        self._hosts = getattr(self, '_hosts', self.get_config('hosts'))
+        return self._hosts
+
     def connect_worker(self, worker, specs):
-        self.get_worker_stream(worker).connect()
-        now = Pretty.now()
-        hosts = self.get_config('hosts')
-        hosts[worker]['updated'] = now
-        hosts[worker]['specs'] = specs
-        self.update_config('hosts', hosts)
+        now = self.now()
+        self.get_worker_stream(worker, update=True).connect()
+        hosts = self.get_hosts()
+        w = hosts[worker]
+        w.update({'specs': specs,
+                  'connected': Pretty.datetime(now)})
+        self.update_config('hosts', hosts, cache=True)
 
-    def get_worker_stream(self, worker):
-        hosts = self.get_config('hosts')
+    def get_worker_stream(self, worker, update=False):
+        host = self.get_hosts().get(worker, None)
 
-        if worker not in hosts:
+        if host is None:
             raise Exception("Unregistered host %s" % worker)
+
+        if update:
+            host['updated'] = Pretty.now()
 
         return DataManager.WorkerStream(worker, self)
 
     def get_all_tasks(self):
-        hosts = self.get_config('hosts')
-
-        for k in hosts.keys():
+        for k in self.get_hosts().keys():
             yield k, self.get_worker_stream(k).get_all_tasks()
 
     def get_task_history(self, task_id, count=None, reverse=True):
