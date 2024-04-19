@@ -91,7 +91,7 @@ function getObjectValue(obj, key, default_value) {
  *
  * @param obj Object to remove
  * @param objList List of objects
- * @returns {*[]} A new list without obj.
+ * @returns A new list without obj.
  */
 function removeObjectFromList(obj, objList) {
     var newList = [];

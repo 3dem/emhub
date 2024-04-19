@@ -48,7 +48,7 @@ For example, for the EMhub-SMIC, we added a ``Plates`` page. For that, we create
 file: ``$EMHUB_INSTANCE/extra/templates/plates.html``.
 
 This template is composed of two main parts: the HTML template and some JavaScript code.
-The following HTML part defines a `<div>` with the "content" that will be rendered inside
+The following HTML part defines a ``<div>`` with the "content" that will be rendered inside
 the main layout. It uses the ``current_user`` variable to render different content depending
 on the user's permissions. In this case, the ``Add Plate`` button link is only rendered if
 the logged-in user is a manager.
@@ -246,7 +246,7 @@ Summary
 
 .. important::
 
-Regarding templates and their corresponding "content", one needs to keep in mind:
+    Regarding templates and their corresponding "content", one needs to keep in mind:
 
     * Templates in ``$EMHUB_INSTANCE/extra/templates/`` will take precedence over built-in ones.
     * Every template must have a corresponding "content" function with the **same name**.

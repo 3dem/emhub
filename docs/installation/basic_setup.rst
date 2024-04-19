@@ -97,5 +97,5 @@ Authentication
 ~~~~~~~~~~~~~~
 
 Users can be authenticated in EMhub using the local database with a password. It is also possible to authenticate through
-an external LDAP server. Some variables are required in `config.py` for configuring authentication with LDAP.
+an external LDAP server. Some variables are required in ``config.py`` for configuring authentication with LDAP.
 See :any:`Authentication with LDAP </installation/auth_ldap>` for more details.
