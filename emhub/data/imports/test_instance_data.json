@@ -327,7 +327,7 @@
             "id": 1,
             "name": "Krios01",
             "status": "active",
-            "tags": "microscope krios stjude",
+            "tags": "microscope krios",
             "image": "titan-krios.png",
             "color": "rgba(58, 186, 232, 1.0)",
             "extra": {

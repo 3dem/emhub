@@ -60,8 +60,9 @@ def create_logger(self, logsFolder, logName, debug=True, toFile=True):
 class TaskHandler(threading.Thread):
     def __init__(self, worker, task):
         """ Initialize the TaskHandler
+
         Args:
-            worker: xxx
+            worker: Worker instance that created this TaskHandler.
             task: Task to be handled.
         """
         threading.Thread.__init__(self)
@@ -120,6 +121,7 @@ class TaskHandler(threading.Thread):
 
     def request_data(self, endpoint, jsonData=None):
         """ Make a request to one of the server's endpoints.
+
         Args:
             jsonData: arguments that will send as JSON to the request.
         """
@@ -142,6 +144,7 @@ class TaskHandler(threading.Thread):
 
     def update_task(self, event, tries=-1, wait=10):
         """ Update task info.
+
         Args:
             event: info that will be sent as part of the update
             tries: try this many times to update the task, if less than zero, try forever

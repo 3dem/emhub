@@ -11,7 +11,7 @@ Python environment (either venv or conda). For example:
 
 .. code-block:: bash
 
-    conda create --name=emhub python=3.8
+    conda create -y --name=emhub python=3.8
     conda activate emhub
 
     cd ~/work/development

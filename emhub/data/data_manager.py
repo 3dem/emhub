@@ -885,6 +885,7 @@ class DataManager(DbManager):
     def get_config(self, configName, default={}, cache=True):
         """ Find a form named config:configName and return
         the associated JSON definition.
+
         Args:
             configName: name of the entry to load.
             default: default value if the entry does not exist.

@@ -27,7 +27,7 @@ Hope your day's going well. :)
   {% if not theme_sidebar_hide_name %}
   <span class="sidebar-brand-text">{{ docstitle if docstitle else project }}</span>
   {%- endif %}
-
+      <p><small>Version: {{ emhub_version }}</small> </p>
       <p><small>Last updated: {{ last_updated }}</small> </p>
 
   {% endblock brand_content %}

@@ -1,4 +1,5 @@
 import datetime as dt
+import emhub
 
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.autosectionlabel',
@@ -50,7 +51,8 @@ html_theme = 'furo'
 html_logo = "https://github.com/3dem/emhub/wiki/images/emhub-logo-top-gray.svg"
 
 html_context = {
-    'last_updated': dt.datetime.now().date()
+    'last_updated': dt.datetime.now().date(),
+    'emhub_version': emhub.__version__
 }
 
 templates_path = ["templates"]
