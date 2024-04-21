@@ -1,29 +1,28 @@
 
-======================
+
 Dashboard and Sessions
 ======================
 
 Sessions usually represent a user's usage of an instrument (e.g., data collection
-on a microscope). For CryoEM, microscope sessions are mainly used for screening
-the sample quality or for collecting images from the desired specimen. In most cases,
-it is convenient to perform some type of on-the-fly data processing to further
-evaluate the quality of the data.
+on a microscope). For CryoEM, microscope sessions are mainly used to screen
+the sample quality or collect images from the desired specimen. In most cases,
+it is convenient to perform on-the-fly data processing to evaluate the data quality further.
 
 Dashboards in EMhub serve to launch a new session or to manage ongoing sessions.
 
 
 Dashboards
-==========
+----------
 
 Dashboards are pages designed as the entry point for the facility's daily operations.
 This is one of the templates that can be customized via the :any:`Instance Configuration`.
 Usually, they provide ways to manage the existing bookings or create new ones.
 
-The following are two example of Dashboards, one used at SciLifeLab and the other at St.Jude.
+The following are two examples of Dashboards, one used at SciLifeLab and the other at St.Jude.
 
 .. tab:: SciLifeLab
 
-    At SciLifeLab, the Dashboard allows to create session for booking in the current day and
+    At SciLifeLab, the Dashboard allows the creation of sessions for bookings in the current day, and
     shows upcoming bookings are shown as a list.
 
     .. image:: https://github.com/3dem/emhub/wiki/images/202306/dashboard_sll.jpg
@@ -32,21 +31,20 @@ The following are two example of Dashboards, one used at SciLifeLab and the othe
 .. tab:: St.Jude
 
     At St.Jude, the Dashboard displays the bookings for the current week and
-    the access request for the next one. It also allows to create sessions
-    for bookings on the current day.
+    the access request for the next one. "It also enables the creation of sessions for bookings on the same day."
 
     .. image:: https://github.com/3dem/emhub/wiki/images/202306/dashboard_sj.jpg
        :width: 100%
 
 
 Sessions
-========
+--------
 
 New Session
------------
+...........
 
-A new session can be created from the ``New Session`` button shown in the microscope
-(on the Dashboard page) if there is a booking for it. After clicking the button, a
+If there is a booking, a new session can be created from the ``New Session`` button shown in the microscope
+(on the Dashboard page). After clicking the button, a
 new dialog will appear to confirm the session information and its creation (see images below).
 This dialog is another template that can be customized via the :any:`Instance Configuration`.
 
@@ -61,21 +59,21 @@ This dialog is another template that can be customized via the :any:`Instance Co
        :width: 100%
 
 
-After the session is created, a green box will appear with the session name.
+A green box with the session name will appear after the session is created.
 Sometimes, more than one data acquisition can be done for the same booking,
 so more than one session can be created. After creating another session, more green
-boxes will be shown as in the following image.
+boxes will be shown, as in the following image.
 
 .. image:: https://github.com/3dem/emhub/wiki/images/session-pills.png
    :width: 50%
 
-The creation of a new session is commonly linked with some actions from ``Workers`` machines.
+Creating a new session is commonly linked with some actions from ``Workers`` machines.
 Workers will notice the new session and might perform some required tasks (e.g., folder creation,
 data transfer, etc.). Workers can update back the status of a session that is being monitored.
 More information about workers can be found here: :ref:`Developing Workers`.
 
 Session Details
----------------
+...............
 
 This page serves to show information for a given session. It is another template that can be customized via
 the :any:`Instance Configuration`.
@@ -92,9 +90,9 @@ the :any:`Instance Configuration`.
 
 
 Sessions List
--------------
+.............
 
-Facility staff can see all sessions in the ``Sessions List`` page (accessible from
+Facility staff can see all sessions on the ``Sessions List`` page (accessible from
 the ``Sessions`` link on the left toolbar). For non-staff users, only the sessions
 related to them will appear in the list. From this list, one can easily access the
 booking for a session or go to the session details. Staff users can also delete sessions.
@@ -103,11 +101,10 @@ booking for a session or go to the session details. Staff users can also delete 
    :width: 100%
 
 
-
 On-the-fly Data Processing
---------------------------
+..........................
 
-EMhub has a REST API that allows external programs to communicate with the system.
+The EMhub's REST API allows external programs to communicate with the system.
 One usage of this feature is the implementation of workers that perform On-The-Fly
 (OTF) data processing. The progress of the processing can be updated back to the
 associated session. Currently, OTF is implemented using Relion and Scipion as the
@@ -130,8 +127,3 @@ Map with a few Micrographs and corresponding particles:
 
 .. image:: https://github.com/3dem/emhub/wiki/images/202306/session_otf_micrographs.jpg
    :width: 100%
-
-
-
-
-

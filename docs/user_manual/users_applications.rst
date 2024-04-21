@@ -120,7 +120,7 @@ or simply different projects.
     At SciLifeLab, applications are used to request access to the facility instruments. Usually, there is one application
     per university, and an external committee revises it. Once an application is approved, a number of days are assigned for each microscope for the valid period. Applications are also used there for reporting and invoicing.
 
-    Applications are created in the Application Portal and :ref:`Imported into EMhub <scilifelab-applications>`.
+    Applications are created in the Application Portal and imported into EMhub.
 
 
 Templates
