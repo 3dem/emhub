@@ -110,7 +110,12 @@ def process_sessions(args):
                     us = dc.update_session({'id': session_id,
                                             'acquisition': acq})
                     pprint(us)
-
+        elif args.create:
+            with open(args.create) as f:
+                session_json = json.load(f)
+                # Drop id field in case it is present
+                session_json.pop('id', None)
+                dc.create_session(session_json)
 
 
 def main():
@@ -141,6 +146,8 @@ def main():
     g.add_argument('--list', '-l')
     g.add_argument('--update_acq', nargs=2,
                    metavar=('SESSION_ID', 'JSON_ACQ'))
+    g.add_argument('--create', '-c', metavar='SESSION_JSON',
+                   help='Create a session from the json file. ')
 
     # ------------------------- Method subparser -------------------------------
     method_p = subparsers.add_parser("method")
