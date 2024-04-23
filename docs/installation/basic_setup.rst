@@ -53,31 +53,35 @@ Environment Variables
 Instance Configuration
 ----------------------
 
-Templates
-.........
+The EMhub instance configuration and data files are inside the ``$EMHUB_INSTANCE/`` folder.
+The following sections will refer to configuration files related to the application's different options.
 
-All pages of the EMhub web application use `Flask <https://flask.palletsprojects.com/en/2.3.x/>`_ templates based on
-`Jinja <https://jinja.palletsprojects.com/en/3.1.x/>`_. Built-in templates are located under the ``emhub/templates`` folder.
 
-All template files should go in the ``$EMHUB_INSTANCE/extra/templates`` folder. This will add new templates to the system
-or override existing ones. Some templates that are likely to be redefined are:
+Basic Config
+............
 
+The main configuration file of a Flask application is ``$EMHUB_INSTANCE/config.py``. There,
+we need to define the ``SECRET_KEY`` variable, from the
+`Flask documentation <https://flask.palletsprojects.com/en/2.3.x/config/#SECRET_KEY>`_:
 
 .. csv-table::
    :widths: 10, 50
 
-   "**TEMPLATE**", "**DESCRIPTION**"
-   "``main.html``", "This is the application's main template. By changing this template, one can use a new icon or define a different header."
-   "``main_left_sidebar.html``", "Left panel with sections and links to other pages."
-   "``main_topbar.html``", "Logo and header definition."
-   "``main_left_sidebar.html``", "Left panel with sections and links to other pages. "
-   "``dashboard_right.html``", "Right content of the Dashboard page."
+   "``SECRET_KEY``", "A secret key that will be used for securely signing the session cookie and can be used for any other security related needs by extensions or your application. It should be a long random bytes or str."
 
-Templates require underlying ``content`` functions that provide the data source for the templates. New templates require the definition
-of new content functions in the file ``$EMHUB_INSTANCE/extra/data_content.py``. It is also possible to extend the existing REST API by defining
-new endpoints in ``$EMHUB_INSTANCE/extra/api.py``.
+For example:
 
-Read more about :any:`Customizing EMhub`.
+.. code-block:: python
+
+    python -c 'import secrets; print(secrets.token_hex())'
+    '192b9bdd22ab9ed4d12e236c78afcb9a393ec15f71bbf5dc987d54727823bcbf'
+
+
+Then in ``$EMHUB_INSTANCE/config.py``:
+
+.. code-block:: python
+
+    SECRET_KEY = '192b9bdd22ab9ed4d12e236c78afcb9a393ec15f71bbf5dc987d54727823bcbf'
 
 
 Mail Config
@@ -85,6 +89,7 @@ Mail Config
 
 It is possible to define variables related to a Mail Server.
 This allows EMhub to send emails for various notifications.
+We can add the following variables to ``$EMHUB_INSTANCE/config.py``:
 
 .. code-block:: python
 
@@ -97,9 +102,22 @@ This allows EMhub to send emails for various notifications.
 Authentication
 ..............
 
-Users can be authenticated in EMhub using the local database with a password. It is also possible to authenticate through
-an external LDAP server. Some variables are required in ``config.py`` to configure authentication with LDAP.
-See :any:`Authentication with LDAP </installation/auth_ldap>` for more details.
+In EMhub, users are authenticated using the local database with a password by default.
+It is also possible to authenticate through an external LDAP server.
+For that, we need to install the `FlaskLDAP3Login plugin <https://flask-ldap3-login.readthedocs.io/en/latest/>`_:
+
+.. code-block:: bash
+
+    pip install flask-ldap3-login
+
+And in the ``$EMHUB_INSTANCE/config.py`` file:
+
+.. code-block:: python
+
+    EMHUB_AUTH = 'LDAP'
+
+Other LDAP related variables are required in that file. For more details see:
+:any:`Authentication with LDAP </installation/auth_ldap>`
 
 
 Using Redis
@@ -112,8 +130,37 @@ concurrency level is higher, where the `Sqlite <www.sqlite.org>`_ database is
 not performant enough.
 
 A Redis configuration file should be included inside the EMhub instance folder
-to attach a Redis server to EMhub. The Redis server should be started before
-the EMhub server in the EMHUB_INSTANCE folder, and the same configuration file
-should be used.
+to attach a Redis server to EMhub (``$EMHUB_INSTANCE/redis.conf``).
+The Redis server should be started before the EMhub server in the EMHUB_INSTANCE folder,
+and the same configuration file should be used.
 
 See :any:`Caching with Redis </installation/redis>` for more details.
+
+
+Customization
+-------------
+
+EMhub has been designed for easy customization.
+The following sections briefly explain the main concepts when extending and customizing EMhub.
+The Developers Section's :any:`Customizing EMhub` page provides more details.
+
+Templates
+.........
+
+All pages of the EMhub web application use `Flask <https://flask.palletsprojects.com/en/2.3.x/>`_ templates based on
+`Jinja <https://jinja.palletsprojects.com/en/3.1.x/>`_. Built-in templates are located under the ``emhub/templates`` folder.
+
+All additional template files should go in the ``$EMHUB_INSTANCE/extra/templates`` folder.
+This will add new templates to the system or override existing ones. See more details at :any:`Changing Existing Templates`.
+
+Content Functions
+.................
+
+Templates require underlying ``content`` functions that provide the data source for the templates. New templates require the definition
+of new content functions in the file ``$EMHUB_INSTANCE/extra/data_content.py``.
+
+API Endpoints
+.............
+
+It is also possible to extend the existing REST API by defining
+new endpoints in ``$EMHUB_INSTANCE/extra/api.py``. See more at :any:`Extending the REST API`.

@@ -19,7 +19,24 @@ Changing Existing Templates
 
 Builtin templates in EMhub are stored in the ``emhub/templates`` directory.
 To modify existing templates, the recommended procedure is to create an ``extra/templates``
-folder inside the ``$EMHUB_INSTANCE`` directory.
+folder inside the ``$EMHUB_INSTANCE`` directory. Some existing template that are likely to
+be redefined are:
+
+.. csv-table::
+   :widths: 10, 50
+
+   "**TEMPLATE**", "**DESCRIPTION**"
+   "``main.html``", "This is the application's main template. By changing this template, one can use a new icon or define a different header."
+   "``main_left_sidebar.html``", "Left panel with sections and links to other pages."
+   "``main_topbar.html``", "Logo and header definition."
+   "``main_left_sidebar.html``", "Left panel with sections and links to other pages. "
+   "``dashboard_right.html``", "Right content of the Dashboard page."
+
+Templates require underlying ``content`` functions that provide the data source for the templates. New templates require the definition
+of new content functions in the file ``$EMHUB_INSTANCE/extra/data_content.py``. It is also possible to extend the existing REST API by defining
+new endpoints in ``$EMHUB_INSTANCE/extra/api.py``.
+
+Read more about :any:`Customizing EMhub`.
 
 For example, if we want to use a different logo, we should make a copy of the
 ``main_topbar.html`` template and place it under ``$EMHUB_INSTANCE/extra/templates``.
