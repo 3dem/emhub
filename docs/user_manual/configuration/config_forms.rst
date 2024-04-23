@@ -1,16 +1,15 @@
 
-============
 Config Forms
 ============
 
-For configuration, we have used (or abused) the Form data type from EMhub.
+We have used (or abused) the ``Form`` data type from EMhub for configuration purposes.
 Forms provide a convenient way to set an attribute that is a JSON string.
 This has been used to store some needed configurations for EMhub.
-All configuration forms have the name **config:ConfigName**.
+As an internal convention, all configuration forms have the name **config:ConfigName**.
 
 
 Bookings Config Form
-====================
+--------------------
 
 Basic configuration about Bookings' Display
 
@@ -32,16 +31,17 @@ Basic configuration about Bookings' Display
    :widths: 10, 10, 50
 
    "``display``", "", "Displaying options for Bookings."
-   "", "``show_operator``", "Show or not the Operator's Name when displaying booking info. (TODO: document better where it is used)"
-   "", "``show_application``", "Show or not the Application's Name when displaying booking info. (TODO: document better where it is used)"
+   "", "``show_operator``", "Show or not the Operator's Name when displaying booking info."
+   "", "``show_application``", "Show or not the Application's Name when displaying booking info."
    "", "``show_experiment``", "If true, there is an ``Experiment`` form associated to each booking. "
-   "``local_tag``", "", "In the case that there are register instruments from many facilities in EMhub, you can specify with this what is the *local* one and only instruments with this tag will be displayed in some cases."
+   "``local_tag``", "", "In the case of an EMhub instance with instruments from several facilities, this tag helps to mark the 'local' ones."
 
 
 Project Config Form
-===================
+-------------------
 
-Configuration form to customize the projects and available entries.
+The following form specifies what types of entries ara available in the ``Project``
+page and how they are arranged in the ``Entries`` menu.
 
 .. code-block:: json
     :caption: Form name: config:projects
@@ -94,23 +94,6 @@ Configuration form to customize the projects and available entries.
                 "iconClass": "far fa-calendar",
                 "imageClass": "img--location"
             }
-        },
-        "permissions": {
-            "user_can_create_projects": "all",
-            "user_can_see_projects": [
-                {
-                    "key": "mine",
-                    "label": "My Projects"
-                },
-                {
-                    "key": "lab",
-                    "label": "Lab's Projects"
-                },
-                {
-                    "key": "all",
-                    "label": "All Projects"
-                }
-            ]
         }
     }
 
@@ -126,21 +109,21 @@ Configuration form to customize the projects and available entries.
    "", "``iconClass``", "Icon to be used for this entry. See Font Awesome (version xxx) for possible options."
    "", "``imageClass``", "Class from Concept template, possible options are: ``img--picture``, ``img--location``"
    "", "``report``", "Report HTML template associated with this type of entry (TODO add reference to Developer Guide)"
-   "``permissions``", "", "Options related to the on-the-fly processing."
-   "", "``user_can_create_projects``", "What type of users can create projects. Possible values: ``all``, ``manager``, ``admin``"
-   "", "``user_can_see_projects``", "Visibility groups of existing projects. "
 
 
 Sessions Config Form
-====================
+--------------------
 
-The following form is used to customize some options related to sessions.
+The following form shows the configuration for ``Sessions`` used at St.Jude.
+This form will likely differ in other places since the session’s logic changes
+from one center to another.
+
 
 .. code-block:: json
     :caption: Form name: config:sessions
     :name: config:sessions
     :linenos:
-    :emphasize-lines: 2, 18, 23, 31
+    :emphasize-lines: 2, 31, 44
 
     {
         "acquisition": {
@@ -149,14 +132,27 @@ The following form is used to customize some options related to sessions.
                 "magnification": 130000,
                 "pixel_size": 0.6485,
                 "dose": 1.09,
-                "cs": 2.7
+                "cs": 2.7,
+                "images_pattern": "Images-Disc*/GridSquare_*/Data/Foil*fractions.tiff",
+                "gain_pattern": "*{microscope}*gain*.mrc"
+            },
+            "Krios02": {
+                "voltage": 300,
+                "magnification": 165000,
+                "pixel_size": 0.724,
+                "dose": 0.038,
+                "cs": 2.7,
+                "images_pattern": "Images-Disc*/GridSquare_*/Data/Foil*EER.eer",
+                "gain_pattern": "*EER_GainReference.gain"
             },
             "Arctica01": {
                 "voltage": 200,
-                "magnification": 79000,
-                "pixel_size": 1.044,
+                "magnification": 130000,
+                "pixel_size": 0.63,
                 "dose": 1.063,
-                "cs": 2.7
+                "cs": 2.7,
+                "images_pattern": "Images-Disc*/GridSquare_*/Data/Foil*fractions.tiff",
+                "gain_pattern": "*{microscope}*gain*.mrc"
             }
         },
         "data": {
@@ -210,7 +206,6 @@ The following form is used to customize some options related to sessions.
                 "options": {}
             },
             "hosts": [
-                "default",
                 "workstation01.emhub.org",
                 "workstation02.emhub.org"
             ],
@@ -218,9 +213,12 @@ The following form is used to customize some options related to sessions.
                 "Krios01": "workstation01.emhub.org",
                 "Arctica01": "workstation02.emhub.org"
             },
-            "workflow": {
-                "default": "scipion"
-            }
+            "workflows": [
+                "scipion",
+                "relion",
+                "none"
+            ],
+            "workflow_default": "scipion"
         }
     }
 
@@ -243,7 +241,7 @@ The following form is used to customize some options related to sessions.
 
 
 Permissions Config Form
-=======================
+-----------------------
 
 The following form defines what user's roles have permissions to perform a given action.
 Each key will be an action and the options are specified for tags. In the following example
@@ -281,7 +279,7 @@ In this case, only ``admin`` or ``manager`` can create bookings for microscopes 
 
 
 Hosts Config Form
-=================
+-----------------
 
 This form is used to define a list of worker hosts that are allowed to connect with EMhub.
 An alias should be defined for each hosts. After a worker hosts is connected, it can

@@ -12,15 +12,12 @@ Invoices
 Invoice Periods
 ...............
 
-In EMhub, it is possible to define ``Invoice Periods`` with defined start and end dates for accountability and invoicing purposes. All the bookings
+In EMhub, it is possible to create ``Invoice Periods`` with defined start and end dates for accountability and invoicing purposes. All the bookings
 within that period will count toward the invoicing for that period. Moreover, it is
 possible to define additional ``transactions`` reflecting other costs, such as sample shipping or payments made by PIs in advance.
 
 .. image:: https://github.com/3dem/emhub/wiki/images/202306/invoice_periods.jpg
    :width: 100%
-
-
-TODO: Document more about Invoices and check about related screenshots from SciLifelab.
 
 
 Reports

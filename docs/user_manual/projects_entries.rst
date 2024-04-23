@@ -2,12 +2,12 @@
 Projects and Entries
 ====================
 
-A Project is a very convenient entity in EMhub that allows for the grouping and
-documenting of events (e.g., bookings and sessions) related to a research project.
+A ``Project`` is an advantageous entity in EMhub that allows grouping and
+documenting several types of events (e.g., bookings and sessions) related to a research project.
 The complete timeline of a project can be visualized, and from there, one can access
 any data collection or other information relevant to the project.
 
-Entries can be added to a project for various purposes. Entries can be customized to
+``Entries`` can be added to a project for various purposes. Entries can be customized to
 store flexible information and can be used to implement different operations and
 associated reporting. Read the following sections for more concrete examples.
 

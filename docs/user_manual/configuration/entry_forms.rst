@@ -1,23 +1,21 @@
 
-===========
 Entry Forms
 ===========
 
-Entry forms define entries that can be used in projects. Each entry needs parameters definition in JSON format
-from which the GUI will be generated and the data will be stored.
+These types of forms define entries that can be used in projects.
+Each entry needs parameters defined in JSON format, from which the
+GUI will be generated and the data will be stored.
 
 
 Parameters Definition
-=====================
+---------------------
 
-Example Entry Forms
-===================
+The following sections show example entry forms that illustrate the parameter
+definition described previously.
 
-The following sections show example entry forms that illustrate the usage of the parameters definition
-described previously.
 
 Screening Entry Form
---------------------
+....................
 
 .. code-block:: json
     :caption: Form name: entry_form:screening
