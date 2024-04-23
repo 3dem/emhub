@@ -89,11 +89,6 @@ def create_app(test_config=None):
     app.config["SESSIONS"] = os.path.join(app.instance_path, 'sessions')
     app.config["PAGES"] = os.path.join(app.instance_path, 'pages')
 
-    app.config['LDAP_FAIL_AUTH_ON_MULTIPLE_FOUND'] = True
-
-    #
-    ####
-
     if test_config is None:
         # load the instance config, if it exists, when not testing
         app.config.from_pyfile('config.py', silent=True)
@@ -101,44 +96,10 @@ def create_app(test_config=None):
         # load the test config if passed in
         app.config.from_mapping(test_config)
 
+    app.use_ldap = app.config.get('EMHUB_AUTH', 'local') == 'LDAP'
+
     # From this point on, any config items specified override conflicting
     # settings from the config file.
-
-    if app.config.get('USE_DOMAIN_AUTHENTICATION', False):
-        from cryptography.fernet import Fernet
-
-        # Storing this key here is not secure, but at least it avoids relying
-        # on a plaintext password to be recorded on permanent storage
-        # TODO: it would be a little better to put the key in the instance DB
-        key = b'cvqjeJ-ccoUhpcFzQLc1qu8wRnpPKVF4rIfrK_lWRJY='
-        app.config['LDAP_BIND_USER_PASSWORD'] = str(
-                Fernet(key).decrypt(app.config['LDAP_BIND_USER_PASSWORD_ENCRYPTED']),
-                'utf-8')
-
-        app.config['LDAP_ADD_SERVER'] = True
-        app.config['LDAP_BIND_DIRECT_CREDENTIALS'] = False
-        app.config['LDAP_ALWAYS_SEARCH_BIND'] = True
-        app.config['LDAP_GET_USER_ATTRIBUTES'] = [
-                # These are not the only attributes available
-                'cn',               # Canonical name: 'Doe, John X'
-                'department',       # Department: 'Structural Biology'
-                'gidNumber',        # Numeric GID of the user's primary group: 99999
-                'givenName',        # Personal name: 'John'
-                'initials',         # Middle initial(s): 'X'
-                'mail',             # Email address: 'John.Doe@STJUDE.ORG'
-                'sn',               # Surname: 'Doe'
-                'telephoneNumber',  # (work) telephone number: '901-555-4321'
-                'title',            # Job title: 'Crash Test Dummy'
-                'uid',              # Username: 'jdoe17'
-                'uidNumber',        # Numeric user id: 94242
-                ]
-        app.config['LDAP_SEARCH_FOR_GROUPS'] = True
-        app.config['LDAP_GET_GROUP_ATTRIBUTES'] = [
-                'cn',               # Canonical name (generally the same as the name)
-                'description',      # Description
-                'gidNumber',        # Numeric GID of this group
-                'name',             # Simple name
-                ]
 
     portalAPI = app.config.get('SLL_PORTAL_API', None)
     if portalAPI is not None:
@@ -261,8 +222,8 @@ def create_app(test_config=None):
         user = app.dm.get_user_by(username=username)
 
         if user:  # First check that the user in the db, then try to authenticate
-            use_ldap = app.config.get('USE_DOMAIN_AUTHENTICATION', False)
-            auth_local = user.auth_local or not use_ldap
+
+            auth_local = user.auth_local or not app.use_ldap
 
             if auth_local:
                 if not user.check_password(password):
@@ -479,7 +440,7 @@ def create_app(test_config=None):
     app.mm = None
     app.r = None
 
-    if app.config.get('USE_DOMAIN_AUTHENTICATION', False):
+    if app.use_ldap:
         import flask_ldap3_login
         ldap_manager = flask_ldap3_login.LDAP3LoginManager(app)
 
