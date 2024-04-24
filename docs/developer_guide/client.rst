@@ -158,8 +158,8 @@ Javascript
 
 The EMhub's UI also makes use of the :ref:`REST API` from JavaScript code. The JQuery
 library is used for sending AJAX requests, and there are some helper functions in the
-:doc:`EMhub's JavaScript </developers_guide/api/javascript>` to make it easier to request
-data and render HTML based on that.
+:doc:`EMhub's JavaScript <https://3dem.github.io/emdocs/emhub/developer_guide/api/javascript.html>`
+to make it easier to request data and render HTML based on that.
 
 For example, one can easily display the resulting HTML from a content-query to EMhub
 in a modal using the following code:
