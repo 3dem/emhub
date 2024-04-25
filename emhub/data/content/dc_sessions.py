@@ -179,6 +179,11 @@ def register_content(dc):
         }
 
     @dc.content
+    def create_session_form(**kwargs):
+        raise Exception("How to create sessions needs to be defined "
+                        "on the extras for each specific EMhub customization.")
+
+    @dc.content
     def processing_flowchart(**kwargs):
         dm = dc.app.dm
         entry_id = int(kwargs['entry_id'])
@@ -190,7 +195,27 @@ def register_content(dc):
             'entry_id': entry_id
         }
 
+
     @dc.content
-    def create_session_form(**kwargs):
-        raise Exception("How to create sessions needs to be defined "
-                        "on the extras for each specific EMhub customization.")
+    def processing_projects_list(**kwargs):
+        project_list = []
+        for project in dc.app.dm.get_projects():
+            entries = []
+            for entry in project.entries:
+                if entry.type == 'data_processing':
+                    project_path = entry.extra['data']['project_path']
+                    entries.append({
+                        'id': entry.id,
+                        'name': os.path.basename(project_path),
+                        'project_path': project_path,
+                    })
+            if entries:
+                project_list.append({
+                    'id': project.id,
+                    'title': project.title,
+                    'entries': entries
+                })
+
+        return {
+            'project_list': project_list
+        }
