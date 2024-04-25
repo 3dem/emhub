@@ -734,15 +734,19 @@ class DataManager(DbManager):
         return session
 
     def _create_data_instance(self, session, mode):
-        if not session.data_path or session.data_path.endswith('h5'):
+        return self.get_processing_project(session.data_path)
+
+    def get_processing_project(self, project_path):
+        """ Create a Processing Project instance from this path. """
+        if not project_path or project_path.endswith('h5'):
             return None
-        elif not os.path.exists(session.data_path):
-            raise Exception(f"ERROR: can't load session data path: {session.data_path}")
+        elif not os.path.exists(project_path):
+            raise Exception(f"ERROR: can't load session data path: {project_path}")
         else:
-            projectSqlite = os.path.join(session.data_path, 'project.sqlite')
+            projectSqlite = os.path.join(project_path, 'project.sqlite')
             if os.path.exists(projectSqlite):
-                return ScipionSessionData(session.data_path, mode)
-            return RelionSessionData(session.data_path, mode)
+                return ScipionSessionData(project_path, mode)
+            return RelionSessionData(project_path)
 
     def clear_session_data(self, **attrs):
         session = self.get_session_by(id=attrs['id'])

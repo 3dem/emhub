@@ -179,6 +179,18 @@ def register_content(dc):
         }
 
     @dc.content
+    def processing_flowchart(**kwargs):
+        dm = dc.app.dm
+        entry_id = int(kwargs['entry_id'])
+        entry = dm.get_entry_by(id=entry_id)
+        project_path = entry.extra['data']['project_path']
+        proc = dc.app.dm.get_processing_project(project_path)
+        return {
+            'workflow': proc.get_workflow(),
+            'entry_id': entry_id
+        }
+
+    @dc.content
     def create_session_form(**kwargs):
         raise Exception("How to create sessions needs to be defined "
                         "on the extras for each specific EMhub customization.")

@@ -583,10 +583,25 @@ def _loadFileLines(fn):
 @api_bp.route('/get_session_run', methods=['POST'])
 @flask_login.login_required
 def get_session_run():
+    """
+    This method will retrieve a run instance.
+    Processing project can be loaded from a session_id
+    or an entry_id
+    """
+    dm = app.dm
 
     def _get_run(**attrs):
-        session = app.dm.load_session(attrs['sessionId'])
-        run = session.data.get_run(attrs['runId'])
+        if 'sessionId' in attrs:
+            session = dm.load_session(attrs['sessionId'])
+            proc = session.data
+        elif 'entry_id' in attrs:
+            entry = dm.get_entry_by(id=int(attrs['entry_id']))
+            project_path = entry.extra['data']['project_path']
+            proc = dm.get_processing_project(project_path)
+        else:
+            raise Exception('Expectin either sessionId or project_path')
+
+        run = proc.get_run(attrs['runId'])
         outputs = attrs.get('output', ['json'])
         results = {}
 
