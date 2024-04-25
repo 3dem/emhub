@@ -383,11 +383,12 @@ class RelionSessionData(SessionData):
 
             for row in sf.iterTable('pipeline_input_edges'):
                 node = row.rlnPipeLineEdgeFromNode
-                procName = row.rlnPipeLineEdgeProcess
-                childProt = protDict[procName]
-                parentProt = protDict[outputs[node]]
-                if childProt not in parentProt['links']:
-                    parentProt['links'].append(procName)
+                if output := outputs.get(node, None):
+                    procName = row.rlnPipeLineEdgeProcess
+                    childProt = protDict[procName]
+                    parentProt = protDict[output]
+                    if childProt not in parentProt['links']:
+                        parentProt['links'].append(procName)
 
         return protList
 
