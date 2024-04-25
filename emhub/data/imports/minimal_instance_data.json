@@ -185,8 +185,8 @@
                 "iconClass": "fas fa-sticky-note fa-inverse",
                 "imageClass": "img--picture"
             },
-            "access_microscopes": {
-                "label": "Microscope Request",
+            "data_processing": {
+                "label": "Data Processing",
                 "group": 2,
                 "iconClass": "fas fa-search fa-inverse",
                 "imageClass": "img--location",

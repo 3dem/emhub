@@ -38,7 +38,7 @@ function onProjectOkButtonClick() {
         user_can_edit = checkBox.checked;
     }
 
-    var confidentialCheckbox = document.getElementById("user_can_edit-checkbox");
+    var confidentialCheckbox = document.getElementById("project_confidential-checkbox");
 
     var project = {
         id: parseInt($('#project-id').val()),
