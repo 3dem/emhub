@@ -16,3 +16,4 @@ with Scipion.
     Deploying with a Docker container <deploy_docker>
     Authentication with LDAP <auth_ldap>
     Caching with Redis <redis>
+    Setting up an Instance from scratch <instance_from_scratch>
