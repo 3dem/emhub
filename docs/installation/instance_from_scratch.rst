@@ -42,7 +42,7 @@ to check the expected field for each entry. Then:
     # Edit my_data.json to add data entities
 
     # Generate your EMhub instance
-    emh-data --create_instance ~/.emhub/instances/my_instance emhub/data/imports/my_data.json
+    emh-data --create_instance ~/.emhub/instances/my_instance my_data.json
 
 
 After you have a running instance, the best way to import data by :any:`Using EMhub Client`.
@@ -50,4 +50,5 @@ After you have a running instance, the best way to import data by :any:`Using EM
 Importing Users
 ---------------
 
+You might want to import some existing users into EMhub. 
 
