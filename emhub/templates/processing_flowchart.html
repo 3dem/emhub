@@ -208,15 +208,19 @@
             //alert(JSON.stringify(data));
             if ('json' in run_data) {
                 runDict = run_data['json']
-                jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
-                if (selected_node.type in forms)
+                //jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
+                if (selected_node.type in forms) {
                     form_data = forms[selected_node.type]
+                    jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
+                }
                 else
                     loadRun(['form']);
             }
             else if ('form' in run_data) {
+                console.log('Got form for type: ' + selected_node.type);
                 form_data = run_data['form'];
                 forms[selected_node.type] = form_data;
+                jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
             }
 
             if (form_data) {
@@ -231,11 +235,11 @@
                 else
                     $('#gpuList').val(values.gpuList);
 
-                $('#runLabel').val(runDict['dict'][''].label);
+                $('#runLabel').val(runDict.info.label);
                 $('#numberOfThreads').val(values.numberOfThreads);
                 $('#numberOfMpi').val(values.numberOfMpi);
 
-                form_create(form_data, runDict['values'], 'run_form_container');
+                form_create(form_data, values, 'run_form_container');
                 //jsonEditor.setValue(JSON.stringify(form_data, null, 4));
             }
 

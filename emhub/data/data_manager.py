@@ -39,7 +39,7 @@ from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
-from .data_session import RelionSessionData, ScipionSessionData
+from .processing import get_processing_project
 
 
 class DataManager(DbManager):
@@ -738,15 +738,7 @@ class DataManager(DbManager):
 
     def get_processing_project(self, project_path):
         """ Create a Processing Project instance from this path. """
-        if not project_path or project_path.endswith('h5'):
-            return None
-        elif not os.path.exists(project_path):
-            raise Exception(f"ERROR: can't load session data path: {project_path}")
-        else:
-            projectSqlite = os.path.join(project_path, 'project.sqlite')
-            if os.path.exists(projectSqlite):
-                return ScipionSessionData(project_path, mode)
-            return RelionSessionData(project_path)
+        return get_processing_project(project_path)
 
     def clear_session_data(self, **attrs):
         session = self.get_session_by(id=attrs['id'])
