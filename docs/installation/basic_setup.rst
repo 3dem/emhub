@@ -164,3 +164,12 @@ API Endpoints
 
 It is also possible to extend the existing REST API by defining
 new endpoints in ``$EMHUB_INSTANCE/extra/api.py``. See more at :any:`Extending the REST API`.
+
+
+Setting up your Own Instance
+----------------------------
+
+If you have already installed the sample EMhub instance and have played with it,
+you might be familiar with its main features. If you want to set up EMhub for
+your center, it is time to check how to
+:any:`configure your own EMhub instance <Setting up Instance Data>`.
