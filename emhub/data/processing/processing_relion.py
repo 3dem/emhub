@@ -19,6 +19,8 @@ import datetime as dt
 from glob import glob
 from collections import defaultdict
 import json
+import flask
+from flask import current_app as app
 
 import mrcfile
 from emtools.utils import Path, Timer, Pretty
@@ -44,27 +46,11 @@ class RelionRun(SessionRun):
         return {'id': self.id, 'className': self.className, 'label': self.id}
 
     def getFormDefinition(self):
-        forms = json.loads(FORMS)
-        print(forms.keys())
-        print("className: ", self.className)
-
         default = {'valueClass': 'String',
                    'paramClass': 'StringParam',
                    'important': False,
                    'expert': False
                    }
-
-        def _update_default(paramDef):
-            for k, v in default.items():
-                if k not in paramDef:
-                    paramDef[k] = v
-
-        if self.className in forms:
-            formDef = forms[self.className]
-            for sectionDef in formDef['sections']:
-                for paramDef in sectionDef['params']:
-                    _update_default(paramDef)
-            return formDef
 
         formDef = {
             'name': self.className,
@@ -73,23 +59,29 @@ class RelionRun(SessionRun):
             'sections': []
         }
 
-        def getParamDef(name, param):
-            paramDef = {
-                'label': name,
-                'name': name
-            }
-            _update_default(paramDef)
+        allParams = set()
+
+        def _set_defaults(paramDef):
+            for k, v in default.items():
+                if k not in paramDef:
+                    paramDef[k] = v
             return paramDef
 
-        sectionDef = {
-            'label': 'parameters',
-            'params': [],
-        }
+        if formConf := app.dm.get_config(f"relion.{self.className}"):
+            for sectionDef in formConf['sections']:
+                for paramDef in sectionDef['params']:
+                    _set_defaults(paramDef)
+                    allParams.add(paramDef['name'])
+                formDef['sections'].append(sectionDef)
 
+        extraParams = []
         for k, v in self.values.items():
-            sectionDef['params'].append(getParamDef(k, v))
+            if k not in allParams:
+                extraParams.append(_set_defaults({'label': k, 'name': k}))
 
-        formDef['sections'].append(sectionDef)
+        if extraParams:
+            formDef['sections'].append({'label': 'extra params',
+                                        'params': extraParams})
 
         return formDef
 
@@ -362,184 +354,3 @@ class RelionSessionData(SessionData):
             if os.path.exists(micFn):
                 return micFn
         return None
-
-
-FORMS = """
-    {"import.movies": 
-    {
-    
-    "sections": [
-        { "label": "Movies/mics",
-            "params": [
-            {
-                    "label": "Cs",
-                    "name": "Cs"
-                },
-                {
-                    "label": "Q0",
-                    "name": "Q0"
-                },
-                {
-                    "label": "angpix",
-                    "name": "angpix",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "Beamtilt in X (mrad)",
-                    "name": "beamtilt_x",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "Beamtilt in Y (mrad)",
-                    "name": "beamtilt_y",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                }
-            ]
-        },
-        {
-            "label": "parameters",
-            "params": [
-                
-                {
-                    "label": "do_other",
-                    "name": "do_other",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "do_queue",
-                    "name": "do_queue",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "do_raw",
-                    "name": "do_raw",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "fn_in_other",
-                    "name": "fn_in_other",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "fn_in_raw",
-                    "name": "fn_in_raw",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "fn_mtf",
-                    "name": "fn_mtf",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "is_multiframe",
-                    "name": "is_multiframe",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "kV",
-                    "name": "kV",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "min_dedicated",
-                    "name": "min_dedicated",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "node_type",
-                    "name": "node_type",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "optics_group_name",
-                    "name": "optics_group_name",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "optics_group_particles",
-                    "name": "optics_group_particles",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "other_args",
-                    "name": "other_args",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "qsub",
-                    "name": "qsub",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "qsubscript",
-                    "name": "qsubscript",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                },
-                {
-                    "label": "queuename",
-                    "name": "queuename",
-                    "valueClass": "String",
-                    "paramClass": "StringParam",
-                    "important": false,
-                    "expert": false
-                }
-            ]
-        }
-    ]
-}
-}
-    """

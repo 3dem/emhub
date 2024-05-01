@@ -389,13 +389,16 @@ function createSession(bookingId, totalSessions) {
  function form_create(form, values, elementId, protocol) {
      var formElement = document.getElementById(elementId);
      formElement.innerHTML = '';
+     //formElement.style.backgroundColor = 'red';
 
      var card = document.createElement('div');
      card.className = "card card-primary card-tabs";
+     card.style.borderWidth = "0px";
 
      // Card header
      var cardh = document.createElement('div');
      cardh.className = "card-header p-0 pt-1";
+     cardh.style.borderWidth = "0px";
      var ul = document.createElement('ul');
      ul.id = "dynamic-tab";
      ul.role = "tablist";
@@ -405,10 +408,12 @@ function createSession(bookingId, totalSessions) {
 
      // Card body
      var cardb = document.createElement('div');
-     cardb.className = "card-body";
+     cardb.className = "card-body p-0";
+     cardb.style.borderWidth = "0px";
      var content = document.createElement('div');
      content.id = "dynamic-tabContent";
-     content.className = "tab-content";
+     content.className = "tab-content overflow-auto";
+     content.style.maxHeight = "975px";
      cardb.appendChild(content);
      card.appendChild(cardb);
 
