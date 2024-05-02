@@ -13,7 +13,7 @@ departments, or universities).
 
 Staff users or site admins can define resources that users can book, and there may be an
 associated cost per session. Resources can be instruments, such as microscopes, or staff services
-or anyithing else that requires scheduling.
+or anything else that requires scheduling.
 Users access the resources through the Booking Calendar, using rules defined by the facility.
 Booking rules can be configured by resources and defined for different groups of users in a
 lab or an application.

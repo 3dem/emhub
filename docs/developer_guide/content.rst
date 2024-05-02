@@ -5,7 +5,7 @@ Customizing EMhub
 This section explains how one can modify EMHub pages or add new ones, and
 how to extend the REST API.
 In general, EMHub pages require corresponding "content" functions that prepare the data
-to be presentedi, so these may need to be created or modified in support. Pages are implemented
+to be presented, so these may need to be created or modified in support. Pages are implemented
 as Jinja templates, so it will be necessary to learn at least `some of the basics
 <https://jinja.palletsprojects.com/en/3.1.x/templates/>`_.
 
