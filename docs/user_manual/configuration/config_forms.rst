@@ -282,7 +282,7 @@ Hosts Config Form
 -----------------
 
 This form is used to define a list of worker hosts that are allowed to connect with EMhub.
-An alias should be defined for each hosts. After a worker hosts is connected, it can
+An alias should be defined for each host. After a worker hosts is connected, it can
 notify the host hardware. See below the initial configuration and after workers have
 connected and sent some info.
 

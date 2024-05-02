@@ -2,7 +2,7 @@
 Caching with Redis
 ==================
 
-`Redis <https://redis.io/docs/latest/get-started/>`_ is an in-memory key-value storage
+`Redis <https://redis.io/docs/latest/get-started/>`_ is an in-memory key-value store
 widely used as a cache and message broker with optional durability. In EMhub, we can
 optionally attach a Redis server to improve the performance of certain operations.
 It is crucial when several workers communicate with the EMhub server and the

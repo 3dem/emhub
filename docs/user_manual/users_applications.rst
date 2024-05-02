@@ -99,11 +99,11 @@ The registration process might vary from one place to another.
     Then, the user can follow the link to complete the registration process by setting a
     password and filling in any missing information.
 
-    Additionally, uses can be imported from the Application Portal:
+    Additionally, users can be imported from the Application Portal:
     :ref:`Importing Users at SciLifeLab <scilifelab-users>`.
 
 .. note::
-    At St.Jude, users are registered to enable them in the local database.
+    At St. Jude, users are registered to enable them in the local database.
     After that, they use the institutional authentication (via LDAP config in EMHub).
 
 
@@ -118,7 +118,7 @@ or simply different projects.
 
 .. note::
     At SciLifeLab, applications are used to request access to the facility instruments. Usually, there is one application
-    per university, and an external committee revises it. Once an application is approved, a number of days are assigned for each microscope for the valid period. Applications are also used there for reporting and invoicing.
+    per university, and an external committee reviews it. Once an application is approved, a number of days are assigned for each microscope for the valid period. Applications are also used there for reporting and invoicing.
 
     Applications are created in the Application Portal and imported into EMhub.
 

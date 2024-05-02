@@ -13,7 +13,7 @@ For example, one could use a worker in a machine that has access
 to the image acquisition directory. That worker could get notified (via a task)
 when a new session has started and the associated data folder. From there,
 the worker can handle data transfer and trigger on-the-fly
-processing if required. It can also update back the
+processing if required. It can also update the
 information related to that session, reflecting the progress of the associated
 tasks (e.g., number of files transferred, total size, data processing, etc).
 
@@ -172,4 +172,4 @@ data about the assigned session. It also updates the session info as the tasks a
 processed.
 
 Check the `Sessions Worker <https://github.com/3dem/emhub/blob/devel/emhub/client/session_worker.py>`_ code in Github.
-`
+
