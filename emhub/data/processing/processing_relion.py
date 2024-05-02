@@ -40,7 +40,10 @@ class RelionRun(SessionRun):
             self.job = sf.getTable('job')
             self.values = {row.rlnJobOptionVariable: row.rlnJobOptionValue
                            for row in sf.iterTable('joboptions_values', guessType=False)}
-        self.className = self.job[0].rlnJobTypeLabel.replace('relion.', '')
+        parts = self.job[0].rlnJobTypeLabel.split('.')
+        self.package = parts[0]
+        self.className = parts[1]
+        self.classSuffix = '' if len(parts) < 3 else '.'.join(parts[2:])
 
     def getInfo(self):
         return {'id': self.id, 'className': self.className, 'label': self.id}
@@ -53,9 +56,9 @@ class RelionRun(SessionRun):
                    }
 
         formDef = {
+            'package': 'relion',
             'name': self.className,
             'logo': '',
-            'package': 'relion',
             'sections': []
         }
 
@@ -67,11 +70,12 @@ class RelionRun(SessionRun):
                     paramDef[k] = v
             return paramDef
 
-        if formConf := app.dm.get_config(f"relion.{self.className}"):
+        if formConf := app.dm.get_config(f"{self.package}.{self.className}"):
             for sectionDef in formConf['sections']:
                 for paramDef in sectionDef['params']:
-                    _set_defaults(paramDef)
-                    allParams.add(paramDef['name'])
+                    if 'name' in paramDef:
+                        _set_defaults(paramDef)
+                        allParams.add(paramDef['name'])
                 formDef['sections'].append(sectionDef)
 
         extraParams = []

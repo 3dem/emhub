@@ -308,11 +308,17 @@ function createSession(bookingId, totalSessions) {
     for (var i = 0;  i < params.length; i++) {
         var param = params[i];
         var base_id = param.name;
-        var param_value = (param.name in values) ? values[param.name] : '';
+        var param_value = (base_id in values) ? values[base_id] : '';
 
-        if (param.label) {
-            var row = document.createElement('div');
-            row.className = 'row form-group';
+        var row = document.createElement('div');
+        row.className = 'row form-group';
+        parent.appendChild(row);
+
+        if (!nonEmpty(base_id)){
+            // Empty param is a separator
+            row.className += ' mt-1 mb-1';
+        }
+        else if (param.label) {
 
             if (param.expert == 1) {
                 row.style.backgroundColor = "#E6E6E6";
@@ -321,16 +327,12 @@ function createSession(bookingId, totalSessions) {
             }
 
             row.id = base_id + '-row';
-            parent.appendChild(row);
-
             var label = document.createElement('label');
             label.className = 'col-6 col-form-label text-sm-right text-wrap';
             label.textContent = param.label;
             label.dataset.toggle = "tooltip";
             label.dataset.placement = "top";
             label.title = param.help;
-
-
             row.appendChild(label);
 
             if (param.paramClass === "LabelParam"){
@@ -378,6 +380,9 @@ function createSession(bookingId, totalSessions) {
                     row.appendChild(div);
                 }
             }
+        }
+        else {  // Empty space separator
+
         }
 
     }
