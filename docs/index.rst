@@ -21,7 +21,6 @@ Table of Content
 
     Installation <installation/index>
     User Manual <user_manual/index>
-    Example Instances <instances/index>
     Developer Guide <developer_guide/index>
 
 Screenshots
