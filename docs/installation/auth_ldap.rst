@@ -45,9 +45,9 @@ And in the ``$EMHUB_INSTANCE/config.py`` file:
     LDAP_BIND_USER_DN = 'CN=svcemhubadbind,OU=Service Accounts,OU=SystemUsers,DC=emhub,DC=emh,DC=local'
     # Storing this key here is not secure, but at least it avoids relying
     # on a plaintext password to be recorded on permanent storage
-    __key = b'qjeJ-ccoas-UhpcFzQLcaQEJsdf1qu328wR44npPKVF4rIfrK_l&*='
+    __key = b'YTfK75LhCZJlXkTy8y9so6Mo1-wkm-pofCtFhyc1i1Y='
     # An encrypted version of the bind user's password
-    LDAP_BIND_USER_PASSWORD_ENCRYPTED = b'gAAvvAABfsdkjbr9oIG5687nfsdJb6dtt-S3P_sdQ8OdbYF4rC++7l18D3E9cEtNIk6u-XMCVv_KQfoHWTk5xvCXc48*IAg='
+    LDAP_BIND_USER_PASSWORD_ENCRYPTED = b'gAAAAABmM-vrfi9DNY7x6yekuWzP3D6CWxHljb95C6Pp8bQI0sC9TPDWVU0FgYiLZk9RFy_b1s6R-k0fn_0zztxZZdVzs9CXyw=='
     from cryptography.fernet import Fernet
     LDAP_BIND_USER_PASSWORD = str(Fernet(__key).decrypt(LDAP_BIND_USER_PASSWORD_ENCRYPTED), 'utf-8')
     # A base DN for a node under which all LDAP objects we want to access will
