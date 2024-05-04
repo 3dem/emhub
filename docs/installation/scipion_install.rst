@@ -51,7 +51,7 @@ file: ``SCIPION_FOLDER/config/scipion.conf``.
 After program installation and configuration to be used within Scipion, one
 can run some tests to check if it works. Most of these tests will download
 test data under the folder ``SCIPION_FOLDER/data/tests``. Each test dataset will only
-be downloaded once unless some file changes."
+be downloaded once unless some file changes.
 
 Motioncor
 .........

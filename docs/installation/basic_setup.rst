@@ -33,15 +33,14 @@ Python environment (either venv or conda). For example:
     # Now launch the built-in Flask development server:
     flask run --debug
 
-    # or with gunicorn:
-    gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:5000
-
     # Then launch a web browser at http://127.0.0.1:5000/
     # user: admin, password: admin
 
 
 Environment Variables
 ---------------------
+
+EMHub and its Flask application server host are influenced by these environment variables:
 
 .. csv-table::
    :widths: 10, 50
@@ -173,3 +172,16 @@ If you have already installed the sample EMhub instance and have played with it,
 you might be familiar with its main features. If you want to set up EMhub for
 your center, it is time to check how to
 :any:`configure your own EMhub instance <Setting up Instance Data>`.
+
+Running in Production Mode
+--------------------------
+Flask's built-in development server is tuned and tooled for supporting development of Flask applications such as EMHub.
+It is not well suited for supporting EMHub instances in production mode.  Running Flask inside a more suitable WSGI container will provide a better user experience.
+
+`Gunicorn <https://gunicorn.org/>`_ is one such container that works well with EMHub.  To run EMHub with GUnicorn instead of in Flask's development container, use a command such as this instead of ``flask run``:
+
+.. code-block:: bash
+
+    # or with gunicorn:
+    gunicorn -k gevent --workers=2 'emhub:create_app()' --bind 0.0.0.0:5000
+

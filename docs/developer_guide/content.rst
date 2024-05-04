@@ -2,13 +2,12 @@
 Customizing EMhub
 =================
 
-This section explains how one can modify some pages from EMhub or add new ones.
-For that, it might be required to provide "content" functions that prepare the data
-to be used in the pages (using `Jinja <https://jinja.palletsprojects.com/en/3.1.x/>`_ templates).
-Additionally, the REST API could also be extended.
-
-For modifying existing templates or creating a new one, it might be helpful to learn
-the basics of `Jinja Templates <https://jinja.palletsprojects.com/en/3.1.x/templates/>`_.
+This section explains how one can modify EMHub pages or add new ones, and
+how to extend the REST API.
+In general, EMHub pages require corresponding "content" functions that prepare the data
+to be presented, so these may need to be created or modified in support. Pages are implemented
+as Jinja templates, so it will be necessary to learn at least `some of the basics
+<https://jinja.palletsprojects.com/en/3.1.x/templates/>`_.
 
 In this section, we will use the customization of EMhub for the Single Molecule Imaging
 Center (EMhub-SMIC) at St. Jude as an example.
@@ -19,8 +18,8 @@ Changing Existing Templates
 
 Builtin templates in EMhub are stored in the ``emhub/templates`` directory.
 To modify existing templates, the recommended procedure is to create an ``extra/templates``
-folder inside the ``$EMHUB_INSTANCE`` directory. Some existing template that are likely to
-be redefined are:
+folder inside the ``$EMHUB_INSTANCE`` directory and put the modified template file there.
+Some existing templates that are likely to need redefining are:
 
 .. csv-table::
    :widths: 10, 50

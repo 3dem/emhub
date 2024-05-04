@@ -51,7 +51,7 @@ Importing Users
 ---------------
 
 You might want to import some existing users into EMhub. As an example, let's suppose
-that we have our users information in a CSV file and we want to import them into
+that we have our user information in a CSV file and we want to import them into
 EMhub.
 
 First step is to start the server after creating the instance:

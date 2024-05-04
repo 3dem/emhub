@@ -69,7 +69,7 @@ boxes will be shown, as in the following image.
 
 Creating a new session is commonly linked with some actions from ``Workers`` machines.
 Workers will notice the new session and might perform some required tasks (e.g., folder creation,
-data transfer, etc.). Workers can update back the status of a session that is being monitored.
+data transfer, etc.). Workers can update the status of a session that is being monitored.
 More information about workers can be found here: :ref:`Developing Workers`.
 
 Session Details
