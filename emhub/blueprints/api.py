@@ -606,7 +606,9 @@ def get_session_run():
         results = {}
 
         if 'json' in outputs:
-            results['json'] = {'values': run.getValues(), 'info': run.getInfo()}
+            results['json'] = {'values': run.getValues(),
+                               'info': run.getInfo()}
+            results['json'].update(run.getInputsOutputs())
 
         if 'stdout' in outputs:
             results['stdout'] = _loadFileLines(run.getStdOut())

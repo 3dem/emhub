@@ -115,16 +115,7 @@
                                 <div class="tab-pane fade" id="pills-outputs" role="tabpanel" aria-labelledby="outputs-tab">
 
                                     <div class="card col-12" id="summary_row">
-                                        <div class="card-body">
-                                            <h4>Inputs</h4>
-                                            <ul>
-                                                <li>Input particles</li>
-                                            </ul>
-                                            <h4>Outputs</h4>
-                                            <ul>
-                                                <li>Output Micrographs</li>
-                                            </ul>
-                                        </div>
+
                                     </div>
 
                                 </div>
@@ -202,6 +193,11 @@
               loadRun(['json']);
               loadRun(['stdout']);
               loadRun(['stderr']);
+
+              // Load summary page
+              load_html_from_ajax('summary_row',
+                  get_ajax_content('processing_run_summary',
+                      {runId: nodeId, entry_id: entry_id}));
           }
     }
 
@@ -225,10 +221,10 @@
             //alert(JSON.stringify(data));
             if ('json' in run_data) {
                 runDict = run_data['json']
-                //jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
+                jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
                 if (selected_node.type in forms) {
                     form_data = forms[selected_node.type]
-                    jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
+                    //jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
                 }
                 else
                     loadRun(['form']);
@@ -237,7 +233,7 @@
                 console.log('Got form for type: ' + selected_node.type);
                 form_data = run_data['form'];
                 forms[selected_node.type] = form_data;
-                jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
+                //jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
             }
 
             if (form_data) {

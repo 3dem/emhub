@@ -100,6 +100,15 @@ class RelionRun(SessionRun):
         """ Return run's stdout file. """
         return self.join('run.err')
 
+    def getInputsOutputs(self):
+        with StarFile(self.join('job_pipeline.star')) as sf:
+            inputsTable = sf.getTable('pipeline_input_edges')
+            outputsTable = sf.getTable('pipeline_output_edges')
+            return {
+                'inputs': [row.rlnPipeLineEdgeFromNode for row in inputsTable],
+                'outputs': [row.rlnPipeLineEdgeToNode for row in outputsTable]
+            }
+
 
 class RelionSessionData(SessionData):
     """

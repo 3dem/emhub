@@ -1,0 +1,19 @@
+
+
+<div class="card-body">
+    <h3>{{ run.getInfo()['label'] }}</h3>
+    {% set ios = run.getInputsOutputs() %}
+    <h4>Inputs</h4>
+    <ul>
+        {% for i in ios['inputs'] %}
+            <li>{{ i }}</li>
+        {% endfor %}
+
+    </ul>
+    <h4>Outputs</h4>
+    <ul>
+        {% for o in ios['outputs'] %}
+            <li>{{ o }}</li>
+        {% endfor %}
+    </ul>
+</div>

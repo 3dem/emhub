@@ -191,10 +191,22 @@ def register_content(dc):
         project_path = entry.extra['data']['project_path']
         proc = dc.app.dm.get_processing_project(project_path)
         return {
+            'proc': proc,
             'workflow': proc.get_workflow(),
             'entry_id': entry_id
         }
 
+    @dc.content
+    def processing_run_summary(**kwargs):
+        runId = kwargs['runId']
+
+        data = processing_flowchart(**kwargs)
+        run = data['proc'].get_run(runId)
+        data.update({
+            'run': run,
+            'runId': runId
+        })
+        return data
 
     @dc.content
     def processing_projects_list(**kwargs):
