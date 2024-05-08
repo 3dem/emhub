@@ -35,7 +35,8 @@ def hours(tsFirst, tsLast):
 
 class SessionRun:
     """ Group functions related to a run in a Session. """
-    def __init__(self, path):
+    def __init__(self, project, path):
+        self.project = project
         self._path = path
         self._epuData = None
 

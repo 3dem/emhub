@@ -736,8 +736,17 @@ class DataManager(DbManager):
     def _create_data_instance(self, session, mode):
         return self.get_processing_project(session.data_path)
 
-    def get_processing_project(self, project_path):
-        """ Create a Processing Project instance from this path. """
+    def get_processing_project(self, **kwargs):
+        """ Create a Processing Project instance from a path.
+        If entry_id is provided, we retrieve the path from there.
+        """
+        if 'path' in kwargs:
+            project_path = kwargs['path']
+        else:
+            entry_id = int(kwargs['entry_id'])
+            entry = self.get_entry_by(id=entry_id)
+            project_path = entry.extra['data']['project_path']
+            
         return get_processing_project(project_path)
 
     def clear_session_data(self, **attrs):

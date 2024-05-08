@@ -83,7 +83,8 @@ function create_hc_series(container, data, config) {
                     var micIndex = get_micIndex(this.x);
                     var tooltip = '';
                     if (micIndex > 0) {
-                        tooltip = '<span>' + session_data.gridsquares[micIndex] + '</span><br/><br/>' +
+                        let gs = nonEmpty(session_data) ? session_data.gridsquares[micIndex] : '';
+                        tooltip = '<span>' + gs + '</span><br/><br/>' +
                             '<b>Micrograph ' + (micIndex+1) + '</b><br/>' +
                             mylabel + ": " + data[micIndex][1].toFixed(2) + " " + mysuffix + '<br/>';
                     }
@@ -473,6 +474,8 @@ class MicrographCard {
         this.containerId = containerId;
         this.overlay = new Overlay(this.id('overlay'));
         this.gsCard = gsCard;
+        // Parameters used to load the micrograph data
+        this.params = {micId : null, sessionId: session_id};
         let self = this;
 
         // Bind enter key with micrograph number input
@@ -516,10 +519,12 @@ class MicrographCard {
 
         this.overlay.show("Loading Micrograph " + micId + " ...");
 
+        this.params.micId = micId;
+
         var requestMicThumb = $.ajax({
-            url: urls.get_mic_data,
+            url: Api.urls.get_mic_data,
             type: "POST",
-            data: {micId : micId, sessionId: session_id},
+            data: this.params,
             dataType: "json"
            // contentType: "img/png"
         });
@@ -603,7 +608,7 @@ class GridSquareCard {
         this.overlay.show('Loading ' + gridSquare);
 
         var requestMicImg = $.ajax({
-            url: urls.get_micrograph_gridsquare,
+            url: Api.urls.get_micrograph_gridsquare,
             type: "POST",
             data: attrs,
             dataType: "json"
@@ -639,7 +644,7 @@ function session_getData(attrs) {
     // Update template values
     attrs.session_id = session_id;
     var ajaxContent = $.ajax({
-        url: urls.get_session_data,
+        url: Api.urls.get_session_data,
         type: "POST",
         contentType: 'application/json; charset=utf-8',
         data: JSON.stringify({attrs: attrs}),

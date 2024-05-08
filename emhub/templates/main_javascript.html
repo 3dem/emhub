@@ -127,7 +127,10 @@
             create: "{{ url_for('api.create_puck') }}",
             update: "{{ url_for('api.update_puck') }}",
             delete: "{{ url_for('api.delete_puck') }}"
-        }
+        },
+        get_session_data: "{{ url_for('api.get_session_data') }}",
+        get_mic_data: "{{ url_for('images.get_mic_data') }}",
+        get_micrograph_gridsquare: "{{ url_for('images.get_micrograph_gridsquare') }}"
     };
 
     var application_config = {

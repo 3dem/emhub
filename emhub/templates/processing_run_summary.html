@@ -1,18 +1,33 @@
 
+<div class="card col-12" id="summary-div">
+    <div class="card-body">
+        {% set ios = run.getInputsOutputs() %}
+        <h4>Inputs</h4>
+        <ul>
+            {% for i in ios['inputs'] %}
+                <li>{{ i }}</li>
+            {% endfor %}
 
-<div class="card-body">
-    {% set ios = run.getInputsOutputs() %}
-    <h4>Inputs</h4>
-    <ul>
-        {% for i in ios['inputs'] %}
-            <li>{{ i }}</li>
-        {% endfor %}
+        </ul>
+        <h4>Outputs</h4>
+        <ul>
+            {% for o in ios['outputs'] %}
+                <li>{{ o }}</li>
+            {% endfor %}
+        </ul>
 
-    </ul>
-    <h4>Outputs</h4>
-    <ul>
-        {% for o in ios['outputs'] %}
-            <li>{{ o }}</li>
-        {% endfor %}
-    </ul>
+
+
+    </div>
+
 </div>
+
+{% if template %}
+    <div class="card col-12" id="summary_row">
+        <div class="card-body">
+            {% include template %}
+        </div>
+    </div>
+
+{% endif %}
+

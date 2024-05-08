@@ -33,7 +33,7 @@
     {% include 'include_header.html' %}
 
     <div class="card h-100">
-        <div class="card-body">
+        <div class="card-body"  style="height: auto">
             <div class="row p-0">
                 <div class="col-6">
 
@@ -82,8 +82,11 @@
 
                         <div class="row col-12">
                             <img src="" id="logo-img" class="col-2">
-                            <h3 id="logo-label" class="col-4"></h3>
-                            <h5 id="logo-label-extra" class="col-4"></h5>
+                            <div class="row col-8">
+                                <h3 id="logo-label" class="mr-3"></h3>
+                                <h5 id="logo-label-extra" style="color: gray"></h5>
+                            </div>
+
                         </div>
 
                         <div class="pills-outline">
@@ -108,16 +111,14 @@
 
                                 <div class="tab-pane fade" id="pills-outputs" role="tabpanel" aria-labelledby="outputs-tab">
 
-                                    <div class="card col-12" id="summary_row">
-
+                                    <div class="m-0 p-0" id="summary_row">
+                                        <!-- HTML content will be request via AJAX and loaded here -->
                                     </div>
+
 
                                 </div>
                             </div>
                         </div>
-
-
-
                 </div>
 
             </div>
@@ -132,6 +133,7 @@
     var workflow = {{ workflow|tojson }};
 
     var entry_id = {{ entry_id|tojson }};
+    var session_id = null;
 
     var stdoutEditor, stderrEditor, jsonEditor;
     var display_expert = 'none';
@@ -233,7 +235,7 @@
             if (form_data) {
                 let info = runDict.info;
                 $('#logo-label').text(form_data.package + ' - ' + form_data.name);
-                $('#logo-label-extra').text(info.name);
+                $('#logo-label-extra').text('(' + info.name + ')');
                 $('#logo-img').attr('src', 'data:image/png;base64,' + form_data.logo);
                 $('#logo-img').css('display', form_data.logo ? 'flex': 'none');
 

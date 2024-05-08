@@ -67,19 +67,31 @@ def user_profile():
 
 @images_bp.route("/get_mic_data", methods=['POST'])
 def get_mic_data():
+    """ Load micrograph data from a given micId.
+    There are two ways where to retrieve micrograph data:
+    1) From a session, where info from multiple runs.
+        Input: micId, sessionId
+    2) From a project, where info is taken from a run.
+        Input: micId, projectId, runId
+    """
+    dm = app.dm
     micId = int(request.form['micId'])
-    sessionId = int(request.form['sessionId'])
-    session = app.dm.load_session(sessionId)
 
-    mic = session.data.get_micrograph_data(micId)
+    if 'sessionId' in request.form:
+        sessionId = int(request.form['sessionId'])
+        session = dm.load_session(sessionId)
+        mic = session.data.get_micrograph_data(micId)
+        session.data.close()
+    else:
+        proc = dm.get_processing_project(entry_id=request.form['entry_id'])
+        run = proc.get_run(request.form['runId'])
+        mic = run.get_micrograph_data(micId)
 
     if 'coordinates' in mic:
         if not isinstance(mic['coordinates'], list):  # numpy arrays
             mic['coordinates'] = mic['coordinates'].tolist()
     else:
         mic['coordinates'] = []
-
-    session.data.close()
 
     return send_json_data(mic)
 

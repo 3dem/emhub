@@ -309,16 +309,10 @@
     var overlay_2d, plot_overlay = null;
     var gs_card, mic_card = null;
 
-
     var session_plots = null;
     var session_data = null;
     var session_timespan = {};
     var session_id = "{{ session['id']}}";
-    var urls = {
-        get_session_data: "{{ url_for('api.get_session_data') }}",
-        get_mic_data: "{{ url_for('images.get_mic_data') }}",
-        get_micrograph_gridsquare: "{{ url_for('images.get_micrograph_gridsquare') }}"
-    };
 
     function showPlotImported() {
         var ajaxContent = get_ajax_content('session_hourly_plots', {session_id: session_id, plot: 'imported'});

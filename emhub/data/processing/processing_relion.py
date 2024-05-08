@@ -32,9 +32,8 @@ from .base import SessionRun, SessionData, hours
 
 class RelionRun(SessionRun):
     """ Helper class to manipulate Relion run data. """
-    def __init__(self, path):
-        print(f"RelionRun: {path}")
-        SessionRun.__init__(self, path)
+    def __init__(self, project, path):
+        SessionRun.__init__(self, project, path)
         d, self.id = os.path.split(Path.rmslash(path))
         with StarFile(self.join('job.star')) as sf:
             self.job = sf.getTable('job')
@@ -115,6 +114,74 @@ class RelionRun(SessionRun):
                 'inputs': [row.rlnPipeLineEdgeFromNode for row in inputsTable],
                 'outputs': [row.rlnPipeLineEdgeToNode for row in outputsTable]
             }
+
+    def getSummary(self):
+        summary = {'template': '', 'data': {}}
+
+        if self.className == 'ctffind':
+            summary['template'] = 'processing_ctf_summary.html'
+            data_values = {
+                'rlnDefocusU': {
+                    'label': 'Defocus U',
+                    'scale': 0.0001,
+                    'unit': 'µm',
+                    'color': '#852999',
+                    'data': []
+                },
+                'rlnDefocusV': {
+                    'label': 'Defocus V',
+                    'scale': 0.0001,
+                    'unit': 'µm',
+                    'color': '#852999',
+                    'data': []
+                },
+                'rlnCtfFigureOfMerit': {
+                    'data': []
+                },
+                'rlnCtfMaxResolution': {
+                    'color': '#EF9A53',
+                    'label': 'Resolution',
+                    'unit': 'Å',
+                    'data': []
+                }
+            }
+            with StarFile(self.join('micrographs_ctf.star')) as sf:
+                for row in sf.iterTable('micrographs'):
+                    rowDict = row._asdict()
+                    for k, v in data_values.items():
+                        scale = v.get('scale', 1)
+                        v['data'].append(rowDict[k] * scale)
+            summary['data'] = {'data_values': data_values}
+
+        return summary
+
+    def get_micrograph_data(self, micId):
+        if self.className == 'ctffind':
+            with StarFile(self.join('micrographs_ctf.star')) as sf:
+                otable = sf.getTable('optics')
+                row = sf.getTableRow('micrographs', micId - 1)
+                micThumb = Thumbnail.Micrograph()
+                psdThumb = Thumbnail.Psd()
+                micFn = self.project.join(row.rlnMicrographName)
+                micThumbBase64 = micThumb.from_mrc(micFn)
+                psdFn = self.project.join(row.rlnCtfImage).replace(':mrc', '')
+                pixelSize = otable[0].rlnMicrographPixelSize
+
+                data = {
+                    'micThumbData': micThumbBase64,
+                    'psdData': psdThumb.from_mrc(psdFn),
+                    'ctfDefocusU': round(row.rlnDefocusU/10000., 2),
+                    'ctfDefocusV': round(row.rlnDefocusV/10000., 2),
+                    'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
+                    'ctfAstigmatism': round(row.rlnCtfAstigmatism/10000, 2),
+                    'ctfResolution': round(row.rlnCtfMaxResolution, 2),
+                    'coordinates': [],  # Check for picking
+                    'micThumbPixelSize': pixelSize * micThumb.scale,
+                    'pixelSize': pixelSize,
+                    'gridSquare': '',
+                    'foilHole': ''
+                }
+        return data
 
 
 class RelionSessionData(SessionData):
@@ -308,7 +375,7 @@ class RelionSessionData(SessionData):
         return protList
 
     def get_run(self, runId):
-        return RelionRun(self.join(runId))
+        return RelionRun(self, self.join(runId))
 
     def get_classes2d_runs(self):
         return [r.replace(self._path, '')[1:] for r in self._jobs('Class2D')]

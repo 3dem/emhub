@@ -187,9 +187,7 @@ def register_content(dc):
     def processing_flowchart(**kwargs):
         dm = dc.app.dm
         entry_id = int(kwargs['entry_id'])
-        entry = dm.get_entry_by(id=entry_id)
-        project_path = entry.extra['data']['project_path']
-        proc = dc.app.dm.get_processing_project(project_path)
+        proc = dm.get_processing_project(entry_id=entry_id)
         return {
             'proc': proc,
             'workflow': proc.get_workflow(),
@@ -199,13 +197,15 @@ def register_content(dc):
     @dc.content
     def processing_run_summary(**kwargs):
         runId = kwargs['runId']
-
         data = processing_flowchart(**kwargs)
         run = data['proc'].get_run(runId)
+        summary = run.getSummary()
         data.update({
             'run': run,
-            'runId': runId
+            'runId': runId,
+            'template': summary['template'],
         })
+        data.update(summary['data'])
         return data
 
     @dc.content

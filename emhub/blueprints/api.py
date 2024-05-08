@@ -595,11 +595,9 @@ def get_session_run():
             session = dm.load_session(attrs['sessionId'])
             proc = session.data
         elif 'entry_id' in attrs:
-            entry = dm.get_entry_by(id=int(attrs['entry_id']))
-            project_path = entry.extra['data']['project_path']
-            proc = dm.get_processing_project(project_path)
+            proc = dm.get_processing_project(entry_id=attrs['entry_id'])
         else:
-            raise Exception('Expectin either sessionId or project_path')
+            raise Exception('Expecting either sessionId or project_path')
 
         run = proc.get_run(attrs['runId'])
         outputs = attrs.get('output', ['json'])
