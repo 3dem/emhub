@@ -75,13 +75,16 @@
                                 </div>
                             </div>
                         </div>
-
-
-
                     </div>
                 </div>
 
                 <div id="run_panel" class="col-6"  style="height: 400px">
+
+                        <div class="row col-12">
+                            <img src="" id="logo-img" class="col-2">
+                            <h3 id="logo-label" class="col-4"></h3>
+                            <h5 id="logo-label-extra" class="col-4"></h5>
+                        </div>
 
                         <div class="pills-outline">
                             <ul class="nav nav-pills mb-2" id="run_tab" role="tablist">
@@ -97,15 +100,6 @@
                                 <div class="tab-pane fade show active" id="pills-params" role="tabpanel" aria-labelledby="params-tab">
 
                                     <div class="col-12 p-0 m-0" id="run_row">
-                                        <div class="row col-12">
-                                            <img src="" id="logo-img" class="col-2">
-                                            <h4 id="logo-label"></h4>
-                                        </div>
-
-{#                                        <div id="run_general_container" class="col-12">#}
-{#                                         {% include "session_flowchart_form.html" %}#}
-{#                                        </div>#}
-
                                         <div id="run_form_container" class="col-12 m-0 p-0">
                                         </div>
                                     </div>
@@ -237,20 +231,22 @@
             }
 
             if (form_data) {
+                let info = runDict.info;
                 $('#logo-label').text(form_data.package + ' - ' + form_data.name);
+                $('#logo-label-extra').text(info.name);
                 $('#logo-img').attr('src', 'data:image/png;base64,' + form_data.logo);
                 $('#logo-img').css('display', form_data.logo ? 'flex': 'none');
 
                 let values = runDict.values;
 
-                if ('gpusToUse' in values)
-                    $('#gpuList').val(values.gpusToUse);
-                else
-                    $('#gpuList').val(values.gpuList);
-
-                $('#runLabel').val(runDict.info.label);
-                $('#numberOfThreads').val(values.numberOfThreads);
-                $('#numberOfMpi').val(values.numberOfMpi);
+                {#if ('gpusToUse' in values)#}
+                {#    $('#gpuList').val(values.gpusToUse);#}
+                {#else#}
+                {#    $('#gpuList').val(values.gpuList);#}
+                {##}
+                {#$('#runLabel').val(runDict.info.label);#}
+                {#$('#numberOfThreads').val(values.numberOfThreads);#}
+                {#$('#numberOfMpi').val(values.numberOfMpi);#}
 
                 form_create(form_data, values, 'run_form_container');
                 //jsonEditor.setValue(JSON.stringify(form_data, null, 4));

@@ -45,8 +45,15 @@ class RelionRun(SessionRun):
         self.className = parts[1]
         self.classSuffix = '' if len(parts) < 3 else '.'.join(parts[2:])
 
+        with StarFile(self.join('job_pipeline.star')) as sf:
+            t = sf.getTable('pipeline_processes')
+            row = t[0]
+            self.name = row.rlnPipeLineProcessName
+            self.alias = row.rlnPipeLineProcessAlias
+
     def getInfo(self):
-        return {'id': self.id, 'className': self.className, 'label': self.id}
+        return {'id': self.id, 'className': self.className, 'label': self.id,
+                'name': self.name, 'alias': self.alias}
 
     def getFormDefinition(self):
         default = {'valueClass': 'String',
