@@ -622,6 +622,16 @@ def get_session_run():
     return _handle_item(_get_run, 'run')
 
 
+@api_bp.route("/get_classes2d", methods=['POST'])
+def get_classes2d():
+    """ Load 2d classification data. """
+    proc = app.dm.get_processing_project(entry_id=request.form['entry_id'])
+    run = proc.get_run(request.form['runId'])
+    classes = run.get_classes2d(iteration=request.form.get('iteration', None))
+
+    return send_json_data(classes)
+
+
 def get_worker_token(worker):
     print(f"app.config['SECRET_KEY'] = {app.config['SECRET_KEY']}, type: {type(app.config['SECRET_KEY'])}")
     return jwt.encode(

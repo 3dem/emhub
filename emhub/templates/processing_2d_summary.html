@@ -1,0 +1,171 @@
+{% import "entry_macros.html" as macros %}
+
+<!-- 2D classes Card -->
+<div class="col-12 m-0 p-0" id="classes2d_plot">
+    <h5 class="card-header-title ml-3">Classes 2D</h5>
+    {{ macros.overlay('overlay_classes2d') }}
+    <div class="row col-12">
+        <div class="row col-6 overflow-auto m-0 p-0" id="classes2d_container" style="max-height: 600px;"></div>
+        <div class="col-6">
+            <div id="distr-iter-plot"></div>
+            <div id="distr-overall-plot"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var iterations = {{ data_values['iterations']|tojson }};
+    var classes2d = null;
+    var attrs = {
+        entry_id: {{ entry_id|tojson }},
+        runId: {{ runId|tojson }}
+    };
+
+    var overlay_2d = null;
+
+    function load_classes2d(){
+        overlay_2d.show("Loading Class2D, run " + attrs.runId);
+        // Update template values
+        var ajaxContent = $.ajax({
+            url: Api.urls.get_classes2d,
+            type: "POST",
+            //contentType: 'application/json; charset=utf-8',
+            data: attrs,
+            dataType: "json"
+        });
+
+        ajaxContent.done(
+            function (jsonResponse) {
+                if ('error' in jsonResponse) {
+                    showError(jsonResponse.error);
+                } else {
+                    classes2d = jsonResponse;
+                    var n = 0;
+                    for (i = 0; i < classes2d.length; i++)
+                        n += classes2d[i].size;
+
+                    var header = '<label>Total: <strong>' + classes2d.length + '</strong> classes from ';
+                    header += '<strong>' + n + '</strong> particles';
+                    drawClasses2d('classes2d_container', jsonResponse, header, false);
+                    plot_distribution_iter();
+                    overlay_2d.hide();
+                }
+            });
+    }
+
+    function plot_distribution_overall(){
+        Highcharts.chart('distr-overall-plot', {
+    chart: {
+        type: 'area'
+    },
+    title: {
+        useHTML: true,
+        text: 'Particles distribution (Over all iterations)'
+        //align: 'left'
+    },
+    subtitle: {
+        text: 'Source: ' +
+            '<a href="https://energiogklima.no/klimavakten/land-med-hoyest-utslipp/"' +
+            'target="_blank">Energi og Klima</a>',
+        align: 'left'
+    },
+    accessibility: {
+        point: {
+            valueDescriptionFormat: '{index}. {point.category}, {point.y:,.1f} billions, {point.percentage:.1f}%.'
+        }
+    },
+    yAxis: {
+        labels: {
+            format: '{value}%'
+        },
+        title: {
+            enabled: false
+        }
+    },
+    tooltip: {
+        pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.percentage:.1f}%</b> ({point.y:,.1f} billion Gt)<br/>',
+        split: false
+    },
+    plotOptions: {
+        series: {
+            pointStart: 1990
+        },
+        area: {
+            stacking: 'percent',
+            marker: {
+                enabled: false
+            }
+        }
+    },
+    credits: {enabled: false},
+    series: [{
+        name: 'China',
+        data: [2.5, 2.6, 2.7, 2.9, 3.1, 3.4, 3.5, 3.5, 3.4, 3.4, 3.4,
+            3.5, 3.9, 4.5, 5.2, 5.9, 6.5, 7, 7.5, 7.9, 8.6, 9.5, 9.8,
+            10, 10, 9.8, 9.7, 9.9, 10.3, 10.5, 10.7, 10.9
+        ]
+    }, {
+        name: 'USA',
+        data: [5.1, 5.1, 5.2, 5.3, 5.4, 5.4, 5.6, 5.7, 5.7, 5.8, 6, 5.9,
+            5.9, 6, 6.1, 6.1, 6.1, 6.1, 5.9, 5.5, 5.7, 5.5, 5.3, 5.5,
+            5.5, 5.4, 5.2, 5.2, 5.4, 5.3, 4.7, 5
+        ]
+    }, {
+        name: 'EU',
+        data: [3.9, 3.8, 3.7, 3.6, 3.6, 3.6, 3.7, 3.7, 3.6, 3.6, 3.6, 3.7,
+            3.7, 3.7, 3.8, 3.7, 3.7, 3.7, 3.6, 3.3, 3.4, 3.3, 3.3, 3.2, 3,
+            3.1, 3.1, 3.1, 3, 2.9, 2.6, 2.7]
+    }, {
+        name: 'India',
+        data: [0.6, 0.6, 0.7, 0.7, 0.7, 0.8, 0.8, 0.9, 0.9, 1, 1, 1,
+            1, 1.1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2, 2,
+            2.2, 2.3, 2.4, 2.4, 2.6, 2.6, 2.4, 2.7]
+    }]
+});
+
+    }
+
+    function plot_distribution_iter() {
+        var data = [];
+
+        for (i = 0; i < classes2d.length; i++)
+            data.push([classes2d[i].id, classes2d[i].size]);
+
+        Highcharts.chart('distr-iter-plot', {
+            chart: {
+                type: 'column'
+            },
+            title: {text: 'Particles Distribution (Iter x)'},
+            xAxis: {
+                type: 'category',
+                labels: {enabled: false},
+            },
+            yAxis: {
+                min: 0,
+                title: {text: 'Number of Particles'}
+            },
+            legend: {enabled: false},
+            tooltip: {
+                pointFormat: 'Particles: <b>{point.y}</b>'
+            },
+            credits: {enabled: false},
+            series: [{
+                name: 'Population',
+                groupPadding: 0,
+                data: data
+            }]
+        }); // End of chart
+    }
+
+    //------------ MAIN function after load --------------
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        $('.selectpicker').selectpicker();
+        overlay_2d = new Overlay('overlay_classes2d');
+
+        load_classes2d();
+        plot_distribution_overall();
+});
+})(window, document, window.jQuery);
+</script>

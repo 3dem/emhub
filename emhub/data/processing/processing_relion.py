@@ -181,6 +181,10 @@ class RelionRun(SessionRun):
                     pts.append(n)
                     fom.append(fomSum / n)
 
+        elif self.className == 'class2d':
+            summary['template'] = 'processing_2d_summary.html'
+            data_values = {'iterations': [1, 2, 3]}
+
         if data_values:
             summary['data'] = {'data_values': data_values}
 
@@ -227,6 +231,45 @@ class RelionRun(SessionRun):
                     break
 
         return data
+
+    def get_classes2d(self, iteration=None):
+        """ Get classes information from a class 2d run. """
+        items = []
+
+        if iteration:
+            avgMrcs = self.join('*_it%03d_classes.mrcs' % iteration)
+        else:
+            avgMrcs = self.join('*_it*_classes.mrcs')
+
+        if files := glob(avgMrcs):
+            files.sort()
+            avgMrcs = files[-1]
+            dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
+            modelStar = dataStar.replace('_data.', '_model.')
+
+            mrc_stack = None
+            avgThumb = Thumbnail(max_size=(100, 100),
+                                 output_format='base64')
+
+            with StarFile(dataStar) as sf:
+                n = sf.getTableSize('particles')
+
+            with StarFile(modelStar) as sf:
+                modelTable = sf.getTable('model_classes', guessType=False)
+
+                for row in modelTable:
+                    i, fn = row.rlnReferenceImage.split('@')
+                    if not mrc_stack:
+                        mrc_stack = mrcfile.open(avgMrcs, permissive=True)
+                    items.append({
+                        'id': '%03d' % int(i),
+                        'size': round(float(row.rlnClassDistribution) * n),
+                        'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
+                    })
+            items.sort(key=lambda c: c['size'], reverse=True)
+            mrc_stack.close()
+
+        return items
 
 
 class RelionSessionData(SessionData):
@@ -345,42 +388,6 @@ class RelionSessionData(SessionData):
                 }
         return data
 
-    @staticmethod
-    def get_classes2d_from_run(runFolder):
-        """ Get classes information from a class 2d run. """
-        items = []
-        if runFolder:
-            avgMrcs = os.path.join(runFolder, '*_it*_classes.mrcs')
-            files = glob(avgMrcs)
-            files.sort()
-            avgMrcs = files[-1]
-            dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
-            modelStar = dataStar.replace('_data.', '_model.')
-
-            mrc_stack = None
-            avgThumb = Thumbnail(max_size=(100, 100),
-                                 output_format='base64')
-
-            with StarFile(dataStar) as sf:
-                n = sf.getTableSize('particles')
-
-            with StarFile(modelStar) as sf:
-                modelTable = sf.getTable('model_classes', guessType=False)
-
-                for row in modelTable:
-                    i, fn = row.rlnReferenceImage.split('@')
-                    if not mrc_stack:
-                        mrc_stack = mrcfile.open(avgMrcs, permissive=True)
-                    items.append({
-                        'id': '%03d' % int(i),
-                        'size': round(float(row.rlnClassDistribution) * n),
-                        'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
-                    })
-            items.sort(key=lambda c: c['size'], reverse=True)
-            mrc_stack.close()
-
-        return items
-
     def get_workflow(self):
         protList = []
         protDict = {}
@@ -428,12 +435,12 @@ class RelionSessionData(SessionData):
     def get_classes2d_runs(self):
         return [r.replace(self._path, '')[1:] for r in self._jobs('Class2D')]
 
-    def get_classes2d(self, runId=None):
+    def get_classes2d_from_run(self, runId=None):
         """ Iterate over 2D classes. """
         runs2d = self.get_classes2d_runs()
         return {
             'runs': [{'id': i, 'label': r} for i, r in enumerate(runs2d)],
-            'items': [] if runId is None else self.get_classes2d_from_run(self.join(runs2d[runId])),
+            'items': [] if runId is None else self.get_classes2d(self.join(runs2d[runId])),
             'selection': []
         }
 
