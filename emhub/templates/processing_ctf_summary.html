@@ -1,0 +1,97 @@
+
+
+<div class="row">
+
+    <div class="row col-12">
+        <h4 class="mt-1 mr-2">Plot Label </h4>
+        <select id="plot-label-select" class="selectpicker" onchange="change_plots()">
+            {% for s in data_values %}
+                <option value="{{ s }}">{{ s }} </option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-sm btn-outline-light" onclick="javascript:show_height()"><i class="far fa-edit"></i>Show Height</button>
+    </div>
+
+
+    <div id="defocus_plot" class="col-12" style="height: 300px"></div>
+
+    <div id="defocus_hist" class="col-4"></div>
+
+    <div class="col-8">
+        <!-- Div for Micrograph -->
+        {% set card_id = 'mic_card' %}
+        {% include 'micrograph_card_side.html' %}
+    </div>
+
+
+</div>
+
+<script>
+    var data_values = {{ data_values|tojson }};
+    var session_data = null;  // Needed for plots tooltips
+    var mic_card = null;
+    var micrograph = null;
+
+    function prepare_data(input_data){
+        var data = [];
+        var ts = new Date().getTime();
+        for (var i = 0; i < input_data.length; ++i) {
+            data.push([ts, input_data[i]]);
+            ts += 10000;
+        }
+        return data
+    }
+
+    function create_plots(data_label){
+        let entry = data_values[data_label];
+        let input_data = entry.data;
+
+        // Create data series
+        var config = {
+            color: getObjectValue(entry, 'color', '#000000'),
+            label: getObjectValue(entry, 'label', data_label),
+            suffix: getObjectValue(entry, 'unit', ''),
+            minY: Math.min(...input_data) * 0.9,
+            maxY: Math.max(...input_data) * 1.1,
+            gsLines: []
+        }
+        create_hc_series('defocus_plot', prepare_data(input_data), config);
+
+        // Update config for histogram
+        config.maxX = Math.min(Math.max(...input_data), 4)
+        config.binsNumber = 10;
+        config.percent = 100;
+        create_hc_histogram('defocus_hist', input_data, config);
+    }
+
+    function change_plots(){
+        let label = $('#plot-label-select').selectpicker('val');
+        create_plots(label);
+    }
+
+
+    function show_height(){
+        let h = $("#summary-div").height();
+        alert('Summary height: ' + h + '  row: ' + $("#summary_row").height());
+
+    }
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        $('.selectpicker').selectpicker();
+
+        create_plots('rlnDefocusU')
+
+        mic_card = new MicrographCard('mic_card');
+        mic_card.params = {
+            micId: null,
+            runId: {{runId|tojson}},
+            entry_id: {{ entry_id|tojson }}};
+
+        mic_card.loadMicData(1);
+        show_height();
+
+});
+})(window, document, window.jQuery);
+</script>
