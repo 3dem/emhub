@@ -9,7 +9,7 @@
                 <option value="{{ s }}">{{ s }} </option>
             {% endfor %}
         </select>
-        <button class="btn btn-sm btn-outline-light" onclick="javascript:show_height()"><i class="far fa-edit"></i>Show Height</button>
+{#        <button class="btn btn-sm btn-outline-light" onclick="javascript:show_height()"><i class="far fa-edit"></i>Show Height</button>#}
     </div>
 
 
@@ -58,7 +58,7 @@
         create_hc_series('defocus_plot', prepare_data(input_data), config);
 
         // Update config for histogram
-        config.maxX = Math.min(Math.max(...input_data), 4)
+        config.maxX = Math.min(Math.max(...input_data), getObjectValue(entry, 'maxX', Infinity));
         config.binsNumber = 10;
         config.percent = 100;
         create_hc_histogram('defocus_hist', input_data, config);
@@ -69,7 +69,7 @@
         create_plots(label);
     }
 
-
+    /* TODO: Investigating height overflow with dynamic content */
     function show_height(){
         let h = $("#summary-div").height();
         alert('Summary height: ' + h + '  row: ' + $("#summary_row").height());
@@ -81,7 +81,8 @@
     $(function() {
         $('.selectpicker').selectpicker();
 
-        create_plots('rlnDefocusU')
+        //create_plots(firstLabel);
+        change_plots();  // trigger plots generation with first label
 
         mic_card = new MicrographCard('mic_card');
         mic_card.params = {
@@ -90,7 +91,6 @@
             entry_id: {{ entry_id|tojson }}};
 
         mic_card.loadMicData(1);
-        show_height();
 
 });
 })(window, document, window.jQuery);

@@ -117,6 +117,7 @@ class RelionRun(SessionRun):
 
     def getSummary(self):
         summary = {'template': '', 'data': {}}
+        data_values = None
 
         if self.className == 'ctffind':
             summary['template'] = 'processing_ctf_summary.html'
@@ -126,6 +127,7 @@ class RelionRun(SessionRun):
                     'scale': 0.0001,
                     'unit': 'µm',
                     'color': '#852999',
+                    'maxX': 4,
                     'data': []
                 },
                 'rlnDefocusV': {
@@ -133,6 +135,7 @@ class RelionRun(SessionRun):
                     'scale': 0.0001,
                     'unit': 'µm',
                     'color': '#852999',
+                    'maxX': 4,
                     'data': []
                 },
                 'rlnCtfFigureOfMerit': {
@@ -151,36 +154,78 @@ class RelionRun(SessionRun):
                     for k, v in data_values.items():
                         scale = v.get('scale', 1)
                         v['data'].append(rowDict[k] * scale)
+
+        elif self.className == 'autopick':
+            summary['template'] = 'processing_picking_summary.html'
+            data_values = {
+                'numberOfParticles': {
+                    'label': 'Particles',
+                    'color': '#852999',
+                    'data': []
+                },
+                'averageFOM': {
+                    'data': []
+                }
+            }
+            # TODO: Write this info in a star file to avoid recalculating all the time
+            pts = data_values['numberOfParticles']['data']
+            fom = data_values['averageFOM']['data']
+            with StarFile(self.join('autopick.star')) as sfCoords:
+                for row1 in sfCoords.iterTable('coordinate_files'):
+                    n = 0
+                    fomSum = 0
+                    with StarFile(self.project.join(row1.rlnMicrographCoordinates)) as sf:
+                        for row in sf.iterTable(''):
+                            n += 1
+                            fomSum += row.rlnAutopickFigureOfMerit
+                    pts.append(n)
+                    fom.append(fomSum / n)
+
+        if data_values:
             summary['data'] = {'data_values': data_values}
 
         return summary
 
-    def get_micrograph_data(self, micId):
-        if self.className == 'ctffind':
-            with StarFile(self.join('micrographs_ctf.star')) as sf:
-                otable = sf.getTable('optics')
-                row = sf.getTableRow('micrographs', micId - 1)
-                micThumb = Thumbnail.Micrograph()
-                psdThumb = Thumbnail.Psd()
-                micFn = self.project.join(row.rlnMicrographName)
-                micThumbBase64 = micThumb.from_mrc(micFn)
-                psdFn = self.project.join(row.rlnCtfImage).replace(':mrc', '')
-                pixelSize = otable[0].rlnMicrographPixelSize
+    def _load_micrograph_data(self, micId, micsStar):
+        with StarFile(micsStar) as sf:
+            otable = sf.getTable('optics')
+            row = sf.getTableRow('micrographs', micId - 1)
+            micThumb = Thumbnail.Micrograph()
+            psdThumb = Thumbnail.Psd()
+            micFn = self.project.join(row.rlnMicrographName)
+            micThumbBase64 = micThumb.from_mrc(micFn)
+            psdFn = self.project.join(row.rlnCtfImage).replace(':mrc', '')
+            pixelSize = otable[0].rlnMicrographPixelSize
 
-                data = {
-                    'micThumbData': micThumbBase64,
-                    'psdData': psdThumb.from_mrc(psdFn),
-                    'ctfDefocusU': round(row.rlnDefocusU/10000., 2),
-                    'ctfDefocusV': round(row.rlnDefocusV/10000., 2),
-                    'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
-                    'ctfAstigmatism': round(row.rlnCtfAstigmatism/10000, 2),
-                    'ctfResolution': round(row.rlnCtfMaxResolution, 2),
-                    'coordinates': [],  # Check for picking
-                    'micThumbPixelSize': pixelSize * micThumb.scale,
-                    'pixelSize': pixelSize,
-                    'gridSquare': '',
-                    'foilHole': ''
-                }
+            return {
+                'micThumbData': micThumbBase64,
+                'psdData': psdThumb.from_mrc(psdFn),
+                'ctfDefocusU': round(row.rlnDefocusU / 10000., 2),
+                'ctfDefocusV': round(row.rlnDefocusV / 10000., 2),
+                'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
+                'ctfAstigmatism': round(row.rlnCtfAstigmatism / 10000, 2),
+                'ctfResolution': round(row.rlnCtfMaxResolution, 2),
+                'coordinates': [],  # Check for picking
+                'micThumbPixelSize': pixelSize * micThumb.scale,
+                'pixelSize': pixelSize,
+                'gridSquare': '',
+                'foilHole': ''
+            }
+
+    def get_micrograph_data(self, micId):
+        data = {}
+        micsStar = None
+
+        if self.className == 'ctffind':
+            data = self._load_micrograph_data(micId, self.join('micrographs_ctf.star'))
+        elif self.className == 'autopick':
+            for i in self.getInputsOutputs()['inputs']:
+                if i.endswith('micrographs_ctf.star'):
+                    data = self._load_micrograph_data(micId, self.project.join(i))
+                    data['coordinates'] = self.project.get_micrograph_coordinates(
+                        self.join('autopick.star'), micId)
+                    break
+
         return data
 
 
@@ -278,7 +323,10 @@ class RelionSessionData(SessionData):
 
                 loc = EPU.get_movie_location(micFn)
 
-                coords = self.get_micrograph_coordinates(row.rlnMicrographName)
+                if pickStar := self.get_last_star('*Pick', '*pick.star'):
+                    coords = self.get_micrograph_coordinates(pickStar, micId)
+                else:
+                    coords = []
 
                 data = {
                     'micThumbData': micThumbBase64,
@@ -401,12 +449,11 @@ class RelionSessionData(SessionData):
                                round(row.rlnCoordinateY)))
         return coords
 
-    def get_micrograph_coordinates(self, micFn):
-        if pickStar := self.get_last_star('*Pick', '*pick.star'):
-            with StarFile(self.join(pickStar)) as sf:
-                for row in sf.iterTable('coordinate_files'):
-                    if micFn in row.rlnMicrographName:
-                        return self.get_coords_from_star(row.rlnMicrographCoordinates)
+    def get_micrograph_coordinates(self, pickStar, micId):
+        with StarFile(self.join(pickStar)) as sf:
+            for i, row in enumerate(sf.iterTable('coordinate_files')):
+                if i == micId:
+                    return self.get_coords_from_star(row.rlnMicrographCoordinates)
         return []
 
     # ----------------------- UTILS ---------------------------
