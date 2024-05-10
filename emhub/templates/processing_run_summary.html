@@ -1,20 +1,25 @@
 
 <div class="card col-12" id="summary-div">
-    <div class="card-body">
+    <div class="card-body m-0 p-0">
         {% set ios = run.getInputsOutputs() %}
-        <h4>Inputs</h4>
-        <ul>
-            {% for i in ios['inputs'] %}
-                <li>{{ i }}</li>
-            {% endfor %}
-
-        </ul>
-        <h4>Outputs</h4>
-        <ul>
-            {% for o in ios['outputs'] %}
-                <li>{{ o }}</li>
-            {% endfor %}
-        </ul>
+        <div class="row mt-2">
+            <div class="col-6">
+                <h4>Inputs</h4>
+                <ul>
+                    {% for i in ios['inputs'] %}
+                        <li>{{ i }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-6">
+                <h4>Outputs</h4>
+                <ul>
+                    {% for o in ios['outputs'] %}
+                        <li>{{ o }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
 
 
 
@@ -23,7 +28,7 @@
 </div>
 
 {% if template %}
-    <div class="card col-12 overflow-auto p-0 m-0" id="summary_row"  style="max-height: 778px">
+    <div class="card col-12 overflow-auto p-0 m-0" id="summary_row"  style="max-height: 880px">
         <div class="card-body">
             {% include template %}
         </div>
