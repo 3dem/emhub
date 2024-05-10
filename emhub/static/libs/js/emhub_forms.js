@@ -418,7 +418,7 @@ function createSession(bookingId, totalSessions) {
      var content = document.createElement('div');
      content.id = "dynamic-tabContent";
      content.className = "tab-content overflow-auto";
-     content.style.maxHeight = "975px";
+     content.style.maxHeight = "980px";
      cardb.appendChild(content);
      card.appendChild(cardb);
 

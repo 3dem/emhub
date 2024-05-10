@@ -33,14 +33,14 @@
     {% include 'include_header.html' %}
 
     <div class="card h-100">
-        <div class="card-body"  style="height: auto">
+        <div class="card-body">
             <div class="row p-0">
                 <div class="col-6">
 
                     <div id="session_flowchart" class="col-12 workflow-canvas">
                     </div>
 
-                    <div id="session_logs" class="col-12 mt-3"  style="height: 400px">
+                    <div id="session_logs" class="col-12 mt-3 m-0 p-0"  style="height: 410px">
 
                         <div class="pills-outline">
                             <ul class="nav nav-pills mb-2" id="logs-tab" role="tablist">
@@ -81,10 +81,10 @@
                 <div id="run_panel" class="col-6"  style="height: 400px">
 
                         <div class="row col-12">
-                            <img src="" id="logo-img" class="col-2">
+                            <img src="" id="logo-img" class="col-2" style="display: none">
                             <div class="row col-8">
-                                <h3 id="logo-label" class="mr-3"></h3>
-                                <h5 id="logo-label-extra" style="color: gray"></h5>
+                                <h3 id="logo-label" class="mr-3">Select a run</h3>
+                                <h5 id="logo-label-extra" style="color: gray">(to see parameters and outputs)</h5>
                             </div>
 
                         </div>

@@ -2,14 +2,11 @@
 
 <!-- 2D classes Card -->
 <div class="col-12 m-0 p-0" id="classes2d_plot">
-    <h5 class="card-header-title ml-3">Classes 2D</h5>
     {{ macros.overlay('overlay_classes2d') }}
-    <div class="row col-12">
-        <div class="row col-6 overflow-auto m-0 p-0" id="classes2d_container" style="max-height: 600px;"></div>
-        <div class="col-6">
-            <div id="distr-iter-plot"></div>
-            <div id="distr-overall-plot"></div>
-        </div>
+    <div class="row col-12 m-0 p-0">
+            <div id="distr-iter-plot" class="col-6"></div>
+            <div id="distr-overall-plot" class="col-6"></div>
+        <div class="row col-12 m-0 p-0 mt-2" id="classes2d_container"></div>
     </div>
 </div>
 
@@ -56,7 +53,8 @@
     function plot_distribution_overall(){
         Highcharts.chart('distr-overall-plot', {
     chart: {
-        type: 'area'
+        type: 'area',
+        height: '100%'
     },
     title: {
         useHTML: true,
@@ -133,7 +131,8 @@
 
         Highcharts.chart('distr-iter-plot', {
             chart: {
-                type: 'column'
+                type: 'column',
+                height: '100%'
             },
             title: {text: 'Particles Distribution (Iter x)'},
             xAxis: {
