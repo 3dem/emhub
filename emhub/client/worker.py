@@ -40,6 +40,8 @@ def create_logger(self, logsFolder, logName, debug=True, toFile=True):
     logger = logging.getLogger(logName)
     if toFile:
         self.logFile = os.path.join(logsFolder, logName)
+        if not os.path.exists(logsFolder):
+            Process.system(f"mkdir -p '{logsFolder}'")
         #handler = logging.FileHandler(self.logFile)
         handler = TimedRotatingFileHandler(self.logFile,
                                            when='w0', interval=1, backupCount=5)
