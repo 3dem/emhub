@@ -110,3 +110,18 @@ def get_micrograph_gridsquare():
     session.data.close()
     print(data['foilHole'].keys())
     return send_json_data(data)
+
+
+@images_bp.route("/get_volume_data", methods=['POST'])
+def get_volume_data():
+    """ Load volume data from a given run and output name.
+    Input: projectId, runId, volName
+    """
+    dm = app.dm
+    volName = request.form['volName']
+    axis = request.form.get('axis', 'z')
+    proc = dm.get_processing_project(entry_id=request.form['entry_id'])
+    run = proc.get_run(request.form['runId'])
+    vol = run.get_volume_data(volName, volume_data='slices', axis=axis)
+
+    return send_json_data(vol)

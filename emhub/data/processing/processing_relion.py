@@ -20,6 +20,7 @@ from glob import glob
 from collections import defaultdict
 import json
 import flask
+import numpy as np
 from flask import current_app as app
 
 import mrcfile
@@ -185,6 +186,13 @@ class RelionRun(SessionRun):
             summary['template'] = 'processing_2d_summary.html'
             data_values = {'iterations': [1, 2, 3]}
 
+        elif self.className == 'class3d':
+            summary['template'] = 'processing_3d_volumes.html'
+            ios = self.getInputsOutputs()
+            data_values = {
+                'volumes': [os.path.basename(o) for o in ios['outputs'] if o.endswith('.mrc')]
+            }
+
         if data_values:
             summary['data'] = {'data_values': data_values}
 
@@ -270,6 +278,58 @@ class RelionRun(SessionRun):
             mrc_stack.close()
 
         return items
+
+    def get_volume_data(self, volName, **kwargs):
+        volPath = self.join(volName)
+
+        if not os.path.exists(volPath):
+            raise Exception("Volume path %s does not exists." % volPath)
+
+        data = {}
+        volume_data = kwargs.get('volume_data', 'info')
+
+        mrc = mrcfile.open(volPath, permissive=True)
+        zdim, ydim, xdim = mrc.data.shape
+        data['path'] = volPath
+        data['dimensions'] = [xdim, ydim, zdim]
+
+        if volume_data == "info":
+            return data
+        elif volume_data == "slices":
+            axis = kwargs.get('axis', 'z')
+
+            thumbSize = 128
+            volThumb = Thumbnail(max_size=(thumbSize, thumbSize),
+                                 output_format='base64',
+                                 min_max=(mrc.data.min(), mrc.data.max()))
+            slices = {}
+            idx = np.round(np.linspace(0, xdim - 1, min(xdim, thumbSize))).astype(int)
+
+            print('idx', idx)
+
+            if axis == 'x':
+                for i in idx:
+                    slices = {int(i): volThumb.from_array(mrc.data[:, :, i])}
+            elif axis == 'y':
+                for i in idx:
+                    slices = {i: volThumb.from_array(mrc.data[:, i, :])}
+            else:
+                for i in idx:
+                    slices = {int(i): volThumb.from_array(mrc.data[i, :, :])}
+
+            data.update({
+                'slices': slices,
+                'axis': axis
+            })
+        elif volume_data == 'array':
+            iMax = mrc.data.max()  # min(imean + 10 * isd, imageArray.max())
+            iMin = mrc.data.min()  # max(imean - 10 * isd, imageArray.min())
+            im255 = ((mrc.data - iMin) / (iMax - iMin) * 255).astype(np.uint8)
+            data['array'] = base64.b64encode(im255).decode("utf-8")
+        else:
+            raise Exception('Unknown volume_data value: %s' % volume_data)
+
+        return data
 
 
 class RelionSessionData(SessionData):

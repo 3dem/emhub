@@ -440,7 +440,7 @@ function drawMicrograph(containerId, micrograph, drawCoordinates) {
 function drawClasses2d(containerId, classes, header, showSel){
     var container = document.getElementById(containerId);
     var imgStr, infoStr = null;
-    html = '<div class="col-12">' + header + '</div>';
+    var html = '<div class="col-12">' + header + '</div>';
 
     for (var cls2d of classes) {
         let borderColor = showSel && cls2d.sel ? 'limegreen' : 'white';
@@ -448,6 +448,19 @@ function drawClasses2d(containerId, classes, header, showSel){
         infoStr = '<p class="text-muted mb-0"><small>size: ' + cls2d.size + ', id: ' + cls2d.id + '</small></p>';
         html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
 
+    }
+    container.innerHTML = html;
+}
+
+function drawVolData(containerId, volSlices){
+    var container = document.getElementById(containerId);
+    var imgStr, infoStr = null;
+    var html = '<div class="col-12"></div>';
+
+    for(let slice in volSlices) {
+        imgStr = '<img src="data:image/png;base64,' + volSlices[slice] + '" style="border: solid 3px;">';
+        infoStr = '<p class="text-muted mb-0"><small>' + slice + '</small></p>';
+        html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
     }
     container.innerHTML = html;
 }
