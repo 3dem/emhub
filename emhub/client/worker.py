@@ -252,7 +252,7 @@ class Worker:
                             jsonData={'attrs': data})
         result = r.json()
         if 'error' in result:
-            self.error(f"Error from server: {result['error']}")
+            self.error(f"Error from server: {result['error']}, using token {self.token}")
             return None
         else:
             return result[key] if key else result
@@ -286,6 +286,11 @@ class Worker:
         self.token = self.request('connect_worker',
                                   {'worker': self.name, 'specs': System.specs()},
                                   key='token')
+
+        self.info(f"Got token: {self.token}")
+        if self.token is None:
+            raise Exception('Got None as token, worker connection with server failed')
+
     def run(self):
         self.setup()
         self.process_tasks('pending')  # get pending tasks

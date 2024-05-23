@@ -620,7 +620,10 @@ def validate_worker_token(token):
         token = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
         result = token.get('worker', None)
     except:
-        raise Exception("Invalid token for this worker")
+        msg = f"Invalid token '{token}' for this worker"
+        print("ERROR: " + msg)
+        time.sleep(60)
+        raise Exception(msg)
 
     return result
 
