@@ -1171,7 +1171,7 @@ class DataManager(DbManager):
         """ Return True if the current logged user has any of the roles
         defined in the config for 'permissionKey'.
         """
-        perms = self.get_config('permissions')['content']
+        perms = self.get_config('permissions').get('content', {})
         return self._user.has_any_role(perms.get(permissionKey, []))
 
     def check_resource_access(self, resource, permissionKey):

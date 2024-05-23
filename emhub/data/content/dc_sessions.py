@@ -92,7 +92,8 @@ def register_content(dc):
         if status_info.lower().startswith('error:'):
             errors.append(status_info)
 
-        frames = Path.rmslash(session.extra['raw'].get('frames', ''))
+        raw = session.extra.get('raw', {})
+        frames = Path.rmslash(raw.get('frames', ''))
         return {
             'session': session,
             'epu_session': os.path.basename(frames),
