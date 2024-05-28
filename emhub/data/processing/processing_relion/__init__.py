@@ -28,7 +28,7 @@ from emtools.utils import Path, Timer, Pretty
 from emtools.metadata import StarFile, EPU, SqliteFile
 from emtools.image import Thumbnail
 
-from .base import SessionRun, SessionData, hours
+from ..base import SessionRun, SessionData, hours
 
 
 class RelionRun(SessionRun):
