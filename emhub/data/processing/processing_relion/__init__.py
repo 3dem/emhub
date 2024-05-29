@@ -30,6 +30,8 @@ from emtools.image import Thumbnail
 
 from ..base import SessionRun, SessionData, hours
 
+location = os.path.dirname(__file__)
+
 
 class RelionRun(SessionRun):
     """ Helper class to manipulate Relion run data. """
@@ -77,13 +79,19 @@ class RelionRun(SessionRun):
                     paramDef[k] = v
             return paramDef
 
-        if formConf := app.dm.get_config(f"{self.package}.{self.className}"):
-            for sectionDef in formConf['sections']:
-                for paramDef in sectionDef['params']:
-                    if 'name' in paramDef:
-                        _set_defaults(paramDef)
-                        allParams.add(paramDef['name'])
-                formDef['sections'].append(sectionDef)
+        config = f"{self.package}.{self.className}.json"
+        configFn = os.path.join(location, 'forms', config)
+        print("Config file", configFn)
+
+        if os.path.exists(configFn):
+            with open(configFn) as f:
+                formConf = json.load(f)
+                for sectionDef in formConf['sections']:
+                    for paramDef in sectionDef['params']:
+                        if 'name' in paramDef:
+                            _set_defaults(paramDef)
+                            allParams.add(paramDef['name'])
+                    formDef['sections'].append(sectionDef)
 
         extraParams = []
         for k, v in self.values.items():
