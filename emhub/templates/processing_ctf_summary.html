@@ -3,12 +3,18 @@
 <div class="row">
 
     <div class="row col-12">
-        <h4 class="mt-1 mr-2">Plot Label </h4>
-        <select id="plot-label-select" class="selectpicker" onchange="change_plots()">
-            {% for s in data_values %}
-                <option value="{{ s }}">{{ s }} </option>
-            {% endfor %}
-        </select>
+        <div class="col-6 row">
+            <h4 class="mt-1 mr-2">Plot Label </h4>
+            <select id="plot-label-select" class="selectpicker" onchange="change_plots()">
+                {% for s in data_values %}
+                    <option value="{{ s }}">{{ s }} </option>
+                {% endfor %}
+            </select>
+        </div>
+    <div class="toolbar ml-auto">
+{#        <a href="#" class="btn btn-light btn-sm"><i class="fas fa-chart-area"></i></a>#}
+         <a href="javascript:loadRunOverview('CTF plots')" class="btn btn-light btn-sm"><i class="fas fa-desktop"></i></a>
+    </div>
 {#        <button class="btn btn-sm btn-outline-light" onclick="javascript:show_height()"><i class="far fa-edit"></i>Show Height</button>#}
     </div>
 

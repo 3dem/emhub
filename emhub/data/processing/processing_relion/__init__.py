@@ -125,6 +125,8 @@ class RelionRun(SessionRun):
             }
 
     def getSummary(self):
+        """ Function to return the template and data used for this run summary.
+        """
         summary = {'template': '', 'data': {}}
         data_values = None
 
@@ -205,6 +207,54 @@ class RelionRun(SessionRun):
             summary['data'] = {'data_values': data_values}
 
         return summary
+
+    def getOverview(self):
+        """
+
+        """
+        overview = {'template': '', 'data': {}}
+        data_values = None
+
+        if self.className == 'ctffind':
+            overview['template'] = 'processing_ctf_overview.html'
+            data_values = {
+                'rlnDefocusU': {
+                    'label': 'Defocus U',
+                    'scale': 0.0001,
+                    'unit': 'µm',
+                    'color': '#852999',
+                    'maxX': 4,
+                    'data': []
+                },
+                'rlnDefocusV': {
+                    'label': 'Defocus V',
+                    'scale': 0.0001,
+                    'unit': 'µm',
+                    'color': '#852999',
+                    'maxX': 4,
+                    'data': []
+                },
+                'rlnCtfFigureOfMerit': {
+                    'data': []
+                },
+                'rlnCtfMaxResolution': {
+                    'color': '#EF9A53',
+                    'label': 'Resolution',
+                    'unit': 'Å',
+                    'data': []
+                }
+            }
+            with StarFile(self.join('micrographs_ctf.star')) as sf:
+                for row in sf.iterTable('micrographs'):
+                    rowDict = row._asdict()
+                    for k, v in data_values.items():
+                        scale = v.get('scale', 1)
+                        v['data'].append(rowDict[k] * scale)
+
+            if data_values:
+                overview['data'] = {'data_values': data_values}
+
+            return overview
 
     def _load_micrograph_data(self, micId, micsStar):
         with StarFile(micsStar) as sf:

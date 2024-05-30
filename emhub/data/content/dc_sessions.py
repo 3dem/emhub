@@ -209,6 +209,20 @@ def register_content(dc):
         return data
 
     @dc.content
+    def processing_run_overview(**kwargs):
+        runId = kwargs['runId']
+        data = processing_flowchart(**kwargs)
+        run = data['proc'].get_run(runId)
+        overview = run.getOverview()
+        data.update({
+            'run': run,
+            'runId': runId,
+            'template': overview['template'],
+        })
+        data.update(overview['data'])
+        return data
+
+    @dc.content
     def processing_projects_list(**kwargs):
         project_list = []
         for project in dc.app.dm.get_projects():

@@ -1,0 +1,117 @@
+{% macro row_plot_label(sel_id, title) -%}
+    <div class="row col-12 mt-2">
+        <h4 class="col-4 col-form-label text-right">{{ title }}</h4>
+        <select id="{{ sel_id }}" class="selectpicker col-7">
+            {% for s in data_values %}
+                <option value="{{ s }}">{{ s }} </option>
+            {% endfor %}
+        </select>
+    </div>
+{%- endmacro %}
+
+<div class="row col-12">
+    <div class="col-3 row">
+
+        <div class="col-12 row align-content-start">
+            {{ row_plot_label('plot-labelX-select', 'X Label') }}
+            {{ row_plot_label('plot-labelY-select', 'Y Label') }}
+            {{ row_plot_label('plot-labelColor-select', 'Color Label') }}
+            <div class="row col-12 text-right mt-3">
+                <a href="javascript:makePlot()" class="btn btn-primary"> Update Plots</a>
+            </div>
+        </div>
+
+
+    </div>
+
+    <div id='myDiv' class="col-8" style="height: 700px; width: 1400px;">
+        <!-- Plotly chart will be drawn inside this DIV -->
+    </div>
+
+
+</div>
+
+<script>
+    var data_values = {{ data_values|tojson }};
+
+    var data_x = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17,
+                          18, 19, 20, 21, 22, 23];
+    var data_y = [4.874623, 3.619038, 3.478493, 3.495461, 3.547374, 3.088662, 3.287016,
+                          3.088662, 3.332882, 3.380045, 3.198971, 3.227791, 3.184754, 3.088662,
+                          3.257134, 3.102033, 3.428563, 3.075406, 3.302164, 3.129125, 3.332882,
+                          3.272007, 3.036312, 3.227791];
+    var data_color = [0.131144, 0.168942, 0.166348, 0.153685, 0.156639, 0.18726 , 0.173856,
+                                         0.164021, 0.193182, 0.202304, 0.198368, 0.150954, 0.160456, 0.141207,
+                                         0.164669, 0.169817, 0.197033, 0.211303, 0.145239, 0.155112, 0.1571  ,
+                                         0.144564, 0.164461, 0.166633];
+
+        function makePlot(){
+            let label_x = $('#plot-labelX-select').selectpicker('val');
+            data_x = data_values[label_x].data;
+
+            let label_y = $('#plot-labelY-select').selectpicker('val');
+            data_y = data_values[label_y].data;
+
+            let label_color = $('#plot-labelColor-select').selectpicker('val');
+            data_color = data_values[label_color].data;
+
+            var data = [
+                {'fillcolor': 'white',
+                      'marker': {'color': data_color,
+                                 'colorscale': [[0.0, '#440154'], [0.1111111111111111,
+                                                '#482878'], [0.2222222222222222,
+                                                '#3e4989'], [0.3333333333333333,
+                                                '#31688e'], [0.4444444444444444,
+                                                '#26828e'], [0.5555555555555556,
+                                                '#1f9e89'], [0.6666666666666666,
+                                                '#35b779'], [0.7777777777777778,
+                                                '#6ece58'], [0.8888888888888888,
+                                                '#b5de2b'], [1.0, '#fde725']],
+                                 'opacity': 0.5,
+                                 'showscale': true},
+                      'mode': 'markers',
+                      'type': 'scattergl',
+                      'x': data_x,
+                      'y': data_y },
+                 {'marker': {'color': 'cornflowerblue', 'opacity': 0.5},
+                  'name': label_x,
+                  'type': 'violin',
+                  'x': data_x,
+                  'yaxis': 'y2'},
+                 {'marker': {'color': 'cornflowerblue', 'opacity': 0.5},
+                  'name': label_y,
+                  'type': 'violin',
+                  'xaxis': 'x2',
+                  'y': data_y}
+            ];
+
+            var layout = {'bargap': 0,
+               'hovermode': 'closest',
+               'margin': {'t': 50},
+               'plot_bgcolor': 'rgba(0,0,0,0)',
+               'showlegend': false,
+               'template': '...',
+               'xaxis': {'domain': [0, 0.85], 'gridcolor': '#CBCBCB', 'title': {'text': label_x}, 'zeroline': true},
+               'xaxis2': {'domain': [0.85, 1], 'showgrid': true, 'zeroline': false},
+               'yaxis': {'domain': [0, 0.85],
+                         'gridcolor': '#CBCBCB',
+                         'title': {'text': label_y},
+                         'zeroline': true},
+               'yaxis2': {'domain': [0.85, 1], 'showgrid': true, 'zeroline': false}};
+
+            Plotly.newPlot('myDiv', data, layout);
+        }
+
+
+
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        $('.selectpicker').selectpicker();
+
+        makePlot();
+});
+})(window, document, window.jQuery);
+</script>
