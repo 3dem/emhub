@@ -124,6 +124,49 @@ class RelionRun(SessionRun):
                 'outputs': [row.rlnPipeLineEdgeToNode for row in outputsTable]
             }
 
+    def _load_ctfvalues(self, index=False):
+        data_values = {
+            'rlnDefocusU': {
+                'label': 'Defocus U',
+                'scale': 0.0001,
+                'unit': 'µm',
+                'color': '#852999',
+                'maxX': 4,
+                'data': []
+            },
+            'rlnDefocusV': {
+                'label': 'Defocus V',
+                'scale': 0.0001,
+                'unit': 'µm',
+                'color': '#852999',
+                'maxX': 4,
+                'data': []
+            },
+            'rlnCtfFigureOfMerit': {
+                'data': []
+            },
+            'rlnCtfMaxResolution': {
+                'color': '#EF9A53',
+                'label': 'Resolution',
+                'unit': 'Å',
+                'data': []
+            }
+        }
+        indexes = []
+        with StarFile(self.join('micrographs_ctf.star')) as sf:
+            for i, row in enumerate(sf.iterTable('micrographs')):
+                indexes.append(i + 1)
+                rowDict = row._asdict()
+                for k, v in data_values.items():
+                    scale = v.get('scale', 1)
+                    v['data'].append(rowDict[k] * scale)
+        if index:
+            data_values['index'] = {
+                'label': 'Index',
+                'data': indexes
+            }
+        return data_values
+
     def getSummary(self):
         """ Function to return the template and data used for this run summary.
         """
@@ -132,39 +175,7 @@ class RelionRun(SessionRun):
 
         if self.className == 'ctffind':
             summary['template'] = 'processing_ctf_summary.html'
-            data_values = {
-                'rlnDefocusU': {
-                    'label': 'Defocus U',
-                    'scale': 0.0001,
-                    'unit': 'µm',
-                    'color': '#852999',
-                    'maxX': 4,
-                    'data': []
-                },
-                'rlnDefocusV': {
-                    'label': 'Defocus V',
-                    'scale': 0.0001,
-                    'unit': 'µm',
-                    'color': '#852999',
-                    'maxX': 4,
-                    'data': []
-                },
-                'rlnCtfFigureOfMerit': {
-                    'data': []
-                },
-                'rlnCtfMaxResolution': {
-                    'color': '#EF9A53',
-                    'label': 'Resolution',
-                    'unit': 'Å',
-                    'data': []
-                }
-            }
-            with StarFile(self.join('micrographs_ctf.star')) as sf:
-                for row in sf.iterTable('micrographs'):
-                    rowDict = row._asdict()
-                    for k, v in data_values.items():
-                        scale = v.get('scale', 1)
-                        v['data'].append(rowDict[k] * scale)
+            data_values = self._load_ctfvalues()
 
         elif self.className == 'autopick':
             summary['template'] = 'processing_picking_summary.html'
@@ -217,44 +228,12 @@ class RelionRun(SessionRun):
 
         if self.className == 'ctffind':
             overview['template'] = 'processing_ctf_overview.html'
-            data_values = {
-                'rlnDefocusU': {
-                    'label': 'Defocus U',
-                    'scale': 0.0001,
-                    'unit': 'µm',
-                    'color': '#852999',
-                    'maxX': 4,
-                    'data': []
-                },
-                'rlnDefocusV': {
-                    'label': 'Defocus V',
-                    'scale': 0.0001,
-                    'unit': 'µm',
-                    'color': '#852999',
-                    'maxX': 4,
-                    'data': []
-                },
-                'rlnCtfFigureOfMerit': {
-                    'data': []
-                },
-                'rlnCtfMaxResolution': {
-                    'color': '#EF9A53',
-                    'label': 'Resolution',
-                    'unit': 'Å',
-                    'data': []
-                }
-            }
-            with StarFile(self.join('micrographs_ctf.star')) as sf:
-                for row in sf.iterTable('micrographs'):
-                    rowDict = row._asdict()
-                    for k, v in data_values.items():
-                        scale = v.get('scale', 1)
-                        v['data'].append(rowDict[k] * scale)
+            data_values = self._load_ctfvalues(index=True)
 
-            if data_values:
-                overview['data'] = {'data_values': data_values}
+        if data_values:
+            overview['data'] = {'data_values': data_values}
 
-            return overview
+        return overview
 
     def _load_micrograph_data(self, micId, micsStar):
         with StarFile(micsStar) as sf:
