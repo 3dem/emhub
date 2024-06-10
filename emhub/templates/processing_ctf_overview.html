@@ -1,7 +1,7 @@
 {% macro row_plot_label(sel_id, title, selectedValue) -%}
-    <div class="row col-12 mt-2">
-        <h4 class="col-4 col-form-label text-right">{{ title }}</h4>
-        <select id="{{ sel_id }}" class="selectpicker col-7" style="width: 100%" onchange="highlightButton()">
+    <div class="row" style="min-width: 325px;">
+        <h4 class="col-form-label text-right mr-2">{{ title }}</h4>
+        <select id="{{ sel_id }}" class="selectpicker mr-3" style="width: 100%" onchange="highlightButton()">
             {% for s in data_values %}
                 {% set selected = 'selected' if s == selectedValue else '' %}
                 <option value="{{ s }}" {{ selected }}>{{ s }} </option>
@@ -11,26 +11,31 @@
 {%- endmacro %}
 
 <div class="row col-12">
-    <div class="col-3 row">
-
-        <div class="col-12 row align-content-start">
+        <div class="col-12 row align-content-start mb-3 ml-3">
             {{ row_plot_label('plot-labelX-select', 'X Label', 'index') }}
             {{ row_plot_label('plot-labelY-select', 'Y Label', 'rlnCtfMaxResolution') }}
             {{ row_plot_label('plot-labelColor-select', 'Color Label') }}
-            <div class="row col-12 mt-3">
-                <div class="col-4"></div>
-                <div class="col-7 align-content-end">
-                    <a href="javascript:makePlot()" class="btn btn-dark float-right" id="update-plots-btn"> Update Plots</a>
-                </div>
-
+            <div class="row ml-3">
+                <a href="javascript:makePlot()" class="btn btn-dark float-right" id="update-plots-btn"> Update Plots</a>
             </div>
         </div>
 
 
+    <div class="col-6">
+        <div id='myDiv' class="col-12" style="height: 700px;">
+        <!-- Plotly chart will be drawn inside this DIV -->
+        </div>
+        <div class="col-12 row m-3">
+            <h3 id="selection-label" class="mt-3">No points selected.</h3>
+            <a href="javascript:exportSelection()" class="btn btn-dark float-right ml-3" id="export-btn" style="display: none"> Export Selection</a>
+        </div>
     </div>
 
-    <div id='myDiv' class="col-8" style="height: 700px; width: 1400px;">
-        <!-- Plotly chart will be drawn inside this DIV -->
+
+    <div id="micDiv" class="col-6">
+        <!-- Div for Micrograph -->
+        {% set card_id = 'mic_card_overview' %}
+        {% include 'micrograph_card_side.html' %}
     </div>
 
 
@@ -38,6 +43,7 @@
 
 <script>
     var data_values = {{ data_values|tojson }};
+    var mic_card_overview = null;
 
     function highlightButton(){
         //$('#update-plots-btn').toggleClass('btn-outline-dark btn-dark');
@@ -55,10 +61,7 @@
         let label_color = $('#plot-labelColor-select').selectpicker('val');
         let data_color = data_values[label_color].data;
 
-        var data = [
-            {'fillcolor': 'white',
-                  'marker': {'color': data_color,
-                             'colorscale': [[0.0, '#440154'], [0.1111111111111111,
+        let colorscale = [[0.0, '#440154'], [0.1111111111111111,
                                             '#482878'], [0.2222222222222222,
                                             '#3e4989'], [0.3333333333333333,
                                             '#31688e'], [0.4444444444444444,
@@ -66,8 +69,13 @@
                                             '#1f9e89'], [0.6666666666666666,
                                             '#35b779'], [0.7777777777777778,
                                             '#6ece58'], [0.8888888888888888,
-                                            '#b5de2b'], [1.0, '#fde725']],
-                             'opacity': 0.5,
+                                            '#b5de2b'], [1.0, '#fde725']];
+        var data = [
+            {'fillcolor': 'white',
+                  'marker': {'color': data_color,
+                             'colorscale': 'Portland',
+                             'opacity': 0.75,
+                                'size': 10,
                              'showscale': true},
                   'mode': 'markers',
                   'type': 'scattergl',
@@ -87,7 +95,8 @@
 
         var layout = {'bargap': 0,
            'hovermode': 'closest',
-           'margin': {'t': 50},
+           'margin': {'t': 50, 'l': 0, 'r': 0},
+           'autosize': true,
            'plot_bgcolor': 'rgba(0,0,0,0)',
            'showlegend': false,
            'template': '...',
@@ -101,9 +110,37 @@
 
         Plotly.newPlot('myDiv', data, layout);
 
+        let graphDiv = document.getElementById('myDiv');
+
+        graphDiv.on('plotly_selected', function(eventData) {
+            if (!eventData) {
+                $('#selection-label').text("No points selected.");
+                $('#export-btn').hide();
+                return;
+            }
+
+
+            let points = eventData.points;
+
+            $('#selection-label').html("Selected <label style='color: firebrick; font-size: large; font-weight: bold'>" + points.length + "</label> points")
+            $('#export-btn').show();
+
+            points.forEach(function(pt) {
+                console.log(pt.pointNumber + " x: " + pt.x);
+            });
+        });
+
+        graphDiv.on('plotly_doubleclick', function(eventData) {
+            alert('click');
+
+        });
+
+        graphDiv.on('plotly_click', function(eventData) {
+            let micNumber = eventData.points[0].pointNumber;
+            mic_card_overview.loadMicData(micNumber + 1)
+        });
+
     }
-
-
 
 
     (function(window, document, $, undefined) {
@@ -111,8 +148,14 @@
     $(function() {
 
         $('.selectpicker').selectpicker();
+        setTimeout(makePlot, 500);
+        mic_card_overview = new MicrographCard('mic_card_overview');
+        mic_card_overview.params = {
+            micId: null,
+            runId: {{runId|tojson}},
+            entry_id: {{ entry_id|tojson }}};
+        mic_card_overview.loadMicData(1);
 
-        makePlot();
 });
 })(window, document, window.jQuery);
 </script>

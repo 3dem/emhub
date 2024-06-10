@@ -243,8 +243,18 @@ class RelionRun(SessionRun):
             psdThumb = Thumbnail.Psd()
             micFn = self.project.join(row.rlnMicrographName)
             micThumbBase64 = micThumb.from_mrc(micFn)
-            psdFn = self.project.join(row.rlnCtfImage).replace(':mrc', '')
+            psdFn = self.project.join(row.rlnCtfImage).replace(":mrc", "")
             pixelSize = otable[0].rlnMicrographPixelSize
+            ctfProfile = psdFn.replace('.ctf', '_avrot.txt')
+
+            if os.path.exists(ctfProfile):
+                with open(ctfProfile) as f:
+                    ctfPlot = [line.split() for line in f
+                               if not line.startswith('#')]
+            else:
+                ctfPlot = []
+
+            print(f"PSD: {row.rlnMicrographName}")
 
             return {
                 'micThumbData': micThumbBase64,
@@ -258,7 +268,8 @@ class RelionRun(SessionRun):
                 'micThumbPixelSize': pixelSize * micThumb.scale,
                 'pixelSize': pixelSize,
                 'gridSquare': '',
-                'foilHole': ''
+                'foilHole': '',
+                'ctfPlot': ctfPlot
             }
 
     def get_micrograph_data(self, micId):

@@ -571,6 +571,7 @@ class MicrographCard {
                 $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
                 $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
                 $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
+                create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
             }
             else {
                 let uva = data['ctfDefocusU'] + ', ' + data['ctfDefocusV'] + ', ' + data['ctfDefocusAngle'];
@@ -1096,6 +1097,50 @@ function create_hc_sessions_histogram(containerId, data) {
     }]
 });
 } // function hc_create_histogram
+
+function create_pl_ctfplot(containerId, ctfvalues) {
+    // var trace = {
+    //   x: ctfvalues[0],
+    //   y: ctfvalues[1],
+    //   mode: 'lines',
+    //   connectgaps: true
+    // };
+    //
+    // var trace2 = {
+    //   x: ctfvalues[0],
+    //   y: ctfvalues[2],
+    //   mode: 'lines',
+    //   connectgaps: true
+    // };
+    //
+    //  var trace3 = {
+    //   x: ctfvalues[0],
+    //   y: ctfvalues[3],
+    //   mode: 'lines',
+    //   connectgaps: true
+    // };
+
+     var data = [];
+     for (i = 1; i <= 4; i++) {
+         data.push({
+          x: ctfvalues[0],
+          y: ctfvalues[i],
+          mode: 'lines',
+          connectgaps: true
+        });
+     }
+
+    // var data = [trace, trace2, trace3];
+
+    var layout = {
+      showlegend: true,
+        autoscale: true,
+        margin: {'t': 0, 'l': 10, 'r': 50},
+    };
+
+    Plotly.newPlot(containerId, data, layout);
+
+} // function create_pl_ctfplot
 
 
 // ---------- Network related functions ----------------
