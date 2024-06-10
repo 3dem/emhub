@@ -10,7 +10,7 @@
     </div>
 {%- endmacro %}
 
-<div class="row col-12">
+<div class="row col-12 p-0 m-0">
         <div class="col-12 row align-content-start mb-3 ml-3">
             {{ row_plot_label('plot-labelX-select', 'X Label', 'index') }}
             {{ row_plot_label('plot-labelY-select', 'Y Label', 'rlnCtfMaxResolution') }}
@@ -26,8 +26,12 @@
         <!-- Plotly chart will be drawn inside this DIV -->
         </div>
         <div class="col-12 row m-3">
-            <h3 id="selection-label" class="mt-3">No points selected.</h3>
-            <a href="javascript:exportSelection()" class="btn btn-dark float-right ml-3" id="export-btn" style="display: none"> Export Selection</a>
+            <div class="col-auto">
+                <h4 id="selection-label">No points selected.</h4>
+            </div>
+            <div class="col-auto">
+                <a href="javascript:exportSelection()" class="btn btn-dark ml-3 float-left" id="export-btn" style="display: none">Export Selection</a>
+            </div>
         </div>
     </div>
 
@@ -122,7 +126,7 @@
 
             let points = eventData.points;
 
-            $('#selection-label').html("Selected <label style='color: firebrick; font-size: large; font-weight: bold'>" + points.length + "</label> points")
+            $('#selection-label').html("Selected <label style='color: firebrick; font-size: medium;'>" + points.length + "</label> points")
             $('#export-btn').show();
 
             points.forEach(function(pt) {
