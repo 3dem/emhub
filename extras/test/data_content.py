@@ -16,16 +16,22 @@ def register_content(dc):
         dm = dc.app.dm  # shortcut
         user = dc.app.user
         booking_id = int(kwargs['booking_id'])
+
+        # Get the booking associated with this Session to be created
         b = dm.get_booking_by(id=booking_id)
         can_edit = b.project and user.can_edit_project(b.project)
 
+        # Do some permissions validation
         if not (user.is_manager or user.same_pi(b.owner) or can_edit):
             raise Exception("You can not create Sessions for this Booking. "
                             "Only members of the same lab can do it.")
 
+        # Retrieve configuration information from the Form config:sessions
+        # We fetch default acquisition info for each microscope or
+        # the hosts that are available for doing OTF processing
         sconfig = dm.get_config('sessions')
 
-        # load default acquisition params for the given microscope
+        # Load default acquisition params for the given microscope
         micName = b.resource.name
         acq = sconfig['acquisition'][micName]
 
@@ -49,6 +55,5 @@ def register_content(dc):
             'cryolo_models': {}
         }
         data.update(dc.get_user_projects(b.owner, status='active'))
-        data['frame_folders'] = []
         return data
 

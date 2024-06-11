@@ -734,7 +734,7 @@ class DataManager(DbManager):
         return session
 
     def _create_data_instance(self, session, mode):
-        return self.get_processing_project(session.data_path)
+        return self.get_processing_project(path=session.data_path)
 
     def get_processing_project(self, **kwargs):
         """ Create a Processing Project instance from a path.
@@ -1553,6 +1553,9 @@ class DataManager(DbManager):
         return DataManager.WorkerStream(worker, self)
 
     def get_all_tasks(self):
+        if self.r is None:
+            return {}
+
         for k in self.get_hosts().keys():
             yield k, self.get_worker_stream(k).get_all_tasks()
 

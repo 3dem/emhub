@@ -168,8 +168,12 @@ def register_content(dc):
                 'has_specs': bool(w.get('specs', '')),
                 'active': active
             })
+
+        all_tasks = dm.get_all_tasks()
+
         return {'workers': workers,
-                'taskGroups': {h: tasks for h, tasks in dm.get_all_tasks()},
+                'has_redis': dm.r is not None,
+                'taskGroups': {h: t for h, t in all_tasks} if all_tasks else {},
                 'now': Pretty.now()
                 }
 
