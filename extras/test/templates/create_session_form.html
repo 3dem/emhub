@@ -1,0 +1,225 @@
+{% import "entry_macros.html" as macros %}
+
+{% macro section_header(title) -%}
+    <div class="form-group row mr-5" style="background-color: lightgray">
+        <h3 class="col-12 col-form-label text-left">{{ title }}</h3>
+    </div>
+{%- endmacro %}
+
+{% set is_manager = current_user.is_manager %}
+{% set is_admin = current_user.is_admin %}
+
+<!-- Modal to with a Form to create a new Session -->
+<div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+  <div class="modal-content">
+
+    <!-- Modal header -->
+    <div class="modal-header">
+        <h3 class="modal-title" id="session-modal-title"> Create Session:  </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    <!-- End of Modal header -->
+
+    <!-- Modal body -->
+    <div class="modal-body">
+    <input type="hidden" id="booking-id" value="{{ booking.id }}">
+
+    <!-- Create Session Form -->
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        <form id="session-form" data-parsley-validate="" novalidate="">
+
+            <div class="row">
+                        <div class="col-7">
+                            {{ section_header("Basic Info") }}
+{#                            <div class="form-group row mr-5" style="background-color: lightgray">#}
+{#                                <h3 class="col-12 col-form-label text-left">Basic Info</h3>#}
+{#                            </div>#}
+
+                            <!-- Owner Row -->
+                            <div class="form-group row">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner / Staff</label>
+                                <div class="col-12 col-sm-8 col-lg-6 text-left mt-2">
+                                    <label style="font-weight: bold">{{ booking.owner.name }}</label>
+                                    <label>/</label>
+                                    <label>{{ booking.operator.name }}</label>
+                                </div>
+                            </div>
+
+                            <!-- Microscope Row -->
+                            <div class="form-group row">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Microscope</label>
+                                <div class="col-12 col-sm-8 col-lg-6">
+                                    <div class="row">
+                                        <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
+                                        <h5 class="mt-2">{{ booking.resource.name }}</h5>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <!-- Project id -->
+                            <div class="form-group row">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">Project ID</label>
+                                <div class="col-12 col-sm-8 col-lg-6">
+                                    <select id="session-projectid-select" class="selectpicker show-tick" data-live-search="true" data-key="project_id">
+                                        <option value="0">Not set</option>
+                                        {% for p in projects %}
+                                            {% set selected = 'selected' if p.id == booking.project.id else '' %}
+                                            <option {{ selected }} value="{{ p.id }}">{{ p.title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row mt-3">
+                                <h3 class="col-12 col-form-label text-sm-right">Data Processing</h3>
+                            </div>
+
+                            {{ macros.session_dialog_row('Input RAW data folder', 'raw_folder', '', 'Provide RAW data folder') }}
+                            {{ macros.session_dialog_row('Input IMAGES pattern', 'raw_images_pattern', '', '') }}
+                            {{ macros.session_dialog_row('Output OTF folder', 'otf_folder', '', '') }}
+
+                            <!-- OTF workflow -->
+                            <div class="form-group row ">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF Workflow</label>
+                                <div class="col-12 col-sm-8 col-lg-6">
+                                   <select id="otf_workflow-select" class="selectpicker" data-width="100%" data-key="otf_workflow">
+                                       {% for w in workflows %}
+                                           {% set selected = 'selected' if w == workflow_default else '' %}
+                                           <option value="{{ w }}" {{ selected }}>{{ w }}</option>
+                                       {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="col-5 p-0 m-0">
+                            <div class="form-group row">
+                                <h3 class="col-12 col-form-label text-sm-right">Acquisition</h3>
+                            </div>
+                            {{ macros.session_dialog_row('Voltage (kV)', 'acq_voltage', acquisition['voltage'], '') }}
+                            {{ macros.session_dialog_row('Magnification', 'acq_magnification', acquisition['magnification'], '') }}
+                            {{ macros.session_dialog_row('Pixel Size (A/px)', 'acq_pixel_size', acquisition['pixel_size'], '') }}
+                            {{ macros.session_dialog_row('CS', 'acq_cs', acquisition['cs'], '') }}
+                            {{ macros.session_dialog_row('Dose (per frame)', 'acq_dose', acquisition['dose'], '') }}
+
+                        </div>
+                    </div>
+        </form>
+    </div>
+    <!-- end Booking Form -->
+
+</div>
+    <!-- End of Modal body -->
+
+    <!-- Modal footer -->
+    <div class="modal-footer">
+        <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="onCreateClick()">Create</button>
+    </div>
+    <!-- End of Modal footer -->
+
+  </div> <!-- End of modal-content -->
+</div> <!-- end of modal-dialog -->
+
+<!-- javascript  -->
+<script>
+    $('select').selectpicker();
+
+    var workflow_default = {{ workflow_default|tojson }};
+    var otf_host_default = {{ otf_host_default|tojson }};
+
+    function onCreateClick(){
+        var formValues = getFormAsJson('session-form');
+        var attrs = {
+            booking_id: parseInt(document.getElementById('booking-id').value),
+            acquisition: {
+                voltage: formValues.acq_voltage,
+                magnification: formValues.acq_magnification,
+                pixel_size: formValues.acq_pixel_size,
+                dose: formValues.acq_dose,
+                cs: formValues.acq_cs
+            },
+        }
+
+        if (formValues.session_name) {
+            var otf_task = [
+                "otf",
+                getObjectValue(formValues, 'otf_host', otf_host_default)
+            ];
+
+            attrs.name = formValues.session_name;
+
+            if (!formValues.raw_folder){
+                attrs.extra = {
+                    raw: {},
+                    project_id: formValues.project_id,
+                }
+                attrs.tasks = [["transfer", transfer_host], otf_task]
+            }
+            else {
+                attrs.extra = {
+                    raw: {path: formValues.raw_folder},
+                    project_id: formValues.project_id
+                }
+                attrs.tasks = [["monitor", transfer_host], otf_task]
+            }
+
+            if (!formValues.otf_folder)
+                attrs.extra.otf = {
+                    workflow: "scipion",
+                    host: getObjectValue(formValues, 'otf_host', otf_host_default)
+                }
+            else
+                attrs.extra.otf  = {path: otf_folder}
+        }
+
+        // If there is a session
+        {#if (attrs.extra.raw_folder)#}
+        var regex = /^[a-zA-Z0-9-_]{2,64}$/;
+        var valid_name = nonEmpty(attrs.name) && regex.test(attrs.name);
+
+        if (!valid_name) {
+            showError("Provide a valid <strong>Session Name</strong>.<br>" +
+                "<p>It must have from 2 to 32 digits, containing letters, numbers, slash or underscore.</p>");
+            return;
+        }
+
+        // showError(JSON.stringify(attrs, null, 4));
+        // return
+
+        // Add unique prefix to avoid session name clashes
+        attrs.name = "{{ session_name_prefix }}" + attrs.name;
+
+        var ajaxContent = $.ajax({
+            url: "{{ url_for('api.create_session') }}",
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify({attrs: attrs}),
+            dataType: "json"
+        });
+
+        ajaxContent.done(function(jsonResponse) {
+            //alert(JSON.stringify(jsonResponse, null, 4));
+
+            if ('error' in jsonResponse)
+                showError(jsonResponse['error']);
+            else {
+                //window.location.reload();
+                window.location = "{{ url_for_content('session_default') }}" + "&session_id=" + jsonResponse.session.id;
+            }
+        });
+
+        ajaxContent.fail(function(jqXHR, textStatus) {
+            alert( "Request failed: " + textStatus );
+        });
+    }
+
+    (function(window, document, $, undefined) {
+        // Initialization code goes here
+    })(window, document, window.jQuery);
+
+</script>
