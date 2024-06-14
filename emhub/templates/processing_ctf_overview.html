@@ -153,10 +153,7 @@
         $('.selectpicker').selectpicker();
         setTimeout(makePlot, 500);
         mic_card_overview = new MicrographCard('mic_card_overview');
-        mic_card_overview.params = {
-            micId: null,
-            runId: {{runId|tojson}},
-            entry_id: {{ entry_id|tojson }}};
+        mic_card_overview.params = getArgs({micId: null});
         mic_card_overview.loadMicData(1);
 
 });

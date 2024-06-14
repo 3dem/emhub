@@ -199,19 +199,25 @@
 
                             <div class="row col-12">
 
-                                <!-- GridSquare and FoilHole card -->
-                                <div class="col-5">
-                                    <!-- Div for GridSquare -->
-                                    {% set card_id = 'gs_card' %}
-                                    {% include 'gridsquare_card.html' %}
 
-                                    <div class="col-12 text-sm-right mb-3">
-                                        <a href="javascript:showGridSquares()" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show GridSquares </a>
+                                {% if gs_info %}
+                                    <!-- GridSquare and FoilHole card -->
+                                    <div class="col-5">
+                                        <!-- Div for GridSquare -->
+                                        {% set card_id = 'gs_card' %}
+                                        {% include 'gridsquare_card.html' %}
+
+                                        <div class="col-12 text-sm-right mb-3">
+                                            <a href="javascript:showGridSquares()" class="btn btn-outline-dark"><i class="fas fa-external-link-alt"></i>  Show GridSquares </a>
+                                        </div>
                                     </div>
-                                </div>
+                                    {% set micCol = 7 %}
+                                {% else %}
+                                    {% set micCol = 12 %}
+                                {% endif %}
 
                                 <!-- Div for PSD and Micrograph info -->
-                                <div class="col-7">
+                                <div class="col-{{ micCol }}">
 
                                      <!-- Div for Micrograph -->
                                     {% set card_id = 'mic_card' %}
@@ -308,6 +314,7 @@
     var coordsDisplay = null;
     var overlay_2d, plot_overlay = null;
     var gs_card, mic_card = null;
+    var gs_info = {{ gs_info|tojson }};
 
     var session_plots = null;
     var session_data = null;
@@ -375,8 +382,10 @@
         $('select').selectpicker();
 
         if (stats.movies.count > 0 && stats.ctfs.count > 0) {
-            gs_card = new GridSquareCard('gs_card');
+            if (gs_info)
+                gs_card = new GridSquareCard('gs_card');
             mic_card = new MicrographCard('mic_card', gs_card);
+            mic_card.params.run_id = 199; // FIXME: This should be CTF job
             overlay_2d = new Overlay('overlay_classes2d');
             plot_overlay = new Overlay('plot-overlay');
 
