@@ -728,26 +728,38 @@ class DataManager(DbManager):
 
         return session
 
-    def load_session(self, sessionId, mode="r"):
-        session = self.get_session_by(id=sessionId)
-        session.data = self._create_data_instance(session, mode)
-        return session
-
-    def _create_data_instance(self, session, mode):
-        return self.get_processing_project(path=session.data_path)
-
     def get_processing_project(self, **kwargs):
         """ Create a Processing Project instance from a path.
         If entry_id is provided, we retrieve the path from there.
         """
+        args = {}
         if 'path' in kwargs:
             project_path = kwargs['path']
-        else:
+            args['path'] = project_path
+        elif 'entry_id' in kwargs:
             entry_id = int(kwargs['entry_id'])
             entry = self.get_entry_by(id=entry_id)
             project_path = entry.extra['data']['project_path']
+            args = {'entry_id': entry_id}
+        elif 'session_id' in kwargs:
+            session_id = int(kwargs['session_id'])
+            session = self.get_session_by(id=session_id)
+            project_path = session.data_path
+            args = {'session_id': session_id}
+        else:
+            raise Exception("Expecting either 'session_id', 'entry_id' or 'path'"
+                            "to load a project.")
+
+        pp = get_processing_project(project_path)
+        result = {'project': pp, 'args': args}
+
+        if 'run_id' in kwargs:
+            run_id = int(kwargs['run_id'])
+            result['run'] = pp.get_run(run_id)
+            args['run_id'] = run_id
             
-        return get_processing_project(project_path)
+        return result
+
 
     def clear_session_data(self, **attrs):
         session = self.get_session_by(id=attrs['id'])

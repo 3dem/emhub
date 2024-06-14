@@ -30,22 +30,27 @@ from .base import SessionRun, SessionData, hours
 
 class ScipionRun(SessionRun):
     """ Helper class to manipulate Scipion run data. """
-    def __init__(self, projectDir, runDict):
+    def __init__(self, project, runDict):
         self.dict = runDict
-
         runRow = runDict['']  # first protocol row, empty name
         self.id = runRow['id']
         self.className = runRow['classname']
-
         wdRow = runDict[f'{self.id}.workingDir']
         self.label = runDict['']['label']
-        SessionRun.__init__(self, os.path.join(projectDir, wdRow['value']))
+
+        SessionRun.__init__(self, project, project.join(wdRow['value']))
 
     def getInfo(self):
         return {'id': self.id, 'className': self.className, 'label': self.label}
 
     def getFormDefinition(self):
         return ScipionSessionData.getFormDefinition(self.className)
+
+    def getInputsOutputs(self):
+        return {
+            'inputs': [],
+            'outputs': []
+        }
 
     def getValues(self):
         values = {}
@@ -64,6 +69,8 @@ class ScipionRun(SessionRun):
 
         return values
 
+
+
     def getStdOut(self):
         """ Return run's stdout file. """
         return self.join('logs', 'run.stdout')
@@ -71,6 +78,95 @@ class ScipionRun(SessionRun):
     def getStdError(self):
         """ Return run's stdout file. """
         return self.join('logs', 'run.stderr')
+
+    def getSummary(self):
+        summary = {'template': '', 'data': {}}
+        data_values = {}
+
+        ctfsSqlite = self.join('ctfs.sqlite')
+        if os.path.exists(ctfsSqlite):
+            summary['template'] = 'processing_ctf_summary.html'
+            data_values = self._load_ctfvalues(ctfsSqlite)
+
+        if data_values:
+            summary['data'] = {'data_values': data_values}
+
+        return summary
+
+    def getOverview(self):
+        overview = {'template': '', 'data': {}}
+        return overview
+
+    def get_micrograph_data(self, micId):
+        data = {}
+        ctfsSqlite = self.join('ctfs.sqlite')
+        if os.path.exists(ctfsSqlite):
+            with SqliteFile(ctfsSqlite) as sf:
+                row = sf.getTableRow('Objects', micId - 1, classes='Classes')
+                micThumb = Thumbnail.Micrograph()
+                psdThumb = Thumbnail.Psd()
+                micName = row['_micObj._micName']
+                micFn = self.project.join(row['_micObj._filename'])
+                micThumbBase64 = micThumb.from_mrc(micFn)
+                psdFn = self.project.join(row['_psdFile']).replace(':mrc', '')
+                pixelSize = row['_micObj._samplingRate']
+
+                loc = EPU.get_movie_location(micName)
+                data = self._ctfFromRow(row)
+                data.update({
+                    'micThumbData': micThumbBase64,
+                    'psdData': psdThumb.from_mrc(psdFn),
+                    'coordinates': [], # self.get_micrograph_coordinates(row['_micObj._micName']),
+                    'micThumbPixelSize': pixelSize * micThumb.scale,
+                    'pixelSize': pixelSize,
+                    'gridSquare': loc['gs'],
+                    'foilHole': loc['fh']
+                })
+        return data
+
+    def _ctfFromRow(self, row):
+        dU, dV = row['_defocusU'], row['_defocusV']
+        return {
+            # 'shiftPlotData': None,
+            'ctfDefocusU': round(dU / 10000., 2),
+            'ctfDefocusV': round(dV / 10000., 2),
+            'ctfDefocusAngle': round(row['_defocusAngle'], 2),
+            'ctfAstigmatism': round(abs(dU - dV) / 10000, 2),
+            'ctfResolution': round(row['_resolution'], 2)
+        }
+
+    def _load_ctfvalues(self, ctfsSqlite):
+        data_values = {
+            'ctfDefocusU': {
+                'label': 'Defocus U',
+                'scale': 0.0001,
+                'unit': 'µm',
+                'color': '#852999',
+                'maxX': 4,
+                'data': []
+            },
+            'ctfDefocusV': {
+                'label': 'Defocus V',
+                'scale': 0.0001,
+                'unit': 'µm',
+                'color': '#852999',
+                'maxX': 4,
+                'data': []
+            },
+            'ctfResolution': {
+                'color': '#EF9A53',
+                'label': 'Resolution',
+                'unit': 'Å',
+                'data': []
+            }
+        }
+        with SqliteFile(ctfsSqlite) as sf:
+            for row in sf.iterTable('Objects', classes='Classes'):
+                ctf = self._ctfFromRow(row)
+                for k in ['ctfDefocusU', 'ctfDefocusV', 'ctfResolution']:
+                    data_values[k]['data'].append(ctf[k])
+
+        return data_values
 
 
 class ScipionSessionData(SessionData):
@@ -310,7 +406,7 @@ class ScipionSessionData(SessionData):
                 if row['id'] == rid or name.startswith(prefix):
                     runDict[name] = row
 
-        return ScipionRun(self._path, runDict)
+        return ScipionRun(self, runDict)
 
     @staticmethod
     def getFormDefinition(className):
@@ -372,3 +468,4 @@ class ScipionSessionData(SessionData):
             formDef['sections'].append(sectionDef)
 
         return formDef
+

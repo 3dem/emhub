@@ -488,7 +488,7 @@ class MicrographCard {
         this.overlay = new Overlay(this.id('overlay'));
         this.gsCard = gsCard;
         // Parameters used to load the micrograph data
-        this.params = {micId : null, sessionId: session_id};
+        this.params = {session_id: session_id};
         let self = this;
 
         // Bind enter key with micrograph number input
@@ -532,7 +532,7 @@ class MicrographCard {
 
         this.overlay.show("Loading Micrograph " + micId + " ...");
 
-        this.params.micId = micId;
+        this.params.mic_id = micId;
 
         var requestMicThumb = $.ajax({
             url: Api.urls.get_mic_data,
@@ -571,7 +571,7 @@ class MicrographCard {
                 $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
                 $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
                 $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
-                create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
+                //create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
             }
             else {
                 let uva = data['ctfDefocusU'] + ', ' + data['ctfDefocusV'] + ', ' + data['ctfDefocusAngle'];
@@ -617,7 +617,7 @@ class GridSquareCard {
             return;
 
         let self = this;
-        var attrs = {sessionId: session_id, gsId: gridSquare};
+        var attrs = {session_id: session_id, gsId: gridSquare};
         this.last = gridSquare;
         this.overlay.show('Loading ' + gridSquare);
 

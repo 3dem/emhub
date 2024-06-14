@@ -705,7 +705,7 @@ class DataContent:
         tsRange = {}
         beamshifts = []
 
-        sdata = session.data  # shortcut
+        sdata = self.app.dm.get_processing_project(session_id=session.id)['project']
 
         def _microns(v):
             return round(v * 0.0001, 3)
@@ -755,7 +755,7 @@ class DataContent:
                     step = 1000
                     tsLast = tsFirst + len(defocus) * step
 
-                epuData = session.data.getEpuData()
+                epuData = sdata.getEpuData()
                 if epuData is None:
                     beamshifts = []
                 else:
@@ -775,13 +775,13 @@ class DataContent:
                 'defocus_bins': dbins.toList(),
                 'resolution_bins': rbins.toList(),
                 'gridsquares': gridsquares,
+                'gs_info': epuData is not None,
             })
 
         elif result == 'classes2d':
             runId = int(kwargs.get('run_id', -1))
             data['classes2d'] = sdata.get_classes2d(runId=runId)
 
-        sdata.close()
         return data
 
 

@@ -53,8 +53,7 @@ def register_content(dc):
 
     @dc.content
     def session_default(**kwargs):
-        session_id = kwargs['session_id']
-        session = dc.app.dm.load_session(session_id)
+        session = dc.app.dm.get_session_by(id=kwargs['session_id'])
         otf_status = session.otf_status
 
         if not otf_status or otf_status == 'created':
@@ -68,8 +67,7 @@ def register_content(dc):
 
     @dc.content
     def session_live(**kwargs):
-        session_id = kwargs['session_id']
-        session = dc.app.dm.load_session(session_id)
+        session = dc.app.dm.get_session_by(id=kwargs['session_id'])
         data = dc.get_session_data(session)
         data.update({'s': session})
         return data
@@ -170,57 +168,54 @@ def register_content(dc):
         }
 
     @dc.content
-    def session_flowchart(**kwargs):
-        session = dc.app.dm.load_session(kwargs['session_id'])
-        # data = get_session_data(session)
-        return {
-            'session': session,
-            'workflow': session.data.get_workflow()
-        }
-
-    @dc.content
     def create_session_form(**kwargs):
         raise Exception("How to create sessions needs to be defined "
                         "on the extras for each specific EMhub customization.")
 
     @dc.content
-    def processing_flowchart(**kwargs):
-        dm = dc.app.dm
-        entry_id = int(kwargs['entry_id'])
-        proc = dm.get_processing_project(entry_id=entry_id)
+    def processing_content(**kwargs):
+        ppDict = dc.app.dm.get_processing_project(**kwargs)
+        pp = ppDict['project']
+
         return {
-            'proc': proc,
-            'workflow': proc.get_workflow(),
-            'entry_id': entry_id
+            'processing_project': pp,
+            'workflow': pp.get_workflow(),
+            'get_project_args': ppDict['args']
         }
 
     @dc.content
-    def processing_run_summary(**kwargs):
-        runId = kwargs['runId']
-        data = processing_flowchart(**kwargs)
-        run = data['proc'].get_run(runId)
-        summary = run.getSummary()
-        data.update({
+    def processing_flowchart(**kwargs):
+        return processing_content(**kwargs)
+
+    @dc.content
+    def session_flowchart(**kwargs):
+        session = dc.app.dm.get_session_by(id=kwargs['session_id'])
+        data = processing_content(**kwargs)
+        data['session'] = session
+        return data
+
+    def get_processing_run_func(funcName, kwargs):
+        ppDict = dc.app.dm.get_processing_project(**kwargs)
+        pp = ppDict['project']
+        run = ppDict['run']
+        func = getattr(run, funcName)
+        result = func()
+        data = {
+            'processing_project': pp,
+            'get_project_args': ppDict['args'],
             'run': run,
-            'runId': runId,
-            'template': summary['template'],
-        })
-        data.update(summary['data'])
+            'template': result['template']
+        }
+        data.update(result['data'])
         return data
 
     @dc.content
+    def processing_run_summary(**kwargs):
+        return get_processing_run_func('getSummary', kwargs)
+
+    @dc.content
     def processing_run_overview(**kwargs):
-        runId = kwargs['runId']
-        data = processing_flowchart(**kwargs)
-        run = data['proc'].get_run(runId)
-        overview = run.getOverview()
-        data.update({
-            'run': run,
-            'runId': runId,
-            'template': overview['template'],
-        })
-        data.update(overview['data'])
-        return data
+        return get_processing_run_func('getOverview', kwargs)
 
     @dc.content
     def processing_projects_list(**kwargs):

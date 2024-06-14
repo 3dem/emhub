@@ -74,18 +74,10 @@ def get_mic_data():
     2) From a project, where info is taken from a run.
         Input: micId, projectId, runId
     """
-    dm = app.dm
-    micId = int(request.form['micId'])
-
-    if 'sessionId' in request.form:
-        sessionId = int(request.form['sessionId'])
-        session = dm.load_session(sessionId)
-        mic = session.data.get_micrograph_data(micId)
-        session.data.close()
-    else:
-        proc = dm.get_processing_project(entry_id=request.form['entry_id'])
-        run = proc.get_run(request.form['runId'])
-        mic = run.get_micrograph_data(micId)
+    kwargs = request.form.to_dict()
+    micId = int(kwargs['mic_id'])
+    run = app.dm.get_processing_project(**kwargs)['run']
+    mic = run.get_micrograph_data(micId)
 
     if 'coordinates' in mic:
         if not isinstance(mic['coordinates'], list):  # numpy arrays
@@ -99,7 +91,7 @@ def get_mic_data():
 @images_bp.route("/get_micrograph_gridsquare", methods=['POST'])
 def get_micrograph_gridsquare():
     form = request.form  # shortcut
-    sessionId = int(form['sessionId'])
+    sessionId = int(form['session_id'])
     session = app.dm.load_session(sessionId)
     kwargs = {}
     if 'gsId' in form:
@@ -108,7 +100,6 @@ def get_micrograph_gridsquare():
         kwargs['fhId'] = form['fhId']
     data = session.data.get_micrograph_gridsquare(**kwargs)
     session.data.close()
-    print(data['foilHole'].keys())
     return send_json_data(data)
 
 
@@ -118,10 +109,10 @@ def get_volume_data():
     Input: projectId, runId, volName
     """
     dm = app.dm
-    volName = request.form['volName']
-    axis = request.form.get('axis', 'z')
-    proc = dm.get_processing_project(entry_id=request.form['entry_id'])
-    run = proc.get_run(request.form['runId'])
+    kwargs = request.form.to_dict()
+    volName = kwargs['volName']
+    axis = kwargs.get('axis', 'z')
+    run = dm.get_processing_project(**kwargs)['run']
     vol = run.get_volume_data(volName, volume_data='slices', axis=axis)
 
     return send_json_data(vol)
