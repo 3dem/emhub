@@ -57,20 +57,25 @@ class TestSessionTaskHandler(TaskHandler):
         return self._request(_update_extra, 'updating session extra')
 
     def process(self):
-        if self.action == 'monitor':
-            return self.monitor()
-
-        self.update_task({
-            'error': f'Unknown action {self.action}',
-            'done': 1
-        })
-        self.stop()
+        try:
+            if self.action == 'monitor':
+                return self.monitor()
+            elif self.action == 'otf_test':
+                return self.otf()
+            raise Exception(f"Unknown action {self.action}")
+        except Exception as e:
+            self.update_task({'error': str(e), 'done': 1})
+            self.stop()
 
     def monitor(self):
         extra = self.session['extra']
         raw = extra['raw']
+        raw_path = raw['path']
         # If repeat != 0, then repeat the scanning this number of times
         repeat = self.task['args'].get('repeat', 1)
+
+        if not os.path.exists(raw_path):
+            raise Exception(f"Provided RAW images folder '{raw_path}' does not exists.")
 
         print(Color.bold(f"session_id = {self.session['id']}, monitoring files..."))
         print(f"    path: {raw['path']}")
@@ -90,6 +95,47 @@ class TestSessionTaskHandler(TaskHandler):
         # Remove dict from the task update
         del update_args['files']
         self.update_task(update_args)
+
+    def otf(self):
+        extra = self.session['extra']
+        raw = extra['raw']
+        raw_path = raw['path']
+        otf = extra['otf']
+        otf_path = otf['path']
+
+        # Let's do some validations to check input paths and images
+        if not os.path.exists(raw_path):
+            raise Exception(f"Provided RAW images folder '{raw_path}' does not exists.")
+
+        if os.path.exists(otf_path):
+            raise Exception(f"Provided OTF folder '{otf_path}' alreayd exists."
+                            f"Please delete it or use and unexisting path.")
+
+        # Create OTF folder and configuration files for OTF
+        def _path(*paths):
+            return os.path.join(otf_path, *paths)
+
+        self.pl.mkdir(otf_path)
+        os.symlink(raw_path, _path('data'))
+        acq = self.session['acquisition']
+        # Make gain relative to input raw data folder
+        acq['gain'] = _path('data', acq['gain'])
+        with open(_path('scipion_otf_options.json'), 'w') as f:
+            opts = {'acquisition': acq, '2d': False}
+            json.dump(opts, f, indent=4)
+
+        otf['status'] = 'created'
+
+        # Now launch Scipion OTF
+        self.pl.system(f"scipion python -m emtools.scripts.emt-scipion-otf --create {otf_path} &")
+
+        #self.update_session_extra({'otf': otf})
+        self.update_task({'otf_path': otf['path'],
+                          'otf_status': otf['status'],
+                          'count': self.count,
+                          'done': 1})
+        self.update_session_extra({'raw': raw})
+        self.stop()
 
 
 class TestSessionWorker(Worker):

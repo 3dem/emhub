@@ -483,12 +483,12 @@ class Overlay {
 
 
 class MicrographCard {
-    constructor(containerId, gsCard) {
+    constructor(containerId, params, gsCard) {
         this.containerId = containerId;
         this.overlay = new Overlay(this.id('overlay'));
         this.gsCard = gsCard;
         // Parameters used to load the micrograph data
-        this.params = {session_id: session_id};
+        this.params = params;
         let self = this;
 
         // Bind enter key with micrograph number input
@@ -571,7 +571,8 @@ class MicrographCard {
                 $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
                 $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
                 $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
-                //create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
+                if (nonEmpty(data['ctfPlot']))
+                    create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
             }
             else {
                 let uva = data['ctfDefocusU'] + ', ' + data['ctfDefocusV'] + ', ' + data['ctfDefocusAngle'];

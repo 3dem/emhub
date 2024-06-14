@@ -90,8 +90,7 @@
         //create_plots(firstLabel);
         change_plots();  // trigger plots generation with first label
 
-        mic_card = new MicrographCard('mic_card');
-        mic_card.params = getArgs({micId: null});
+        mic_card = new MicrographCard('mic_card', getArgs({micId: null}));
         mic_card.loadMicData(1);
 
 });

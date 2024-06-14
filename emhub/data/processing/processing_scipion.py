@@ -69,8 +69,6 @@ class ScipionRun(SessionRun):
 
         return values
 
-
-
     def getStdOut(self):
         """ Return run's stdout file. """
         return self.join('logs', 'run.stdout')
@@ -95,47 +93,22 @@ class ScipionRun(SessionRun):
 
     def getOverview(self):
         overview = {'template': '', 'data': {}}
+        data_values = {}
+
+        ctfsSqlite = self.join('ctfs.sqlite')
+        if os.path.exists(ctfsSqlite):
+            overview['template'] = 'processing_ctf_overview.html'
+            data_values = self._load_ctfvalues(ctfsSqlite, index=True)
+
+        if data_values:
+            overview['data'] = {'data_values': data_values}
+
         return overview
 
     def get_micrograph_data(self, micId):
-        data = {}
-        ctfsSqlite = self.join('ctfs.sqlite')
-        if os.path.exists(ctfsSqlite):
-            with SqliteFile(ctfsSqlite) as sf:
-                row = sf.getTableRow('Objects', micId - 1, classes='Classes')
-                micThumb = Thumbnail.Micrograph()
-                psdThumb = Thumbnail.Psd()
-                micName = row['_micObj._micName']
-                micFn = self.project.join(row['_micObj._filename'])
-                micThumbBase64 = micThumb.from_mrc(micFn)
-                psdFn = self.project.join(row['_psdFile']).replace(':mrc', '')
-                pixelSize = row['_micObj._samplingRate']
+        return self.project.load_mic_data(micId, self.join('ctfs.sqlite'))
 
-                loc = EPU.get_movie_location(micName)
-                data = self._ctfFromRow(row)
-                data.update({
-                    'micThumbData': micThumbBase64,
-                    'psdData': psdThumb.from_mrc(psdFn),
-                    'coordinates': [], # self.get_micrograph_coordinates(row['_micObj._micName']),
-                    'micThumbPixelSize': pixelSize * micThumb.scale,
-                    'pixelSize': pixelSize,
-                    'gridSquare': loc['gs'],
-                    'foilHole': loc['fh']
-                })
-        return data
-
-    def _ctfFromRow(self, row):
-        dU, dV = row['_defocusU'], row['_defocusV']
-        return {
-            # 'shiftPlotData': None,
-            'ctfDefocusU': round(dU / 10000., 2),
-            'ctfDefocusV': round(dV / 10000., 2),
-            'ctfDefocusAngle': round(row['_defocusAngle'], 2),
-            'ctfAstigmatism': round(abs(dU - dV) / 10000, 2),
-            'ctfResolution': round(row['_resolution'], 2)
-        }
-
-    def _load_ctfvalues(self, ctfsSqlite):
+    def _load_ctfvalues(self, ctfsSqlite, index=False):
         data_values = {
             'ctfDefocusU': {
                 'label': 'Defocus U',
@@ -160,11 +133,19 @@ class ScipionRun(SessionRun):
                 'data': []
             }
         }
+        indexes = []
         with SqliteFile(ctfsSqlite) as sf:
             for row in sf.iterTable('Objects', classes='Classes'):
-                ctf = self._ctfFromRow(row)
+                indexes.append(row['id'])
+                ctf = ScipionSessionData.ctf_from_row(row)
                 for k in ['ctfDefocusU', 'ctfDefocusV', 'ctfResolution']:
                     data_values[k]['data'].append(ctf[k])
+
+        if index:
+            data_values['id'] = {
+                'label': 'Id',
+                'data': indexes
+            }
 
         return data_values
 
@@ -268,8 +249,21 @@ class ScipionSessionData(SessionData):
                 }
                 yield micData
 
-    def get_micrograph_data(self, micId):
-        if ctfSqlite := self.outputs.get('ctfs', None):
+    @staticmethod
+    def ctf_from_row(row):
+        dU, dV = row['_defocusU'], row['_defocusV']
+        return {
+            'ctfDefocusU': round(dU / 10000., 2),
+            'ctfDefocusV': round(dV / 10000., 2),
+            'ctfDefocusAngle': round(row['_defocusAngle'], 2),
+            'ctfAstigmatism': round(abs(dU - dV) / 10000, 2),
+            'ctfResolution': round(row['_resolution'], 2)
+        }
+
+    def load_mic_data(self, micId, ctfSqlite):
+        """ Load micrograph information from a given sqlite file (e.g. CTFs)."""
+        data = {}
+        if ctfSqlite and os.path.exists(ctfSqlite):
             with SqliteFile(ctfSqlite) as sf:
                 row = sf.getTableRow('Objects', micId - 1, classes='Classes')
                 micThumb = Thumbnail.Micrograph()
@@ -280,26 +274,31 @@ class ScipionSessionData(SessionData):
                 psdFn = self.join(row['_psdFile']).replace(':mrc', '')
                 pixelSize = row['_micObj._samplingRate']
 
-                loc = EPU.get_movie_location(micName)
-                dU, dV = row['_defocusU'], row['_defocusV']
+                ctfProfile = psdFn.replace('.mrc', '_avrot.txt')
+                if os.path.exists(ctfProfile):
+                    with open(ctfProfile) as f:
+                        ctfPlot = [line.split() for line in f
+                                   if not line.startswith('#')]
+                else:
+                    ctfPlot = []
 
-                return {
+                loc = EPU.get_movie_location(micName)
+                data = ScipionSessionData.ctf_from_row(row)
+                data.update({
                     'micThumbData': micThumbBase64,
                     'psdData': psdThumb.from_mrc(psdFn),
-                    # 'shiftPlotData': None,
-                    'ctfDefocusU': round(dU/10000., 2),
-                    'ctfDefocusV': round(dV/10000., 2),
-                    'ctfDefocusAngle': round(row['_defocusAngle'], 2),
-                    'ctfAstigmatism': round(abs(dU - dV)/10000, 2),
-                    'ctfResolution': round(row['_resolution'], 2),
                     # TODO: Retrieving coordinates from multiple micrographs is very slow now
                     'coordinates': self.get_micrograph_coordinates(row['_micObj._micName']),
                     'micThumbPixelSize': pixelSize * micThumb.scale,
                     'pixelSize': pixelSize,
                     'gridSquare': loc['gs'],
-                    'foilHole': loc['fh']
-                }
-        return {}
+                    'foilHole': loc['fh'],
+                    'ctfPlot': ctfPlot
+                })
+        return data
+
+    def get_micrograph_data(self, micId):
+        return self.load_mic_data(micId, self.outputs.get('ctfs', None))
 
     def get_classes2d(self, runId=None):
         """ Iterate over 2D classes. """

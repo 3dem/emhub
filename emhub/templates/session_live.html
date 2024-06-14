@@ -384,8 +384,11 @@
         if (stats.movies.count > 0 && stats.ctfs.count > 0) {
             if (gs_info)
                 gs_card = new GridSquareCard('gs_card');
-            mic_card = new MicrographCard('mic_card', gs_card);
-            mic_card.params.run_id = 199; // FIXME: This should be CTF job
+            let params = {
+                session_id: session_id,
+                run_id: 199 // FIXME: This should be CTF job
+            };
+            mic_card = new MicrographCard('mic_card', params, gs_card);
             overlay_2d = new Overlay('overlay_classes2d');
             plot_overlay = new Overlay('plot-overlay');
 

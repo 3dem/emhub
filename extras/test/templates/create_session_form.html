@@ -31,7 +31,6 @@
     <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
         <form id="session-form" data-parsley-validate="" novalidate="">
             <div class="row">
-
                 <!-- Left Column -->
                 <div class="col-7">
                     {{ section_header("Basic Info") }}
@@ -65,7 +64,8 @@
 
                     {{ section_header("Data Processing", 3) }}
                     {{ macros.session_dialog_row('Input RAW data folder', 'raw_folder', '', 'Provide RAW data folder') }}
-                    {{ macros.session_dialog_row('Input IMAGES pattern', 'raw_images_pattern', '', '') }}
+                    {{ macros.session_dialog_row('Input IMAGES pattern', 'images_pattern', acquisition['images_pattern'], '') }}
+                    {{ macros.session_dialog_row('Input GAIN image', 'gain', '', '') }}
                     {{ macros.session_dialog_row('Output OTF folder', 'otf_folder', '', '') }}
 
                     <!-- OTF workflow -->
@@ -86,7 +86,6 @@
                         </select>
                     {% endcall %}
                 </div>
-
                 <!-- Right Column -->
                 <div class="col-5 p-0 m-0">
                     {{ section_header("Acquisition") }}
@@ -96,21 +95,17 @@
                     {{ macros.session_dialog_row('CS', 'acq_cs', acquisition['cs'], '') }}
                     {{ macros.session_dialog_row('Dose (per frame)', 'acq_dose', acquisition['dose'], '') }}
                 </div>
-
             </div>
         </form>
-    </div>
-    <!-- end Booking Form -->
+    </div> <!-- end Booking Form -->
 
-</div>
-    <!-- End of Modal body -->
+</div> <!-- End of Modal body -->
 
     <!-- Modal footer -->
     <div class="modal-footer">
         <button type="button" id="booking-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
         <button type="button" id="booking-btn-ok" class="btn btn-outline-dark" onclick="onCreateClick()">Create</button>
-    </div>
-    <!-- End of Modal footer -->
+    </div> <!-- End of Modal footer -->
 
   </div> <!-- End of modal-content -->
 </div> <!-- end of modal-dialog -->
@@ -129,7 +124,9 @@
                 magnification: formValues.acq_magnification,
                 pixel_size: formValues.acq_pixel_size,
                 dose: formValues.acq_dose,
-                cs: formValues.acq_cs
+                cs: formValues.acq_cs,
+                images_pattern: formValues.images_pattern,
+                gain: formValues.gain
             },
             tasks: [['monitor', host]],
             extra: {

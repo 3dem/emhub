@@ -728,6 +728,7 @@ class DataContent:
             firstMic = lastMic = None
             dbins = Bins([1, 2, 3])
             rbins = Bins([3, 4, 6])
+            epuData = None
 
             if data['stats']['ctfs']['count'] > 0:
                 for mic in sdata.get_micrographs():
