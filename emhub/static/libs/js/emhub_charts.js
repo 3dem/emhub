@@ -83,7 +83,8 @@ function create_hc_series(container, data, config) {
                     var micIndex = get_micIndex(this.x);
                     var tooltip = '';
                     if (micIndex > 0) {
-                        tooltip = '<span>' + session_data.gridsquares[micIndex] + '</span><br/><br/>' +
+                        let gs = nonEmpty(session_data) ? session_data.gridsquares[micIndex] : '';
+                        tooltip = '<span>' + gs + '</span><br/><br/>' +
                             '<b>Micrograph ' + (micIndex+1) + '</b><br/>' +
                             mylabel + ": " + data[micIndex][1].toFixed(2) + " " + mysuffix + '<br/>';
                     }
@@ -439,7 +440,7 @@ function drawMicrograph(containerId, micrograph, drawCoordinates) {
 function drawClasses2d(containerId, classes, header, showSel){
     var container = document.getElementById(containerId);
     var imgStr, infoStr = null;
-    html = '<div class="col-12">' + header + '</div>';
+    var html = '<div class="col-12">' + header + '</div>';
 
     for (var cls2d of classes) {
         let borderColor = showSel && cls2d.sel ? 'limegreen' : 'white';
@@ -447,6 +448,19 @@ function drawClasses2d(containerId, classes, header, showSel){
         infoStr = '<p class="text-muted mb-0"><small>size: ' + cls2d.size + ', id: ' + cls2d.id + '</small></p>';
         html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
 
+    }
+    container.innerHTML = html;
+}
+
+function drawVolData(containerId, volSlices){
+    var container = document.getElementById(containerId);
+    var imgStr, infoStr = null;
+    var html = '<div class="col-12"></div>';
+
+    for(let slice in volSlices) {
+        imgStr = '<img src="data:image/png;base64,' + volSlices[slice] + '" style="border: solid 3px;">';
+        infoStr = '<p class="text-muted mb-0"><small>' + slice + '</small></p>';
+        html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
     }
     container.innerHTML = html;
 }
@@ -469,10 +483,12 @@ class Overlay {
 
 
 class MicrographCard {
-    constructor(containerId, gsCard) {
+    constructor(containerId, params, gsCard) {
         this.containerId = containerId;
         this.overlay = new Overlay(this.id('overlay'));
         this.gsCard = gsCard;
+        // Parameters used to load the micrograph data
+        this.params = params;
         let self = this;
 
         // Bind enter key with micrograph number input
@@ -516,10 +532,12 @@ class MicrographCard {
 
         this.overlay.show("Loading Micrograph " + micId + " ...");
 
+        this.params.mic_id = micId;
+
         var requestMicThumb = $.ajax({
-            url: urls.get_mic_data,
+            url: Api.urls.get_mic_data,
             type: "POST",
-            data: {micId : micId, sessionId: session_id},
+            data: this.params,
             dataType: "json"
            // contentType: "img/png"
         });
@@ -553,6 +571,8 @@ class MicrographCard {
                 $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
                 $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
                 $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
+                if (nonEmpty(data['ctfPlot']))
+                    create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
             }
             else {
                 let uva = data['ctfDefocusU'] + ', ' + data['ctfDefocusV'] + ', ' + data['ctfDefocusAngle'];
@@ -598,12 +618,12 @@ class GridSquareCard {
             return;
 
         let self = this;
-        var attrs = {sessionId: session_id, gsId: gridSquare};
+        var attrs = {session_id: session_id, gsId: gridSquare};
         this.last = gridSquare;
         this.overlay.show('Loading ' + gridSquare);
 
         var requestMicImg = $.ajax({
-            url: urls.get_micrograph_gridsquare,
+            url: Api.urls.get_micrograph_gridsquare,
             type: "POST",
             data: attrs,
             dataType: "json"
@@ -639,7 +659,7 @@ function session_getData(attrs) {
     // Update template values
     attrs.session_id = session_id;
     var ajaxContent = $.ajax({
-        url: urls.get_session_data,
+        url: Api.urls.get_session_data,
         type: "POST",
         contentType: 'application/json; charset=utf-8',
         data: JSON.stringify({attrs: attrs}),
@@ -1078,6 +1098,50 @@ function create_hc_sessions_histogram(containerId, data) {
     }]
 });
 } // function hc_create_histogram
+
+function create_pl_ctfplot(containerId, ctfvalues) {
+    // var trace = {
+    //   x: ctfvalues[0],
+    //   y: ctfvalues[1],
+    //   mode: 'lines',
+    //   connectgaps: true
+    // };
+    //
+    // var trace2 = {
+    //   x: ctfvalues[0],
+    //   y: ctfvalues[2],
+    //   mode: 'lines',
+    //   connectgaps: true
+    // };
+    //
+    //  var trace3 = {
+    //   x: ctfvalues[0],
+    //   y: ctfvalues[3],
+    //   mode: 'lines',
+    //   connectgaps: true
+    // };
+
+     var data = [];
+     for (i = 1; i <= 4; i++) {
+         data.push({
+          x: ctfvalues[0],
+          y: ctfvalues[i],
+          mode: 'lines',
+          connectgaps: true
+        });
+     }
+
+    // var data = [trace, trace2, trace3];
+
+    var layout = {
+      showlegend: true,
+        autoscale: true,
+        margin: {'t': 0, 'l': 10, 'r': 50},
+    };
+
+    Plotly.newPlot(containerId, data, layout);
+
+} // function create_pl_ctfplot
 
 
 // ---------- Network related functions ----------------

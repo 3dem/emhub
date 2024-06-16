@@ -308,11 +308,17 @@ function createSession(bookingId, totalSessions) {
     for (var i = 0;  i < params.length; i++) {
         var param = params[i];
         var base_id = param.name;
-        var param_value = (param.name in values) ? values[param.name] : '';
+        var param_value = (base_id in values) ? values[base_id] : '';
 
-        if (param.label) {
-            var row = document.createElement('div');
-            row.className = 'row form-group';
+        var row = document.createElement('div');
+        row.className = 'row form-group';
+        parent.appendChild(row);
+
+        if (!nonEmpty(base_id)){
+            // Empty param is a separator
+            row.className += ' mt-1 mb-1';
+        }
+        else if (param.label) {
 
             if (param.expert == 1) {
                 row.style.backgroundColor = "#E6E6E6";
@@ -321,16 +327,12 @@ function createSession(bookingId, totalSessions) {
             }
 
             row.id = base_id + '-row';
-            parent.appendChild(row);
-
             var label = document.createElement('label');
             label.className = 'col-6 col-form-label text-sm-right text-wrap';
             label.textContent = param.label;
             label.dataset.toggle = "tooltip";
             label.dataset.placement = "top";
             label.title = param.help;
-
-
             row.appendChild(label);
 
             if (param.paramClass === "LabelParam"){
@@ -379,6 +381,9 @@ function createSession(bookingId, totalSessions) {
                 }
             }
         }
+        else {  // Empty space separator
+
+        }
 
     }
  } // function form_addRows
@@ -389,13 +394,16 @@ function createSession(bookingId, totalSessions) {
  function form_create(form, values, elementId, protocol) {
      var formElement = document.getElementById(elementId);
      formElement.innerHTML = '';
+     //formElement.style.backgroundColor = 'red';
 
      var card = document.createElement('div');
      card.className = "card card-primary card-tabs";
+     card.style.borderWidth = "0px";
 
      // Card header
      var cardh = document.createElement('div');
      cardh.className = "card-header p-0 pt-1";
+     cardh.style.borderWidth = "0px";
      var ul = document.createElement('ul');
      ul.id = "dynamic-tab";
      ul.role = "tablist";
@@ -405,10 +413,12 @@ function createSession(bookingId, totalSessions) {
 
      // Card body
      var cardb = document.createElement('div');
-     cardb.className = "card-body";
+     cardb.className = "card-body p-0";
+     cardb.style.borderWidth = "0px";
      var content = document.createElement('div');
      content.id = "dynamic-tabContent";
-     content.className = "tab-content";
+     content.className = "tab-content overflow-auto";
+     content.style.maxHeight = "980px";
      cardb.appendChild(content);
      card.appendChild(cardb);
 

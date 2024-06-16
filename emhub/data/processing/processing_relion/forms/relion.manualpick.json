@@ -1,0 +1,157 @@
+{
+    "sections": [
+        {
+            "label": "I/O",
+            "params": [
+                {
+                    "name": "fn_in",
+                    "label": "Input micrographs STAR file:",
+                    "pattern": "STAR Files (*.star)",
+                    "help": "Input STAR file (with or without CTF information), OR a unix-type wildcard with all micrographs in MRC format (in this case no CTFs can be used)."
+                },
+                {
+                    "name": "do_startend",
+                    "label": "Pick start-end coordinates helices?",
+                    "default": false,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to true, start and end coordinates are picked subsequently and a line will be drawn between each pair."
+                },
+                {
+                    "name": "do_fom_threshold",
+                    "label": "Use autopick FOM threshold?",
+                    "default": false,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to Yes, only particles with rlnAutopickFigureOfMerit values below the threshold below will be extracted."
+                },
+                {
+                    "name": "minimum_pick_fom",
+                    "label": "Minimum autopick FOM:",
+                    "default": 0,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "The minimum value for the rlnAutopickFigureOfMerit for particles to be extracted."
+                }
+            ]
+        },
+        {
+            "label": "Display",
+            "params": [
+                {
+                    "name": "diameter",
+                    "label": "Particle diameter (A):",
+                    "default": 100,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "The diameter of the circle used around picked particles (in Angstroms). Only used for display."
+                },
+                {
+                    "name": "micscale",
+                    "label": "Scale for micrographs:",
+                    "default": 0.2,
+                    "valueClass": "Float",
+                    "paramClass": "FloatParam",
+                    "help": "The micrographs will be displayed at this relative scale, i.e. a value of 0.5 means that only every second pixel will be displayed."
+                },
+                {
+                    "name": "sigma_contrast",
+                    "label": "Sigma contrast:",
+                    "default": 3,
+                    "valueClass": "Float",
+                    "paramClass": "FloatParam",
+                    "help": "The micrographs will be displayed with the black value set to the average of all values MINUS this values times the standard deviation of all values in the micrograph, and the white value will be set to the average PLUS this value times the standard deviation. Use zero to set the minimum value in the micrograph to black, and the maximum value to white."
+                },
+                {
+                    "name": "white_val",
+                    "label": "White value:",
+                    "default": 0,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Use non-zero values to set the value of the whitest pixel in the micrograph."
+                },
+                {
+                    "name": "black_val",
+                    "label": "Black value:",
+                    "default": 100,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "CTFFIND's dAst parameter, GCTFs -astm parameter"
+                },
+                {},
+                {
+                    "name": "lowpass",
+                    "label": "Lowpass filter (A)",
+                    "default": 20,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Lowpass filter that will be applied to the micrographs. Give a negative value to skip the lowpass filter."
+                },
+                {
+                    "name": "highpass",
+                    "label": "Highpass filter (A)",
+                    "default": -1,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Highpass filter that will be applied to the micrographs. This may be useful to get rid of background ramps due to uneven ice distributions. Give a negative value to skip the highpass filter. Useful values are often in the range of 200-400 Angstroms."
+                },
+                {
+                    "name": "angpix",
+                    "label": "Pixel size (A)",
+                    "default": -1,
+                    "valueClass": "Float",
+                    "paramClass": "FloatParam",
+                    "help": "Pixel size in Angstroms. This will be used to calculate the filters and the particle diameter in pixels. If a CTF-containing STAR file is input, then the value given here will be ignored, and the pixel size will be calculated from the values in the STAR file. A negative value can then be given here."
+                },
+                {
+                    "name": "do_topaz_denoise",
+                    "label": "OR: use Topaz denoising?",
+                    "default": false,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to true, Topaz denoising will be performed instead of lowpass filtering."
+                }
+            ]
+        },
+        {
+            "label": "Colors",
+            "params": [
+                {
+                    "name": "do_color",
+                    "label": "Blue<>red color particles?",
+                    "default": false,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to true, then the circles for each particles are coloured from red to blue (or the other way around) for a given metadatalabel. If this metadatalabel is not in the picked coordinates STAR file (basically only the rlnAutopickFigureOfMerit or rlnClassNumber) would be useful values there, then you may provide an additional STAR file (e.g. after classification/refinement below. Particles with values -999, or that are not in the additional STAR file will be coloured the default color: green."
+                },
+                {
+                    "name": "color_label",
+                    "label": "MetaDataLabel for color:",
+                    "default": "rlnAutopickFigureOfMerit",
+                    "help": "The Metadata label of the value to plot from red<>blue. Useful examples might be: \n rlnParticleSelectZScore \n rlnClassNumber \n rlnAutopickFigureOfMerit \n rlnAngleTilt \n rlnLogLikeliContribution \n rlnMaxValueProbDistribution \n rlnNrOfSignificantSamples\n"
+                },
+                {
+                    "name": "fn_color",
+                    "label": "STAR file with color label:",
+                    "help": "The program will figure out which particles in this STAR file are on the current micrograph and color their circles according to the value in the corresponding column. Particles that are not in this STAR file, but present in the picked coordinates file will be colored green. If this field is left empty, then the color label (e.g. rlnAutopickFigureOfMerit) should be present in the coordinates STAR file."
+                },
+                {
+                    "name": "blue_value",
+                    "label": "Blue value:",
+                    "default": 0,
+                    "valueClass": "Float",
+                    "paramClass": "FloatParam",
+                    "help": "The value of this entry will be blue. There will be a linear scale from blue to red, according to this value and the one given below."
+                },
+                {
+                    "name": "red_value",
+                    "label": "Red value:",
+                    "default": 2,
+                    "valueClass": "Float",
+                    "paramClass": "FloatParam",
+                    "help": "The value of this entry will be red. There will be a linear scale from blue to red, according to this value and the one given above."
+                }
+            ]
+        }
+    ]
+}

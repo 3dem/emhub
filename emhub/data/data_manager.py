@@ -39,7 +39,7 @@ from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
-from .data_session import RelionSessionData, ScipionSessionData
+from .processing import get_processing_project
 
 
 class DataManager(DbManager):
@@ -728,21 +728,38 @@ class DataManager(DbManager):
 
         return session
 
-    def load_session(self, sessionId, mode="r"):
-        session = self.get_session_by(id=sessionId)
-        session.data = self._create_data_instance(session, mode)
-        return session
-
-    def _create_data_instance(self, session, mode):
-        if not session.data_path or session.data_path.endswith('h5'):
-            return None
-        elif not os.path.exists(session.data_path):
-            raise Exception(f"ERROR: can't load session data path: {session.data_path}")
+    def get_processing_project(self, **kwargs):
+        """ Create a Processing Project instance from a path.
+        If entry_id is provided, we retrieve the path from there.
+        """
+        args = {}
+        if 'path' in kwargs:
+            project_path = kwargs['path']
+            args['path'] = project_path
+        elif 'entry_id' in kwargs:
+            entry_id = int(kwargs['entry_id'])
+            entry = self.get_entry_by(id=entry_id)
+            project_path = entry.extra['data']['project_path']
+            args = {'entry_id': entry_id}
+        elif 'session_id' in kwargs:
+            session_id = int(kwargs['session_id'])
+            session = self.get_session_by(id=session_id)
+            project_path = session.data_path
+            args = {'session_id': session_id}
         else:
-            projectSqlite = os.path.join(session.data_path, 'project.sqlite')
-            if os.path.exists(projectSqlite):
-                return ScipionSessionData(session.data_path, mode)
-            return RelionSessionData(session.data_path, mode)
+            raise Exception("Expecting either 'session_id', 'entry_id' or 'path'"
+                            "to load a project.")
+
+        pp = get_processing_project(project_path)
+        result = {'project': pp, 'args': args}
+
+        if 'run_id' in kwargs:
+            run_id = int(kwargs['run_id'])
+            result['run'] = pp.get_run(run_id)
+            args['run_id'] = run_id
+            
+        return result
+
 
     def clear_session_data(self, **attrs):
         session = self.get_session_by(id=attrs['id'])
@@ -1548,6 +1565,9 @@ class DataManager(DbManager):
         return DataManager.WorkerStream(worker, self)
 
     def get_all_tasks(self):
+        if self.r is None:
+            return {}
+
         for k in self.get_hosts().keys():
             yield k, self.get_worker_stream(k).get_all_tasks()
 

@@ -172,10 +172,22 @@
     }
   },
   {
+    "name": "entry_form:data_processing",
+    "definition": {
+        "title": "Data Processing",
+        "params": [
+            {
+                "id": "project_path",
+                "label": "Project Path"
+            }
+        ]
+    }
+  },
+  {
     "name": "config:projects",
     "definition": {
         "entries_menu": [
-            ["access_microscopes", "Request Microscope Access"],
+            ["data_processing", "Data Processing"],
             ["note", "Note"]
         ],
         "entries": {
@@ -185,12 +197,12 @@
                 "iconClass": "fas fa-sticky-note fa-inverse",
                 "imageClass": "img--picture"
             },
-            "access_microscopes": {
-                "label": "Microscope Request",
+            "data_processing": {
+                "label": "Data Processing",
                 "group": 2,
                 "iconClass": "fas fa-search fa-inverse",
                 "imageClass": "img--location",
-                "report": "sj_report_access_microscopes.html"
+                "report": ""
             },
             "booking": {
                 "label": "Booking",
@@ -250,8 +262,17 @@
       "name": "config:resources",
       "definition":
         {"currency": "$"}
+    },
+    {
+      "name": "config:hosts",
+      "definition":
+        {"workstation01.emhub.org": {"alias": "wk01"}}
+    },
+    {
+      "name": "config:news",
+      "definition":
+        []
     }
-
 ],
   
   "templates": [

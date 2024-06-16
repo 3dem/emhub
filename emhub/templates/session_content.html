@@ -1,6 +1,17 @@
+{% import "entry_macros.html" as macros %}
+
+<!-- Session Macro definitions -->
+{% macro row(title, value, label) -%}
+    {% set class = label or 'label' %}
+    <div class="row">
+        <label class="col-12 col-sm-4 col-form-label text-sm-right">{{ title }}</label>
+        <div class="col-12 col-sm-8 col-lg-6">
+            <{{ class }} class="col-12 text-sm-left col-form-label ">{{ value }}</{{ class }}>
+        </div>
+    </div>
+{%- endmacro %}
 
 <!-- Session details Card -->
-
 {% set booking = session.booking %}
 {% set is_manager = current_user.is_manager %}
 
@@ -14,197 +25,115 @@
     {% set owner = booking.owner %}
     {% set pi = owner.get_pi() %}
 
-    {% if is_manager or current_user == owner or current_user == pi %}
+    {% if is_manager or current_user.same_pi(owner) %}
 
-    <div class="row ">
+        <!-- Create a layout with two columns, left column with two panes -->
+        <div class="row">
 
-        <div class="col-12 col-xl-6">
-            <div class="card">
-            <!-- Modal header -->
-            <div class="card-header">
-                <h3 class="card-header-title"> Overview </h3>
-            </div>
+            <!-- Left column -->
+            <div class="col-6">
 
-            <div class="card-body">
+                <div class="row">
 
-                <!-- Create Session Form -->
-                <div class="col-12">
-                    <form id="session-form" data-parsley-validate="" novalidate="">
-
-                        <!-- Session Name Row -->
-                        <div class="row">
-                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Session Name</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                                <h4 class="col-12 text-sm-left">{{ session.shortname }}</h4>
+                    <div class="col-12">
+                        <div class="card"> <!-- Overview Card -->
+                            <div class="card-header">
+                                <h3 class="card-header-title"> Overview </h3>
                             </div>
-                        </div>
+                             <div class="card-body">
+                                <div class="col-12">
+                                    <form id="session-form" data-parsley-validate="" novalidate="">
 
-                        <!-- Owner Row -->
-                        <div class="row">
-                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Owner</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                                <h4 class="col-12 text-sm-left">{{ booking.owner.name }}</h4>
-                            </div>
-                        </div>
+                                        {{ row('Session Name', session.shortname, 'h4') }}
+                                        {{ row('Owner', owner.name, 'h4') }}
+                                        {{ row('PI', owner.pi.name) }}
+                                        {{ row('Project', macros.project(session.project, True), 'div') }}
+                                        {{ row('Creator', booking.creator.name) }}
+                                        {{ row('Staff', booking.operator.name) }}
+                                        {{ row('Date', session.start|pretty_date) }}
+                                        {{ row('Status', session.status) }}
 
-                        <!-- Creator Row -->
-                        <div class="row">
-                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Creator</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                                <label class="col-12 col-form-label text-sm-left">{{ booking.creator.name }}</label>
-                            </div>
-                        </div>
+                                        <!-- Microscope Row -->
+                                        <div class="row">
+                                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Microscope</label>
+                                            <div class="col-12 col-sm-8 col-lg-6">
+                                                <div class="row align-items-center justify-content-start">
+                                                <div class="col">
+                                                    <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
+                                                </div>
+                                                <div class="col-10 text-sm-left">
+                                                    <h5>{{ booking.resource.name }}</h5>
+                                                </div>
+                                            </div>
+                                            </div>
+                                        </div>
 
-                        <!-- Operator Row -->
-                        <div class="row">
-                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Staff</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                                <label class="col-12 col-form-label text-sm-left">{{ booking.operator.name }}</label>
-                            </div>
-                        </div>
-
-                        <!-- Date Row -->
-                        <div class="row">
-                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Date</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                                <label class="col-12 col-form-label text-sm-left">{{ session.start|pretty_date }}</label>
-                            </div>
-                        </div>
-
-                        <!-- Status Row -->
-                        <div class="row">
-                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Status</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                                <label class="col-12 col-form-label text-sm-left">{{ session.status }}</label>
-                            </div>
-                        </div>
-
-                        <!-- Microscope Row -->
-                        <div class="row">
-                            <label class="col-12 col-sm-4 col-form-label text-sm-right">Microscope</label>
-                            <div class="col-12 col-sm-8 col-lg-6">
-                                <div class="row align-items-center justify-content-start">
-                                <div class="col">
-                                    <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
-
+                                         <!-- On the fly  Row -->
+                                        <div class="row">
+                                            <label class="col-12 col-sm-4 col-form-label text-sm-right">On-the-fly</label>
+                                            <div class="col-12 col-sm-8 col-lg-6">
+                                                <a href="{{ url_for_content('session_live', session_id=session.id) }}">{{ session.data_path }}</a>
+                                            </div>
+                                        </div>
+                                    </form>
                                 </div>
-                                <div class="col-10 text-sm-left">
-                                    <h5>{{ booking.resource.name }}</h5>
-                                </div>
-                            </div>
 
                             </div>
-                        </div>
+                        </div> <!-- Overview Card -->
+                    </div>
 
+                    <div class="col-12">
+                        <div class="card"> <!-- Acquisition Card -->
+                            <div class="card-header">
+                                <h3 class="card-header-title"> Acquisition </h3>
+                            </div>
 
-                    </form>
+                            <div class="card-body">
+                                {% set acq = session.acquisition %}
+                                {% set stats = session.stats %}
+                                <table class="table table-striped table-bordered">
+                                    <tbody>
+                                        {{ macros.trow('Voltage (kV)', acq['voltage']) }}
+                                        {{ macros.trow('Magnification', acq['magnification']) }}
+                                        {{ macros.trow('Pixel Size (A/px)', acq['pixel_size']) }}
+                                        {{ macros.trow('CS', acq['cs']) }}
+                                        {{ macros.trow('Dose (per frame)', acq['dose']) }}
+
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div> <!-- End of Acquisition Card -->
+                    </div>
+
                 </div>
-                <!-- end Session Card -->
 
-            </div>
+            </div> <!-- End of Left column -->
+
+            <!-- Right column -->
+            <div class="col-6" id="data-container">
+
+                    {% include 'session_data_card.html' %}
+
+            </div> <!-- End of Right column -->
         </div>
-        </div>
-
-        <div class="col-12 col-xl-6">
-            <div class="card">
-            <!-- Modal header -->
-            <div class="card-header">
-                <h3 class="card-header-title"> Data Download </h3>
-            </div>
-
-            <div class="card-body">
-
-                <!-- Create Session Form -->
-                <div class="col-12">
-                    <form id="session-form" data-parsley-validate="" novalidate="">
-                    {% if not errors %}
-                        {% set username = session.name %}
-                        {%  set extra = session.extra %}
-                        {% set password = extra['data_user_password'] %}
-
-
-                        <!-- Owner Row -->
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="row">
-                                    <h4 class="col-3">Data Path: </h4>
-                                    <div class="col-9">
-                                        <p>
-                                            <strong>{{ extra['data_folder'] }}</strong>
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <h4 class="col-3">Credentials: </h4>
-                                    <div class="col-9">
-                                        <p>
-                                            username: <strong>{{ username }}</strong> <br/>
-                                            password: <strong>{{ password }}</strong>
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <h4>Instructions: </h4>
-                                <p>
-                                    You can use the terminal / command line with rsync to download your data such as:
-                                </p>
-
-                                <p>
-                                    <strong>rsync -rltv {{ username }}@data.cryoem.se:data/  /your/local/storage/path</strong>
-                                </p>
-                                <p>
-                                    or you can use a GUI based program such as FileZilla and then use </p>
-                                <p>
-                                    Host: sftp://data.cryoem.se <br/>
-                                    Username: {{ username }} <br/>
-                                    Password: {{ password }} <br/>
-                                    Port: (can be left blank) <br/>
-                                </p>
-                                <div class="alert alert-danger" role="alert">
-                                  <h4 class="alert-heading">Data Deletion</h4>
-                                  <hr>
-                                    {% if deletion_days <= 0 %}
-                                        <p class="mb-0">Data storage has <strong>EXPIRED</strong>!!! It might be already <strong>DELETED</strong> or will be shortly.</p>
-                                    {% else %}
-                                        <p class="mb-0">Please download the data as soon as possible! It will be <strong>DELETED in {{ deletion_days }} days</strong>!!!.</p>
-                                    {% endif %}
-                                </div>
-
-                                {% include "facility_acknoledgements.html" %}
-
-                            </div>
-                        </div>
-
-                        {% else %}
-                        <div class="alert alert-danger" role="alert">
-                          <h4 class="alert-heading">Errors</h4>
-                          <hr>
-                            <ul>
-                                {% for e in errors %}
-                                    <li>{{ e }}</li>
-                                {% endfor %}
-                            </ul>
-
-                        </div>
-
-                    {% endif %}
-                    </form>
-                </div>
-                <!-- end Session Card -->
-
-            </div>
-        </div>
-        </div>
-
-    </div> <!-- end of row -->
 
     {% else %}
         <div>
         <h2>You do not have access to this information.</h2>
-        <p>A session is only visible to the owner user or the principal investigator. </p>
+        <p>A session is only visible by people on the same lab </p>
         </div>
     {% endif %}
 
 {% endif %}
 
 
+<script>
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+    });
+})(window, document, window.jQuery);
+
+</script>

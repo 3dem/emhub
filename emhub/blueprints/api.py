@@ -40,6 +40,7 @@ import time
 import json
 from glob import glob
 import datetime as dt
+import traceback
 
 import flask
 from flask import request
@@ -337,7 +338,6 @@ def import_application():
 
     except Exception as e:
         print(e)
-        import traceback
         traceback.print_exc()
 
         return send_error('ERROR from Server: %s' % e)
@@ -412,7 +412,6 @@ def get_bookings_range():
         datetime_from_isoformat(d['end'])
     )
     funcName = d.get('func', 'to_event')
-    print(d)
     if funcName == 'to_event':
         func = app.dc.booking_to_event
     elif funcName == 'to_json':
@@ -583,15 +582,22 @@ def _loadFileLines(fn):
 @api_bp.route('/get_session_run', methods=['POST'])
 @flask_login.login_required
 def get_session_run():
+    """
+    This method will retrieve a run instance.
+    Processing project can be loaded from a session_id
+    or an entry_id
+    """
+    dm = app.dm
 
     def _get_run(**attrs):
-        session = app.dm.load_session(attrs['sessionId'])
-        run = session.data.get_run(attrs['runId'])
+        run = dm.get_processing_project(**attrs)['run']
         outputs = attrs.get('output', ['json'])
         results = {}
 
         if 'json' in outputs:
-            results['json'] = {'dict': run.dict, 'values': run.getValues()}
+            results['json'] = {'values': run.getValues(),
+                               'info': run.getInfo()}
+            results['json'].update(run.getInputsOutputs())
 
         if 'stdout' in outputs:
             results['stdout'] = _loadFileLines(run.getStdOut())
@@ -607,8 +613,17 @@ def get_session_run():
     return _handle_item(_get_run, 'run')
 
 
+@api_bp.route("/get_classes2d", methods=['POST'])
+def get_classes2d():
+    """ Load 2d classification data. """
+    proc = app.dm.get_processing_project(entry_id=request.form['entry_id'])
+    run = proc.get_run(request.form['run_id'])
+    classes = run.get_classes2d(iteration=request.form.get('iteration', None))
+
+    return send_json_data(classes)
+
+
 def get_worker_token(worker):
-    print(f"app.config['SECRET_KEY'] = {app.config['SECRET_KEY']}, type: {type(app.config['SECRET_KEY'])}")
     return jwt.encode(
         {'worker': worker},
         app.config['SECRET_KEY'], algorithm='HS256')
@@ -982,7 +997,6 @@ def _handle_item(handle_func, result_key):
         return send_json_data({result_key: result})
     except Exception as e:
         print(e)
-        import traceback
         traceback.print_exc()
         return send_error('ERROR from Server: %s' % e)
 
@@ -1056,14 +1070,11 @@ def handle_session_data(handle, mode="r"):
 
     while tries < 3:
         try:
-            session = app.dm.load_session(sessionId=session_id, mode=mode)
+            session = app.dm.get_session_by(id=session_id)
             result = handle(session, **attrs)
-            if session.data:
-                session.data.close()
             break
         except OSError:
             print(f"Error with session (id={session_id})data, sleeping 3 secs")
-            import traceback
             traceback.print_exc()
             time.sleep(3)
             result = {}
