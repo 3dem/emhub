@@ -77,13 +77,19 @@ To check that it is working fine, we can run the following tests:
 
 .. code-block:: bash
 
-    scipion test motioncorr.tests.test_protocols_motioncor2.TestMotioncor2AlignMovies
+    scipion test motioncorr.tests.test_protocols_motioncor.TestMotioncorAlignMovies
 
 
-Ctffind
-.......
+Ctffind and Cistem
+..................
+
+**ctffind** in Scipion needs the **Cistem** plugin, we can either install it
+or just create the expected folder before proceeding.
 
 .. code-block:: bash
+
+    mkdir $SCIPION_EM/cistem-1.0.0-beta
+    # OR: scipion installb cistem
 
     scipion installb ctffind4
 
@@ -91,20 +97,20 @@ Config variable:
 
 .. code-block:: ini
 
-    CTFFIND4_HOME = $EM_ROOT/ctffind4-4.1.13
+    CTFFIND_HOME = $EM_ROOT/ctffind4-4.1.14
 
 Run test:
 
 .. code-block:: bash
 
-    scipion test cistem.tests.test_protocols_cistem.TestCtffind4
+    scipion test cistem.tests.test_protocols_cistem.TestCtffind
 
 Cryolo
 ......
 
 .. code-block:: bash
 
-    scipion installb cryolo cryoCPU cryolo_model
+    scipion installb cryolo cryolo_model
 
 In this case, it will install two new conda environments: one for using cryolo
 on GPU and another one that could be used without GPU (cryoloCPU).
@@ -115,9 +121,15 @@ edit the configuration accordingly.
 
 .. code-block:: ini
 
-    CRYOLO_ENV_ACTIVATION = conda activate cryolo-1.8.4
-    CRYOLO_ENV_ACTIVATION_CPU = conda activate cryoloCPU-1.8.4
+    CRYOLO_ENV_ACTIVATION = conda activate cryolo-1.9.7
+    CRYOLO_ENV_ACTIVATION_CPU = conda activate cryoloCPU-1.9.7
     CRYOLO_GENERIC_MODEL = $EM_ROOT/cryolo_model-202005_nn_N63_c17/gmodel_phosnet_202005_nn_N63_c17.h5
+
+Run some tests:
+
+.. code-block:: bash
+
+    scipion installb cryolo cryolo_model
 
 
 Relion
@@ -150,6 +162,5 @@ Some tests to check if relion is configured correctly:
 
 .. code-block:: bash
 
-    scipion test relion.tests.test_convert
     scipion test relion.tests.test_workflow.TestWorkflowRelionBetagal
 

@@ -217,14 +217,28 @@ dir ./\n""")
 conda activate redis-server
 cd {instance_path} && redis-server redis.conf --daemonize yes\n""")
 
+        fn = os.path.join(instance_path, 'bashrc')
+        self._action(f'Creating bashrc script: {fn}')
+        with open(fn, 'w') as f:
+            f.write(f"""
+#!/usr/bin/bash 
+
+export FLASK_APP=emhub
+export EMHUB_INSTANCE={instance_path}
+export EMHUB_USER=admin
+export EMHUB_PASSWORD=admin
+export EMHUB_SERVER_URL=http://127.0.0.1:5000
+
+""")
+
         print(f"\n"
               f"EMhub instance sucessfully created!!!\n"
               f"To use it do:\n\n"
-              f"export FLASK_APP=emhub\n"
-              f"export EMHUB_INSTANCE={instance_path}\n"
+              f"source {fn}\n"
               f"flask run --debug\n\n"
               f"And open a browser at: http://127.0.0.1:5000\n"
               f"user: admin, password: admin")
+
 
 def create_instance(instance_path, json_file, force):
     instance_path = instance_path or '~/.emhub/instances/test'
