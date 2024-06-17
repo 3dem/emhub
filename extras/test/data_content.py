@@ -34,14 +34,7 @@ def register_content(dc):
         # Load default acquisition params for the given microscope
         micName = b.resource.name
         acq = sconfig['acquisition'][micName]
-
-        def _key(model):
-            d, base = os.path.split(model)
-            return base if not user.is_manager else os.path.join(os.path.basename(d), base)
-
-        dateStr = Pretty.date(b.start).replace('-', '')
-
-        otf_hosts = sconfig['otf']['hosts']
+        otf_hosts = dm.get_config('hosts').keys()
 
         data = {
             'booking': b,
