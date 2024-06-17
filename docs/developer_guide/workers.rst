@@ -149,18 +149,276 @@ Now we can go to the *Workers* page and check the our host appears there (green
 and with a recent "Last update" value). We can go ahead and create a "command"
 task to test if the worker handles it correctly. Click on the *Create Task* button
 and specify *command* as the task name and *{"cmd": "ls -l /tmp/"}* as the args.
-After that a new Task entry should appear as *Pending* and in the worker terminal
-it should noticed the new tasks and work on it. This simple task will execute
-the provide command and send back the results in the Task history. After some time,
-you should be able to see the task as *Done* and open the history to see the result.
+After that, a new Task entry should appear as *Pending* and in the worker terminal
+it should notice the new tasks and work on them. This simple task will execute
+the provided command and send back the results in the Task history. After some time,
+you should be able to see the task as *done* and open the history to see the result.
 
 
 Creating Session to trigger OTF
 ...............................
 
-Now we have all the pieces to start developing a worker for OTF data processing.
+We have all the pieces to start developing a worker for OTF data processing.
 If you go the the Dashboard page of your test instance, you might see some bookings
-for this week. If you click on the "Cr
+for this week. If you click on the ``New Session`` button, you will get an
+error. This is because we need to develop a dialog page for creating a new session
+and the underlying infrastructure for its handling.
+
+
+Let's first create an ``$EMHUB_INSTANCE/extra`` folder for extra customization
+and copy some files we already have as examples.
+
+.. code-block:: bash
+
+    mkdir $EMHUB_INSTANCE/extra
+
+    cp -r $SCIPION_HOME/source/core/emhub/extras/test/* $EMHUB_INSTANCE/extra/
+
+This should copy the following files:
+
+.. csv-table::
+   :widths: 20, 50
+
+   "`extra/templates/create_session_form.html <https://github.com/3dem/emhub/blob/devel/extras/test/templates/create_session_form.html>`_", "Template file to define the session creation dialog."
+   "`extra/data_content.py <https://github.com/3dem/emhub/blob/devel/extras/test/data_content.py>`_", "File defining content functions to support template files, in this case *create_session_form*."
+   "`extra/test_worker.py <https://github.com/3dem/emhub/blob/devel/extras/test/test_worker.py>`_", "Test worker to launch OTF workflow."
+
+Read more about :ref:`EMhub customization here<Customizing EMhub>`.
+
+After copying the extra files, let's make sure the EMhub server is stopped, as well as the worker running from the previous section.
+We run again the EMhub server (e.g. ``flask run --debug``) to reload the content from ``$EMHUB_INSTANCE/extra``.
+In the worker terminal (with the client environment already configured), we will run:
+
+.. code-block:: bash
+
+    python $EMHUB_INSTANCE/extra/test_worker.py
+
+Now we can click again in the ``New Session`` button from the *Dashboard* page
+and the session dialog should appear. We need to provide an input folder with
+some data, together with the image pattern and the gain reference image file.
+We also need to select *Scipion* as the workflow and select an output folder.
+
+.. tab:: New session dialog
+
+    .. image:: https://github.com/3dem/emhub/wiki/images/emhub_new_session_test.png
+       :width: 100%
+
+.. tab:: Example of input parameters
+
+    .. image:: https://github.com/3dem/emhub/wiki/images/emhub_new_session_testFILLED.png
+       :width: 100%
+
+After creating the Session, two tasks will be generated: *monitor* and *otf_test*.
+The first one will instruct the worker to "monitor" the input folder and sent back
+info about the number of files, images and overall folder size. The second one
+will launch the OTF workflow with Scipion. Following you can see the related
+session pages.
+
+
+.. tab:: Session Info page
+
+    .. image:: https://github.com/3dem/emhub/wiki/images/emhub_new_session_test_info.png
+       :width: 100%
+
+.. tab:: Session Live page
+
+    .. image:: https://github.com/3dem/emhub/wiki/images/emhub_new_session_test_live2.png
+       :width: 100%
+
+Continue reading the next section to dive a bit into the code of the files in extra
+and understand better the role of the underlying components.
+
+Understanding underlying components
+...................................
+
+In the `extra/templates/create_session_form.html <https://github.com/3dem/emhub/blob/devel/extras/test/templates/create_session_form.html>`_ file, we define the HTML template
+to arrange the inputs in the session dialog. We also write some Javascript code to
+retrieve values input by the user and communicate with the server to create some
+tasks related to the session that will be handled by the worker. Let's have a look
+at a code fragment from that file:
+
+.. code-block:: html+jinja
+    :caption: Code fragment from: extra/templates/create_session_form.html
+    :linenos:
+    :emphasize-lines: 3, 7, 17
+
+    <!-- Modal body -->
+    <div class="modal-body">
+    <input type="hidden" id="booking-id" value="{{ booking.id }}">
+
+    <!-- Create Session Form -->
+    <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+        <form id="session-form" data-parsley-validate="" novalidate="">
+            <div class="row">
+                <!-- Left Column -->
+                <div class="col-7">
+                    {{ section_header("Basic Info") }}
+
+                    <!-- Some lines omitted here -->
+
+                    <!-- Project id -->
+                    {% call macros.session_dialog_row_content("Project ID") %}
+                        <select id="session-projectid-select" class="selectpicker show-tick" data-live-search="true" data-key="project_id">
+                                <option value="0">Not set</option>
+                                {% for p in projects %}
+                                    {% set selected = 'selected' if p.id == booking.project.id else '' %}
+                                    <option {{ selected }} value="{{ p.id }}">{{ p.title }}</option>
+                                {% endfor %}
+                            </select>
+                    {% endcall %}
+
+                    {{ section_header("Data Processing", 3) }}
+                    {{ macros.session_dialog_row('Input RAW data folder', 'raw_folder', '', 'Provide RAW data folder') }}
+                    {{ macros.session_dialog_row('Input IMAGES pattern', 'images_pattern', acquisition['images_pattern'], '') }}
+                    {{ macros.session_dialog_row('Input GAIN image', 'gain', '', '') }}
+                    {{ macros.session_dialog_row('Output OTF folder', 'otf_folder', '', '') }}
+
+
+In line 3, we are defining a hidden input and the value is expanded to the *booking.id*.
+The *booking* variable should be provided to render the template by the corresponding
+content function (*create_session_form*).
+
+In line 7, we define a form that will be used to retrieve all the values provided
+by the user in a convenient way. For that, inputs needs to define the *data-key*
+value, that will be used as the key in the collected data mapping (e.g. line 17).
+We also define *data-key* values in lines 27 to 30, by using Jinja2 macros that
+is convenient to generate repeating blocks of HTML template with different parameters.
+
+The Javascript part of this template file also plays an important role. It compiles
+the information provided by the user and create the tasks using EMhub's REST API.
+
+.. code-block:: javascript
+    :caption: Javascript fragment from extra/templates/create_session_form.html
+    :linenos:
+    :emphasize-lines: 2, 6, 15, 35
+
+    function onCreateClick(){
+        var formValues = getFormAsJson('session-form');
+        var host = formValues.host;
+        var attrs = {
+            booking_id: parseInt(document.getElementById('booking-id').value),
+            acquisition: {
+                voltage: formValues.acq_voltage,
+                magnification: formValues.acq_magnification,
+                pixel_size: formValues.acq_pixel_size,
+                dose: formValues.acq_dose,
+                cs: formValues.acq_cs,
+                images_pattern: formValues.images_pattern,
+                gain: formValues.gain
+            },
+            tasks: [['monitor', host]],
+            extra: {
+                project_id: formValues.project_id, raw: {}, otf: {}
+            }
+        }
+
+        // Some lines omitted here
+
+        // Validate that OTF folder is provided if there is a OTF workflow selected
+        if (formValues.otf_folder){
+            attrs.tasks.push(['otf_test', host])
+            attrs.extra.otf.path = formValues.otf_folder;
+            attrs.extra.otf.workflow = formValues.otf_workflow;
+        }
+        else if (formValues.otf_workflow !== 'None') {
+            showError("Provide a valid <strong>OUTPUT data folder</strong> if " +
+                "doing any processing");
+            return;
+        }
+
+        var ajaxContent = $.ajax({
+            url: "{{ url_for('api.create_session') }}",
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify({attrs: attrs}),
+            dataType: "json"
+        });
+
+        ajaxContent.done(function(jsonResponse) {
+            if ('error' in jsonResponse)
+                showError(jsonResponse['error']);
+            else {
+                window.location = "{{ url_for_content('session_default') }}" +
+                    "&session_id=" + jsonResponse.session.id;
+            }
+        });
+
+First, in line 2 all input values are retrieved from the form. Then in line 6
+the *acquisition* object is prepared as expected by the server REST endpoint.
+In line 15, an initial task *monitor* is defined, and in line 24, an extra task
+*otf_test* is added if the *otf_folder* has a non-empty value. The second parameter
+of the tasks is the hostname where it will be executed. In this case it is provided
+by the user in the session form.
+
+Finally, in line 35, the AJAX request is sent to create a new session. If
+the result is successful, the page is reloaded or an error is shown otherwise.
+
+To render that template page, it is needed the *create_session_form*, that should
+provide all the data required. This function should be provided in the
+`extra/data_content.py <https://github.com/3dem/emhub/blob/devel/extras/test/data_content.py>`_
+file.
+
+.. code-block:: python
+    :caption: Content function in extra/data_content.py
+    :linenos:
+    :emphasize-lines: 7, 10, 21
+
+    @dc.content
+    def create_session_form(**kwargs):
+        """ Basic session creation for EMhub Test Instance
+        """
+        dm = dc.app.dm  # shortcut
+        user = dc.app.user
+        booking_id = int(kwargs['booking_id'])
+
+        # Get the booking associated with this Session to be created
+        b = dm.get_booking_by(id=booking_id)
+        can_edit = b.project and user.can_edit_project(b.project)
+
+        # Do some permissions validation
+        if not (user.is_manager or user.same_pi(b.owner) or can_edit):
+            raise Exception("You can not create Sessions for this Booking. "
+                            "Only members of the same lab can do it.")
+
+        # Retrieve configuration information from the Form config:sessions
+        # We fetch default acquisition info for each microscope or
+        # the hosts that are available for doing OTF processing
+        sconfig = dm.get_config('sessions')
+
+        # Load default acquisition params for the given microscope
+        micName = b.resource.name
+        acq = sconfig['acquisition'][micName]
+        otf_hosts = sconfig['otf']['hosts']
+
+        data = {
+            'booking': b,
+            'acquisition': acq,
+            'session_name_prefix': '',
+            'otf_hosts': otf_hosts,
+            'otf_host_default': '',
+            'workflows': ['None', 'Scipion'],
+            'workflow_default': '',
+            'transfer_host': '',
+            'cryolo_models': {}
+        }
+        data.update(dc.get_user_projects(b.owner, status='active'))
+        return data
+
+This content function is expecting to receive one parameter, the *booking_id*.
+It is read in line 7 and then used in line 10 to retrieve the *Booking* entry
+from the database (through SqlAlchemy ORM).
+
+Line 21 shows how one can retrieve "configuration" forms (naming convention of *config:NAME*)
+and use that in the session (or any template page) dialog. Here we are using *config:session*
+to pre-fill some default acquisition values for different microscopes.
+
+Finally the *data* dict is composed with different key-value pairs and returned.
+It will be used by Flask to render the template.
+
+The last component is the worker code in `extra/test_worker.py <https://github.com/3dem/emhub/blob/devel/extras/test/test_worker.py>`_.
+There is implemented the logic to handle the above mentioned tasks.
+
+
 
 
 Basic Classes
@@ -171,8 +429,8 @@ method that will take care of the task processing. This method will be called
 inside the handler infinite loop until the `stop` method is called. The following
 examples provide some valuable tips.
 
-Examples
---------
+Other Worker Examples
+---------------------
 
 Cluster Queues Worker
 .....................
