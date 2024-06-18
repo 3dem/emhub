@@ -27,7 +27,7 @@ go through a comprehensive example of a worker implementation that will also
 touch on different aspects of the system architecture.
 
 
-Implementing a basic OTF worker
+Launching a basic OTF worker
 -------------------------------
 
 In this example, we will implement a simple EMhub worker that will launch a
@@ -228,8 +228,12 @@ session pages.
 Continue reading the next section to dive a bit into the code of the files in extra
 and understand better the role of the underlying components.
 
+
 Understanding underlying components
-...................................
+-----------------------------------
+
+Jinja2/HTML/Javascript
+......................
 
 In the `extra/templates/create_session_form.html <https://github.com/3dem/emhub/blob/devel/extras/test/templates/create_session_form.html>`_ file, we define the HTML template
 to arrange the inputs in the session dialog. We also write some Javascript code to
@@ -353,6 +357,10 @@ by the user in the session form.
 Finally, in line 35, the AJAX request is sent to create a new session. If
 the result is successful, the page is reloaded or an error is shown otherwise.
 
+
+The Content Function
+....................
+
 To render that template page, it is needed the *create_session_form*, that should
 provide all the data required. This function should be provided in the
 `extra/data_content.py <https://github.com/3dem/emhub/blob/devel/extras/test/data_content.py>`_
@@ -410,24 +418,120 @@ from the database (through SqlAlchemy ORM).
 
 Line 21 shows how one can retrieve "configuration" forms (naming convention of *config:NAME*)
 and use that in the session (or any template page) dialog. Here we are using *config:session*
-to pre-fill some default acquisition values for different microscopes.
-
-Finally the *data* dict is composed with different key-value pairs and returned.
+to pre-fill some default acquisition values for different microscopes. Finally,
+the *data* dict is composed with different key-value pairs and returned.
 It will be used by Flask to render the template.
 
+
+The Worker Script
+.................
+
 The last component is the worker code in `extra/test_worker.py <https://github.com/3dem/emhub/blob/devel/extras/test/test_worker.py>`_.
-There is implemented the logic to handle the above mentioned tasks.
+The workers are usually implemented using subclasses of two classes: `TaskHandler` and `Worker`.
+The `Worker` basically establishes the connection with EMhub and defines what
+types of tasks it will react to by creating the corresponding `TaskHandler`.
+This class will then "process" given tasks. The following code fragment shows
+the *process* function for our `TaskHandler`.
 
+.. code-block:: python
 
+    def process(self):
+        try:
+            if self.action == 'monitor':
+                return self.monitor()
+            elif self.action == 'otf_test':
+                return self.otf()
+            raise Exception(f"Unknown action {self.action}")
+        except Exception as e:
+            self.update_task({'error': str(e), 'done': 1})
+            self.stop()
 
+Here our handler is defining that will process tasks of type *monitor* or *otf_test* and
+launch an error otherwise.
 
-Basic Classes
--------------
-When implementing a new worker, we need to deal with two main classes:
-`TaskHandler` and `Worker`. In the `TaskHandler`, we need to implement the `process`
-method that will take care of the task processing. This method will be called
-inside the handler infinite loop until the `stop` method is called. The following
-examples provide some valuable tips.
+.. important::
+
+    The *process* function will be called from an infinite loop. The handler can
+    set the *self.sleep* attribute to sleep that many seconds between calls. It
+    should also call the function *self.stop()* when the task is completed
+    (successfully or with failure) and no more processing is needed. The attribute
+    *self.count* can also be used to know the count of *process* function calls.
+
+Below is the *monitor* function that basically check the number of files
+and their size in the input data folder. It will update back the task with
+that information.
+
+.. code-block:: python
+    :linenos:
+    :emphasize-lines: 6
+
+    def monitor(self):
+        extra = self.session['extra']
+        raw = extra['raw']
+        raw_path = raw['path']
+        # If repeat != 0, then repeat the scanning this number of times
+        repeat = self.task['args'].get('repeat', 1)
+
+        if not os.path.exists(raw_path):
+            raise Exception(f"Provided RAW images folder '{raw_path}' does not exists.")
+
+        print(Color.bold(f"session_id = {self.session['id']}, monitoring files..."))
+        print(f"    path: {raw['path']}")
+
+        if self.count == 1:
+            self.mf = MovieFiles()
+
+        self.mf.scan(raw['path'])
+        update_args = self.mf.info()
+        raw.update(update_args)
+        self.update_session_extra({'raw': raw})
+
+        if repeat and self.count == repeat:
+            self.stop()
+            update_args['done'] = 1
+
+        # Remove dict from the task update
+        del update_args['files']
+        self.update_task(update_args)
+
+In line 6 we get an option parameter *repeat* that in this case means how many
+times. The ``MovieFiles`` class from emtools library is create in line 15 and used in
+17 to scan the input folder. This class implements a caching mechanism to avoid
+reading again previously read files. In line 20, the function *update_function_extra*
+is called to update the *extra* property of the session with retrieved information.
+Later in line 28, the task is updated and with *done=1*, so it will mark the task
+as finished.
+
+The next code snippet shows the *otf* function that have some similarities with
+the *monitor* one, but perform a different tasks. The main differences are in line
+13, where a JSON configuration file is created, and in line 20 where the workflow
+is launched.
+
+.. code-block:: python
+    :linenos:
+    :emphasize-lines: 13, 20
+
+    def otf(self):
+        # Some lines omitted here
+
+        # Create OTF folder and configuration files for OTF
+        def _path(*paths):
+            return os.path.join(otf_path, *paths)
+
+        self.pl.mkdir(otf_path)
+        os.symlink(raw_path, _path('data'))
+        acq = self.session['acquisition']
+        # Make gain relative to input raw data folder
+        acq['gain'] = _path('data', acq['gain'])
+        with open(_path('scipion_otf_options.json'), 'w') as f:
+            opts = {'acquisition': acq, '2d': False}
+            json.dump(opts, f, indent=4)
+
+        otf['status'] = 'created'
+
+        # Now launch Scipion OTF
+        self.pl.system(f"scipion python -m emtools.scripts.emt-scipion-otf --create {otf_path} &")
+
 
 Other Worker Examples
 ---------------------
