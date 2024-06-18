@@ -123,7 +123,7 @@ worker to check if it connects with the server:
 If everything goes well, you should see the worker log and it should be ready
 for handling tasks. If we look again into the ``config:hosts`` form, now the
 entry should be extended with your machine hardware as reported by the worker.
-In my case it looks like the following:
+In my case, it looks like the following:
 
 .. code-block:: json
 
@@ -145,24 +145,25 @@ In my case it looks like the following:
         }
     }
 
-Now we can go to the *Workers* page and check the our host appears there (green
-and with a recent "Last update" value). We can go ahead and create a "command"
-task to test if the worker handles it correctly. Click on the *Create Task* button
-and specify *command* as the task name and *{"cmd": "ls -l /tmp/"}* as the args.
-After that, a new Task entry should appear as *Pending* and in the worker terminal
-it should notice the new tasks and work on them. This simple task will execute
-the provided command and send back the results in the Task history. After some time,
-you should be able to see the task as *done* and open the history to see the result.
+
+Now we need to navigate to the *Workers* page and ensure that our host is displayed there in 
+green with a recent "Last update" value. Next, we can create a "command" task to verify if 
+the worker processes it correctly. Click on the *Create Task* button and enter *command* as 
+the task name and *{"cmd": "ls -l /tmp/"}* as the arguments. Subsequently, a new Task entry 
+should appear as *Pending*, and the worker terminal should acknowledge the new tasks and 
+begin processing them. This task will run the provided command and report 
+back the results in the Task history. After a while, you should be able to view the task 
+status as *done* and review the results in the history.
 
 
-Creating Session to trigger OTF
-...............................
+Creating a Session to trigger OTF
+.................................
 
-We have all the pieces to start developing a worker for OTF data processing.
-If you go the the Dashboard page of your test instance, you might see some bookings
-for this week. If you click on the ``New Session`` button, you will get an
-error. This is because we need to develop a dialog page for creating a new session
-and the underlying infrastructure for its handling.
+We have all the components ready to begin developing a worker for OTF data processing. 
+If you visit the Dashboard page of your test instance, you might notice some bookings 
+for this week. When you click on the "New Session" button, an error will occur. This 
+is because we still need to create a dialog page for setting up a new session and 
+establish the necessary infrastructure to handle it.
 
 
 Let's first create an ``$EMHUB_INSTANCE/extra`` folder for extra customization
@@ -185,18 +186,20 @@ This should copy the following files:
 
 Read more about :ref:`EMhub customization here<Customizing EMhub>`.
 
-After copying the extra files, let's make sure the EMhub server is stopped, as well as the worker running from the previous section.
-We run again the EMhub server (e.g. ``flask run --debug``) to reload the content from ``$EMHUB_INSTANCE/extra``.
-In the worker terminal (with the client environment already configured), we will run:
+After copying the additional files, ensure that the EMhub server is stopped, 
+along with the worker that was running in the previous section. Restart the 
+EMhub server by running "flask run --debug" to reload the content from 
+"$EMHUB_INSTANCE/extra". In the worker terminal (with the client environment 
+already configured), execute:
 
 .. code-block:: bash
 
     python $EMHUB_INSTANCE/extra/test_worker.py
 
-Now we can click again in the ``New Session`` button from the *Dashboard* page
-and the session dialog should appear. We need to provide an input folder with
-some data, together with the image pattern and the gain reference image file.
-We also need to select *Scipion* as the workflow and select an output folder.
+Remember to click on the "New Session" button again from the Dashboard page 
+to open the session dialog. Make sure to input a folder with data, specify 
+the image pattern, and provide the gain reference image file. Also, select 
+"Scipion" as the workflow and choose an output folder.
 
 .. tab:: New session dialog
 
@@ -208,11 +211,12 @@ We also need to select *Scipion* as the workflow and select an output folder.
     .. image:: https://github.com/3dem/emhub/wiki/images/emhub_new_session_testFILLED.png
        :width: 100%
 
-After creating the Session, two tasks will be generated: *monitor* and *otf_test*.
-The first one will instruct the worker to "monitor" the input folder and sent back
-info about the number of files, images and overall folder size. The second one
-will launch the OTF workflow with Scipion. Following you can see the related
-session pages.
+
+After creating the session, two tasks will be generated: "monitor" and "otf_test". 
+The "monitor" task will instruct the worker to monitor the input folder and provide 
+information about the number of files, images, and overall folder size. 
+The "otf_test" task will launch the OTF workflow with Scipion. Below, you can find 
+the related session pages.
 
 
 .. tab:: Session Info page
@@ -225,8 +229,8 @@ session pages.
     .. image:: https://github.com/3dem/emhub/wiki/images/emhub_new_session_test_live2.png
        :width: 100%
 
-Continue reading the next section to dive a bit into the code of the files in extra
-and understand better the role of the underlying components.
+Continue reading the next section to delve into the code of the files in "extra" 
+and better understand the role of the underlying components.
 
 
 Understanding underlying components
@@ -235,11 +239,7 @@ Understanding underlying components
 Jinja2/HTML/Javascript
 ......................
 
-In the `extra/templates/create_session_form.html <https://github.com/3dem/emhub/blob/devel/extras/test/templates/create_session_form.html>`_ file, we define the HTML template
-to arrange the inputs in the session dialog. We also write some Javascript code to
-retrieve values input by the user and communicate with the server to create some
-tasks related to the session that will be handled by the worker. Let's have a look
-at a code fragment from that file:
+In the file `extra/templates/create_session_form.html <https://github.com/3dem/emhub/blob/devel/extras/test/templates/create_session_form.html>`_, we define the HTML template for arranging the inputs in the session dialog. Additionally, we write some JavaScript code to retrieve the values input by the user and communicate with the server to create tasks related to the session, which will be handled by the worker. Let's take a look at a code fragment from that file:
 
 .. code-block:: html+jinja
     :caption: Code fragment from: extra/templates/create_session_form.html
@@ -282,14 +282,14 @@ In line 3, we are defining a hidden input and the value is expanded to the *book
 The *booking* variable should be provided to render the template by the corresponding
 content function (*create_session_form*).
 
-In line 7, we define a form that will be used to retrieve all the values provided
-by the user in a convenient way. For that, inputs needs to define the *data-key*
-value, that will be used as the key in the collected data mapping (e.g. line 17).
-We also define *data-key* values in lines 27 to 30, by using Jinja2 macros that
-is convenient to generate repeating blocks of HTML template with different parameters.
+In line 7, we are defining a form that will help us conveniently retrieve all the values 
+provided by the user. To achieve this, the inputs need to define the *data-key* value, 
+which will be used as the key in the collected data mapping (e.g., line 17). Additionally, 
+we are defining *data-key* values in lines 27 to 30 by using Jinja2 macros. These macros 
+make it easy to generate repeating blocks of HTML template with different parameters.
 
-The Javascript part of this template file also plays an important role. It compiles
-the information provided by the user and create the tasks using EMhub's REST API.
+The JavaScript section of this template file also plays an important role in compiling 
+the information provided by the user and creating tasks using EMhub's REST API.
 
 .. code-block:: javascript
     :caption: Javascript fragment from extra/templates/create_session_form.html
@@ -318,7 +318,7 @@ the information provided by the user and create the tasks using EMhub's REST API
 
         // Some lines omitted here
 
-        // Validate that OTF folder is provided if there is a OTF workflow selected
+        // Validate that the OTF folder is provided if there is an OTF workflow selected
         if (formValues.otf_folder){
             attrs.tasks.push(['otf_test', host])
             attrs.extra.otf.path = formValues.otf_folder;
@@ -347,24 +347,22 @@ the information provided by the user and create the tasks using EMhub's REST API
             }
         });
 
-First, in line 2 all input values are retrieved from the form. Then in line 6
-the *acquisition* object is prepared as expected by the server REST endpoint.
-In line 15, an initial task *monitor* is defined, and in line 24, an extra task
-*otf_test* is added if the *otf_folder* has a non-empty value. The second parameter
-of the tasks is the hostname where it will be executed. In this case it is provided
-by the user in the session form.
-
-Finally, in line 35, the AJAX request is sent to create a new session. If
-the result is successful, the page is reloaded or an error is shown otherwise.
+First, on line 2, all input values are retrieved from the form. Then, on line 6, 
+the *acquisition* object is prepared as expected by the server REST endpoint. 
+On line 15, an initial task *monitor* is defined, and an extra task *otf_test* 
+is added on line 24 if the *otf_folder* has a non-empty value. 
+The second parameter of the tasks is the hostname where they will be executed, 
+which the user provides in the session form. 
+Finally, on line 35, the AJAX request is sent to create a new session. If the result 
+is successful, the page is reloaded, or an error is shown otherwise.
 
 
 The Content Function
 ....................
 
-To render that template page, it is needed the *create_session_form*, that should
-provide all the data required. This function should be provided in the
-`extra/data_content.py <https://github.com/3dem/emhub/blob/devel/extras/test/data_content.py>`_
-file.
+ To render the template page, the *create_session_form* is needed, which should 
+provide all the required data. This function should be provided in the 
+`extra/data_content.py <https://github.com/3dem/emhub/blob/devel/extras/test/data_content.py>`_ file. 
 
 .. code-block:: python
     :caption: Content function in extra/data_content.py
@@ -412,26 +410,24 @@ file.
         data.update(dc.get_user_projects(b.owner, status='active'))
         return data
 
-This content function is expecting to receive one parameter, the *booking_id*.
-It is read in line 7 and then used in line 10 to retrieve the *Booking* entry
-from the database (through SqlAlchemy ORM).
-
-Line 21 shows how one can retrieve "configuration" forms (naming convention of *config:NAME*)
-and use that in the session (or any template page) dialog. Here we are using *config:session*
-to pre-fill some default acquisition values for different microscopes. Finally,
-the *data* dict is composed with different key-value pairs and returned.
-It will be used by Flask to render the template.
+This content function is designed to take in one parameter, which is the *booking_id*. 
+It is read in line 7 and used in line 10 to fetch the *Booking* entry from the database using SqlAlchemy ORM.
+In line 21, an example demonstrates the process of retrieving "configuration" forms, 
+which follow the naming convention of *config:NAME*, and then utilizing them in the session 
+(or any template page) dialog. In this instance, we are making use of *config:session* to automatically 
+populate default acquisition values for different microscopes. Finally, the *data* dictionary is made up 
+of various key-value pairs and is returned. This data will be utilized by Flask to render the template.
 
 
 The Worker Script
 .................
 
-The last component is the worker code in `extra/test_worker.py <https://github.com/3dem/emhub/blob/devel/extras/test/test_worker.py>`_.
-The workers are usually implemented using subclasses of two classes: `TaskHandler` and `Worker`.
-The `Worker` basically establishes the connection with EMhub and defines what
-types of tasks it will react to by creating the corresponding `TaskHandler`.
-This class will then "process" given tasks. The following code fragment shows
-the *process* function for our `TaskHandler`.
+The last component is the worker code in 
+`extra/test_worker.py <https://github.com/3dem/emhub/blob/devel/extras/test/test_worker.py>`_. 
+Workers are typically created using subclasses of two classes: `TaskHandler` and `Worker`. 
+The `Worker` class establishes the connection with EMhub and defines the types of tasks it 
+will react to by creating the corresponding `TaskHandler`. This class will then "process" 
+the given tasks. The code fragment below shows the *process* function for our `TaskHandler`.
 
 .. code-block:: python
 
@@ -446,8 +442,7 @@ the *process* function for our `TaskHandler`.
             self.update_task({'error': str(e), 'done': 1})
             self.stop()
 
-Here our handler is defining that will process tasks of type *monitor* or *otf_test* and
-launch an error otherwise.
+Here, the handler defines a *process* function for tasks of type *monitor* or *otf_test* and launches an error otherwise.
 
 .. important::
 
@@ -494,18 +489,19 @@ that information.
         del update_args['files']
         self.update_task(update_args)
 
-In line 6 we get an option parameter *repeat* that in this case means how many
-times. The ``MovieFiles`` class from emtools library is create in line 15 and used in
-17 to scan the input folder. This class implements a caching mechanism to avoid
-reading again previously read files. In line 20, the function *update_function_extra*
-is called to update the *extra* property of the session with retrieved information.
-Later in line 28, the task is updated and with *done=1*, so it will mark the task
-as finished.
+In line 6, there is an optional parameter called *repeat* which indicates the 
+number of times to repeat the "monitor". The ``MovieFiles`` class from the *emtools* 
+library is instantiated in line 15 and utilized in line 17 to scan the input 
+folder. This class incorporates a caching mechanism to prevent re-reading files 
+that have already been read. In line 20, the function *update_function_extra* 
+is invoked to update the *extra* property of the session with the retrieved 
+information. Subsequently, in line 28, the task is updated, setting *done=1*, 
+which marks the task as completed.
 
-The next code snippet shows the *otf* function that have some similarities with
-the *monitor* one, but perform a different tasks. The main differences are in line
-13, where a JSON configuration file is created, and in line 20 where the workflow
-is launched.
+The following code snippet displays the *otf* function, which shares some similarities 
+with the *monitor* function but performs different tasks. The main distinctions are in 
+line 13, where a JSON configuration file is created, and in line 20, where the workflow 
+is initiated.
 
 .. code-block:: python
     :linenos:
@@ -539,9 +535,9 @@ Other Worker Examples
 Cluster Queues Worker
 .....................
 
-This example shows an existing worker who monitors the jobs of a queueing system.
-The worker code is simple, mainly defining that it can handle a “cluster-lsf”
-task by registering a ``TaskHandler`` for it.
+This example demonstrates an existing worker responsible for monitoring the jobs 
+of a queueing system. The worker code is simple, mainly defining its capability 
+to handle a “cluster-lsf” task by registering a `TaskHandler` for it.
 
 .. code-block:: python
 
@@ -555,12 +551,12 @@ task by registering a ``TaskHandler`` for it.
                 handler.start()
 
 
-Then, the task handler implements the `process` function and
-uses the function ``LSF().get_queues_json('cryo')``
-to retrieve information about the jobs running on the “cryo” queues.
-That part could be modified to adapt this worker to a different queueing system.
-The retrieved information is stored in ``args[‘queues’]`` as a JSON string and
-sent to the EMhub server via the function `update_task`.
+In the next step, the task handler will implement the `process` function 
+and use the function `LSF().get_queues_json('cryo')` to retrieve information 
+about the jobs running on the "cryo" queues. This part can be modified to 
+make this worker compatible with a different queueing system. The retrieved 
+information will be stored in `args['queues']` as a JSON string and then 
+sent to the EMhub server using the `update_task` function.
 
 .. code-block:: python
 
@@ -588,10 +584,14 @@ sent to the EMhub server via the function `update_task`.
 EPU Session Monitoring
 ......................
 
-This example shows the implementation of a `TaskHandler` that monitors a filesystem path
-to detect new EPU session folders. It uses the function `request_config` to get
-configuration information from the EMhub server. In this case, it gets the location
-where the raw frames will be written. The `process` function will be called indefinitely, and the handler will scan the location to find new folders. Similarly to the previous example, the information is sent back to EMhub as a JSON string via `update_task`.
+In this example, we have implemented a `TaskHandler` that monitors a 
+filesystem path in order to detect new EPU session folders. It utilizes 
+the `request_config` function to obtain configuration information from 
+the EMhub server. Specifically, it retrieves the location where the raw 
+frames will be written. The `process` function is designed to be called 
+continually, allowing the handler to scan the location for new folders. 
+As with the previous example, the gathered information is sent back to 
+EMhub as a JSON string through the `update_task` function.
 
 
 .. code-block:: python
@@ -668,10 +668,10 @@ where the raw frames will be written. The `process` function will be called inde
 Data Transfer and On-The-Fly Processing
 .......................................
 
-Here is a more complex example of a worker who handles data transfer or on-the-fly data
-processing for a given session. It gets new tasks from the EMhub server and retrieves
-data about the assigned session. It also updates the session info as the tasks are being
-processed.
+Below is a more detailed example of a worker responsible for managing data transfer 
+or processing data in real time during a specific session. It receives new tasks 
+from the EMhub server, retrieves information about the assigned session, and updates 
+the session details as the tasks are processed.
 
 Check the `Sessions Worker <https://github.com/3dem/emhub/blob/devel/emhub/client/session_worker.py>`_ code in Github.
 
