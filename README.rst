@@ -57,12 +57,6 @@ Basic Installation
     # user: admin, password: admin
 
 
-Running tests
--------------
-
-`python -m unittest emhub.tests`
-
-
 Publishing the package to PyPI
 ------------------------------
 

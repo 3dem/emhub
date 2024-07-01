@@ -360,9 +360,9 @@ is successful, the page is reloaded, or an error is shown otherwise.
 The Content Function
 ....................
 
- To render the template page, the *create_session_form* is needed, which should 
-provide all the required data. This function should be provided in the 
-`extra/data_content.py <https://github.com/3dem/emhub/blob/devel/extras/test/data_content.py>`_ file. 
+To render the template page, the *create_session_form* is needed, which should
+provide all the required data. This function should be provided in the `extra/data_content.py <https://github.com/3dem/emhub/blob/devel/extras/test/data_content.py>`_ file.
+
 
 .. code-block:: python
     :caption: Content function in extra/data_content.py
@@ -551,12 +551,12 @@ to handle a “cluster-lsf” task by registering a `TaskHandler` for it.
                 handler.start()
 
 
-In the next step, the task handler will implement the `process` function 
-and use the function `LSF().get_queues_json('cryo')` to retrieve information 
+In the next step, the task handler will implement the *process* function
+and use the function ``LSF().get_queues_json('cryo')`` to retrieve information
 about the jobs running on the "cryo" queues. This part can be modified to 
 make this worker compatible with a different queueing system. The retrieved 
-information will be stored in `args['queues']` as a JSON string and then 
-sent to the EMhub server using the `update_task` function.
+information will be stored in ``args['queues']`` as a JSON string and then
+sent to the EMhub server using the *update_task* function.
 
 .. code-block:: python
 
