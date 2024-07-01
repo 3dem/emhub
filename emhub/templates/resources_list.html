@@ -61,7 +61,7 @@
                                     <th class="border-0">Requires Slot</th>
                                     <th class="border-0">Latest cancel (h)</th>
                                     <th class="border-0">Min/Max  booking (h)</th>
-                                    <th class="border-0">Daily Cost (SEK)</th>
+                                    <th class="border-0">Daily Cost ({{ currency }})</th>
                                     {% if current_user.is_manager %}
                                     <th class="border-0">Actions</th>
                                     {% endif %}
@@ -72,7 +72,9 @@
                                 <tr>
                                     <td> {{ r['id'] }} </td>
                                     <td>
-                                        <div class="m-r-10"><img src="{{ r['image'] }}" alt="user" class="rounded" width="75"></div>
+                                        {% if r['image'] %}
+                                            <div class="m-r-10"><img src="{{ r['image'] }}" alt="user" class="rounded" width="75"></div>
+                                        {% endif %}
                                     </td>
                                     <td><div style="background-color: {{ r['color'] }}; width: 30px; height: 30px"> &nbsp;</div></td>
                                     <td> {{ r['name'] }} </td>
@@ -85,8 +87,8 @@
                                     <td> {{ r['daily_cost'] }}</td>
                                     {% if current_user.is_manager %}
                                     <td>
-                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id'] }})"><i class="far fa-edit"></i></button>
-                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id'] }}, true)"><i class="far fa-copy"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id']|tojson }})"><i class="far fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-light" onclick="javascript:showResource({{ r['id']|tojson }}, true)"><i class="far fa-copy"></i></button>
                                         <button class="btn btn-sm btn-outline-light" onclick="javascript:deleteResource({{ r['id'] }})"
                                                 data-id="{{ r['id'] }}" data-name="{{ r['name'] }}"><i class="far fa-trash-alt"></i></button>
                                     </td>

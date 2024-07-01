@@ -7,7 +7,7 @@
 
     <!-- table row -->
     <div class="row">
-        <div class="col-12 text-sm-right mb-3">
+        <div class="col-12 text-sm-left mb-3">
             <a href="javascript:showRegisterUser()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Register New User</a>
         </div>
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
@@ -40,7 +40,10 @@
                                 <td>{{ user.email }}</td>
                                 <td>{{ user.name }}</td>
                                 <td>{{ user.roles }}</td>
-                                <td>{{ user.pi_id}}</td>
+
+                                {% set pi_label = '%s (%d)'|format(user.pi.name, user.pi.id) if user.pi else 'None' %}
+
+                                <td>{{ pi_label }}</td>
                                 <td>{{ user.project_codes}}</td>
                                 <td>
                                     <div style="max-width: 300px; overflow: auto">
@@ -82,7 +85,8 @@
         dom: 'Bfrtip',
         buttons: [
             'copy', 'csv', 'excel', 'pdf', 'print'
-        ]
+        ],
+        "pageLength": 50
     });
 
     function switchUser(username, name) {

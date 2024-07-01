@@ -2,15 +2,15 @@
 <!-- Project Form Modal Content -->
 <!-- ============================================================== -->
 {% set is_manager = current_user.is_manager %}
-{% set can_edit = is_manager or current_user == project.creation_user %}
+{% set can_edit = is_manager or current_user.can_edit_project(project) %}
 {% set readonly = '' if can_edit else 'readonly' %}
 {% set status_readonly = '' if is_manager else 'readonly' %}
-{% set disabled = '' if can_edit else 'disabled' %}
+{% set disabled = '' if is_manager else 'disabled' %}
 
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="project-modal-title"> Project (id = {{ project.id }}) </h3>
+        <h3 class="modal-title" id="project-modal-title"> Project (id = {{ project.id }}) {{ readonly }} </h3>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -44,10 +44,10 @@
 
                         </label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                            {% if possible_owners and can_edit %}
+                            {% if pi_labs and can_edit %}
                                 <div class="row">
-                                    <select id="project-user-select" class="selectpicker show-tick col-9" data-width="100%" data-live-search="true" value="{{ project.user.id }}">
-                                    {% for lab in possible_owners %}
+                                    <select id="project-user-select" class="selectpicker show-tick col-9" data-width="100%" data-live-search="true" value="{{ project.user.id }}" {{ disabled }}>
+                                    {% for lab in pi_labs %}
                                         <option data-divider="true"></option>
                                         <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
                                         {% for u in lab[1:] %}
@@ -60,13 +60,46 @@
                                     <label class="be-checkbox custom-control custom-checkbox mt-1">
                                         <input type="checkbox" class="custom-control-input  row-checkbox" id="user_can_edit-checkbox" {{ checked }}><span class="custom-control-label">Can edit</span>
                                     </label>
-
                                 </div>
+
 
                             {% else %}
                                 <input type="hidden" id="project-user-id" value="{{ project.user.id }}">
-                                <input type="text" required="" placeholder="Owner" id="project-user-text" class="form-control" value="{{ project.user.name }}" readonly>
+                                <input type="text" required="" placeholder="Owner" id="project-user-text" class="form-control" value="{{ project.user.name }}"  {{ readonly }}>
                             {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Collaborators Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Collaborators
+
+                        </label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            {% if pi_labs %}
+                                <div class="row">
+                                    <select id="project-collaborators-select" class="selectpicker show-tick col-9" multiple data-selected-text-format="count > 3"  data-width="100%" data-live-search="true" value="" {{ readonly }}>
+                                    {% for lab in pi_labs %}
+                                        <option data-divider="true"></option>
+                                        <option value="{{lab[0]['id']}}" style="background: #71748d; color: #fff;">{{lab[0]['name']}} (PI)</option>
+                                        {% for u in lab[1:] %}
+                                            <option value="{{u['id']}}">{{u['name']}}</option>
+                                        {% endfor %}
+                                    {% endfor %}
+                                    </select>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Confidential Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Project is Confidential</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            {% set checked = 'checked' if project.is_confidential else '' %}
+                            <label class="be-checkbox custom-control custom-checkbox mt-1">
+                                <input type="checkbox" class="custom-control-input  row-checkbox" id="project_confidential-checkbox" {{ checked }}><span class="custom-control-label"></span>
+                            </label>
                         </div>
                     </div>
 
@@ -121,6 +154,7 @@
 
     $('select').selectpicker();
     $('#project-user-select').selectpicker('val', {{ project.user.id }});
+    $('#project-collaborators-select').selectpicker('val', {{ project.collaborators_ids|tojson }});
 
 })(window, document, window.jQuery);
 </script>

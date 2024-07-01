@@ -1,0 +1,195 @@
+[
+  {
+    "name":  "config:bookings",
+    "definition": {
+        "display": {
+            "show_operator": true,
+            "show_application": false,
+            "show_experiment": true
+        },
+        "local_tag": "stjude"
+    }
+  },
+  {
+    "name": "config:permissions",
+    "definition": {
+      "create_booking": {
+        "xxx": ["manager", "admin"],
+        "instrument": ["user"]
+      },
+      "delete_booking": {
+        "xxx": ["manager", "admin"],
+        "instrument": ["user"]
+      },
+      "create_session": ["manager", "admin"],
+      "content": {
+        "usage_report": ["head", "admin"],
+        "raw": ["admin"]
+      }
+    }
+  },
+  {
+    "name": "config:projects",
+    "definition": {
+        "entries_menu": [
+            ["update_plate", "Update Plates Info"],
+            ["note", "Note"]
+        ],
+        "entries": {
+            "note": {
+                "label": "Note",
+                "group": 3,
+                "iconClass": "fas fa-sticky-note fa-inverse",
+                "imageClass": "img--picture"
+            },
+            "update_plate": {
+            "label": "Update Plate",
+            "group": 2,
+            "iconClass": "fas fa-search fa-inverse",
+            "imageClass": "img--location",
+            "report": "report_access_microscopes.html"
+            },
+            "booking": {
+                "label": "Booking",
+                "group": 3,
+                "iconClass": "far fa-calendar",
+                "imageClass": "img--location"
+            }
+        },
+        "permissions": {
+            "user_can_create_projects": "all",
+            "user_can_see_projects": [
+                {"key": "mine", "label": "My Projects"},
+                {"key": "lab", "label": "Lab's Projects"},
+                {"key": "all", "label": "All Projects"}
+            ]
+        }
+    }
+  },
+  {
+    "name": "config:sessions",
+    "definition": {
+    "acquisition": {
+        "Krios01": {
+            "voltage": 300,
+            "magnification": 130000,
+            "pixel_size": 0.6485,
+            "dose": 1.09,
+            "cs": 2.7
+        },
+        "Arctica01": {
+            "voltage": 200,
+            "magnification": 79000,
+            "pixel_size": 1.044,
+            "dose": 1.063,
+            "cs": 2.7
+        }
+    },
+    "groups": {
+        "israel.fernandez@stjude.org": "cryoem_center_grp",
+        "mario.halic@stjude.org": "halicgrp",
+        "scott.blanchard@stjude.org": "blancgrp",
+        "ji.sun@stjude.org": "sun1grp",
+        "tanja.mittag@stjude.org": "mittagrp",
+        "chiahsueh.lee@stjude.org": "clee2grp",
+        "ravi.kalathur@stjude.org": "kalatgrp",
+        "babis.kalodimos@stjude.org": "babisgrp",
+        "madan.babu@stjude.org": "ba"
+    },
+    "centers": {
+        "israel.fernandez@stjude.org": "CryoEM",
+        "ravi.kalathur@stjude.org": "PTC"
+    },
+    "data": {
+        "gain": "/jude/facility/data/gains/*{microscope}*gain*.mrc",
+        "images": ""
+    }
+}
+  },
+  {
+    "name": "experiment",
+    "definition": {
+    "title": "Plate Info",
+    "params": [
+        {
+            "id": "plates",
+            "label": "Images Table",
+            "type": "table",
+            "columns": [
+                {
+                    "id": "plate",
+                    "label": "Plate",
+                    "type": "custom",
+                    "template": "param_select_plate.html"
+                },
+                {
+                    "id": "channel",
+                    "label": "Channel",
+                    "enum": {
+                        "choices": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                        "display": "combo"
+                    }
+                },
+                {
+                    "id": "sample",
+                    "label": "Sample"
+                },
+                {
+                    "id": "issues",
+                    "label": "Issues?",
+                    "type": "bool"
+                },
+                {
+                    "id": "comments",
+                    "label": "Comments",
+                    "type": "text",
+                    "default": ""
+                }
+            ],
+            "min_rows": 3
+        }
+    ]
+  }
+},
+  {
+    "name": "entry_form:update_plate",
+    "definition": {
+    "title": "Plate Update",
+    "params": [
+        {
+            "id": "plate",
+            "label": "Plate",
+            "type": "custom",
+            "template": "param_select_plate.html"
+        },
+        {
+            "id": "channel",
+            "label": "Channel",
+            "enum": {
+                "choices": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                "display": "combo"
+            }
+        },
+        {
+            "id": "sample",
+            "label": "Sample"
+        },
+        {
+            "id": "issues",
+            "label": "Issues?",
+            "type": "bool"
+        },
+        {
+            "id": "comments",
+            "label": "Comments",
+            "type": "text",
+            "default": ""
+        }
+    ],
+    "config": {
+        "show_title": false,
+        "show_desc": false
+    }
+}
+  }
+]

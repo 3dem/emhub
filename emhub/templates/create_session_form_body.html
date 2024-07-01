@@ -1,0 +1,79 @@
+
+<!-- Modal body -->
+<div class="modal-body">
+    <input type="hidden" id="booking-id" value="{{ booking.id }}">
+<!-- Create Session Form -->
+<div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+    <form id="session-form" data-parsley-validate="" novalidate="">
+        <!-- Owner Row -->
+        <div class="form-group row">
+            <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
+            <div class="col-12 col-sm-8 col-lg-6">
+                <h3 class="col-12 text-sm-left">{{ session_name }}*</h3>
+                <label class="col-12 col-form-label text-sm-left">(* can change after folders creation)</label>
+            </div>
+        </div>
+
+        <!-- Owner Row -->
+        <div class="form-group row">
+            <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
+            <div class="col-12 col-sm-8 col-lg-6">
+                <h4 class="col-12 text-sm-left">{{ booking.owner.name }}</h4>
+            </div>
+        </div>
+
+        <!-- Creator Row -->
+        <div class="form-group row">
+            <label class="col-12 col-sm-3 col-form-label text-sm-right">Creator</label>
+            <div class="col-12 col-sm-8 col-lg-6">
+                <label class="col-12 col-form-label text-sm-left">{{ booking.creator.name }}</label>
+            </div>
+        </div>
+
+        <!-- Operator Row -->
+        <div class="form-group row">
+            <label class="col-12 col-sm-3 col-form-label text-sm-right">Staff</label>
+            <div class="col-12 col-sm-8 col-lg-6">
+                <label class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.operator.name }}</label>
+            </div>
+        </div>
+
+        <!-- Microscope Row -->
+        <div class="form-group row">
+            <label class="col-12 col-sm-3 col-form-label text-sm-right">Microscope</label>
+            <div class="col-12 col-sm-8 col-lg-6">
+{#                        <label id="application-label" class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.resource.name }}</label>#}
+
+                <div class="row align-items-center justify-content-start">
+                <div class="col">
+                    <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
+
+                </div>
+                <div class="col-10 text-sm-left">
+                    <h5>{{ booking.resource.name }}</h5>
+                </div>
+            </div>
+
+            </div>
+        </div>
+
+        <!-- Camera Row -->
+        <div class="form-group row">
+            <label class="col-12 col-sm-3 col-form-label text-sm-right">Camera</label>
+            <div class="col-12 col-sm-8 col-lg-6">
+                {% for c in cameras %}
+                    {% set checked = 'checked' if loop.index == 1 else '' %}
+                    <label class="custom-control custom-radio custom-control-inline">
+                        <input type="radio" name="cameras" id="camera-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ c }}"><span class="custom-control-label">{{ c }}</span>
+                    </label>
+                {% endfor %}
+
+            </div>
+        </div>
+    </form>
+</div>
+<!-- end Booking Form -->
+
+</div>
+<!-- End of Modal body -->
+

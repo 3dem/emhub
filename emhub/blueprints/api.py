@@ -25,20 +25,32 @@
 # *  e-mail address 'delarosatrevin@scilifelab.se'
 # *
 # **************************************************************************
+""" This module contains functions from the EMhub's REST API.
+
+The REST API allows to operate with the underlying database entities.
+There are functions to create, update, delete and retrieve existing elements.
+
+This functions will be the channel between the `DataClient` in the client code
+and the server `DataManager`.
+
+"""
 
 import os
 import time
 import json
 from glob import glob
+import datetime as dt
+import traceback
 
 import flask
 from flask import request
 from flask import current_app as app
 import flask_login
+import jwt
 
+from emtools.utils import Pretty, Color
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
-from emhub.data import DataContent
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -48,6 +60,15 @@ api_bp = flask.Blueprint('api', __name__)
 
 @api_bp.route('/login', methods=['POST'])
 def login():
+    """ Login a given user in the server.
+
+    Arguments are expected coming in ``request.json``.
+
+    Args:
+        username: Username to login.
+        password: password to login.
+
+    """
     username = request.json['username']
     password = request.json['password']
 
@@ -63,6 +84,7 @@ def login():
 @api_bp.route('/logout', methods=['POST'])
 @flask_login.login_required
 def logout():
+    """ Logout previously logged user. """
     flask_login.logout_user()
 
     return send_json_data('OK')
@@ -73,6 +95,7 @@ def logout():
 @api_bp.route('/create_user', methods=['POST'])
 @flask_login.login_required
 def create_user():
+    """ Create a new `User` in the system. """
     return handle_user(app.dm.create_user)
 
 
@@ -91,11 +114,13 @@ def register_user():
             pi_id=attrs['pi_id'],
             status='active'
         )
-        app.mm.send_mail(
-            [user.email],
-            "emhub: New account registered",
-            flask.render_template('email/account_registered.txt',
-                                  user=user))
+
+        if app.mm:
+            app.mm.send_mail(
+                [user.email],
+                "emhub: New account registered",
+                flask.render_template('email/account_registered.txt',
+                                      user=user))
         return user
 
     return handle_user(register)
@@ -104,12 +129,14 @@ def register_user():
 @api_bp.route('/update_user', methods=['POST'])
 @flask_login.login_required
 def update_user():
+    """ Update a given `User` in the system. """
     return handle_user(app.dm.update_user)
 
 
 @api_bp.route('/delete_user', methods=['POST'])
 @flask_login.login_required
 def delete_user():
+    """ Delete a `User` from the system. """
     return handle_user(app.dm.delete_user)
 
 
@@ -175,48 +202,56 @@ def get_users():
 @api_bp.route('/create_template', methods=['POST'])
 @flask_login.login_required
 def create_template():
+    """ Create a new `Template`. """
     return handle_template(app.dm.create_template)
 
 
 @api_bp.route('/get_templates', methods=['POST'])
 @flask_login.login_required
 def get_templates():
+    """ Get a list of all existing templates. """
     return filter_request(app.dm.get_templates)
 
 
 @api_bp.route('/update_template', methods=['POST'])
 @flask_login.login_required
 def update_template():
+    """ Update an existing `Template`. """
     return handle_template(app.dm.update_template)
 
 
 @api_bp.route('/delete_template', methods=['POST'])
 @flask_login.login_required
 def delete_template():
+    """ Delete a given `Template`. """
     return handle_template(app.dm.delete_template)
 
 
 @api_bp.route('/create_application', methods=['POST'])
 @flask_login.login_required
 def create_application():
+    """ Create an `Application`. """
     return handle_application(app.dm.create_application)
 
 
 @api_bp.route('/get_applications', methods=['POST'])
 @flask_login.login_required
 def get_applications():
+    """ Get all applications. """
     return filter_request(app.dm.get_applications)
 
 
 @api_bp.route('/update_application', methods=['POST'])
 @flask_login.login_required
 def update_application():
+    """ Update an existing `Application`. """
     return handle_application(app.dm.update_application)
 
 
 @api_bp.route('/delete_application', methods=['POST'])
 @flask_login.login_required
 def delete_application():
+    """ Delete an `Application`. """
     return handle_application(app.dm.delete_application)
 
 
@@ -224,7 +259,7 @@ def delete_application():
 @flask_login.login_required
 def import_application():
     try:
-        if not request.json:
+        if not request.is_json:
             raise Exception("Expecting JSON request.")
 
         orderCode = request.json['code'].upper()
@@ -303,7 +338,6 @@ def import_application():
 
     except Exception as e:
         print(e)
-        import traceback
         traceback.print_exc()
 
         return send_error('ERROR from Server: %s' % e)
@@ -314,29 +348,36 @@ def import_application():
 @api_bp.route('/get_resources', methods=['POST'])
 @flask_login.login_required
 def get_resources():
+    """ Retrieve existing resources. """
     return filter_request(app.dm.get_resources)
 
 
 @api_bp.route('/create_resource', methods=['POST'])
 @flask_login.login_required
 def create_resource():
+    """ Create a new `Resource`. """
     return handle_resource(app.dm.create_resource)
+
 
 @api_bp.route('/update_resource', methods=['POST'])
 @flask_login.login_required
 def update_resource():
+    """ Update a given `Resource`. """
     return handle_resource(app.dm.update_resource)
+
 
 @api_bp.route('/delete_resource', methods=['POST'])
 @flask_login.login_required
 def delete_resource():
+    """ Delete a `Resource`. """
     return handle_resource(app.dm.delete_resource)
 
-# ---------------------------- BOOKINGS ---------------------------------------
 
+# ---------------------------- BOOKINGS ---------------------------------------
 @api_bp.route('/create_booking', methods=['POST'])
 @flask_login.login_required
 def create_booking():
+    """ Create a new `Booking`. """
     def create(**attrs):
         check_min = request.json.get('check_min_booking', True)
         check_max = request.json.get('check_max_booking', True)
@@ -350,6 +391,7 @@ def create_booking():
 @api_bp.route('/get_bookings', methods=['POST'])
 @flask_login.login_required
 def get_bookings():
+    """ Retrieve existing bookings. """
     return filter_request(app.dm.get_bookings)
 
 
@@ -357,24 +399,42 @@ def get_bookings():
 @api_bp.route('/get_bookings_range', methods=['POST'])
 @flask_login.login_required
 def get_bookings_range():
-    d = request.json or request.form
+    """ Retrieve booking within a given time range.
+
+    Args:
+        start (str): Starting date (format "YYYY-MM-DD").
+        end (str): Ending date (format "YYYY-MM-DD").
+        func: Function used to process the booking, by default 'to_event'
+    """
+    d = dict(request.get_json(silent=True) or request.form)
     bookings = app.dm.get_bookings_range(
         datetime_from_isoformat(d['start']),
         datetime_from_isoformat(d['end'])
     )
-    func = app.dc.booking_to_event
+    funcName = d.get('func', 'to_event')
+    if funcName == 'to_event':
+        func = app.dc.booking_to_event
+    elif funcName == 'to_json':
+        def to_json(b):
+            return b.json()
+        func = to_json
+    else:
+        raise Exception(f"Unknown function {funcName}")
+
     return send_json_data([func(b) for b in bookings])
 
 
 @api_bp.route('/update_booking', methods=['POST'])
 @flask_login.login_required
 def update_booking():
+    """ Update an existing `Booking`. """
     return handle_booking('bookings_updated', app.dm.update_booking)
 
 
 @api_bp.route('/delete_booking', methods=['POST'])
 @flask_login.login_required
 def delete_booking():
+    """ Delete an existing `Booking`. """
     # When deleting we don't need to send all info back, just ID
     def _transform(b):
         return {'id': b.id}
@@ -394,6 +454,8 @@ def get_sessions():
 @api_bp.route('/poll_sessions', methods=['POST'])
 @flask_login.login_required
 def poll_sessions():
+    # FIXME: this fuction is very old (used in SLL) and
+    # FIXME: needs to be updated
     session_folders = app.dm.get_session_folders()
 
     def _user(u):
@@ -407,10 +469,11 @@ def poll_sessions():
     while True:
         sessions = app.dm.get_sessions(condition='status=="pending"')
         if sessions:
+            data = []
             for s in sessions:
                 b = s.booking
                 e = app.dc.booking_to_event(b)
-                data = [{
+                data.append({
                     'id': s.id,
                     'name': s.name,
                     'booking_id': s.booking_id,
@@ -420,9 +483,22 @@ def poll_sessions():
                     'operator': _user(b.operator),
                     'folder': session_folders[s.name[:3]],
                     'title': e['title']
-                 }]
-                return send_json_data(data)
+                 })
+            return send_json_data(data)
         time.sleep(3)
+
+
+@api_bp.route('/poll_active_sessions', methods=['POST'])
+@flask_login.login_required
+def poll_active_sessions():
+    while True:
+        dm = app.dm  # DataManager(app.instance_path, user=app.user)
+        sessions = dm.get_sessions(condition='status=="active"')
+        data = [s.json() for s in sessions if s.actions]
+        if data:
+            return send_json_data(data)
+        time.sleep(5)
+        dm.commit()
 
 
 @api_bp.route('/create_session', methods=['POST'])
@@ -455,72 +531,237 @@ def clear_session_data():
     return handle_session(app.dm.clear_session_data)
 
 
-@api_bp.route('/create_session_set', methods=['POST'])
-@flask_login.login_required
-def create_session_set():
-    """ Create a set file without actual session. """
-    def handle(session, set_id, **attrs):
-        session.data.create_set(set_id, attrs)
-        return {'session_set': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
-@api_bp.route('/update_session_set', methods=['POST'])
-@flask_login.login_required
-def update_session_set():
-    """ Create a set file without actual session. """
-    def handle(session, set_id, **attrs):
-        session.data.update_set(set_id, attrs)
-        return {'session_set': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
-@api_bp.route('/get_session_sets', methods=['POST'])
-@flask_login.login_required
-def get_session_sets():
-    """ Return all sets' name of this session. """
-    def handle(session, set_id, **attrs):
-        # set_id is not used here, but passed by default to the handle
-        sets = session.data.get_sets(attrList=attrs)
-        return {'session_sets': sets}
-
-    return handle_session_data(handle, mode="r")
-
-
-@api_bp.route('/add_session_item', methods=['POST'])
-@flask_login.login_required
-def add_session_item():
-    """ Add a new item. """
-    def handle(session, set_id, **attrs):
-        itemId = attrs.pop("item_id")
-        session.data.add_set_item(set_id, itemId, attrs)
-        return {'item': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
-@api_bp.route('/update_session_item', methods=['POST'])
-@flask_login.login_required
-def update_session_item():
-    """ Update existing item. """
-    def handle(session, set_id, **attrs):
-        itemId = attrs.pop("item_id")
-        session.data.update_set_item(set_id, int(itemId), attrs)
-        return {'item': {}}
-
-    return handle_session_data(handle, mode="a")
-
-
 @api_bp.route('/get_session_data', methods=['POST'])
 @flask_login.login_required
 def get_session_data():
     """ Return some information related to session (e.g CTF values, etc). """
-    def handle(session, set_id, **attrs):
-        return DataContent(app).get_session_data(session)
+    def handle(session, **attrs):
+        return app.dc.get_session_data(session, **attrs)
 
     return handle_session_data(handle, mode="r")
+
+@api_bp.route('/update_session_extra', methods=['POST'])
+def update_session_extra():
+    """ Update only certain elements from the extra property. """
+    def handle(**attrs):
+        token = attrs.pop('token')
+        worker = validate_worker_token(token)
+        return app.dm.update_session_extra(**attrs)
+
+    return handle_session(handle)
+
+
+@api_bp.route('/get_session_users', methods=['POST'])
+@flask_login.login_required
+def get_session_users():
+
+    def _user(u):
+        return {'id': u.id, 'name': u.name, 'email': u.email} if u else {}
+
+    def _session_users(**attrs):
+        session = app.dm.get_session_by(id=attrs['id'])
+        b = session.booking
+        return {
+            'owner': _user(b.owner),
+            'operator': _user(b.operator),
+            'creator': _user(b.creator),
+            'group': app.dm.get_user_group(b.owner)
+        }
+    return _handle_item(_session_users, 'session_users')
+
+
+def _loadFileLines(fn):
+    lines = ''
+    if os.path.exists(fn):
+        for line in open(fn):
+            lines += line
+
+    return lines
+
+
+@api_bp.route('/get_session_run', methods=['POST'])
+@flask_login.login_required
+def get_session_run():
+    """
+    This method will retrieve a run instance.
+    Processing project can be loaded from a session_id
+    or an entry_id
+    """
+    dm = app.dm
+
+    def _get_run(**attrs):
+        run = dm.get_processing_project(**attrs)['run']
+        outputs = attrs.get('output', ['json'])
+        results = {}
+
+        if 'json' in outputs:
+            results['json'] = {'values': run.getValues(),
+                               'info': run.getInfo()}
+            results['json'].update(run.getInputsOutputs())
+
+        if 'stdout' in outputs:
+            results['stdout'] = _loadFileLines(run.getStdOut())
+
+        if 'stderr' in outputs:
+            results['stderr'] = _loadFileLines(run.getStdError())
+
+        if 'form' in outputs:
+            results['form'] = run.getFormDefinition()
+
+        return results
+
+    return _handle_item(_get_run, 'run')
+
+
+@api_bp.route("/get_classes2d", methods=['POST'])
+def get_classes2d():
+    """ Load 2d classification data. """
+    proc = app.dm.get_processing_project(entry_id=request.form['entry_id'])
+    run = proc.get_run(request.form['run_id'])
+    classes = run.get_classes2d(iteration=request.form.get('iteration', None))
+
+    return send_json_data(classes)
+
+
+def get_worker_token(worker):
+    return jwt.encode(
+        {'worker': worker},
+        app.config['SECRET_KEY'], algorithm='HS256')
+
+
+def validate_worker_token(token):
+    result = None
+    try:
+        token = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        result = token.get('worker', None)
+    except:
+        raise Exception("Invalid token for this worker")
+
+    return result
+
+
+@api_bp.post('/connect_worker')
+@flask_login.login_required
+def connect_worker():
+    def _connect_worker(**attrs):
+        worker = attrs['worker']
+        specs = attrs['specs']
+        app.dm.connect_worker(worker, specs)
+        return get_worker_token(worker)
+
+    return _handle_item(_connect_worker, 'token')
+
+@api_bp.post('/create_task')
+@flask_login.login_required
+def create_task():
+    def _create_task(**attrs):
+        worker = attrs['worker']
+        task = attrs['task']
+        app.logger.debug(f"attrs: {attrs}")
+        task_id = app.dm.get_worker_stream(worker).create_task(task)
+        return {'id': task_id}
+
+    return _handle_item(_create_task, 'task')
+
+@api_bp.post('/delete_task')
+@flask_login.login_required
+def delete_task():
+    def _delete_task(**attrs):
+        worker = attrs['worker']
+        dm = app.dm
+        wstream = dm.get_worker_stream(worker)
+        result = 0
+        task_id = attrs['task_id']
+        if task_id == 'all_done':
+            done_days = attrs.get('days', 3)
+            td = dt.timedelta(days=done_days)
+            now = dm.now()
+            for t in wstream.get_all_tasks():
+                if t['status'] == 'done' or now - dm.get_task_lastupdate(t['id']) >= td:
+                    result += wstream.delete_task(t['id'])
+
+        elif task_id.startswith('<'):
+            task_id.replace('<', '')
+            for t in wstream.get_all_tasks():
+                if t['id'] < task_id:
+                    result += wstream.delete_task(t['id'])
+        else:
+            result = wstream.delete_task(task_id)
+        return {'result': result}
+
+    return _handle_item(_delete_task, 'task')
+
+
+@api_bp.post('/update_task')
+def update_task():
+    def _update_task(**attrs):
+        worker = validate_worker_token(attrs['token'])
+        task_id = attrs['task_id']
+        event = attrs['event']
+        app.dm.get_worker_stream(worker, update=True).update_task(task_id, event)
+        return {'result': 'OK'}
+
+    return _handle_item(_update_task, 'task')
+
+
+@api_bp.post('/get_new_tasks')
+def get_new_tasks():
+    """ This function will return tasks for a given worker when they
+    are available. If not, it will be sleeping waiting for it.
+    """
+    def _get_new_tasks(**attrs):
+        worker = validate_worker_token(attrs['token'])
+        tasks = app.dm.get_worker_stream(worker, update=True).get_new_tasks()
+        return tasks
+
+    return _handle_item(_get_new_tasks, 'tasks')
+
+
+@api_bp.post('/get_pending_tasks')
+def get_pending_tasks():
+    """ This function will return pending tasks for a given worker.
+    A task is pending if it was claimed by the worker, but it has not been
+    acknowledged as completed.
+    """
+    def _get_pending_tasks(**attrs):
+        worker = validate_worker_token(attrs['token'])
+        ws = app.dm.get_worker_stream(worker, update=True)
+        tasks = [t for t in ws.get_all_tasks() if t['status'] == 'pending']
+        return tasks
+
+    return _handle_item(_get_pending_tasks, 'tasks')
+
+
+@api_bp.post('/get_all_tasks')
+def get_all_tasks():
+    """ This function will return pending tasks for a given worker.
+    A task is pending if it was claimed by the worker, but it has not been
+    acknowledged as completed.
+    """
+    def _get_all_tasks(**attrs):
+        worker = validate_worker_token(attrs['token'])
+        all_tasks = []
+        for w, tasks in app.dm.get_all_tasks():
+            for t in tasks:
+                # Add worker info
+                t['worker'] = w
+                all_tasks.append(t)
+
+        return all_tasks
+
+    return _handle_item(_get_all_tasks, 'tasks')
+
+
+@api_bp.route('/get_workers', methods=['POST'])
+@flask_login.login_required
+def get_workers():
+    def _user(u):
+        return {'id': u.id, 'name': u.name, 'email': u.email} if u else {}
+
+    def _workers(**attrs):
+        return app.dc.get_workers()['workers']
+
+    return _handle_item(app.dc.get_workers, 'workers')
 
 
 # ---------------------------- INVOICE PERIODS --------------------------------
@@ -601,6 +842,15 @@ def delete_form():
     return handle_form(app.dm.delete_form)
 
 
+@api_bp.route('/get_config', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_config():
+    def _get_config(**attrs):
+        return app.dm.get_config(attrs['config'])
+
+    return _handle_item(_get_config, 'config')
+
+
 # ------------------------------ PROJECTS ---------------------------------
 
 @api_bp.route('/get_projects', methods=['GET', 'POST'])
@@ -642,7 +892,8 @@ def create_entry():
         fix_dates(attrs, 'date')
         entry = app.dm.create_entry(**attrs)
         save_entry_files(entry, entry.extra['data'])
-        entry = app.dm.update_entry(id=entry.id, extra=entry.extra)
+        entry = app.dm.update_entry(id=entry.id, extra=entry.extra,
+                                    validate=False)
         return entry.json()
 
     return _handle_item(handle, 'entry')
@@ -728,12 +979,15 @@ def fix_dates(attrs, *date_keys):
     for some keys that might be present in the attrs dict. """
     for date_key in date_keys:
         if date_key in attrs:
-            attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+            try:
+                attrs[date_key] = datetime_from_isoformat(attrs[date_key])
+            except:
+                attrs[date_key] = None
 
 
 def _handle_item(handle_func, result_key):
     try:
-        if request.json:
+        if request.is_json:
             attrs = request.json['attrs']
         elif request.form:
             attrs = json.loads(request.form['attrs'])
@@ -743,7 +997,6 @@ def _handle_item(handle_func, result_key):
         return send_json_data({result_key: result})
     except Exception as e:
         print(e)
-        import traceback
         traceback.print_exc()
         return send_error('ERROR from Server: %s' % e)
 
@@ -813,17 +1066,16 @@ def handle_session(session_func):
 def handle_session_data(handle, mode="r"):
     attrs = request.json['attrs']
     session_id = attrs.pop("session_id")
-    set_id = attrs.pop("set_id", None)
     tries = 0
 
     while tries < 3:
         try:
-            session = app.dm.load_session(sessionId=session_id, mode=mode)
-            result = handle(session, set_id, **attrs)
-            session.data.close()
+            session = app.dm.get_session_by(id=session_id)
+            result = handle(session, **attrs)
             break
         except OSError:
-            print("Error with session data, sleeping 3 secs")
+            print(f"Error with session (id={session_id})data, sleeping 3 secs")
+            traceback.print_exc()
             time.sleep(3)
             result = {}
             tries += 1

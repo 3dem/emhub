@@ -1,17 +1,19 @@
+{% import "entry_macros.html" as macros %}
+
 <!-- ============================================================== -->
 <!-- Project Form Modal Content -->
 <!-- ============================================================== -->
 {% set project = entry.project %}
 {% set pi = project.user.get_pi() %}
 {% set is_manager = current_user.is_manager %}
-{% set can_edit = is_manager or (project.user_can_edit and (current_user == project.user or current_user == pi)) or current_user == project.creation_user %}
+{% set can_edit = current_user.can_edit_project(project) %}
 {% set readonly = '' if can_edit else 'readonly' %}
 {% set disabled = '' if can_edit else 'disabled' %}
 
   <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 80%">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title" id="entry-modal-title"> {{ entry_type_label }} (Id = {{ entry.id }})</h3>
+        <h3 class="modal-title" id="entry-modal-title"> {{ entry_type_label }} (id = {{ entry.id }})</h3>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>
@@ -25,31 +27,39 @@
                     <input type="hidden" id="entry-id" name="entry-id" value="{{ entry.id }}">
                     <input type="hidden" id="entry-type" name="entry-type" value="{{ entry.type }}">
                     <input type="hidden" id="entry-project-id" name="entry-project-id" value="{{ project.id }}">
-                    <input type="hidden" value="09:00:00.000", id="hour_id">
+                    {{ macros.hidden_hour_id() }}
 
                     <!-- Date -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Date</label>
                         <div class="col-12 col-sm-8 col-lg-6">
-                             <input type="text" class="form-control datetimepicker-input" data-target="#entry-date" id="entry-date" data-toggle="datetimepicker" />
+                            {% if is_manager %}
+                             <input type="text" class="form-control datetimepicker-input" data-target="#entry-date" id="entry-date" value="{{ entry.date|pretty_date }}" data-toggle="datetimepicker" />
+                            {% else %}
+                                <input type="text" class="form-control" id="entry-date" value="{{ entry.date|pretty_date }}" readonly />
+                            {% endif %}
                         </div>
                     </div>
 
                     <!-- Title Row -->
-                    <div class="form-group row">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
-                        <div class="col-12 col-sm-8 col-lg-6">
-                            <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="entry-title" class="form-control" value="{{ entry.title }}">
+                    {% if form_config['show_title'] %}
+                        <div class="form-group row">
+                            <label class="col-12 col-sm-3 col-form-label text-sm-right">Title</label>
+                            <div class="col-12 col-sm-8 col-lg-6">
+                                <input type="text" {{ readonly }} required="" placeholder="Enter Title" id="entry-title" class="form-control" value="{{ entry.title }}">
+                            </div>
                         </div>
-                    </div>
+                    {% endif %}
 
                     <!-- Description Row -->
+                    {% if form_config['show_title'] %}
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Description </label>
                         <div class="col-12 col-sm-8 col-lg-6">
                             <textarea {{ readonly }} required="" class="form-control" id="entry-description">{{ entry.description }}</textarea>
                         </div>
                     </div>
+                    {% endif %}
 
                 </form>
             </div>
@@ -87,13 +97,14 @@
 <!-- ============================================================== -->
 
 <script>
+
     (function(window, document, $, undefined) {
     "use strict";
-
-    $('#entry-date').datetimepicker({
-        format: 'YYYY/MM/DD',
-        date:  new Date('{{ entry.date|pretty_date }}')
-    });
+        // entry-date-picker
+    console.log("Entry form loaded");
+    var entry_date = new Date("{{ entry.date|pretty_date }}");
+    $('#entry-date').datetimepicker({format: 'YYYY/MM/DD', date: entry_date});
 
 })(window, document, window.jQuery);
 </script>
+

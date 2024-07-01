@@ -27,7 +27,9 @@
 # **************************************************************************
 
 import datetime as dt
+import re
 from collections import OrderedDict
+import math
 import jwt
 
 from sqlalchemy import (Column, Integer, String, JSON,
@@ -40,7 +42,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 
 def create_data_models(dm):
-    """ Define the Data Models that will be use by the DataManager. """
+    """ Define the Data Models that will be used by the DataManager. """
 
     Base = dm.Base
 
@@ -91,7 +93,7 @@ def create_data_models(dm):
             """ If True, users will need to have access to an slot
             or have some exceptions via the Application.
             """
-            return  self.__getExtra('requires_slot', False)
+            return self.__getExtra('requires_slot', False)
 
         @requires_slot.setter
         def requires_slot(self, value):
@@ -102,7 +104,7 @@ def create_data_models(dm):
         # If 0, means that the booking can be cancelled at any time
         @property
         def latest_cancellation(self):
-            return  self.__getExtra('latest_cancellation', 0)
+            return self.__getExtra('latest_cancellation', 0)
 
         @latest_cancellation.setter
         def latest_cancellation(self, value):
@@ -143,7 +145,7 @@ def create_data_models(dm):
 
         @property
         def requires_application(self):
-            """ True if the user should belongs to an Application to book this resource.
+            """ True if the user must be in an Application to book this resource.
             """
             return self.__getExtra('requires_application', True)
 
@@ -170,8 +172,7 @@ def create_data_models(dm):
     class User(UserMixin, Base):
         """Model for user accounts."""
         __tablename__ = 'users'
-        ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent',
-                 'staff-solna', 'staff-umea']
+        ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent']
 
         STATUSES = ['pending', 'active', 'inactive']
 
@@ -200,7 +201,7 @@ def create_data_models(dm):
         # Possible statuses of a User:
         #   - pending: when then account is created and pending approval
         #   - active: user is ready for operation
-        #   - inactive: user is not not longer active
+        #   - inactive: user is no longer active
         status = Column(String(32), default='active')
 
         # Default role should be: 'user'
@@ -260,7 +261,7 @@ def create_data_models(dm):
                 {'reset_password': self.id,
                  'exp': dm.now() + dt.timedelta(seconds=expires_in)},
                 app.config['SECRET_KEY'], algorithm='HS256').decode('utf-8')
-            self.extra = {'reset_token': token}
+            self.reset_token = token
 
             return token
 
@@ -274,11 +275,10 @@ def create_data_models(dm):
             user = User.query.get(user_id)
 
             if user is not None:
-                if token != user.extra.get('reset_token', None):
+                if token != user.reset_token:
                     return None
                 # Valid token, let's make it invalid from now
-                user.extra = {'reset_token': None}
-
+                user.reset_token = None
             return user
 
         def __repr__(self):
@@ -303,9 +303,9 @@ def create_data_models(dm):
         def is_head(self):
             return 'head' in self.roles
 
-        @property
-        def is_staff(self):
-            return any(r.startswith('staff-') for r in self.roles)
+        def is_staff(self, unit=None):
+            role = f'staff-{unit}'
+            return self.is_manager if unit is None else role in self.roles
 
         @property
         def staff_unit(self):
@@ -333,7 +333,7 @@ def create_data_models(dm):
         @property
         def rolesmap(self):
             return {role: role in self.roles
-                    for role in self.ROLES}
+                    for role in dm.USER_ROLES}
 
         def get_pi(self):
             """ Return the PI of this user. PI are consider PI of themselves.
@@ -345,8 +345,7 @@ def create_data_models(dm):
             return other is not None and self.get_pi() == other.get_pi()
 
         def get_applications(self, status='active'):
-            """ Return the applications of this user.
-            """
+            """ Return the applications of this user. """
             applications = []
             pi = self.get_pi()
             if pi is not None:
@@ -365,6 +364,12 @@ def create_data_models(dm):
             """ Return True if the user has the given application. """
             return any(a.code == applicationCode
                        for a in self.get_applications(status='all'))
+
+        def has_any_role(self, roles):
+            """ Return True if the user has any role from the roles list
+            or if it is empty. (this method will be used for permissions)
+            """
+            return not roles or any(r in self.roles for r in roles)
 
         def get_lab_members(self, onlyActive=True):
             """ Return lab members, filtering or not by active status. """
@@ -389,6 +394,66 @@ def create_data_models(dm):
         def can_book_slot(self, booking_slot):
             """ Return True if the user can book in the given SLOT. """
             return booking_slot.allows_user_in_slot(self)
+
+        def can_edit_project(self, p):
+            """ Return True if this user can edit a project. """
+            u = p.user
+            return (self.is_manager or
+                    p.user_can_edit and
+                    (self == u or self == u.get_pi() or
+                     str(self.id) in p.collaborators_ids))
+
+        def can_delete_project(self, p):
+            """ Return True if this user can delete a project. """
+            u = p.creation_user
+            return self.is_manager or self == u or self == u.get_pi()
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra)
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def auth_local(self):
+            """ Use local authentication despite global configuration for
+            authentication. For example, LDAP can be set globally as the authentication
+            method, but we could set auth_local for some specific users.
+            """
+            return self.__getExtra('auth_local', False)
+
+        @auth_local.setter
+        def auth_local(self, value):
+            self.__setExtra('auth_local', value)
+
+        @property
+        def reset_token(self):
+            """ Reset password token. """
+            return self.__getExtra('reset_token', None)
+
+        @reset_token.setter
+        def reset_token(self, value):
+            self.__setExtra('reset_token', value)
+
+        @property
+        def invoice(self):
+            """ Property for invoice reference and address. """
+            return self.__getExtra('invoice', {'reference': '', 'address': ''})
+
+        @invoice.setter
+        def invoice(self, value):
+            self.__setExtra('invoice', value)
+
+        @property
+        def university(self):
+            """ Property for university. """
+            return self.__getExtra('university', '')
+
+        @university.setter
+        def university(self, value):
+            self.__setExtra('university', value)
 
 
     class Template(Base):
@@ -531,7 +596,7 @@ def create_data_models(dm):
             return self.__getExtra('confidential', False)
 
         @confidential.setter
-        def costs(self, value):
+        def confidential(self, value):
             self.__setExtra('confidential', value)
 
         @property
@@ -562,8 +627,10 @@ def create_data_models(dm):
 
         def get_quota(self, key):
             """ Return the quota (in days) for this application.
+
             Args:
                 key: the key representing either a resource id or a tag (e.g 1 or 'krios')
+
             Return:
                 the number of days that this application can use a resource or a groups
                 resources with the same tag. It will return None if there is no quota for
@@ -574,8 +641,9 @@ def create_data_models(dm):
         def no_slot(self, resourceKey):
             """ Return True if this application is not forced to create bookings within
             a given slot for certain resource.
-             For example, some applications might be required to book Krios1 only on specific
-             slots, while others will be able to book in free days.
+
+            For example, some applications might be required to book Krios1 only on specific
+            slots, while others will be able to book in free days.
             """
             return resourceKey in self.resource_allocation['noslot']
 
@@ -609,7 +677,25 @@ def create_data_models(dm):
             return self.__getExtra('representative_id', None)
 
     class Booking(Base):
-        """Model for user accounts."""
+        """ Data Model for bookings in the system, mapped to table ``bookings``.
+
+        Attributes:
+             id (int): Unique identifier.
+             title (str): Title of the booking.
+             description (str): Description of the booking (Optional).
+             start (datetime): Starting date/time of the booking.
+             end (datetime): Ending date/time of the booking.
+             type (str): Type of the booking.
+                Possible values: ``booking``, ``slot``, ``downtime``, ``maintenance`` or ``special``
+             slot_auth (dict): JSON field storing slot authorization. This field
+                only make sense when booking type is ``slot``. The dict has the two
+                keys and a list of authorizations::
+
+                    {'applications': [], 'users': []}
+             repeat_id (str): Unique id representing a group of 'repeating' events.
+                This ``id`` is used for modifying all events in the group.
+             resource_id (int): Id of the `Resource` of this booking.
+        """
         __tablename__ = 'bookings'
 
         TYPES = ['booking', 'slot', 'downtime', 'maintenance', 'special']
@@ -677,32 +763,54 @@ def create_data_models(dm):
 
         @property
         def duration(self):
+            """ Duration of this booking.
+
+            Returns:
+                timedelta: end - start
+            """
             return self.end - self.start
 
         @property
         def days(self):
             """ Count how many days these bookings spans.
-            (It is not strictly necessary the total amount of time in in
+            (It is not strictly necessary the total amount of time in
             units of 24h.
             """
             td = self.end.date() - self.start.date() + dt.timedelta(days=1)
             return td.days
 
         @property
+        def hours(self):
+            """ Calculate the number of hours of this booking. """
+            td = self.end - self.start
+            return td.days * 24 + math.ceil(td.seconds / 3600)
+
+        def units(self, hours=24):
+            """ Get number of 'invoiceable units' """
+            return math.ceil(self.hours / hours)
+
+        @property
         def is_booking(self):
+            """ Returns True if ``type=='booking'``. """
             return self.type == 'booking'
 
         @property
         def is_slot(self):
+            """ Returns True if ``type=='slot'``. """
             return self.type == 'slot'
+
+        @property
+        def total_size(self):
+            """ Compute all the data size of sessions related to this booking. """
+            return sum(s.total_size for s in self.session)
 
         def __repr__(self):
             def _timestr(dt):
-                return dt.strftime('%Y/%m/%d')
+                return dt.strftime('%Y/%m/%d ')
 
-            return ('<Booking: resource=%s, owner=%s, dates: %s - %s>'
+            return ('<Booking: %s, %s, dates: %s - %s>'
                     % (self.resource.name, self.owner.name,
-                       _timestr(self.start), _timestr(self.end)))
+                       self.start, self.end))
 
         def __getExtra(self, key, default):
             return self.extra.get(key, default)
@@ -714,8 +822,7 @@ def create_data_models(dm):
 
         @property
         def costs(self):
-            """ Return extra costs associated with this Booking
-            """
+            """ Extra costs associated with this Booking. """
             return  self.__getExtra('costs', [])
 
         @costs.setter
@@ -724,8 +831,7 @@ def create_data_models(dm):
 
         @property
         def total_cost(self):
-            """ Return all costs associated with this Booking
-            """
+            """ All costs associated with this Booking. """
             cost = self.days * self.resource.daily_cost
             for _, _, c in self.costs:
                 try:
@@ -753,6 +859,12 @@ def create_data_models(dm):
                     any(a.code in allowedApps for a in user.get_applications()))
 
         def application_in_slot(self, application):
+            """ Return True if this booking is slot and the application
+            is within the authorized applications.
+
+            Args:
+                application: `Application` to check if it is in this slot
+            """
             if not self.is_slot:
                 return False
 
@@ -766,7 +878,6 @@ def create_data_models(dm):
                     primary_key=True)
 
         name = Column(String(256),
-                      unique=True,
                       nullable=False)
 
         start = Column(UtcDateTime)
@@ -789,15 +900,10 @@ def create_data_models(dm):
 
         DEFAULT_ACQUISITION = {
             'voltage': None,
+            'magnification': None,
             'cs': None,
-            'phasePlate': False,
-            'detector': None,
-            'detectorMode': None,
-            'pixelSize': None,
-            'dosePerFrame': None,
-            'totalDose': None,
-            'exposureTime': None,
-            'numOfFrames': None,
+            'pixel_size': None,
+            'dose': None,
         }
         # Acquisition info parameters are store as a JSON string
         acquisition = Column(JSON, default=DEFAULT_ACQUISITION)
@@ -847,6 +953,93 @@ def create_data_models(dm):
 
         def __repr__(self):
             return '<Session {}>'.format(self.name)
+
+        def __getExtra(self, key, default):
+            return self.extra.get(key, default)
+
+        def __setExtra(self, key, value):
+            extra = dict(self.extra or {})
+            extra[key] = value
+            self.extra = extra
+
+        @property
+        def is_active(self):
+            return self.status == 'active'
+
+        @property
+        def is_code_counted(self):
+            return re.match("[a-z]{3}[0-9]{5}", self.name) is not None
+
+        @property
+        def actions(self):
+            """ True if the user of the project can edit it (add/modify/delete notes)
+            """
+            return self.__getExtra('actions', [])
+
+        @actions.setter
+        def actions(self, actions):
+            self.__setExtra('actions', actions)
+
+        @property
+        def files(self):
+            return self.__getExtra('raw', {}).get('files', {})
+
+        @property
+        def total_files(self):
+            return sum(fi['count'] for fi in self.files.values())
+
+        @property
+        def total_size(self):
+            return sum(fi['size'] for fi in self.files.values())
+
+        @property
+        def total_movies(self):
+            return self.__getExtra('raw', {}).get('movies', 0)
+
+        @property
+        def project_id(self):
+            """ Get the project based on project_id or the booking's project. """
+            return self.__getExtra('project_id', 0)
+
+        @project_id.setter
+        def project_id(self, project_id):
+            self.__setExtra('project_id', project_id)
+
+        @property
+        def project(self):
+            """ Get the project based on project_id or the booking's project. """
+            return (dm.get_project_by(id=self.project_id) or
+                    (self.booking.project if self.booking else None))
+
+        @property
+        def images(self):
+            raw = self.extra.get('raw', {})
+            return raw.get('movies', 0)
+
+        @property
+        def size(self):
+            raw = self.extra.get('raw', {})
+            return raw.get('size', 0)
+
+        @property
+        def otf(self):
+            otf = self.__getExtra('otf', {})
+            if not isinstance(otf, dict):
+                otf = {}
+            return otf
+
+        @property
+        def otf_status(self):
+            return self.otf.get('status', '')
+
+        @property
+        def otf_path(self):
+            return self.otf.get('path', '')
+
+        @property
+        def shortname(self):
+            n = self.name
+            return n if ':' not in n else n.split(':')[1]
 
         def json(self):
             return dm.json_from_object(self)
@@ -947,7 +1140,7 @@ def create_data_models(dm):
         STATUS = ['active', 'inactive']
         # Possible statuses of a Project:
         #   - active: default state when created
-        #   - inactive: it has been closed and it becomes inactive
+        #   - inactive: it has been closed, and it becomes inactive
         status = Column(String(32), default='active')
 
         title = Column(String(256), nullable=False)
@@ -994,14 +1187,39 @@ def create_data_models(dm):
             self.extra = extra
 
         @property
+        def is_active(self):
+            return self.status == 'active'
+
+        @property
         def user_can_edit(self):
             """ True if the user of the project can edit it (add/modify/delete notes)
             """
-            return  self.__getExtra('user_can_edit', False)
+            return self.__getExtra('user_can_edit', False)
 
         @user_can_edit.setter
         def user_can_edit(self, value):
             self.__setExtra('user_can_edit', value)
+
+        @property
+        def is_confidential(self):
+            """ True if this project is confidential and its information sensitive.
+            Some of the project info will not be available to all users.
+            """
+            return self.__getExtra('is_confidential', False)
+
+        @is_confidential.setter
+        def is_confidential(self, value):
+            self.__setExtra('is_confidential', value)
+
+        @property
+        def collaborators_ids(self):
+            """ True if the user of the project can edit it (add/modify/delete notes)
+            """
+            return self.__getExtra('collaborators_ids', [])
+
+        @collaborators_ids.setter
+        def collaborators_ids(self, value):
+            self.__setExtra('collaborators_ids', value)
 
         def json(self):
             return dm.json_from_object(self)

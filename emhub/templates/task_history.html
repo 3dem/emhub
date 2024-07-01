@@ -1,0 +1,51 @@
+<!-- ============================================================== -->
+<!-- Task History Modal Content -->
+<!-- ============================================================== -->
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document"  data-backdrop="static" data-keyboard="false">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title"> Task History </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+                <div class="table-responsive">
+                <table class="table">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                        <th class="border-0">event id</th>
+                        <th class="border-0">time</th>
+                        <th class="border-0">info</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% for event_id, event in task_events %}
+                                <td>{{ event_id }}</td>
+                                <td>{{ event_id|redis_datetime(elapsed=True) }}</td>
+                                <td>{{ event|tojson }}</td>
+                                </tr>
+                        {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+            </div>
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="application-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+
+

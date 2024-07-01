@@ -1,0 +1,86 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Sesssions Overview" %}
+    {% set navigation = [('Reports', ''), ('Sessions Overview', '')] %}
+    {% include 'include_header.html' %}
+
+    {% set a = applications[0] %}
+    <input type="hidden" value="{{ a.id }}" id="application-id">
+
+    <div class="card card-body">
+        <div class="row col-12 text-left">
+
+            <div class="col-2">
+                <h5> Date Range </h5>
+                <input class="form-control" type="text" id="daterange" value="{{ start }} - {{ end }}" />
+            </div>
+
+            <div class="col-3">
+                <h5>Resources</h5>
+                <select id="selectpicker-resource" class="selectpicker show-tick" data-width="100%" data-key="resource_id" title="Select Resources..." multiple style="color: white">
+                    {% for r in resources %}
+                      {% set selected = 'selected' if r['id'] in selected_resources else '' %}
+                        <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-2 text-right" style="margin-top: 7px;">
+                <a href="javascript:updateReport()" class="btn btn-primary"> Update Plots</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-body" id="report-content">
+        {% include 'report_sessions_distribution_content.html' %}
+    </div>
+</div>
+
+
+
+
+<script>
+    var start_date = dateStr(new Date({{ start|tojson }}));
+    var end_date = dateStr(new Date({{ end|tojson }}));
+    var last_key = null;
+
+    $('select').selectpicker();
+
+    $('#daterange').daterangepicker({
+        "locale": {
+            "format": "YYYY/MM/DD",
+            "firstDay": 1
+        },
+        opens: 'left',
+        ranges: {
+           'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+            'Last 6 Months': [moment().subtract(6, 'months'), moment()],
+           'This Year': [moment().startOf('year'), moment().endOf('year')],
+           'Last Year': [moment().subtract(1, 'year').startOf('year'), moment().subtract(1, 'year').endOf('year')],
+            'All': [new Date(2022, 1, 1), moment()]
+        }
+    }, function(start, end, label) {
+        start_date = start.format('YYYY/MM/DD');
+        end_date = end.format('YYYY/MM/DD');
+    });
+
+    function getArgs() {
+        var app_id = $('#application-id').val();
+
+        return {
+            key: last_key,
+            start: start_date,
+            end: end_date,
+            selected: $('#selectpicker-resource').selectpicker('val').join(','),
+            metric: 'days',
+            application: app_id
+        }
+    }
+
+    function updateReport() {
+        load_html_from_ajax('report-content',
+            get_ajax_content('report_sessions_distribution_content', getArgs()));
+    }
+
+</script>

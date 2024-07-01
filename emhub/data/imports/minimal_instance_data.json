@@ -1,0 +1,377 @@
+{
+  "forms": [
+  {
+    "name": "sample",
+    "definition": {
+            "title": "Sample Form",
+            "params": [
+                {"id": "name",
+                 "label": "Name"
+                 },
+                {"id": "phone",
+                 "default": "88546756777",
+                 "label": "Phone"
+                 },
+                {"id": "show-phone",
+                 "label": "Show phone?",
+                 "type": "bool"
+                 },
+                {"id": "about",
+                 "label": "About everything that you need",
+                 "type": "text"
+                 },
+                {"label": "Options"},
+                {"id": "level",
+                 "label": "Level",
+                 "enum": {"choices": ["low", "medium", "high"],
+                          "display": "combo"
+                          }
+                 },
+                {"id": "pet",
+                 "label": "Pet",
+                 "enum": {"choices": ["cat", "dog", "horse", "monkey"],
+                          "display": "radio"
+                          }
+                 }
+        ]}
+  },
+    {
+      "name": "experiment",
+      "definition": {
+            "title": "Experiment",
+            "sections": [
+                {"label": "Basic",
+                 "params": [
+                     {"id": "grid_prep_needed",
+                      "label": "Grids preparation needed?",
+                      "type": "bool"
+                      },
+                     {"id": "grid_ready_screen",
+                      "label": "Grids ready to be screened?",
+                      "type": "bool"
+                      },
+                     {"id": "data_collection",
+                      "label": "Data collection?",
+                      "type": "bool"
+                      },
+                     {"id": "grid_clipped",
+                      "label": "Are grids clipped?",
+                      "type": "bool"
+                      },
+                     {"id": "grid_type",
+                      "label": "Grid type"
+                      }
+                 ]},
+                {"label": "Grid Location",
+                 "params": [
+                     {"id": "dewar_number",
+                      "label": "Dewar number"
+                      },
+                     {"id": "cane_number",
+                      "label": "Cane number"
+                      },
+                     {"id": "puck_number",
+                      "label": "Puck number (color/name)"
+                      },
+                     {"id": "gridbox_number",
+                      "label": "Grid box number"
+                      },
+                     {"id": "gridbox_label",
+                      "label": "Grid box label"
+                      },
+                     {"id": "slot_numbers",
+                      "label": " Slot numbers"
+                      }
+                 ]},
+                {"label": "Detector",
+                 "params": [
+                     {"id": "detector_mode",
+                      "label": "Detector mode",
+                      "enum": {"choices": ["linear", "counting"],
+                               "display": "radio"
+                               }
+                      },
+                     {"id": "pixel_size",
+                      "label": "Pixel Size (Å)"
+                      },
+                     {"id": "dose_rate",
+                      "label": "Dose Rate (e/px/s)"
+                      },
+                     {"id": "total_dose",
+                      "label": "Total dose (e/Å2)"
+                      },
+                     {"id": "defocuses",
+                      "label": "Defocuses (um)"
+                      }
+                 ]},
+                {"label": "Other",
+                 "params": [
+                     {"id": "screening_instructions",
+                      "help": "(for instance protein concentration, blotting time and other useful info)",
+                      "label": "Screening instructions",
+                      "type": "text"
+                      },
+                     {"id": "sample_information",
+                      "help": "(Mw, Dimensions (Å), multimerisation state, etc.)",
+                      "label": "Sample Information",
+                      "type": "text"
+                      },
+                     {"id": "aim_experiment",
+                      "label": "Aim of experiment",
+                      "type": "text"
+                      }
+                 ]}
+            ]
+        }
+    },
+  {
+    "name":  "config:bookings",
+    "definition": {
+        "display": {
+            "show_operator": true,
+            "show_application": false,
+            "show_experiment": false
+        }
+    }
+  },
+  {
+    "name": "config:permissions",
+    "definition": {
+      "create_booking": {
+        "microscope": ["manager", "admin"],
+        "vitrobot": ["user"],
+        "leica": ["user"]
+      },
+      "delete_booking": {
+        "microscope": ["manager", "admin"],
+        "vitrobot": ["user"]
+      },
+      "create_session": ["manager", "admin"],
+      "content": {
+        "usage_report": ["head", "admin"],
+        "raw": ["admin"]
+      },
+      "projects": {
+          "can_create": "all",
+          "view_options": [
+              {
+                  "key": "mine",
+                  "label": "My Projects"
+              },
+              {
+                  "key": "lab",
+                  "label": "Lab's Projects"
+              },
+              {
+                  "key": "all",
+                  "label": "All Projects"
+              }
+          ]
+
+      }
+    }
+  },
+  {
+    "name": "config:projects",
+    "definition": {
+        "entries_menu": [
+            ["data_processing", "Data Processing"],
+            ["note", "Note"]
+        ],
+        "entries": {
+            "note": {
+                "label": "Note",
+                "group": 3,
+                "iconClass": "fas fa-sticky-note fa-inverse",
+                "imageClass": "img--picture"
+            },
+            "data_processing": {
+                "label": "Data Processing",
+                "group": 2,
+                "iconClass": "fas fa-search fa-inverse",
+                "imageClass": "img--location",
+                "report": "sj_report_access_microscopes.html"
+            },
+            "booking": {
+                "label": "Booking",
+                "group": 3,
+                "iconClass": "far fa-calendar",
+                "imageClass": "img--location"
+            }
+        }
+    }
+  },
+  {
+    "name": "config:sessions",
+    "definition": {
+    "acquisition": {
+        "Krios01": {
+            "voltage": 300,
+            "magnification": 130000,
+            "pixel_size": 0.6485,
+            "dose": 1.09,
+            "cs": 2.7
+        },
+        "Arctica01": {
+            "voltage": 200,
+            "magnification": 79000,
+            "pixel_size": 1.044,
+            "dose": 1.063,
+            "cs": 2.7
+        }
+    },
+    "data": {
+        "gain": "/jude/facility/data/gains/*{microscope}*gain*.mrc",
+        "images": ""
+    }
+}
+  },
+  {
+        "name": "config:reports",
+        "definition": {
+            "resources": [
+                "Krios01",
+                "Arctica01",
+                "Talos"
+            ],
+            "microscope_usage": {}
+        }
+    },
+    {
+        "name": "config:users",
+        "definition": {
+            "extra_roles": [
+                "staff-cryoem",
+                "staff-other"
+            ]
+        }
+    },
+    {
+      "name": "config:resources",
+      "definition":
+        {"currency": "$"}
+    },
+    {
+      "name": "entry_form:data_processing",
+      "definition": {
+          "title": "Data Processing",
+          "params": [
+              {
+                  "id": "project_path",
+                  "label": "Project Path"
+              }
+          ]
+      }
+    }
+],
+  
+  "templates": [
+      {"title": "Defaul Application Form",
+       "description": "Default template for Applications (WORK IN PROGRESS)",
+       "status": "active"
+       }
+  ],
+  
+  "applications": [
+      {"code": "APP001",
+       "alias": "Default application",
+       "status": "active",
+       "title": "Default Application for all users",
+        "description": "",
+       "creator": "admin@emhub.org",
+       "template_index": 0,
+       "invoice_reference": "AAA",
+       "invoice_address": "",
+       "resource_allocation": {"quota": {"talos": 0, "krios": 0},
+                               "noslot": []},
+        "pi_list": []
+       }
+  ],
+
+  "resources": [
+        {
+            "id": 1,
+            "name": "Krios01",
+            "status": "active",
+            "tags": "microscope krios",
+            "image": "titan-krios.png",
+            "color": "rgba(58, 186, 232, 1.0)",
+            "extra": {
+                "latest_cancellation": 48,
+                "requires_slot": true,
+                "min_booking": 8,
+                "max_booking": 72,
+                "daily_cost": 1000,
+                "requires_application": true
+            }
+        },
+
+        {
+            "id": 2,
+            "name": "Arctica01",
+            "status": "active",
+            "tags": "microscope arctica",
+            "image": "talos-artica.png",
+            "color": "rgba(43, 84, 36, 1.0)",
+            "extra": {
+                "latest_cancellation": 48,
+                "requires_slot": false,
+                "min_booking": 8,
+                "max_booking": 72,
+                "daily_cost": 500,
+                "requires_application": true
+            }
+        },
+        {
+            "id": 3,
+            "name": "Vitrobot01",
+            "status": "active",
+            "tags": "instrument vitrobot prep",
+            "image": "vitrobot.png",
+            "color": "rgba(104, 92, 9, 1.0)",
+            "extra": {
+                "latest_cancellation": 0,
+                "min_booking": 0,
+                "max_booking": 0,
+                "daily_cost": 0,
+                "requires_slot": false,
+                "requires_application": false
+            }
+        },
+        {
+            "id": 4,
+            "name": "Users Drop-in",
+            "status": "inactive",
+            "tags": "service solna",
+            "image": "users-dropin.png",
+            "color": "rgba(68, 16, 105, 1.0)",
+            "extra": {
+                "requires_slot": false,
+                "latest_cancellation": 0,
+                "min_booking": 0,
+                "max_booking": 0,
+                "daily_cost": 0,
+                "requires_application": true
+            }
+        }
+    ],
+
+  "users": [
+  ],
+
+  "projects": [
+      {"id": 4, "date": "2022-09-01T09:00:00+00:00", "user_id": 1,
+        "creation_date": "2022-09-19T02:23:27.003189+00:00", "creation_user_id": 1,
+        "last_update_date": "2023-03-09T01:36:04.311014+00:00", "last_update_user_id": 1,
+        "extra": {"user_can_edit": true, "is_confidential": false, "collaborators_ids": []}}
+  ],
+
+  "bookings": [
+],
+  "sessions": [
+]
+
+
+
+  
+}

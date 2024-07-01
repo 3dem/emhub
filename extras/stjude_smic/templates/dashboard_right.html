@@ -1,0 +1,131 @@
+{% import "entry_macros.html" as macros %}
+
+{% macro table(bookings) -%}
+        <div class="table-responsive-sm m-0 p-0">
+            <table class="table table-striped m-0 p-0">
+            <tbody>
+                {% for b in bookings %}
+                    <tr class="row p-0 m-0">
+                        <td class="col-3 text-right">{{ b.start|weekday }}</td>
+                        {% if b.type == 'downtime' %}
+                            <td class="col-4"><span style="color: rgb(181,4,0);">Downtime</span></td>
+                            <td class="col-4">{{ b.title }}</td>
+                        {% elif b.type == 'maintenance' %}
+                            <td class="col-4"><span style="color: rgb(255,107,53);">Maintenance</span></td>
+                            <td class="col-4">{{ b.title }}</td>
+
+                        {% else %}
+                            <td class="col-4">{{ b.owner|pairname}} </td>
+                            <td class="col-4">
+                                {% if b.type == 'request' %}
+                                    {% set pid = b.project_id %}
+                                    {{ macros.project(b.project) }}
+                                {% else %}
+                                    {{ b.operator|shortname}}
+                                {% endif %}
+                            </td>
+
+                        {% endif %}
+                        <td class="col-1">
+                            {% if b.type in ['booking', 'downtime', 'maintenance'] %}
+                                <a href="javascript:showBookingFromDashboard({{ b.id }})"><i class="far fa-calendar-alt"></i></a>
+                            {% elif b.type == 'request' %}
+                                <a href="javascript:createBookingFromEntry({{ b.id }})"><i class="far fa-calendar" style="color: red"></i></a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+
+            </tbody>
+            </table>
+        </div>
+{%- endmacro %}
+
+<!-- ============================================================== -->
+<!-- Dashboard right content -->
+<!-- ============================================================== -->
+<div class="col-xl-12 col-lg-12 col-md-7 col-sm-12 col-12">
+    <div class="influence-profile-content pills-regular">
+
+        <div class="row">
+            {% for r in resources %}
+
+                <div class="col-auto mb-4" style="min-width: 700px">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <div class="row align-items-left justify-content-start">
+                                <div class="col-2 mr-0 pr-0">
+                                    <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
+                                </div>
+
+                                <div class="col-9 text-left ml-0 pl-0 mt-2">
+{#                                    <h3>{{ r['name'] }}</h3>#}
+                                    <h3><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="card-body pt-0">
+                            {% if r['id'] in resource_bookings %}
+                                <div class="card-body current_session"> <!-- style="min-height: 200px"> -->
+                                        <div class="row"><h3>Current</h3></div>
+                                        {% set b = resource_bookings[r['id']].get('today', [None])[0] %}
+                                        {% if b %}
+                                            {% set sessions = b.session %}
+                                            <div class="row"><p>{{ b.start|pretty_date }} - <a href="javascript:showUser({{ b.owner.id }})">{{ b.owner|shortname}}</a> / {{b.owner.pi|shortname }} </p></div>
+                                            <div class="row mt-3">
+                                                <div class="col-5 mr-0 ml-0 pl-0">
+                                                     <a href="javascript:createSession({{ b.id }}, {{ sessions|length }})" class="btn btn-primary mr-0">
+                                                            <i class="fas fa-plus-circle"></i>  New Session</a>
+                                                </div>
+                                                <div class="col-7 pl-0">
+                                                    {{ macros.session_list(sessions) }}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+
+                                </div>
+                                <div class="card-body this_week_container mt-3">
+                                    <div class="row"><h3>This week</h3></div>
+                                    {% set this_week = resource_bookings[r['id']].get('this_week', []) %}
+                                    {{ table(this_week) }}
+                                </div>
+                                <div class="card-body next_week_container mt-3">
+                                    <div class="row"><h3>Next week</h3></div>
+                                    {% set next_week = resource_bookings[r['id']].get('next_week', []) %}
+                                    {{ table(next_week) }}
+                                </div>
+                        {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+</div>
+
+</div>
+<!-- ============================================================== -->
+<!-- End  of Dashboard right content -->
+<!-- ============================================================== -->
+
+<script>
+
+    function showBookingFromDashboard(booking_id){
+        showBookingForm({booking_id: booking_id });
+    }
+
+    function createBookingFromEntry(entry_id){
+        showBookingForm({entry_id: entry_id });
+    }
+
+    (function(window, document, $, undefined) {
+        "use strict";
+
+        makeSameHeight('current_session');
+        makeSameHeight('this_week_container');
+        makeSameHeight('next_week_container');
+
+    })(window, document, window.jQuery);
+
+</script>

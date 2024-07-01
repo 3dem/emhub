@@ -19,9 +19,10 @@
                     <td>Invoice Address</td>
                     <th>Bookings</th>
                     <td>Days</td>
-                    <td>Cost (SEK)</td>
-                    <td>Extras (SEK) </td>
-                    <td>TO BE INVOICED</td>
+                    <td>Cost ({{ currency }})</td>
+                    <td>Extras ({{ currency }}) </td>
+                    <td>TO BE INVOICED ({{ currency }}) </td>
+                    <td>Details</td>
                 </tr>
                 </thead>
 
@@ -43,6 +44,7 @@
                                 <td>{{ cem_total }}</td>
                                 <td></td>
                                 <td></td>
+                                <td></td>
                             </tr>
 
                             {% for pi_id, pi_info in pi_dict.items() %}
@@ -62,6 +64,9 @@
                                         <td>{{ pi_info['sum_cost'] }}</td>
                                         <td> {{ extra_costs }}</td>
                                         <td> <span class="font-weight-bold"> {{ to_invoice }}</span></td>
+                                        <td>
+                                            <div class="col-1"><a href="javascript:showPiInvoicesForm({{ pi_id }}, '{{ pi_info['pi_name'] }}')"><i class="fas fa-eye"></i></a></div>
+                                        </td>
                                     </tr>
                                 {% endif %}
                             {% endfor %}

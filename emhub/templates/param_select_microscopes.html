@@ -1,0 +1,20 @@
+
+{# Single dynamic param: it can be different types of inputs #}
+{# It can be included from forms or tables. #}
+
+{# PARAMS:  #}
+{#     param: the param dict. #}
+{#     value: the value of this param #}
+{#     data_key: the key that will be used to store this value. #}
+{#     row_values: defined if used in a table with all values for that row #}
+
+{% set classStr = 'selectpicker show-tick' if selectpicker else '' %}
+
+<select class="{{ classStr }}" data-width="auto"  title="None"  {{ data_key }}>
+    {% for r in resources %}
+        {% if r['name'] in request_resources %}
+            {% set selected = 'selected' if value|default(0)|int == r['id'] else '' %}
+            <option {{ selected }} value="{{ r['id'] }}"  data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{ r['name']}}</span>">{{r['name']}}</option>
+        {% endif %}
+    {% endfor %}
+</select>

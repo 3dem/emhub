@@ -118,7 +118,7 @@
 {%- endmacro %}
 
 
-{% macro image_card(title, imgSource, with=100) -%}
+{% macro image_card(title, imgSource, width=100) -%}
 
     {% if imgSource %}
     <div class="card">
@@ -127,12 +127,13 @@
         </div>
 
         <div class="card-body p-0">
-            <img src="{{ imgSource }}" width="{{ with }}%" class="m-0">
+            <img src="{{ imgSource }}" width="{{ width }}%" class="m-0">
         </div> <!-- end of card-body -->
     </div> <!-- end of card -->
     {% endif %}
 
 {%- endmacro %}
+
 
 {% macro image2_card(title1, imgSource1, title2, imgSource2) -%}
     <div class="row col-12">
@@ -162,4 +163,121 @@
         {% endif %}
 
     </div>
+{%- endmacro %}
+
+
+{% macro figure(imgSource, caption, width=100) -%}
+
+    {% if imgSource %}
+        <figure class="figure">
+            <img src="{{ imgSource }}" width="{{ width }}%">
+
+            <figcaption class="figure-caption">
+                <p class="figure-title"> {{ caption }} </p>
+            </figcaption>
+        </figure>
+    {% endif %}
+
+{%- endmacro %}
+
+
+{% macro project(p, show_title) -%}
+    {% if p %}
+        {% set badge_type = 'success' if p.status == 'active' else 'light' %}
+        <a href="{{ url_for_content('project_details', project_id=p.id) }}" class="badge badge-{{ badge_type }} mr-1">Project {{ '%02d'|format(p.id) }}</a>
+        {% if show_title %}
+            <label>{{ p.title }}</label>
+        {% endif %}
+    {% endif %}
+{%- endmacro %}
+
+
+{% macro session(s) -%}
+    <a href="{{ url_for_content('session_default', session_id=s.id) }}" class="badge badge-info mr-1 mt-1" >{{ s.shortname }}</a>
+{%- endmacro %}
+
+
+{% macro session_list(sessions) -%}
+    {% for s in sessions %}
+        {{ session(s) }}
+    {% endfor %}
+{%- endmacro %}
+
+
+{% macro project_session_list(project, sessions) -%}
+    {% for s in sessions %}
+        {% if s.project == project %}
+            {{ session(s) }}
+        {% endif %}
+    {% endfor %}
+{%- endmacro %}
+
+
+{% macro resource(r) -%}
+    <span class='badge' style='background: {{ r.color }}; color: #fff;'>{{r.name}}</span>
+{%- endmacro %}
+
+{% macro hidden_hour_id() -%}
+    <input type="hidden" value="09:00:00.000", id="hour_id">
+{%- endmacro %}
+
+{% macro overlay(overlay_id) -%}
+    <div id="{{ overlay_id }}" class="overlay">
+        <div class="w-100 d-flex justify-content-center align-items-center">
+            <div class="row text-white-50">
+              <h4 class="pr-5 text-white-50" id="{{ overlay_id }}_text"></h4>
+              <div class="spinner-border ml-auto" role="status" aria-hidden="true"></div>
+            </div>
+        </div>
+    </div>
+{%- endmacro %}
+
+
+{% macro bins_table(label, bins) -%}
+    <div class="col-12 p-0 m-0 pt-1 pb-1" style="background-color: 	#F5F5F5; border: solid 0.5px #BEBEBE; border-radius: 5px">
+    <div class="row col-12 p-0 m-0">
+        <div class="col-6 font-bold">{{ label }}</div>
+        <div class="col-3 font-bold text-right">#</div>
+        <div class="col-3 font-bold text-right">%</div>
+    </div>
+    {% for label, b, p in bins %}
+        <div class="row col-12 p-0 m-0">
+            <div class="col-5">{{ label }}</div>
+            <div class="col-4 text-right">{{ b }}</div>
+            <div class="col-3 text-right">{{ p }}</div>
+        </div>
+    {% endfor %}
+    </div>
+{%- endmacro  %}
+
+
+{% macro trow(title, value, label) %}
+    {% set class = label or 'label' %}
+    <tr>
+        <td class="col-3"><label>{{ title }}</label></td>
+        <td class="col-9"><{{ class }}>{{ value }}</{class}></td>
+    </tr>
+{%- endmacro %}
+
+{% macro session_dialog_row(label, id, value, placeholder) %}
+
+    <div class="form-group row ">
+        <label class="col-3 col-form-label text-right">{{ label }}</label>
+        <div class="col-8">
+            <input type="text" required="" placeholder="{{ placeholder }}" id="{{ id }}" class="form-control"
+                   value="{{ value }}" data-key="{{ id }}">
+        </div>
+    </div>
+
+{%- endmacro %}
+
+{% macro session_dialog_row_content(label) %}
+
+    <div class="form-group row ">
+        <label class="col-3 col-form-label text-right">{{ label }}</label>
+        <div class="col-8">
+            {{ caller() }}
+        </div>
+    </div>
+
 {%- endmacro %}

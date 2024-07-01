@@ -1,0 +1,75 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+    <div class="modal-content" style="background-color: #f5f5f5">
+
+    <!-- Modal header -->
+        <div class="modal-header">
+            <h5 class="modal-title"> {{ selected_entry['label'] }}</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+        </div> <!-- End of Modal header -->
+
+    <div class="modal-body">
+        <table id="table-entrylist" class="table table-striped table-bordered" style="width:100%">
+                <thead>
+                <tr>
+                    <th>start</th>
+                    <th>{{ metric }}</th>
+                    <th>user</th>
+                    <th>instrument</th>
+                    <th>sessions</th>
+                    <th>view</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for b in selected_entry['bookings'] %}
+                    {% set r = resources_dict[b.resource.id] %}
+                <tr>
+                    <td>{{ b.start|pretty_date }}</td>
+                    {% if use_data %}
+                        {% set b_size = b.total_size %}
+                        <td>{% if b_size %}{{ b_size|pretty_size }} {% endif %}</td>
+                    {% else %}
+                        <td>{{ b.units(hours=12) / 2 if use_days else b.hours }}</td>
+                    {% endif %}
+                    <td>{{ b.owner.name }}</td>
+                    <td><span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span></td>
+                    <td>{{ macros.session_list(b.session) }}</td>
+                    <td>
+                        <div class="col-1"><a href="javascript:showBookingForm({booking_id: {{ b.id }}})"><i class="fas fa-eye"></i></a></div>
+                    </td>
+                </tr>
+                {% endfor %}
+
+                </tbody>
+            </table>
+
+    </div>
+
+        <div class="modal-footer">
+            <button type="button" id="dynamic-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+        </div> <!-- End of Modal footer -->
+
+</div>
+
+</div>
+
+
+
+
+<script>
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        $('#table-entrylist').DataTable({
+            sDom: 'Blrtip',
+            paging: false,
+            info: false,
+            order: [[ 0, "desc" ]]
+    });
+});
+
+})(window, document, window.jQuery);
+</script>

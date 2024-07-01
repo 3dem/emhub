@@ -1,0 +1,185 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Plates" %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+    {% set is_admin = current_user.is_admin %}
+
+    <!-- table row -->
+    <div class="row">
+
+
+
+        <div class="col-1">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Batches</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                {% for batch in batches %}
+                                    <div class="col-12 mb-2">
+                                        {% set badgeType = 'dark' if batch.active else 'light' %}
+                                        <a href="javascript:loadBatch({{ batch.id }})" class="badge badge-{{ badgeType }} mr-1" id="batch_tag_{{ batch.id }}">B{{ batch.id }}</a>
+                                    </div>
+                                {% endfor %}
+                                <div class="col-12 mb-2 mt-2">
+                                    <a href="javascript:addBatch()" class="btn btn-primary btn-sm"><i class="fas fa-plus-circle"></i> Add Batch</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="batch-content" class="col-11 p-0 m-0">
+           {% include "batch_content.html" %}
+
+        </div>
+    </div>
+    <!-- end table row -->
+</div>
+
+<!-- ============================================================== -->
+<!-- Resource Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="plate-modal" tabindex="-1" role="dialog" aria-labelledby="plateModal" aria-hidden="true">
+</div>
+
+<script>
+    function onBatchStateChanged() {
+        var current_batch = $('#batch_id_hidden').val();
+        var status = $('#batch_status_select').selectpicker('val');
+
+
+        send_ajax_json("{{ url_for('api.update_batch_status') }}", {batch: current_batch, status: status},
+            function (jsonResponse) {
+                if ('error' in jsonResponse)
+                    showError(jsonResponse.error);
+                else {
+                    // on success update Batch label
+                    var batch_tag_id = '#batch_tag_' + current_batch;
+                    var classes = ['badge-dark', 'badge-light']
+                    var i = status == 'inactive' ? 0 : 1;
+                    $(batch_tag_id).removeClass(classes[i]);
+                    $(batch_tag_id).addClass(classes[1-i]);
+                }
+            },
+            function (jqXHR, textStatus) {   // on fail show error message
+                showError("Update Batch Request failed: " + textStatus);
+            });
+    }
+
+    function loadBatch(batch) {
+        var ajaxContent = get_ajax_content('batch_content', {batch: batch});
+        ajaxContent.done(function(html) {
+            $('#batch-content').html(html);
+            $('#batch_status_select').selectpicker();
+            $('#batch_status_select').on('change', onBatchStateChanged);
+        });
+        ajaxContent.fail(ajax_request_failed);
+    }
+
+    function showPlate(plate_id) {
+        var current_batch = $('#batch_id_hidden').val();
+        show_modal_from_ajax('plate-modal',
+                             get_ajax_content("plate_form", {
+                                 plate: plate_id,
+                                 batch: current_batch
+                             }));
+    }  // function showResource
+
+    function addBatch(){
+        show_modal_from_ajax('plate-modal',
+            get_ajax_content("plate_form", {}));
+    }
+
+    function editPlateChannel(plate_id, channel) {
+        show_modal_from_ajax('plate-modal',
+                             get_ajax_content("plate_channel_form",
+                                 {plate: plate_id, channel: channel}));
+    }
+
+    function sendAjaxAndReload(url, values, reqMsg){
+
+        // Send json data to create the puck
+        send_ajax_json(url, values,
+            function (jsonResponse) {
+                if ('error' in jsonResponse)
+                    showError(jsonResponse.error);
+                else {
+                    // Reload with current batch selected
+                    $('#plate-modal').modal('hide');
+                    if (reqMsg === "New Batch") {
+                        // This happens when a new batch is created
+                        window.location.href = "{{ url_for_content('plates')}}" + '&batch=' + values.batch;
+                    }
+                    else {
+                        var current_batch = $('#batch_id_hidden').val();
+                        loadBatch(current_batch);
+                    }
+                }
+            }, // on success reload page
+            function (jqXHR, textStatus) {   // on fail show error message
+                showError(reqMsg + " Request failed: " + textStatus);
+            });
+    }
+
+    function onPlateOkButtonClick() {
+        var batch_id = parseInt($('#form_batch_id_hidden').val());
+
+        var plate_id = parseInt($('#plate_id_hidden').val());
+
+        var create_url = "{{ url_for('api.create_plate') }}";
+        var update_url = "{{ url_for('api.update_plate') }}";
+        var url = update_url;
+        var msg = "Update Plate";
+
+        if (batch_id == 0) {
+            batch_id = parseInt($('#form_batch_id_text').val())
+            url = create_url;
+            msg = "New Batch"
+        }
+        else {
+            if (plate_id == 0) {
+                url = create_url;
+                msg = "Add Plate";
+            }
+        }
+        var values = getFormAsJson('dynamic-form');
+        values.batch = batch_id;
+        if (plate_id > 0)
+            values.plate = plate_id;
+
+        sendAjaxAndReload(url, values, msg);
+    }
+
+    function onPlateDeleteClick(plate_id){
+        confirm("DELETE Plate", "Do you want to DELETE this plate?", "Cancel", "Delete", function (){
+            sendAjaxAndReload("{{ url_for('api.delete_plate') }}", {plate: plate_id}, "Delete Plate");
+        })
+    }
+
+    function onPlateChannelOkButtonClick(plate_id, channel){
+
+        var values = getFormAsJson('dynamic-form');
+
+        sendAjaxAndReload("{{ url_for('api.update_plate_channel') }}",
+            {plate: plate_id, channel: channel, info: values}, "Add Plate");
+    }
+
+    (function(window, document, $, undefined) {
+        "use strict";
+
+        $('#batch_status_select').selectpicker();
+        $('#batch_status_select').on('change', onBatchStateChanged);
+
+
+    })(window, document, window.jQuery);
+
+</script>

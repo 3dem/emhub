@@ -28,17 +28,21 @@
 
 import os
 import datetime as dt
+from tzlocal import get_localzone
 import decimal
 
 import sqlalchemy
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
+from emhub.utils import datetime_from_isoformat
+
 
 class DbManager:
     """ Helper class to deal with DB stuff
     """
     def init_db(self, dbPath, cleanDb=False, create=True):
+        self.timezone = get_localzone()
         do_echo = os.environ.get('SQLALCHEMY_ECHO', '0') == '1'
 
         if cleanDb and os.path.exists(dbPath):
@@ -54,7 +58,7 @@ class DbManager:
 
         self._create_models()
 
-        # Create the database if it does not exists
+        # Create the database if it does not exist
         if not os.path.exists(dbPath) and create:
             self.Base.metadata.create_all(bind=engine)
 
@@ -71,10 +75,35 @@ class DbManager:
 
     # ------------------- Some utility methods --------------------------------
     def now(self):
-        from tzlocal import get_localzone
         # get local timezone
-        local_tz = get_localzone()
-        return dt.datetime.now(local_tz)
+        return dt.datetime.now(self.timezone)
+
+    def date(self, date, time=None):
+        t = time or dt.time()
+        return dt.datetime.combine(date, t, self.timezone)
+
+    def dt_as_local(self, inputDt):
+        return inputDt.astimezone(self.timezone)
+
+    def local_weekday(self, inputDt):
+        return self.dt_as_local(inputDt).strftime("%a, %b %d")
+
+    def local_datetime(self, inputDt):
+        if inputDt is None:
+            return 'None'
+
+        if isinstance(inputDt, str):
+            inputDt = datetime_from_isoformat(inputDt)
+
+        return self.dt_as_local(inputDt).strftime("%Y/%m/%d %I:%M %p")
+
+    def dt_from_redis(self, redisId):
+        """ Get a datetime object from a Redis stream id. """
+        ms = int(redisId.split('-')[0])
+        return self.dt_as_local(dt.datetime.fromtimestamp(ms/1000))
+
+    def dt_from_timestamp(self, ts):
+        return self.dt_as_local(dt.datetime.fromtimestamp(ts))
 
     @staticmethod
     def json_from_value(v):

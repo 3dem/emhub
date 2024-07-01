@@ -1,0 +1,68 @@
+{% import "entry_macros.html" as macros %}
+
+<!-- 2D classes Card -->
+<div class="col-12 m-0 p-0">
+
+    {{ macros.overlay('overlay_volumes3d') }}
+    <div class="row col-12 m-0 p-0">
+        <h5 class="mr-2">Volume info: </h5>
+        <label id="vol-info"></label></div>
+    <div class="row col-12 m-0 p-0">
+
+        <div class="row col-12 m-0 p-0 mt-2" id="vol3d_container"></div>
+    </div>
+</div>
+
+<script>
+    var volumes = {{ data_values['volumes']|tojson }};
+    var volData = null;
+    var attrs = {
+        entry_id: {{ entry_id|tojson }},
+        runId: {{ runId|tojson }}
+    };
+
+    var overlay_3d = null;
+
+    function load_volData(volName){
+        overlay_3d.show("Loading slices from volume " + volName);
+        // Update template values
+        attrs.volName = volName;
+
+        var ajaxContent = $.ajax({
+            url: Api.urls.get_volume_data,
+            type: "POST",
+            //contentType: 'application/json; charset=utf-8',
+            data: attrs,
+            dataType: "json"
+        });
+
+        ajaxContent.done(
+            function (jsonResponse) {
+                if ('error' in jsonResponse) {
+                    showError(jsonResponse.error);
+                } else {
+                    volData = jsonResponse;
+                    var header = '<label>Total: <strong>' + volData.slices.length + '</strong> slices ';
+                    drawVolData('vol3d_container', volData.slices, header, false);
+
+                    var infoStr = "slices: " + volData.slices.length;
+                    infoStr += " dimensions: " + volData['dimensions'].toString()
+
+                    $('#vol-info').text(infoStr);
+
+                    overlay_3d.hide();
+                }
+            });
+    }
+
+    //------------ MAIN function after load --------------
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        $('.selectpicker').selectpicker();
+        overlay_3d = new Overlay('overlay_volumes3d');
+
+        load_volData(volumes[0]);
+});
+})(window, document, window.jQuery);
+</script>

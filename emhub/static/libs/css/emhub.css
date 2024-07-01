@@ -46,5 +46,95 @@ a:active {
   color: #a7c947;
 }
 
+.overlay {
+  position: absolute;
+  display: none;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 2;
+  cursor: pointer;
+}
+
+.editor-json-black {
+    position: relative;
+    width: 100%;
+    height: 700px;
+}
+
+.borderless td, .borderless th {
+    border: none;
+}
+
+.workflow-canvas {
+    width: 100%;
+    height: 700px;
+    border: 1px solid lightgray;
+    background:
+      linear-gradient(90deg, #f0f0f0 21px, transparent 1%) center,
+      linear-gradient(#f0f0f0 21px, transparent 1%) center, #646464;
+       background-size: 22px 22px;
+  }
+
+.logs_editor {
+    position: relative;
+    width: 100%;
+    height: 350px;
+}
+
+.head_span {
+    font-size: 20px;
+    cursor: pointer;
+}
+
 /* Custom, iPhone Retina */
 @media only screen and (max-width:320px) {}
+
+
+/* Cute radiogroups or checkbox with toggle */
+.switch-field {
+	display: flex;
+	margin-bottom: 36px;
+	overflow: hidden;
+}
+
+.switch-field input {
+	position: absolute !important;
+	clip: rect(0, 0, 0, 0);
+	height: 1px;
+	width: 1px;
+	border: 0;
+	overflow: hidden;
+}
+
+.switch-field label {
+	background-color: #e4e4e4;
+	color: rgba(0, 0, 0, 0.6);
+	font-size: 14px;
+	line-height: 1;
+	text-align: center;
+	padding: 8px 16px;
+	margin-right: -1px;
+	border: 1px solid rgba(0, 0, 0, 0.2);
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px rgba(255, 255, 255, 0.1);
+	transition: all 0.1s ease-in-out;
+}
+
+.switch-field label:hover {
+	cursor: pointer;
+}
+
+.switch-field input:checked + label {
+	background-color: #d2edc2; /* #a5dc86; */
+	box-shadow: none;
+}
+
+.switch-field label:first-of-type {
+	border-radius: 4px 0 0 4px;
+}
+
+.switch-field label:last-of-type {
+	border-radius: 0 4px 4px 0;
+}

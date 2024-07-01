@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>EMhub {{ emhub_title }}</title>
+
+    {% include 'main_stylesheet.html' %}
+    <link rel="shortcut icon" href="{{ url_for('static', filename='images/emhub.ico') }}">
+
+</head>
+
+<body>
+<!-- main wrapper -->
+<div class="dashboard-main-wrapper">
+
+    {% include 'main_topbar.html' %}
+
+    {% include 'main_left_sidebar.html' %}
+
+    <div class="dashboard-wrapper">
+
+        <div class="container-fluid dashboard-content" id="main-content">
+        </div>
+
+        <!-- footer -->
+        <div class="footer">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
+                        Copyright © 2018 Concept. All rights reserved. Dashboard by <a href="https://colorlib.com/wp/">Colorlib</a>.
+                    </div>
+                    <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12">
+                        <div class="text-md-right footer-links d-none d-sm-block">
+                            Version: {{ version }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- end footer -->
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- User Modal -->
+    <!-- ============================================================== -->
+    <div class="modal fade" id="user-modal" tabindex="-1" role="dialog" aria-labelledby="userModal" aria-hidden="true">
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- Application Modal -->
+    <!-- ============================================================== -->
+    <div class="modal fade" id="application-modal" tabindex="-1" role="dialog" aria-labelledby="applicationModal" aria-hidden="true">
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- Booking Modal -->
+    <!-- ============================================================== -->
+    <div class="modal fade" id="booking-modal" tabindex="-1" role="dialog" aria-labelledby="bookingModal" aria-hidden="true">
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- Dynamic Form -->
+    <!-- ============================================================== -->
+    <div class="modal" id="experiment-modal" tabindex="-1" role="dialog" aria-labelledby="dynamicModal" aria-hidden="true">
+
+    </div>
+
+</div>
+<!-- end main wrapper -->
+
+<!-- JavaScript libraries -->
+{% include "main_javascript.html" %}
+
+
+</body>
+</html>

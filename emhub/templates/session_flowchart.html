@@ -1,0 +1,8 @@
+<!-- Header -->
+{% set title = "Session Workflow" %}
+{% set navigation = [('Sessions', url_for_content('sessions_list')),
+                     (session.shortname, url_for_content('session_details', session_id=session.id)),
+                     ('OTF', url_for_content('session_live', session_id=session.id)),
+                     ('Workflow', '')] %}
+
+{% include "processing_content.html" %}

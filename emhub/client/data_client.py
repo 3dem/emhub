@@ -29,18 +29,31 @@
 import os
 import json
 import requests
+import socket
 from contextlib import contextmanager
+
+from emtools.utils import System
 
 
 class config:
-    EMHUB_SOURCE = os.environ['EMHUB_SOURCE']
-    EMHUB_SERVER_URL = os.environ['EMHUB_SERVER_URL']
-    EMHUB_USER = os.environ['EMHUB_USER']
-    EMHUB_PASSWORD = os.environ['EMHUB_PASSWORD']
+    """ Store configuration variables read from os.environ.
+
+    Attributes:
+        EMHUB_SERVER_URL: EMhub server URL
+            (e.g. https://emhub.org or http://127.0.0.1:5000).
+        EMHUB_USER: Username for login into the remote EMhub server.
+        EMHUB_PASSWORD: Password for login into the server.
+    """
+
+    EMHUB_SERVER_URL = os.environ.get('EMHUB_SERVER_URL',
+                                      'http://127.0.0.1:5000')
+    EMHUB_USER = os.environ.get('EMHUB_USER', 'NO-USER')
+    EMHUB_PASSWORD = os.environ.get('EMHUB_PASSWORD', '')
 
 
 @contextmanager
 def open_client():
+    """ Context creation for login/logout with a `DataClient` using the configuration in `config`. """
     dc = DataClient(server_url=config.EMHUB_SERVER_URL)
     try:
         dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
@@ -51,17 +64,39 @@ def open_client():
 
 class DataClient:
     """
-    Simple client to communicate with the emhub REST API.
+    Client class to communicate with a remote EMhub server via the REST API.
     """
     def __init__(self, server_url=None):
-        self._server_url = server_url or os.environ.get('EMHUB_SERVER_URL',
-                                                        'http://127.0.0.1:5000')
+        self._server_url = server_url or config.EMHUB_SERVER_URL
         # Store the last request object
         self.cookies = self.r = None
 
     def login(self, username=None, password=None):
-        username = username or os.environ['EMHUB_USER']
-        password = password or os.environ['EMHUB_PASSWORD']
+        """ Login into the EMhub server with the given credentials.
+
+        It is required to login before most of the operations that requires
+        an authenticated user.
+
+        Args:
+            username (str): The username to login
+            password (str): password to login.
+
+        Returns:
+            The request result of the login operation.
+
+        Examples:
+            Login to a remote server providing all credentials::
+
+                dc = DataClient('https://emhub.org')
+                dc.login('admin', 'admin')
+
+            Login using default variables in `config`::
+
+                dc = DataClient()
+                dc.login()
+        """
+        username = username or config.EMHUB_USER
+        password = password or config.EMHUB_PASSWORD
 
         self.r = requests.post('%s/api/login' % self._server_url,
                                json={'username': username,
@@ -71,6 +106,7 @@ class DataClient:
         return self.r
 
     def logout(self):
+        """ Logout the user from the EMhub server. """
         r = requests.post('%s/api/logout' % self._server_url,
                           cookies=self.cookies)
         r.raise_for_status()
@@ -78,72 +114,87 @@ class DataClient:
         return r
 
     def create_session(self, attrs):
-        """ Request the server to create a new session.
-        Mandatory in attrs:
-            name: the session name
+        """ Request to create a new :class:`Session` in the server.
+
+        Args:
+            attrs (dict): Dict with the attributes of the session.
+
+        ``attrs`` should of the form::
+
+            {
+                'name': 'SessionName',
+                'start': '2023-07-27 09:00'
+                'end': '2023-07-27 23:59'
+            }
+
+        Returns:
+            The JSON result from the request.
         """
         return self._method('create_session', 'session', attrs)
 
     def get_session(self, sessionId, attrs=None):
-        return self._method('get_sessions', 0, attrs,
-                            condition='id=%d' % sessionId)
+        """ Retrieve data from the `Session` with this ``sessionId``.
+
+        Args:
+            sessionId: Id of the session to retrieve.
+            attrs: What attributes to retrieve, if None all attributes will
+                be returned.
+
+        Examples:
+            ::
+
+                with open_client() as dc:
+                    # Retrieving all attributes from Session 100
+                    sid = 100
+                    s1 = dc.get_session(sid)
+                    # Just fetching session name and start date
+                    s2 = dc.get_session(sid, ['name', 'start'])
+        """
+        return self._method('get_sessions', None, attrs,
+                            condition='id=%d' % sessionId)[0]
+
+    def get_active_sessions(self):
+        """ Return all sessions that are active. """
+        return self._method('get_sessions', None, None,
+                            condition='status="active"')
 
     def update_session(self, attrs):
-        """ Request the server to update existing session.
-        Mandatory in attrs:
-            id: the id of the session
+        """ Request to update existing `Session`.
+
+        Args:
+            attrs (dict): Attributes to be updated. ``id`` must be in ``attrs``.
+
+        Returns:
+            The JSON result from the request with updated session.
         """
         return self._method('update_session', 'session', attrs)
 
+    def update_session_extra(self, attrs):
+        """ Request the server to update only the ``extra`` attribute of a `Session`.
+
+        Args:
+            attrs (dict): Attributes to be updated. ``id`` must be in ``attrs``.
+
+        Returns:
+            The JSON result from the request with updated session.
+        """
+        return self._method('update_session_extra', 'session', attrs)
+
     def delete_session(self, attrs):
         """ Request the server to delete a session.
-        Mandatory in attrs:
-            id: the id of the session
+
+        Args:
+            attrs (dict): Attributes to be deleted. ``id`` must be in ``attrs``.
+
+        Returns:
+            The JSON result from the request with deleted session.
         """
         return self._method('delete_session', 'session', attrs)
 
-    def create_session_set(self, attrs):
-        """ Request the server to create a set within a session.
-        Mandatory in attrs:
-            session_id: the id of the session
-            set_id: the id of the set that will be created
-        """
-        return self._method('create_session_set', 'session_set', attrs)
+    def get_config(self, configName):
+        return self._method('get_config', None, {'config': configName})['config']
 
-    def update_session_set(self, attrs):
-        """ Request the server to update a set within a session.
-        Mandatory in attrs:
-            session_id: the id of the session
-            set_id: the id of the set that will be created
-        """
-        return self._method('update_session_set', 'session_set', attrs)
-
-    def get_session_sets(self, attrs):
-        """ Retrieve all sets associated to a given session.
-        Mandatory in attrs:
-            session_id: the id of the session
-        """
-        return self._method('get_session_sets', 'session_sets', attrs)
-
-    def add_session_item(self, attrs):
-        """ Add new item to a set in the session.
-        Mandatory in attrs:
-            session_id: the id of the session
-            set_id: the id of the set that will be created
-            item_id: the id of the item to be added
-        """
-        return self._method('add_session_item', 'item', attrs)
-
-    def update_session_item(self, attrs):
-        """ Update existing item in the set in the session.
-        Mandatory in attrs:
-            session_id: the id of the session
-            set_id: the id of the set
-            item_id: the id of the item to be modified
-        """
-        return self._method('update_session_item', 'item', attrs)
-
-    #---------------------- Internal functions ------------------------------
+    # --------------------- Internal functions ------------------------------
     def _method(self, method, resultKey, attrs, condition=None):
         r = self.request(method,
                          jsonData={'attrs': attrs,
@@ -155,7 +206,15 @@ class DataClient:
         return json if resultKey is None else json[resultKey]
 
     def request(self, method, jsonData=None, bp='api'):
-        """ Make a request to this method passing the json data.
+        """ Make a request to the server sending this ``jsonData``.
+
+        Args:
+            method (str): Method (or endpoint) to send the request in the server.
+            jsonData (dict): Data to be sent to the remote endpoint.
+            bp (str): Blueprint in the server where to send the request.
+                By default it will use the 'api' blueprint.
+        Returns:
+            The request object result from the request.
         """
         if self.cookies is None:
             raise Exception("You should call login method first")
@@ -173,6 +232,7 @@ class DataClient:
                                       'attrs': attrs})
 
     def json(self):
+        """ Retrieve the result of the last Request as JSON. """
         if self.r.status_code == 200:
             return json.dumps(self.r.json(), indent=4)
         else:

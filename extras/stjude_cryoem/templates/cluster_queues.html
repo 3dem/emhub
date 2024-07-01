@@ -1,0 +1,50 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Cluster Queues " %}
+    {% include 'include_header.html' %}
+
+    <!-- workers row -->
+    <div class="row" id="queues_content">
+
+        {% include 'cluster_queues_content.html' %}
+
+    </div>
+
+</div>
+
+<script>
+    var reload = 30;
+    var reload_counter = reload;  // 60 seconds to reload
+    var timeOutId = null;
+
+    function reloadQueues(){
+        var ajaxContent = get_ajax_content('cluster_queues_content');
+            ajaxContent.done(function(html) {
+                $('#queues_content').html(html);
+                clearTimeout(timeOutId);
+                reload_counter = reload;
+                check_reload();
+            });
+            ajaxContent.fail(ajax_request_failed);
+    }
+
+    function check_reload(){
+        if (reload_counter > 0) {
+            $('#reload_label').text('' + reload_counter + ' seconds');
+            reload_counter -= 1;
+            timeOutId = setTimeout(check_reload, 1000);  // every second
+        }
+        else {
+            reloadQueues();
+        }
+    }
+
+    (function(window, document, $, undefined) {
+    "use strict";
+
+        check_reload();
+
+    })(window, document, window.jQuery);
+
+</script>

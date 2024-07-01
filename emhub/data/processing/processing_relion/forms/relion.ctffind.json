@@ -1,0 +1,153 @@
+{
+    "sections": [
+        {
+            "label": "I/O",
+            "params": [
+                {
+                    "name": "input_star_mics",
+                    "label": "Input micrographs STAR file:",
+                    "pattern": "STAR Files (*.star)",
+                    "help": "A STAR file with all micrographs to run CTFFIND or Gctf on"
+                },
+                {
+                    "name": "use_noDW",
+                    "label": "Use micrograph without dose-weighting?",
+                    "default": false,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to Yes, the CTF estimation will be done using the micrograph without dose-weighting as in rlnMicrographNameNoDW (_noDW.mrc from MotionCor2). If set to No, the normal rlnMicrographName will be used."
+                },
+                {
+                    "name": "do_phaseshift",
+                    "label": "Estimate phase shifts?",
+                    "default": false,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to Yes, CTFFIND4 will estimate the phase shift, e.g. as introduced by a Volta phase-plate"
+                },
+                {
+                    "name": "phase_min",
+                    "label": "Phase shift (deg) - Min:",
+                    "default": 0,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Minimum, maximum and step size (in degrees) for the search of the phase shift"
+                },
+                {
+                    "name": "phase_max",
+                    "label": "Phase shift (deg) - Max:",
+                    "default": 180,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Minimum, maximum and step size (in degrees) for the search of the phase shift"
+                },
+                {
+                    "name": "phase_step",
+                    "label": "Phase shift (deg) - Step:",
+                    "default": 10,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Minimum, maximum and step size (in degrees) for the search of the phase shift"
+                },
+                {
+                    "name": "dast",
+                    "label": "Amount of astigmatism (A):",
+                    "default": 100,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "CTFFIND's dAst parameter, GCTFs -astm parameter"
+                }
+            ]
+        },
+        {
+            "label": "CTFFIND-4.1",
+            "params": [
+                {
+                    "name": "use_ctffind4",
+                    "label": "Use CTFFIND-4.1?",
+                    "default": true,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to Yes, the wrapper will use CTFFIND4 (version 4.1) for CTF estimation. This includes thread-support, calculation of Thon rings from movie frames and phase-shift estimation for phase-plate data."
+                },
+                {
+                    "name": "fn_ctffind_exe",
+                    "label": "CTFFIND-4.1 executable:",
+                    "help": "Location of the CTFFIND (release 4.1 or later) executable. You can control the default of this field by setting environment variable RELION_CTFFIND_EXECUTABLE, or by editing the first few lines in src/gui_jobwindow.h and recompile the code."
+                },
+                {
+                    "name": "use_given_ps",
+                    "label": "Use power spectra from MotionCorr job?",
+                    "default": true,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to Yes, the CTF estimation will be done using power spectra calculated during motion correction. You must use this option if you used float16 in motion correction."
+                },
+                {
+                    "name": "slow_search",
+                    "label": "Use exhaustive search?",
+                    "default": false,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to Yes, CTFFIND4 will use slower but more exhaustive search. This option is recommended for CTFFIND version 4.1.8 and earlier, but probably not necessary for 4.1.10 and later. It is also worth trying this option when astigmatism and/or phase shifts are difficult to fit."
+                },
+                {
+                    "name": "ctf_win",
+                    "label": "Estimate CTF on window size (pix)",
+                    "default": -1,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "If a positive value is given, a squared window of this size at the center of the micrograph will be used to estimate the CTF. This may be useful to exclude parts of the micrograph that are unsuitable for CTF estimation, e.g. the labels at the edge of phtographic film. \n \n The original micrograph will be used (i.e. this option will be ignored) if a negative value is given."
+                },
+                {
+                    "name": "box",
+                    "label": "FFT box size (pix):",
+                    "default": 512,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "CTFFIND's Box parameter."
+                },
+                {
+                    "name": "resmin",
+                    "label": "Minimum resolution (A):",
+                    "default": 30,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "CTFFIND's ResMin parameter."
+                },
+                {
+                    "name": "resmax",
+                    "label": "Maximum resolution (A):",
+                    "default": 5,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "CTFFIND's ResMax parameter."
+                },
+                {
+                    "name": "dfmin",
+                    "label": "Minimum defocus value (A):",
+                    "default": 5000,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "CTFFIND's dFMin parameter."
+                },
+                {
+                    "name": "dfmax",
+                    "label": "Maximum defocus value (A):",
+                    "default": 50000,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "CTFFIND's dFMax parameter."
+                },
+                {
+                    "name": "dfstep",
+                    "label": "Defocus step size (A):",
+                    "default": 500,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "CTFFIND's FStep parameter."
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,63 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Test Page" %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+    {% set is_admin = current_user.is_admin %}
+
+
+    <!-- table row -->
+    <div class="row col-12">
+        <div class="card">
+            <div class="card-body">
+                <form class="form">
+                    <h2>Is this awesome?</h2>
+                    <div class="switch-field">
+                        <input type="radio" id="radio-one" name="switch-one" value="yes" checked/>
+                        <label for="radio-one"><i class="fas fa-table"></i></label>
+                        <input type="radio" id="radio-two" name="switch-one" value="no" />
+                        <label for="radio-two"><i class="fas fa-list-alt"></i></label>
+                    </div>
+
+                        <h2>Playing with checkboxes</h2>
+                    <div class="switch-field">
+                        <input type="checkbox" id="cb-1" name="cb-1" checked/>
+                        <label for="cb-1"> <i class="fas fa-clipboard-list"></i></label>
+                        <input type="checkbox" id="cb-2" name="cb-2" checked/>
+                        <label for="cb-2"><i class="fas fa-book"></i></label>
+                        <input type="checkbox" id="cb-3" name="cb-3" checked/>
+                        <label for="cb-3"><i class="fas fa-calendar-alt"></i></label>
+                        <input type="checkbox" id="cb-4" name="cb-4" checked/>
+                        <label for="cb-4"><i class="fas fa-tachometer-alt"></i></label>
+                    </div>
+
+                    <h2>Three fields? Sure.Not </h2>
+                    <div class="switch-field">
+                        <input type="radio" id="radio-three" name="switch-two" value="yes" checked/>
+                        <label for="radio-three">Yes</label>
+                        <input type="radio" id="radio-four" name="switch-two" value="maybe" />
+                        <label for="radio-four">No</label>
+                        <input type="radio" id="radio-five" name="switch-two" value="no" />
+                        <label for="radio-five">Maybe</label>
+                    </div>
+
+                </form>
+            </div> <!-- card-body -->
+        </div> <!-- card -->
+    </div>
+    <!-- end table row -->
+
+</div>
+
+
+<script>
+
+(function(window, document, $, undefined) {
+"use strict";
+
+    $('.selectpicker').selectpicker();
+
+})(window, document, window.jQuery);
+
+</script>

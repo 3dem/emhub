@@ -1,0 +1,98 @@
+<!-- ============================================================== -->
+<!-- Project Form Modal Content -->
+<!-- ============================================================== -->
+{% set is_manager = current_user.is_manager %}
+{% set can_edit = is_manager %}
+{% set readonly = '' if can_edit else 'readonly' %}
+{% set disabled = '' if can_edit else 'disabled' %}
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 80%">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="session-modal-title"> {{ session['name'] }} (Id = {{ session['id'] }})</h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+
+            <!-- Session Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="session-form" data-parsley-validate="" novalidate="">
+                    <input type="hidden" id="session-id" name="session-id" value="{{ session['id'] }}">
+
+                    <!-- Status Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" id="session-status" class="form-control" value="{{ session.status }}">
+                        </div>
+                    </div>
+
+                    <!-- Data Path Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Data Path</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" id="session-datapath" class="form-control" value="{{ session.data_path }}">
+                        </div>
+                    </div>
+
+                    <!-- Extra JSON Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Extra (JSON) </label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <div id="editor" class="editor-json-black"></div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <!-- end Session Form -->
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+
+        {% set btnCancelText = "Cancel" if can_edit else "Close" %}
+          <button type="button" id="session-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">{{ btnCancelText }}</button>
+
+          {% if can_edit %}
+              {% set btnOkText = "Update" if session.id else "Create" %}
+               <button class="btn btn-outline-dark" onclick="onSessionOk()">{{ btnOkText }}</button>
+          {% else %}
+
+          {% endif %}
+
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- End of Application Modal Content -->
+<!-- ============================================================== -->
+
+<script>
+    var session = {{ session|tojson }};
+    var editor = null;
+
+(function(window, document, $, undefined) {
+"use strict";
+    editor = ace.edit("editor");
+    //editor.renderer.setShowGutter(false);
+    editor.setTheme("ace/theme/monokai");
+    editor.session.setMode("ace/mode/json");
+    editor.setValue(JSON.stringify(session.extra, null, 4));
+
+})(window, document, window.jQuery);
+
+function onSessionOk() {
+    updateSession({
+        id: session.id,
+        status: $('#session-status').val(),
+        data_path: $('#session-datapath').val(),
+        extra: JSON.parse(editor.getValue())
+    });
+}
+
+</script>

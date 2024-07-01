@@ -13,6 +13,8 @@
 
 <script src="{{ url_for('static', filename='libs/js/main-js.js') }}"></script>
 
+<script src="{{ url_for('static', filename='libs/js/vis-network.min.js') }}"></script>
+
 <!-- chart chartist js -->
 <script src="{{ url_for('static', filename='vendor/charts/chartist-bundle/chartist.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/charts/chartist-bundle/chartist-plugin-threshold.js') }}"></script>
@@ -37,22 +39,43 @@
 <script src="{{ url_for('static', filename='vendor/datepicker/moment.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/datepicker/tempusdominus-bootstrap-4.js') }}"></script>
 
+<!-- Highcharts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/highcharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/highcharts-more.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/exporting.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/stock.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/histogram-bellcurve.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/variable-pie.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/drilldown.js"></script>
+
+
+{#<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/export-data.js"></script>#}
+{#<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/10.3.2/modules/accessibility.js"></script>#}
+
 <!-- emhub -->
 <script src="{{ url_for('static', filename='libs/js/emhub.js') }}"></script>
 <script src="{{ url_for('static', filename='libs/js/emhub_applications.js') }}"></script>
 <script src="{{ url_for('static', filename='libs/js/emhub_forms.js') }}"></script>
 <script src="{{ url_for('static', filename='libs/js/emhub_bookings.js') }}"></script>
+<script src="{{ url_for('static', filename='libs/js/emhub_charts.js') }}"></script>
 
 
 <script type="text/javascript">
     /* Some variables */
-    var possible_owners = {{ possible_owners|tojson }};
     var resources = {{ resources|tojson }};
     var possible_operators = {{ possible_operators|tojson }};
     var calendar = null;
     var last_booking = null;
     var last_experiment = null;
     var last_event = null;
+
+    /* By default, the page will be reloaded in any of the following events
+    * These variables can be re-assigned in subpages to allow different
+    * behaviour when modifying bookings.
+    * */
+    var on_bookings_created = function (response){location.reload();};
+    var on_bookings_updated = function (response){location.reload();};
+    var on_bookings_deleted = function (response){location.reload();};
 
     var is_devel = {{ is_devel|tojson }};
     var content_url = "{{ url_for('get_content') }}";
@@ -94,7 +117,22 @@
             update: "{{ url_for('api.update_booking') }}",
             delete: "{{ url_for('api.delete_booking') }}",
             range: "{{ url_for('api.get_bookings_range') }}"
-        }
+        },
+        session: {
+            create: "{{ url_for('api.create_session') }}",
+            update: "{{ url_for('api.update_session') }}",
+            delete: "{{ url_for('api.delete_session') }}"
+        },
+        puck: {
+            create: "{{ url_for('api.create_puck') }}",
+            update: "{{ url_for('api.update_puck') }}",
+            delete: "{{ url_for('api.delete_puck') }}"
+        },
+        get_session_data: "{{ url_for('api.get_session_data') }}",
+        get_classes2d: "{{ url_for('api.get_classes2d') }}",
+        get_mic_data: "{{ url_for('images.get_mic_data') }}",
+        get_volume_data: "{{ url_for('images.get_volume_data') }}",
+        get_micrograph_gridsquare: "{{ url_for('images.get_micrograph_gridsquare') }}"
     };
 
     var application_config = {
@@ -176,3 +214,5 @@
 <script src="{{ url_for('static', filename='vendor/ace/ace.js') }}"></script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.8.1/html2pdf.bundle.min.js" integrity="sha512-vDKWohFHe2vkVWXHp3tKvIxxXg0pJxeid5eo+UjdjME3DBFBn2F8yWOE0XmiFcFbXxrEOR1JriWEno5Ckpn15A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script src='https://cdn.plot.ly/plotly-2.32.0.min.js'></script>

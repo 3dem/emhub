@@ -1,0 +1,28 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="col-12 row">
+        {% for gs in gridsquares %}
+            <div class="col-2">
+                {% set card_id = 'gs_card%d'|format(loop.index) %}
+                {% include 'gridsquare_card.html' %}
+            </div>
+
+        {% endfor %}
+    </div>
+
+<script>
+    var gridsquares = {{ gridsquares|tojson }};
+    var cards = [];
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        for (var i = 1; i < gridsquares.length + 1; i++){
+            let gs_card = new GridSquareCard(('gs_card' + i));
+            cards.push(gs_card);
+            gs_card.loadData(gridsquares[i-1].gsId)
+        }
+    });
+})(window, document, window.jQuery);
+
+</script>

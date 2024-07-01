@@ -1,0 +1,159 @@
+{% macro row_plot_label(sel_id, title, selectedValue) -%}
+    <div class="row" style="min-width: 325px;">
+        <h4 class="col-form-label text-right mr-2">{{ title }}</h4>
+        <select id="{{ sel_id }}" class="selectpicker mr-3" style="width: 100%" onchange="highlightButton()">
+            {% for s in data_values %}
+                {% set selected = 'selected' if s == selectedValue else '' %}
+                <option value="{{ s }}" {{ selected }}>{{ s }} </option>
+            {% endfor %}
+        </select>
+    </div>
+{%- endmacro %}
+
+<div class="row col-12 p-0 m-0">
+        <div class="col-12 row align-content-start mb-3 ml-3">
+            {{ row_plot_label('plot-labelX-select', 'X Label', 'index') }}
+            {{ row_plot_label('plot-labelY-select', 'Y Label', 'rlnCtfMaxResolution') }}
+            {{ row_plot_label('plot-labelColor-select', 'Color Label') }}
+            <div class="row ml-3">
+                <a href="javascript:makePlot()" class="btn btn-dark float-right" id="update-plots-btn"> Update Plots</a>
+            </div>
+        </div>
+
+
+    <div class="col-6">
+        <div id='myDiv' class="col-12" style="height: 700px;">
+        <!-- Plotly chart will be drawn inside this DIV -->
+        </div>
+        <div class="col-12 row m-3">
+            <div class="col-auto">
+                <h4 id="selection-label">No points selected.</h4>
+            </div>
+            <div class="col-auto">
+                <a href="javascript:exportSelection()" class="btn btn-dark ml-3 float-left" id="export-btn" style="display: none">Export Selection</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="micDiv" class="col-6">
+        <!-- Div for Micrograph -->
+        {% set card_id = 'mic_card_overview' %}
+        {% include 'micrograph_card_side.html' %}
+    </div>
+
+
+</div>
+
+<script>
+    var data_values = {{ data_values|tojson }};
+    var mic_card_overview = null;
+
+    function highlightButton(){
+        //$('#update-plots-btn').toggleClass('btn-outline-dark btn-dark');
+    }
+
+    function makePlot(){
+        //$('#update-plots-btn').toggleClass('btn-dark btn-outline-dark');
+
+        let label_x = $('#plot-labelX-select').selectpicker('val');
+        let data_x = data_values[label_x].data;
+
+        let label_y = $('#plot-labelY-select').selectpicker('val');
+        let data_y = data_values[label_y].data;
+
+        let label_color = $('#plot-labelColor-select').selectpicker('val');
+        let data_color = data_values[label_color].data;
+
+        let colorscale = [[0.0, '#440154'], [0.1111111111111111,
+                                            '#482878'], [0.2222222222222222,
+                                            '#3e4989'], [0.3333333333333333,
+                                            '#31688e'], [0.4444444444444444,
+                                            '#26828e'], [0.5555555555555556,
+                                            '#1f9e89'], [0.6666666666666666,
+                                            '#35b779'], [0.7777777777777778,
+                                            '#6ece58'], [0.8888888888888888,
+                                            '#b5de2b'], [1.0, '#fde725']];
+        var data = [
+            {'fillcolor': 'white',
+                  'marker': {'color': data_color,
+                             'colorscale': 'Portland',
+                             'opacity': 0.75,
+                                'size': 10,
+                             'showscale': true},
+                  'mode': 'markers',
+                  'type': 'scattergl',
+                  'x': data_x,
+                  'y': data_y },
+             {'marker': {'color': 'cornflowerblue', 'opacity': 0.5},
+              'name': label_x,
+              'type': 'violin',
+              'x': data_x,
+              'yaxis': 'y2'},
+             {'marker': {'color': 'cornflowerblue', 'opacity': 0.5},
+              'name': label_y,
+              'type': 'violin',
+              'xaxis': 'x2',
+              'y': data_y}
+        ];
+
+        var layout = {'bargap': 0,
+           'hovermode': 'closest',
+           'margin': {'t': 50, 'l': 0, 'r': 0},
+           'autosize': true,
+           'plot_bgcolor': 'rgba(0,0,0,0)',
+           'showlegend': false,
+           'template': '...',
+           'xaxis': {'domain': [0, 0.85], 'gridcolor': '#CBCBCB', 'title': {'text': label_x}, 'zeroline': true},
+           'xaxis2': {'domain': [0.85, 1], 'showgrid': true, 'zeroline': false},
+           'yaxis': {'domain': [0, 0.85],
+                     'gridcolor': '#CBCBCB',
+                     'title': {'text': label_y},
+                     'zeroline': true},
+           'yaxis2': {'domain': [0.85, 1], 'showgrid': true, 'zeroline': false}};
+
+        Plotly.newPlot('myDiv', data, layout);
+
+        let graphDiv = document.getElementById('myDiv');
+
+        graphDiv.on('plotly_selected', function(eventData) {
+            if (!eventData) {
+                $('#selection-label').text("No points selected.");
+                $('#export-btn').hide();
+                return;
+            }
+
+
+            let points = eventData.points;
+
+            $('#selection-label').html("Selected <label style='color: firebrick; font-size: medium;'>" + points.length + "</label> points")
+            $('#export-btn').show();
+
+            points.forEach(function(pt) {
+                console.log(pt.pointNumber + " x: " + pt.x);
+            });
+        });
+
+        graphDiv.on('plotly_doubleclick', function(eventData) {
+            alert('click');
+
+        });
+
+        graphDiv.on('plotly_click', function(eventData) {
+            let micNumber = eventData.points[0].pointNumber;
+            mic_card_overview.loadMicData(micNumber + 1)
+        });
+
+    }
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        $('.selectpicker').selectpicker();
+        setTimeout(makePlot, 500);
+        mic_card_overview = new MicrographCard('mic_card_overview', getArgs({micId: null}));
+        mic_card_overview.loadMicData(1);
+
+});
+})(window, document, window.jQuery);
+</script>

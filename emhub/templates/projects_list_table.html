@@ -1,0 +1,84 @@
+{% import "entry_macros.html" as macros %}
+
+    <table id="projects-table" class="table">
+        <thead>
+            <tr>
+                <th>id</th>
+                <th>last updated</th>
+                <th>user/pi</th>
+                <th>title</th>
+                <th>{{ resource_days_tag }} days</th>
+                {% if 'sessions' in extra_columns %} <th>sessions</th> {% endif %}
+                {% if 'images' in extra_columns %} <th>images</th> {% endif %}
+                {% if 'data' in extra_columns %} <th>data</th> {% endif %}
+
+                {% if show_extra %}
+                    <th>extra</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+        {% for p in projects %}
+            {% set status = p['status'] %}
+            {% if is_manager or status != 'disabled' %}
+                {% set color = 'black' if status == 'active' else 'gray' %}
+                <tr style="color: {{ color }}">
+                    <td>
+                        {{ macros.project(p) }}
+                        {% if p.user_can_edit %}
+                             <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
+                                 <i class="far fa-edit"></i></a>
+                        {% endif %}
+                        {% if  current_user.can_delete_project(p) %}
+                             <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
+                                 <i class="far fa-trash-alt"></i></a>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.last_update_date|pretty_datetime }} by {{ p.last_update_user.name }}</td>
+                    {% set pi = p.user.get_pi() %}
+                    {% set apps = pi.get_applications() if pi else [] %}
+                    {% set app = ' / %s'|format(apps[0].code) if apps and show_application else '' %}
+                    <td>{{ p.user|pairname }} {{ app }}</td>
+                    <td>{{ p.display_title }}</td>
+                    <td>{{ p.stats['days'] }}</td>
+
+                    {% if 'sessions' in extra_columns %}
+                       <td style="max-width: 300px">
+                        {{ macros.session_list(p.sessions) }}
+                    </td>
+                    {% endif %}
+                    {% if 'images' in extra_columns %}
+                        <td>{{ p.stats['images'] }}</td>
+                    {% endif %}
+                    {% if 'data' in extra_columns %}
+                        <td>{{ p.stats['size'] }}</td>
+                    {% endif %}
+
+                    {%  if show_extra %}
+                        <td> {{ p.extra }} </td>
+                    {% endif %}
+                </tr>
+            {% endif %}
+        {% endfor %}
+
+        </tbody>
+    </table>
+
+
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+        $('#projects-table').DataTable({
+            sDom: 'lfrtip',
+            paging: true,
+            info: false,
+            order: [[ 1, "desc" ]], // sorted by 'last_updated' in reverse order
+            pageLength: 25
+            //ordering: false
+        });
+
+    })(window, document, window.jQuery);
+
+</script>

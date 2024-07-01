@@ -1,0 +1,178 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Worker Machines " %}
+    {% include 'include_header.html' %}
+
+    <!-- workers row -->
+    <div class="row" id="workers_content">
+
+        {% include 'workers_content.html' %}
+
+    </div>
+
+</div>
+
+
+<!-- ============================================================== -->
+<!-- Create Task Dialog -->
+<!-- ============================================================== -->
+<div class="modal" id="task_modal" tabindex="-1" role="dialog" aria-labelledby="taskModal" aria-hidden="true">
+
+  <div class="modal-dialog modal-dialog-centered modal-xl" role="document"  data-backdrop="static" data-keyboard="false">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title"> Create Task </h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+
+        <div class="row">
+            <!-- Application Form -->
+            <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+                <form id="task-form" data-parsley-validate="" novalidate="">
+
+                    <!-- Name Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Host</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <select id="task_host" class="selectpicker"  title="Select host...">
+                                {% for hostname, worker in workers.items() %}
+                                     <option value="{{ hostname }}">{{ hostname }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Name Row -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <input type="text" required="" placeholder="Name" id="task_name" class="form-control" value="">
+                        </div>
+                    </div>
+
+                    <!-- Json args -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Args (JSON)</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+                            <div id="editor" class="editor-json-black" style="height: 300px"></div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <!-- end Application Form -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+
+        <button type="button" id="application-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" id="application-btn-ok" class="btn btn-outline-dark" onclick="javascript: onCreateTask()">Create</button>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="modal" id="task_history" tabindex="-1" role="dialog" aria-labelledby="taskHistory" aria-hidden="true">
+
+</div>
+
+<script>
+    var editor = null;
+    var reload = 30;
+    var reload_counter = reload;  // 60 seconds to reload
+    var timeOutId = null;
+
+    function onCreateTask(){
+        var worker = $('#task_host').selectpicker('val');
+        var task = {
+            name: $('#task_name').val(),
+            args: JSON.parse(editor.getValue())
+        }
+
+        //alert(JSON.stringify(task));
+
+        var create_task_url = "{{ url_for('api.create_task') }}";
+
+        send_ajax_json(create_task_url, {worker: worker, task: task},
+            function (jsonResponse) {
+                if ('error' in jsonResponse)
+                    showError(jsonResponse.error);
+                else {
+                   $('#task_modal').modal('hide');
+                    reloadWorkers();
+                }
+            }, // on success reload page
+            function (jqXHR, textStatus) {   // on fail show error message
+                showError("Create Task Request failed: " + textStatus);
+            });
+
+    }
+
+    function createTask(hostname) {
+        $('#task_host').selectpicker('val', hostname);
+        $('#task_modal').modal('show');
+    }  // function showResource
+
+    function showTaskHistory(task_id){
+        show_modal_from_ajax('task_history',
+            get_ajax_content('task_history', {task_id: task_id})
+        )
+    }
+
+    function deleteTask(worker, task_id){
+        send_ajax_json("{{ url_for('api.delete_task') }}", {worker: worker, task_id: task_id},
+            function (jsonResponse) {
+                if ('error' in jsonResponse)
+                    showError(jsonResponse.error);
+                else {
+                    reloadWorkers();
+                }
+            }, // on success reload page
+            function (jqXHR, textStatus) {   // on fail show error message
+                showError("Create Task Request failed: " + textStatus);
+            });
+    }
+
+    function reloadWorkers(){
+        var ajaxContent = get_ajax_content('workers_content');
+            ajaxContent.done(function(html) {
+                $('#workers_content').html(html);
+                clearTimeout(timeOutId);
+                reload_counter = reload;
+                check_reload();
+            });
+            ajaxContent.fail(ajax_request_failed);
+    }
+
+    function check_reload(){
+        if (reload_counter > 0) {
+            $('#reload_label').text('' + reload_counter + ' seconds');
+            reload_counter -= 1;
+            timeOutId = setTimeout(check_reload, 1000);  // every second
+        }
+        else {
+            reloadWorkers();
+        }
+    }
+
+    (function(window, document, $, undefined) {
+    "use strict";
+
+        editor = ace.edit("editor");
+        editor.setTheme("ace/theme/monokai");
+        editor.session.setMode("ace/mode/json");
+
+        check_reload();
+
+        $('select').selectpicker();
+
+    })(window, document, window.jQuery);
+
+</script>

@@ -29,23 +29,24 @@
 import datetime as dt
 import os
 import uuid
+import json
 from collections import defaultdict
 
-import emhub.utils
 import sqlalchemy
+from emtools.utils import Pretty
 
 from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
-from .data_session import H5SessionData
+from .processing import get_processing_project
 
 
 class DataManager(DbManager):
     """ Main class that will manage the sessions and their information.
     """
     def __init__(self, dataPath, dbName='emhub.sqlite',
-                 user=None, cleanDb=False, create=True):
+                 user=None, cleanDb=False, create=True, redis=None):
         self._dataPath = dataPath
         self._sessionsPath = os.path.join(dataPath, 'sessions')
         self._entryFiles = os.path.join(dataPath, 'entry_files')
@@ -66,6 +67,8 @@ class DataManager(DbManager):
             # Create sessions dir if not exists
             os.makedirs(self._sessionsPath, exist_ok=True)
 
+        self.r = redis
+
     def _create_models(self):
         """ Function called from the init_db method. """
         create_data_models(self)
@@ -80,6 +83,20 @@ class DataManager(DbManager):
         return self._db_log.get_logs()
 
     # ------------------------- USERS ----------------------------------
+    def get_user_extra_roles(self):
+        return self.get_config('users').get('extra_roles', [])
+
+    def get_staff_units(self):
+        for role in self.get_user_extra_roles():
+            if role.startswith('staff-'):
+                yield role.replace('staff-', '')
+
+    @property
+    def USER_ROLES(self):
+        roles = list(self.User.ROLES)
+        roles.extend(self.get_user_extra_roles())
+        return roles
+
     def create_admin(self, password='admin'):
         """ Create special user 'admin'. """
         admin = self.create_user(username='admin',
@@ -90,6 +107,20 @@ class DataManager(DbManager):
                                  pi_id=None)
         if self._user is None:
             self._user = admin
+
+    def create_basic_users(self):
+        users = []
+        for user in ['admin', 'manager', 'user']:
+            users.append(self.create_user(
+                username=user,
+                email=user + '@emhub.org',
+                password=user,
+                name=user,
+                roles=[user],
+                pi_id=None
+            ))
+        if self._user is None:
+            self._user = users[0]
 
     def create_user(self, **attrs):
         """ Create a new user in the DB. """
@@ -103,11 +134,35 @@ class DataManager(DbManager):
             attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
             del attrs['password']
 
+        if 'roles' in attrs and not self._user.is_admin:
+            # Only 'admin' users can add or remove 'admin' role
+            if 'admin' in attrs['roles']:
+                raise Exception("Only 'admin' users can assign 'admin' role.")
+            else:
+                user = self.get_user_by(id=attrs['id'])
+                if user.is_admin:
+                    raise Exception("Only 'admin' users can remove 'admin' role.")
+
         return self.__update_item(self.User, **attrs)
 
     def delete_user(self, **attrs):
         """ Delete a given user. """
-        user = self.__item_by(self.User, id=attrs['id'])
+        uid = attrs['id']
+
+        # Check that there are not bookings related to this user
+        bookings = self.get_user_bookings(uid)
+
+        def _error(msg):
+            raise Exception(f"This user can not be deleted, {msg}.")
+
+        if bookings:
+            _error("deleted, there are associated bookings. ")
+
+        user = self.get_user_by(id=uid)
+
+        if user.lab_members:
+            _error("there are associated lab members.")
+
         self.delete(user)
         return user
 
@@ -121,12 +176,24 @@ class DataManager(DbManager):
         """ This should return a single user or None. """
         return self.__item_by(self.User, **kwargs)
 
+    def get_user_group(self, user):
+        pi = user.get_pi()
+        user_groups = self.get_config('sessions')['groups']
+        return user_groups.get(pi.email, 'No-group')
+
     # ---------------------------- FORMS ---------------------------------
     def create_form(self, **attrs):
         return self.__create_item(self.Form, **attrs)
 
     def update_form(self, **attrs):
-        return self.__update_item(self.Form, **attrs)
+        cache = attrs.pop('cache', True)
+        form = self.__update_item(self.Form, **attrs)
+        # Check if we need to update Redis cache
+        if cache and self.r is not None and form.name.startswith('config:'):
+            configName = form.name.replace('config:', '')
+            self.set_rconfig(configName, form.definition)
+
+        return form
 
     def delete_form(self, **attrs):
         form = self.__item_by(self.Form, id=attrs['id'])
@@ -149,8 +216,7 @@ class DataManager(DbManager):
         """
         form = self.get_form_by(name=formName)
         if form is None:
-            raise Exception("Missing Form '%s' from the database!!!" % formName)
-
+            print(">>>>> ERROR: Missing Form '%s' from the database!!!" % formName)
         return form
 
     # ---------------------------- RESOURCES ---------------------------------
@@ -172,6 +238,11 @@ class DataManager(DbManager):
 
     def delete_resource(self, **attrs):
         resource = self.__item_by(self.Resource, id=attrs['id'])
+
+        for b in self.get_bookings():
+            if b.resource_id == resource.id:
+                raise Exception("Can not delete resource, there are existing "
+                                "bookings.")
         self.delete(resource)
         return resource
 
@@ -293,7 +364,8 @@ class DataManager(DbManager):
 
     def update_application(self, **attrs):
         """ Update a given Application with new attributes.
-        Special case are:
+
+        Keyword arguments:
             pi_to_add: ids of PI users to add to the Application.
             pi_to_remove: ids of PI users to remove from the Application
         """
@@ -386,13 +458,10 @@ class DataManager(DbManager):
 
     def get_bookings_range(self, start, end, resource=None):
         """ Shortcut function to retrieve a range of bookings. """
-        # JMRT: For some reason the retrieval of the date ranges is not working
-        # as expected for the time. So we are taking on day before for the start
-        # and one day after for the end and filter later
-        newStart = (start - dt.timedelta(days=1)).replace(hour=23, minute=59)
-        newEnd = (end + dt.timedelta(days=1)).replace(hour=0, minute=0)
+        # JMRT: We need to convert the start and end to UTC before getting the range
+        newStart = self.date(start.date()).astimezone(dt.timezone.utc)
+        newEnd = self.date(end.date()).astimezone(dt.timezone.utc) + dt.timedelta(days=1)
         rangeStr = datetime_to_isoformat(newStart), datetime_to_isoformat(newEnd)
-
         startBetween = "(start>='%s' AND start<='%s')" % rangeStr
         endBetween = "(end>='%s' AND end<='%s')" % rangeStr
         rangeOver = "(start<='%s' AND end>='%s')" % rangeStr
@@ -403,12 +472,21 @@ class DataManager(DbManager):
 
         def in_range(b):
             s, e = b.start, b.end
-            return ((s >= start and s <= end) or
-                    (e >= start and e <= end) or
-                    (s <= start and e >= end))
+            return ((s >= newStart and s <= newEnd) or
+                    (e >= newStart and e <= newEnd) or
+                    (s <= newStart and e >= newEnd))
 
-        return [b for b in self.get_bookings(condition=conditionStr, orderBy='start')
-                if in_range(b)]
+        bookings = [b for b in self.get_bookings(condition=conditionStr, orderBy='start')
+                    if in_range(b)]
+
+        return bookings
+
+    def get_user_bookings(self, uid):
+        """ Return bookings related to this user.
+        User might be creator, owner or operator of the booking.
+        """
+        condStr = f"owner_id={uid} OR operator_id={uid} OR creator_id={uid}"
+        return self.get_bookings(condition=condStr)
 
     def get_next_bookings(self, user):
         """ Retrieve upcoming (from now) bookings for this user. """
@@ -419,7 +497,7 @@ class DataManager(DbManager):
         return self.get_bookings(condition=conditionStr, orderBy='start')
 
     def delete_booking(self, **attrs):
-        """ Delete one or many bookings (in case of repeating events)
+        """ Delete one or many bookings (in case of repeating events).
 
         Keyword Args:
             id: the of the booking to be deleted
@@ -428,6 +506,9 @@ class DataManager(DbManager):
         """
         def delete(b):
             self.__check_cancellation(b)
+            if b.session:
+                raise Exception("Can not delete Booking, there are existing "
+                                "sessions.")
             self.delete(b, commit=False)
 
         result = self._modify_bookings(attrs, delete)
@@ -467,16 +548,19 @@ class DataManager(DbManager):
 
     # ---------------------------- SESSIONS -----------------------------------
     def __get_section(self, sectionName):
-        formDef = self.get_form_by_name('sessions_config').definition
-        for s in formDef['sections']:
-            if s['label'] == sectionName:
-                return formDef, s
+        form = self.get_form_by(name='sessions_config')
+        if form:
+            formDef = form.definition
+            for s in formDef['sections']:
+                if s['label'] == sectionName:
+                    return formDef, s
         return None
 
     def __iter_config_params(self, configName):
-        _, section = self.__get_section(configName)
-        for p in section['params']:
-            yield p
+        section = self.__get_section(configName)
+        if section:
+            for p in section[1]['params']:
+                yield p
 
     def __get_session_dict(self, section):
         return {p['label']: p['value']
@@ -499,7 +583,7 @@ class DataManager(DbManager):
                                       'value': new_counter})
 
         form = self.get_form_by_name('sessions_config')
-        self.update_form(id=form.id, definition=formDef)
+        self.update_form(id=form.id, definition=formDef, cache=False)
 
     def get_session_cameras(self, resourceId):
         cameras = []
@@ -513,25 +597,13 @@ class DataManager(DbManager):
         return self.__get_session_dict('folders')
 
     def get_session_data_deletion(self, group_code):
-        return int(self.__get_session_dict('data_deletion')[group_code])
-
-    def get_session_processing(self):
-        # Load processing options from the 'processing' Form
-        form_proc = self.get_form_by_name('processing')
-
-        processing = []
-        for section in form_proc.definition['sections']:
-            steps = []
-            processing.append({'name': section['label'], 'steps': steps})
-            for param in section['params']:
-                steps.append({'name': param['label'], 'options': param['enum']['choices']})
-
-        return processing
+        return int(self.__get_session_dict('data_deletion').get(group_code, 0))
 
     def get_session_data_path(self, session):
         return os.path.join(self._sessionsPath, session.data_path)
 
     def get_new_session_info(self, booking_id):
+        # FIXME: This is specific to SLL and needs cleanup/refactoring
         """ Return the name for the new session, base on the booking and
         the previous sessions counter (stored in Form 'counters').
         """
@@ -563,54 +635,81 @@ class DataManager(DbManager):
     def create_session(self, **attrs):
         """ Add a new session row. """
         create_data = attrs.pop('create_data', False)
-        b = self.get_bookings(condition="id=%s" % attrs['booking_id'])[0]
+        check_raw = attrs.pop('check_raw', True)
+        tasks = attrs.pop('tasks', [])
+
+        b = self.get_booking_by(id=int(attrs['booking_id']))
         attrs['resource_id'] = b.resource.id
         attrs['operator_id'] = b.owner.id if b.operator is None else b.operator.id
 
         if 'start' not in attrs:
-            attrs['start'] = self.now()
+            attrs['start'] = b.start
 
         if 'status' not in attrs:
-            attrs['status'] = 'pending'
+            attrs['status'] = 'active'
 
-        session_info = self.get_new_session_info(b.id)
-        attrs['name'] = session_info['name']
+        # If the session name is not provided,
+        # it will be picked from the booking/group/application
+        if 'name' not in attrs:
+            session_info = self.get_new_session_info(b.id)
+            attrs['name'] = session_info['name']
+        else:
+            session_info = None
+
+        s = self.get_session_by(name=attrs['name'])
+        if s is not None:
+            raise Exception("Session name already exist, "
+                            "choose a different one.")
+
+        extra = attrs.get('extra', {})
+        raw_folder = extra['raw'].get('path', '')
+        if check_raw and raw_folder and not os.path.exists(raw_folder):
+            raise Exception(f"Missing Raw data folder '{raw_folder}'")
+
+        otf = extra['otf']
+        otf_folder = otf.get('path', '')
+        if otf_folder:
+            data_path = otf_folder
+            extra['otf'] = {'path': otf_folder}
 
         session = self.__create_item(self.Session, **attrs)
 
-        # Let's update the data path after we know the id
-        session.data_path = 'session_%06d.h5' % session.id
-
-        self.commit()
-
-        # Create empty hdf5 file
-        if create_data:
-            data = H5SessionData(self._session_data_path(session), mode='a')
-            data.close()
-
         # Update counter for this session group
-        self.update_session_counter(session_info['code'],
-                                    session_info['counter'] + 1)
+        if session_info:
+            self.update_session_counter(session_info['code'],
+                                        session_info['counter'] + 1)
+
+        for action, worker in tasks:
+            # Update some values for the task
+            task = {
+                'name': 'session',
+                'args': {'session_id': session.id, 'action': action}
+            }
+            self.get_worker_stream(worker).create_task(task)
 
         return session
 
     def update_session(self, **attrs):
         """ Update session attrs. """
+        otf_path = attrs.get('extra', {}).get('otf', {}).get('path', None)
+        if otf_path:
+            attrs['data_path'] = otf_path
         session = self.__update_item(self.Session, **attrs)
 
         # Update the session counter if it was modified
         name = session.name
 
-        if '_' in name:
-            code, counterStr = name.split('_')
-        else:
-            code = name[:3]
-            counterStr = name[3:]
+        if session.is_code_counted:
+            if '_' in name:
+                code, counterStr = name.split('_')
+            else:
+                code = name[:3]
+                counterStr = name[3:]
 
-        c = self.get_session_counter(code)
-        counter = int(counterStr)
-        if c < counter:
-            self.update_session_counter(code, counter + 1)
+            c = self.get_session_counter(code)
+            counter = int(counterStr)
+            if c < counter:
+                self.update_session_counter(code, counter + 1)
 
         return session
 
@@ -621,7 +720,7 @@ class DataManager(DbManager):
         data_path = self._session_data_path(session)
         self.delete(session)
 
-        if os.path.exists(data_path):
+        if os.path.exists(data_path) and os.path.isfile(data_path):
             os.remove(data_path)
 
         self.log("operation", "delete_Session",
@@ -629,15 +728,38 @@ class DataManager(DbManager):
 
         return session
 
-    def load_session(self, sessionId, mode="r"):
-        # if self._lastSession is not None:
-        #     if self._lastSession.id == sessionId:
-        #         return self._lastSession
-        #     self._lastSession.data.close()
+    def get_processing_project(self, **kwargs):
+        """ Create a Processing Project instance from a path.
+        If entry_id is provided, we retrieve the path from there.
+        """
+        args = {}
+        if 'path' in kwargs:
+            project_path = kwargs['path']
+            args['path'] = project_path
+        elif 'entry_id' in kwargs:
+            entry_id = int(kwargs['entry_id'])
+            entry = self.get_entry_by(id=entry_id)
+            project_path = entry.extra['data']['project_path']
+            args = {'entry_id': entry_id}
+        elif 'session_id' in kwargs:
+            session_id = int(kwargs['session_id'])
+            session = self.get_session_by(id=session_id)
+            project_path = session.data_path
+            args = {'session_id': session_id}
+        else:
+            raise Exception("Expecting either 'session_id', 'entry_id' or 'path'"
+                            "to load a project.")
 
-        session = self.Session.query.get(sessionId)
-        session.data = H5SessionData(self._session_data_path(session), mode)
-        return session
+        pp = get_processing_project(project_path)
+        result = {'project': pp, 'args': args}
+
+        if 'run_id' in kwargs:
+            run_id = int(kwargs['run_id'])
+            result['run'] = pp.get_run(run_id)
+            args['run_id'] = run_id
+            
+        return result
+
 
     def clear_session_data(self, **attrs):
         session = self.get_session_by(id=attrs['id'])
@@ -645,6 +767,21 @@ class DataManager(DbManager):
         if os.path.exists(data_path):
             os.remove(data_path)
         return session
+
+    def update_session_extra(self, **attrs):
+        session = self.get_session_by(id=attrs['id'])
+        extra = dict(session.extra)
+        extra.update(attrs['extra'])
+        attrs['extra'] = extra
+
+        # We usually update the extra from workers notification and
+        # it is preferable to avoid logging the operation, that can be too much
+        attrs['log_operation'] = False
+
+        return self.update_session(**attrs)
+
+    # -------------------------- WORKERS AND TASKS ----------------------------
+
 
     # -------------------------- INVOICE PERIODS ------------------------------
     def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):
@@ -735,7 +872,7 @@ class DataManager(DbManager):
         return self.__update_item(self.Project, **attrs)
 
     def delete_project(self, **attrs):
-        """ Remove a session row. """
+        """ Remove a project. """
         project = self.get_project_by(id=attrs['id'])
         # Delete all entries of this project
         # (since I haven't configured cascade-delete in SqlAlchemy models)
@@ -755,10 +892,46 @@ class DataManager(DbManager):
         return self.__item_by(self.Project, **kwargs)
 
     # ---------------------------- ENTRIES ---------------------------------
-    def get_config(self, configName):
+    def set_rconfig(self, configName, configData):
+        """ Update configuration entry in Redis. """
+        self.r.set(f'config:{configName}', json.dumps(configData))
+
+    def get_rconfig(self, configName):
+        return json.loads(self.r.get(f'config:{configName}'))
+
+    def get_config(self, configName, default={}, cache=True):
         """ Find a form named config:configName and return
+        the associated JSON definition.
+
+        Args:
+            configName: name of the entry to load.
+            default: default value if the entry does not exist.
+            cache: If true, will use Redis cache
+            """
+        rcache = self.r is not None and cache
+
+        if rcache and self.r.exists(f'config:{configName}'):
+            return self.get_rconfig(configName)
+
+        form = self.get_form_by_name(f'config:{configName}')
+        if not form:
+            return default
+
+        configData = form.definition
+        if rcache:  # update the cache if enabled
+            self.set_rconfig(configName, configData)
+
+        return configData
+
+    def get_form_definition(self, formName, default={}):
+        """ Find a form named entry_form:formName and return
         the associated JSON definition. """
-        return self.get_form_by_name(f'config:{configName}').definition
+        form = self.get_form_by_name(f'entry_form:{formName}')
+        return form.definition if form else default
+
+    def update_config(self, configName, definition, cache=False):
+        form = self.get_form_by_name(f'config:{configName}')
+        self.update_form(id=form.id, definition=definition, cache=cache)
 
     def get_entry_config(self, entry_type):
         return self.get_config('projects')['entries'][entry_type]
@@ -771,8 +944,8 @@ class DataManager(DbManager):
         if user.is_manager:
             return True
 
-        permissions = self.get_config("projects")['permissions']
-        value = permissions['user_can_create_projects']
+        permissions = self.get_config("permissions")['projects']
+        value = permissions['can_create']
 
         if (value == 'all'
             or (value == 'independent' and user.is_independent)):
@@ -780,31 +953,75 @@ class DataManager(DbManager):
 
         return False
 
-    def __check_entry(self, **attrs):
-        if 'title' in attrs:
-            if not attrs['title'].strip():
-                raise Exception("Entry title can not be empty")
+    # def __check_entry(self, **attrs):
+    #     if 'title' in attrs:
+    #         if not attrs['title'].strip():
+    #             raise Exception("Entry title can not be empty")
+
+    def _validate_access_microscopes(self, entry):
+        data = entry.extra['data']
+        micId = data.get('microscope_id', None)
+        if not (micId and self.get_resource_by(id=micId)):
+            raise Exception("Please select microscope")
+        dstr = data.get('suggested_date', '')
+        try:
+            sdate = self.date(dt.datetime.strptime(dstr, '%Y/%m/%d'))
+            now = self.now()
+            nowDay = self.date(dt.datetime.now())
+            monday = nowDay - dt.timedelta(days=nowDay.weekday())
+            fridayNoon = monday + dt.timedelta(days=4, hours=12)
+            start = monday + dt.timedelta(weeks=1 if now < fridayNoon else 2)
+            end = start + dt.timedelta(days=4)
+
+            if sdate < start or sdate > end:
+                raise Exception(f"Now requests are allowed for the following "
+                                f"period: </br>{self.local_weekday(start)} - "
+                                f"{self.local_weekday(end)}")
+
+        except ValueError:
+            raise Exception("Provide a valid suggested date")
+
+    def __validate_entry(self, attrs):
+        entry = self.Entry(**attrs)
+        t = attrs['type']
+        formDef = self.get_form_by_name(f"entry_form:{t}").definition if t != 'note' else {}
+        config = formDef.get('config', {})
+        validate = config.get('validation', '')
+        if validate:
+            validateFunc = getattr(self, validate)
+            validateFunc(entry)
+        return entry
 
     def create_entry(self, **attrs):
-        self.__check_entry(**attrs)
+        if 'title' not in attrs:
+            attrs['title'] = ''
+
+        def __create(attrs):
+            return self.__validate_entry(attrs)
 
         now = self.now()
         attrs.update({
-            'date': now,
+            'date': attrs.get('date', now),
             'creation_date': now,
             'creation_user_id': self._user.id,
             'last_update_date': now,
             'last_update_user_id': self._user.id,
+            'special_create': __create
         })
+
         return self.__create_item(self.Entry, **attrs)
 
     def update_entry(self, **attrs):
-        self.__check_entry(**attrs)
-
+        # In some special cases, update_entry is called after create_entry,
+        # and we don't want to validate in this case
+        validate = attrs.pop('validate', True)
         attrs.update({
             'last_update_date': self.now(),
             'last_update_user_id': self._user.id,
         })
+        if validate:
+            self.__validate_entry(attrs)
+
         return self.__update_item(self.Entry, **attrs)
 
     def delete_entry(self, **attrs):
@@ -876,7 +1093,7 @@ class DataManager(DbManager):
                                        asJson=asJson)
 
     def get_puck_by(self, **kwargs):
-        return self.__item_by(self.Entry, **kwargs)
+        return self.__item_by(self.Puck, **kwargs)
 
     # --------------- Internal implementation methods -------------------------
     def get_universities_dict(self):
@@ -915,6 +1132,11 @@ class DataManager(DbManager):
     def __update_item(self, ModelClass, **kwargs):
         special_update = kwargs.pop('special_update', None)
 
+        # Allow to pass log_operation = False to avoid logging
+        # This may be useful for workers notification that add too many
+        # entries in the logs and are not necessary
+        log_operation = kwargs.pop('log_operation', True)
+
         jsonArgs = self.json_from_dict(kwargs)
 
         item_id = kwargs.pop('id')
@@ -930,13 +1152,15 @@ class DataManager(DbManager):
 
         for attr, value in kwargs.items():
             if attr == 'extra' and not extra_replace:
-                if not extra_replace:
-                    extra = dict(item.extra)
-                    extra.update(value)
-                    value = extra
+                extra = dict(item.extra)
+                extra.update(value)
+                value = extra
+
             setattr(item, attr, value)
         self.commit()
-        self.log('operation', 'update_%s' % ModelClass.__name__, attrs=jsonArgs)
+
+        if log_operation:
+            self.log('operation', 'update_%s' % ModelClass.__name__, attrs=jsonArgs)
 
         return item
 
@@ -959,21 +1183,52 @@ class DataManager(DbManager):
 
         return any(p.code in json_codes for p in applications)
 
+    # ------------------- PERMISSIONS helper functions -----------------------------
+    def check_user_access(self, permissionKey):
+        """ Return True if the current logged user has any of the roles
+        defined in the config for 'permissionKey'.
+        """
+        perms = self.get_config('permissions')['content']
+        return self._user.has_any_role(perms.get(permissionKey, []))
+
+    def check_resource_access(self, resource, permissionKey):
+        """ Check if the user has permission to access bookings for this
+        resource based on the resource tags and user's roles. """
+        # FIXME: Now only checking if 'user' in permissions, not based on roles
+        if self._user.is_manager:
+            return True
+
+        perms = self.get_config('permissions')
+        return (self._user.can_book_resource(resource) and
+                any(t in resource.tags and 'user' in u
+                    for t, u in perms.get(permissionKey, {}).items()))
+
     # ------------------- BOOKING helper functions -----------------------------
     def create_basic_booking(self, attrs, **kwargs):
-        if 'creator_id' not in attrs:
-            attrs['creator_id'] = self._user.id
-
-        if 'owner_id' not in attrs:
-            attrs['owner_id'] = self._user.id
-
+        # if 'creator_id' not in attrs:
+        #     attrs['creator_id'] = self._user.id
+        #
+        # if 'owner_id' not in attrs:
+        #     attrs['owner_id'] = self._user.id
         if 'type' not in attrs:
             attrs['type'] = 'booking'
 
-        return self.Booking(**attrs)
+        b = self.Booking(**attrs)
+
+        def _set_user(key):
+            keyid = key + '_id'
+            if keyid not in attrs:
+                setattr(b, keyid, self._user.id)
+                setattr(b, key, self._user)
+
+        _set_user('creator')
+        _set_user('owner')
+
+        return b
 
     def __validate_booking(self, booking, **kwargs):
         r = self.get_resource_by(id=booking.resource_id)
+
         if r is None:
             raise Exception("Select a valid Resource for this booking.")
 
@@ -985,15 +1240,19 @@ class DataManager(DbManager):
             raise Exception("The booking 'end' should be after the 'start'. ")
 
         user = self._user
-
         # The following validations do not apply for managers
         if not user.is_manager:
+            if not self.check_resource_access(r, 'create_booking'):
+                raise Exception("Users can not create/modify bookings for "
+                                "this type of resource.")
+
             # Selected resource should be active
             if not r.is_active:
                 raise Exception("Selected resource is inactive now. ")
 
             # Booking can not be made in the past
-            if booking.start.date() < self.now().date():
+            if (booking.start.date() < self.now().date() and
+                    not self.check_resource_access(r, 'past_bookings')):
                 raise Exception("The booking 'start' can not be in the past. ")
 
             # Booking time should be bigger than the minimum for this resource
@@ -1026,22 +1285,30 @@ class DataManager(DbManager):
                                         " of pending bookings for resource tag "
                                         "'%s'" % tagName)
 
-        overlap = self.get_bookings_range(booking.start,
-                                          booking.end,
-                                          resource=r)
+        s, e = booking.start, booking.end
+        week = dt.timedelta(days=7)
+        overlap = self.get_bookings_range(s - week, e + week, resource=r)
 
         app = None
 
         if not booking.is_slot:
+            margin = dt.timedelta(seconds=1)
+            def _in_range(x):
+                return s < x < e
+            def _soft_overlap(b):
+                """ Allow events to start/end at the same time without reporting
+                it as overlap. """
+                return b.id != booking.id and _in_range(b.start) or _in_range(b.end)
+
             # Check there is not overlapping with other non-slot events
             overlap_noslots = [b for b in overlap
-                               if not b.is_slot and b.id != booking.id]
+                               if not b.is_slot and _soft_overlap(b)]
             if overlap_noslots:
                 raise Exception("Booking is overlapping with other events: %s"
                                 % overlap_noslots)
 
             overlap_slots = [b for b in overlap
-                             if b.is_slot and b.id != booking.id]
+                             if b.is_slot and _soft_overlap(b)]
 
             # Always try to find the Application to set in the booking unless
             # the owner is a manager
@@ -1107,25 +1374,29 @@ class DataManager(DbManager):
         This function will raise an exception if a condition is not meet.
         """
         user = self._user
-        if user.is_admin:
+        if user.is_manager:
             return  # admin can cancel/modify at any time
 
-        now = self.now()
-        latest = booking.resource.latest_cancellation
+        if not self.check_resource_access(booking.resource, 'delete_booking'):
+            raise Exception("Users can not delete/modify bookings for "
+                            "this type of resource.")
 
-        def _error(action):
-            raise Exception('This booking can not be %s. \n'
-                            'Should be %d hours in advance. '
-                            % (action, latest))
+        # latest_cancellation might be defined as a measure to prevent users
+        # to delete bookings before that amount of time
+        # latest_cancellation = 0 means that there is not restriction
+        if latest := booking.resource.latest_cancellation:
+            def _error(action):
+                raise Exception('This booking can not be %s. \n'
+                                'Should be %d hours in advance. '
+                                % (action, latest))
 
-        start, end = booking.start, booking.end
-        if (not self._user.is_manager
-            and start - dt.timedelta(hours=latest) < now):
-            if attrs:  # Update case, where we allow modification except dates
-                if start != attrs['start'] or end != attrs['end']:
-                   _error('updated')
-            else:  # Delete case
-                _error('deleted')
+            start, end = booking.start, booking.end
+            if start - dt.timedelta(hours=latest) < self.now():
+                if attrs:  # Update case, where we allow modification except dates
+                    if start != attrs['start'] or end != attrs['end']:
+                       _error('updated')
+                else:  # Delete case
+                    _error('deleted')
 
     def _modify_bookings(self, attrs, modifyFunc):
         """ Return one or many bookings if repeating event.
@@ -1172,7 +1443,151 @@ class DataManager(DbManager):
         return result
 
     def _session_data_path(self, session):
+        if not session.data_path:
+            return ''
         return os.path.join(self._sessionsPath, session.data_path)
+
+    class WorkerStream:
+        """ Helper class to centralize functions related to a
+        Redis stream for a worker machine.
+        """
+        def __init__(self, worker, dm):
+            self.worker = worker
+            self.name = f"{worker}:tasks"
+            self.dm = dm
+            self.r = dm.r
+
+        def stream_exists(self):
+            return self.r.exists(self.name)
+
+        def group_exists(self):
+            groups = self.r.xinfo_groups(self.name)
+            return len(groups) > 0 and groups[0]['name'] == 'group'
+
+        def connect(self):
+            # Create new group and stream for this worker if not exists
+            if not self.stream_exists():
+                return self.r.xgroup_create(self.name, 'group', mkstream=True)
+            elif not self.group_exists():
+                return self.r.xgroup_create(self.name, 'group')
+
+            return True
+
+        def create_task(self, task):
+            task['args'] = json.dumps(task['args'])
+            task_id = self.r.xadd(self.name, task)
+            # Create a stream for this task history
+            self.update_task(task_id, {'created': Pretty.now()})
+            return task_id
+
+        def update_task(self, task_id, event):
+            self.r.xadd(f"task_history:{task_id}", event,
+                        maxlen=event.get('maxlen', None))
+            if 'done' in event:
+                self.finish_task(task_id)
+
+        def finish_task(self, task_id):
+            self.r.xack(self.name, 'group', task_id)
+
+        def delete_task(self, task_id):
+            try:
+                self.finish_task(task_id)
+                self.r.xdel(self.name, task_id)
+                self.r.delete(f"task_history:{task_id}")
+            except:
+                return 0
+            return 1
+
+        def get_new_tasks(self):
+            results = self.r.xreadgroup('group', self.worker, {self.name: '>'},
+                                        block=60000)
+            new_tasks = []
+            if results:
+                for task_id, task in results[0][1]:
+                    task['id'] = task_id
+                    new_tasks.append({
+                        'id': task_id,
+                        'name': task['name'],
+                        'args': json.loads(task.get('args', '{}')),
+                })
+            return new_tasks
+
+        def get_all_tasks(self):
+            tasks = []
+            pending = self.get_pending_tasks()
+
+            for tid, fields in self.r.xrange(self.name):
+                histKey = f"task_history:{tid}"
+                history = self.r.xlen(histKey)
+                done = self.dm.is_task_done(tid)
+                tasks.append({
+                    'id': tid,
+                    'name': fields['name'],
+                    'args': json.loads(fields.get('args', '{}')),
+                    'history': history,
+                    'status': 'pending' if tid in pending else ('done' if done else ''),
+                })
+            return tasks
+
+        def get_pending_tasks(self):
+            pending = set()
+            if self.stream_exists() and self.group_exists():
+                n = self.r.xpending(self.name, 'group')['pending']
+                for t in self.r.xpending_range(self.name, 'group', '-', '+', n):
+                    pending.add(t['message_id'])
+
+            return pending
+
+    def get_hosts(self):
+        """ Use Redis to cache hosts information, avoiding
+        reading it from the config all the time. """
+        self._hosts = getattr(self, '_hosts', self.get_config('hosts'))
+        return self._hosts
+
+    def connect_worker(self, worker, specs):
+        now = self.now()
+        self.get_worker_stream(worker, update=True).connect()
+        hosts = self.get_hosts()
+        w = hosts[worker]
+        w.update({'specs': specs,
+                  'connected': Pretty.datetime(now)})
+        self.update_config('hosts', hosts, cache=True)
+
+    def get_worker_stream(self, worker, update=False):
+        host = self.get_hosts().get(worker, None)
+
+        if host is None:
+            raise Exception("Unregistered host %s" % worker)
+
+        if update:
+            host['updated'] = Pretty.now()
+
+        return DataManager.WorkerStream(worker, self)
+
+    def get_all_tasks(self):
+        if self.r is None:
+            return {}
+
+        for k in self.get_hosts().keys():
+            yield k, self.get_worker_stream(k).get_all_tasks()
+
+    def get_task_history(self, task_id, count=None, reverse=True):
+        taskHistoryKey = f"task_history:{task_id}"
+        funcName = 'xrevrange' if reverse else 'xrange'
+        result = getattr(self.r, funcName)(taskHistoryKey, count=count)
+        return result
+
+    def get_task_lastevent(self, task_id):
+        history = self.get_task_history(task_id, count=1, reverse=True)
+        return history[0] if history else None
+
+    def is_task_done(self, task_id):
+        last_event = self.get_task_lastevent(task_id)
+        return 'done' in last_event[1] if last_event else False
+
+    def get_task_lastupdate(self, task_id):
+        last_event = self.get_task_lastevent(task_id)
+        return self.dt_from_redis(last_event[0] if last_event else task_id)
 
 
 class RepeatRanges:

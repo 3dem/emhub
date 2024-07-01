@@ -25,5 +25,19 @@
 # *  e-mail address 'delarosatrevin@scilifelab.se'
 # *
 # **************************************************************************
+"""
+This module define the `DataClient` class to communicate with an existing
+EMHub server via its REST API.
 
+By default, the `DataClient` class will use the configuration read from
+os.environ in the `config` class.
+
+A helper function `open_client` is provided for creating a context
+where a `DataClient` instance is created, logged in and out.
+"""
 from .data_client import config, open_client, DataClient
+from .worker import TaskHandler, Worker, DefaultTaskHandler
+
+
+__all__ = ['config', 'open_client', 'DataClient', 'TaskHandler', 'Worker',
+           'DefaultTaskHandler']

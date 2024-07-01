@@ -1,0 +1,180 @@
+{
+    "sections": [
+        {
+            "label": "I/O",
+            "params": [
+                {
+                    "name": "input_star_mics",
+                    "label": "Input movies STAR file:",
+                    "pattern": "STAR Files (*.star)",
+                    "help": "A STAR file with all micrographs to run MOTIONCORR on"
+                },
+                {
+                    "name": "first_frame_sum",
+                    "label": "First frame for corrected sum:",
+                    "help": "First frame to use in corrected average (starts counting at 1). "
+                },
+                {
+                    "name": "last_frame_sum",
+                    "label": "Last frame for corrected sum:",
+                    "help": "Last frame to use in corrected average. Values equal to or smaller than 0 mean 'use all frames'."
+                },
+                {
+                    "name": "dose_per_frame",
+                    "label": "Dose per frame (e/A2):",
+                    "default": 1,
+                    "valueClass": "Float",
+                    "paramClass": "FloatParam",
+                    "help": "Dose per movie frame (in electrons per squared Angstrom)."
+                },
+                {
+                    "name": "pre_exposure",
+                    "label": "Pre-exposure (e/A2):",
+                    "default": 0,
+                    "valueClass": "Float",
+                    "paramClass": "FloatParam",
+                    "help": "Pre-exposure dose (in electrons per squared Angstrom)."
+                },
+                {
+                    "name": "eer_grouping",
+                    "label": "EER fractionation:",
+                    "default": 32,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "The number of hardware frames to group into one fraction. This option is relevant only for Falcon4 movies in the EER format. Note that all 'frames' in the GUI (e.g. first and last frame for corrected sum, dose per frame) refer to fractions, not raw detector frames. See https://www3.mrc-lmb.cam.ac.uk/relion/index.php/Image_compression#Falcon4_EER for detailed guidance on EER processing."
+                },
+                {
+                    "name": "do_float16",
+                    "label": "Write output in float16?",
+                    "default": true,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to Yes, RelionCor2 will write output images in float16 MRC format. This will save a factor of two in disk space compared to the default of writing in float32. Note that RELION and CCPEM will read float16 images, but other programs may not (yet) do so. For example, Gctf will not work with float16 images. Also note that this option does not work with UCSF MotionCor2. For CTF estimation, use CTFFIND-4.1 with pre-calculated power spectra (activate the 'Save sum of power spectra' option)."
+                },
+                {
+                    "name": "do_dose_weighting",
+                    "label": "Do dose-weighting?",
+                    "default": true,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to Yes, the averaged micrographs will be dose-weighted."
+                },
+                {
+                    "name": "do_save_noDW",
+                    "label": "Save non-dose weighted as well?",
+                    "default": false,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "Aligned but non-dose weighted images are sometimes useful in CTF estimation, although there is no difference in most cases. Whichever the choice, CTF refinement job is always done on dose-weighted particles."
+                },
+                {
+                    "name": "do_save_ps",
+                    "label": "Save sum of power spectra?",
+                    "default": true,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "Sum of non-dose weighted power spectra provides better signal for CTF estimation. The power spectra can be used by CTFFIND4 but not by GCTF. This option is not available for UCSF MotionCor2. You must use this option when writing in float16."
+                },
+                {
+                    "name": "group_for_ps",
+                    "label": "Sum power spectra every e/A2:",
+                    "default": 4,
+                    "valueClass": "Float",
+                    "paramClass": "FloatParam",
+                    "help": "McMullan et al (Ultramicroscopy, 2015) suggest summing power spectra every 4.0 e/A2 gives optimal Thon rings"
+                }
+            ]
+        },
+        {
+            "label": "Motion",
+            "params": [
+                {
+                    "name": "bfactor",
+                    "label": "Bfactor:",
+                    "default": 150,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "The B-factor that will be applied to the micrographs."
+                },
+                {
+                    "name": "patch_x",
+                    "label": "Number of patches X:",
+                    "default": 1,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Number of patches (in X and Y direction) to apply motioncor2."
+                },
+                {
+                    "name": "patch_y",
+                    "label": "Number of patches Y:",
+                    "default": 1,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Number of patches (in X and Y direction) to apply motioncor2."
+                },
+                {
+                    "name": "group_frames",
+                    "label": "Group frames:",
+                    "default": 1,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Average together this many frames before calculating the beam-induced shifts."
+                },
+                {
+                    "name": "bin_factor",
+                    "label": "Binning factor:",
+                    "default": 1,
+                    "valueClass": "Integer",
+                    "paramClass": "IntegerParam",
+                    "help": "Bin the micrographs this much by a windowing operation in the Fourier Tranform. Binning at this level is hard to un-do later on, but may be useful to down-scale super-resolution images. Float-values may be used. Do make sure though that the resulting micrograph size is even."
+                },
+                {
+                    "name": "fn_gain_ref",
+                    "label": "Gain-reference image:",
+                    "pattern": "*.{mrc,gain}",
+                    "help": "Location of the gain-reference file to be applied to the input micrographs. Leave this empty if the movies are already gain-corrected."
+                },
+                {
+                    "name": "gain_rot",
+                    "label": "Gain rotation:",
+                    "default": 0,
+                    "help": "Rotate the gain reference by this number times 90 degrees clockwise in relion_display. This is the same as -RotGain in MotionCor2. Note that MotionCor2 uses a different convention for rotation so it says 'counter-clockwise'. Valid values are 0, 1, 2 and 3."
+                },
+                {
+                    "name": "gain_flip",
+                    "label": "Gain flip:",
+                    "default": 0,
+                    "help": "Flip the gain reference after rotation. This is the same as -FlipGain in MotionCor2. 0 means do nothing, 1 means flip Y (upside down) and 2 means flip X (left to right)."
+                },
+                {
+                    "name": "fn_defect",
+                    "label": "Defect file:",
+                    "help": "Location of a UCSF MotionCor2-style defect text file or a defect map that describe the defect pixels on the detector. Each line of a defect text file should contain four numbers specifying x, y, width and height of a defect region. A defect map is an image (MRC or TIFF), where 0 means good and 1 means bad pixels. The coordinate system is the same as the input movie before application of binning, rotation and/or flipping.\nNote that the format of the defect text is DIFFERENT from the defect text produced by SerialEM! One can convert a SerialEM-style defect file into a defect map using IMOD utilities e.g. \"clip defect -D defect.txt -f tif movie.mrc defect_map.tif\". See explanations in the SerialEM manual.\n\nLeave empty if you don't have any defects, or don't want to correct for defects on your detector."
+                },
+                {
+                    "name": "do_own_motioncor",
+                    "label": "Use RELION's own implementation?",
+                    "default": true,
+                    "valueClass": "Boolean",
+                    "paramClass": "BooleanParam",
+                    "help": "If set to Yes, use RELION's own implementation of a MotionCor2-like algorithm by Takanori Nakane. Otherwise, wrap to the UCSF implementation. Note that Takanori's program only runs on CPUs but uses multiple threads, while the UCSF-implementation needs a GPU but uses only one CPU thread. Takanori's implementation is most efficient when the number of frames is divisible by the number of threads (e.g. 12 or 18 threads per MPI process for 36 frames). On some machines, setting the OMP_PROC_BIND environmental variable to TRUE accelerates the program.\nWhen running on 4k x 4k movies and using 6 to 12 threads, the speeds should be similar. Note that Takanori's program uses the same model as the UCSF program and gives results that are almost identical.\nWhichever program you use, 'Motion Refinement' is highly recommended to get the most of your dataset."
+                },
+                {
+                    "name": "fn_motioncor2_exe",
+                    "label": "MOTIONCOR2 executable:",
+                    "help": "Location of the MOTIONCOR2 executable. You can control the default of this field by setting environment variable RELION_MOTIONCOR2_EXECUTABLE, or by editing the first few lines in src/gui_jobwindow.h and recompile the code."
+                },
+                {
+                    "name": "gpu_ids",
+                    "label": "Which GPUs to use:",
+                    "help": "Provide a list of which GPUs (0,1,2,3, etc) to use. MPI-processes are separated by ':'. For example, to place one rank on device 0 and one rank on device 1, provide '0:1'.\nNote that multiple MotionCor2 processes should not share a GPU; otherwise, it can lead to crash or broken outputs (e.g. black images) ."
+                },
+                {
+                    "name": "other_motioncor2_args",
+                    "label": "Other MOTIONCOR2 arguments:",
+                    "help": "Additional arguments that need to be passed to MOTIONCOR2."
+                }
+            ]
+        }
+    ]
+}

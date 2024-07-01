@@ -1,0 +1,102 @@
+
+{% import "entry_macros.html" as macros %}
+
+<div class="col-12">
+<div class="card">
+    <div class="card-body">
+        <input type="hidden", value="{{ batch.id }}" id="batch_id_hidden">
+        <h3>Batch {{ batch.id }}</h3>
+
+        <div class="row mb-3">
+            <label class="ml-3 mt-2">Status: </label>
+            <select class="selectpicker ml-3 mr-3" data-width="auto"  title="" id="batch_status_select">
+                <option value="active" {{ 'selected' if batch.active else '' }}>active</option>
+                <option value="inactive"  {{ 'selected' if batch.inactive else '' }}>inactive</option>
+            </select>
+            {% if current_user.is_manager %}
+                <div class="ml-3">
+                    <a href="javascript:showPlate()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Add Plate</a>
+                </div>
+            {% endif %}
+        </div>
+
+
+
+        <table id="plates-table" class="table table-bordered" style="width:100%">
+            <thead>
+            <tr>
+                <th class="bg-light">Plate</th>
+                {% for i in range(1, 11) %}
+                    <th class="bg-light">Channel {{ i }}</th>
+                {% endfor %}
+            </tr>
+            </thead>
+            <tbody>
+
+            {% set platesAvailable = batch.platesAvailable() %}
+
+            {% for plate in batch.plates %}
+                <tr>
+
+                    <td style="width: 5%;" class="align-top p-1">
+                        <div class="row col-12 p-0">
+                            <div class="col-5">
+                                <a href="javascript:showPlate({{ plate['id'] }})"><i class="fas fa-edit"></i></a>
+                            </div>
+                            <div class="col-5">
+                            {% set badgeType = 'dark' if plate['status'] == 'active' else 'light' %}
+                                        <a href="javascript:showPlate({{ plate['id'] }})" class="badge badge-{{ badgeType }} mr-1" style="min-width: 30px">{{plate['number']}}</a>
+                            </div>
+                        </div>
+                    </td>
+                    {% set channels = plate['channels'] %}
+                    {% for i in range(1, 11) %}
+                        <td style="width:9.5%" class="p-1  align-top">
+                            {% set info = channels.get(i, None) %}
+                            {% if info %}
+                                <div class="row" style="width: 100%">
+                                    <div class="row col-12">
+                                        {% if info['booking'] %}
+                                            <div class="col-12">
+                                                <a href="javascript:showBookingForm({booking_id: {{ info['booking'].id }}})"><i class="far fa-calendar-alt"></i></a>
+                                            </div>
+                                            <div class="col-6">{{ macros.resource(info['booking'].resource) }}</div>
+                                        {% else %}
+                                             <div class="col-6"> <a href="javascript:editPlateChannel({{ plate['id'] }}, {{ i }})"><i class="fas fa-edit"></i></a></div>
+                                            {% if info['project'] %}
+                                                <div class="col-6">{{ macros.project(info['project']) }}</div>
+                                            {% endif %}
+
+                                        {% endif %}
+
+                                        <div class="col-2 ml-2">
+                                            {% if info['issues'] %}
+                                                <i class="fas fa-info-circle" style="color: red"></i>
+
+                                            {% endif %}
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                                <div class="row col-12">{{ info['sample'] }}</div>
+                                <div class="row col-12">{{ info['comments'] }}</div>
+
+                            {% else %}
+
+                                <div class="col-6"> <a href="javascript:editPlateChannel({{ plate['id'] }}, {{ i }})"><i class="fas fa-edit"></i></a></div>
+
+                            {% endif %} {# if info #}
+
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+
+            </tbody>
+        </table>
+
+    </div>
+</div>
+</div>
+

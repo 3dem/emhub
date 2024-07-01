@@ -13,116 +13,7 @@
         </div>
         <!-- End of Modal header -->
 
-        <!-- Modal body -->
-        <div class="modal-body">
-            <input type="hidden" id="booking-id" value="{{ booking.id }}">
-        <!-- Create Session Form -->
-        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
-            <form id="session-form" data-parsley-validate="" novalidate="">
-                <!-- Owner Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        <h3 class="col-12 text-sm-left">{{ session_name }}*</h3>
-                        <label class="col-12 col-form-label text-sm-left">(* can change after folders creation)</label>
-                    </div>
-                </div>
-
-                <!-- Owner Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Owner</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        <h4 class="col-12 text-sm-left">{{ booking.owner.name }}</h4>
-                    </div>
-                </div>
-
-                <!-- Creator Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Creator</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        <label class="col-12 col-form-label text-sm-left">{{ booking.creator.name }}</label>
-                    </div>
-                </div>
-
-                <!-- Operator Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Operator</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        <label class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.operator.name }}</label>
-                    </div>
-                </div>
-
-                <!-- Microscope Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Microscope</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-{#                        <label id="application-label" class="col-12 col-sm-3 col-form-label text-sm-left">{{ booking.resource.name }}</label>#}
-
-                        <div class="row align-items-center justify-content-start">
-                        <div class="col">
-                            <img src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48" style="margin-right: 0;">
-
-                        </div>
-                        <div class="col-10 text-sm-left">
-                            <h5>{{ booking.resource.name }}</h5>
-                        </div>
-                    </div>
-
-                    </div>
-                </div>
-
-                <!-- Camera Row -->
-                <div class="form-group row">
-                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Camera</label>
-                    <div class="col-12 col-sm-8 col-lg-6">
-                        {% for c in cameras %}
-                            {% set checked = 'checked' if loop.index == 1 else '' %}
-                            <label class="custom-control custom-radio custom-control-inline">
-                                <input type="radio" name="cameras" id="camera-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ c }}"><span class="custom-control-label">{{ c }}</span>
-                            </label>
-                        {% endfor %}
-
-                    </div>
-                </div>
-
-                <!-- Processing Row -->
-{#                <div class="form-group row">#}
-{#                    <label class="col-12 col-sm-3 col-form-label text-sm-right">Processing</label>#}
-{#                    <div class="col-12 col-sm-8 col-lg-6">#}
-{#                        {% for p in processing %}#}
-{#                            {% set checked = 'checked' if loop.index == 1 else '' %}#}
-{#                            <label class="custom-control custom-radio custom-control-inline">#}
-{#                                <input type="radio" name="processing" id="processing-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ p['name'] }}" onclick="javascript:onProcessingClick(this)"><span class="custom-control-label">{{ p['name'] }}</span>#}
-{#                            </label>#}
-{#                        {% endfor %}#}
-{##}
-{#                        {% for p in processing %}#}
-{#                            <div class="row processing-row" id="row-{{ p['name'] }}">#}
-{#                                <div class="col">#}
-{#                                    {% for step_options in p['steps'] %}#}
-{#                                        <div class="row">#}
-{#                                            <div class="col-4">{{ step_options['name'] }}:</div>#}
-{#                                        {% for o in step_options['options'] %}#}
-{#                                            {% set checked = 'checked' if loop.index == 1 else '' %}#}
-{#                                            <label class="custom-control custom-radio custom-control-inline">#}
-{#                                                <input type="radio" name="{{ step_options['name'] }}" id="{{ step_options['name'] }}-{{ loop.index }}" {{ checked }} class="custom-control-input" value="{{ o }}"><span class="custom-control-label">{{ o }}</span>#}
-{#                                            </label>#}
-{#                                        {% endfor %}#}
-{#                                        </div>#}
-{#                                    {% endfor %}#}
-{#                                </div>#}
-{#                            </div>#}
-{#                        {% endfor %}#}
-{##}
-{#                    </div>#}
-{#                </div>#}
-
-            </form>
-        </div>
-        <!-- end Booking Form -->
-
-    </div>
-    <!-- End of Modal body -->
+        {% include "create_session_form_body.html" %}
 
     <!-- Modal footer -->
     <div class="modal-footer">
@@ -131,11 +22,16 @@
     </div>
     <!-- End of Modal footer -->
   </div>
-
 </div>
 
 <!-- javascript  -->
 <script>
+    $('select').selectpicker();
+
+    var transfer_host = {{ transfer_host|tojson }};
+    var workflow_default = {{ workflow_default|tojson }};
+    var otf_host_default = {{ otf_host_default|tojson }};
+
     function onProcessingClick(inputRadio) {
         var rows = document.getElementsByClassName("processing-row");
         for (var i = 0; i < rows.length; i++) {
@@ -144,20 +40,78 @@
         }
     }
 
+    function advancedOnClick(checkbox){
+         if (checkbox.checked)
+             $(".advanced").show();
+         else
+             $(".advanced").hide();
+    }
+
     function onCreateClick(){
-        var jsonData = {
-            attrs: {
-                booking_id: parseInt(document.getElementById('booking-id').value),
-                extra: getFormAsJson('session-form')
+        var formValues = getFormAsJson('session-form');
+        var attrs = {
+            booking_id: parseInt(document.getElementById('booking-id').value),
+            acquisition: {
+                voltage: formValues.acq_voltage,
+                magnification: formValues.acq_magnification,
+                pixel_size: formValues.acq_pixel_size,
+                dose: formValues.acq_dose,
+                cs: formValues.acq_cs
             },
         }
-        //alert(JSON.stringify(jsonData, null, 4));
+
+        if (formValues.session_name) {
+            var otf_task = [
+                "otf",
+                getObjectValue(formValues, 'otf_host', otf_host_default)
+            ];
+
+            attrs.name = formValues.session_name;
+
+            if (!formValues.raw_folder){
+                attrs.extra = {
+                    raw: {},
+                    project_id: formValues.project_id,
+                }
+                attrs.tasks = [["transfer", transfer_host], otf_task]
+            }
+            else {
+                attrs.extra = {
+                    raw: {path: formValues.raw_folder},
+                    project_id: formValues.project_id
+                }
+                attrs.tasks = [["monitor", transfer_host], otf_task]
+            }
+
+            if (!formValues.otf_folder)
+                attrs.extra.otf = {
+                    workflow: getObjectValue(formValues, 'otf_workflow', workflow_default),
+                    host: getObjectValue(formValues, 'otf_host', otf_host_default),
+                    cryolo_model: getObjectValue(formValues, 'cryolo_model', '')
+                }
+            else
+                attrs.extra.otf  = {path: otf_folder}
+        }
+
+        // If there is a session
+        {#if (attrs.extra.raw_folder)#}
+        var regex = /^[a-zA-Z0-9-_]{2,32}$/;
+        var valid_name = nonEmpty(attrs.name) && regex.test(attrs.name);
+
+        if (!valid_name) {
+            showError("Provide a valid <strong>Session Name</strong>.<br>" +
+                "<p>It must have from 2 to 32 digits, containing letters, numbers, slash or underscore.</p>");
+            return;
+        }
+
+        // showError(JSON.stringify(attrs, null, 4));
+        // return
 
         var ajaxContent = $.ajax({
             url: "{{ url_for('api.create_session') }}",
             type: "POST",
             contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify(jsonData),
+            data: JSON.stringify({attrs: attrs}),
             dataType: "json"
         });
 
@@ -166,12 +120,22 @@
 
             if ('error' in jsonResponse)
                 showError(jsonResponse['error']);
-            else
-                window.location.reload();
+            else {
+                //window.location.reload();
+                window.location = "{{ url_for_content('session_default') }}" + "&session_id=" + jsonResponse.session.id;
+            }
         });
 
         ajaxContent.fail(function(jqXHR, textStatus) {
             alert( "Request failed: " + textStatus );
         });
     }
+
+    (function(window, document, $, undefined) {
+        var checkbox = document.getElementById('advanced-checkbox');
+        console.log("loading page: checked: " + checkbox.checked);
+        advancedOnClick(checkbox);
+
+    })(window, document, window.jQuery);
+
 </script>

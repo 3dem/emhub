@@ -1,0 +1,206 @@
+    <!-- left sidebar -->
+    <div class="nav-left-sidebar sidebar-dark">
+        <div class="menu-list">
+            <nav class="navbar navbar-expand-lg navbar-light">
+                <a class="d-xl-none d-lg-none" href="#">Dashboard</a>
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav flex-column">
+
+                        <li class="nav-divider">
+                            MAIN
+                        </li>
+
+                        <ul class="nav flex-column submenu">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('dashboard') }}">
+                                    <i class="fas fa-tachometer-alt"></i>Dashboard</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('booking_calendar') }}">
+                                    <i class="fas fa-calendar-alt"></i>Booking Calendar</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('projects_list') }}">
+                                    <i class="fas fa-book"></i>Projects</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('sessions_list') }}">
+                                    <i class="fas fa-clipboard-list"></i>Sessions</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('applications') }}">
+                                    <i class="fas fa-rocket"></i>Applications</a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('invoice_periods_list') }}">
+                                    <i class="far fa-money-bill-alt"></i>Invoices</a>
+                            </li>
+
+                            <!-- Reports -->
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-reports" aria-controls="submenu-reports">
+                                    <i class="fas fa-chart-bar"></i>Reports</a>
+                            <div id="submenu-reports" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('report_microscopes_usage') }}">Microscopes Usage</a>
+                                    </li>
+                                    {% if current_user.is_manager %}
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('report_pis_usage') }}">All PIs Usage</a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-pages" aria-controls="submenu-pages">
+                                <i class="fas fa-f fa-folder"></i>Pages</a>
+
+                            <div id="submenu-pages" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='welcome') }}">Welcome</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='guidelines') }}">Guidelines</a>
+                                    </li>
+
+                                    <!-- Some ADMIN pages -->
+                                    {% if current_user.is_manager %}
+                                        <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for('pages.index', page_id='admin_users') }}">Admin - Users</a>
+                                    </li>
+                                    {% endif %}
+
+                                </ul>
+                            </div>
+
+                        </ul>
+
+                    <!-- Start of ADMIN section -->
+                        {% if current_user.is_manager %}
+                        <li class="nav-divider">
+                            ADMIN
+                        </li>
+
+                        <ul class="nav flex-column submenu">
+
+                            <!-- Users -->
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-users" aria-controls="submenu-users">
+                                    <i class="fas fa-f fa-users"></i>Users</a>
+                            <div id="submenu-users" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('users_list') }}">All Users List</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('users_groups') }}">User Groups</a>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <!-- Resources -->
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('resources_list') }}">
+                                    <i class="fas fa-boxes"></i>Resources</a>
+                            </li>
+
+                            <!-- Pucks -->
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('grids_storage', pucks_range='1-999') }}">
+                                    <i class="fas fa-bowling-ball"></i>Pucks</a>
+                            </li>
+
+                            <!-- Logs -->
+                            <li class="nav-item">
+                                 <a class="nav-link" href="{{ url_for_content('logs') }}">
+                                    <i class="fas fa-list-alt"></i>Logs</a>
+                            </li>
+
+                            <!-- Import from Portal -->
+                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-portal" aria-controls="submenu-portal">
+                                            <i class="fas fa-f fa-download"></i>Import from Portal</a>
+
+                            <div id="submenu-portal" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('portal_users_list') }}">Import Users</a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('portal_import_application') }}">Import Applications</a>
+                                    </li>
+                                </ul>
+                            </div>
+
+                        </ul>
+                        {% endif %}
+                    <!-- End of ADMIN section -->
+
+                    <!-- Start of DATA section -->
+                    {% if current_user.is_admin %}
+
+                    <li class="nav-divider">
+                        DEVEL
+                    </li>
+
+                    <ul class="nav flex-column submenu">
+
+                        <!-- DATA tables -->
+                        <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-data-tables" aria-controls="submenu-data-tables">
+                                    <i class="fas fa-table"></i>Raw Data Tables</a>
+
+                            <div id="submenu-data-tables" class="collapse submenu" style="">
+                                <ul class="nav flex-column">
+
+{#                                    <li class="nav-item">#}
+{#                                        <a class="nav-link" href="{{ url_for_content('raw_booking_list') }}">Bookings</a>#}
+{#                                    </li>#}
+
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('raw_pucks_list') }}">Pucks</a>
+                                    </li>
+
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('raw_applications_list') }}">Applications</a>
+                                    </li>
+
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('raw_templates_list') }}">Templates</a>
+                                    </li>
+
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('raw_transactions_list') }}"> Transactions</a>
+                                    </li>
+
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ url_for_content('raw_entries_list') }}"> Entries</a>
+                                    </li>
+
+                                </ul>
+
+
+
+                            </div>
+
+                        <a class="nav-link" href="{{ url_for_content('raw_forms_list') }}"> Forms</a>
+
+                        <a class="nav-link" href="{{ url_for_content('raw_user_issues') }}">User Issues</a>
+
+                    </ul>
+
+
+                    {% endif %}
+
+                </div>
+            </nav>
+        </div>
+    </div>
+    <!-- end left sidebar -->
+

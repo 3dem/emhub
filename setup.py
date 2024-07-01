@@ -177,11 +177,12 @@ setup(
     #
     # For example, the following would provide a command called `sample` which
     # executes the function `main` from this package when invoked:
-    #entry_points={  # Optional
-    #    'console_scripts': [
-    #        'sample=sample:main',
-    #    ],
-    #},
+    entry_points={  # Optional
+       'console_scripts': [
+           'emh-data = emhub.data.__main__:main',
+           'emh-client = emhub.client.__main__:main'
+       ],
+    },
 
     # List additional URLs that are relevant to your project as a dict.
     #

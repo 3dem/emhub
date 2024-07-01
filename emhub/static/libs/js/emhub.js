@@ -14,7 +14,12 @@ class Api {
     }
 }
 
-/* Helper function to print object properties */
+/**
+ * Print object's attributes to the console.
+ *
+ * @param obj  Input object to be printed.
+ * @param label Label to print before the object.
+ */
 function printObject(obj, label) {
     var propValue;
     console.log("object: ", label);
@@ -24,6 +29,12 @@ function printObject(obj, label) {
     }
 }
 
+/**
+ * Print an Array to console.
+ *
+ * @param array Array to be printed.
+ * @param label Label to print before the array.
+ */
 function printArray(array, label){
     console.log("Array: ", label);
     var i = 0;
@@ -32,6 +43,12 @@ function printArray(array, label){
     }
 }
 
+/**
+ * Print a list of objects to console.
+ *
+ * @param objList  Input list of objects to be printed.
+ * @param label Label to print before the object.
+ */
 function printList(objList, label) {
     console.log("List: ", label);
     var i = 0;
@@ -41,6 +58,12 @@ function printList(objList, label) {
     }
 }
 
+/**
+ * Print dictionary to the console.
+ *
+ * @param objDict  Input dictionary to be printed.
+ * @param label Label to print before the object.
+ */
 function printDict(objDict, label) {
     for(var key in objDict) {
       var value = objDict[key];
@@ -48,6 +71,28 @@ function printDict(objDict, label) {
     }
 }
 
+/**
+ * Get an attribute value from an object providing a default
+ * value if the object does not have that attribute.
+ *
+ * @param obj  Input object.
+ * @param key Attribute key name.
+ * @param default_value Default value to return in case object does not
+ *  contains that attribute.
+ */
+function getObjectValue(obj, key, default_value) {
+    const objDict = nonEmpty(obj) ? obj : {};
+    return key in objDict ? obj[key] : default_value;
+}
+
+
+/**
+ * Remove an object from a list.
+ *
+ * @param obj Object to remove
+ * @param objList List of objects
+ * @returns A new list without obj.
+ */
 function removeObjectFromList(obj, objList) {
     var newList = [];
     for (var o of objList)
@@ -56,21 +101,40 @@ function removeObjectFromList(obj, objList) {
     return newList;
 }
 
-/* Helper function to pad dates */
+/**
+ * Helper function to pad dates
+ */
 function pad(n) {
     return n < 10 ? '0' + n : n;
 }
 
-/* Get date string in YYYY-MM-DD format */
+/**
+ * Get date string in YYYY-MM-DD format
+ */
 function dateStr(date) {
     return date.getFullYear() + '/' + pad(date.getMonth() + 1) + '/' + pad(date.getDate());
 }
 
+/**
+ * Get a datetime object taking date and time from two different DOM elements.
+ *
+ * @param dateId Id of the DOM element containing the date value
+ * @param timeId Id of the DOM element containing the time value
+ * @returns {Date}
+ */
 function dateFromValue(dateId, timeId) {
     var dateVal = $(dateId).val();
 
-    if (timeId)
-        dateVal += ' ' + $(timeId).val().replace('.000', ' GMT');
+    if (timeId) {
+        var timeValue = $(timeId).val();
+        dateVal += ' ' + timeValue.replace('.000', ' GMT');
+        timeValue = timeValue.replace(":00.000", "");
+        
+        if (!moment(timeValue, "HH:mm", true).isValid())
+            throw "Invalid time <bold>" + timeValue + "</bold>.</br></br>" +
+                  "Provide a valid time format, examples: &nbsp" +
+                  "9:00, 10:15, 13:05, 23:59";
+    }
 
     var date = new Date(dateVal);
 
@@ -82,18 +146,29 @@ function dateFromValue(dateId, timeId) {
     return date;
 }
 
+/**
+ * Return the same as `dataFromValue` but in ISO format.
+ * @param dateId Id of the DOM element containing the date value
+ * @param timeId Id of the DOM element containing the time value
+ * @returns {string}
+ */
 function dateIsoFromValue(dateId, timeId) {
     return dateFromValue(dateId, timeId).toISOString();
 }
 
-/* Get hour:minutes string HH:00 format */
+
+/**
+ * Get hour:minutes string HH:00 format
+ */
 function timeStr(date) {
     return pad(date.getHours()) + ":" + pad(date.getMinutes());
 }
 
+/** Compose `dateStr` and `timeStr`.
+ * @returns {string}
+ */
 function datetimeStr(date) {
     return dateStr(date) + ' - ' + timeStr(date);
-    //return date.toUTCString();
 }
 
 /** Return the part of the date without any time */
@@ -102,7 +177,13 @@ function dateNoTime(date) {
     return  d;
 }
 
-/* Date in range */
+/**
+ * Return true if the date is within a given range.
+  * @param date Input date.
+ * @param range Object containing start and end attributes.
+ * @param useTime Whether to use the time or not for the comparison.
+ * @returns {boolean}
+ */
 function dateInRange(date, range, useTime) {
     var d = date;
     var start = range.start;
@@ -117,13 +198,21 @@ function dateInRange(date, range, useTime) {
     return (d >= start && d <= end);
 }
 
-/* Check if two events overlap (if have same resource) */
+/**
+ * Check if two events overlap using `dateInRange` function.
+ *
+ * Events should have ``start`` and ``end`` attributes.
+ */
 function rangesOverlap(event1, event2, useTime) {
     return (dateInRange(event1.start, event2, useTime) ||
             dateInRange(event1.end, event2, useTime));
 }
 
-/* Return True if event1 is contained in event2 */
+/**
+ * Check if one event is contained in the other using `dateInRange` function.
+ *
+ * Events should have ``start`` and ``end`` attributes.
+ */
 function rangeInside(event1, event2, useTime) {
     return (dateInRange(event1.start, event2, useTime) &&
             dateInRange(event1.end, event2, useTime));
@@ -143,7 +232,12 @@ function getSelectedValues(sel) {
     return values;
 }
 
-/* Function to show the modal */
+/**
+ * Show a dialog with a message.
+ *
+ * @param title Title of the dialog.
+ * @param msg Message to display.
+ */
 function showMessage(title, msg) {
     var confirmModal =
     $('<div class="modal" id="msg-modal" tabindex="-1" role="dialog" aria-labelledby="msgModal" aria-hidden="true">\n' +
@@ -164,12 +258,24 @@ function showMessage(title, msg) {
     confirmModal.modal('show');
 }
 
-/* Shortcut to show error messages */
+/**
+ * Show a dialog with an ERROR message.
+ *
+ * @param msg Message to display, prepended by 'ERROR'.
+ */
 function showError(msg) {
     showMessage('ERROR', msg);
 }
 
 /* Generic Confirm func */
+/**
+ * Display a confirmation dialog that could trigger a callback function.
+ * @param heading Title to be display for the confirmation.
+ * @param question Question asked for confirmation. (e.g. Do want to delete this entry?)
+ * @param cancelButtonTxt Label for the Cancel-Button (e.g. Cancel)
+ * @param okButtonTxt Label for the OK-Button (e.g. OK, Update, Delete)
+ * @param callback Callback function to be called if the OK-Button is called
+ */
 function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
     var confirmModal =
         $('<div class="modal" id="yesno-modal" tabindex="-1" role="dialog" aria-labelledby="yesnoModal" aria-hidden="true">\n' +
@@ -197,6 +303,9 @@ function confirm(heading, question, cancelButtonTxt, okButtonTxt, callback) {
 };
 /* END Generic Confirm func */
 
+/**
+ * Show a 'NOT IMPLEMENTED' message dialog.
+ */
 function notImplemented(msg) {
     showMessage("NOT IMPLEMENTED", msg);
 }
@@ -312,8 +421,7 @@ function getFormAsJson(formId, includeEmpty){
             newJson[propName] = propValue;
     }
     return newJson;
-} // function onFormOk
-
+} // function getFormAsJson
 
 
 function getFilesFromForm(formId) {
@@ -349,6 +457,11 @@ function create_sparkline(id, values, args) {
     $(id).sparkline(values, new_args);
 }
 
+/**
+ * Make an AJAX request to the server expecting html result.
+ * @param url URL to make the AJAX request
+ * @param params dictionary with parameters to retrieve the content.
+ */
 function get_ajax_html(url, params) {
     return $.ajax({
         url: url,
@@ -359,9 +472,8 @@ function get_ajax_html(url, params) {
 }
 
 /**
- * Make an AJAX request to the server and render the html result in a container.
- * @param container_id The HTML container id where the result content will be placed.
- * @param content_id contend id that will be requested to the server
+ * Make an AJAX request to the server, getting the URL for a specific content page
+ * @param content_id content id that will be requested from the server
  * @param params dictionary with extra parameters to retrieve the content.
  */
 function get_ajax_content(content_id, params) {
@@ -375,10 +487,11 @@ function get_ajax_content(content_id, params) {
 }
 
 /**
- * Make an AJAX request to retrieve some content and set it as html of the container
- * @param container_id: Container that Will receive the content
- * @param content_id: id of the content to be retrieved
- * @param params: params passed to retrieving the content
+ * Make an AJAX request to retrieve some content and set it as the HTML
+ * of the container.
+ *
+ * @param container_id: Container that will receive the HTML content
+ * @param ajaxContent: already created AJAX content
  */
 function load_html_from_ajax(container_id, ajaxContent) {
     ajaxContent.done(function(html) {
@@ -388,6 +501,13 @@ function load_html_from_ajax(container_id, ajaxContent) {
     ajaxContent.fail(ajax_request_failed);
 }
 
+/**
+ * Make an AJAX request to retrieve some content and set it as the
+ * HTML of a modal dialog.
+ *
+ * @param container_id: ID of the element used as modal
+ * @param ajaxContent: already created AJAX content
+ */
 function show_modal_from_ajax(container_id, ajaxContent) {
     ajaxContent.done(function(html) {
         $('#' + container_id).html(html);
@@ -421,6 +541,13 @@ function send_ajax_json(url, attrs, done, fail){
     ajaxContent.fail(fail);
 }
 
+/**
+ * Make an AJAX request sending data from a web Form as json to some url in the server
+ * @param url: URL to send the ajax request
+ * @param formData: Form data to be sent as JSON
+ * @param done: callback when the request is done
+ * @param fail: callback when the request failed
+ */
 function send_ajax_form(url, formData, done, fail){
     var ajaxContent = $.ajax({
         url: url,
@@ -437,6 +564,12 @@ function send_ajax_form(url, formData, done, fail){
     ajaxContent.fail(fail);
 }
 
+/**
+ * Generic handler for when an AJAX request is done.
+ *
+ * @param jsonResponse response from the request.
+ * @param expectedKey expected key in the response if it succeeded
+ */
 function ajax_request_done(jsonResponse, expectedKey){
     var error = null;
 
@@ -456,6 +589,9 @@ function ajax_request_done(jsonResponse, expectedKey){
     }
 }
 
+/**
+ * Generic handler for when an AJAX request failed.
+ */
 function ajax_request_failed(jqXHR, textStatus) {
     showError("Ajax Request FAILED: " + textStatus );
 }
@@ -631,4 +767,50 @@ function filebrowser_updateFilePath(fileUpload) {
         var textId = fileUpload.id.replace("--file", "--text");
         $('#' + textId).val(fileUpload.files[0].name);
     }
+}
+
+
+//----------------------------- Utils functions --------------------------
+
+/** Make all elements of the same height. Input can be a list of id's or a pattern. */
+function makeSameHeight(className){
+    var maxHeight = 0;
+    var selector = '.' + className;
+
+    $(selector).each(function (){
+        maxHeight = Math.max(maxHeight, $(this).height());
+    });
+
+    $(selector).each(function (){
+        $(this).css('height', maxHeight + "px");
+    });
+}
+
+
+class Timer {
+    constructor() {
+        this.startTime = new Date();
+    }
+
+    tic() {
+      this.startTime = new Date();
+    };
+
+    toc(msg) {
+        var timeDiff = new Date() - this.startTime; //in ms
+        // strip the ms
+        timeDiff /= 1000;
+        // get seconds
+        return timeDiff.toFixed(2);
+    }
+
+}  // class Timer
+
+//Taken from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
+function replaceAll(str, match, replacement){
+   return str.replace(new RegExp(escapeRegExp(match), 'g'), ()=>replacement);
 }

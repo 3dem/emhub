@@ -29,190 +29,111 @@
 import os
 import shutil
 import datetime as dt
+import json
 
+from emtools.utils import Process, Color
 from emhub.data import DataManager
-from emhub.data.imports import TestDataBase
+from emhub.utils import datetime_from_isoformat
+
+here = os.path.abspath(os.path.dirname(__file__))
 
 
-class TestData(TestDataBase):
+class TestData:
     """ Class to create a testing dataset for a given DataManager.
     """
+    def _datetime(self, *args):
+        return self.dm.dt_as_local(dt.datetime(*args))
+
+    def _action(self, title):
+        print(Color.bold(f'\n>>> {title}'))
+
+    def __init__(self, dm, json_file):
+        self.instance_path = dm._dataPath
+        self.json_data = None
+        print(f">>> Loading JSON data from {Color.bold(json_file)}")
+        with open(json_file) as f:
+            self.json_data = json.load(f)
+
+        # Some dates to shift events
+        now = dm.now()
+        feb27 = dm.date(dt.datetime(2023, 2, 27))
+        firstMonday = self.__firstMonday(now - dt.timedelta(days=60))
+        self.date_shift = dt.timedelta(days=(firstMonday - feb27).days)
+
+        self.dm = dm
+        dm.create_admin()
+        # Create tables with test data for each database model
+        self._populateForms(dm)
+        self._populateUsers(dm)
+        self._populateResources(dm)
+        self._populateApplications(dm)
+        self._populateProjects(dm)
+        self._populateBookings(dm)
+        self._populateSessions(dm)
+
+        # Create one invoice period
+        dm.create_invoice_period(start=firstMonday,
+                                 end=firstMonday + dt.timedelta(days=90))
+
+        self._createTemplateFiles()
+
+    def _populateForms(self, dm):
+        self._action('Populating Forms')
+
+        for form in self.json_data['forms']:
+            dm.create_form(**form)
+
     def _populateUsers(self, dm):
-        # Create user table
-        usersData = [
-            # dev (D)
-            ('Don Stairs', 'admin', None),  # 2
+        self._action('Populating Users')
 
-            # admin (A)
-            ('Anna Mull', 'admin,manager,head', None),   # 3
-            ('Arty Ficial', 'admin', None),  # 4
+        for uDict in self.json_data['users']:
+            first, last = uDict['name'].lower().split()
+            uDict['username'] = uDict['email']
+            uDict['password'] = last
+            dm.create_user(**uDict)
 
-            # managers (M)
-            ('Monty Carlo', 'manager', None),  # 5
-            ('Moe Fugga', 'manager', None),  # 6
+    def _populateResources(self, dm):
+        self._action('Populating Resources')
 
-            # pi (P)
-            ('Polly Tech', 'pi', None),  # 7
-            ('Petey Cruiser', 'pi', None),  # 8
-            ('Pat Agonia', 'pi', None),  # 9
-            ('Paul Molive', 'pi', None),  # 10
-            ('Pat Ernity', 'pi', None),  # 11
-
-            # users (R, S)
-            ('Ray Cyst', 'user', 7),  # 12
-            ('Rick Shaw', 'user', 7),  # 13
-            ('Rachel Slurs', 'user', 7),  # 14
-
-            ('Reggie Stration', 'user', 8),  # 15
-            ('Reuben Sandwich', 'user', 8),  # 16
-            ('Sara Bellum', 'user', 8),  # 17
-            ('Sam Owen', 'user', 8),  # 18
-
-            ('Sam Buca', 'user', 10),  # 19
-            ('Sarah Yevo', 'user', 10),  # 20
-            ('Sven Gineer', 'user', 10),  # 21
-            ('Sharon Needles', 'user', 10),  # 22
-
-            ('Ray Diation', 'user', 11),  # 22
-            ('Sal Ami', 'user', 11)   # 23
-        ]
-
-        for name, roles, pi in usersData:
-            first, last = name.lower().split()
-            roles = roles.split(',')
-            dm.create_user(username=last,
-                           email='%s.%s@emhub.org' % (first, last),
-                           phone='%d-%d%d' % (len(roles), len(first), len(last)),
-                           password=last,
-                           name=name,
-                           roles=roles,
-                           pi_id=pi)
+        for rDict in self.json_data['resources']:
+            dm.create_resource(**rDict)
 
     def _populateApplications(self, dm):
-        templateInfo = [
-            {'title': 'BAG Application Form - 2019/2020',
-             'description': 'Information required in order to submit a request '
-                            'for group allocation time for one year.',
-             'status': 'active',
-             },
-            {'title': 'Rapid Access for SPA and Tomography',
-             'description': 'Application Form required to apply for time on a '
-                            'project for either screening or data-collection. '
-                            'Machine time will be allocate on 24 or 48 hours '
-                            'slots. ',
-             'status': 'active',
-             },
-            {'title': 'BAG Application Form - 2020/2021',
-             'description': 'Information required in order to submit a request '
-                            'for group allocation time for one year.',
-             'status': 'closed'
-             },
-            {'title': 'Single Particle Application 161026',
-             'description': 'Information required to request time for one year.',
-             'status': 'rejected',
-             },
-            {'title': 'Internal Users Template',
-             'description': 'This is a special template used for internal users. ',
-             'status': 'rejected',
-             },
-        ]
-
-        templates = [dm.create_template(**ti) for ti in templateInfo]
-
-        applications = [
-            {'code': 'CEM00297',
-             'alias': 'BAG Lund',
-             'status': 'active',
-             'title': 'Bag Application for Lund University 2019/20',
-             'creator': 'agonia',
-             'template_id': templates[0].id,
-             'invoice_reference': 'AAA',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
-                                     'noslot': []},
-             'description': "Current application BAG for Lund University."
-             },
-            {'code': 'CEM00315',
-             'alias': 'BAG SU',
-             'status': 'active',
-             'title': 'Bag Application for Stockholm University',
-             'description': '',
-             'creator': 'tech',
-             'template_id': templates[0].id,
-             'invoice_reference': 'BBB',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
-                                     'noslot': []}
-             },
-            {'code': 'CEM00332',
-             'alias': 'RAA Andersson',
-             'status': 'active',
-             'title': 'Rapid Access application',
-             'description': '',
-             'creator': 'ernity',
-             'template_id': templates[1].id,
-             'invoice_reference': 'ZZZ',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 2, 'krios': 1},
-                                     'noslot': []}
-             },
-            {'code': 'DBB00001',
-             'alias': 'SU-DBB',
-             'status': 'active',
-             'title': 'Internal DBB project',
-             'description': '',
-             'creator': 'tech',
-             'template_id': templates[-1].id,
-             'invoice_reference': 'DDD',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {},
-                                     'noslot': [1, 2]}
-             },
-            {'code': 'CEM00345',
-             'alias': 'BAG Lund 2021',
-             'status': 'review',
-             'title': 'Bag Application for Lund University 2021',
-             'description': '',
-             'creator': 'agonia',
-             'template_id': templates[0].id,
-             'invoice_reference': 'BBB',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
-                                     'noslot': []}
-             },
-            {'code': 'CEM00346',
-             'alias': 'BAG SU 2021',
-             'status': 'review',
-             'title': 'Bag Application for Stockholm University 2021',
-             'description': '',
-             'creator': 'tech',
-             'template_id': templates[0].id,
-             'invoice_reference': 'BBB',
-             'invoice_address': '',
-             'resource_allocation': {'quota': {'talos': 10, 'krios': 5},
-                                     'noslot': []}
-             },
-        ]
-
-        for pDict in applications:
-            username = pDict.pop('creator')
+        def _getUser(a, username):
             u = dm.get_user_by(username=username)
-            pDict['creator_id'] = u.id
-            dm.create_application(**pDict)
+            if u is None:
+                print(f"Application {a['code']}: Invalid user: {username}")
+            return u
 
-        def __addPi(appCode, piUser):
-            a1 = dm.get_application_by(code=appCode)
-            u1 = dm.get_user_by(username=piUser)
-            a1.users.append(u1)
+        self._action('Populating Applications')
 
-        for u in ['cruiser', 'agonia']:
-            __addPi('DBB00001', u)
+        templates = [dm.create_template(**ti)
+                     for ti in self.json_data['templates']]
 
-        for u in ['cruiser']:
-            __addPi('CEM00315', u)
+        apps = []
+        for appDict in self.json_data['applications']:
+            creator = _getUser(appDict, appDict.pop('creator'))
+            if creator is None:
+                continue
+            appDict['creator_id'] = creator.id
+            template_index = appDict.pop('template_index')
+            appDict['template_id'] = templates[template_index].id
+            pi_list = appDict.pop('pi_list', [])
+            a = dm.create_application(**appDict)
+            apps.append(a)
 
-        for u in ['molive']:
-            __addPi('CEM00297', 'ernity')
+            # Add PIs
+            for piName in pi_list:
+                pi = dm.get_user_by(username=piName)
+                if pi:
+                    a.users.append(pi)
+
+        # Let's make random assignment of all pi's to either
+        # first or second application
+        for user in dm.get_users():
+            if user.is_pi:
+                n = len(user.name)
+                apps[n % 2].users.append(user)
 
         dm.commit()
 
@@ -227,187 +148,117 @@ class TestData(TestDataBase):
 
         return prevMonday + td7
 
+    def __shift_date(self, dateIsoStr):
+        return datetime_from_isoformat(dateIsoStr) + self.date_shift
+
+    def __fix_dates(self, attrs, *keys):
+        for k in keys:
+            attrs[k] = self.__shift_date(attrs[k])
+
+    def _populateProjects(self, dm):
+        self._action('Populating Projects')
+        for pDict in self.json_data['projects']:
+            self.__fix_dates(pDict, 'creation_date', 'last_update_date')
+            pDict['title'] = f"Project {pDict['id']} Title"
+            dm.create_project(**pDict)
 
     def _populateBookings(self, dm):
-        now = dm.now().replace(minute=0, second=0)
-        month = now.month
-        self.firstMonday = self.__firstMonday(now)
-        td = dt.timedelta  # shortcut
+        self._action('Populating Bookings')
 
-        def fm(shift):
-            return (self.firstMonday + td(days=shift)).replace(hour=9)
-
-        # Create a booking at the downtime from today to one week later
-        for r in [1, 3]:  # Krios 1 and  Talos
-            for s in [0, 14]:
-                dm.create_booking(title='',
-                                  start=fm(s),
-                                  end=fm(s+5).replace(hour=23),
-                                  type='slot',
-                                  slot_auth={'applications': ['CEM00297', 'CEM00315']},
-                                  resource_id=r,
-                                  creator_id=2,  # first user for now
-                                  owner_id=2,  # first user for now
-                                  description="Slot for National BAGs")
-
-        # Create a downtime from today to one week later
-        dm.create_booking(title='',
-                          start=fm(17),
-                          end=fm(21).replace(hour=23),
-                          type='downtime',
-                          resource_id=1,
-                          creator_id=2,  # first user for now
-                          owner_id=2,  # first user for now
-                          description="Some downtime for some problem")
-
-        dm.create_booking(title='',
-                          start=fm(-7),
-                          end=fm(-6).replace(hour=23),
-                          type='booking',
-                          resource_id=1,
-                          creator_id=3,  # ann mull
-                          owner_id=3,  # mull
-                          description="")
-
-        # Create booking for normal user
-        dm.create_booking(title='',
-                          start=fm(0),
-                          end=fm(1).replace(hour=23),
-                          type='booking',
-                          resource_id=1,
-                          creator_id=13,  # first user for now
-                          owner_id=13,  # first user for now
-                          description="")
-
-        dm.create_booking(title='',
-                          start=fm(2),
-                          end=fm(4).replace(hour=23),
-                          type='booking',
-                          resource_id=1,
-                          creator_id=2,  # first user for now
-                          owner_id=16,  # Sara Belum
-                          description="Krios 2 for user 3")
-
-        dm.create_booking(title='Slot 2: RAPID',
-                      start=fm(21),
-                      end=fm(22).replace(hour=23),
-                      type='slot',
-                      slot_auth={'applications': ['CEM00332']},
-                      resource_id=3,
-                      creator_id=2,  # first user for now
-                      owner_id=2,  # first user for now
-                      description="Talos slot for RAPID applications")
-
-        # create a repeating event
-        dm.create_booking(title='Dropin',
-                          start=fm(2),
-                          end=fm(2).replace(hour=16),
-                          type='slot',
-                          repeat_value='bi-weekly',
-                          repeat_stop=now + dt.timedelta(2*30),
-                          resource_id=7,
-                          creator_id=2,  # first user for now
-                          owner_id=2,  # first user for now
-                          description="Recurrent bi-weekly DROPIN slot. ")
+        for bDict in self.json_data['bookings']:
+            self.__fix_dates(bDict, 'start', 'end')
+            dm.create_booking(**bDict)
 
     def _populateSessions(self, dm):
-        td = os.environ.get('EMHUB_TESTDATA')
-        inst = os.environ.get('EMHUB_INSTANCE')
+        self._action('Populating Sessions')
 
-        dm.create_session(
-            name='supervisor_23423452_20201223_123445',
-            start=self._datetime(2020, 3, 5, 12, 30, 10),
-            end=None,
-            status='running',
-            #data_path=os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
-            acquisition={'voltage': 300,
-                         'cs': 2.7,
-                         'phasePlate': False,
-                         'detector': 'Falcon2',
-                         'detectorMode': 'Linear',
-                         'pixelSize': 1.1,
-                         'dosePerFrame': 1.0,
-                         'totalDose': 35,
-                         'exposureTime': 1.2,
-                         'numOfFrames': 48,
-                         },
-            stats={'numMovies': 423,
-                   'numMics': 0,
-                   'numCtf': 0,
-                   'numPtcls': 0,
-                   },
-            resource_id=1,  # Krios 1
-            booking_id=None,
-            operator_id=1,  # User  X
-        )
+        for sDict in self.json_data['sessions']:
+            self.__fix_dates(sDict, 'start')
+            sDict['check_raw'] = False
+            sDict['name'] = 'S%05d' % sDict['id']
+            dm.create_session(**sDict)
 
-        shutil.copyfile(os.path.join(td, 'hdf5/20181108_relion30_tutorial.h5'),
-                        os.path.join(inst, 'sessions/session_000001.h5'))
+    def _createTemplateFiles(self):
+        instance_path = self.instance_path
 
-        dm.create_session(
-            name='epu-mysession_20122310_234542',
-            start=self._datetime(2020, 4, 5, 12, 30, 10),
-            end=None,
-            status='failed',
-            #data_path=os.path.join(td, 'hdf5/t20s_pngs.h5'),
-            acquisition={'voltage': 300,
-                         'cs': 2.7,
-                         'phasePlate': False,
-                         'detector': 'Falcon2',
-                         'detectorMode': 'Linear',
-                         'pixelSize': 1.1,
-                         'dosePerFrame': 1.0,
-                         'totalDose': 35,
-                         'exposureTime': 1.2,
-                         'numOfFrames': 48,
-                         },
-            stats={'numMovies': 234,
-                   'numMics': 234,
-                   'numCtf': 234,
-                   'numPtcls': 2,
-                   },
-            resource_id=2,  # Krios 2
-            booking_id=None,
-            operator_id=6,  # User  6
-        )
+        # Write Redis config file template and running script
+        fn = os.path.join(instance_path, 'redis.conf.template')
+        self._action(f'Creating Redis configuration template: {fn}')
+        with open(fn, 'w') as f:
+            f.write("""
+# Redis configuration file example.
+#
+# Note that in order to read the configuration file, Redis must be
+# started with the file path as first argument:
+#
+# ./redis-server /path/to/redis.conf
 
-        shutil.copyfile(os.path.join(td, 'hdf5/t20s_pngs.h5'),
-                        os.path.join(inst, 'sessions/session_000002.h5'))
+bind 127.0.0.1
+port 5001
 
-        dm.create_session(
-            name='session_very_long_name',
-            start=self._datetime(2020, 5, 7, 12, 30, 10),
-            end=self._datetime(2020, 5, 8, 9, 30, 10),
-            status='finished',
-            data_path=os.path.join(td, 'non-existing-file'),
-            acquisition={'voltage': 300,
-                         'cs': 2.7,
-                         'phasePlate': False,
-                         'detector': 'Falcon2',
-                         'detectorMode': 'Linear',
-                         'pixelSize': 1.1,
-                         'dosePerFrame': 1.0,
-                         'totalDose': 35,
-                         'exposureTime': 1.2,
-                         'numOfFrames': 48,
-                         },
-            stats={'numMovies': 2543,
-                   'numMics': 2543,
-                   'numCtf': 2543,
-                   'numPtcls': 2352534,
-                   },
-            resource_id=3,  # Talos
-            booking_id=None,
-            operator_id=12,  # User  12
-        )
+save 900 1
+save 300 10
+save 60 1000
+
+dbfilename dump.rdb
+
+# The working directory.
+#
+# The DB will be written inside this directory, with the filename specified
+# above using the 'dbfilename' configuration directive.
+
+dir ./\n""")
+        fn = os.path.join(instance_path, 'run_redis.sh')
+        self._action(f'Creating Redis run script: {fn}')
+        with open(fn, 'w') as f:
+            f.write(f"""
+#!/usr/bin/bash 
+. /software/scipion/conda/etc/profile.d/conda.sh
+conda activate redis-server
+cd {instance_path} && redis-server redis.conf --daemonize yes\n""")
+
+        fn = os.path.join(instance_path, 'bashrc')
+        self._action(f'Creating bashrc script: {fn}')
+        with open(fn, 'w') as f:
+            f.write(f"""
+#!/usr/bin/bash 
+
+export FLASK_APP=emhub
+export EMHUB_INSTANCE={instance_path}
+export EMHUB_USER=admin
+export EMHUB_PASSWORD=admin
+export EMHUB_SERVER_URL=http://127.0.0.1:5000
+
+""")
+
+        print(f"\n"
+              f"EMhub instance sucessfully created!!!\n"
+              f"To use it do:\n\n"
+              f"source {fn}\n"
+              f"flask run --debug\n\n"
+              f"And open a browser at: http://127.0.0.1:5000\n"
+              f"user: admin, password: admin")
 
 
-if __name__ == '__main__':
-    instance_path = os.path.abspath(os.environ.get("EMHUB_INSTANCE",
-                                                   'instance'))
+def create_instance(instance_path, json_file, force):
+    instance_path = instance_path or '~/.emhub/instances/test'
+    instance_path = os.path.expanduser(instance_path)
 
-    if not os.path.exists(instance_path):
-        raise Exception("Instance folder '%s' not found!!!" % instance_path)
+    json_file = json_file or os.path.join(here, 'test_instance_data.json')
+
+    if os.path.exists(instance_path):
+        if force:
+            Process.system(f'rm -rf {instance_path}', color=Color.green)
+        else:
+            raise Exception(f"Instance folder '{instance_path}' exists.\n"
+                            f"Use -f to force cleanup.")
+
+    Process.system(f"mkdir -p {instance_path}", color=Color.green)
+
+    if not os.path.exists(json_file):
+        raise Exception(f"Input JSON file '{json_file}' does not exists.")
 
     dm = DataManager(instance_path, cleanDb=True)
-    TestData(dm)
+    TestData(dm, json_file)
+
+

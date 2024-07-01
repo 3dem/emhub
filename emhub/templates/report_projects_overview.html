@@ -1,0 +1,49 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Projects Overview" %}
+    {% set navigation = [('Reports', ''), ('Projects Overview', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="card card-body" id="report-content">
+        <div class="row col-12">
+            <!-- Plots -->
+            <div class="col-12">
+                <div id="plot-div"></div>
+            </div>
+
+            <div class="col-4">
+                <div id="hist-div"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        var n = {{ selected_resources|length }};
+        var projects_monthly = {{ projects_monthly|tojson }};
+        var sessions_images = {{ sessions_images|tojson }};
+        var total_cols = n + 2;
+        var columnsDef = [
+            { orderable: false }
+        ];
+        // Add one null column specification for each resource + 2 extra columns
+        for (var i = 0; i < total_cols; ++i)
+            columnsDef.push(null)
+
+        create_hc_sessions_time('plot-div', projects_monthly,
+                                {
+                                    title: 'Projects over Time',
+                                    columnsColor: '#99ecac',
+                                    yAxis: ['Projects'],
+                                    dataNames: ['Created', 'Active']
+                                });
+        //create_hc_sessions_histogram('hist-div', sessions_images);
+});
+
+})(window, document, window.jQuery);
+</script>

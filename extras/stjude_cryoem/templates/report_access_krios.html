@@ -1,0 +1,23 @@
+
+
+{# Number of pages for the report #}
+{% set N = 1 %}
+
+{% include "report_header.html" %}
+
+{% import "entry_macros.html" as macros %}
+
+{{ macros.image2_card("Cryo Micrograph 1 (High Defocus)", data['mic_high_image'],
+                      "Cryo Micrograph 2 (Low Defocus)", data['mic_low_image']) }}
+
+{#{% if data['mic_high_image'] %}#}
+{#    {{ macros.image_card("Cryo Micrograph 1 (High Defocus)", data['mic_high_image'], 50) }}#}
+{#{% endif %}#}
+{##}
+{#{% if data['mic_low_image'] %}#}
+{#    {{ macros.image_card("Cryo Micrograph 2 (Low Defocus)", data['mic_low_image'], 50) }}#}
+{#{% endif %}#}
+
+{% if data['c2d_image'] %}
+    {{ macros.image_card("2D Class Averages", data['c2d_image'], 50) }}
+{% endif %}

@@ -1,0 +1,12 @@
+sphinx==5.3.0 
+jaraco.packaging
+rst.linker
+sphinx-reredirects
+sphinx-inline-tabs
+sphinxcontrib-towncrier 
+jaraco.tidelift
+sphinx-favicon
+furo
+sphinxcontrib-napoleon
+sphinx-js
+sphinx-copybutton

@@ -1,0 +1,15 @@
+
+{# Number of pages for the report #}
+{% set N = 1 %}
+
+{% include "report_header.html" %}
+
+{% import "entry_macros.html" as macros %}
+
+{{ macros.image2_card("Micrograph 1 (High concentration)", data['mic_high_image'],
+                     "Micrograph 2 (Low concentration)", data['mic_low_image'] ) }}
+
+
+{% if data['c2d_image'] %}
+    {{ macros.image_card("2D Class Averages", data['c2d_image'], 50) }}
+{% endif %}

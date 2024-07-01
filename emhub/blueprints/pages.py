@@ -52,7 +52,7 @@ def index():
     # Following params are required in main.html but are not really used
     # here in pages, maybe we should consider to have a separate template
     kwargs = {
-        'possible_owners': [],
+        'possible_booking_owners': [],
         'possible_operators': [],
         'resources': [],
     }
@@ -60,7 +60,7 @@ def index():
     if app.user.is_authenticated:
         app.user.image = app.dc.user_profile_image(app.user)
 
-    return flask.render_template(app.config['MAIN'],
+    return flask.render_template("main.html",
                                  content_id='pages',
                                  params=params,
                                  is_devel=app.is_devel,

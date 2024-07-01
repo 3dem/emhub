@@ -1,0 +1,67 @@
+{% import "entry_macros.html" as macros %}
+
+<!-- ============================================================== -->
+<!-- Plate Modal Content -->
+<!-- ============================================================== -->
+{% set is_manager = current_user.is_manager %}
+{% set can_edit = is_manager %}
+{% set readonly = '' if can_edit else 'readonly' %}
+{% set disabled = '' if can_edit else 'disabled' %}
+
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+          {% set plate_id = plate.get('id', 0) %}
+          <input type="hidden", value="{{ plate_id }}" id="plate_id_hidden">
+          <input type="hidden", value="{{ batch_id }}" id="form_batch_id_hidden">
+
+          {% if batch_id == 0 %}
+            {% set title = "Add Batch / Plate" %}
+          {% else %}
+            {% set title = "Batch %d: "|format(batch_id) + ("Plate %d"|format(plate['number']) if plate else "Add Plate") %}
+          {% endif %}
+        <h3 class="modal-title">{{ title }}</h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+
+            <div class="simple-outline-card col-11 ml-4">
+
+                {% if batch_id == 0 %}
+
+                    <div class="form-group row">
+                        <label class="col-3 col-form-label text-sm-right">Batch Number</label>
+                        <div class="col-7 ml-1">
+                            <input type="text" id="form_batch_id_text" class="form-control" value="">
+                        </div>
+                    </div>
+
+                {% endif %}
+                {% include "dynamic_form.html" %}
+
+            </div>
+
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+
+          {% if plate_id and current_user.is_admin %}
+            <button type="button" id="entry-btn-delete"  class="btn btn-outline-secondary mr-5" onclick="onPlateDeleteClick({{ plate_id }})">Delete</button>
+          {% endif %}
+
+          <button type="button" id="entry-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+          <button class="btn btn-outline-dark" onclick="onPlateOkButtonClick()">OK</button>
+
+
+      </div>
+    </div>
+  </div>
+<!-- ============================================================== -->
+<!-- Plate Modal Content -->
+<!-- ============================================================== -->
+

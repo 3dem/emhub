@@ -95,6 +95,27 @@ def get_quarter(date=None):
     return _dt(start), _dt(end)
 
 
+def shortname(user):
+    if user:
+        name = user if isinstance(user, str) else user.name
+        parts = name.split()
+        if len(parts) == 1:  # single word
+            return name
+        parts[0] = parts[0][0] + '.'  # take first letter
+        return ' '.join(parts)
+
+    return ''
+
+
+def pairname(user):
+    """ Show PI/User in a shortname. """
+    pi = user.get_pi()
+    if pi and not user.is_pi:
+        return f"{shortname(pi)} / {shortname(user)}"
+    else:
+        return shortname(user)
+
+
 class NpJsonEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
