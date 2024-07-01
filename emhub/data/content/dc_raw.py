@@ -185,3 +185,8 @@ def register_content(dc):
     def task_history(**kwargs):
         return {'task_events': dc.app.dm.get_task_history(kwargs['task_id'])}
 
+    @dc.content
+    def raw_test_page(**kwargs):
+        return {}
+
+
