@@ -26,10 +26,11 @@
 # *
 # **************************************************************************
 
-import datetime as dt
-import json
 import os
+from .test import create_instance
 
+here = os.path.abspath(os.path.dirname(__file__))
+MINIMAL_JSON = os.path.join(here, 'minimal_instance_data.json')
 
 
 

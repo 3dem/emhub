@@ -261,4 +261,6 @@ def create_instance(instance_path, json_file, force):
     dm = DataManager(instance_path, cleanDb=True)
     TestData(dm, json_file)
 
+    return dm
+
 
