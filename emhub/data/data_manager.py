@@ -754,7 +754,7 @@ class DataManager(DbManager):
         result = {'project': pp, 'args': args}
 
         if 'run_id' in kwargs:
-            run_id = int(kwargs['run_id'])
+            run_id = kwargs['run_id']
             result['run'] = pp.get_run(run_id)
             args['run_id'] = run_id
             
