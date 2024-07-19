@@ -777,6 +777,7 @@ class DataContent:
                 'resolution_bins': rbins.toList(),
                 'gridsquares': gridsquares,
                 'gs_info': epuData is not None,
+                'ctfs_run_id': sdata.get_ctfs_runid()
             })
 
         elif result == 'classes2d':

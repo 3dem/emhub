@@ -285,47 +285,13 @@ class RelionRun(SessionRun):
                     data['coordinates'] = self.project.get_micrograph_coordinates(
                         self.join('autopick.star'), micId)
                     break
-
         return data
 
     def get_classes2d(self, iteration=None):
         """ Get classes information from a class 2d run. """
-        items = []
-
-        if iteration:
-            avgMrcs = self.join('*_it%03d_classes.mrcs' % iteration)
-        else:
-            avgMrcs = self.join('*_it*_classes.mrcs')
-
-        if files := glob(avgMrcs):
-            files.sort()
-            avgMrcs = files[-1]
-            dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
-            modelStar = dataStar.replace('_data.', '_model.')
-
-            mrc_stack = None
-            avgThumb = Thumbnail(max_size=(100, 100),
-                                 output_format='base64')
-
-            with StarFile(dataStar) as sf:
-                n = sf.getTableSize('particles')
-
-            with StarFile(modelStar) as sf:
-                modelTable = sf.getTable('model_classes', guessType=False)
-
-                for row in modelTable:
-                    i, fn = row.rlnReferenceImage.split('@')
-                    if not mrc_stack:
-                        mrc_stack = mrcfile.open(avgMrcs, permissive=True)
-                    items.append({
-                        'id': '%03d' % int(i),
-                        'size': round(float(row.rlnClassDistribution) * n),
-                        'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
-                    })
-            items.sort(key=lambda c: c['size'], reverse=True)
-            mrc_stack.close()
-
-        return items
+        it = "%03d" % iteration if iteration else "*"
+        pattern = self.join(f"*_it{it}_classes.mrcs")
+        return RelionSessionData.get_classes2d_data(pattern)
 
     def get_volume_data(self, volName, **kwargs):
         volPath = self.join(volName)
@@ -548,9 +514,43 @@ class RelionSessionData(SessionData):
         runs2d = self.get_classes2d_runs()
         return {
             'runs': [{'id': i, 'label': r} for i, r in enumerate(runs2d)],
-            'items': [] if runId is None else self.get_classes2d(self.join(runs2d[runId])),
+            'items': [] if runId is None else self.get_run(runId).get_classes2d(),
             'selection': []
         }
+
+    @classmethod
+    def get_classes2d_data(self, pattern):
+        """ Get classes information from a relion *classes.mrcs files pattern. """
+        items = []
+        if files := glob(pattern):
+            files.sort()
+            avgMrcs = files[-1]
+            dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
+            modelStar = dataStar.replace('_data.', '_model.')
+            mrc_stack = None
+            avgThumb = Thumbnail(max_size=(100, 100),
+                                 output_format='base64')
+
+            with StarFile(dataStar) as sf:
+                n = sf.getTableSize('particles')
+
+            with StarFile(modelStar) as sf:
+                modelTable = sf.getTable('model_classes', guessType=False)
+
+                for row in modelTable:
+                    i, fn = row.rlnReferenceImage.split('@')
+                    if not mrc_stack:
+                        mrc_stack = mrcfile.open(avgMrcs, permissive=True)
+                    items.append({
+                        'id': '%03d' % int(i),
+                        'size': round(float(row.rlnClassDistribution) * n),
+                        'average': avgThumb.from_array(mrc_stack.data[int(i) - 1, :, :])
+                    })
+            items.sort(key=lambda c: c['size'], reverse=True)
+            mrc_stack.close()
+
+        return items
+
 
     def get_coords_from_star(self, starFn):
         """ Return x,y coordinates from a given star file,

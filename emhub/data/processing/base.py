@@ -65,6 +65,10 @@ class SessionData:
         self._path = path
         self._epuData = None
 
+    @property
+    def path(self):
+        return self._path
+
     def join(self, *paths):
         return os.path.join(self._path, *paths)
 

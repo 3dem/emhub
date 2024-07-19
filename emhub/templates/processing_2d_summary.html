@@ -14,8 +14,8 @@
     var iterations = {{ data_values['iterations']|tojson }};
     var classes2d = null;
     var attrs = {
-        entry_id: {{ entry_id|tojson }},
-        runId: {{ runId|tojson }}
+        path: {{ processing_project.path|tojson }},
+        run_id: {{ run.id|tojson }}
     };
 
     var overlay_2d = null;
