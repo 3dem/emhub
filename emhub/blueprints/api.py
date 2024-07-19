@@ -616,10 +616,9 @@ def get_session_run():
 @api_bp.route("/get_classes2d", methods=['POST'])
 def get_classes2d():
     """ Load 2d classification data. """
-    proc = app.dm.get_processing_project(entry_id=request.form['entry_id'])
-    run = proc.get_run(request.form['run_id'])
-    classes = run.get_classes2d(iteration=request.form.get('iteration', None))
-
+    kwargs = request.form.to_dict()
+    run = app.dm.get_processing_project(**kwargs)['run']
+    classes = run.get_classes2d(iteration=kwargs.get('iteration', None))
     return send_json_data(classes)
 
 
