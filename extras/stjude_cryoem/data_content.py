@@ -101,8 +101,8 @@ def register_content(dc):
             'cryolo_models': {_key(cm): cm for cm in cryolo_models}
         }
         data.update(dc.get_user_projects(b.owner, status='active'))
-        r = workers_frames(hours=10)['folderGroups'][transfer_host]
-        data['frame_folders'] = r['entries']
+        frames = workers_frames(hours=10)['folderGroups']
+        data['frame_folders'] = r['entries'] if transfer_host in frames else []
         return data
 
     @dc.content

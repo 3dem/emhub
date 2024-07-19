@@ -195,6 +195,7 @@
     var transfer_host = {{ transfer_host|tojson }};
     var workflow_default = {{ workflow_default|tojson }};
     var otf_host_default = {{ otf_host_default|tojson }};
+    var otf_host = null;
 
     function onCreateClick(){
         var formValues = getFormAsJson('session-form');
@@ -209,13 +210,15 @@
             },
         }
 
-        if (formValues.session_name) {
-            var otf_task = [
-                "otf",
-                getObjectValue(formValues, 'otf_host', otf_host_default)
-            ];
+        // Raw folder is provided only for speciall debugging cases
+        // then, no transfer task will be schedule and the session name
+        // will be taken from the raw path
+        let sessionName = nonEmpty(formValues.raw_folder) ? formValues.raw_folder.split('/').pop() : formValues.session_name;
 
-            attrs.name = formValues.session_name;
+        if (nonEmpty(sessionName)) {
+            attrs.name = sessionName;
+            otf_host = getObjectValue(formValues, 'otf_host', otf_host_default);
+            var otf_task = ["otf", otf_host];
 
             if (!formValues.raw_folder){
                 attrs.extra = {
@@ -229,7 +232,7 @@
                     raw: {path: formValues.raw_folder},
                     project_id: formValues.project_id
                 }
-                attrs.tasks = [["monitor", transfer_host], otf_task]
+                attrs.tasks = [["monitor", otf_host], otf_task]
             }
 
             if (!formValues.otf_folder)
@@ -243,8 +246,7 @@
         }
 
         // If there is a session
-        {#if (attrs.extra.raw_folder)#}
-        var regex = /^[a-zA-Z0-9-_]{2,32}$/;
+        var regex = /^[a-zA-Z0-9-_]{2,64}$/;
         var valid_name = nonEmpty(attrs.name) && regex.test(attrs.name);
 
         if (!valid_name) {
