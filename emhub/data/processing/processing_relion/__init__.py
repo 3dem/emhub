@@ -519,7 +519,7 @@ class RelionSessionData(SessionData):
         }
 
     @classmethod
-    def get_classes2d_data(self, pattern):
+    def get_classes2d_data(cls, pattern):
         """ Get classes information from a relion *classes.mrcs files pattern. """
         items = []
         if files := glob(pattern):

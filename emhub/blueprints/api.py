@@ -906,6 +906,8 @@ def update_entry():
         entry = app.dm.get_entry_by(id=attrs['id'])
         old_files = set(app.dm.get_entry_files(entry))
         save_entry_files(entry, attrs['extra']['data'])
+        # There is a validation about the entry type
+        attrs['type'] = entry.type
         entry = app.dm.update_entry(**attrs)
         new_files = set(app.dm.get_entry_files(entry))
         clean_files(old_files - new_files)

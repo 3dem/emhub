@@ -35,12 +35,24 @@ def main():
     args = p.parse_args()
 
     instance_path = os.path.join(cwd, '.emhub_instance')
+
     if not os.path.exists(instance_path):
+        print(Color.bold("Creating EMhub instance at: "))
+        print(Color.warn("    " + instance_path))
+
         dm = create_instance(instance_path, MINIMAL_JSON, False)
+
+        with open(os.path.join(instance_path, 'config.py'), 'w') as config:
+            config.write(f'PROCESSING_PROJECT = "{cwd}"\n')
+
         project = dm.get_projects()[0]  # get first project
         dm.create_entry(project_id=project.id,
                         type='data_processing',
                         extra={"data": {"project_path": cwd}})
+
+    else:
+        print(Color.bold("Loading EMhub instance from: "))
+        print(Color.green("    " + instance_path))
 
     Process.system(f"source {instance_path}/bashrc && "
                    f"flask run --debug --port {args.port}")

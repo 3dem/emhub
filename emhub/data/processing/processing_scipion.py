@@ -366,8 +366,9 @@ class ScipionSessionData(SessionData):
                             classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
                                                       for row in table if row.rlnEstimatedResolution < 30]
                             break
-            runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra')
-            classes2d['items'] = RelionSessionData.get_classes2d_from_run(runFolder)
+            runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra',
+                                     '*_classes.mrcs')
+            classes2d['items'] = RelionSessionData.get_classes2d_data(runFolder)
 
         return classes2d
 
