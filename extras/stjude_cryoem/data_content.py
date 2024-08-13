@@ -95,14 +95,17 @@ def register_content(dc):
             'session_name_prefix': f'{dateStr}{b.resource.name}:',
             'otf_hosts': otf['hosts'],
             'otf_host_default': otf['hosts_default'][micName],
+            'otf2d_host_default': otf['hosts_default_2d'][micName][0],
+            'otf2d_gpus_default': otf['hosts_default_2d'][micName][1],
             'workflows': otf['workflows'],
             'workflow_default': otf['workflow_default'],
             'transfer_host': transfer_host,
             'cryolo_models': {_key(cm): cm for cm in cryolo_models}
         }
         data.update(dc.get_user_projects(b.owner, status='active'))
-        frames = workers_frames(hours=10)['folderGroups']
-        data['frame_folders'] = r['entries'] if transfer_host in frames else []
+        groups = workers_frames(hours=10)['folderGroups']
+        frames = groups.get(transfer_host, {'entries': []})
+        data['frame_folders'] = frames['entries']
         return data
 
     @dc.content

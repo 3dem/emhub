@@ -30,10 +30,6 @@
                     <li class="nav-item">
                         <a class="nav-link active" id="session-general-tab" data-toggle="tab" href="#session-general" role="tab" aria-controls="current" aria-selected="true">General</a>
                     </li>
-{##}
-{#                    <li class="nav-item">#}
-{#                        <a class="nav-link" id="session-acq-tab" data-toggle="tab" href="#session-acq" role="tab" aria-controls="past" aria-selected="false">Acquisition</a>#}
-{#                    </li>#}
 
                     {% if is_admin %}
                     <li class="nav-item">
@@ -123,10 +119,6 @@
 
                     </div>
 
-{#                <div class="tab-pane fade" id="session-acq" role="tabpanel" aria-labelledby="session-acq-tab">#}
-{##}
-{#                </div>#}
-
                 {% if is_admin %}
                     <div class="tab-pane fade" id="session-advanced" role="tabpanel" aria-labelledby="session-advanced-tab">
                         {{ macros.session_dialog_row('RAW data folder', 'raw_folder', '', 'Provide RAW data folder') }}
@@ -165,6 +157,23 @@
                                     </select>
                                 </div>
                             </div>
+
+                            <!-- OTF-2D host -->
+                            <div class="form-group row ">
+                                <label class="col-12 col-sm-3 col-form-label text-sm-right">OTF_2D Host</label>
+                                <div class="col-12 col-sm-8 col-lg-6">
+                                   <select id="otf2d_host-select" class="selectpicker" data-key="otf2d_host">
+                                        {% for h in otf_hosts %}
+                                            {% set selected = 'selected' if h == otf2d_host_default else '' %}
+                                            <option value="{{ h }}" {{ selected }}>{{ h }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- OTF-2D gpus -->
+                            {{ macros.session_dialog_row('OTF_2D GPUs', 'otf2d_gpus', otf2d_gpus_default, 'Provide GPUs to use for OTF 2D') }}
+
                     </div>
                 {% endif %}
 
@@ -210,7 +219,7 @@
             },
         }
 
-        // Raw folder is provided only for speciall debugging cases
+        // Raw folder is provided only for special debugging cases
         // then, no transfer task will be schedule and the session name
         // will be taken from the raw path
         let sessionName = nonEmpty(formValues.raw_folder) ? formValues.raw_folder.split('/').pop() : formValues.session_name;
@@ -218,21 +227,24 @@
         if (nonEmpty(sessionName)) {
             attrs.name = sessionName;
             otf_host = getObjectValue(formValues, 'otf_host', otf_host_default);
-            var otf_task = ["otf", otf_host];
+            var otf2d_host = getObjectValue(formValues, 'otf2d_host', otf2d_host_default);
+            var otf2d_gpus = getObjectValue(formValues, 'otf2d_gpus', otf2d_gpus_default);
+            var otf_task = [otf_host, {action: "otf"}];
+            var otf2d_task = [otf2d_host, {action: "otf2d", gpus: otf2d_gpus}]
 
             if (!formValues.raw_folder){
                 attrs.extra = {
                     raw: {},
                     project_id: formValues.project_id,
                 }
-                attrs.tasks = [["transfer", transfer_host], otf_task]
+                attrs.tasks = [[transfer_host, {action:"transfer"}], otf_task, otf2d_task]
             }
             else {
                 attrs.extra = {
                     raw: {path: formValues.raw_folder},
                     project_id: formValues.project_id
                 }
-                attrs.tasks = [["monitor", otf_host], otf_task]
+                attrs.tasks = [[otf_host, {action:"monitor"}], otf_task, otf2d_task]
             }
 
             if (!formValues.otf_folder)

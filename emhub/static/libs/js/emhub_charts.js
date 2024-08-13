@@ -571,8 +571,8 @@ class MicrographCard {
                 $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
                 $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
                 $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
-                if (nonEmpty(data['ctfPlot']))
-                    create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
+                // if (nonEmpty(data['ctfPlot']))
+                //     create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
             }
             else {
                 let uva = data['ctfDefocusU'] + ', ' + data['ctfDefocusV'] + ', ' + data['ctfDefocusAngle'];

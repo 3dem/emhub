@@ -573,6 +573,66 @@ class SessionTaskHandler(TaskHandler):
             self.error(Color.red("Error: %s" % str(e)))
         self.update_task({'msg': 'Forced to stop ', 'done': 1})
 
+    def otf2d(self):
+        extra = self.session['extra']
+        raw = extra['raw']
+        self.update_session = True  # update session to check for new images
+
+        # Stop all OTF tasks running in this worker
+        if 'stop' in self.task['args']:
+            pass
+            # todo stop otf2d for this session
+
+        try:
+            n = raw.get('movies', 0)
+            raw_path = raw.get('path', '')
+            raw_exists = os.path.exists(raw_path)
+            # logger = self.logger
+            otf = extra['otf']
+            otf_path = otf['path']
+            otf_exists = os.path.exists(otf_path)
+
+            if otf_exists:
+                self.launch_otf2d()
+                self.update_task({'otf_path': otf['path'],
+                                  'otf_status': otf['status'],
+                                  'count': self.count})
+                self.update_session = False  # after launching no need to update
+            else:
+                self.update_task({'count': self.count})
+
+        except Exception as e:
+            self.worker.logger.exception(e)
+            self.update_task({
+                'error': f'Exception {str(e)}',
+                'done': 1
+            })
+            self.stop()
+    def launch_otf2d(self):
+        """ Launch 2D-OTF for a session. """
+        self.info(f"Running OTF-2D")
+        otf = self.session['extra']['otf']
+        otf_path = otf['path']
+        command = f"cd '{otf_path}' && scipion-otf --continue_2d 0 1 --dry"
+        self.pl.system(cmd + ' &')
+
+    def stop_otf2d(self):
+        """ Stop the thread that is doing OTF-2D for a given session. """
+        self.stop()
+        otf = self.session['extra']['otf']
+        otf_path = otf.get('path', '')
+        try:
+            if otf_path:
+                processes = Process.ps('scipion', workingDir=otf['path'], children=True)
+                for folder, procs in processes.items():
+                    self.info(f"Killing processes for Session {self.session['id']}")
+                    for p in procs:
+                        p.kill()
+            otf['status'] = 'stopped'
+            self.update_session_extra({'otf': otf})
+        except Exception as e:
+            self.error(Color.red("Error: %s" % str(e)))
+        self.update_task({'msg': 'Forced to stop ', 'done': 1})
 
 class FramesTaskHandler(TaskHandler):
     """ Monitor frames folder located at
