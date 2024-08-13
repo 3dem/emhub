@@ -103,9 +103,13 @@ class ScipionRun(SessionRun):
         data_values = {}
 
         ctfsSqlite = self.join('ctfs.sqlite')
+        coordsSqlite = self.join('coordinates.sqlite')
+
         if os.path.exists(ctfsSqlite):
             overview['template'] = 'processing_ctf_overview.html'
             data_values = self._load_ctfvalues(ctfsSqlite, index=True)
+        elif os.path.exists(coordsSqlite):
+            overview['template'] = 'processing_ctf_overview.html'
 
         if data_values:
             overview['data'] = {'data_values': data_values}

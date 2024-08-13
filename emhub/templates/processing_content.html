@@ -213,7 +213,7 @@
             //alert(JSON.stringify(data));
             if ('json' in run_data) {
                 runDict = run_data['json']
-                jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
+                //jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
                 if (selected_node.type in forms) {
                     form_data = forms[selected_node.type]
                     //jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
@@ -247,7 +247,7 @@
                 {#$('#numberOfMpi').val(values.numberOfMpi);#}
 
                 form_create(form_data, values, 'run_form_container');
-                //jsonEditor.setValue(JSON.stringify(form_data, null, 4));
+                jsonEditor.setValue(JSON.stringify(values, null, 4));
             }
 
             if ('stdout' in run_data)
