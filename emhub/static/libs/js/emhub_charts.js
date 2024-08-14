@@ -482,9 +482,24 @@ class Overlay {
 }
 
 
-class MicrographCard {
-    constructor(containerId, params, gsCard) {
+class Card {
+    constructor(containerId) {
         this.containerId = containerId;
+    }
+
+    id(suffix) {
+        return this.containerId + '_' + suffix;
+    }
+
+    jid(suffix) {
+        return '#' + this.id(suffix)
+    }
+} // class Card
+
+
+class MicrographCard extends Card {
+    constructor(containerId, params, gsCard) {
+        super(containerId);
         this.overlay = new Overlay(this.id('overlay'));
         this.gsCard = gsCard;
         // Parameters used to load the micrograph data
@@ -509,14 +524,6 @@ class MicrographCard {
         $(self.jid('show_particles')).change(function() {
             self.drawMicrograph();
         });
-    }
-
-    id(suffix) {
-        return this.containerId + '_' + suffix;
-    }
-
-    jid(suffix) {
-        return '#' + this.id(suffix)
     }
 
     drawMicrograph() {
@@ -597,19 +604,11 @@ class MicrographCard {
 }
 
 
-class GridSquareCard {
+class GridSquareCard extends Card {
     constructor(containerId) {
-        this.containerId = containerId;
+        super(containerId);
         this.overlay = new Overlay(this.id('overlay'));
         this.last = null;
-    }
-
-    id(suffix) {
-        return this.containerId + '_' + suffix;
-    }
-
-    jid(suffix) {
-        return '#' + this.id(suffix)
     }
 
     loadData(gridSquare) {
@@ -645,6 +644,115 @@ class GridSquareCard {
           alert("GridSquare request failed: " + textStatus );
           self.overlay.hide();
         });
+    }
+
+}  // class GridSquareCard
+
+class PlotCard extends Card {
+    constructor(containerId, dataDict) {
+        super(containerId);
+        let self = this;
+        this.dataDict = dataDict;
+        this.set_default('labelX-select', 'default_x')
+        this.set_default('labelY-select', 'default_y')
+        this.set_default('labelColor-select', 'default_color')
+
+         $(this.jid('update-plots-btn')).on('click', function (e) {
+            self.makePlots();
+         });
+    }
+
+    set_default(selectId, valueKey){
+        let value = this.dataDict[valueKey]
+        if (nonEmpty(value)) {
+            $(this.jid(selectId)).selectpicker('val', value);
+        }
+    }
+    makePlots() {
+        //$('#update-plots-btn').toggleClass('btn-dark btn-outline-dark');
+        let self = this;
+        let label_x = $(this.jid('labelX-select')).selectpicker('val');
+        let data_x = this.dataDict[label_x].data;
+
+        let label_y = $(this.jid('labelY-select')).selectpicker('val');
+        let data_y = this.dataDict[label_y].data;
+
+        let label_color = $(this.jid('labelColor-select')).selectpicker('val');
+        let data_color = this.dataDict[label_color].data;
+
+        let colorscale = [[0.0, '#440154'], [0.1111111111111111,
+                                            '#482878'], [0.2222222222222222,
+                                            '#3e4989'], [0.3333333333333333,
+                                            '#31688e'], [0.4444444444444444,
+                                            '#26828e'], [0.5555555555555556,
+                                            '#1f9e89'], [0.6666666666666666,
+                                            '#35b779'], [0.7777777777777778,
+                                            '#6ece58'], [0.8888888888888888,
+                                            '#b5de2b'], [1.0, '#fde725']];
+        var data = [
+            {'fillcolor': 'white',
+                  'marker': {'color': data_color,
+                             'colorscale': 'Portland',
+                             'opacity': 0.75,
+                                'size': 10,
+                             'showscale': true},
+                  'mode': 'markers',
+                  'type': 'scattergl',
+                  'x': data_x,
+                  'y': data_y },
+             {'marker': {'color': 'cornflowerblue', 'opacity': 0.5},
+              'name': label_x,
+              'type': 'violin',
+              'x': data_x,
+              'yaxis': 'y2'},
+             {'marker': {'color': 'cornflowerblue', 'opacity': 0.5},
+              'name': label_y,
+              'type': 'violin',
+              'xaxis': 'x2',
+              'y': data_y}
+        ];
+
+        var layout = {'bargap': 0,
+           'hovermode': 'closest',
+           'margin': {'t': 50, 'l': 0, 'r': 0},
+           'autosize': true,
+           'plot_bgcolor': 'rgba(0,0,0,0)',
+           'showlegend': false,
+           'template': '...',
+           'xaxis': {'domain': [0, 0.85], 'gridcolor': '#CBCBCB', 'title': {'text': label_x}, 'zeroline': true},
+           'xaxis2': {'domain': [0.85, 1], 'showgrid': true, 'zeroline': false},
+           'yaxis': {'domain': [0, 0.85],
+                     'gridcolor': '#CBCBCB',
+                     'title': {'text': label_y},
+                     'zeroline': true},
+           'yaxis2': {'domain': [0.85, 1], 'showgrid': true, 'zeroline': false}};
+
+        Plotly.newPlot(self.id('plotDiv'), data, layout);
+        let graphDiv = document.getElementById(self.id('plotDiv'));
+
+        graphDiv.on('plotly_selected', function(eventData) {
+            if (!eventData) {
+                $('#selection-label').text("No points selected.");
+                $('#export-btn').hide();
+                return;
+            }
+            let points = eventData.points;
+            $(self.jid('selection-label')).html("Selected <label style='color: firebrick; font-size: medium;'>" + points.length + "</label> points")
+            $(self.jid('export-btn')).show();
+        });
+
+        graphDiv.on('plotly_doubleclick', function(eventData) {
+            alert('click');
+        });
+
+        graphDiv.on('plotly_click', function(eventData) {
+            let index = eventData.points[0].pointNumber;
+            if (self.onPointClick) {
+                self.onPointClick(index);
+            }
+            //
+        });
+
     }
 
 }  // class GridSquareCard

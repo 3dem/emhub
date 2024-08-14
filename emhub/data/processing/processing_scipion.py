@@ -103,7 +103,7 @@ class ScipionRun(SessionRun):
         data_values = {}
 
         ctfsSqlite = self.join('ctfs.sqlite')
-        coordsSqlite = self.join('coordinates.sqlite')
+        coordsSqlite = self.join('formgroup.sqlite')
 
         if os.path.exists(ctfsSqlite):
             overview['template'] = 'processing_ctf_overview.html'
@@ -142,7 +142,10 @@ class ScipionRun(SessionRun):
                 'label': 'Resolution',
                 'unit': 'Å',
                 'data': []
-            }
+            },
+            'default_y': 'ctfResolution',
+            'default_x': '',
+            'default_color': 'ctfDefocusV'
         }
         indexes = []
         with SqliteFile(ctfsSqlite) as sf:
@@ -157,6 +160,7 @@ class ScipionRun(SessionRun):
                 'label': 'Id',
                 'data': indexes
             }
+            data_values['default_x'] = 'id'
 
         return data_values
 
@@ -187,8 +191,8 @@ class ScipionSessionData(SessionData):
                 outputs['movies'] = r
             elif r.endswith('ctfs.sqlite'):
                 outputs['ctfs'] = r
-            elif r.endswith('coordinates.sqlite'):
-                outputs['coordinates'] = r
+            elif r.endswith('formgroup.sqlite'):
+                outputs['formgroup'] = r
             elif r.endswith('classes2D.sqlite'):
                 outputs['classes2d'].append(r)
 
@@ -239,7 +243,7 @@ class ScipionSessionData(SessionData):
         return {
             'movies': msEpu or self._stats_from_output('movies'),
             'ctfs': self._stats_from_output('ctfs', fileKey='_psdFile'),
-            'coordinates': self._stats_from_output('coordinates'),
+            'formgroup': self._stats_from_output('formgroup'),
             'classes2d': len(self.outputs['classes2d'])
         }
 
@@ -315,8 +319,8 @@ class ScipionSessionData(SessionData):
                 data.update({
                     'micThumbData': micThumbBase64,
                     'psdData': psdThumb.from_mrc(psdFn),
-                    # TODO: Retrieving coordinates from multiple micrographs is very slow now
-                    'coordinates': self.get_micrograph_coordinates(row['_micObj._micName']),
+                    # TODO: Retrieving formgroup from multiple micrographs is very slow now
+                    'formgroup': self.get_micrograph_coordinates(row['_micObj._micName']),
                     'micThumbPixelSize': pixelSize * micThumb.scale,
                     'pixelSize': pixelSize,
                     'gridSquare': loc['gs'],
@@ -381,7 +385,7 @@ class ScipionSessionData(SessionData):
         if self.all_coords is None:
             coords = defaultdict(lambda: [])
             with Timer():
-                if coordSqlite := self.outputs.get('coordinates', None):
+                if coordSqlite := self.outputs.get('formgroup', None):
                     with SqliteFile(coordSqlite) as sf:
                         for row in sf.iterTable('Objects', classes='Classes'):
                             coords[row['_micName']].append((row['_x'], row['_y']))
