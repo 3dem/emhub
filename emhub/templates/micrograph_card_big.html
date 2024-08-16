@@ -29,15 +29,8 @@
 
          <!-- PSD panel with CTF values -->
          <div class="row col-6 mt-2 ml-0 pl-2 mr-0 pr-0"  style="min-width: 350px;">
-
-            <div class="col-4 ml-0 pl-0 mr-0 pr-0">
-                <figure class="figure">
-                    <img class="img-fluid" id="{{ card_id }}_img_psd" src="">
-                </figure>
-            </div>
-
-            <div class="col-8 mr-0 pr-0">
-                    <div class="input-group input-group-sm mb-3">
+            <div class="col-12 ml-0 pl-0 mr-0 pr-0">
+                <div class="input-group input-group-sm mb-3">
                       <div class="input-group-prepend">
                         <h5 class="input-group-text" id="{{ card_id }}_inputGroup-sizing-sm" style="font-size: 13px">Micrograph</h5>
                       </div>
@@ -47,6 +40,16 @@
                             <a id="{{ card_id }}_mic_right"><i class="fas fa-arrow-circle-right"></i></a>
                        </div>
                     </div>
+            </div>
+
+            <div class="col-4 ml-0 pl-0 mr-0 pr-0">
+                <figure class="figure">
+                    <img class="img-fluid" id="{{ card_id }}_img_psd" src="">
+                </figure>
+            </div>
+
+            <div class="col-8 mr-0 pr-0">
+
 
                     <div class="col-12 mt-1">
                          {{ mic_row('Defocus U (µm)', '', card_id + '_mic_defocus_u') }}
@@ -66,7 +69,7 @@
                      </div>
             </div>
 
-             <div class="row col-12 mt-2 ml-3 mr-3" style="min-height: 400px">
+             <div class="row col-12 mt-2 ml-3 mr-3" style="min-height: 300px">
                 <div id="{{ card_id }}_ctf_plot"></div>
             </div>
 

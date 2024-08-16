@@ -410,10 +410,14 @@ function drawMicrograph(containerId, micrograph, drawCoordinates) {
 
     image.onload = function() {
         if (canvas.height != image.height) {
-            canvas.height = image.height;
-            canvas.width = image.width;
+            let image_ratio = image.width / parseFloat(image.height);
+            canvas.height = canvas.width / image_ratio;
+            //canvas.width = image.width;
             canvas_ratio = canvas.width / parseFloat(canvas.height);
         }
+        console.log("containerId: "+ containerId);
+        console.log("canvas.width: " + canvas.width);
+        console.log("image.width: " + image.width);
 
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
@@ -564,7 +568,12 @@ class MicrographCard extends Card {
                 self.gsCard.loadData(data.gridSquare);
             }
 
-            $(self.jid('img_psd')).attr('src', 'data:image/png;base64,' + data.psdData);
+            if (data.psdData) {
+                $(self.jid('img_psd')).attr('src', 'data:image/png;base64,' + data.psdData);
+            }
+            else
+                $(self.jid('img_psd')).hide();
+
             function setLabel(containerId, value){
                 var elem = document.getElementById(containerId);
                 var parts = elem.innerHTML.split(":");
@@ -1207,6 +1216,45 @@ function create_hc_sessions_histogram(containerId, data) {
 });
 } // function hc_create_histogram
 
+
+function create_hc_motionplot() {
+    var seriesData = [[100, 29.9], [150,71.5], [300,106.4]];
+    var plotLines = [];
+    var step = 100;
+    var N = 500;
+
+    for (var i = 0; i <= N; i+=step) {
+    		plotLines.push({
+        	value: i, // Value of where the line will appear
+          width: 1 // Width of the line
+        });
+    }
+
+    Highcharts.chart(containerId, {
+        chart: {
+        //height: 700,
+            style: "dash",
+    		height: "100%",
+        //margin: 50
+        },
+        xAxis: {
+        		min: 0,
+            max: N,
+            tickInterval: step,
+            plotLines: plotLines
+        },
+        yAxis: {
+        		min: 0,
+            max: N,
+            tickInterval: step,
+        },
+
+        series: [{
+            data: seriesData
+        }]
+    });
+} // function create_hc_motionplot
+
 function create_pl_ctfplot(containerId, ctfvalues) {
     // var trace = {
     //   x: ctfvalues[0],
@@ -1242,7 +1290,7 @@ function create_pl_ctfplot(containerId, ctfvalues) {
     // var data = [trace, trace2, trace3];
 
     var layout = {
-      showlegend: true,
+        showlegend: true,
         autoscale: true,
         margin: {'t': 0, 'l': 10, 'r': 50},
     };

@@ -173,7 +173,26 @@ class RelionRun(SessionRun):
         summary = {'template': '', 'data': {}}
         data_values = None
 
-        if self.className == 'ctffind':
+        if self.className == 'motioncorr':
+            summary['template'] = 'processing_ctf_summary.html'
+            data_values = {}
+            columns = ['rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate']
+            for col in columns:
+                data_values[col] = {
+                    'label': col,
+                    'color': '#852999',
+                    'data': []
+                }
+
+            with StarFile(self.join('corrected_micrographs.star')) as sf:
+                for row in sf.iterTable('micrographs'):
+                    print(row, type(row))
+
+                    for col in columns:
+                        d = row._asdict()
+                        data_values[col]['data'].append(d[col])
+
+        elif self.className == 'ctffind':
             summary['template'] = 'processing_ctf_summary.html'
             data_values = self._load_ctfvalues()
 
@@ -240,42 +259,48 @@ class RelionRun(SessionRun):
             otable = sf.getTable('optics')
             row = sf.getTableRow('micrographs', micId - 1)
             micThumb = Thumbnail.Micrograph()
-            psdThumb = Thumbnail.Psd()
             micFn = self.project.join(row.rlnMicrographName)
             micThumbBase64 = micThumb.from_mrc(micFn)
-            psdFn = self.project.join(row.rlnCtfImage).replace(":mrc", "")
             pixelSize = otable[0].rlnMicrographPixelSize
-            ctfProfile = psdFn.replace('.ctf', '_avrot.txt')
 
-            if os.path.exists(ctfProfile):
-                with open(ctfProfile) as f:
-                    ctfPlot = [line.split() for line in f
-                               if not line.startswith('#')]
-            else:
-                ctfPlot = []
-
-            print(f"PSD: {row.rlnMicrographName}")
-
-            return {
+            micData = {
                 'micThumbData': micThumbBase64,
-                'psdData': psdThumb.from_mrc(psdFn),
-                'ctfDefocusU': round(row.rlnDefocusU / 10000., 2),
-                'ctfDefocusV': round(row.rlnDefocusV / 10000., 2),
-                'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
-                'ctfAstigmatism': round(row.rlnCtfAstigmatism / 10000, 2),
-                'ctfResolution': round(row.rlnCtfMaxResolution, 2),
                 'coordinates': [],  # Check for picking
                 'micThumbPixelSize': pixelSize * micThumb.scale,
                 'pixelSize': pixelSize,
                 'gridSquare': '',
-                'foilHole': '',
-                'ctfPlot': ctfPlot
+                'foilHole': ''
             }
+
+            if hasattr(row, 'rlnCtfImage'):
+                psdThumb = Thumbnail.Psd()
+                psdFn = self.project.join(row.rlnCtfImage).replace(":mrc", "")
+                ctfProfile = psdFn.replace('.ctf', '_avrot.txt')
+
+                if os.path.exists(ctfProfile):
+                    with open(ctfProfile) as f:
+                        ctfPlot = [line.split() for line in f
+                                   if not line.startswith('#')]
+                else:
+                    ctfPlot = []
+
+                micData.update({
+                    'psdData': psdThumb.from_mrc(psdFn),
+                    'ctfDefocusU': round(row.rlnDefocusU / 10000., 2),
+                    'ctfDefocusV': round(row.rlnDefocusV / 10000., 2),
+                    'ctfDefocusAngle': round(row.rlnDefocusAngle, 2),
+                    'ctfAstigmatism': round(row.rlnCtfAstigmatism / 10000, 2),
+                    'ctfResolution': round(row.rlnCtfMaxResolution, 2),
+                    'ctfPlot': ctfPlot
+                })
+
+            return micData
 
     def get_micrograph_data(self, micId):
         data = {}
         micsStar = None
-
+        if self.className == 'motioncorr':
+            data = self._load_micrograph_data(micId, self.join('corrected_micrographs.star'))
         if self.className == 'ctffind':
             data = self._load_micrograph_data(micId, self.join('micrographs_ctf.star'))
         elif self.className == 'autopick':
