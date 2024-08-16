@@ -4,30 +4,28 @@
 <div class="col-12 m-0 p-0" id="classes2d_plot">
     {{ macros.overlay('overlay_classes2d') }}
     <div class="row col-12 m-0 p-0">
-            <div id="distr-iter-plot" class="col-6"></div>
-            <div id="distr-overall-plot" class="col-6"></div>
-        <div class="row col-12 m-0 p-0 mt-2" id="classes2d_container"></div>
+        <div class="row col-8 m-0 p-0 mt-2" id="classes2d_container"></div>
+            <div id="distr-iter-plot" class="col-4"></div>
+{#            <div id="distr-overall-plot" class="col-6"></div>#}
+
     </div>
 </div>
 
 <script>
     var iterations = {{ data_values['iterations']|tojson }};
     var classes2d = null;
-    var attrs = {
-        path: {{ processing_project.path|tojson }},
-        run_id: {{ run.id|tojson }}
-    };
+    var args = getArgs();
 
     var overlay_2d = null;
 
     function load_classes2d(){
-        overlay_2d.show("Loading Class2D, run " + attrs.runId);
+        overlay_2d.show("Loading Class2D, run " + args.runId);
         // Update template values
         var ajaxContent = $.ajax({
             url: Api.urls.get_classes2d,
             type: "POST",
             //contentType: 'application/json; charset=utf-8',
-            data: attrs,
+            data: args,
             dataType: "json"
         });
 
@@ -159,7 +157,7 @@
         overlay_2d = new Overlay('overlay_classes2d');
 
         load_classes2d();
-        plot_distribution_overall();
+        //plot_distribution_overall();
 });
 })(window, document, window.jQuery);
 </script>

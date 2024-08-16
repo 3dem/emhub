@@ -168,6 +168,11 @@
         });
     })(window, document, window.jQuery);
 
+    function setLoading(containerId) {
+        var loadingHtml = '<div class="row align-items-start ml-3 mt-3"><div class="row"><h3 class="mt-2 mr-3 text-black-50">Loading...</h3><div class="spinner-border ml-auto" role="status" aria-hidden="true"></div></div></div>';
+          // Set loading message and load summary page
+          $('#' + containerId).html(loadingHtml);
+    }
 
     function clickOnCanvas(params){
         var  nodeId = params.nodes[0];
@@ -187,11 +192,13 @@
               stderrEditor.setValue('');
               jsonEditor.setValue('');
 
+              setLoading('run_form_container');
+              setLoading('summary_row');
+
               loadRun(['json']);
               loadRun(['stdout']);
               loadRun(['stderr']);
 
-              // Load summary page
               load_html_from_ajax('summary_row',
                   get_ajax_content('processing_run_summary', getArgs()));
           }

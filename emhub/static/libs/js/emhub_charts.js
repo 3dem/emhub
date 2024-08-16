@@ -402,7 +402,7 @@ function create_hc_hourly(containerId, data, title, subtitle){
 
 
 /* Draw the micrograph images with coordinates(optional) */
-function drawMicrograph(containerId, micrograph, drawCoordinates) {
+function drawMicrograph(containerId, micrograph, drawValue) {
     var canvas = document.getElementById(containerId);
     var ctx = canvas.getContext("2d");
 
@@ -411,30 +411,42 @@ function drawMicrograph(containerId, micrograph, drawCoordinates) {
     image.onload = function() {
         if (canvas.height != image.height) {
             let image_ratio = image.width / parseFloat(image.height);
+
+            canvas.width = image.width;
             canvas.height = canvas.width / image_ratio;
             //canvas.width = image.width;
-            canvas_ratio = canvas.width / parseFloat(canvas.height);
-        }
-        console.log("containerId: "+ containerId);
-        console.log("canvas.width: " + canvas.width);
-        console.log("image.width: " + image.width);
+            //canvas_ratio = canvas.width / parseFloat(canvas.height);
 
+        }
+        let canvas_image_ratio = canvas.width / parseFloat(image.width);
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-        if (!drawCoordinates || micrograph.coordinates.length == 0)
+
+        if (drawValue === 'none' || micrograph.coordinates.length == 0)
             return;
 
         ctx.fillStyle = '#00ff00';
+        ctx.strokeStyle = '#00ff00';
 
-        var scale = parseFloat(micrograph.pixelSize) / micrograph.thumbnailPixelSize;
+        // Adjust the scale of the coordinates taking into account two factors:
+        // 1) scale between the original micrograph and the thumbnail size
+        // 2) scale between the thumbnail and the canvas size
+        var scale =  canvas_image_ratio * parseFloat(micrograph.pixelSize) / (micrograph.thumbnailPixelSize);
         var coords = micrograph.coordinates;
 
         for (var i = 0; i < coords.length; ++i){
             var x = Math.round(coords[i][0] * scale);
             var y = Math.round(coords[i][1] * scale);
             ctx.beginPath();
-            ctx.arc(x, y, 2, 0, 2 * Math.PI);
-            ctx.fill();
+            if (drawValue === 'circle') {
+                ctx.arc(x, y, 10, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+            else {
+                ctx.arc(x, y, 2, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
         }
     };
 
@@ -525,14 +537,19 @@ class MicrographCard extends Card {
         });
 
         // Bind to on/off coordinates display
-        $(self.jid('show_particles')).change(function() {
+        // $(self.jid('show_particles')).change(function() {
+        //     self.drawMicrograph();
+        // });
+
+        $('input[name="' + self.id('pts_switch') + '"]').change(function() {
             self.drawMicrograph();
-        });
+        })
+
     }
 
     drawMicrograph() {
-       drawMicrograph(this.id('mic_canvas'), this.micrograph,
-           $(this.jid('show_particles')).prop('checked'));
+        let value = $('input[name="' + this.id('pts_switch') + '"]:checked').val();
+        drawMicrograph(this.id('mic_canvas'), this.micrograph, value);
     }
 
     loadMicData(micId, doneCallback) {
@@ -587,7 +604,7 @@ class MicrographCard extends Card {
                 $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
                 $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
                 $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
-                if (nonEmpty(data['ctfPlot']))
+                if ($(self.jid('ctf_plot')).length > 0 && nonEmpty(data['ctfPlot']))
                     create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
             }
             else {
@@ -596,7 +613,8 @@ class MicrographCard extends Card {
             }
 
             $(self.jid('mic_resolution')).text(data['ctfResolution']);
-            $(self.jid('particles')).text(micrograph.coordinates.length);
+            //$(self.jid('particles')).text(micrograph.coordinates.length);
+            $(self.jid('particles')).val(micrograph.coordinates.length);
 
             self.overlay.hide();
 

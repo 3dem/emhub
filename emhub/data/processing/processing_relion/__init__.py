@@ -116,13 +116,18 @@ class RelionRun(SessionRun):
         return self.join('run.err')
 
     def getInputsOutputs(self):
+        ios = {'inputs': [], 'outputs': []}
+
         with StarFile(self.join('job_pipeline.star')) as sf:
-            inputsTable = sf.getTable('pipeline_input_edges')
-            outputsTable = sf.getTable('pipeline_output_edges')
-            return {
-                'inputs': [row.rlnPipeLineEdgeFromNode for row in inputsTable],
-                'outputs': [row.rlnPipeLineEdgeToNode for row in outputsTable]
-            }
+            tables = sf.getTableNames()
+            if 'pipeline_input_edges' in tables:
+                inputsTable = sf.getTable('pipeline_input_edges')
+                ios['inputs'] = [row.rlnPipeLineEdgeFromNode for row in inputsTable]
+            if 'pipeline_output_edges' in tables:
+                outputsTable = sf.getTable('pipeline_output_edges')
+                ios['outputs'] = [row.rlnPipeLineEdgeToNode for row in outputsTable]
+
+        return ios
 
     def _load_ctfvalues(self, index=False):
         data_values = {
@@ -150,7 +155,9 @@ class RelionRun(SessionRun):
                 'label': 'Resolution',
                 'unit': 'Å',
                 'data': []
-            }
+            },
+            'default_y': 'rlnCtfMaxResolution',
+            'default_x': ''
         }
         indexes = []
         with StarFile(self.join('micrographs_ctf.star')) as sf:
@@ -158,13 +165,15 @@ class RelionRun(SessionRun):
                 indexes.append(i + 1)
                 rowDict = row._asdict()
                 for k, v in data_values.items():
-                    scale = v.get('scale', 1)
-                    v['data'].append(rowDict[k] * scale)
+                    if isinstance(v, dict):
+                        scale = v.get('scale', 1)
+                        v['data'].append(rowDict[k] * scale)
         if index:
-            data_values['index'] = {
-                'label': 'Index',
-                'data': indexes
-            }
+            data_values.update({
+                'index': {'label': 'Index', 'data': indexes},
+                'default_x': 'index'
+            })
+
         return data_values
 
     def getSummary(self):
@@ -196,31 +205,10 @@ class RelionRun(SessionRun):
             summary['template'] = 'processing_ctf_summary.html'
             data_values = self._load_ctfvalues()
 
-        elif self.className == 'autopick':
+        elif self.className in ['autopick', 'manualpick']:
             summary['template'] = 'processing_picking_summary.html'
-            data_values = {
-                'numberOfParticles': {
-                    'label': 'Particles',
-                    'color': '#852999',
-                    'data': []
-                },
-                'averageFOM': {
-                    'data': []
-                }
-            }
-            # TODO: Write this info in a star file to avoid recalculating all the time
-            pts = data_values['numberOfParticles']['data']
-            fom = data_values['averageFOM']['data']
-            with StarFile(self.join('autopick.star')) as sfCoords:
-                for row1 in sfCoords.iterTable('coordinate_files'):
-                    n = 0
-                    fomSum = 0
-                    with StarFile(self.project.join(row1.rlnMicrographCoordinates)) as sf:
-                        for row in sf.iterTable(''):
-                            n += 1
-                            fomSum += row.rlnAutopickFigureOfMerit
-                    pts.append(n)
-                    fom.append(fomSum / n)
+            coordStar = self.join(f'{self.className}.star')
+            data_values = self.project.load_coordinates_values(coordStar)
 
         elif self.className == 'class2d':
             summary['template'] = 'processing_2d_summary.html'
@@ -239,15 +227,16 @@ class RelionRun(SessionRun):
         return summary
 
     def getOverview(self):
-        """
-
-        """
         overview = {'template': '', 'data': {}}
         data_values = None
 
         if self.className == 'ctffind':
             overview['template'] = 'processing_ctf_overview.html'
             data_values = self._load_ctfvalues(index=True)
+        elif self.className in ['autopick', 'manualpick']:
+            overview['template'] = 'processing_ctf_overview.html'
+            coordStar = self.join(f'{self.className}.star')
+            data_values = self.project.load_coordinates_values(coordStar, index=True)
 
         if data_values:
             overview['data'] = {'data_values': data_values}
@@ -303,12 +292,14 @@ class RelionRun(SessionRun):
             data = self._load_micrograph_data(micId, self.join('corrected_micrographs.star'))
         if self.className == 'ctffind':
             data = self._load_micrograph_data(micId, self.join('micrographs_ctf.star'))
-        elif self.className == 'autopick':
+        elif self.className in ['autopick', 'manualpick']:
+            coordStar = self.join(f'{self.className}.star')
             for i in self.getInputsOutputs()['inputs']:
-                if i.endswith('micrographs_ctf.star'):
+                iBase = os.path.basename(i)
+                if iBase.startswith('micrographs'):
                     data = self._load_micrograph_data(micId, self.project.join(i))
                     data['coordinates'] = self.project.get_micrograph_coordinates(
-                        self.join('autopick.star'), micId)
+                        coordStar, micId)
                     break
         return data
 
@@ -529,6 +520,7 @@ class RelionSessionData(SessionData):
         return protList
 
     def get_run(self, runId):
+        print(">>> runId: ", runId)
         return RelionRun(self, self.join(runId))
 
     def get_classes2d_runs(self):
@@ -553,8 +545,7 @@ class RelionSessionData(SessionData):
             dataStar = avgMrcs.replace('_classes.mrcs', '_data.star')
             modelStar = dataStar.replace('_data.', '_model.')
             mrc_stack = None
-            avgThumb = Thumbnail(max_size=(100, 100),
-                                 output_format='base64')
+            avgThumb = Thumbnail(max_size=(128, 128), output_format='base64')
 
             with StarFile(dataStar) as sf:
                 n = sf.getTableSize('particles')
@@ -576,25 +567,58 @@ class RelionSessionData(SessionData):
 
         return items
 
-
-    def get_coords_from_star(self, starFn):
-        """ Return x,y coordinates from a given star file,
-        from the root of the project. """
-        coords = []
-        starPath = self.join(starFn)
-
-        with StarFile(self.join(starPath)) as sf:
-            for row in sf.iterTable(''):
-                coords.append((round(row.rlnCoordinateX),
-                               round(row.rlnCoordinateY)))
-        return coords
+    def coords_from_row(self, row):
+        """ Iterate coordinates from a row containing the STAR file
+         path with the coordinates. """
+        coordStar = self.join(row.rlnMicrographCoordinates)
+        with StarFile(coordStar) as sf:
+            for c in sf.iterTable(''):
+                yield c
 
     def get_micrograph_coordinates(self, pickStar, micId):
         with StarFile(self.join(pickStar)) as sf:
             for i, row in enumerate(sf.iterTable('coordinate_files')):
-                if i == micId:
-                    return self.get_coords_from_star(row.rlnMicrographCoordinates)
+                if i == micId - 1:
+                    return [(round(c.rlnCoordinateX), round(c.rlnCoordinateY))
+                            for c in self.coords_from_row(row)]
         return []
+
+    def load_coordinates_values(self, coordStar, index=False):
+        data_values = {
+            'numberOfParticles': {
+                'label': 'Particles',
+                'color': '#852999',
+                'data': []
+            },
+            'averageFOM': {
+                'data': []
+            },
+            'default_y': 'numberOfParticles',
+            'default_color': 'averageFOM'
+        }
+        # TODO: Write this info in a star file to avoid recalculating all the time
+        pts = data_values['numberOfParticles']['data']
+        fom = data_values['averageFOM']['data']
+        indexes = []
+
+        with StarFile(coordStar) as sf:
+            for i, row in enumerate(sf.iterTable('coordinate_files')):
+                indexes.append(i + 1)
+                n = 0
+                fomSum = 0
+                for c in self.coords_from_row(row):
+                    n += 1
+                    fomSum += c.rlnAutopickFigureOfMerit
+                pts.append(n)
+                fom.append(fomSum / n)
+
+        if index:
+            data_values.update({
+                'index': {'label': 'Index', 'data': indexes},
+                'default_x': 'index'
+            })
+
+        return data_values
 
     # ----------------------- UTILS ---------------------------
     def _jobs(self, jobType):
