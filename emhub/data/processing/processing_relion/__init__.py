@@ -249,46 +249,59 @@ class RelionRun(SessionRun):
 
     def getFileInfo(self, **kwargs):
         path = kwargs['file_path']
-        data = {
-            'data_values': {},
-            'file_path': path
-        }
-        result = {
-            'template': 'processing_star_overview.html',
-            'data': data
-        }
-
         if path.endswith('.star'):
-            starFile = self.project.join(path)
-            with StarFile(starFile) as sf:
-                if tn := kwargs.get('table_name', None):
-                    # only load rows for this table, not the all tables info
-                    ti = sf.getTableInfo(tn)
-                    data.update({
-                        'default_table': tn,
-                        'columns': ti.getColumnNames(),
-                        'rows': [r._asdict() for r in sf.iterTable(tn, limit=10)]
-                    })
-                    result['template'] = 'processing_star_card.html'
-                else:
-                    # load all tables info and default table rows
-                    tables = {}
-                    tableNames = sf.getTableNames()
-                    defaultTable = kwargs.get('default_table', tableNames[0])
-                    for tn in tableNames:
-                        ti = sf.getTableInfo(tn)
-                        tables[tn] = {
-                            'columns': ti.getColumnNames(),
-                            'rows': sf.getTableSize(tn)
-                        }
-                        if tn == defaultTable:
-                            data['default_table'] = defaultTable
-                            data['rows'] = [r._asdict() for r in sf.iterTable(tn, limit=10)]
-
-                        data['tables'] = tables
-
+            result = self._load_star_file(self.project.join(path), **kwargs)
+        elif path.endswith('.mrc'):
+            result = self._load_volume_file(self.project.join(path), **kwargs)
         else:
             raise Exception("File type not supported")
+
+        result['data']['file_path'] = path
+        return result
+
+    def _load_star_file(self, starFile, **kwargs):
+        result = {
+            'template': 'processing_star_overview.html',
+            'data': {}
+        }
+        data = result['data']  # shortcut
+
+        with StarFile(starFile) as sf:
+            if tn := kwargs.get('table_name', None):
+                # only load rows for this table, not the all tables info
+                ti = sf.getTableInfo(tn)
+                data.update({
+                    'default_table': tn,
+                    'columns': ti.getColumnNames(),
+                    'rows': [r._asdict() for r in sf.iterTable(tn, limit=10)]
+                })
+                result['template'] = 'processing_star_card.html'
+            else:
+                # load all tables info and default table rows
+                tables = {}
+                tableNames = sf.getTableNames()
+                defaultTable = kwargs.get('default_table', tableNames[0])
+                for tn in tableNames:
+                    ti = sf.getTableInfo(tn)
+                    tables[tn] = {
+                        'columns': ti.getColumnNames(),
+                        'rows': sf.getTableSize(tn)
+                    }
+                    if tn == defaultTable:
+                        data['default_table'] = defaultTable
+                        data['rows'] = [r._asdict() for r in sf.iterTable(tn, limit=10)]
+
+                    data['tables'] = tables
+
+        return result
+
+    def _load_volume_file(self, volumeFile, **kwargs):
+        result = {
+            'template': 'processing_volume_card.html',
+            'data': self.get_volume_data(volumeFile, volume_data='slices')
+        }
+
+        print(list(result['data']['slices'].keys()))
 
         return result
 
@@ -381,20 +394,19 @@ class RelionRun(SessionRun):
             volThumb = Thumbnail(max_size=(thumbSize, thumbSize),
                                  output_format='base64',
                                  min_max=(mrc.data.min(), mrc.data.max()))
-            slices = {}
             idx = np.round(np.linspace(0, xdim - 1, min(xdim, thumbSize))).astype(int)
 
             print('idx', idx)
 
             if axis == 'x':
-                for i in idx:
-                    slices = {int(i): volThumb.from_array(mrc.data[:, :, i])}
+                slices = {int(i): volThumb.from_array(mrc.data[:, :, i])
+                          for i in idx}
             elif axis == 'y':
-                for i in idx:
-                    slices = {i: volThumb.from_array(mrc.data[:, i, :])}
+                slices = {i: volThumb.from_array(mrc.data[:, i, :])
+                          for i in idx}
             else:
-                for i in idx:
-                    slices = {int(i): volThumb.from_array(mrc.data[i, :, :])}
+                slices = {int(i): volThumb.from_array(mrc.data[i, :, :])
+                          for i in idx}
 
             data.update({
                 'slices': slices,
@@ -408,6 +420,8 @@ class RelionRun(SessionRun):
         else:
             raise Exception('Unknown volume_data value: %s' % volume_data)
 
+        print(data.keys())
+        print("slices: ", data['slices'].keys())
         return data
 
 

@@ -1,0 +1,27 @@
+<div class="card">
+    <h4 class="card-header">Volume: {{ file_path }}</h4>
+    <div class="card-body p-0">
+
+        <div class="col-12 m-0 p-0" id="{{ card_id }}_volume-slices">
+        </div>
+
+    </div>
+</div>
+
+
+<script>
+    var file_path = {{ file_path|tojson }};
+    var slices = {{ slices|tojson }};
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
+            console.log(`${sliceIndex}: ${sliceImg.length}`);
+        }
+
+        drawVolData("{{ card_id }}_volume-slices", slices);
+
+});
+})(window, document, window.jQuery);
+</script>

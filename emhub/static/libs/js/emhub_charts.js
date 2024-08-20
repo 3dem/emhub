@@ -471,14 +471,20 @@ function drawClasses2d(containerId, classes, header, showSel){
 function drawVolData(containerId, volSlices){
     var container = document.getElementById(containerId);
     var imgStr, infoStr = null;
-    var html = '<div class="col-12"></div>';
+    var html = '<div class="col-12 row">';
 
-    for(let slice in volSlices) {
-        imgStr = '<img src="data:image/png;base64,' + volSlices[slice] + '" style="border: solid 3px;">';
-        infoStr = '<p class="text-muted mb-0"><small>' + slice + '</small></p>';
-        html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+    // for(let slice in volSlices) {
+    //     imgStr = '<img src="data:image/png;base64,' + volSlices[slice] + '" style="border: solid 3px;">';
+    //     infoStr = '<p class="text-muted mb-0"><small>' + slice + '</small></p>';
+    //     html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+    // }
+    for (const [sliceIndex, sliceImg] of Object.entries(volSlices)) {
+      //console.log(`${key}: ${value}`);
+        imgStr = '<img src="data:image/png;base64,' + sliceImg + '" style="border: solid 3px; width: 128px">';
+        infoStr = '<p class="text-muted mb-0"><small>' + sliceIndex + '</small></p>';
+        html += '<div style="padding: 1px; min-width: 128px;">' + imgStr + infoStr + '</div>';
     }
-    container.innerHTML = html;
+    container.innerHTML = html + '</div>';
 }
 
 class Overlay {

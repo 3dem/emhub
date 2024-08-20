@@ -6,7 +6,7 @@
         <div class="card p-0">
             <h4 class="card-header">All Tables</h4>
             <div class="card-body p-0">
-                <table id="table-all" class="table">
+                <table id="table-all" class="table" style="width: 100%">
                     <thead class="bg-light">
                     <tr class="border-0">
                         <th class="border-0"><h5>Table Name</h5></th>
@@ -39,7 +39,6 @@
 </div>
 
 <script>
-    var data_values = {{ data_values|tojson }};
     var file_path = {{ file_path|tojson }};
 
     (function(window, document, $, undefined) {
