@@ -216,11 +216,51 @@ class RelionRun(SessionRun):
             data_values = {'iterations': [1, 2, 3]}
 
         elif self.className == 'class3d':
-            summary['template'] = 'processing_3d_volumes.html'
-            ios = self.getInputsOutputs()
-            data_values = {
-                'volumes': [os.path.basename(o) for o in ios['outputs'] if o.endswith('.mrc')]
+            volumes = []
+            summary = {
+                'template': 'processing_volume_summary.html',
+                'data': {'volumes': volumes}
             }
+
+            ios = self.getInputsOutputs()
+            paths = [o for o in ios['outputs'] if o.endswith('.mrc')]
+
+            for p in paths:
+                volPath = self.project.join(p)
+                if os.path.exists(volPath):
+                    # TODO: Load other volumes when more than one class
+                    # or when the job is still running
+                    data = self.get_volume_data(volPath,
+                                                volume_data='slices',
+                                                axis='zyx',
+                                                slice_dim=64,
+                                                slice_number=32)
+                    volumes.append({
+                        'file_path': p,
+                        'slices': data['slices'],
+                        'slice_dim': 64
+                    })
+
+        elif self.className == 'initialmodel':
+            volumes = []
+            summary = {
+                'template': 'processing_volume_summary.html',
+                'data': {'volumes': volumes}
+            }
+            volPath = self.join('initial_model.mrc')
+            if os.path.exists(volPath):
+                #TODO: Load other volumes when more than one class
+                # or when the job is still running
+                data = self.get_volume_data(volPath,
+                                            volume_data='slices',
+                                            axis='zyx',
+                                            slice_dim=128,
+                                            slice_number=32)
+                volumes.append({
+                    'file_path': self.project.relpath(volPath),
+                    'slices': data['slices'],
+                    'slice_dim': 128
+                })
 
         if data_values:
             summary['data'] = {'data_values': data_values}
@@ -298,11 +338,11 @@ class RelionRun(SessionRun):
     def _load_volume_file(self, volumeFile, **kwargs):
         result = {
             'template': 'processing_volume_card.html',
-            'data': self.get_volume_data(volumeFile, volume_data='slices')
+            'data': self.get_volume_data(volumeFile,
+                                         volume_data='slices',
+                                         axis='zyx',
+                                         slice_number=32)
         }
-
-        print(list(result['data']['slices'].keys()))
-
         return result
 
     def _load_micrograph_data(self, micId, micsStar):
@@ -390,23 +430,33 @@ class RelionRun(SessionRun):
         elif volume_data == "slices":
             axis = kwargs.get('axis', 'z')
 
-            thumbSize = 128
-            volThumb = Thumbnail(max_size=(thumbSize, thumbSize),
+            slice_dim = kwargs.get('slice_dim', 128)
+            volThumb = Thumbnail(max_size=(slice_dim, slice_dim),
                                  output_format='base64',
                                  min_max=(mrc.data.min(), mrc.data.max()))
-            idx = np.round(np.linspace(0, xdim - 1, min(xdim, thumbSize))).astype(int)
+            if slice_number := kwargs.get('slice_number', None):
+                # Do not take slices from star/end since they are usually empty
+                n4 = np.round(xdim / 4)
+                idx = np.round(np.linspace(n4, xdim - n4, slice_number)).astype(int)
+                pass
+            else:
+                slice_number = min(xdim, slice_dim)
+                idx = np.round(np.linspace(0, xdim - 1, slice_number)).astype(int)
 
             print('idx', idx)
 
-            if axis == 'x':
-                slices = {int(i): volThumb.from_array(mrc.data[:, :, i])
-                          for i in idx}
-            elif axis == 'y':
-                slices = {i: volThumb.from_array(mrc.data[:, i, :])
-                          for i in idx}
-            else:
-                slices = {int(i): volThumb.from_array(mrc.data[i, :, :])
-                          for i in idx}
+            slices = {}
+
+            if 'x' in axis:
+                slices['x'] = {int(i): volThumb.from_array(mrc.data[:, :, i])
+                               for i in idx}
+            if 'y' in axis:
+                slices['y'] = {int(i): volThumb.from_array(mrc.data[:, i, :])
+                               for i in idx}
+
+            if 'z' in axis:
+                slices['z'] = {int(i): volThumb.from_array(mrc.data[i, :, :])
+                               for i in idx}
 
             data.update({
                 'slices': slices,

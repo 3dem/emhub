@@ -1,26 +1,58 @@
-<div class="card">
-    <h4 class="card-header">Volume: {{ file_path }}</h4>
-    <div class="card-body p-0">
+{% set card_id = card_id or 'vol_card' %}
 
-        <div class="col-12 m-0 p-0" id="{{ card_id }}_volume-slices">
+<div class="row">
+    <div class="col-4">
+    <div class="card ml-3">
+        <h4 class="card-header">Volume: {{ file_path }}</h4>
+        <div class="card-body" id="{{ card_id }}_vol_slider">
+        </div>
+    </div>
+    </div>
+
+    <div class="col-7">
+   <div class="card ml-3">
+        <h4 class="card-header">Volume: {{ file_path }}</h4>
+        <div class="card-body">
+            <div class="row">
+            <label class="mt-1 ml-4">Slice Axis: </label>
+            <div class="switch-field ml-2 mr-2">
+
+                 {% set radio_name = card_id + "_axis_switch" %}
+                <input type="radio" id="{{ radio_name }}-one" checked name="{{ radio_name }}" value="z"/>
+                <label for="{{ radio_name }}-one">Z</label>
+                <input type="radio" id="{{ radio_name }}-two" name="{{ radio_name }}" value="y" />
+                <label for="{{ radio_name }}-two">Y</label>
+                 <input type="radio" id="{{ radio_name }}-three"  name="{{ radio_name }}" value="x" />
+                <label for="{{ radio_name }}-three">X</label>
+            </div>
+            </div>
+
+            <div class="col" id="{{ card_id }}_volume-slices"></div>
+
         </div>
 
     </div>
 </div>
 
+</div>
+
+
 
 <script>
     var file_path = {{ file_path|tojson }};
     var slices = {{ slices|tojson }};
+    var isx, isy, isz = null;
 
     (function(window, document, $, undefined) {
     "use strict";
     $(function() {
-        for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
-            console.log(`${sliceIndex}: ${sliceImg.length}`);
-        }
+        drawVolData("{{ card_id }}_volume-slices", slices.z);
 
-        drawVolData("{{ card_id }}_volume-slices", slices);
+        var vs = new VolumeSliderCard("{{ card_id }}_vol_slider", slices);
+
+        $('input[name="{{ card_id }}_axis_switch"]').change(function () {
+                drawVolData("{{ card_id }}_volume-slices", slices[$(this).val()]);
+            })
 
 });
 })(window, document, window.jQuery);

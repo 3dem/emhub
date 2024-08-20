@@ -72,6 +72,9 @@ class SessionData:
     def join(self, *paths):
         return os.path.join(self._path, *paths)
 
+    def relpath(self, path):
+        return os.path.relpath(path, self._path)
+
     def getEpuData(self):
         if not self._epuData:
             epuFolder = self.join('EPU')

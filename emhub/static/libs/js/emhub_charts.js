@@ -487,6 +487,8 @@ function drawVolData(containerId, volSlices){
     container.innerHTML = html + '</div>';
 }
 
+
+
 class Overlay {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
@@ -507,6 +509,7 @@ class Overlay {
 class Card {
     constructor(containerId) {
         this.containerId = containerId;
+        this.container = document.getElementById(containerId);
     }
 
     id(suffix) {
@@ -517,6 +520,75 @@ class Card {
         return '#' + this.id(suffix)
     }
 } // class Card
+
+
+class ImageSliderCard extends Card {
+    constructor(containerId, slices, config) {
+        super(containerId);
+        let self = this;
+        this.indexes = [];
+        this.slices = slices;
+        this.slider_prefix = getObjectValue(config, 'slider_prefix', '');
+
+        const width = getObjectValue(config, 'slice_dim', 128);
+        var styleStr = '" style="width: ' + width + 'px"';
+        var html = '<div class="row"><div class="col-12"><img id="' + this.id('image') + styleStr + '></div>';
+
+        for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
+            this.indexes.push(sliceIndex);
+            //console.log(`${sliceIndex}: ${sliceImg.length}`);
+        }
+
+        const N = this.indexes.length;
+        html += '<div class="col-12"><input id="' + this.id('slider_input') + styleStr + '" type="range" min="0" value="0" max="' + (N - 1) + '" step="1"></div>';
+        html += '<div class="col-12"><div id="' + this.id('slider_text') + '"></div></div>';
+
+        this.container.innerHTML = html;
+
+        $(this.jid('slider_input')).on("input", function() {
+            self.setSlice($(this).val());
+        });
+
+        let initialSlice = getObjectValue(config, 'initial_slice', Math.floor(N / 2));
+        this.setSlice(initialSlice);
+
+    }
+
+    setSlice(sliceIndex) {
+        $(this.jid('slider_input')).val(sliceIndex);
+        const sliceNumber = this.indexes[sliceIndex];
+        const sliceImg = this.slices[sliceNumber];
+        var img = document.getElementById(this.id('image'));
+        img.src = "data:image/png;base64, " + sliceImg;
+        $(this.jid('slider_text')).text(this.slider_prefix + sliceNumber);
+    }
+}
+
+class VolumeSliderCard extends Card {
+    constructor(containerId, slices, config) {
+        super(containerId);
+        let self = this;
+        this.slices = slices;
+        const slice_dim = getObjectValue(config, 'slice_dim', 128);
+        const width = Math.floor(slice_dim * 1.2);
+
+        var html = '<div class="row">';
+        const styleStr = '" style="width: ' + width + 'px">';
+        html += '<div id="' + this.id('slider-z') + styleStr + '</div>';
+        html += '<div id="' + this.id('slider-y') + styleStr + '</div>';
+        html += '<div id="' + this.id('slider-x') + styleStr + '</div></div>';
+
+        this.container.innerHTML = html;
+
+        this.isz = new ImageSliderCard(this.id('slider-z'), slices.z,
+            {slider_prefix: 'Z slice: ', slice_dim: slice_dim});
+        this.isy = new ImageSliderCard(this.id('slider-y'), slices.y,
+            {slider_prefix: 'Y slice: ', slice_dim: slice_dim});
+        this.isx = new ImageSliderCard(this.id('slider-x'), slices.x,
+            {slider_prefix: 'X slice: ', slice_dim: slice_dim});
+
+    }
+}
 
 
 class MicrographCard extends Card {
