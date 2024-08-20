@@ -1,5 +1,6 @@
 
 <div class="card col-12" id="summary-div">
+
     <div class="card-body m-0 p-0">
         {% set ios = run.getInputsOutputs() %}
         <div class="row mt-2">
@@ -15,14 +16,11 @@
                 <h4>Outputs</h4>
                 <ul>
                     {% for o in ios['outputs'] %}
-                        <li>{{ o }}</li>
+                        <li><a href="javascript:loadRunFileInfo('{{ o }}')">{{ o }}</a></li>
                     {% endfor %}
                 </ul>
             </div>
         </div>
-
-
-
     </div>
 
 </div>

@@ -622,6 +622,15 @@ def get_classes2d():
     return send_json_data(classes)
 
 
+@api_bp.route("/get_file_info", methods=['POST'])
+def get_file_info():
+    """ Load 2d classification data. """
+    kwargs = request.form.to_dict()
+    project = app.dm.get_processing_project(**kwargs)['project']
+    file_info = project.get_file_info(kwargs['path'])
+    return send_json_data(file_info)
+
+
 def get_worker_token(worker):
     return jwt.encode(
         {'worker': worker},

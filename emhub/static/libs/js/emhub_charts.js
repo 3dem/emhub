@@ -460,7 +460,7 @@ function drawClasses2d(containerId, classes, header, showSel){
 
     for (var cls2d of classes) {
         let borderColor = showSel && cls2d.sel ? 'limegreen' : 'white';
-        imgStr = '<img src="data:image/png;base64,' + cls2d.average + '" style="border: solid 3px ' + borderColor + ';">';
+        imgStr = '<img width="100px" src="data:image/png;base64,' + cls2d.average + '" style="border: solid 3px ' + borderColor + ';">';
         infoStr = '<p class="text-muted mb-0"><small>size: ' + cls2d.size + ', id: ' + cls2d.id + '</small></p>';
         html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
 
@@ -541,14 +541,21 @@ class MicrographCard extends Card {
         //     self.drawMicrograph();
         // });
 
-        $('input[name="' + self.id('pts_switch') + '"]').change(function() {
-            self.drawMicrograph();
-        })
+        if (self.contains('particles')) {
+            $('input[name="' + self.id('pts_switch') + '"]').change(function () {
+                self.drawMicrograph();
+            })
+        }
 
     }
 
+    /* Check if the card has an element with that id */
+    contains(elementId) {
+        return $(this.jid(elementId)).length > 0;
+    }
+
     drawMicrograph() {
-        let value = $('input[name="' + this.id('pts_switch') + '"]:checked').val();
+        let value= this.contains('particles') ? $('input[name="' + this.id('pts_switch') + '"]:checked').val() : 'none';
         drawMicrograph(this.id('mic_canvas'), this.micrograph, value);
     }
 
@@ -604,7 +611,7 @@ class MicrographCard extends Card {
                 $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
                 $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
                 $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
-                if ($(self.jid('ctf_plot')).length > 0 && nonEmpty(data['ctfPlot']))
+                if (self.contains('ctf_plot') && nonEmpty(data['ctfPlot']))
                     create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
             }
             else {
@@ -613,8 +620,9 @@ class MicrographCard extends Card {
             }
 
             $(self.jid('mic_resolution')).text(data['ctfResolution']);
-            //$(self.jid('particles')).text(micrograph.coordinates.length);
-            $(self.jid('particles')).val(micrograph.coordinates.length);
+
+            if (self.contains('particles'))
+                $(self.jid('particles')).val(micrograph.coordinates.length);
 
             self.overlay.hide();
 

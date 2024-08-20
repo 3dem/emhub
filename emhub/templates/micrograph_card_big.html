@@ -43,6 +43,7 @@
                 </div>
             </div>
 
+            {% if has_ctf %}
             <div class="col-4 ml-0 pl-0 mr-0 pr-0">
                 <figure class="figure">
                     <img class="img-fluid" id="{{ card_id }}_img_psd" src="">
@@ -60,12 +61,16 @@
                      </div>
             </div>
 
+
              {% if show_ctf_plot %}
                  <div class="row col-12 mt-2 ml-3 mr-3" style="min-height: 300px">
                     <div id="{{ card_id }}_ctf_plot"></div>
                 </div>
              {% endif %}
 
+            {% endif %}
+
+            {% if has_particles %}
              <div class="col-12 ml-0 pl-0 mr-0 pr-0 mt-3">
                  <div class="input-group input-group-sm mb-3">
                       <div class="input-group-prepend">
@@ -84,6 +89,7 @@
 
                 </div>
              </div>
+            {% endif %}
 
 
 

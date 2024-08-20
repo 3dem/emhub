@@ -157,7 +157,8 @@ class RelionRun(SessionRun):
                 'data': []
             },
             'default_y': 'rlnCtfMaxResolution',
-            'default_x': ''
+            'default_x': '',
+            'has_ctf': True
         }
         indexes = []
         with StarFile(self.join('micrographs_ctf.star')) as sf:
@@ -176,7 +177,7 @@ class RelionRun(SessionRun):
 
         return data_values
 
-    def getSummary(self):
+    def getSummary(self, **kwargs):
         """ Function to return the template and data used for this run summary.
         """
         summary = {'template': '', 'data': {}}
@@ -226,7 +227,10 @@ class RelionRun(SessionRun):
 
         return summary
 
-    def getOverview(self):
+    def getOverview(self, **kwargs):
+        if 'file_path' in kwargs:
+            return self.getFileInfo(**kwargs)
+
         overview = {'template': '', 'data': {}}
         data_values = None
 
@@ -242,6 +246,51 @@ class RelionRun(SessionRun):
             overview['data'] = {'data_values': data_values}
 
         return overview
+
+    def getFileInfo(self, **kwargs):
+        path = kwargs['file_path']
+        data = {
+            'data_values': {},
+            'file_path': path
+        }
+        result = {
+            'template': 'processing_star_overview.html',
+            'data': data
+        }
+
+        if path.endswith('.star'):
+            starFile = self.project.join(path)
+            with StarFile(starFile) as sf:
+                if tn := kwargs.get('table_name', None):
+                    # only load rows for this table, not the all tables info
+                    ti = sf.getTableInfo(tn)
+                    data.update({
+                        'default_table': tn,
+                        'columns': ti.getColumnNames(),
+                        'rows': [r._asdict() for r in sf.iterTable(tn, limit=10)]
+                    })
+                    result['template'] = 'processing_star_card.html'
+                else:
+                    # load all tables info and default table rows
+                    tables = {}
+                    tableNames = sf.getTableNames()
+                    defaultTable = kwargs.get('default_table', tableNames[0])
+                    for tn in tableNames:
+                        ti = sf.getTableInfo(tn)
+                        tables[tn] = {
+                            'columns': ti.getColumnNames(),
+                            'rows': sf.getTableSize(tn)
+                        }
+                        if tn == defaultTable:
+                            data['default_table'] = defaultTable
+                            data['rows'] = [r._asdict() for r in sf.iterTable(tn, limit=10)]
+
+                        data['tables'] = tables
+
+        else:
+            raise Exception("File type not supported")
+
+        return result
 
     def _load_micrograph_data(self, micId, micsStar):
         with StarFile(micsStar) as sf:
@@ -594,7 +643,8 @@ class RelionSessionData(SessionData):
                 'data': []
             },
             'default_y': 'numberOfParticles',
-            'default_color': 'averageFOM'
+            'default_color': 'averageFOM',
+            'has_particles': True
         }
         # TODO: Write this info in a star file to avoid recalculating all the time
         pts = data_values['numberOfParticles']['data']

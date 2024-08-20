@@ -28,6 +28,8 @@
     <div class="col-8">
         <!-- Div for Micrograph -->
         {% set card_id = 'mic_card' %}
+        {% set has_ctf = data_values.get('has_ctf', False) %}
+        {% set has_particles = data_values.get('has_particles', False) %}
         {% include 'micrograph_card_big.html' %}
     </div>
 

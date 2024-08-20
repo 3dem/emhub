@@ -10,6 +10,8 @@
     <div id="micDiv" class="col-6">
         <!-- Div for Micrograph -->
         {% set card_id = 'mic_card_overview' %}
+        {% set has_ctf = data_values.get('has_ctf', False) %}
+        {% set has_particles = data_values.get('has_particles', False) %}
         {% set show_ctf_plot = True %}
         {% include 'micrograph_card_big.html' %}
     </div>

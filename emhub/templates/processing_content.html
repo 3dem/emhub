@@ -271,9 +271,37 @@
 
     function loadRunOverview(title){
         $('#overview-modal-title').text(title);
+        setLoading('overview-content');
         $('#overview-modal').modal('show');
          load_html_from_ajax('overview-content',
                   get_ajax_content('processing_run_overview', getArgs()));
+    }
+
+    function loadRunFileInfo(path) {
+        $('#overview-modal-title').text(path);
+        setLoading('overview-content');
+        $('#overview-modal').modal('show');
+         load_html_from_ajax('overview-content',
+                  get_ajax_content('processing_run_overview', getArgs({file_path: path})));
+    }
+
+    function loadStarRows(path, tableName) {
+        {#var ajaxContent = get_ajax_content('processing_run_overview',#}
+        {#    getArgs({file_path: path, table_name: tableName}));#}
+        {#ajaxContent.done(function(html) {#}
+        {#    $('#star_card_content').html(html);#}
+        {#    $('#table-rows').DataTable({#}
+        {#        sDom: 'lrtip',#}
+        {#        paging: false,#}
+        {#        info: false,#}
+        {#        ordering: false#}
+        {#    });#}
+        {# }); #}
+        {#ajaxContent.fail(ajax_request_failed);#}
+
+         load_html_from_ajax('star_card_content',
+                  get_ajax_content('processing_run_overview',
+                      getArgs({file_path: path, table_name: tableName})));
     }
 
     function clickOnExpert() {

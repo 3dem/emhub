@@ -1,0 +1,26 @@
+<div class="card">
+    <h4 class="card-header">Table: {{ default_table }}</h4>
+    <div class="card-body p-0">
+
+        <table id="table-rows" class="table table-responsive">
+            <thead class="bg-light">
+            <tr class="border-0">
+                {% for col in columns %}
+                    <th class="border-0"><h5>{{ col }}</h5></th>
+                {% endfor %}
+            </tr>
+            </thead>
+
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                    {% for col in columns %}
+                        <td>{{ row[col] }}</td>
+                    {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+</div>
