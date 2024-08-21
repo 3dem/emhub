@@ -1,0 +1,72 @@
+{% set card_id = 'vol_summary_card' %}
+
+<div class="row col-12">
+    <div class="col-12 row mb-2">
+            <h4 class="mt-1 mr-2">Iteration </h4>
+            <select id="iteration-select" class="selectpicker" onchange="change_plots()">
+                {% for iter in iterations %}
+                    {% set selected = 'selected' if iter == iter_file else '' %}
+                    <option value="{{ iter }}" {{ selected }}>{{ iter|basename }} </option>
+                {% endfor %}
+            </select>
+        </div>
+
+    <table id="table-volumes" class="table table-responsive table-m-0 p-0" style="width: 100%">
+        <thead class="bg-light">
+            <tr class="m-0 p-0">
+                <th>Path</th>
+                <th>Slices</th>
+                {% for k in volumes[0]['data'].keys() %}
+                    <td>{{ k }}</td>
+                {% endfor %}
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for vol in volumes %}
+            <tr>
+                <td><a href="javascript:loadRunFileInfo('{{ vol['file_path'] }}')">{{ vol['file_path'] }}</a></td>
+                <td>
+                    <div id="{{ card_id }}_vol{{ loop.index0 }}_slider"></div>
+                </td>
+                 {% for k, v in vol['data'].items() %}
+                    <td>{{ v }}</td>
+                 {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    var volumes = {{ volumes|tojson }};
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        $('.selectpicker').selectpicker();
+
+        $('#table-volumes').DataTable({
+            sDom: 'lrtip',
+            paging: false,
+            info: false,
+            ordering: false
+        });
+
+        for (var i = 0; i < volumes.length; ++i) {
+            new VolumeSliderCard("{{ card_id }}_vol" + i + "_slider", volumes[i].slices,
+                {slice_dim: getObjectValue(volumes[i], 'slice_dim', 128)});
+        }
+
+        $('#iteration-select').on('change', function (){
+            let iter_file = $(this).val();
+            setLoading('summary_row');
+            load_html_from_ajax('summary_row',
+                  get_ajax_content('processing_run_summary', getArgs({iter_file: iter_file})));
+        })
+
+
+});
+})(window, document, window.jQuery);
+</script>

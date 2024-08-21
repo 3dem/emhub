@@ -8,7 +8,7 @@
                 <h4>Inputs</h4>
                 <ul>
                     {% for i in ios['inputs'] %}
-                        <li>{{ i }}</li>
+                        <li><a href="javascript:loadRunFileInfo('{{ i }}')">{{ i }}</a></li>
                     {% endfor %}
                 </ul>
             </div>

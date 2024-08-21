@@ -532,6 +532,7 @@ class ImageSliderCard extends Card {
 
         const width = getObjectValue(config, 'slice_dim', 128);
         var styleStr = '" style="width: ' + width + 'px"';
+
         var html = '<div class="row"><div class="col-12"><img id="' + this.id('image') + styleStr + '></div>';
 
         for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
@@ -572,7 +573,8 @@ class VolumeSliderCard extends Card {
         const slice_dim = getObjectValue(config, 'slice_dim', 128);
         const width = Math.floor(slice_dim * 1.2);
 
-        var html = '<div class="row">';
+        const minWidth = 3 * width;
+        var html = '<div class="row ml-1 mr-1" style="min-width: ' + minWidth + 'px">';
         const styleStr = '" style="width: ' + width + 'px">';
         html += '<div id="' + this.id('slider-z') + styleStr + '</div>';
         html += '<div id="' + this.id('slider-y') + styleStr + '</div>';

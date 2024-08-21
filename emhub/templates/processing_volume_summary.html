@@ -14,7 +14,7 @@
             <tr>
                 <td><a href="javascript:loadRunFileInfo('{{ vol['file_path'] }}')">{{ vol['file_path'] }}</a></td>
                 <td>
-                    <div class="card-body" id="{{ card_id }}_vol{{ loop.index0 }}_slider"></div>
+                    <div id="{{ card_id }}_vol{{ loop.index0 }}_slider"></div>
                 </td>
             </tr>
             {% endfor %}
@@ -38,13 +38,7 @@
             sDom: 'lrtip',
             paging: false,
             info: false,
-            ordering: false,
-            columnDefs: [{
-                "targets": '_all',
-                "createdCell": function (td, cellData, rowData, row, col) {
-                    $(td).css('padding', '0px 10px 0px 10px')
-                }
-            }]
+            ordering: false
         });
 
 });

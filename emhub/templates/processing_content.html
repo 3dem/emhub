@@ -286,19 +286,6 @@
     }
 
     function loadStarRows(path, tableName) {
-        {#var ajaxContent = get_ajax_content('processing_run_overview',#}
-        {#    getArgs({file_path: path, table_name: tableName}));#}
-        {#ajaxContent.done(function(html) {#}
-        {#    $('#star_card_content').html(html);#}
-        {#    $('#table-rows').DataTable({#}
-        {#        sDom: 'lrtip',#}
-        {#        paging: false,#}
-        {#        info: false,#}
-        {#        ordering: false#}
-        {#    });#}
-        {# }); #}
-        {#ajaxContent.fail(ajax_request_failed);#}
-
          load_html_from_ajax('star_card_content',
                   get_ajax_content('processing_run_overview',
                       getArgs({file_path: path, table_name: tableName})));
