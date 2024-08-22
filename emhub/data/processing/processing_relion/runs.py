@@ -307,7 +307,7 @@ class RelionRun(SessionRun):
         result = {
             'template': 'processing_volume_card.html',
             'data': self.project.get_volume_data(volumeFile,
-                                                 volume_data='slices',
+                                                 volume_data='slices array',
                                                  axis='zyx',
                                                  slice_number=32)
         }

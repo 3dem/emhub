@@ -593,6 +593,44 @@ class VolumeSliderCard extends Card {
 }
 
 
+function createVolume(array, dimensions) {
+
+    //volComp.autoView();
+
+    console.log(surface.getParameters());
+}
+
+
+function renderVolume3D(containerId, arrayJson, dimensions) {
+    //var data = JSON.parse(dataJson);
+    var array = new Uint8Array(atob(arrayJson).split("").map(function (c) {
+            return c.charCodeAt(0);
+        }));
+
+        console.log("array[0]: " + array[0] + " array[1000]: " + array[1000]);
+
+        const nx = dimensions[0], ny = dimensions[1], nz = dimensions[2];
+        const cx = nx / 2, cy = ny / 2, cz = nz / 2;
+        var volume = new NGL.Volume("volume", '', array, nx, ny, nz);
+        var stage = new NGL.Stage(containerId);
+        var volComp = stage.addComponentFromObject(volume);
+        var surface = volComp.addRepresentation("surface",
+            {isolevelType: 'value', isolevel: 180});
+        volComp.setPosition([-cx, -cy, -cz]);
+
+        const sliderId = '#' + containerId + "_slider";
+
+        $(sliderId).val(surface.getParameters()['isolevel']);
+        $(sliderId).on("input", function() {
+
+            console.log(parseInt($(this).val()));
+
+            surface.setParameters({isolevel: parseInt($(this).val())});
+        });
+} // function drawVolume3D
+
+
+
 class MicrographCard extends Card {
     constructor(containerId, params, gsCard) {
         super(containerId);
@@ -1362,27 +1400,6 @@ function create_hc_motionplot() {
 } // function create_hc_motionplot
 
 function create_pl_ctfplot(containerId, ctfvalues) {
-    // var trace = {
-    //   x: ctfvalues[0],
-    //   y: ctfvalues[1],
-    //   mode: 'lines',
-    //   connectgaps: true
-    // };
-    //
-    // var trace2 = {
-    //   x: ctfvalues[0],
-    //   y: ctfvalues[2],
-    //   mode: 'lines',
-    //   connectgaps: true
-    // };
-    //
-    //  var trace3 = {
-    //   x: ctfvalues[0],
-    //   y: ctfvalues[3],
-    //   mode: 'lines',
-    //   connectgaps: true
-    // };
-
      var data = [];
      for (i = 1; i <= 4; i++) {
          data.push({

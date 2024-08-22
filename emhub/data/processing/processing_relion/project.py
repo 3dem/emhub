@@ -15,13 +15,9 @@
 # **************************************************************************
 
 import os
-import datetime as dt
 from glob import glob
-from collections import defaultdict
-import json
-import flask
 import numpy as np
-from flask import current_app as app
+import base64
 
 import mrcfile
 from emtools.utils import Path, Timer, Pretty
@@ -399,7 +395,8 @@ class RelionSessionData(SessionData):
 
         if volume_data == "info":
             return data
-        elif volume_data == "slices":
+
+        if "slices" in volume_data:
             axis = kwargs.get('axis', 'z')
 
             slice_dim = kwargs.get('slice_dim', 128)
@@ -432,13 +429,16 @@ class RelionSessionData(SessionData):
                 'slices': slices,
                 'axis': axis
             })
-        elif volume_data == 'array':
+
+        if 'array' in volume_data:
             iMax = mrc.data.max()  # min(imean + 10 * isd, imageArray.max())
             iMin = mrc.data.min()  # max(imean - 10 * isd, imageArray.min())
             im255 = ((mrc.data - iMin) / (iMax - iMin) * 255).astype(np.uint8)
             data['array'] = base64.b64encode(im255).decode("utf-8")
-        else:
-            raise Exception('Unknown volume_data value: %s' % volume_data)
+
+        #
+        # else:
+        #     raise Exception('Unknown volume_data value: %s' % volume_data)
 
         return data
 
