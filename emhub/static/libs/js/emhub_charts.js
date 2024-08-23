@@ -606,9 +606,6 @@ function renderVolume3D(containerId, arrayJson, dimensions) {
     var array = new Uint8Array(atob(arrayJson).split("").map(function (c) {
             return c.charCodeAt(0);
         }));
-
-        console.log("array[0]: " + array[0] + " array[1000]: " + array[1000]);
-
         const nx = dimensions[0], ny = dimensions[1], nz = dimensions[2];
         const cx = nx / 2, cy = ny / 2, cz = nz / 2;
         var volume = new NGL.Volume("volume", '', array, nx, ny, nz);
@@ -622,9 +619,6 @@ function renderVolume3D(containerId, arrayJson, dimensions) {
 
         $(sliderId).val(surface.getParameters()['isolevel']);
         $(sliderId).on("input", function() {
-
-            console.log(parseInt($(this).val()));
-
             surface.setParameters({isolevel: parseInt($(this).val())});
         });
 } // function drawVolume3D
