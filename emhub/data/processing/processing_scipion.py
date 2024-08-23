@@ -81,8 +81,9 @@ class ScipionRun(SessionRun):
         """ Return run's stdout file. """
         return self.join('logs', 'run.stderr')
 
-    def getSummary(self):
-        summary = {'template': '', 'data': {}}
+    def getSummary(self, **kwargs):
+        data = {}
+        summary = {'template': '', 'data': data}
         data_values = {}
 
         ctfsSqlite = self.join('ctfs.sqlite')
@@ -94,16 +95,16 @@ class ScipionRun(SessionRun):
             data_values = {'iterations': [1, 2, 3]}
 
         if data_values:
-            summary['data'] = {'data_values': data_values}
+            data['data_values'] = data_values
 
         return summary
 
-    def getOverview(self):
+    def getOverview(self, **kwargs):
         overview = {'template': '', 'data': {}}
         data_values = {}
 
         ctfsSqlite = self.join('ctfs.sqlite')
-        coordsSqlite = self.join('formgroup.sqlite')
+        coordsSqlite = self.join('coordinates.sqlite')
 
         if os.path.exists(ctfsSqlite):
             overview['template'] = 'processing_ctf_overview.html'
@@ -145,7 +146,8 @@ class ScipionRun(SessionRun):
             },
             'default_y': 'ctfResolution',
             'default_x': '',
-            'default_color': 'ctfDefocusV'
+            'default_color': 'ctfDefocusV',
+            'has_ctf': True
         }
         indexes = []
         with SqliteFile(ctfsSqlite) as sf:
@@ -191,8 +193,8 @@ class ScipionSessionData(SessionData):
                 outputs['movies'] = r
             elif r.endswith('ctfs.sqlite'):
                 outputs['ctfs'] = r
-            elif r.endswith('formgroup.sqlite'):
-                outputs['formgroup'] = r
+            elif r.endswith('coordinates.sqlite'):
+                outputs['coordinates'] = r
             elif r.endswith('classes2D.sqlite'):
                 outputs['classes2d'].append(r)
 
@@ -243,7 +245,7 @@ class ScipionSessionData(SessionData):
         return {
             'movies': msEpu or self._stats_from_output('movies'),
             'ctfs': self._stats_from_output('ctfs', fileKey='_psdFile'),
-            'formgroup': self._stats_from_output('formgroup'),
+            'coordinates': self._stats_from_output('coordinates'),
             'classes2d': len(self.outputs['classes2d'])
         }
 
@@ -319,8 +321,8 @@ class ScipionSessionData(SessionData):
                 data.update({
                     'micThumbData': micThumbBase64,
                     'psdData': psdThumb.from_mrc(psdFn),
-                    # TODO: Retrieving formgroup from multiple micrographs is very slow now
-                    'formgroup': self.get_micrograph_coordinates(row['_micObj._micName']),
+                    # TODO: Retrieving coordinates from multiple micrographs is very slow now
+                    'coordinates': self.get_micrograph_coordinates(row['_micObj._micName']),
                     'micThumbPixelSize': pixelSize * micThumb.scale,
                     'pixelSize': pixelSize,
                     'gridSquare': loc['gs'],
@@ -385,7 +387,7 @@ class ScipionSessionData(SessionData):
         if self.all_coords is None:
             coords = defaultdict(lambda: [])
             with Timer():
-                if coordSqlite := self.outputs.get('formgroup', None):
+                if coordSqlite := self.outputs.get('coordinates', None):
                     with SqliteFile(coordSqlite) as sf:
                         for row in sf.iterTable('Objects', classes='Classes'):
                             coords[row['_micName']].append((row['_x'], row['_y']))

@@ -52,19 +52,34 @@
                 {% endif %}
 
                 {{ mic_row('Resolution (Å)', '', card_id + '_mic_resolution') }}
-                <div class="row col-12 p-0 m-0">
-                    <label class="text-muted col-6 text-right mt-1">Particles</label>
-                    <label class="col-4 text-right mt-1" id="{{ card_id }}_particles">{{ value }}</label>
-                    <label class="custom-control custom-checkbox col-1">
-                        <input type="checkbox" checked class="custom-control-input" id="{{ card_id }}_show_particles">
-                            <span class="custom-control-label"></span>
-                    </label>
+
+                <div class="col-12 ml-0 pl-0 mr-0 pr-0 mt-3">
+                 <div class="input-group input-group-sm mb-3">
+                      <div class="input-group-prepend">
+                        <h5 class="input-group-text" id="{{ card_id }}_particles-sm" style="font-size: 13px">Particles</h5>
+                      </div>
+                      <input type="text" readonly id="{{ card_id }}_particles" class="form-control" aria-label="Small" aria-describedby="{{ card_id }}_particles-sm">
+                    <div class="switch-field ml-2 mr-2">
+                         {% set radio_name = card_id + "_pts_switch" %}
+                        <input type="radio" id="{{ radio_name }}-one" name="{{ radio_name }}" value="none"/>
+                        <label for="{{ radio_name }}-one"><i class="far fa-times-circle"></i></label>
+                        <input type="radio" id="{{ radio_name }}-two" name="{{ radio_name }}" value="dot" checked />
+                        <label for="{{ radio_name }}-two"><i class="far fa-dot-circle"></i></label>
+                         <input type="radio" id="{{ radio_name }}-three" name="{{ radio_name }}" value="circle" />
+                        <label for="{{ radio_name }}-three"><i class="far fa-circle"></i></label>
+                    </div>
+
                 </div>
-{#                {{ mic_row('Compact', '', card_id + '_testing') }}#}
+             </div>
+
             </div>
-            <div class="row col-12 mt-2 ml-3 mr-3" style="min-height: 400px">
-             <div id="{{ card_id }}_ctf_plot"></div>
-         </div>
+
+           {% if show_ctf_plot %}
+                <div class="row col-12 mt-2 ml-3 mr-3" style="min-height: 400px">
+                    <div id="{{ card_id }}_ctf_plot"></div>
+               </div>
+            {% endif %}
+
         </div>
     </div>
 </div>

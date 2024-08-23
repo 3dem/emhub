@@ -776,7 +776,7 @@ class DataContent:
                 'defocus_bins': dbins.toList(),
                 'resolution_bins': rbins.toList(),
                 'gridsquares': gridsquares,
-                'gs_info': epuData is not None,
+                'gs_info': True, # epuData is not None,
                 'ctfs_run_id': sdata.get_ctfs_runid()
             })
 
