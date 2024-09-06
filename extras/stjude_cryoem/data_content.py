@@ -43,6 +43,7 @@ def register_content(dc):
     def cluster_queues_content(**kwargs):
         return cluster_queues(**kwargs)
 
+    @dc.content
     def access_microscopes(**kwargs):
         """ Load one of all batches. """
         dm = dc.app.dm  # shortcut
@@ -102,7 +103,7 @@ def register_content(dc):
         }
         data.update(dc.get_user_projects(b.owner, status='active'))
         frames = workers_frames(hours=10)['folderGroups']
-        data['frame_folders'] = r['entries'] if transfer_host in frames else []
+        data['frame_folders'] = frames.get(transfer_host, {'entries': []})['entries']
         return data
 
     @dc.content
@@ -145,3 +146,10 @@ def register_content(dc):
         return {
             'folderGroups': folderGroups
         }
+
+    @dc.content
+    def create_session_negstain(**kwargs):
+        """ Specific information needed to render the create-form template
+        # for St.Jude CryoEM center.
+        """
+        return create_session_form(**kwargs)

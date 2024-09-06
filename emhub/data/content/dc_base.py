@@ -950,8 +950,10 @@ def register_content(dc):
                 n['html'] = Markup(n['text'])
                 news.append(n)
 
+        resource_create_session = dm.get_config('sessions').get('create_session', {})
         dataDict.update({'bookings': bookings,
                          'resource_bookings': resource_bookings,
+                         'resource_create_session': resource_create_session,
                          'news': news
                          })
         return dataDict
