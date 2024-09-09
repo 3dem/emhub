@@ -118,6 +118,20 @@ def process_sessions(args):
                 dc.create_session(session_json)
 
 
+def process_pucks(args):
+    with open_client() as dc:
+        pucks = dc.request('get_pucks', jsonData=None).json()
+        #sessions_dict = {s['id']: s for s in sessions}
+
+        if args.list:
+            row_format = u"{:>6}  {:<20}{:>6}{:>6}{:>6}"
+            print(row_format.format("ID", "Label", "Dewar" , "Cane", "Pos"))
+            for p in pucks:
+                print(row_format.format(p['id'], p['label'], p['dewar'], p['cane'], p['position']))
+        else:
+            pass
+
+
 def main():
     p = argparse.ArgumentParser(prog='emh-client')
     p.add_argument('--url', default='')
@@ -149,6 +163,21 @@ def main():
     g.add_argument('--create', '-c', metavar='SESSION_JSON',
                    help='Create a session from the json file. ')
 
+    # ------------------------- Form subparser -------------------------------
+    puck_p = subparsers.add_parser("puck")
+
+    g = puck_p.add_mutually_exclusive_group()
+    # g.add_argument('--method', '-m', nargs=2, metavar=('METHOD', 'JSON'),
+    #                help='Execute a method from the client')
+
+    g.add_argument('--save', metavar='PUCKS_JSON_FILE',
+                   help="Store pucks storage into a a JSON file. ")
+    g.add_argument('--update', metavar='FORMS_JSON_FILE',
+                   help="Update pucks storage info from a JSON file. "
+                        "Be careful that this option will delete existing "
+                        "pucks. ")
+    g.add_argument('--list', '-l', action="store_true")
+
     # ------------------------- Method subparser -------------------------------
     method_p = subparsers.add_parser("method")
     method_p.add_argument('method', metavar='METHOD_NAME')
@@ -171,6 +200,9 @@ def main():
 
     elif args.entity == 'session':
         process_sessions(args)
+
+    elif args.entity == 'puck':
+        process_pucks(args)
 
     elif args.entity == 'method':
         print("method: ", args.method)
