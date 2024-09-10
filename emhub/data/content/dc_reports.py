@@ -358,9 +358,9 @@ def register_content(dc):
 
         app_id = kwargs.get('application', 'all')
 
-        applications = dm.get_visible_applications()
+        applications = [a for a in dm.get_visible_applications() if a.is_active]
         if app_id == 'all':
-            selected_apps = [a for a in applications]
+            selected_apps = applications
         else:
             app = dm.get_application_by(id=int(app_id))
             selected_apps = [app]
