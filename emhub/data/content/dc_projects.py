@@ -71,7 +71,6 @@ def register_content(dc):
 
     @dc.content
     def project_details(**kwargs):
-        # FIXME Define access/permissions for other users
         user = dc.app.user  # shortchut
         dm = dc.app.dm  # shortcut
 

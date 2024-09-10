@@ -43,7 +43,12 @@ from pprint import pprint
 
 from .data_client import open_client, config
 
-from emtools.utils import Pretty
+from emtools.utils import Pretty, Color
+
+
+def date_str(datetimeStr):
+    """ Helper to retrieve the date. """
+    return datetimeStr.split('T')[0]
 
 
 def process_forms(args):
@@ -93,8 +98,9 @@ def process_sessions(args):
                 row_format = u"{:<6}{:<12}{:<35}"
                 print(row_format.format("ID", "Date", "Name"))
                 for s in sessions:
-                    sd = s['start'].split('T')[0]
-                    print(row_format.format(s['id'], sd, s['name']))
+                    print(row_format.format(s['id'],
+                                            date_str(s['start']),
+                                            s['name']))
             else:
                 for s in sessions:
                     if str(s['id']) == args.list or s['name'] == args.list:
@@ -124,12 +130,75 @@ def process_pucks(args):
         #sessions_dict = {s['id']: s for s in sessions}
 
         if args.list:
-            row_format = u"{:>6}  {:<20}{:>6}{:>6}{:>6}"
-            print(row_format.format("ID", "Label", "Dewar" , "Cane", "Pos"))
+            row_format = u"{:>6}  {:<20}{:>6}{:>6}{:>6}  {:<30}"
+            print(row_format.format("ID", "Label", "Dewar" , "Cane",
+                                    "Pos", "Extra"))
             for p in pucks:
-                print(row_format.format(p['id'], p['label'], p['dewar'], p['cane'], p['position']))
+                print(row_format.format(p['id'], p['label'], p['dewar'],
+                                        p['cane'], p['position'],
+                                        json.dumps(p['extra'])))
+        elif jsonFile := args.save:
+            print(f"Writing Pucks Storage as JSON to file: {jsonFile}...")
+            with open(jsonFile, 'w') as f:
+                # Write one puck in each line
+                f.write("[\n")
+                n = len(pucks)
+                for i, p in enumerate(pucks):
+                    f.write("   ")
+                    json.dump(p, f)
+                    char = ',' if i < n - 1 else ''
+                    f.write(f'{char}\n')
+                f.write("]\n")
+
+        elif jsonFile := args.update:
+            if not os.path.exists(jsonFile):
+                raise Exception("Input Pucks json file does not exist.")
+
+            def _request(method, attrs, successLabel):
+                req = dc.request(method, jsonData={'attrs': attrs})
+                result = req.json()
+                if 'puck' in result:
+                    print(f"Puck {p['id']} {successLabel}.")
+                else:
+                    print(f"Puck {p['id']} Error: ", Color.red(result['error']))
+
+            with open(jsonFile) as f:
+                storage = json.load(f)
+                # Delete all existing pucks before updating with new ones
+                for p in pucks:
+                    _request('delete_puck', {'id': p['id']}, 'DELETED')
+                for p in storage:
+                    _request('create_puck', p, 'CREATED')
         else:
             pass
+
+
+def process_entries(args):
+    with open_client() as dc:
+        #sessions_dict = {s['id']: s for s in sessions}
+        if arg := args.list:
+            try:
+                if arg.startswith('P:'):
+                    input_id = int(arg.replace('P:', ''))
+                    cond_str = 'project_id=%s' % input_id
+                    print(f"Getting entry with ID: {input_id}")
+                else:
+                    input_id = int(arg)
+                    cond_str = 'project_id=%s' % input_id
+                    print(f"Getting entries from project: {input_id}")
+
+                req = dc.request('get_entries', jsonData={'condition': cond_str})
+                print(json.dumps(req.json(), indent=4))
+                return
+            except ValueError as e:
+                print("Error: ", e)
+                entries = dc.request('get_entries', jsonData=None).json()
+                row_format = u"{:>6}   {:>6}   {:<25} {:<30}"
+                print(row_format.format("ID", "ProjId", "Type", "Date"))
+                for e in entries:
+                    print(row_format.format(e['id'], "P:%04d" % e['project_id'],
+                                            e['type'],
+                                            date_str(e['date'])))
 
 
 def main():
@@ -163,20 +232,23 @@ def main():
     g.add_argument('--create', '-c', metavar='SESSION_JSON',
                    help='Create a session from the json file. ')
 
-    # ------------------------- Form subparser -------------------------------
+    # ------------------------- Puck subparser -------------------------------
     puck_p = subparsers.add_parser("puck")
 
     g = puck_p.add_mutually_exclusive_group()
-    # g.add_argument('--method', '-m', nargs=2, metavar=('METHOD', 'JSON'),
-    #                help='Execute a method from the client')
-
     g.add_argument('--save', metavar='PUCKS_JSON_FILE',
                    help="Store pucks storage into a a JSON file. ")
-    g.add_argument('--update', metavar='FORMS_JSON_FILE',
+    g.add_argument('--update', metavar='PUCKS_JSON_FILE',
                    help="Update pucks storage info from a JSON file. "
                         "Be careful that this option will delete existing "
                         "pucks. ")
     g.add_argument('--list', '-l', action="store_true")
+
+    # ------------------------- Entry subparser -------------------------------
+    entry_p = subparsers.add_parser("entry")
+
+    g = entry_p.add_mutually_exclusive_group()
+    g.add_argument('--list', '-l')
 
     # ------------------------- Method subparser -------------------------------
     method_p = subparsers.add_parser("method")
@@ -203,6 +275,9 @@ def main():
 
     elif args.entity == 'puck':
         process_pucks(args)
+
+    elif args.entity == 'entry':
+        process_entries(args)
 
     elif args.entity == 'method':
         print("method: ", args.method)
