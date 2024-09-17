@@ -130,7 +130,7 @@ def register_content(dc):
         dm = dc.app.dm
         n = int(kwargs.get('n', 100))
         name = kwargs.get('name', '')
-        all_logs = [log for log in dm.get_logs() if log.name == name]
+        all_logs = [log for log in dm.get_logs()]
         logs = all_logs[-n:]
 
         for log in logs:

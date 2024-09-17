@@ -890,7 +890,7 @@ def delete_project():
 @api_bp.route('/get_entries', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_entries():
-    return send_json_data([p.json() for p in app.dm.get_entries()])
+    return filter_request(app.dm.get_entries)
 
 
 @api_bp.route('/create_entry', methods=['POST'])
@@ -1147,7 +1147,7 @@ def handle_puck(puck_func):
     def handle(**attrs):
         return puck_func(**attrs).json()
 
-    return _handle_item(handle, 'entry')
+    return _handle_item(handle, 'puck')
 
 
 def create_item(name):

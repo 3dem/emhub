@@ -186,31 +186,42 @@
   {
     "name": "config:projects",
     "definition": {
-        "entries_menu": [
-            ["data_processing", "Data Processing"],
-            ["note", "Note"]
-        ],
-        "entries": {
-            "note": {
-                "label": "Note",
-                "group": 3,
-                "iconClass": "fas fa-sticky-note fa-inverse",
-                "imageClass": "img--picture"
-            },
-            "data_processing": {
-                "label": "Data Processing",
-                "group": 2,
-                "iconClass": "fas fa-search fa-inverse",
-                "imageClass": "img--location",
-                "report": ""
-            },
-            "booking": {
-                "label": "Booking",
-                "group": 3,
-                "iconClass": "far fa-calendar",
-                "imageClass": "img--location"
-            }
-        }
+      "entries": {"booking": {"group": 3,
+        "iconClass": "far fa-calendar",
+        "imageClass": "img--location",
+        "label": "Booking"},
+        "data_processing": {"group": 2,
+          "iconClass": "fas fa-search fa-inverse",
+          "imageClass": "img--location",
+          "label": "Data Processing",
+          "report": ""},
+        "grids_preparation": {"group": 1,
+          "iconClass": "fas fa-th fa-inverse",
+          "imageClass": "img--picture",
+          "label": "Grids Preparation",
+          "report": "report_grids_preparation.html"},
+        "grids_storage": {"group": 1,
+          "iconClass": "fas fa-box fa-inverse",
+          "imageClass": "img--picture",
+          "label": "Grids Storage",
+          "report": "report_grids_storage.html"},
+        "note": {"group": 3,
+          "iconClass": "fas fa-sticky-note fa-inverse",
+          "imageClass": "img--picture",
+          "label": "Note"},
+        "screening": {"group": 2,
+          "iconClass": "fas fa-search fa-inverse",
+          "imageClass": "img--location",
+          "label": "Screening",
+          "report": "report_screening.html"}
+        },
+        "entries_menu": [["data_processing", "Data Processing"],
+                         ["note", "Note"],
+                         [],
+                         ["grids_preparation", "Grids Preparation"],
+                         ["grids_storage", "Grids Storage"],
+                         [],
+                         ["screening", "Screening"]]
     }
   },
   {
@@ -272,6 +283,371 @@
       "name": "config:news",
       "definition":
         []
+    },
+    {
+        "name": "entry_form:grids_preparation",
+        "definition": {
+            "title": "Grids Preparation Form",
+            "params": [
+                {
+                    "id": "grids_preparation_table",
+                    "label": "Grids Preparation Table",
+                    "type": "table",
+                    "columns": [
+                        {
+                            "id": "gridbox_label",
+                            "label": "GridBox Label"
+                        },
+                        {
+                            "id": "grid_position",
+                            "label": "Grid Position",
+                            "enum": {
+                                "choices": [
+                                    1,
+                                    2,
+                                    3,
+                                    4
+                                ],
+                                "display": "combo",
+                                "multiple": true
+                            }
+                        },
+                        {
+                            "id": "sample",
+                            "label": "Sample"
+                        },
+                        {
+                            "id": "grid_manufacturer",
+                            "label": "Grid Manufacturer",
+                            "enum": {
+                                "choices": [
+                                    "Quantifoil",
+                                    "C-Flat",
+                                    "Agar",
+                                    "EMS",
+                                    "Glider",
+                                    "Other"
+                                ],
+                                "display": "combo"
+                            }
+                        },
+                        {
+                            "id": "grid_material",
+                            "label": "Grid Material",
+                            "enum": {
+                                "choices": [
+                                    "Copper",
+                                    "Gold",
+                                    "Nickel",
+                                    "Molybdenum",
+                                    "Other"
+                                ],
+                                "display": "combo"
+                            }
+                        },
+                        {
+                            "id": "mesh",
+                            "label": "Mesh (per in)",
+                            "enum": {
+                                "choices": [
+                                    200,
+                                    300,
+                                    400,
+                                    "Other"
+                                ],
+                                "display": "combo"
+                            }
+                        },
+                        {
+                            "id": "film_material",
+                            "label": "Film Material",
+                            "enum": {
+                                "choices": [
+                                    "Carbon",
+                                    "Gold",
+                                    "Other"
+                                ],
+                                "display": "combo"
+                            }
+                        },
+                        {
+                            "id": "hole_size",
+                            "label": "Hole Size (um)",
+                            "enum": {
+                                "choices": [
+                                    0.6,
+                                    1,
+                                    1.2,
+                                    2,
+                                    3,
+                                    3.5,
+                                    4,
+                                    5,
+                                    6,
+                                    8,
+                                    10,
+                                    17.5,
+                                    "Lacey",
+                                    "Multihole",
+                                    "Other"
+                                ],
+                                "display": "combo"
+                            }
+                        },
+                        {
+                            "id": "hole_spacing",
+                            "label": "Hole Spacing (um)",
+                            "enum": {
+                                "choices": [
+                                    1,
+                                    1.3,
+                                    2,
+                                    3,
+                                    4,
+                                    5,
+                                    6.5,
+                                    10,
+                                    20,
+                                    100,
+                                    "Lacey",
+                                    "Multihole",
+                                    "Other"
+                                ],
+                                "display": "combo"
+                            }
+                        },
+                        {
+                            "id": "grid_info",
+                            "label": "Grid Info",
+                            "type": "text"
+                        },
+                        {
+                            "id": "glow_device",
+                            "label": "Glow Device",
+                            "enum": {
+                                "choices": [
+                                    "Quorum GloQube",
+                                    "Pelco EasiGlow"
+                                ],
+                                "display": "combo"
+                            }
+                        },
+                        {
+                            "id": "glow_current",
+                            "label": "Glow Current (mA)"
+                        },
+                        {
+                            "id": "glow_time",
+                            "label": "Glow Time (s)"
+                        },
+                        {
+                            "id": "device",
+                            "label": "Device",
+                            "enum": {
+                                "choices": [
+                                    "Vitrobot I",
+                                    "Vitrobot II",
+                                    "Manual",
+                                    "Other"
+                                ],
+                                "display": "combo"
+                            }
+                        },
+                        {
+                            "id": "temperature",
+                            "label": "Temperature (C)"
+                        },
+                        {
+                            "id": "humidity",
+                            "label": "Humidity (%RH)"
+                        },
+                        {
+                            "id": "blot_time",
+                            "label": "Blot Time (s)"
+                        },
+                        {
+                            "id": "wait_time",
+                            "label": "Wait Time (s)"
+                        },
+                        {
+                            "id": "drain_time",
+                            "label": "Drain Time (s)"
+                        },
+                        {
+                            "id": "blot_force",
+                            "label": "Blot Force"
+                        },
+                        {
+                            "id": "blot_total",
+                            "label": "Blot Total"
+                        },
+                        {
+                            "id": "applications",
+                            "label": "Applications"
+                        },
+                        {
+                            "id": "blot_manual",
+                            "label": "Manual Blot",
+                            "type": "bool"
+                        },
+                        {
+                            "id": "blot_backside",
+                            "label": "Backside Blot",
+                            "type": "bool"
+                        },
+                        {
+                            "id": "freezing_info",
+                            "label": "Freezing Info",
+                            "type": "text"
+                        }
+                    ],
+                    "min_rows": 5
+                }
+            ]
+        }
+    },
+    {
+        "name": "entry_form:grids_storage",
+        "definition": {
+            "title": "Grids Storage",
+            "params": [
+                {
+                    "id": "grids_storage_table",
+                    "label": "Grids Storage Table",
+                    "type": "table",
+                    "columns": [
+                        {
+                            "id": "gridbox_label",
+                            "label": "GridBox Label"
+                        },
+                        {
+                            "id": "puck_id",
+                            "label": "Puck",
+                            "type": "custom",
+                            "template": "param_select_puck.html"
+                        },
+                        {
+                            "id": "box_position",
+                            "label": "Box Position",
+                            "enum": {
+                                "choices": [
+                                    1,
+                                    2,
+                                    3,
+                                    4,
+                                    5,
+                                    6,
+                                    7,
+                                    8,
+                                    9,
+                                    10,
+                                    11,
+                                    12
+                                ],
+                                "display": "combo"
+                            }
+                        },
+                        {
+                            "id": "grid_position",
+                            "label": "Grid Position",
+                            "enum": {
+                                "choices": [
+                                    1,
+                                    2,
+                                    3,
+                                    4
+                                ],
+                                "display": "combo",
+                                "multiple": true
+                            }
+                        },
+                        {
+                            "id": "sample",
+                            "label": "Sample",
+                            "type": "text"
+                        },
+                        {
+                            "id": "sessions",
+                            "label": "Session(s)"
+                        },
+                        {
+                            "id": "atlas",
+                            "label": "Atlas",
+                            "type": "bool"
+                        },
+                        {
+                            "id": "EPU",
+                            "label": "EPU",
+                            "type": "bool"
+                        }
+                    ],
+                    "min_rows": 5
+                }
+            ],
+           "content": [{"func": "grids_storage"}]
+        }
+    },
+    {
+        "name": "entry_form:screening",
+        "definition": {
+            "title": "Screening",
+            "sections": [
+                {
+                    "label": "Grids Comments",
+                    "params": [
+                        {
+                            "id": "grids_table",
+                            "label": "Grids Table",
+                            "type": "table",
+                            "columns": [
+                                {
+                                    "id": "gridbox_label",
+                                    "label": "Grid Label"
+                                },
+                                {
+                                    "id": "sample",
+                                    "label": "Sample",
+                                    "type": "text"
+                                },
+                                {
+                                    "id": "comments",
+                                    "label": "Comments",
+                                    "type": "text"
+                                }
+                            ],
+                            "min_rows": 5
+                        }
+                    ]
+                },
+                {
+                    "label": "Report Images",
+                    "params": [
+                        {
+                            "id": "images_table",
+                            "label": "Images Table",
+                            "type": "table",
+                            "columns": [
+                                {
+                                    "id": "image_title",
+                                    "label": "Image Title"
+                                },
+                                {
+                                    "id": "image_description",
+                                    "label": "Image Description",
+                                    "type": "text"
+                                },
+                                {
+                                    "id": "image_file",
+                                    "label": "Image File",
+                                    "type": "file_image"
+                                }
+                            ],
+                            "min_rows": 5
+                        }
+                    ]
+                }
+            ]
+        }
     }
 ],
   
@@ -804,7 +1180,7 @@
 	   {"id": 417, "resource_id": 3, "start": "2023-05-05T14:51:00+00:00", "end": "2023-05-05T17:50:00+00:00", "creator_id": 160, "owner_id": 55, "operator_id": 160, "project_id": 5},
 	   {"id": 432, "resource_id": 9, "start": "2023-05-05T18:00:00+00:00", "end": "2023-05-05T20:00:00+00:00", "creator_id": 48, "owner_id": 48, "operator_id": 48, "project_id": 65},
 	   {"id": 433, "resource_id": 1, "start": "2023-05-09T14:00:00+00:00", "end": "2023-05-11T04:59:00+00:00", "creator_id": 48, "owner_id": 60, "operator_id": 160, "project_id": 15},
-	   {"id": 431, "resource_id": 3, "start": "2023-05-09T14:51:00+00:00", "end": "2023-05-09T17:50:00+00:00", "creator_id": 48, "owner_id": 65, "operator_id": 76, "project_id": 61},
+	   {"id": 431, "resource_id": 3, "start": "2023-05-09T14:51:00+00:00", "end": "2023-05-09T17:50:00+00:00", "creator_id": 48, "owner_id": 65, "operator_id": 76, "project_id": 15},
 	   {"id": 440, "resource_id": 4, "start": "2023-05-09T14:51:00+00:00", "end": "2023-05-09T17:50:00+00:00", "creator_id": 160, "owner_id": 39, "operator_id": 160, "project_id": 42},
 	   {"id": 438, "resource_id": 4, "start": "2023-05-09T19:00:00+00:00", "end": "2023-05-09T22:00:00+00:00", "creator_id": 160, "owner_id": 181, "operator_id": 160, "project_id": 0},
 	   {"id": 439, "resource_id": 5, "start": "2023-05-09T20:00:00+00:00", "end": "2023-05-09T21:30:00+00:00", "creator_id": 129, "owner_id": 129, "operator_id": null, "project_id": 50},
@@ -988,9 +1364,741 @@
 	   {"id": 330, "start": "2023-05-30T19:25:17.222051+00:00", "status": "active", "data_path": "20230530_Arctica01_S00330_OTF", "acquisition": {"voltage": 200, "magnification": 79000, "pixel_size": 1.044, "dose": 1.063, "cs": 2.7}, "resource_id": 3, "booking_id": 482, "operator_id": 48, "extra": {"tasks": [], "raw": {"frames": "~/.emhub/frames/20230530_Arctica01_S00330", "path": "~/.emhub/raw/20230530_Arctica01_S00330", "size": 318943441046, "sizeH": "297.04 GB", "files": {".jpg": {"count": 1248, "size": 89568957}, ".tiff": {"count": 2364, "size": 318812510786}, ".xml": {"count": 1248, "size": 13900168}, ".dm": {"count": 418, "size": 27461135}}, "movies": 1114, "first_movie": "Images-Disc1/GridSquare_30792476/Data/FoilHole_30809155_Data_30808307_30808309_20230530_150918_fractions.tiff", "first_movie_creation": 1685477188.028498, "last_movie": "Images-Disc1/GridSquare_30792557/Data/FoilHole_30819379_Data_30808307_30808309_20230530_203043_fractions.tiff", "last_movie_creation": 1685496458.4981313, "duration": "5.35 hours"}, "project_id": "36", "otf": {"workflow": "default", "host": "default", "path": "~/.emhub/otf/20230530_Arctica01_S00330_OTF", "status": "launched"}, "updated": "2023-05-30 20:33:24"}},
 	   {"id": 331, "start": "2023-05-31T02:52:51.680946+00:00", "status": "active", "data_path": "20230530_Arctica01_S00331_OTF", "acquisition": {"voltage": 200, "magnification": 79000, "pixel_size": 1.044, "dose": 1.063, "cs": 2.7}, "resource_id": 3, "booking_id": 488, "operator_id": 48, "extra": {"tasks": [], "raw": {"frames": "~/.emhub/frames/20230530_Arctica01_S00331", "path": "~/.emhub/raw/20230530_Arctica01_S00331", "size": 47243976, "sizeH": "45.1 MB", "files": {".jpg": {"count": 1, "size": 60232}, ".tiff": {"count": 1, "size": 47172785}, ".xml": {"count": 1, "size": 10959}}}, "project_id": "67", "otf": {"workflow": "default", "host": "default", "path": "~/.emhub/otf/20230530_Arctica01_S00331_OTF", "status": "created"}, "updated": "2023-05-30 21:59:15"}},
 	   {"id": 332, "start": "2023-05-31T02:59:39.667315+00:00", "status": "active", "data_path": "20230530_Arctica01_S00332_OTF", "acquisition": {"voltage": 200, "magnification": 79000, "pixel_size": 1.044, "dose": 1.063, "cs": 2.7}, "resource_id": 3, "booking_id": 488, "operator_id": 48, "extra": {"tasks": [], "raw": {"frames": "~/.emhub/frames/20230530_Arctica01_S00332", "path": "~/.emhub/raw/20230530_Arctica01_S00332", "size": 647715045691, "sizeH": "603.23 GB", "files": {".jpg": {"count": 2454, "size": 204588119}, ".tiff": {"count": 4725, "size": 647472439807}, ".xml": {"count": 2454, "size": 27314508}, ".dm": {"count": 524, "size": 10703257}}, "movies": 2268, "first_movie": "Images-Disc1/GridSquare_31808618/Data/FoilHole_31811501_Data_31811944_31811946_20230530_222435_fractions.tiff", "first_movie_creation": 1685503294.711306, "last_movie": "Images-Disc1/GridSquare_31808488/Data/FoilHole_31816494_Data_31811944_31811946_20230531_083725_fractions.tiff", "last_movie_creation": 1685540061.72743, "duration": "10.21 hours"}, "project_id": "67", "otf": {"workflow": "default", "host": "default", "path": "~/.emhub/otf/20230530_Arctica01_S00332_OTF", "status": "launched"}, "updated": "2023-05-31 08:40:03"}}
-]
+],
+  "pucks":  [
+  {"id": 201, "label": "Puck_0201", "color": "Red", "dewar": 1, "cane": 1, "position": 1, "extra": {"dewar": {}, "cane": {"label": "10-01", "color": "Black"}}},
+  {"id": 202, "label": "Puck_0202", "color": "Orange", "dewar": 1, "cane": 1, "position": 2, "extra": {}},
+  {"id": 203, "label": "Puck_0203", "color": "Green", "dewar": 1, "cane": 1, "position": 3, "extra": {}},
+  {"id": 204, "label": "Puck_0204", "color": "MediumBlue", "dewar": 1, "cane": 1, "position": 4, "extra": {}},
+  {"id": 205, "label": "Puck_0205", "color": "Plum", "dewar": 1, "cane": 1, "position": 5, "extra": {}},
+  {"id": 206, "label": "Puck_0206", "color": "Black", "dewar": 1, "cane": 1, "position": 6, "extra": {}},
+  {"id": 207, "label": "Puck_0207", "color": "Gainsboro", "dewar": 1, "cane": 1, "position": 7, "extra": {}},
+  {"id": 208, "label": "Puck_0208", "color": "HotPink", "dewar": 1, "cane": 1, "position": 8, "extra": {}},
+  {"id": 209, "label": "Puck_0209", "color": "LightSteelBlue", "dewar": 1, "cane": 1, "position": 9, "extra": {}},
+  {"id": 210, "label": "Puck_0210", "color": "Moccasin", "dewar": 1, "cane": 1, "position": 10, "extra": {}},
+  {"id": 211, "label": "Puck_0211", "color": "Red", "dewar": 1, "cane": 2, "position": 1, "extra": {"cane": {"label": "10-02", "color": "Green"}}},
+  {"id": 212, "label": "Puck_0212", "color": "Orange", "dewar": 1, "cane": 2, "position": 2, "extra": {}},
+  {"id": 213, "label": "Puck_0213", "color": "Green", "dewar": 1, "cane": 2, "position": 3, "extra": {}},
+  {"id": 214, "label": "Puck_0214", "color": "MediumBlue", "dewar": 1, "cane": 2, "position": 4, "extra": {}},
+  {"id": 215, "label": "Puck_0215", "color": "Plum", "dewar": 1, "cane": 2, "position": 5, "extra": {}},
+  {"id": 216, "label": "Puck_0216", "color": "Black", "dewar": 1, "cane": 2, "position": 6, "extra": {}},
+  {"id": 217, "label": "Puck_0217", "color": "Gainsboro", "dewar": 1, "cane": 2, "position": 7, "extra": {}},
+  {"id": 218, "label": "Puck_0218", "color": "HotPink", "dewar": 1, "cane": 2, "position": 8, "extra": {}},
+  {"id": 219, "label": "Puck_0219", "color": "LightSteelBlue", "dewar": 1, "cane": 2, "position": 9, "extra": {}},
+  {"id": 220, "label": "Puck_0220", "color": "Moccasin", "dewar": 1, "cane": 2, "position": 10, "extra": {}},
+  {"id": 221, "label": "Puck_0221", "color": "Red", "dewar": 1, "cane": 3, "position": 1, "extra": {"cane": {"label": "10-03", "color": "HotPink"}}},
+  {"id": 222, "label": "Puck_0222", "color": "Orange", "dewar": 1, "cane": 3, "position": 2, "extra": {}},
+  {"id": 223, "label": "Puck_0223", "color": "Green", "dewar": 1, "cane": 3, "position": 3, "extra": {}},
+  {"id": 224, "label": "Puck_0224", "color": "MediumBlue", "dewar": 1, "cane": 3, "position": 4, "extra": {}},
+  {"id": 225, "label": "Puck_0225", "color": "Plum", "dewar": 1, "cane": 3, "position": 5, "extra": {}},
+  {"id": 226, "label": "Puck_0226", "color": "Black", "dewar": 1, "cane": 3, "position": 6, "extra": {}},
+  {"id": 227, "label": "Puck_0227", "color": "Gainsboro", "dewar": 1, "cane": 3, "position": 7, "extra": {}},
+  {"id": 228, "label": "Puck_0228", "color": "HotPink", "dewar": 1, "cane": 3, "position": 8, "extra": {}},
+  {"id": 229, "label": "Puck_0229", "color": "LightSteelBlue", "dewar": 1, "cane": 3, "position": 9, "extra": {}},
+  {"id": 230, "label": "Puck_0230", "color": "Moccasin", "dewar": 1, "cane": 3, "position": 10, "extra": {}},
+  {"id": 231, "label": "Puck_0231", "color": "Red", "dewar": 1, "cane": 4, "position": 1, "extra": {"cane": {"label": "10-04", "color": "Red"}}},
+  {"id": 232, "label": "Puck_0232", "color": "Orange", "dewar": 1, "cane": 4, "position": 2, "extra": {}},
+  {"id": 233, "label": "Puck_0233", "color": "Green", "dewar": 1, "cane": 4, "position": 3, "extra": {}},
+  {"id": 234, "label": "Puck_0234", "color": "MediumBlue", "dewar": 1, "cane": 4, "position": 4, "extra": {}},
+  {"id": 235, "label": "Puck_0235", "color": "Plum", "dewar": 1, "cane": 4, "position": 5, "extra": {}},
+  {"id": 236, "label": "Puck_0236", "color": "Black", "dewar": 1, "cane": 4, "position": 6, "extra": {}},
+  {"id": 237, "label": "Puck_0237", "color": "Gainsboro", "dewar": 1, "cane": 4, "position": 7, "extra": {}},
+  {"id": 238, "label": "Puck_0238", "color": "HotPink", "dewar": 1, "cane": 4, "position": 8, "extra": {}},
+  {"id": 239, "label": "Puck_0239", "color": "LightSteelBlue", "dewar": 1, "cane": 4, "position": 9, "extra": {}},
+  {"id": 240, "label": "Puck_0240", "color": "Moccasin", "dewar": 1, "cane": 4, "position": 10, "extra": {}},
+  {"id": 241, "label": "Puck_0241", "color": "Red", "dewar": 2, "cane": 5, "position": 1, "extra": {"cane": {"label": "10-05", "color": "Plum"}}},
+  {"id": 242, "label": "Puck_0242", "color": "Orange", "dewar": 2, "cane": 5, "position": 2, "extra": {}},
+  {"id": 243, "label": "Puck_0243", "color": "Green", "dewar": 2, "cane": 5, "position": 3, "extra": {}},
+  {"id": 244, "label": "Puck_0244", "color": "MediumBlue", "dewar": 2, "cane": 5, "position": 4, "extra": {}},
+  {"id": 245, "label": "Puck_0245", "color": "Plum", "dewar": 2, "cane": 5, "position": 5, "extra": {}},
+  {"id": 246, "label": "Puck_0246", "color": "Black", "dewar": 2, "cane": 5, "position": 6, "extra": {}},
+  {"id": 247, "label": "Puck_0247", "color": "Gainsboro", "dewar": 2, "cane": 5, "position": 7, "extra": {}},
+  {"id": 248, "label": "Puck_0248", "color": "HotPink", "dewar": 2, "cane": 5, "position": 8, "extra": {}},
+  {"id": 249, "label": "Puck_0249", "color": "LightSteelBlue", "dewar": 2, "cane": 5, "position": 9, "extra": {}},
+  {"id": 250, "label": "Puck_0250", "color": "Moccasin", "dewar": 2, "cane": 5, "position": 10, "extra": {}},
+  {"id": 251, "label": "Puck_0251", "color": "Red", "dewar": 2, "cane": 6, "position": 1, "extra": {"cane": {"label": "10-06", "color": "LightSteelBlue"}}},
+  {"id": 252, "label": "Puck_0252", "color": "Orange", "dewar": 2, "cane": 6, "position": 2, "extra": {}},
+  {"id": 253, "label": "Puck_0253", "color": "Green", "dewar": 2, "cane": 6, "position": 3, "extra": {}},
+  {"id": 254, "label": "Puck_0254", "color": "MediumBlue", "dewar": 2, "cane": 6, "position": 4, "extra": {}},
+  {"id": 255, "label": "Puck_0255", "color": "Plum", "dewar": 2, "cane": 6, "position": 5, "extra": {}},
+  {"id": 256, "label": "Puck_0256", "color": "Black", "dewar": 2, "cane": 6, "position": 6, "extra": {}},
+  {"id": 257, "label": "Puck_0257", "color": "Gainsboro", "dewar": 2, "cane": 6, "position": 7, "extra": {}},
+  {"id": 258, "label": "Puck_0258", "color": "HotPink", "dewar": 2, "cane": 6, "position": 8, "extra": {}},
+  {"id": 259, "label": "Puck_0259", "color": "LightSteelBlue", "dewar": 2, "cane": 6, "position": 9, "extra": {}},
+  {"id": 260, "label": "Puck_0260", "color": "Moccasin", "dewar": 2, "cane": 6, "position": 10, "extra": {}}
+],
+  "entries": [
+        {
+        "date": "2023-03-01T16:30:13.796273+00:00",
+        "type": "grids_preparation",
+        "title": "Grid preparation",
+        "description": "",
+        "project_id": 15,
+        "creation_date": "2023-03-01T16:30:13.796273+00:00",
+        "creation_user_id": 60,
+        "last_update_date": "2022-06-03T11:27:31.540363+00:00",
+        "last_update_user_id": 17,
+        "extra": {
+            "data": {
+                "grids_preparation_table": [
+                    {
+                        "gridbox_label": "F1_Mar1",
+                        "sample": "Fibrils; 0.5M NaCl for grid 1 &3, 1M NaCl for grid 2 & 4",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Copper",
+                        "mesh": "200",
+                        "film_material": "Carbon",
+                        "hole_size": "3.5",
+                        "hole_spacing": "1",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "20",
+                        "glow_time": "60",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "3",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "freezing_info": "3s blot with sample followed by adding of 3ul of H2O and blotting for 3s",
+                        "grid_position": [
+                            "1",
+                            "2",
+                            "3",
+                            "4"
+                        ]
+                    },
+                    {
+                        "gridbox_label": "F2_Mar1",
+                        "sample": "Fibrils; 0.5M NaCl for grid 1 &3, 1M NaCl for grid 2 & 4",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Copper",
+                        "mesh": "200",
+                        "film_material": "Carbon",
+                        "hole_size": "3.5",
+                        "hole_spacing": "1",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "20",
+                        "glow_time": "60",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "3",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "freezing_info": "3s blot with sample followed by adding of 3ul of H2O and blotting for 3s",
+                        "grid_position": [
+                            "1",
+                            "2"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+      {
+        "date": "2023-03-02T09:00:00+00:00",
+        "type": "grids_storage",
+        "title": "grid storage",
+        "description": "grid storage",
+        "project_id": 15,
+        "creation_date": "2023-03-02T16:24:08.455784+00:00",
+        "creation_user_id": 17,
+        "last_update_date": "2023-03-02T20:35:53.856380+00:00",
+        "last_update_user_id": 17,
+        "extra": {
+            "data": {
+                "grids_storage_table": [
+                    {
+                        "gridbox_label": "F1_Mar1",
+                        "sample": "fibrils 0.5M (1,3), 1M NaCl (2,4), double blot\n",
+                        "puck_id": 201,
+                        "box_position": "8",
+                        "grid_position": [
+                            "1",
+                            "2",
+                            "3",
+                            "4"
+                        ]
+                    },
+                    {
+                        "gridbox_label": "F2_Mar1",
+                        "sample": "fibrils 0.5M (1,3), 1M NaCl (2,4)",
+                        "puck_id": 201,
+                        "box_position": "9",
+                        "grid_position": [
+                            "1",
+                            "2"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "date": "2023-03-21T09:00:00+00:00",
+        "type": "grids_preparation",
+        "title": "Grid preparation 600uM",
+        "description": "Try double blotting and continuous carbon.",
+        "project_id": 15,
+        "creation_date": "2023-03-21T11:42:42.320601+00:00",
+        "creation_user_id": 17,
+        "last_update_date": "2022-06-03T11:27:31.634578+00:00",
+        "last_update_user_id": 17,
+        "extra": {
+            "data": {
+                "grids_preparation_table": [
+                    {
+                        "gridbox_label": "grid 1",
+                        "sample": "Fibrils; 0.6M NaCl for grid",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Copper",
+                        "mesh": "200",
+                        "film_material": "Carbon",
+                        "hole_size": "3.5",
+                        "hole_spacing": "1",
+                        "grid_info": "double blotting",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "20",
+                        "glow_time": "40",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "3",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "applications": "2 times",
+                        "grid_position": [
+                            "1"
+                        ]
+                    },
+                    {
+                        "gridbox_label": "grid 2",
+                        "sample": "Fibrils; 0.6M NaCl for grid",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Copper",
+                        "mesh": "300",
+                        "film_material": "Carbon",
+                        "hole_size": "2",
+                        "hole_spacing": "2",
+                        "grid_info": "3nm carbon",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "20",
+                        "glow_time": "40",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "3",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "grid_position": [
+                            "1"
+                        ]
+                    },
+                    {
+                        "gridbox_label": "grid 3",
+                        "sample": "Fibrils; 0.6M NaCl for grid",
+                        "grid_manufacturer": "Agar",
+                        "grid_material": "Copper",
+                        "mesh": "Other",
+                        "film_material": "Carbon",
+                        "hole_size": "Lacey",
+                        "hole_spacing": "1",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "20",
+                        "glow_time": "40",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "3",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "grid_position": [
+                            "1"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "date": "2023-03-21T13:57:31.031228+00:00",
+        "type": "grids_storage",
+        "title": "grid storage",
+        "description": "grid storage",
+        "project_id": 15,
+        "creation_date": "2023-03-21T13:57:31.031228+00:00",
+        "creation_user_id": 17,
+        "last_update_date": "2022-04-25T20:35:53.976683+00:00",
+        "last_update_user_id": 17,
+        "extra": {
+            "data": {
+                "grids_storage_table": [
+                    {
+                        "gridbox_label": "21/3-22 Saik Ann",
+                        "sample": "fibrils 0.6M NaCl. Grid 1: 3.5,1 double appl; grid 2: 3nm carbon; grid 3: Lacey",
+                        "puck_id": 201,
+                        "box_position": "10",
+                        "grid_position": [
+                            "1",
+                            "2",
+                            "3"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "date": "2023-05-09T09:00:00+00:00",
+        "type": "screening",
+        "title": "wt hIAPP PIPES pH 6.1",
+        "description": "",
+        "project_id": 15,
+        "creation_date": "2023-05-09T09:55:42.559285+00:00",
+        "creation_user_id": 17,
+        "last_update_date": "2023-05-09T13:44:38.512239+00:00",
+        "last_update_user_id": 17,
+        "extra": {
+            "data": {
+                "gridbox_label": "12",
+                "grids_table": [
+                    {
+                        "gridbox_label": "1 prio 7 ",
+                        "sample": "3.5/1 \n60 uM 15 H aggregation 2x dilution"
+                    },
+                    {
+                        "gridbox_label": "2 ",
+                        "sample": "3.5/1 \n50 uM 6 days aggregation ",
+                        "comments": "a bit dry overall, but nice fibers in thicker ice areas. Could be ok. Some crystalline ice "
+                    },
+                    {
+                        "gridbox_label": "3 prio ",
+                        "sample": "3.5/1 \n120 uM 6 days aggregation 2x dilution",
+                        "comments": "Bent and broken grid, not so nice overall although fibers are in thicker ice."
+                    },
+                    {
+                        "gridbox_label": "4 prio 1",
+                        "sample": "2/1 + 2 nm carbon\n60 uM 15 h aggregation",
+                        "comments": "Not fully developed fibers"
+                    },
+                    {
+                        "gridbox_label": "5 prio 8",
+                        "sample": "2/1 + 2 nm carbon \n50 uM 6 days aggregation 2x dilution"
+                    },
+                    {
+                        "gridbox_label": "6 prio 2",
+                        "sample": "2/1 + 3 nm carbon\n120 uM 6 days aggregation 2x dilution",
+                        "comments": "Good in the 'dark patches'. "
+                    },
+                    {
+                        "gridbox_label": "7 prio 3 ",
+                        "sample": "2/1 + 3 nm carbon\n60 uM 15 h aggregation 2x dilution"
+                    },
+                    {
+                        "gridbox_label": "8 prio 4 ",
+                        "sample": "2/1 + 3 nm carbon\n120 uM 6 days aggregation",
+                        "comments": "A bit dry, having nice fibers but with thick ice around. More diluted than grid 6. bent grid."
+                    },
+                    {
+                        "gridbox_label": "9 prio 5 ",
+                        "sample": "2/1 + 3 nm carbon\n50 uM 6 days aggregation",
+                        "comments": "Best so far, similar to grid 8. Collect!"
+                    },
+                    {
+                        "gridbox_label": "10 prio 6 ",
+                        "sample": "3.5/1 \n60 uM 15 H aggregation"
+                    },
+                    {
+                        "gridbox_label": "11 prio 9",
+                        "sample": "3.5/1\n50 uM 6 days aggregation 2x dilution"
+                    },
+                    {
+                        "gridbox_label": "12"
+                    }
+                ],
+                "images_table": []
+            }
+        }
+    },
+    {
+        "date": "2023-05-09T09:00:00+00:00",
+        "type": "grids_storage",
+        "title": "grids from screening and collection 11/5-23",
+        "description": "",
+        "project_id": 15,
+        "creation_date": "2023-05-09T14:46:23.543826+00:00",
+        "creation_user_id": 17,
+        "last_update_date": "2023-05-12T12:29:51.343336+00:00",
+        "last_update_user_id": 17,
+        "extra": {
+            "data": {
+                "grids_storage_table": [
+                    {
+                        "gridbox_label": "Sann 11/5-23 #1",
+                        "puck_id": 201,
+                        "box_position": "8",
+                        "sample": "grids 1-4 from screening "
+                    },
+                    {
+                        "gridbox_label": "Sann 11/5-23 #2",
+                        "puck_id": 201,
+                        "box_position": "9",
+                        "sample": "grids 5-8"
+                    },
+                    {
+                        "gridbox_label": "Sann 11/5-23 #3",
+                        "puck_id": 202,
+                        "sample": "grids 9-11\n\nGrid 9 was collected on",
+                        "sessions": "",
+                        "atlas": true,
+                        "EPU": true
+                    },
+                    {
+                        "gridbox_label": "Sann 11/5-23 #4",
+                        "sample": "grids 1,2 and 5,6 from second screening 11/5"
+                    }
+                ]
+            }
+        }
+    },
 
-
-
-  
+    {
+        "date": "2023-03-14T09:00:00+00:00",
+        "type": "grids_preparation",
+        "title": "A5+ and A6+",
+        "description": "A5+ (1.2mg/mL) and A6+ (1.0mg/mL) were frozen at 0.3 mg/mL.",
+        "project_id": 5,
+        "creation_date": "2023-03-14T16:05:44.105141+00:00",
+        "creation_user_id": 1,
+        "last_update_date": "2023-03-14T16:12:12.427104+00:00",
+        "last_update_user_id": 1,
+        "extra": {
+            "data": {
+                "grid_position": [],
+                "grids_preparation_table": [
+                    {
+                        "gridbox_label": "A5+ 14/2-23",
+                        "grid_position": [
+                            "1",
+                            "2"
+                        ],
+                        "sample": "A5+",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Gold",
+                        "mesh": "300",
+                        "film_material": "Gold",
+                        "hole_size": "0.6",
+                        "hole_spacing": "1",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "40",
+                        "glow_time": "60",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "5",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "applications": "1"
+                    },
+                    {
+                        "gridbox_label": "A5+ 14/2-23",
+                        "grid_position": [
+                            "3"
+                        ],
+                        "sample": "A5+",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Gold",
+                        "mesh": "300",
+                        "film_material": "Gold",
+                        "hole_size": "1.2",
+                        "hole_spacing": "1.3",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "40",
+                        "glow_time": "60",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "5",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "applications": "1"
+                    },
+                    {
+                        "gridbox_label": "A6+ 14/2-23",
+                        "grid_position": [
+                            "1",
+                            "2"
+                        ],
+                        "sample": "A6+",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Gold",
+                        "mesh": "300",
+                        "film_material": "Gold",
+                        "hole_size": "0.6",
+                        "hole_spacing": "1",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "40",
+                        "glow_time": "60",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "5",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "applications": "1"
+                    },
+                    {
+                        "gridbox_label": "A6+ 14/2-23",
+                        "grid_position": [
+                            "3"
+                        ],
+                        "sample": "A6+",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Gold",
+                        "mesh": "300",
+                        "film_material": "Gold",
+                        "hole_size": "1.2",
+                        "hole_spacing": "1.3",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "40",
+                        "glow_time": "60",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "5",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "applications": "1"
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "date": "2023-03-14T16:09:38.586534+00:00",
+        "type": "grids_storage",
+        "title": "A5+ and A6+ grids",
+        "description": "",
+        "project_id": 5,
+        "creation_date": "2023-03-14T16:09:38.586534+00:00",
+        "creation_user_id": 1,
+        "last_update_date": "2023-03-14T16:09:38.706830+00:00",
+        "last_update_user_id": 1,
+        "extra": {
+            "data": {
+                "grids_storage_table": [
+                    {
+                        "gridbox_label": "A5+ 14/2-23",
+                        "puck_id": "203",
+                        "box_position": "1",
+                        "grid_position": ["1", "2", "3"]
+                    },
+                    {
+                        "gridbox_label": "A6+ 14/2-23",
+                        "puck_id": "203",
+                        "box_position": "2",
+                        "grid_position": ["1", "2", "3"]
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "date": "2023-04-17T09:00:00+00:00",
+        "type": "grids_preparation",
+        "title": "Spike 5+ and 6+ after gel filtration",
+        "description": "",
+        "project_id": 5,
+        "creation_date": "2023-04-17T13:37:30.646074+00:00",
+        "creation_user_id": 7,
+        "last_update_date": "2023-04-17T13:41:05.623686+00:00",
+        "last_update_user_id": 7,
+        "extra": {
+            "data": {
+                "gridbox_label": "6+ 17/3-23",
+                "grid_position": [
+                    "4"
+                ],
+                "sample": "0.1 mg/mL 5+",
+                "grid_manufacturer": "Quantifoil",
+                "grid_material": "Gold",
+                "mesh": "300",
+                "film_material": "Carbon",
+                "hole_size": "1.2",
+                "hole_spacing": "1.3",
+                "grid_info": "RGO: Reduced Graphene oxide grids trial from Japan ",
+                "glow_device": "Quorum GloQube",
+                "glow_current": "20",
+                "glow_time": "30",
+                "device": "Vitrobot I",
+                "temperature": "4",
+                "humidity": "100",
+                "blot_time": "3",
+                "wait_time": "5",
+                "drain_time": "0",
+                "blot_force": "0",
+                "blot_total": "1",
+                "applications": "1",
+                "grids_preparation_table": [
+                    {
+                        "gridbox_label": "5+ 17/3-23",
+                        "grid_position": [
+                            "1"
+                        ],
+                        "sample": "0.3 mg/mL 5+",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Gold",
+                        "mesh": "300",
+                        "film_material": "Gold",
+                        "hole_size": "0.6",
+                        "hole_spacing": "1",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "40",
+                        "glow_time": "60",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "5",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "applications": "1"
+                    },
+                    {
+                        "gridbox_label": "5+ 17/3-23",
+                        "grid_position": [
+                            "2"
+                        ],
+                        "sample": "0.6 mg/mL 5+",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Gold",
+                        "mesh": "300",
+                        "film_material": "Gold",
+                        "hole_size": "0.6",
+                        "hole_spacing": "1",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "40",
+                        "glow_time": "60",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "5",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "applications": "1"
+                    },
+                    {
+                        "gridbox_label": "5+ 17/3-23",
+                        "grid_position": [
+                            "3"
+                        ],
+                        "sample": "0.6 mg/mL 5+",
+                        "grid_manufacturer": "Quantifoil",
+                        "grid_material": "Gold",
+                        "mesh": "300",
+                        "film_material": "Gold",
+                        "hole_size": "0.6",
+                        "hole_spacing": "1",
+                        "glow_device": "Quorum GloQube",
+                        "glow_current": "40",
+                        "glow_time": "60",
+                        "device": "Vitrobot I",
+                        "temperature": "4",
+                        "humidity": "100",
+                        "blot_time": "3",
+                        "wait_time": "5",
+                        "drain_time": "0",
+                        "blot_force": "0",
+                        "blot_total": "1",
+                        "applications": "1"
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "date": "2023-04-17T13:42:35.846960+00:00",
+        "type": "grids_storage",
+        "title": "Grids prepared 17/4 of Spike 5+ and +6 after gel filtration",
+        "description": "",
+        "project_id": 5,
+        "creation_date": "2023-04-17T13:42:35.846960+00:00",
+        "creation_user_id": 7,
+        "last_update_date": "2023-04-17T13:42:35.900659+00:00",
+        "last_update_user_id": 7,
+        "extra": {
+            "data": {
+                "grid_position": [],
+                "grids_storage_table": [
+                    {
+                        "gridbox_label": "+5 17/3-23",
+                        "puck_id": "204",
+                        "box_position": "1",
+                        "grid_position": ["1", "2", "3", "4"]
+                    },
+                    {
+                        "gridbox_label": "+6 17/3-23",
+                        "puck_id": "204",
+                        "box_position": "2",
+                        "grid_position": ["1", "2", "3", "4"]
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "date": "2023-04-25T09:00:00+00:00",
+        "type": "screening",
+        "title": "Krios alpha +5 and +6 after gel filtration ",
+        "description": "",
+        "project_id": 5,
+        "creation_date": "2023-04-25T09:02:29.063576+00:00",
+        "creation_user_id": 7,
+        "last_update_date": "2023-04-25T13:23:24.382718+00:00",
+        "last_update_user_id": 7,
+        "extra": {
+            "data": {
+                "gridbox_label": "8",
+                "sample": "6+ 01mg/mL on HGO grid",
+                "grids_table": [
+                    {
+                        "gridbox_label": "1",
+                        "sample": "5+ 0.3mg/mL"
+                    },
+                    {
+                        "gridbox_label": "2",
+                        "sample": "5+ 0.6mg/mL",
+                        "comments": "Nice overall,  but sample looks disassembled, no trimers can be seen. Collect"
+                    },
+                    {
+                        "gridbox_label": "3",
+                        "sample": "5+ 0.6mg/mL"
+                    }
+                ],
+                "images_table": []
+            }
+        }
+    }
+  ]
 }

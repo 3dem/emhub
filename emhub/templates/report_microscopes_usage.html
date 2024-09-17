@@ -22,7 +22,7 @@
                                 <option value="all" {{ selected }}>All</option>
                                 {% for a in applications %}
                                     {% set selected = 'selected' if a['id'] == app_id|int else '' %}
-                                    {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None else '' %}
+                                    {% set alias = '(%s)'|format(a['alias']) if a['alias'] and a['alias'] != None and a['alias'] != 'None' else '' %}
                                     <option value="{{ a['id'] }}" {{selected}}>{{ a['code'] }} {{ alias }}</option>
                                 {% endfor %}
                             </select>

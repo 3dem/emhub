@@ -70,6 +70,8 @@ class TestData:
         self._populateProjects(dm)
         self._populateBookings(dm)
         self._populateSessions(dm)
+        self._populatePucks(dm)
+        self._populateEntries(dm)
 
         # Create one invoice period
         dm.create_invoice_period(start=firstMonday,
@@ -177,6 +179,19 @@ class TestData:
             sDict['check_raw'] = False
             sDict['name'] = 'S%05d' % sDict['id']
             dm.create_session(**sDict)
+
+    def _populatePucks(self, dm):
+        self._action('Populating Pucks')
+        for puck in self.json_data['pucks']:
+            dm.create_puck(**puck)
+
+    def _populateEntries(self, dm):
+        self._action('Populating Entries')
+        for entry in self.json_data['entries']:
+            self.__fix_dates(entry, 'date',
+                             'creation_date',
+                             'last_update_date')
+            dm.create_entry(**entry)
 
     def _createTemplateFiles(self):
         instance_path = self.instance_path

@@ -47,15 +47,21 @@ The project timeline shows all operations done over time.
 Entries
 -------
 
-Entries allow to document what is happening within a project. Different types of entries can be defined in the system
-and used in the projects. This enables the implementation of different policies or workflows for project management across various centers. The following sections show some examples of Entries.
+Entries can be defined as "cards" that can be used within a project. They will serve to annotate what is happening in a project.
+Input parameters (scalar values, images, tables) for each type of entry can be defined with a JSON config and the GUI form will
+be generated automatically. Entries enable the implementation of different policies or workflows for project management across various centers.
+For example, in the CryoEM center at St.Jude, the **Microscope Request** entry type allows users to request microscope time.
+Then, this information is fetched from the customized Dashboard to show active requests and facilitate the distribution of sessions
+during the staff weekly meeting. At SciLifeLab, several types of entries are related to the grids tracking workflow used
+in the facility. The following sections provide some additional information about these entry examples.
 
 
 Microscope Request
 ..................
 
 Users use this type of entry at St. Jude to request access to microscopes. This entry defines
-several tabs with parameters that the user will provide depending on the microscope and the type of experiment. The user can upload several images in some tabs to document previous experiment results.
+several tabs with parameters that the user will provide depending on the microscope and the type of experiment.
+The user can upload several images in some tabs to document previous experiment results.
 
 .. tab:: Tab: General
 
@@ -68,26 +74,55 @@ several tabs with parameters that the user will provide depending on the microsc
        :width: 100%
 
 
-Grids Storage
-.............
+Grids Tracking and Pucks Storage
+................................
 
-At SciLifeLab, this type of entry is used to document where grids are stored.
+Although its usage is not mandatory, EMhub provides a table in its internal database to store
+information about pucks. One can define puck properties such as: label, color, and location
+in a dewar and cane.
 
-.. image:: https://github.com/3dem/emhub/wiki/images/202306/entry_grids_storage.jpg
-   :width: 100%
+In the CryoEM center at SciLifeLab in Solna, several types of entries are used to document
+the grids tracking process. For example, the **Grids Preparation** entry allows to record the parameters used for
+grid preparation.
 
-The information collected from these types of entries is then used to visualize
-an overall map of what is stored in each dewar and puck in the facility.
+.. tab:: Grids Preparation entry parameters
 
-.. image:: https://github.com/3dem/emhub/wiki/images/202306/grids_storage.jpg
-   :width: 100%
+    .. image:: https://github.com/3dem/emhub/wiki/images/202306/entry_grids_preparation.png
+       :width: 100%
 
+Usually, after a Grids Preparation entry, it follows a **Grids Storage** entry.
+This one is special since it inputs the puck location from the database and marks
+the positions of the grids. It also allows us to make additional annotations.
 
-Data Acquisition
-................
+.. tab:: Grids Storage entry parameters
 
-This is another entry used in SciLifeLab to document data collection parameters:
+    .. image:: https://github.com/3dem/emhub/wiki/images/202306/entry_grids_storage.jpg
+       :width: 100%
 
-.. image:: https://github.com/3dem/emhub/wiki/images/202306/entry_data_acquisition.jpg
-   :width: 100%
+The information collected from these types of entries is then used to track
+the locations of stored grids in the pucks over time. This allows to replace
+the paper notebook that is common in many CryoEM facilities by a page that shows
+a map with all dewars, canes and pucks. In each position, the last entry information
+will be displayed related to the stored sample.
+
+.. tab:: Grids Storage map showing all positions that have annotated sample information
+
+    .. image:: https://github.com/3dem/emhub/wiki/images/202306/grids_storage.jpg
+       :width: 100%
+
+At SciLifeLab, there are two additional type of entries related to the tracking
+and annotation of grids within a project: **Screening** and **Data Acquisition**.
+In both cases, there is a *Report Images* tab where images can be uploaded with comments.
+This can be used to generate a report related to that entry.
+
+.. tab:: Screening
+
+    .. image:: https://github.com/3dem/emhub/wiki/images/202306/entry_screening.png
+       :width: 100%
+
+.. tab:: Data Acquisition
+
+    .. image:: https://github.com/3dem/emhub/wiki/images/202306/entry_data_acquisition.jpg
+       :width: 100%
+
 

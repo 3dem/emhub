@@ -896,6 +896,11 @@ def register_content(dc):
 
                 if start.date() <= now.date() <= end.date():  # also add in today
                     resource_bookings[r.id]["today"].append(b)
+                    bookings[0][1].append(b)
+                elif k == 'next_week':
+                    bookings[1][1].append(b)
+            else:
+                bookings[2][1].append(b)
 
         local_tag = dm.get_config('bookings').get('local_tag', '')
         local_scopes = {}
@@ -908,7 +913,6 @@ def register_content(dc):
                 local_scopes[r.id] = r
                 add_booking(b)
 
-        resource_requests = {rid: [] for rid in local_scopes.keys()}
         scopes = {r.id: r for r in dm.get_resources()}
 
         # Retrieve open requests for each scope from entries and bookings
@@ -954,7 +958,8 @@ def register_content(dc):
         dataDict.update({'bookings': bookings,
                          'resource_bookings': resource_bookings,
                          'resource_create_session': resource_create_session,
-                         'news': news
+                         'news': news,
+                         'local_resources': local_scopes
                          })
         return dataDict
 

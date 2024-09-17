@@ -32,7 +32,8 @@ Basic Installation
     conda create --name=emhub python=3.8
     conda activate emhub
 
-
+    git clone https://github.com/3dem/emhub.git
+    # OR
     git clone git@github.com:3dem/emhub.git
     cd emhub
 
