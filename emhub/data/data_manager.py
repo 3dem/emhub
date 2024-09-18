@@ -122,11 +122,29 @@ class DataManager(DbManager):
         if self._user is None:
             self._user = users[0]
 
+
     def create_user(self, **attrs):
         """ Create a new user in the DB. """
+        if not self._user.is_manager:
+            raise Exception("Only 'managers' or 'admins' can register new users.")
+
+        def __check_uniq(attrName):
+            attr = attrs.get(attrName, None)
+            print(f"Checking attr '{attrName}, value: '{attr}'")
+            if not attr or not attr.strip():
+                raise Exception(f"Input '{attrName}' should have a value")
+            if self.get_user_by(**{attrName: attr}) is not None:
+                raise Exception(f"There is already an existing user with "
+                                f"'{attrName}={attr}' and it should be unique.")
+
+        __check_uniq('email')
+        __check_uniq('username')
+
+        #self.get_user_by(id=attrs['id'])
         attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
         del attrs['password']
-        return self.__create_item(self.User, **attrs)
+
+        user = self.__create_item(self.User, **attrs)
 
     def update_user(self, **attrs):
         """ Update an existing user. """
@@ -1188,7 +1206,7 @@ class DataManager(DbManager):
         """ Return True if the current logged user has any of the roles
         defined in the config for 'permissionKey'.
         """
-        perms = self.get_config('permissions')['content']
+        perms = self.get_config('permissions').get('content', {})
         return self._user.has_any_role(perms.get(permissionKey, []))
 
     def check_resource_access(self, resource, permissionKey):
