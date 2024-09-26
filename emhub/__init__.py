@@ -422,6 +422,7 @@ def create_app(test_config=None):
     app.jinja_env.filters['shortname'] = shortname
     app.jinja_env.filters['pairname'] = pairname
     app.jinja_env.filters['pretty_size'] = Pretty.size
+    app.jinja_env.filters['isoformat'] = datetime_to_isoformat
 
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user
