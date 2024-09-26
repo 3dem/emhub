@@ -1,0 +1,68 @@
+<!-- ============================================================== -->
+<!-- Dashboard right content -->
+<!-- ============================================================== -->
+<div class="col-xl-12 col-lg-12 col-md-7 col-sm-12 col-12">
+    <div class="influence-profile-content pills-regular">
+
+        {% include 'dashboard_news.html' %}
+
+        <h3 class="col-12">Instruments</h3>
+        <div class="row">
+            {% for r in resources %}
+                <div class="col-auto mb-4" style="min-width: 700px; max-width: 700px;" id="instrument_card_{{ r['id'] }}">
+                    {% include 'dashboard_instrument_card.html' %}
+                </div>
+            {% endfor %}
+        </div>
+
+</div>
+
+</div>
+<!-- ============================================================== -->
+<!-- End  of Dashboard right content -->
+<!-- ============================================================== -->
+
+<script>
+
+    function showBookingFromDashboard(resource_id, booking_id){
+        last_resource_id = resource_id;
+        showBookingForm({booking_id: booking_id });
+    }
+
+    function createBookingFromEntry(resource_id, entry_id){
+        last_resource_id = resource_id;
+        showBookingForm({entry_id: entry_id });
+    }
+
+    function createBookingFromSlot(resource_id, operator_id, start, end){
+        last_resource_id = resource_id;
+        showBookingForm({
+            resource_id: resource_id,
+            start: start,
+            end: end,
+            operator_id: operator_id
+        });
+    }
+
+    function onBookingChanged(response){
+        //alert("Last resource: " + last_resource_id + ". Booking created! Reload page.");
+        load_html_from_ajax('instrument_card_' + last_resource_id,
+            get_ajax_content('dashboard_instrument_card', {resource_id: last_resource_id}))
+    }
+
+    (function(window, document, $, undefined) {
+        "use strict";
+
+        var last_resource_id = null;
+
+        on_bookings_deleted = on_bookings_updated = on_bookings_created = onBookingChanged;
+
+        makeSameHeight('current_session');
+        makeSameHeight('this_week_container');
+        makeSameHeight('next_week_container');
+
+        makeSameHeight('news-card');
+
+    })(window, document, window.jQuery);
+
+</script>

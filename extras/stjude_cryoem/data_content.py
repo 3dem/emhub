@@ -5,6 +5,7 @@ import json
 import datetime as dt
 
 from emtools.utils import Pretty
+from emhub.utils import datetime_from_isoformat
 
 
 def register_content(dc):
@@ -153,3 +154,157 @@ def register_content(dc):
         # for St.Jude CryoEM center.
         """
         return create_session_form(**kwargs)
+
+    @dc.content
+    def news(**kwargs):
+        """ Return news after creating HTML markup. """
+        from markupsafe import Markup
+
+        newsConfig = dc.app.dm.get_config('news')
+        allNews = newsConfig['news'] if newsConfig else []
+        news = []
+        for n in allNews:
+            if n['status'] == 'active':
+                n['html'] = Markup(n['text'])
+                news.append(n)
+
+        return {'news': news}
+
+    @dc.content
+    def dashboard_instrument_card(**kwargs):
+        """ Load data for a single instrument. """
+        data = dashboard(**kwargs)
+        r = None
+        for r in data['resources']:
+            if r['id'] == int(kwargs['resource_id']):
+                break
+        data['r'] = r
+        return data
+    @dc.content
+    def dashboard(**kwargs):
+        """ Customized Dashboard data for the CryoEM center at St.Jude. """
+        dm = dc.app.dm  # shortcut
+        user = dc.app.user  # shortcut
+        dataDict = dc.get_resources(image=True)
+        resource_bookings = {}
+
+        # Provide upcoming bookings sorted by proximity
+        bookings = [('Today', []),
+                    ('Next 7 days', []),
+                    ('Next 30 days', [])]
+
+        def week_start(d):
+            return (d - dt.timedelta(days=d.weekday())).date()
+
+        if 'date' in kwargs:
+            now = datetime_from_isoformat(kwargs['date'])
+        else:
+            now = dm.now()
+        this_week = week_start(now)
+        d7 = dt.timedelta(days=7)
+        next_week = week_start(now + d7)
+        prev7 = now - dt.timedelta(days=8)
+        next7 = now + d7
+        next30 = now + dt.timedelta(days=30)
+
+        def is_same_week(d):
+            return this_week == week_start(d)
+
+        def is_next_week(d):
+            return this_week == week_start(d - d7)
+
+        def add_booking(b):
+            start = dm.dt_as_local(b.start)
+            end = dm.dt_as_local(b.end)
+
+            r = b.resource
+            if r.id not in resource_bookings:
+                resource_bookings[r.id] = {
+                    'today': [],
+                    'this_week': [],
+                    'next_week': []
+                }
+
+            if is_same_week(start):
+                k = 'this_week'
+            elif is_next_week(start):
+                k = 'next_week'
+            else:
+                k = None
+
+            if k:
+                resource_bookings[r.id][k].append(b)
+
+                if start.date() <= now.date() <= end.date():  # also add in today
+                    resource_bookings[r.id]["today"].append(b)
+                    bookings[0][1].append(b)
+                elif k == 'next_week':
+                    bookings[1][1].append(b)
+            else:
+                bookings[2][1].append(b)
+
+        local_tag = dm.get_config('bookings').get('local_tag', '')
+        local_scopes = {}
+
+        for b in dm.get_bookings_range(prev7, next30):
+            # if not user.is_manager and not user.same_pi(b.owner):
+            #     continue
+            r = b.resource
+            if not local_tag or local_tag in r.tags:
+                local_scopes[r.id] = r
+                add_booking(b)
+
+        scopes = {r.id: r for r in dm.get_resources()}
+
+        for rbookings in resource_bookings.values():
+            for k, bookingValues in rbookings.items():
+                bookingValues.sort(key=lambda b: b.start)
+
+        # Remove slots if there are overlapping bookings
+        for rbookings in resource_bookings.values():
+            for k, bookingValues in rbookings.items():
+                def _slot_overlap(s):
+                    return s.is_slot and any(s.overlap_slot(b)
+                                             for b in bookingValues)
+
+                slots_overlap = [s for s in bookingValues if _slot_overlap(s)]
+                for s in slots_overlap:
+                    bookingValues.remove(s)
+
+                bookingValues.sort(key=lambda b: b.start)
+
+        # Retrieve open requests for each scope from entries and bookings
+        for p in dm.get_projects():
+            if p.is_active:
+                last_bookings = {}
+                # Find last bookings for each scope
+                for b in sorted(p.bookings, key=lambda b: b.end, reverse=True):
+                    if len(last_bookings) < len(local_scopes) and b.resource_id not in last_bookings:
+                        last_bookings[b.resource.id] = b
+
+                reqs = {}
+                for e in reversed(p.entries):
+                    # Requests found for each scope, no need to continue
+                    if len(reqs) == len(local_scopes):
+                        break
+                    if b := dc.booking_from_entry(e, scopes):
+                        rid = b.resource_id
+                        if (rid not in reqs and
+                                (rid not in last_bookings or
+                                 b.start.date() > last_bookings[rid].end.date())):
+                            b.id = e.id
+                            add_booking(b)
+                            reqs[rid] = b
+
+        # Sort all entries
+        for rbookings in resource_bookings.values():
+            for k, bookingValues in rbookings.items():
+                bookingValues.sort(key=lambda b: b.start)
+
+        resource_create_session = dm.get_config('sessions').get('create_session', {})
+        dataDict.update({'resource_bookings': resource_bookings,
+                         'resource_create_session': resource_create_session,
+                         'local_resources': local_scopes
+                         })
+        dataDict.update(news())
+        return dataDict
