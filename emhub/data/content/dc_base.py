@@ -552,6 +552,8 @@ class DataContent:
 
         all = kwargs.get('all', False)
         get_image = kwargs.get('image', False)
+        # Return only one resource with that id
+        resource_id = kwargs.get('resource_id', None)
 
         def _image(r):
             if not get_image or r.id is None:
@@ -565,7 +567,7 @@ class DataContent:
                 return flask.url_for('images.static', filename=r.image)
 
         def _filter(r):
-            return all or r.is_active
+            return (all or r.is_active) and ((not resource_id) or r.id == int(resource_id))
 
         resource_list = [
             {'id': r.id,
