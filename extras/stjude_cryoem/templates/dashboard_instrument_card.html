@@ -78,31 +78,42 @@
         </div>
 {%- endmacro %}
 
+{% set cres = 5 if alignment == 'h' else 12 %}
 
 <div class="card h-100">
     <div class="card-header">
-        <div class="row align-items-left justify-content-start">
-            <div class="col-2 mr-0 pr-0">
+        <div class="row m-0 p-0">
+            <div class="row align-items-left justify-content-start align-items-center col-6">
                 <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
+                <h3 class="mt-2"><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>
+
+    {#            <div class="col-2 mr-0 pr-0">#}
+    {#                <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">#}
+    {#            </div>#}
+    {#            <div class="col-9 text-left ml-0 pl-0 mt-2">#}
+    {#                                    <h3>{{ r['name'] }}</h3>#}
+    {#                <h3><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>#}
+    {#            </div>#}
             </div>
-            <div class="col-9 text-left ml-0 pl-0 mt-2">
-{#                                    <h3>{{ r['name'] }}</h3>#}
-                <h3><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>
+            <div class="row align-items-right justify-content-end col-6">
+{#                <h3 class="mt-2"><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>#}
             </div>
         </div>
 
     </div>
     <div class="card-body pt-0">
         {% if r['id'] in resource_bookings %}
-            <div class="card-body this_week_container mt-3">
-                <div class="row"><h3>This week</h3></div>
-                {% set this_week = resource_bookings[r['id']].get('this_week', []) %}
-                {{ table(this_week, not r.is_microscope) }}
-            </div>
-            <div class="card-body next_week_container mt-3">
-                <div class="row"><h3>Next week</h3></div>
-                {% set next_week = resource_bookings[r['id']].get('next_week', []) %}
-                {{ table(next_week, True) }}
+            <div class="row">
+                <div class="card-body this_week_container mt-3 col-{{ cres }}">
+                    <div class="row"><h3>This week</h3></div>
+                    {% set this_week = resource_bookings[r['id']].get('this_week', []) %}
+                    {{ table(this_week, not r.is_microscope) }}
+                </div>
+                <div class="card-body next_week_container mt-3 ml-5 col-{{ cres }}">
+                    <div class="row"><h3>Next week</h3></div>
+                    {% set next_week = resource_bookings[r['id']].get('next_week', []) %}
+                    {{ table(next_week, True) }}
+                </div>
             </div>
     {% endif %}
     </div>

@@ -6,10 +6,15 @@
 
         {% include 'dashboard_news.html' %}
 
-        <h3 class="col-12">Instruments</h3>
+         {% set nres = resources|length %}
+         {% set wres = 700 if nres > 1 else 1500 %}
+         {% set alignment = 'v' if nres > 1 else 'h' %}
+
+        <h3 class="col-12">Dashboard</h3>
         <div class="row">
+
             {% for r in resources %}
-                <div class="col-auto mb-4" style="min-width: 700px; max-width: 700px;" id="instrument_card_{{ r['id'] }}">
+                <div class="col-auto mb-4" style="min-width: {{ wres }}px; max-width: {{ wres }}px;" id="instrument_card_{{ r['id'] }}">
                     {% include 'dashboard_instrument_card.html' %}
                 </div>
             {% endfor %}
@@ -47,7 +52,8 @@
     function onBookingChanged(response){
         //alert("Last resource: " + last_resource_id + ". Booking created! Reload page.");
         load_html_from_ajax('instrument_card_' + last_resource_id,
-            get_ajax_content('dashboard_instrument_card', {resource_id: last_resource_id}))
+            get_ajax_content('dashboard_instrument_card', {resource_id: last_resource_id,
+                                                           alignment: {{alignment|tojson}}}));
     }
 
     (function(window, document, $, undefined) {

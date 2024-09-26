@@ -179,13 +179,24 @@ def register_content(dc):
             if r['id'] == int(kwargs['resource_id']):
                 break
         data['r'] = r
+        data['alignment'] = kwargs.get('alignment', 'v')
         return data
+
     @dc.content
     def dashboard(**kwargs):
         """ Customized Dashboard data for the CryoEM center at St.Jude. """
         dm = dc.app.dm  # shortcut
         user = dc.app.user  # shortcut
-        dataDict = dc.get_resources(image=True)
+        # If 'resource_id' is passed as argument, only display
+        # that resource in the dashboard
+        dataDict = dc.get_resources(image=True,
+                                    resource_id=kwargs.get('resource_id', None))
+
+        #
+        # if rid := int(kwargs.get('resource_id', 0)):
+        #     new_resources = [r for r in dataDict['resources'] if r['id'] == rid]
+        #     dataDict['resources']
+
         resource_bookings = {}
 
         # Provide upcoming bookings sorted by proximity
