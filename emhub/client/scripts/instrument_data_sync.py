@@ -26,7 +26,7 @@ import sys
 import argparse
 from pprint import pprint
 
-from emtools.utils import Color, Process
+from emtools.utils import Color, Process, Pretty
 from emhub.client import open_client
 
 
@@ -42,11 +42,18 @@ def main():
     p.add_argument('--copy', '-c', action="store_true",
                    help="By default it will do a dry execution. When "
                         "this option is used, the real copy is done. ")
+    p.add_argument('--log', metavar='LOG_FILE',
+                   help="Provide a file to log operation. ")
 
     args = p.parse_args()
     data_root = args.data_root
     instrument_folder = args.instrument_folder
     dry = not args.copy
+    dryStr = '(DRY)' if dry else ''
+
+    if args.log:
+        with open(args.log, 'a') as f:
+            f.write(f"{Pretty.now()}: Sync {instrument_folder} data {dryStr}.\n")
 
     logger = Process.Logger(only_log=dry)
 
@@ -67,21 +74,21 @@ def main():
         jude_folder = raw['jude_group_folder']
         for group in sconfig['groups'].values():
             print('\n', Color.warn(group))
-            negstain_path = os.path.join(data_root, group)
-            print("  Data root: ", _color(negstain_path))
+            data_path = os.path.join(data_root, group)
+            print("  Data root: ", _color(data_path))
             gscem_path = os.path.join(raw['root'], group)
             print("     GSCEM: ", _color(gscem_path))
             jude_path = jude_folder.format(group=group)
             print("      Jude: ", _color(jude_path))
 
-            if not os.path.exists(negstain_path):
+            if not os.path.exists(data_path):
                 continue
 
             if os.path.exists(gscem_path):
-                _rsync(negstain_path, os.path.join(gscem_path, instrument_folder))
+                _rsync(data_path, os.path.join(gscem_path, instrument_folder))
 
             if os.path.exists(jude_path):
-                _rsync(negstain_path, os.path.join(jude_path, instrument_folder))
+                _rsync(data_path, os.path.join(jude_path, instrument_folder))
 
 
 if __name__ == '__main__':
