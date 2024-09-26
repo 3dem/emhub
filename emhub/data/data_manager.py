@@ -130,7 +130,6 @@ class DataManager(DbManager):
 
         def __check_uniq(attrName):
             attr = attrs.get(attrName, None)
-            print(f"Checking attr '{attrName}, value: '{attr}'")
             if not attr or not attr.strip():
                 raise Exception(f"Input '{attrName}' should have a value")
             if self.get_user_by(**{attrName: attr}) is not None:
@@ -1218,17 +1217,12 @@ class DataManager(DbManager):
             return True
 
         perms = self.get_config('permissions')
-        return (self._user.can_book_resource(resource) and
+        return (self._user.can_book_resource(resource) or True and
                 any(t in resource.tags and 'user' in u
                     for t, u in perms.get(permissionKey, {}).items()))
 
     # ------------------- BOOKING helper functions -----------------------------
     def create_basic_booking(self, attrs, **kwargs):
-        # if 'creator_id' not in attrs:
-        #     attrs['creator_id'] = self._user.id
-        #
-        # if 'owner_id' not in attrs:
-        #     attrs['owner_id'] = self._user.id
         if 'type' not in attrs:
             attrs['type'] = 'booking'
 
@@ -1242,6 +1236,7 @@ class DataManager(DbManager):
 
         _set_user('creator')
         _set_user('owner')
+        _set_user('operator')
 
         return b
 
@@ -1311,23 +1306,15 @@ class DataManager(DbManager):
         app = None
 
         if not booking.is_slot:
-            margin = dt.timedelta(seconds=1)
-            def _in_range(x):
-                return s < x < e
-            def _soft_overlap(b):
-                """ Allow events to start/end at the same time without reporting
-                it as overlap. """
-                return b.id != booking.id and _in_range(b.start) or _in_range(b.end)
-
             # Check there is not overlapping with other non-slot events
             overlap_noslots = [b for b in overlap
-                               if not b.is_slot and _soft_overlap(b)]
+                               if not b.is_slot and booking.overlap(b)]
             if overlap_noslots:
                 raise Exception("Booking is overlapping with other events: %s"
                                 % overlap_noslots)
 
             overlap_slots = [b for b in overlap
-                             if b.is_slot and _soft_overlap(b)]
+                             if b.is_slot and booking.overlap_slot(b)]
 
             # Always try to find the Application to set in the booking unless
             # the owner is a manager

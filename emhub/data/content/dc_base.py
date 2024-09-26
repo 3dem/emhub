@@ -944,7 +944,6 @@ def register_content(dc):
                 bookingValues.sort(key=lambda b: b.start)
 
         from markupsafe import Markup
-        value = Markup('<strong>The HTML String</strong>')
 
         newsConfig = dm.get_config('news')
         allNews = newsConfig['news'] if newsConfig else []
