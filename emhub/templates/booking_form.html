@@ -37,7 +37,7 @@
                             <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" data-key="resource_id" title="Select Resource to book..." {{ select_readonly }}>
                             {% for r in resources %}
                                 {% if r['user_can_book'] %}
-                                    {% set selected = 'selected' if r['id'] == booking.resource.id else '' %}
+                                    {% set selected = 'selected' if r['id'] == booking.resource_id|int else '' %}
                                     <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
                                 {% endif %}
                             {% endfor %}
@@ -55,7 +55,7 @@
                                     <option data-divider="true"></option>
                                     {% for u in lab %}
                                         {% set style = 'background: #71748d; color: #fff;' if loop.index0 == 0 else '' %}
-                                        {% set selected = 'selected' if (u['id'] == booking.owner.id or u['id'] == booking.owner_id) else '' %}
+                                        {% set selected = 'selected' if (u['id'] == booking.owner.id or u['id'] == booking.owner_id|int) else '' %}
                                         <option value="{{u['id']}}" {{ selected }} style="{{style}}">{{u['name']}}</option>
                                     {% endfor %}
                                 {% endfor %}
@@ -158,12 +158,12 @@
                                         <select id="booking-operator-select" class="selectpicker show-tick" data-live-search="true" data-key="operator_id" >
                                             <option value="0">Not set</option>
                                             {% for u in possible_operators %}
-                                                {% set selected = 'selected' if u['id'] == booking.operator_id else '' %}
+                                                {% set selected = 'selected' if u['id'] == booking.operator_id|int else '' %}
                                                 <option {{ selected }} value="{{u['id']}}">{{u['name']}}</option>
                                             {% endfor %}
                                         </select>
                                     {% else %}
-                                        <input type="text" required="" placeholder="Staff" id="booking-owner-text" class="form-control" data-key="operator_id" >
+                                        <input type="text" required="" placeholder="Staff" id="booking-staff-text" class="form-control" data-key="operator_id" >
                                     {% endif %}
                                 </div>
                             </div>
