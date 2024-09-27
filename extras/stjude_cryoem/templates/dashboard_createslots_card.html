@@ -1,0 +1,65 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+<div class="modal-content">
+
+    <!-- Modal header -->
+    <div class="modal-header">
+        <h3 class="modal-title"> Next week - SLOTS ({{ next_week|pretty_date }})</h3>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+    </div> <!-- End of Modal header -->
+
+    <!-- Modal body -->
+    <div class="modal-body">
+        <div class="table-responsive-sm m-0 p-0">
+            <table class="table borderless m-0 p-0">
+            <tbody>
+                {% for b in slots %}
+                    {% set n = overlaps[loop.index0]|length %}
+                    {% set active = False %}
+                    <tr class="row p-0 m-0" style="{{ row_style }}" >
+                        <td class="col-2 text-left" style="font-weight: bold">
+                            {% if loop.index0 % 2 == 0 %}
+                                {{ b|booking_span }}
+                            {% endif %}
+                        </td>
+                        <td class="col-2">
+                            <span style="color: rgb(255,107,53);">{{ b|time_range }}</span>
+                        </td>
+                        <td class="col-2">
+                            {% if n %}
+                                <span class="badge-danger p-1 badge-pill">Overlap</span>
+                            {% else %}
+                                <span class="badge-success p-1 badge-pill">Ready</span>
+                            {% endif %}
+
+                        </td>
+                        <td class="col-6 row">
+                            {% for o in overlaps[loop.index0] %}
+                                <div class="col-12 row p-0 m-0">
+                                    <div class="col-2">Id: {{ o.id }}</div>
+                                    <div class="col-3">{{ o|time_range }}</div>
+                                    <div class="col-7">{{ o.owner|pairname}}</div>
+                                </div>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+
+            </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" id="slots-btn-cancel"  class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+      <button class="btn btn-outline-dark" onclick="onSlotsCreateClick()">Create</button>
+    </div>
+
+</div>
+</div>
+
+
+

@@ -1,4 +1,4 @@
-
+import datetime
 import os
 from glob import glob
 import json
@@ -183,19 +183,56 @@ def register_content(dc):
         return data
 
     @dc.content
+    def dashboard_createslots_card(**kwargs):
+        dm = dc.app.dm
+        kwargs['load_requests'] = False
+        data = dashboard_instrument_card(**kwargs)
+        next_week = data['next_week']
+        rid = int(kwargs['resource_id'])
+        create_slots = int(kwargs.get('create_slots', 0))
+
+        slots = []
+        overlaps = []
+        bookings = data['resource_bookings'][rid].get('next_week', [])
+        range1 = datetime.time(9), datetime.time(12)
+        range2 = datetime.time(13), datetime.time(23)
+
+        def _create_slot(d, r):
+            args = {
+                'resource_id': rid,
+                'type': 'slot',
+                'start': dm.date(d, r[0]),
+                'end': dm.date(d, r[1])
+            }
+
+            s = dm.Booking(**args)
+            o = [b for b in bookings if b.overlap_slot(s)]
+            slots.append(s)
+            overlaps.append(o)
+            if create_slots and not o:
+                dm.create_booking(**args)
+
+        for i in range(5):
+            d = next_week + datetime.timedelta(days=i)
+            _create_slot(d, range1)
+            _create_slot(d, range2)
+
+        data['slots'] = slots
+        data['overlaps'] = overlaps
+        return data
+
+    @dc.content
     def dashboard(**kwargs):
         """ Customized Dashboard data for the CryoEM center at St.Jude. """
         dm = dc.app.dm  # shortcut
         user = dc.app.user  # shortcut
         # If 'resource_id' is passed as argument, only display
         # that resource in the dashboard
-        dataDict = dc.get_resources(image=True,
-                                    resource_id=kwargs.get('resource_id', None))
+        resource_id = int(kwargs.get('resource_id', 0))
+        dataDict = dc.get_resources(image=True)
+        resources = dataDict['resources']
+        selected_resources = [r for r in resources if r['id'] == resource_id] or resources
 
-        #
-        # if rid := int(kwargs.get('resource_id', 0)):
-        #     new_resources = [r for r in dataDict['resources'] if r['id'] == rid]
-        #     dataDict['resources']
 
         resource_bookings = {}
 
@@ -285,27 +322,28 @@ def register_content(dc):
                 bookingValues.sort(key=lambda b: b.start)
 
         # Retrieve open requests for each scope from entries and bookings
-        for p in dm.get_projects():
-            if p.is_active:
-                last_bookings = {}
-                # Find last bookings for each scope
-                for b in sorted(p.bookings, key=lambda b: b.end, reverse=True):
-                    if len(last_bookings) < len(local_scopes) and b.resource_id not in last_bookings:
-                        last_bookings[b.resource.id] = b
+        if kwargs.get('load_requests', True):
+            for p in dm.get_projects():
+                if p.is_active:
+                    last_bookings = {}
+                    # Find last bookings for each scope
+                    for b in sorted(p.bookings, key=lambda b: b.end, reverse=True):
+                        if len(last_bookings) < len(local_scopes) and b.resource_id not in last_bookings:
+                            last_bookings[b.resource.id] = b
 
-                reqs = {}
-                for e in reversed(p.entries):
-                    # Requests found for each scope, no need to continue
-                    if len(reqs) == len(local_scopes):
-                        break
-                    if b := dc.booking_from_entry(e, scopes):
-                        rid = b.resource_id
-                        if (rid not in reqs and
-                                (rid not in last_bookings or
-                                 b.start.date() > last_bookings[rid].end.date())):
-                            b.id = e.id
-                            add_booking(b)
-                            reqs[rid] = b
+                    reqs = {}
+                    for e in reversed(p.entries):
+                        # Requests found for each scope, no need to continue
+                        if len(reqs) == len(local_scopes):
+                            break
+                        if b := dc.booking_from_entry(e, scopes):
+                            rid = b.resource_id
+                            if (rid not in reqs and
+                                    (rid not in last_bookings or
+                                     b.start.date() > last_bookings[rid].end.date())):
+                                b.id = e.id
+                                add_booking(b)
+                                reqs[rid] = b
 
         # Sort all entries
         for rbookings in resource_bookings.values():
@@ -313,9 +351,20 @@ def register_content(dc):
                 bookingValues.sort(key=lambda b: b.start)
 
         resource_create_session = dm.get_config('sessions').get('create_session', {})
+
+        # FIXME Now let's hard code Arctica as the only
+        # microscope that allows generation of slots.
+        # It can be changed to some configuration if needed
+        create_slots = {'Arctica01': True}
+
         dataDict.update({'resource_bookings': resource_bookings,
                          'resource_create_session': resource_create_session,
-                         'local_resources': local_scopes
+                         'local_resources': local_scopes,
+                         'next_week': next_week,
+                         'date': now,
+                         'create_slots': create_slots,
+                         'resource_id': resource_id,
+                         'selected_resources': selected_resources
                          })
         dataDict.update(news())
         return dataDict

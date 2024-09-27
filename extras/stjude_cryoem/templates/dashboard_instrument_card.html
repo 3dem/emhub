@@ -60,7 +60,7 @@
                             {% if create_session_func %}
                                 {% if active %}
                                         <a href="javascript:createSession({{ b.id }}, {{ sessions|length }}, '{{ create_session_func }}')" class="btn btn-primary mr-0">
-                                                        <i class="fas fa-plus-circle"></i> New Session </a>
+                                                        <i class="fas fa-plus-circle mr-1"></i> New Session </a>
                                 {% else %}
                                     {% if current_user.is_manager %}
                                         <a href="javascript:createSession({{ b.id }}, {{ sessions|length }}, '{{ create_session_func }}')"><i class="fas fa-plus-circle"></i></a>
@@ -92,7 +92,13 @@
                 <h3 class="mt-2"><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>
             </div>
             <div class="row align-items-right justify-content-end col-6">
-                <a href="javascript:generateSlots({{ r['id'] }})"><i class="fas fa-plus-circle"></i></a>
+                {% if current_user.is_manager and create_slots.get(r['name'], False) %}
+                    <div>
+                    <a href="javascript:createSlots({{ r['id'] }})" class="btn btn-brand btn-sm mr-0">
+                        <i class="fas fa-plus-circle mr-1"></i> Create Slots </a>
+                    </div>
+
+                {% endif %}
             </div>
         </div>
 
