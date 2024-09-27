@@ -46,6 +46,10 @@
 
                             {% elif b.type == 'request' %}
                                 <a href="javascript:createBookingFromEntry({{ b.resource_id }}, {{ b.id }})"><i class="far fa-calendar" style="color: red"></i></a>
+                            {% elif b.type == 'slot' %}
+                                {% if current_user.is_manager %}
+                                    <a href="javascript:showBookingFromDashboard({{ b.resource_id }}, {{ b.id }})"><i class="far fa-edit" style="color: orange"></i></a>
+                                {% endif %}
                             {% endif %}
                         </td>
                     </tr>
@@ -86,17 +90,9 @@
             <div class="row align-items-left justify-content-start align-items-center col-6">
                 <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
                 <h3 class="mt-2"><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>
-
-    {#            <div class="col-2 mr-0 pr-0">#}
-    {#                <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">#}
-    {#            </div>#}
-    {#            <div class="col-9 text-left ml-0 pl-0 mt-2">#}
-    {#                                    <h3>{{ r['name'] }}</h3>#}
-    {#                <h3><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>#}
-    {#            </div>#}
             </div>
             <div class="row align-items-right justify-content-end col-6">
-{#                <h3 class="mt-2"><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>#}
+                <a href="javascript:generateSlots({{ r['id'] }})"><i class="fas fa-plus-circle"></i></a>
             </div>
         </div>
 
