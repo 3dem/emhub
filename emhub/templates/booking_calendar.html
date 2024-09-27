@@ -27,7 +27,7 @@
                         </div>
                         <div class="col col-auto nopadding">
                             <select id="selectpicker-resource-display" class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to display..."  data-actions-box="true"  onchange="filterBookingsByResources()">
-                            {% for r in resources %}#}
+                            {% for r in resources %}
                               <option value="{{r['id']}}" class="badge" style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
                             {% endfor %}
                             </select>
