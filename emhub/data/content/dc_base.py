@@ -591,7 +591,7 @@ class DataContent:
 
     def get_user_projects(self, user, **kwargs):
         dm = self.app.dm
-        status = kwargs.get('status', None)
+        status = kwargs.get('status', 'active')
         extra = 'extra' in kwargs
         pid = int(kwargs.get('pid', 0))
         scope = kwargs.get('scope', 'lab')
@@ -963,4 +963,27 @@ def register_content(dc):
                          'local_resources': local_scopes
                          })
         return dataDict
+
+    @dc.content
+    def news(**kwargs):
+        """ Return news after creating HTML markup. """
+        from markupsafe import Markup
+
+        status = kwargs.get('status', 'all')
+
+        if status == 'all':
+            all_status = ['active', 'inactive']
+        else:
+            all_status = [status]
+
+        newsConfig = dc.app.dm.get_config('news')
+        allNews = newsConfig['news'] if newsConfig else []
+        news = defaultdict(lambda: list())
+        for n in allNews:
+            s = n['status']
+            if s in all_status:
+                n['html'] = Markup(n['text'])
+                news[s].append(n)
+        return {'news': news,
+                'display': kwargs.get('display', 'cards')}
 

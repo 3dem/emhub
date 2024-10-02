@@ -49,9 +49,45 @@ def create_project():
         r = dc.request('create_project', {'attrs': attrs})
         pprint(r.json())
 
+def create_news():
+    with open_client() as dc:
+        r = dc.request('get_projects', jsonData={'condition': 'status="special:news"'})
+        project = r.json()[0]
+        pid = project['id']
+
+        print(r.json())
+
+        print("Project News: ", pid)
+        newsConfig = dc.get_config('news')
+        attrs = {
+            'project_id': pid,
+            'type': 'news',
+            'extra': {}
+        }
+        # Delete all entries from that project
+        print("------ Deleting OLD entries: ")
+        r = dc.request('get_entries', {'condition': 'project_id=%d' % pid})
+        for e in r.json():
+            print("   Deleting ", e['id'], "...")
+            dc.request('delete_entry', {'attrs': {'id': e['id']}})
+
+        print("-------- Creating News: ")
+        for n in newsConfig['news']:
+            attrs['date'] = n['date']
+            attrs['title'] = n['title']
+            attrs['description'] = n['text']
+            attrs['extra']['data'] = {
+                'active': n['status'] == 'active',
+                'type': n['type']
+            }
+            print("   ", attrs)
+            r = dc.request('create_entry', {'attrs': attrs})
+            print("   ", r.json())
+
 
 def main():
-    create_project()
+    #create_project()
+    create_news()
 
 
 if __name__ == '__main__':

@@ -156,21 +156,6 @@ def register_content(dc):
         return create_session_form(**kwargs)
 
     @dc.content
-    def news(**kwargs):
-        """ Return news after creating HTML markup. """
-        from markupsafe import Markup
-
-        newsConfig = dc.app.dm.get_config('news')
-        allNews = newsConfig['news'] if newsConfig else []
-        news = []
-        for n in allNews:
-            if n['status'] == 'active':
-                n['html'] = Markup(n['text'])
-                news.append(n)
-
-        return {'news': news}
-
-    @dc.content
     def dashboard_instrument_card(**kwargs):
         """ Load data for a single instrument. """
         data = dashboard(**kwargs)
@@ -366,5 +351,5 @@ def register_content(dc):
                          'resource_id': resource_id,
                          'selected_resources': selected_resources
                          })
-        dataDict.update(news())
+        dataDict.update(dc.news())
         return dataDict

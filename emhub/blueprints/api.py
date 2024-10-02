@@ -829,7 +829,7 @@ def delete_transaction():
 @api_bp.route('/get_forms', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_forms():
-    return send_json_data([f.json() for f in app.dm.get_forms()])
+    return filter_request(app.dm.get_forms)
 
 
 @api_bp.route('/create_form', methods=['POST'])
@@ -864,7 +864,7 @@ def get_config():
 @api_bp.route('/get_projects', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_projects():
-    return send_json_data([p.json() for p in app.dm.get_projects()])
+    return filter_request(app.dm.get_projects)
 
 
 @api_bp.route('/create_project', methods=['POST'])
@@ -938,12 +938,12 @@ def delete_entry():
     return _handle_item(handle, 'entry')
 
 
-# ------------------------------ ENTRIES ---------------------------------
+# ------------------------------ PUCKS ---------------------------------
 
 @api_bp.route('/get_pucks', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_pucks():
-    return send_json_data([p.json() for p in app.dm.get_pucks()])
+    return filter_request(app.dm.get_pucks)
 
 
 @api_bp.route('/create_puck', methods=['POST'])
@@ -962,7 +962,6 @@ def update_puck():
 @flask_login.login_required
 def delete_puck():
     return handle_puck(app.dm.delete_puck)
-
 
 # -------------------- UTILS functions ----------------------------------------
 
