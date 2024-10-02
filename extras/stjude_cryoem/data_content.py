@@ -179,15 +179,16 @@ def register_content(dc):
         slots = []
         overlaps = []
         bookings = data['resource_bookings'][rid].get('next_week', [])
-        range1 = datetime.time(9), datetime.time(12)
-        range2 = datetime.time(13), datetime.time(23)
+        range1 = datetime.time(9), datetime.time(12, minute=59)
+        range2 = datetime.time(13), datetime.time(23, minute=59)
 
         def _create_slot(d, r):
             args = {
                 'resource_id': rid,
                 'type': 'slot',
                 'start': dm.date(d, r[0]),
-                'end': dm.date(d, r[1])
+                'end': dm.date(d, r[1]),
+                'slot_auth': {'applications': ['any'], 'users': []}
             }
 
             s = dm.Booking(**args)
@@ -351,5 +352,5 @@ def register_content(dc):
                          'resource_id': resource_id,
                          'selected_resources': selected_resources
                          })
-        dataDict.update(dc.news())
+        dataDict.update(dc.get_news(**kwargs))
         return dataDict
