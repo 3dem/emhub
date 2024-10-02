@@ -789,6 +789,41 @@ class DataContent:
         return data
 
 
+    def get_news(self, **kwargs):
+        """ Return news after creating HTML markup. """
+        from markupsafe import Markup
+        status = kwargs.get('status', 'all')
+        dm = self.app.dm  # shortcut
+        newsConfig = dm.get_config('news')
+        news = ([], [])  # active/inactive lists
+
+        # allNews = newsConfig['news'] if newsConfig else []
+        # for n in allNews:
+        #     s = n['status']
+        #     if s in all_status:
+        #         n['html'] = Markup(n['text'])
+        #         news[s].append(n)
+        project = dm.get_project_by(status='special:news')
+        for e in project.entries:
+            data = e.extra['data']
+            active = data.get('active', False)
+            i = 0 if active else 1
+            news[i].append({
+                'id': e.id,
+                'title': e.title,
+                'text': e.description,
+                'html': Markup(e.description),
+                'active': active,
+                'type': data['type']
+            })
+
+        return {
+            'news': news,
+            'display': kwargs.get('display', 'cards'),
+            'project_id': project.id
+        }
+
+
 def register_content(dc):
 
     @dc.content
@@ -945,45 +980,15 @@ def register_content(dc):
             for k, bookingValues in rbookings.items():
                 bookingValues.sort(key=lambda b: b.start)
 
-        from markupsafe import Markup
-
-        newsConfig = dm.get_config('news')
-        allNews = newsConfig['news'] if newsConfig else []
-        news = []
-        for n in allNews:
-            if n['status'] == 'active':
-                n['html'] = Markup(n['text'])
-                news.append(n)
-
         resource_create_session = dm.get_config('sessions').get('create_session', {})
         dataDict.update({'bookings': bookings,
                          'resource_bookings': resource_bookings,
                          'resource_create_session': resource_create_session,
-                         'news': news,
                          'local_resources': local_scopes
                          })
+        dataDict.update(dc.get_news(**kwargs))
         return dataDict
 
     @dc.content
     def news(**kwargs):
-        """ Return news after creating HTML markup. """
-        from markupsafe import Markup
-
-        status = kwargs.get('status', 'all')
-
-        if status == 'all':
-            all_status = ['active', 'inactive']
-        else:
-            all_status = [status]
-
-        newsConfig = dc.app.dm.get_config('news')
-        allNews = newsConfig['news'] if newsConfig else []
-        news = defaultdict(lambda: list())
-        for n in allNews:
-            s = n['status']
-            if s in all_status:
-                n['html'] = Markup(n['text'])
-                news[s].append(n)
-        return {'news': news,
-                'display': kwargs.get('display', 'cards')}
-
+        return dc.get_news(**kwargs)
