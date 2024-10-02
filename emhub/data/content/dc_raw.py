@@ -189,4 +189,9 @@ def register_content(dc):
     def raw_test_page(**kwargs):
         return {}
 
+    @dc.content
+    def raw_projects_list(**kwargs):
+        data = dc.get_user_projects(dc.app.user, **kwargs)
+        return data
+
 

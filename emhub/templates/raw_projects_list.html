@@ -1,0 +1,96 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Projects List" %}
+    {% set navigation = [('Projects', '')] %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+
+    <!-- table row -->
+    {{ macros.hidden_hour_id() }}
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+
+                    <div class="table-responsive" id="table-content">
+
+                        <table id="projects-table" class="table">
+                            <thead>
+                                <tr>
+                                    <th>id</th>
+                                    <th>status</th>
+                                    <th>last updated</th>
+                                    <th>user/pi</th>
+                                    <th>title</th>
+                                    <th>extra</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for p in projects %}
+                                {% set status = p['status'] %}
+                                {% if is_manager or status != 'disabled' %}
+                                    {% set color = 'black' if status == 'active' else 'gray' %}
+                                    <tr style="color: {{ color }}">
+                                        <td>
+                                            <div class="col-12">{{ macros.project(p) }}</div>
+                                            {% if p.user_can_edit %}
+                                                 <a href="javascript:showProjectForm({{ p['id'] }})" class="btn btn-outline-light">
+                                                     <i class="far fa-edit"></i></a>
+                                            {% endif %}
+                                            {% if  current_user.can_delete_project(p) %}
+                                                 <a href="javascript:deleteProject({{ p['id'] }})" class="btn btn-outline-light">
+                                                     <i class="far fa-trash-alt"></i></a>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ p.status }}</td>
+                                        <td>{{ p.last_update_date|pretty_datetime }} by {{ p.last_update_user.name }}</td>
+                                        {% set pi = p.user.get_pi() %}
+                                        {% set apps = pi.get_applications() if pi else [] %}
+                                        <td>{{ p.user|pairname }} {{ app }}</td>
+                                        <td>{{ p.display_title }}</td>
+                                        <td> {{ p.extra }} </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+
+                            </tbody>
+                        </table>
+
+                    </div>
+
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- end table row -->
+
+</div>
+
+<!-- ============================================================== -->
+<!-- Project Modal -->
+<!-- ============================================================== -->
+<div class="modal fade" id="project-modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+</div>
+
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    $('select').selectpicker();
+
+    var costs_table = $('#projects-table').DataTable({
+        sDom: 'lrtip',
+        ordering: true,
+        paging: false,
+        info: false
+    });
+
+    })(window, document, window.jQuery);
+
+
+</script>

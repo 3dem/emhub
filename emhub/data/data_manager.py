@@ -868,7 +868,8 @@ class DataManager(DbManager):
                 raise Exception("Provide a valid status: active/inactive")
 
     def create_project(self, **attrs):
-        self.__check_project(**attrs)
+        if validate := attrs.pop('validate', True):
+            self.__check_project(**attrs)
 
         now = self.now()
         attrs.update({
