@@ -819,7 +819,7 @@ class DataContent:
 
         return {
             'news': news,
-            'display': kwargs.get('display', 'cards'),
+            'display': kwargs.get('display', 'table'),
             'project_id': project.id
         }
 

@@ -28,3 +28,10 @@ def setup_app(app):
         ss = _local_time(b.start)
         es = _local_time(b.end)
         return f'{ss} - {es}'
+
+    @app.template_filter('booking_color')
+    def booking_color(b):
+        c = b.resource.color
+        if b.is_slot:
+            c = c.replace('1.0', '0.5')  # 0.5 transparency for slots
+        return c

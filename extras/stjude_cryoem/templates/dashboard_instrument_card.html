@@ -6,6 +6,7 @@
             <table class="table {{ borderclass }} m-0 p-0">
             <tbody>
                 {% for b in bookings %}
+                    {% set slot_color = b|booking_color %}
                     {% set active = b|booking_active_today %}
                     {% set style = 'font-weight: bold' if active else '' %}
                     {% set row_style = 'background-color: #ededed' if active else '' %}
@@ -19,7 +20,9 @@
                             <td class="col-4">{{ b.title }}</td>
                         {% elif b.type == 'slot' %}
                             <td class="col-4">
-                                <a href="javascript:createBookingFromSlot({{ b.resource_id }}, {{ b.operator_id }},'{{ b.start|isoformat }}', '{{ b.end|isoformat }}')" class="btn btn-brand btn-sm mr-0 col-12">
+                                {% set style_str = "background-color: %s; border-color: %s"|format(slot_color, slot_color) %}
+                                <a href="javascript:createBookingFromSlot({{ b.resource_id }}, {{ b.operator_id }},'{{ b.start|isoformat }}', '{{ b.end|isoformat }}')"
+                                   class="btn btn-brand btn-sm mr-0 col-12" style="{{ style_str }}">
                                     <i class="fas fa-calendar-plus mr-1"> </i> {{ b|time_range }} </a>
                             </td>
                             <td class="col-4">
@@ -48,7 +51,7 @@
                                 <a href="javascript:createBookingFromEntry({{ b.resource_id }}, {{ b.id }})"><i class="far fa-calendar" style="color: red"></i></a>
                             {% elif b.type == 'slot' %}
                                 {% if current_user.is_manager %}
-                                    <a href="javascript:showBookingFromDashboard({{ b.resource_id }}, {{ b.id }})"><i class="far fa-edit" style="color: orange"></i></a>
+                                    <a href="javascript:showBookingFromDashboard({{ b.resource_id }}, {{ b.id }})"><i class="far fa-edit" style="color: {{ slot_color }}"></i></a>
                                 {% endif %}
                             {% endif %}
                         </td>
@@ -59,7 +62,7 @@
                             {% set create_session_func = resource_create_session.get(b.resource.name, None) %}
                             {% if create_session_func %}
                                 {% if active %}
-                                        <a href="javascript:createSession({{ b.id }}, {{ sessions|length }}, '{{ create_session_func }}')" class="btn btn-primary mr-0">
+                                        <a href="javascript:createSession({{ b.id }}, {{ sessions|length }}, '{{ create_session_func }}')" class="btn btn-primary btn-sm mr-0">
                                                         <i class="fas fa-plus-circle mr-1"></i> New Session </a>
                                 {% else %}
                                     {% if current_user.is_manager %}
@@ -94,7 +97,7 @@
             <div class="row align-items-right justify-content-end col-6">
                 {% if current_user.is_manager and create_slots.get(r['name'], False) %}
                     <div>
-                    <a href="javascript:createSlots({{ r['id'] }})" class="btn btn-brand btn-sm mr-0">
+                    <a href="javascript:createSlots({{ r['id'] }})" class="btn btn-primary btn-sm mr-0">
                         <i class="fas fa-plus-circle mr-1"></i> Create Slots </a>
                     </div>
 
