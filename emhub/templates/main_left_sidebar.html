@@ -39,6 +39,8 @@
                                     <i class="fas fa-rocket"></i>Applications</a>
                             </li>
 
+                            {% if current_user.is_manager %}
+
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for_content('invoice_periods_list') }}">
                                     <i class="far fa-money-bill-alt"></i>Invoices</a>
@@ -52,13 +54,23 @@
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ url_for_content('report_microscopes_usage') }}">Microscopes Usage</a>
                                     </li>
-                                    {% if current_user.is_manager %}
+
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ url_for_content('report_pis_usage') }}">All PIs Usage</a>
                                     </li>
-                                    {% endif %}
+
+
+
                                 </ul>
                             </div>
+
+                            <!-- News -->
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('news', display='table') }}">
+                                    <i class="fas fa-newspaper"></i>News</a>
+                            </li>
+
+                            {% endif %}
 
                             <!-- Processing -->
                             <li class="nav-item">

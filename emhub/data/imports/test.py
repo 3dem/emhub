@@ -182,12 +182,12 @@ class TestData:
 
     def _populatePucks(self, dm):
         self._action('Populating Pucks')
-        for puck in self.json_data['pucks']:
+        for puck in self.json_data.get('pucks', []):
             dm.create_puck(**puck)
 
     def _populateEntries(self, dm):
         self._action('Populating Entries')
-        for entry in self.json_data['entries']:
+        for entry in self.json_data.get('entries', []):
             self.__fix_dates(entry, 'date',
                              'creation_date',
                              'last_update_date')

@@ -105,6 +105,7 @@ class DataManager(DbManager):
                                  name='admin',
                                  roles=['admin'],
                                  pi_id=None)
+
         if self._user is None:
             self._user = admin
 
@@ -125,7 +126,7 @@ class DataManager(DbManager):
 
     def create_user(self, **attrs):
         """ Create a new user in the DB. """
-        if not self._user.is_manager:
+        if self._user is not None and not self._user.is_manager:
             raise Exception("Only 'managers' or 'admins' can register new users.")
 
         def __check_uniq(attrName):
@@ -144,6 +145,7 @@ class DataManager(DbManager):
         del attrs['password']
 
         user = self.__create_item(self.User, **attrs)
+        return user
 
     def update_user(self, **attrs):
         """ Update an existing user. """
@@ -863,8 +865,9 @@ class DataManager(DbManager):
             if not attrs['user_id']:
                 raise Exception("Provide a valid User ID for the Project.")
 
-        if 'status' in attrs:
-            if not attrs['status'].strip() in self.Project.STATUS:
+        if status := attrs.get('status', None):
+            s = status.strip()
+            if not (s.startswith('special:') or s in self.Project.STATUS):
                 raise Exception("Provide a valid status: active/inactive")
 
     def create_project(self, **attrs):

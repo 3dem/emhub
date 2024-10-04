@@ -294,10 +294,13 @@
     </div>
 {% endmacro %}
 
-{% macro news_cards(label, news) -%}
+{% macro news_cards(label, news, edit) -%}
     {% if news %}
         <div class="row">
-            <h3 class="col-12">{{ label }}</h3>
+            <div class="col-12 row mb-3">
+                <h3 class="mr-3 mt-1">{{ label }}</h3>
+                <a href="{{ url_for_content('news') }}" class="btn btn-outline-light btn-sm"><i class="far fa-edit"></i></a>
+            </div>
             {% for n in news %}
                 {{ single_news_card(n) }}
             {% endfor %}
@@ -351,12 +354,12 @@
 {%- endmacro %}
 
 
-{% macro news_card_div(label, news, display, is_manager) -%}
+{% macro news_card_div(label, news, display, is_manager, edit) -%}
     {% if news %}
         <div class="card">
             <div class="card-body">
                 {% if display == 'cards' %}
-                    {{ news_cards(label, news) }}
+                    {{ news_cards(label, news, edit) }}
                 {% else %}
                     {{ news_table(label, news, is_manager) }}
                 {% endif %}
