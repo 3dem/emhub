@@ -61,12 +61,14 @@ class DataContent:
     def _dateStr(self, datetime):
         return
 
+    def get_content_func(self, name):
+        return self._contentDict.get(name, getattr(self, name, None))
+
     def get(self, **kwargs):
         content_id = kwargs['content_id']
         get_func_name = content_id.replace('-', '_')
         dataDict = {}
-        get_func = self._contentDict.get(get_func_name,
-                                         getattr(self, get_func_name, None))
+        get_func = self.get_content_func(get_func_name)
         if get_func is None:
             raise Exception(f"Missing content function for '{content_id}'")
 
@@ -74,13 +76,10 @@ class DataContent:
         return dataDict
 
     def content(self, func):
+        self._contentDict[func.__name__] = func
 
-        def wrapper(**kwargs):
-            return func(**kwargs)
-
-        self._contentDict[func.__name__] = wrapper
-
-        return wrapper
+        # No need for a do-nothing wrapper
+        return func
 
     def get_lab_members(self, user):
         unit = user.staff_unit
