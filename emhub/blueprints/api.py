@@ -571,12 +571,18 @@ def get_session_users():
 
 
 def _loadFileLines(fn):
-    lines = ''
     if os.path.exists(fn):
-        for line in open(fn):
-            lines += line
+        with open(fn) as f:
+            lines = f.readlines()
+            o = len(lines) - 2000
+            if o > 0:
+                result = ''.join(lines[:1000])
+                result += f'\n=============== OMITTED {o} LINES ============\n\n'
+                result += ''.join(lines[-1000:])
+            else:
+                result = ''.join(lines)
 
-    return lines
+    return result
 
 
 @api_bp.route('/get_session_run', methods=['POST'])
