@@ -116,26 +116,48 @@ class RelionRun(SessionRun):
         return self.join('run.err')
 
     def getInputsOutputs(self):
-        ios = {'inputs': [], 'outputs': []}
+        if self._ios is None:
+            ios = {'inputs': [], 'outputs': []}
 
-        with StarFile(self.join('job_pipeline.star')) as sf:
-            tables = sf.getTableNames()
-            if 'pipeline_input_edges' in tables:
-                inputsTable = sf.getTable('pipeline_input_edges')
-                ios['inputs'] = [row.rlnPipeLineEdgeFromNode for row in inputsTable]
-            if 'pipeline_output_edges' in tables:
-                outputsTable = sf.getTable('pipeline_output_edges')
-                ios['outputs'] = [row.rlnPipeLineEdgeToNode for row in outputsTable]
+            jobJson = self.join('job.json')
+            jobPipeline = self.join('job_pipeline.star')
 
-        return ios
+            if os.path.exists(jobJson):
+                with open(jobJson) as f:
+                    job = json.load(f)
+                    ios.update(job)
+            elif os.path.exists(jobPipeline):
+                with StarFile(jobPipeline) as sf:
+                    tables = sf.getTableNames()
+                    if 'pipeline_input_edges' in tables:
+                        inputsTable = sf.getTable('pipeline_input_edges')
+                        ios['inputs'] = [row.rlnPipeLineEdgeFromNode for row in inputsTable]
+                    if 'pipeline_output_edges' in tables:
+                        outputsTable = sf.getTable('pipeline_output_edges')
+                        ios['outputs'] = [row.rlnPipeLineEdgeToNode for row in outputsTable]
+            self._ios = ios
+
+        return self._ios
+
+    def _getOutputMics(self):
+        """ Find if there are micrographs (with/without CTF) in outputs. """
+        mics = micsCtf = None
+        for o in self.getInputsOutputs()['outputs']:
+            if o.endswith('ctf.star'):
+                micsCtf = o
+            elif o.endswith('micrographs.star'):
+                mics = o
+        return mics, micsCtf
 
     def getSummary(self, **kwargs):
         """ Function to return the template and data used for this run summary.
         """
         summary = {'template': '', 'data': {}}
         data_values = None
+        mics, micsCtf = self._getOutputMics()
 
-        if self.className == 'motioncorr':
+        #if self.className == 'motioncorr':
+        if mics is not None:
             summary['template'] = 'processing_ctf_summary.html'
             data_values = {}
             columns = ['rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate']
@@ -146,7 +168,8 @@ class RelionRun(SessionRun):
                     'data': []
                 }
 
-            with StarFile(self.join('corrected_micrographs.star')) as sf:
+            #mics = self.join('corrected_micrographs.star')
+            with StarFile(mics) as sf:
                 for row in sf.iterTable('micrographs'):
                     print(row, type(row))
 
@@ -154,10 +177,12 @@ class RelionRun(SessionRun):
                         d = row._asdict()
                         data_values[col]['data'].append(d[col])
 
-        elif self.className == 'ctffind':
+        #elif self.className == 'ctffind':
+        elif micsCtf is not None:
             summary['template'] = 'processing_ctf_summary.html'
-            ctfStar = self.join('micrographs_ctf.star')
-            data_values = self.project.load_ctf_values(ctfStar)
+            #ctfStar = self.join('micrographs_ctf.star')
+            #data_values = self.project.load_ctf_values(ctfStar)
+            data_values = self.project.load_ctf_values(micsCtf)
 
         elif self.className in ['autopick', 'manualpick']:
             summary['template'] = 'processing_picking_summary.html'
@@ -240,11 +265,12 @@ class RelionRun(SessionRun):
 
         overview = {'template': '', 'data': {}}
         data_values = None
+        mics, micsCtf = self._getOutputMics()
 
-        if self.className == 'ctffind':
+        #if self.className == 'ctffind':
+        if micsCtf is not None:
             overview['template'] = 'processing_ctf_overview.html'
-            ctfStar = self.join('micrographs_ctf.star')
-            data_values = self.project.load_ctf_values(ctfStar, index=True)
+            data_values = self.project.load_ctf_values(micsCtf, index=True)
         elif self.className in ['autopick', 'manualpick']:
             overview['template'] = 'processing_ctf_overview.html'
             coordStar = self.join(f'{self.className}.star')
@@ -315,14 +341,15 @@ class RelionRun(SessionRun):
 
     def get_micrograph_data(self, micId):
         data = {}
+        mics, micsCtf = self._getOutputMics()
 
         def _load_micrograph_data(micStar):
             return self.project.load_micrograph_data(micId, micStar)
 
-        if self.className == 'motioncorr':
-            data = _load_micrograph_data(self.join('corrected_micrographs.star'))
-        if self.className == 'ctffind':
-            data = _load_micrograph_data(self.join('micrographs_ctf.star'))
+        if micsCtf is not None:
+            data = _load_micrograph_data(micsCtf)
+        elif mics is not None:
+            data = _load_micrograph_data(mics)
         elif self.className in ['autopick', 'manualpick']:
             coordStar = self.join(f'{self.className}.star')
             for i in self.getInputsOutputs()['inputs']:

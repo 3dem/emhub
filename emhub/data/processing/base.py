@@ -39,6 +39,7 @@ class SessionRun:
         self.project = project
         self._path = path
         self._epuData = None
+        self._ios = None  # Input/outputs cache
 
     def join(self, *paths):
         return os.path.join(self._path, *paths)

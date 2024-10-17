@@ -266,7 +266,7 @@ class RelionSessionData(SessionData):
                 psdFn = self.join(row.rlnCtfImage).replace(":mrc", "")
                 ctfProfile = psdFn.replace('.ctf', '_avrot.txt')
 
-                if os.path.exists(ctfProfile):
+                if os.path.exists(ctfProfile) and ctfProfile.endswith('_avrot.txt'):
                     with open(ctfProfile) as f:
                         ctfPlot = [line.split() for line in f
                                    if not line.startswith('#')]
