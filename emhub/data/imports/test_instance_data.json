@@ -675,7 +675,8 @@
                         "display": "radio"
                     },
                     "id": "type",
-                    "label": "Type"
+                    "label": "Type",
+                    "default": "info"
                 }
             ],
             "title": "News Form"
