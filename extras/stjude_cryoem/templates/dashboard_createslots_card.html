@@ -16,12 +16,13 @@
         <div class="table-responsive-sm m-0 p-0">
             <table class="table borderless m-0 p-0">
             <tbody>
-                {% for b in slots %}
-                    {% set n = overlaps[loop.index0]|length %}
+                {% for daySlots in slots %}
+                {% for b, overlaps in daySlots %}
+                    {% set n = overlaps|length %}
                     {% set active = False %}
                     <tr class="row p-0 m-0" style="{{ row_style }}" >
                         <td class="col-2 text-left" style="font-weight: bold">
-                            {% if loop.index0 % 2 == 0 %}
+                            {% if loop.index0 == 0 %}
                                 {{ b|booking_span }}
                             {% endif %}
                         </td>
@@ -37,7 +38,7 @@
 
                         </td>
                         <td class="col-6 row">
-                            {% for o in overlaps[loop.index0] %}
+                            {% for o in overlaps %}
                                 <div class="col-12 row p-0 m-0">
                                     <div class="col-2">Id: {{ o.id }}</div>
                                     <div class="col-3">{{ o|time_range }}</div>
@@ -46,6 +47,7 @@
                             {% endfor %}
                         </td>
                     </tr>
+                {% endfor %}
                 {% endfor %}
 
             </tbody>

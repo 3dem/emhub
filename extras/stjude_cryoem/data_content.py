@@ -1,4 +1,3 @@
-import datetime
 import os
 from glob import glob
 import json
@@ -174,37 +173,46 @@ def register_content(dc):
         data = dashboard_instrument_card(**kwargs)
         next_week = data['next_week']
         rid = int(kwargs['resource_id'])
+        resource = dm.get_resource_by(id=rid)
+
         create_slots = int(kwargs.get('create_slots', 0))
+        bookings = data['resource_bookings'][rid].get('next_week', [])
+        slots_config = dm.get_config('resources').get('slots', {})
+        ranges = []
+
+        def _time(timeStr):
+            return dt.datetime.strptime(timeStr, '%H:%M').time()
+
+        for start, end in slots_config.get(resource.name, []):
+            ranges.append((_time(start), _time(end)))
+        #range1 = _time('9:00'), _time("12:59")
+        #range2 = dt.time(13), dt.time(23, minute=59)
+
+        def _create_day_slots(d):
+            day_slots = []
+            for r in ranges:
+                args = {
+                    'resource_id': rid,
+                    'type': 'slot',
+                    'start': dm.date(d, r[0]),
+                    'end': dm.date(d, r[1]),
+                    'slot_auth': {'applications': ['any'], 'users': []}
+                }
+
+                s = dm.Booking(**args)
+                o = [b for b in bookings if b.overlap_slot(s)]
+                day_slots.append((s, o))
+                if create_slots and not o:
+                    dm.create_booking(**args)
+            return day_slots
 
         slots = []
-        overlaps = []
-        bookings = data['resource_bookings'][rid].get('next_week', [])
-        range1 = datetime.time(9), datetime.time(12, minute=59)
-        range2 = datetime.time(13), datetime.time(23, minute=59)
-
-        def _create_slot(d, r):
-            args = {
-                'resource_id': rid,
-                'type': 'slot',
-                'start': dm.date(d, r[0]),
-                'end': dm.date(d, r[1]),
-                'slot_auth': {'applications': ['any'], 'users': []}
-            }
-
-            s = dm.Booking(**args)
-            o = [b for b in bookings if b.overlap_slot(s)]
-            slots.append(s)
-            overlaps.append(o)
-            if create_slots and not o:
-                dm.create_booking(**args)
-
         for i in range(5):
-            d = next_week + datetime.timedelta(days=i)
-            _create_slot(d, range1)
-            _create_slot(d, range2)
+            d = next_week + dt.timedelta(days=i)
+            slots.append(_create_day_slots(d))
 
         data['slots'] = slots
-        data['overlaps'] = overlaps
+
         return data
 
     @dc.content
@@ -337,18 +345,14 @@ def register_content(dc):
                 bookingValues.sort(key=lambda b: b.start)
 
         resource_create_session = dm.get_config('sessions').get('create_session', {})
-
-        # FIXME Now let's hard code Arctica as the only
-        # microscope that allows generation of slots.
-        # It can be changed to some configuration if needed
-        create_slots = {'Arctica01': True}
+        slots_config = dm.get_config('resources').get('slots', {})
 
         dataDict.update({'resource_bookings': resource_bookings,
                          'resource_create_session': resource_create_session,
                          'local_resources': local_scopes,
                          'next_week': next_week,
                          'date': now,
-                         'create_slots': create_slots,
+                         'create_slots': slots_config,
                          'resource_id': resource_id,
                          'selected_resources': selected_resources
                          })
