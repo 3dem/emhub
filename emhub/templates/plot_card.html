@@ -1,0 +1,35 @@
+{% macro row_plot_label(sel_id, title, selectedValue) -%}
+    <div class="row" style="min-width: 325px;">
+        <h4 class="col-form-label text-right mr-2">{{ title }}</h4>
+        <select id="{{ card_id }}_{{ sel_id }}" class="selectpicker mr-3" style="width: 100%">
+            {% for k, v in data_values.items() %}
+                {% if v.data %}
+                    {% set selected = 'selected' if k == selectedValue else '' %}
+                    <option value="{{ k }}" {{ selected }}>{{ k }} </option>
+                {% endif %}
+            {% endfor %}
+        </select>
+    </div>
+{%- endmacro %}
+
+<div class="col-12 row align-content-start mb-3 ml-3">
+    {{ row_plot_label('labelX-select', 'X Label', 'index') }}
+    {{ row_plot_label('labelY-select', 'Y Label', 'rlnCtfMaxResolution') }}
+    {{ row_plot_label('labelColor-select', 'Color Label') }}
+    <div class="row ml-3">
+        <a  class="btn btn-dark float-right" id="{{ card_id }}_update-plots-btn"> Update Plots</a>
+    </div>
+</div>
+
+<div id='{{ card_id }}_plotDiv' class="col-12" style="height: 700px;">
+<!-- Plotly chart will be drawn inside this DIV -->
+</div>
+
+<div class="col-12 row m-3">
+    <div class="col-auto">
+        <h4 id="{{ card_id }}_selection-label">No points selected.</h4>
+    </div>
+    <div class="col-auto">
+        <a href="javascript:exportSelection()" class="btn btn-dark ml-3 float-left" id="export-btn" style="display: none">Export Selection</a>
+    </div>
+</div>

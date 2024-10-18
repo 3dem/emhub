@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '1.0.1'
+__version__ = '1.0.3'
 
 
 def create_app(test_config=None):
@@ -165,6 +165,15 @@ def create_app(test_config=None):
 
         dm = app.dm  # shortcut
 
+        # Special case to load a processing project
+        # PROCESSING_PROJECT = 1 should be in config.py
+        # this will login admin by default and also redirect to
+        # the flowchart page template
+        if processing := app.config.get('PROCESSING_PROJECT', None):
+            params['login_user'] = 1  # admin
+            kwargs['content_id'] = 'processing_flowchart'
+            kwargs['params'] = {'path': processing}
+
         if 'login_user' in params and app.is_devel:
             user_id = params['login_user']
             user = dm.get_user_by(id=user_id)
@@ -209,7 +218,6 @@ def create_app(test_config=None):
     @app.route('/do_login', methods=['POST'])
     def do_login():
         """ This view will be called as POST from the user login page. """
-
         username = flask.request.form['username']
         password = flask.request.form['password']
         next_content = flask.request.form.get('next_content', 'index')
@@ -414,10 +422,10 @@ def create_app(test_config=None):
     app.jinja_env.filters['shortname'] = shortname
     app.jinja_env.filters['pairname'] = pairname
     app.jinja_env.filters['pretty_size'] = Pretty.size
+    app.jinja_env.filters['isoformat'] = datetime_to_isoformat
 
     from emhub.data.data_manager import DataManager
     app.user = flask_login.current_user
-
 
     from .data.content import dc
     app.dc = dc

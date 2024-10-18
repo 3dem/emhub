@@ -1,0 +1,127 @@
+{% import "entry_macros.html" as macros %}
+
+{% macro table(bookings, compact) -%}
+    {% set borderclass = 'borderless' if not compact else '' %}
+        <div class="table-responsive-sm m-0 p-0">
+            <table class="table {{ borderclass }} m-0 p-0">
+            <tbody>
+                {% for b in bookings %}
+                    {% set slot_color = b|booking_color %}
+                    {% set active = b|booking_active_today %}
+                    {% set style = 'font-weight: bold' if active else '' %}
+                    {% set row_style = 'background-color: #ededed' if active else '' %}
+                    <tr class="row p-0 m-0" style="{{ row_style }}" >
+                        <td class="col-3 text-left" style="{{ style }}">{{ b|booking_span }}</td>
+                        {% if b.type == 'downtime' %}
+                            <td class="col-4"><span style="color: rgb(181,4,0);">Downtime</span></td>
+                            <td class="col-4">{{ b.title }}</td>
+                        {% elif b.type == 'maintenance' %}
+                            <td class="col-4"><span style="color: rgb(255,107,53);">Maintenance</span></td>
+                            <td class="col-4">{{ b.title }}</td>
+                        {% elif b.type == 'slot' %}
+                            <td class="col-4">
+                                {% set style_str = "background-color: %s; border-color: %s"|format(slot_color, slot_color) %}
+                                <a href="javascript:createBookingFromSlot({{ b.resource_id }}, {{ b.operator_id }},'{{ b.start|isoformat }}', '{{ b.end|isoformat }}')"
+                                   class="btn btn-brand btn-sm mr-0 col-12" style="{{ style_str }}">
+                                    <i class="fas fa-calendar-plus mr-1"> </i> {{ b|time_range }} </a>
+                            </td>
+                            <td class="col-4">
+                                {% if b.operator %}
+                                    {{ b.operator|shortname}}
+                                {% endif %}
+                            </td>
+                        {% else %}
+
+                            <td class="col-4" style="{{ style }}">{{ b.owner|pairname}} </td>
+                            <td class="col-4" style="{{ style }}">
+                                {% if b.type == 'request' %}
+                                    {% set pid = b.project_id %}
+                                    {{ macros.project(b.project) }}
+                                {% else %}
+                                    {{ b.operator|shortname}}
+                                {% endif %}
+                            </td>
+
+                        {% endif %}
+                        <td class="col-1">
+                            {% if b.type in ['booking', 'downtime', 'maintenance'] %}
+                                <a href="javascript:showBookingFromDashboard({{ b.resource_id }}, {{ b.id }})"><i class="far fa-calendar-alt"></i></a>
+
+                            {% elif b.type == 'request' %}
+                                <a href="javascript:createBookingFromEntry({{ b.resource_id }}, {{ b.id }})"><i class="far fa-calendar" style="color: red"></i></a>
+                            {% elif b.type == 'slot' %}
+                                {% if current_user.is_manager %}
+                                    <a href="javascript:showBookingFromDashboard({{ b.resource_id }}, {{ b.id }})"><i class="far fa-edit" style="color: {{ slot_color }}"></i></a>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if not compact %}
+                    <tr style="{{ row_style }}">
+                        <td colspan="3">
+                            {% set create_session_func = resource_create_session.get(b.resource.name, None) %}
+                            {% if create_session_func %}
+                                {% if active %}
+                                        <a href="javascript:createSession({{ b.id }}, {{ sessions|length }}, '{{ create_session_func }}')" class="btn btn-primary btn-sm mr-0">
+                                                        <i class="fas fa-plus-circle mr-1"></i> New Session </a>
+                                {% else %}
+                                    {% if current_user.is_manager %}
+                                        <a href="javascript:createSession({{ b.id }}, {{ sessions|length }}, '{{ create_session_func }}')"><i class="fas fa-plus-circle"></i></a>
+                                    {% endif %}
+                                {% endif %}
+                            {% endif %}
+                            {% if b.session %}
+                                <span class="ml-5 mr-2">Sessions:</span>
+                                {{ macros.session_list(b.session) }}
+                            {% endif %}
+                            <hr/>
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+
+            </tbody>
+            </table>
+        </div>
+{%- endmacro %}
+
+{% set cres = 5 if alignment == 'h' else 12 %}
+
+<div class="card h-100">
+    <div class="card-header">
+        <div class="row m-0 p-0">
+            <div class="row align-items-left justify-content-start align-items-center col-6">
+                <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
+                <h3 class="mt-2"><span class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</span></h3>
+            </div>
+            <div class="row align-items-right justify-content-end col-6">
+                {% if current_user.is_manager and create_slots.get(r['name'], False) %}
+                    <div>
+                    <a href="javascript:createSlots({{ r['id'] }})" class="btn btn-primary btn-sm mr-0">
+                        <i class="fas fa-plus-circle mr-1"></i> Create Slots </a>
+                    </div>
+
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+    <div class="card-body pt-0">
+        {% if r['id'] in resource_bookings %}
+            <div class="row">
+                <div class="card-body this_week_container mt-3 col-{{ cres }}">
+                    <div class="row"><h3>This week</h3></div>
+                    {% set this_week = resource_bookings[r['id']].get('this_week', []) %}
+                    {{ table(this_week, not r.is_microscope) }}
+                </div>
+                <div class="card-body next_week_container mt-3 ml-5 col-{{ cres }}">
+                    <div class="row"><h3>Next week</h3></div>
+                    {% set next_week = resource_bookings[r['id']].get('next_week', []) %}
+                    {{ table(next_week, True) }}
+                </div>
+            </div>
+    {% endif %}
+    </div>
+</div>
+
+

@@ -109,6 +109,8 @@ def shortname(user):
 
 def pairname(user):
     """ Show PI/User in a shortname. """
+    if user is None:
+        return ''
     pi = user.get_pi()
     if pi and not user.is_pi:
         return f"{shortname(pi)} / {shortname(user)}"

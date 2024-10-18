@@ -96,7 +96,7 @@ a:active {
 /* Cute radiogroups or checkbox with toggle */
 .switch-field {
 	display: flex;
-	margin-bottom: 36px;
+	/*margin-bottom: 36px */
 	overflow: hidden;
 }
 
@@ -137,4 +137,42 @@ a:active {
 
 .switch-field label:last-of-type {
 	border-radius: 0 4px 4px 0;
+}
+
+.formgroup {
+  border: 2px groove threedface;
+  border-top: none;
+  padding: 0.5em;
+  margin: 1em 2px;
+}
+
+.formgroup>h1 {
+    font-style: italic;
+    font-size: 14px;
+    font-family: 'Circular Std Book';
+    margin: -1em -0.5em 0;
+}
+
+.formgroup>h1>label {
+  float: left;
+}
+
+.formgroup>h1:before {
+  border-top: 2px groove threedface;
+  content: ' ';
+  float: left;
+  margin: 0.5em 2px 0 -1px;
+  width: 0.75em;
+}
+
+.formgroup>h1:after {
+  border-top: 2px groove threedface;
+  content: ' ';
+  display: block;
+  height: 1.5em;
+  left: 2px;
+  margin: 0 1px 0 0;
+  overflow: hidden;
+  position: relative;
+  top: 0.5em;
 }

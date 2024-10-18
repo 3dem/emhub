@@ -1,0 +1,121 @@
+<!-- ============================================================== -->
+<!-- Dashboard right content -->
+<!-- ============================================================== -->
+<div class="col-xl-12 col-lg-12 col-md-7 col-sm-12 col-12">
+    <div class="influence-profile-content pills-regular">
+
+        {% include 'dashboard_news.html' %}
+
+         {% set nres = selected_resources|length %}
+         {% set wres = 700 if nres > 1 else 1500 %}
+         {% set alignment = 'v' if nres > 1 else 'h' %}
+
+        <div class="row">
+        <div class="row col-12">
+            <div class="col col-auto" style="margin-top: 7px;"><h3> Dashboard </h3></div>
+            <div class="col text-right" style="margin-top: 7px;"><h5> Display </h5></div>
+            <div class="col col-auto nopadding">
+                <select id="selectpicker-resource-display" class="selectpicker show-tick" data-width="auto" title="Select Instrument..."  onchange="selectResource()">
+                    {% set selected = 'selected' if resource_id == 0 else '' %}
+                    <option value="0" {{ selected }}>All</option>
+                    {% for r in resources %}
+                        {% set selected = 'selected' if r['id'] == resource_id else '' %}
+                      <option value="{{r['id']}}" class="badge" {{ selected }} style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="row col-12">
+            {% for r in selected_resources %}
+                <div class="col-auto mb-4" style="min-width: {{ wres }}px; max-width: {{ wres }}px;" id="instrument_card_{{ r['id'] }}">
+                    {% include 'dashboard_instrument_card.html' %}
+                </div>
+            {% endfor %}
+        </div>
+
+        </div>
+
+</div>
+
+</div>
+<!-- ============================================================== -->
+<!-- End  of Dashboard right content -->
+<!-- ============================================================== -->
+
+<script>
+
+    function showBookingFromDashboard(resource_id, booking_id){
+        last_resource_id = resource_id;
+        showBookingForm({booking_id: booking_id });
+    }
+
+    function createBookingFromEntry(resource_id, entry_id){
+        last_resource_id = resource_id;
+        showBookingForm({entry_id: entry_id });
+    }
+
+    function createBookingFromSlot(resource_id, operator_id, start, end){
+        last_resource_id = resource_id;
+        showBookingForm({
+            resource_id: resource_id,
+            start: start,
+            end: end,
+            operator_id: operator_id
+        });
+    }
+
+    function onBookingChanged(response){
+        load_html_from_ajax('instrument_card_' + last_resource_id,
+            get_ajax_content('dashboard_instrument_card', {
+                resource_id: last_resource_id,
+                alignment: {{alignment|tojson}},
+                date: "{{ date|isoformat }}"
+            }));
+    }
+
+    function createslots_content(create_slots) {
+        return get_ajax_content("dashboard_createslots_card", {
+                resource_id: last_resource_id,
+                date: "{{ date|isoformat }}",
+                create_slots: create_slots
+            });
+    }
+    function createSlots(resource_id){
+        // Let's reuse the booking dialog to display the slots
+        last_resource_id = resource_id;
+        show_modal_from_ajax('booking-modal', createslots_content(0));
+    }
+
+    function onSlotsCreateClick(){
+        var ajaxContent = createslots_content(1);
+        ajaxContent.done(function(html) {
+            $('#booking-modal').modal('hide');
+            onBookingChanged(html);
+         });
+    }
+
+    function selectResource() {
+        var resource_id = $('#selectpicker-resource-display').selectpicker('val');
+        window.location = "{{ url_for_content('dashboard') }}" + "&resource_id=" + resource_id;
+    }  // function selectPI
+
+
+    (function(window, document, $, undefined) {
+        "use strict";
+
+        var last_resource_id = null;
+
+        $('select').selectpicker();
+
+        on_bookings_deleted = on_bookings_updated = on_bookings_created = onBookingChanged;
+
+        makeSameHeight('current_session');
+        makeSameHeight('this_week_container');
+        makeSameHeight('next_week_container');
+
+        makeSameHeight('news-card');
+
+    })(window, document, window.jQuery);
+
+</script>

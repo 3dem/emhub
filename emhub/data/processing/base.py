@@ -39,6 +39,7 @@ class SessionRun:
         self.project = project
         self._path = path
         self._epuData = None
+        self._ios = None  # Input/outputs cache
 
     def join(self, *paths):
         return os.path.join(self._path, *paths)
@@ -65,8 +66,18 @@ class SessionData:
         self._path = path
         self._epuData = None
 
+    @property
+    def path(self):
+        return self._path
+
     def join(self, *paths):
         return os.path.join(self._path, *paths)
+
+    def relpath(self, path):
+        return os.path.relpath(path, self._path)
+
+    def exists(self, path):
+        return os.path.exists(self.join(path))
 
     def getEpuData(self):
         if not self._epuData:

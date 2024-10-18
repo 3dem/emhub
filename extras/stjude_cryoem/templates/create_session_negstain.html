@@ -218,21 +218,21 @@
         if (nonEmpty(sessionName)) {
             attrs.name = sessionName;
             otf_host = getObjectValue(formValues, 'otf_host', otf_host_default);
-            var otf_task = [otf_host, {action: 'otf'}];
+            var otf_task = ["otf", otf_host];
 
             if (!formValues.raw_folder){
                 attrs.extra = {
                     raw: {},
                     project_id: formValues.project_id,
                 }
-                attrs.tasks = [[transfer_host, {action: 'transfer'}], otf_task]
+                attrs.tasks = [["transfer", transfer_host], otf_task]
             }
             else {
                 attrs.extra = {
                     raw: {path: formValues.raw_folder},
                     project_id: formValues.project_id
                 }
-                attrs.tasks = [[otf_host, {action: "monitor"}], otf_task]
+                attrs.tasks = [["monitor", otf_host], otf_task]
             }
 
             if (!formValues.otf_folder)

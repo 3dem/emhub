@@ -61,12 +61,14 @@ class DataContent:
     def _dateStr(self, datetime):
         return
 
+    def get_content_func(self, name):
+        return self._contentDict.get(name, getattr(self, name, None))
+
     def get(self, **kwargs):
         content_id = kwargs['content_id']
         get_func_name = content_id.replace('-', '_')
         dataDict = {}
-        get_func = self._contentDict.get(get_func_name,
-                                         getattr(self, get_func_name, None))
+        get_func = self.get_content_func(get_func_name)
         if get_func is None:
             raise Exception(f"Missing content function for '{content_id}'")
 
@@ -74,13 +76,10 @@ class DataContent:
         return dataDict
 
     def content(self, func):
+        self._contentDict[func.__name__] = func
 
-        def wrapper(**kwargs):
-            return func(**kwargs)
-
-        self._contentDict[func.__name__] = wrapper
-
-        return wrapper
+        # No need for a do-nothing wrapper
+        return func
 
     def get_lab_members(self, user):
         unit = user.staff_unit
@@ -552,6 +551,8 @@ class DataContent:
 
         all = kwargs.get('all', False)
         get_image = kwargs.get('image', False)
+        # Return only one resource with that id
+        resource_id = kwargs.get('resource_id', None)
 
         def _image(r):
             if not get_image or r.id is None:
@@ -565,7 +566,7 @@ class DataContent:
                 return flask.url_for('images.static', filename=r.image)
 
         def _filter(r):
-            return all or r.is_active
+            return (all or r.is_active) and ((not resource_id) or r.id == int(resource_id))
 
         resource_list = [
             {'id': r.id,
@@ -589,7 +590,7 @@ class DataContent:
 
     def get_user_projects(self, user, **kwargs):
         dm = self.app.dm
-        status = kwargs.get('status', None)
+        status = kwargs.get('status', 'active')
         extra = 'extra' in kwargs
         pid = int(kwargs.get('pid', 0))
         scope = kwargs.get('scope', 'lab')
@@ -776,7 +777,8 @@ class DataContent:
                 'defocus_bins': dbins.toList(),
                 'resolution_bins': rbins.toList(),
                 'gridsquares': gridsquares,
-                'gs_info': epuData is not None,
+                'gs_info': True, # epuData is not None,
+                'ctfs_run_id': sdata.get_ctfs_runid()
             })
 
         elif result == 'classes2d':
@@ -784,6 +786,34 @@ class DataContent:
             data['classes2d'] = sdata.get_classes2d(runId=runId)
 
         return data
+
+    def get_news(self, **kwargs):
+        """ Return news after creating HTML markup. """
+        from markupsafe import Markup
+        status = kwargs.get('status', 'all')
+        dm = self.app.dm  # shortcut
+        news = ([], [])  # active/inactive lists
+
+        project = dm.get_project_by(status='special:news')
+        if project is not None:
+            for e in project.entries:
+                data = e.extra['data']
+                active = data.get('active', False)
+                i = 0 if active else 1
+                news[i].append({
+                    'id': e.id,
+                    'title': e.title,
+                    'text': e.description,
+                    'html': Markup(e.description),
+                    'active': active,
+                    'type': data['type']
+                })
+
+        return {
+            'news': news,
+            'display': kwargs.get('display', 'table'),
+            'project_id': project.id if project else 0
+        }
 
 
 def register_content(dc):
@@ -942,21 +972,15 @@ def register_content(dc):
             for k, bookingValues in rbookings.items():
                 bookingValues.sort(key=lambda b: b.start)
 
-        from markupsafe import Markup
-        value = Markup('<strong>The HTML String</strong>')
-
-        newsConfig = dm.get_config('news')
-        allNews = newsConfig['news'] if newsConfig else []
-        news = []
-        for n in allNews:
-            if n['status'] == 'active':
-                n['html'] = Markup(n['text'])
-                news.append(n)
-
+        resource_create_session = dm.get_config('sessions').get('create_session', {})
         dataDict.update({'bookings': bookings,
                          'resource_bookings': resource_bookings,
-                         'news': news,
+                         'resource_create_session': resource_create_session,
                          'local_resources': local_scopes
                          })
+        dataDict.update(dc.get_news(**kwargs))
         return dataDict
 
+    @dc.content
+    def news(**kwargs):
+        return dc.get_news(**kwargs)

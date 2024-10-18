@@ -1,0 +1,65 @@
+
+
+<div class="row col-12 p-0 m-0">
+
+    <div class="col-3">
+        <div class="card p-0">
+            <h4 class="card-header">All Tables</h4>
+            <div class="card-body p-0">
+                <table id="table-all" class="table" style="width: 100%">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                        <th class="border-0"><h5>Table Name</h5></th>
+                        <td class="border-0"><h5>Columns</h5></td>
+                        <td class="border-0"><h5>Rows</h5></td>
+                    </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for tn, t in tables.items() %}
+                            <tr>
+                                <td><a href="javascript:loadStarRows(file_path, '{{ tn }}')">{{ tn }}</a> </td>
+                                <td>{{ t['columns']|length }}</td>
+                                <td>{{ t['rows'] }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% set columns = tables[default_table]['columns'] %}
+
+    <div id="star_card_content" class="col-9">
+        {% include "processing_star_card.html" %}
+    </div>
+
+
+</div>
+
+<script>
+    var file_path = {{ file_path|tojson }};
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        $('.selectpicker').selectpicker();
+        $('#table-all').DataTable({
+            sDom: 'lrtip',
+            paging: false,
+            info: false,
+            ordering: false
+        });
+        $('#table-rows').DataTable({
+            sDom: 'lrtip',
+            paging: false,
+            info: false,
+            ordering: false
+        });
+
+
+});
+})(window, document, window.jQuery);
+</script>

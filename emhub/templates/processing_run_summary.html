@@ -1,5 +1,6 @@
 
 <div class="card col-12" id="summary-div">
+
     <div class="card-body m-0 p-0">
         {% set ios = run.getInputsOutputs() %}
         <div class="row mt-2">
@@ -7,7 +8,7 @@
                 <h4>Inputs</h4>
                 <ul>
                     {% for i in ios['inputs'] %}
-                        <li>{{ i }}</li>
+                        <li><a href="javascript:loadRunFileInfo('{{ i }}')">{{ i }}</a></li>
                     {% endfor %}
                 </ul>
             </div>
@@ -15,20 +16,17 @@
                 <h4>Outputs</h4>
                 <ul>
                     {% for o in ios['outputs'] %}
-                        <li>{{ o }}</li>
+                        <li><a href="javascript:loadRunFileInfo('{{ o }}')">{{ o }}</a></li>
                     {% endfor %}
                 </ul>
             </div>
         </div>
-
-
-
     </div>
 
 </div>
 
 {% if template %}
-    <div class="card col-12 overflow-auto p-0 m-0" id="summary_row"  style="max-height: 880px">
+    <div class="card col-12 overflow-auto p-0 m-0" id="summary_row"  style="max-height: 800px">
         <div class="card-body">
             {% include template %}
         </div>

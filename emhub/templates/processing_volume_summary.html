@@ -1,0 +1,46 @@
+{% set card_id = 'vol_summary_card' %}
+
+<div class="row col-12">
+    <table id="table-volumes" class="table table-responsive table-m-0 p-0">
+        <thead class="bg-light">
+            <tr class="m-0 p-0">
+                <th>Path</th>
+                <th>Slices</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for vol in volumes %}
+            <tr>
+                <td><a href="javascript:loadRunFileInfo('{{ vol['file_path'] }}')">{{ vol['file_path'] }}</a></td>
+                <td>
+                    <div id="{{ card_id }}_vol{{ loop.index0 }}_slider"></div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    var volumes = {{ volumes|tojson }};
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        for (var i = 0; i < volumes.length; ++i) {
+            new VolumeSliderCard("{{ card_id }}_vol" + i + "_slider", volumes[i].slices,
+                {slice_dim: getObjectValue(volumes[i], 'slice_dim', 128)});
+        }
+
+        $('#table-volumes').DataTable({
+            sDom: 'lrtip',
+            paging: false,
+            info: false,
+            ordering: false
+        });
+
+});
+})(window, document, window.jQuery);
+</script>

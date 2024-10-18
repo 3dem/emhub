@@ -402,7 +402,7 @@ function create_hc_hourly(containerId, data, title, subtitle){
 
 
 /* Draw the micrograph images with coordinates(optional) */
-function drawMicrograph(containerId, micrograph, drawCoordinates) {
+function drawMicrograph(containerId, micrograph, drawValue) {
     var canvas = document.getElementById(containerId);
     var ctx = canvas.getContext("2d");
 
@@ -410,27 +410,43 @@ function drawMicrograph(containerId, micrograph, drawCoordinates) {
 
     image.onload = function() {
         if (canvas.height != image.height) {
-            canvas.height = image.height;
-            canvas.width = image.width;
-            canvas_ratio = canvas.width / parseFloat(canvas.height);
-        }
+            let image_ratio = image.width / parseFloat(image.height);
 
+            canvas.width = image.width;
+            canvas.height = canvas.width / image_ratio;
+            //canvas.width = image.width;
+            //canvas_ratio = canvas.width / parseFloat(canvas.height);
+
+        }
+        let canvas_image_ratio = canvas.width / parseFloat(image.width);
         ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-        if (!drawCoordinates || micrograph.coordinates.length == 0)
+
+        if (drawValue === 'none' || micrograph.coordinates.length == 0)
             return;
 
         ctx.fillStyle = '#00ff00';
+        ctx.strokeStyle = '#00ff00';
 
-        var scale = parseFloat(micrograph.pixelSize) / micrograph.thumbnailPixelSize;
+        // Adjust the scale of the coordinates taking into account two factors:
+        // 1) scale between the original micrograph and the thumbnail size
+        // 2) scale between the thumbnail and the canvas size
+        var scale =  canvas_image_ratio * parseFloat(micrograph.pixelSize) / (micrograph.thumbnailPixelSize);
         var coords = micrograph.coordinates;
 
         for (var i = 0; i < coords.length; ++i){
             var x = Math.round(coords[i][0] * scale);
             var y = Math.round(coords[i][1] * scale);
             ctx.beginPath();
-            ctx.arc(x, y, 2, 0, 2 * Math.PI);
-            ctx.fill();
+            if (drawValue === 'circle') {
+                ctx.arc(x, y, 10, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+            else {
+                ctx.arc(x, y, 2, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
         }
     };
 
@@ -444,7 +460,7 @@ function drawClasses2d(containerId, classes, header, showSel){
 
     for (var cls2d of classes) {
         let borderColor = showSel && cls2d.sel ? 'limegreen' : 'white';
-        imgStr = '<img src="data:image/png;base64,' + cls2d.average + '" style="border: solid 3px ' + borderColor + ';">';
+        imgStr = '<img width="100px" src="data:image/png;base64,' + cls2d.average + '" style="border: solid 3px ' + borderColor + ';">';
         infoStr = '<p class="text-muted mb-0"><small>size: ' + cls2d.size + ', id: ' + cls2d.id + '</small></p>';
         html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
 
@@ -455,15 +471,23 @@ function drawClasses2d(containerId, classes, header, showSel){
 function drawVolData(containerId, volSlices){
     var container = document.getElementById(containerId);
     var imgStr, infoStr = null;
-    var html = '<div class="col-12"></div>';
+    var html = '<div class="col-12 row">';
 
-    for(let slice in volSlices) {
-        imgStr = '<img src="data:image/png;base64,' + volSlices[slice] + '" style="border: solid 3px;">';
-        infoStr = '<p class="text-muted mb-0"><small>' + slice + '</small></p>';
-        html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+    // for(let slice in volSlices) {
+    //     imgStr = '<img src="data:image/png;base64,' + volSlices[slice] + '" style="border: solid 3px;">';
+    //     infoStr = '<p class="text-muted mb-0"><small>' + slice + '</small></p>';
+    //     html += '<div style="padding: 3px; min-width: 90px;">' + imgStr + infoStr + '</div>';
+    // }
+    for (const [sliceIndex, sliceImg] of Object.entries(volSlices)) {
+      //console.log(`${key}: ${value}`);
+        imgStr = '<img src="data:image/png;base64,' + sliceImg + '" style="border: solid 3px; width: 128px">';
+        infoStr = '<p class="text-muted mb-0"><small>' + sliceIndex + '</small></p>';
+        html += '<div style="padding: 1px; min-width: 128px;">' + imgStr + infoStr + '</div>';
     }
-    container.innerHTML = html;
+    container.innerHTML = html + '</div>';
 }
+
+
 
 class Overlay {
     constructor(containerId) {
@@ -482,9 +506,128 @@ class Overlay {
 }
 
 
-class MicrographCard {
-    constructor(containerId, params, gsCard) {
+class Card {
+    constructor(containerId) {
         this.containerId = containerId;
+        this.container = document.getElementById(containerId);
+    }
+
+    id(suffix) {
+        return this.containerId + '_' + suffix;
+    }
+
+    jid(suffix) {
+        return '#' + this.id(suffix)
+    }
+} // class Card
+
+
+class ImageSliderCard extends Card {
+    constructor(containerId, slices, config) {
+        super(containerId);
+        let self = this;
+        this.indexes = [];
+        this.slices = slices;
+        this.slider_prefix = getObjectValue(config, 'slider_prefix', '');
+
+        const width = getObjectValue(config, 'slice_dim', 128);
+        var styleStr = '" style="width: ' + width + 'px"';
+
+        var html = '<div class="row"><div class="col-12"><img id="' + this.id('image') + styleStr + '></div>';
+
+        for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
+            this.indexes.push(sliceIndex);
+            //console.log(`${sliceIndex}: ${sliceImg.length}`);
+        }
+
+        const N = this.indexes.length;
+        html += '<div class="col-12"><input id="' + this.id('slider_input') + styleStr + '" type="range" min="0" value="0" max="' + (N - 1) + '" step="1"></div>';
+        html += '<div class="col-12"><div id="' + this.id('slider_text') + '"></div></div>';
+
+        this.container.innerHTML = html;
+
+        $(this.jid('slider_input')).on("input", function() {
+            self.setSlice($(this).val());
+        });
+
+        let initialSlice = getObjectValue(config, 'initial_slice', Math.floor(N / 2));
+        this.setSlice(initialSlice);
+
+    }
+
+    setSlice(sliceIndex) {
+        $(this.jid('slider_input')).val(sliceIndex);
+        const sliceNumber = this.indexes[sliceIndex];
+        const sliceImg = this.slices[sliceNumber];
+        var img = document.getElementById(this.id('image'));
+        img.src = "data:image/png;base64, " + sliceImg;
+        $(this.jid('slider_text')).text(this.slider_prefix + sliceNumber);
+    }
+}
+
+class VolumeSliderCard extends Card {
+    constructor(containerId, slices, config) {
+        super(containerId);
+        let self = this;
+        this.slices = slices;
+        const slice_dim = getObjectValue(config, 'slice_dim', 128);
+        const width = Math.floor(slice_dim * 1.2);
+
+        const minWidth = 3 * width;
+        var html = '<div class="row ml-1 mr-1" style="min-width: ' + minWidth + 'px">';
+        const styleStr = '" style="width: ' + width + 'px">';
+        html += '<div id="' + this.id('slider-z') + styleStr + '</div>';
+        html += '<div id="' + this.id('slider-y') + styleStr + '</div>';
+        html += '<div id="' + this.id('slider-x') + styleStr + '</div></div>';
+
+        this.container.innerHTML = html;
+
+        this.isz = new ImageSliderCard(this.id('slider-z'), slices.z,
+            {slider_prefix: 'Z slice: ', slice_dim: slice_dim});
+        this.isy = new ImageSliderCard(this.id('slider-y'), slices.y,
+            {slider_prefix: 'Y slice: ', slice_dim: slice_dim});
+        this.isx = new ImageSliderCard(this.id('slider-x'), slices.x,
+            {slider_prefix: 'X slice: ', slice_dim: slice_dim});
+
+    }
+}
+
+
+function createVolume(array, dimensions) {
+
+    //volComp.autoView();
+
+    console.log(surface.getParameters());
+}
+
+
+function renderVolume3D(containerId, arrayJson, dimensions) {
+    //var data = JSON.parse(dataJson);
+    var array = new Uint8Array(atob(arrayJson).split("").map(function (c) {
+            return c.charCodeAt(0);
+        }));
+        const nx = dimensions[0], ny = dimensions[1], nz = dimensions[2];
+        const cx = nx / 2, cy = ny / 2, cz = nz / 2;
+        var volume = new NGL.Volume("volume", '', array, nx, ny, nz);
+        var stage = new NGL.Stage(containerId);
+        var volComp = stage.addComponentFromObject(volume);
+        var surface = volComp.addRepresentation("surface",
+            {isolevelType: 'value', isolevel: 180});
+        volComp.setPosition([-cx, -cy, -cz]);
+
+        const sliderId = '#' + containerId + "_slider";
+
+        $(sliderId).val(surface.getParameters()['isolevel']);
+        $(sliderId).on("input", function() {
+            surface.setParameters({isolevel: parseInt($(this).val())});
+        });
+} // function drawVolume3D
+
+
+
+class MicrographCard extends Card {
+    constructor(containerId, params, gsCard) {
+        super(containerId);
         this.overlay = new Overlay(this.id('overlay'));
         this.gsCard = gsCard;
         // Parameters used to load the micrograph data
@@ -506,22 +649,26 @@ class MicrographCard {
         });
 
         // Bind to on/off coordinates display
-        $(self.jid('show_particles')).change(function() {
-            self.drawMicrograph();
-        });
+        // $(self.jid('show_particles')).change(function() {
+        //     self.drawMicrograph();
+        // });
+
+        if (self.contains('particles')) {
+            $('input[name="' + self.id('pts_switch') + '"]').change(function () {
+                self.drawMicrograph();
+            })
+        }
+
     }
 
-    id(suffix) {
-        return this.containerId + '_' + suffix;
-    }
-
-    jid(suffix) {
-        return '#' + this.id(suffix)
+    /* Check if the card has an element with that id */
+    contains(elementId) {
+        return $(this.jid(elementId)).length > 0;
     }
 
     drawMicrograph() {
-       drawMicrograph(this.id('mic_canvas'), this.micrograph,
-           $(this.jid('show_particles')).prop('checked'));
+        let value= this.contains('particles') ? $('input[name="' + this.id('pts_switch') + '"]:checked').val() : 'none';
+        drawMicrograph(this.id('mic_canvas'), this.micrograph, value);
     }
 
     loadMicData(micId, doneCallback) {
@@ -557,7 +704,12 @@ class MicrographCard {
                 self.gsCard.loadData(data.gridSquare);
             }
 
-            $(self.jid('img_psd')).attr('src', 'data:image/png;base64,' + data.psdData);
+            if (data.psdData) {
+                $(self.jid('img_psd')).attr('src', 'data:image/png;base64,' + data.psdData);
+            }
+            else
+                $(self.jid('img_psd')).hide();
+
             function setLabel(containerId, value){
                 var elem = document.getElementById(containerId);
                 var parts = elem.innerHTML.split(":");
@@ -571,7 +723,7 @@ class MicrographCard {
                 $(self.jid('mic_defocus_v')).text(data['ctfDefocusV']);
                 $(self.jid('mic_defocus_angle')).text(data['ctfDefocusAngle']);
                 $(self.jid('mic_astigmatism')).text(data['ctfAstigmatism']);
-                if (nonEmpty(data['ctfPlot']))
+                if (self.contains('ctf_plot') && nonEmpty(data['ctfPlot']))
                     create_pl_ctfplot(self.id('ctf_plot'), data['ctfPlot']);
             }
             else {
@@ -580,7 +732,9 @@ class MicrographCard {
             }
 
             $(self.jid('mic_resolution')).text(data['ctfResolution']);
-            $(self.jid('particles')).text(micrograph.coordinates.length);
+
+            if (self.contains('particles'))
+                $(self.jid('particles')).val(micrograph.coordinates.length);
 
             self.overlay.hide();
 
@@ -597,19 +751,11 @@ class MicrographCard {
 }
 
 
-class GridSquareCard {
+class GridSquareCard extends Card {
     constructor(containerId) {
-        this.containerId = containerId;
+        super(containerId);
         this.overlay = new Overlay(this.id('overlay'));
         this.last = null;
-    }
-
-    id(suffix) {
-        return this.containerId + '_' + suffix;
-    }
-
-    jid(suffix) {
-        return '#' + this.id(suffix)
     }
 
     loadData(gridSquare) {
@@ -645,6 +791,115 @@ class GridSquareCard {
           alert("GridSquare request failed: " + textStatus );
           self.overlay.hide();
         });
+    }
+
+}  // class GridSquareCard
+
+class PlotCard extends Card {
+    constructor(containerId, dataDict) {
+        super(containerId);
+        let self = this;
+        this.dataDict = dataDict;
+        this.set_default('labelX-select', 'default_x')
+        this.set_default('labelY-select', 'default_y')
+        this.set_default('labelColor-select', 'default_color')
+
+         $(this.jid('update-plots-btn')).on('click', function (e) {
+            self.makePlots();
+         });
+    }
+
+    set_default(selectId, valueKey){
+        let value = this.dataDict[valueKey]
+        if (nonEmpty(value)) {
+            $(this.jid(selectId)).selectpicker('val', value);
+        }
+    }
+    makePlots() {
+        //$('#update-plots-btn').toggleClass('btn-dark btn-outline-dark');
+        let self = this;
+        let label_x = $(this.jid('labelX-select')).selectpicker('val');
+        let data_x = this.dataDict[label_x].data;
+
+        let label_y = $(this.jid('labelY-select')).selectpicker('val');
+        let data_y = this.dataDict[label_y].data;
+
+        let label_color = $(this.jid('labelColor-select')).selectpicker('val');
+        let data_color = this.dataDict[label_color].data;
+
+        let colorscale = [[0.0, '#440154'], [0.1111111111111111,
+                                            '#482878'], [0.2222222222222222,
+                                            '#3e4989'], [0.3333333333333333,
+                                            '#31688e'], [0.4444444444444444,
+                                            '#26828e'], [0.5555555555555556,
+                                            '#1f9e89'], [0.6666666666666666,
+                                            '#35b779'], [0.7777777777777778,
+                                            '#6ece58'], [0.8888888888888888,
+                                            '#b5de2b'], [1.0, '#fde725']];
+        var data = [
+            {'fillcolor': 'white',
+                  'marker': {'color': data_color,
+                             'colorscale': 'Portland',
+                             'opacity': 0.75,
+                                'size': 10,
+                             'showscale': true},
+                  'mode': 'markers',
+                  'type': 'scattergl',
+                  'x': data_x,
+                  'y': data_y },
+             {'marker': {'color': 'cornflowerblue', 'opacity': 0.5},
+              'name': label_x,
+              'type': 'violin',
+              'x': data_x,
+              'yaxis': 'y2'},
+             {'marker': {'color': 'cornflowerblue', 'opacity': 0.5},
+              'name': label_y,
+              'type': 'violin',
+              'xaxis': 'x2',
+              'y': data_y}
+        ];
+
+        var layout = {'bargap': 0,
+           'hovermode': 'closest',
+           'margin': {'t': 50, 'l': 0, 'r': 0},
+           'autosize': true,
+           'plot_bgcolor': 'rgba(0,0,0,0)',
+           'showlegend': false,
+           'template': '...',
+           'xaxis': {'domain': [0, 0.85], 'gridcolor': '#CBCBCB', 'title': {'text': label_x}, 'zeroline': true},
+           'xaxis2': {'domain': [0.85, 1], 'showgrid': true, 'zeroline': false},
+           'yaxis': {'domain': [0, 0.85],
+                     'gridcolor': '#CBCBCB',
+                     'title': {'text': label_y},
+                     'zeroline': true},
+           'yaxis2': {'domain': [0.85, 1], 'showgrid': true, 'zeroline': false}};
+
+        Plotly.newPlot(self.id('plotDiv'), data, layout);
+        let graphDiv = document.getElementById(self.id('plotDiv'));
+
+        graphDiv.on('plotly_selected', function(eventData) {
+            if (!eventData) {
+                $('#selection-label').text("No points selected.");
+                $('#export-btn').hide();
+                return;
+            }
+            let points = eventData.points;
+            $(self.jid('selection-label')).html("Selected <label style='color: firebrick; font-size: medium;'>" + points.length + "</label> points")
+            $(self.jid('export-btn')).show();
+        });
+
+        graphDiv.on('plotly_doubleclick', function(eventData) {
+            alert('click');
+        });
+
+        graphDiv.on('plotly_click', function(eventData) {
+            let index = eventData.points[0].pointNumber;
+            if (self.onPointClick) {
+                self.onPointClick(index);
+            }
+            //
+        });
+
     }
 
 }  // class GridSquareCard
@@ -1099,28 +1354,46 @@ function create_hc_sessions_histogram(containerId, data) {
 });
 } // function hc_create_histogram
 
-function create_pl_ctfplot(containerId, ctfvalues) {
-    // var trace = {
-    //   x: ctfvalues[0],
-    //   y: ctfvalues[1],
-    //   mode: 'lines',
-    //   connectgaps: true
-    // };
-    //
-    // var trace2 = {
-    //   x: ctfvalues[0],
-    //   y: ctfvalues[2],
-    //   mode: 'lines',
-    //   connectgaps: true
-    // };
-    //
-    //  var trace3 = {
-    //   x: ctfvalues[0],
-    //   y: ctfvalues[3],
-    //   mode: 'lines',
-    //   connectgaps: true
-    // };
 
+function create_hc_motionplot() {
+    var seriesData = [[100, 29.9], [150,71.5], [300,106.4]];
+    var plotLines = [];
+    var step = 100;
+    var N = 500;
+
+    for (var i = 0; i <= N; i+=step) {
+    		plotLines.push({
+        	value: i, // Value of where the line will appear
+          width: 1 // Width of the line
+        });
+    }
+
+    Highcharts.chart(containerId, {
+        chart: {
+        //height: 700,
+            style: "dash",
+    		height: "100%",
+        //margin: 50
+        },
+        xAxis: {
+        		min: 0,
+            max: N,
+            tickInterval: step,
+            plotLines: plotLines
+        },
+        yAxis: {
+        		min: 0,
+            max: N,
+            tickInterval: step,
+        },
+
+        series: [{
+            data: seriesData
+        }]
+    });
+} // function create_hc_motionplot
+
+function create_pl_ctfplot(containerId, ctfvalues) {
      var data = [];
      for (i = 1; i <= 4; i++) {
          data.push({
@@ -1134,7 +1407,7 @@ function create_pl_ctfplot(containerId, ctfvalues) {
     // var data = [trace, trace2, trace3];
 
     var layout = {
-      showlegend: true,
+        showlegend: true,
         autoscale: true,
         margin: {'t': 0, 'l': 10, 'r': 50},
     };

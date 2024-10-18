@@ -180,7 +180,8 @@ setup(
     entry_points={  # Optional
        'console_scripts': [
            'emh-data = emhub.data.__main__:main',
-           'emh-client = emhub.client.__main__:main'
+           'emh-client = emhub.client.__main__:main',
+           'emh-relion = emhub.data.processing.processing_relion.__main__:main',
        ],
     },
 

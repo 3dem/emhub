@@ -199,7 +199,7 @@ def register_content(dc):
         pp = ppDict['project']
         run = ppDict['run']
         func = getattr(run, funcName)
-        result = func()
+        result = func(**kwargs)
         data = {
             'processing_project': pp,
             'get_project_args': ppDict['args'],

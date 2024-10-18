@@ -120,6 +120,9 @@
                                             {% endif %}
                                         </strong></td>
                                         {% endif %}
+                                        {% if nres > 1 %}
+                                            <td>{{ entry['total_days'] }}</td>
+                                        {% endif %}
                                         <td>{{ '%0.2f'|format(entry['total_days'] * 100 / total_usage) }}</td>
                                         <td>
                                             {% if entry['bookings'] %}

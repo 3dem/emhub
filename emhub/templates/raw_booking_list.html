@@ -32,6 +32,7 @@
                                 <th>project</th>
                                 <th>dates</th>
                                 <th>extra</th>
+                                <th>slot_auth</th>
                                 <th>experiment</th>
                                 <th>sessions</th>
                                 <th> actions </th>
@@ -56,6 +57,7 @@
                                 {% endif %}
                                 <td>{{ b.start|pretty_datetime }} - {{ b.end|pretty_datetime }}</td>
                                 <td>{{ b.extra }}</td>
+                                <td>{{ b.slot_auth }}</td>
                                 <td>{{ b.experiment }}</td>
                                 <td>
                                     {% set sessions = b.session %}

@@ -44,7 +44,7 @@
                                         <a class="nav-link" href="{{ url_for_content('report_microscopes_usage') }}">Microscopes Usage</a>
                                     </li>
 
-                                    {% if current_user.is_admin %}
+                                    {% if current_user.is_manager %}
                                         <li class="nav-item">
                                             <a class="nav-link" href="{{ url_for_content('report_projects_overview') }}">Projects Overview</a>
                                         </li>
@@ -78,19 +78,27 @@
                                     <i class="fas fa-boxes"></i>Resources</a>
                             </li>
 
-                            <!-- Workers -->
-                            <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-workers" aria-controls="submenu-workers">
-                                    <i class="fas fa-server"></i>Workers</a>
-                            <div id="submenu-workers" class="collapse submenu" style="">
-                                <ul class="nav flex-column">
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('workers') }}">Tasks</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link" href="{{ url_for_content('workers_frames') }}">Frames</a>
-                                    </li>
-                                </ul>
-                            </div>
+                            {% if current_user.is_manager %}
+                                <!-- News -->
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ url_for_content('news', display='table') }}">
+                                        <i class="fas fa-newspaper"></i>News</a>
+                                </li>
+
+                                <!-- Workers -->
+                                <a class="nav-link" href="#" data-toggle="collapse" aria-expanded="false" data-target="#submenu-workers" aria-controls="submenu-workers">
+                                        <i class="fas fa-server"></i>Workers</a>
+                                <div id="submenu-workers" class="collapse submenu" style="">
+                                    <ul class="nav flex-column">
+                                        <li class="nav-item">
+                                            <a class="nav-link" href="{{ url_for_content('workers') }}">Tasks</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link" href="{{ url_for_content('workers_frames') }}">Frames</a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            {% endif %}
 
                         </ul>
 

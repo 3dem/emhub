@@ -26,17 +26,21 @@ from emtools.metadata import StarFile, EPU, SqliteFile
 from emtools.image import Thumbnail
 
 from .base import SessionRun, SessionData, hours
+from ..processing.processing_relion import RelionSessionData
 
 
 class ScipionRun(SessionRun):
     """ Helper class to manipulate Scipion run data. """
     def __init__(self, project, runDict):
         self.dict = runDict
+        if '' not in runDict:
+            raise Exception("Expecting empty string keyword in runDict.")
+
         runRow = runDict['']  # first protocol row, empty name
         self.id = runRow['id']
         self.className = runRow['classname']
         wdRow = runDict[f'{self.id}.workingDir']
-        self.label = runDict['']['label']
+        self.label = runRow['label']
 
         SessionRun.__init__(self, project, project.join(wdRow['value']))
 
@@ -77,28 +81,36 @@ class ScipionRun(SessionRun):
         """ Return run's stdout file. """
         return self.join('logs', 'run.stderr')
 
-    def getSummary(self):
-        summary = {'template': '', 'data': {}}
+    def getSummary(self, **kwargs):
+        data = {}
+        summary = {'template': '', 'data': data}
         data_values = {}
 
         ctfsSqlite = self.join('ctfs.sqlite')
         if os.path.exists(ctfsSqlite):
             summary['template'] = 'processing_ctf_summary.html'
             data_values = self._load_ctfvalues(ctfsSqlite)
+        elif self.className == 'ProtRelionClassify2D':
+            summary['template'] = 'processing_2d_summary.html'
+            data_values = {'iterations': [1, 2, 3]}
 
         if data_values:
-            summary['data'] = {'data_values': data_values}
+            data['data_values'] = data_values
 
         return summary
 
-    def getOverview(self):
+    def getOverview(self, **kwargs):
         overview = {'template': '', 'data': {}}
         data_values = {}
 
         ctfsSqlite = self.join('ctfs.sqlite')
+        coordsSqlite = self.join('coordinates.sqlite')
+
         if os.path.exists(ctfsSqlite):
             overview['template'] = 'processing_ctf_overview.html'
             data_values = self._load_ctfvalues(ctfsSqlite, index=True)
+        elif os.path.exists(coordsSqlite):
+            overview['template'] = 'processing_ctf_overview.html'
 
         if data_values:
             overview['data'] = {'data_values': data_values}
@@ -131,7 +143,11 @@ class ScipionRun(SessionRun):
                 'label': 'Resolution',
                 'unit': 'Å',
                 'data': []
-            }
+            },
+            'default_y': 'ctfResolution',
+            'default_x': '',
+            'default_color': 'ctfDefocusV',
+            'has_ctf': True
         }
         indexes = []
         with SqliteFile(ctfsSqlite) as sf:
@@ -146,8 +162,15 @@ class ScipionRun(SessionRun):
                 'label': 'Id',
                 'data': indexes
             }
+            data_values['default_x'] = 'id'
 
         return data_values
+
+    def get_classes2d(self, iteration=None):
+        """ Get classes information from a class 2d run. """
+        it = "%03d" % iteration if iteration else "*"
+        pattern = self.join('extra', f"*_it{it}_classes.mrcs")
+        return RelionSessionData.get_classes2d_data(pattern)
 
 
 class ScipionSessionData(SessionData):
@@ -225,6 +248,17 @@ class ScipionSessionData(SessionData):
             'coordinates': self._stats_from_output('coordinates'),
             'classes2d': len(self.outputs['classes2d'])
         }
+
+    def runid_from_sqlite(self, sqliteFn):
+        parts = sqliteFn.split('/')
+        runFolder = parts[-2]
+        return int(runFolder.split('_')[0])
+
+    def get_ctfs_runid(self):
+        """ Return the run_id for the ctfs used for the general session overview. """
+        if ctfs := self.outputs.get('ctfs', None):
+            return self.runid_from_sqlite(ctfs)
+        return None
 
     def get_micrographs(self):
         """ Return an iterator over the micrographs' CTF information. """
@@ -342,8 +376,9 @@ class ScipionSessionData(SessionData):
                             classes2d['selection'] = [int(row.rlnReferenceImage.split('@')[0])
                                                       for row in table if row.rlnEstimatedResolution < 30]
                             break
-            runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra')
-            classes2d['items'] = RelionSessionData.get_classes2d_from_run(runFolder)
+            runFolder = os.path.join(os.path.dirname(classesSqlite), 'extra',
+                                     '*_classes.mrcs')
+            classes2d['items'] = RelionSessionData.get_classes2d_data(runFolder)
 
         return classes2d
 
@@ -402,7 +437,8 @@ class ScipionSessionData(SessionData):
         with SqliteFile(self.join('project.sqlite')) as sf:
             for row in sf.iterTable('Objects'):
                 name = row['name']
-                if row['id'] == rid or name.startswith(prefix):
+                # Get all rows related to that run as a dict
+                if row['id'] == rid or row['parent_id'] == rid:
                     runDict[name] = row
 
         return ScipionRun(self, runDict)
@@ -412,7 +448,6 @@ class ScipionSessionData(SessionData):
         """ Return the json definition of a form defined by className. """
         from pyworkflow.protocol import ElementGroup
         import pwem
-
         ProtClass = pwem.Domain.findClass(className)
         prot = ProtClass()
         logoPath = prot.getPluginLogoPath()

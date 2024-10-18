@@ -571,12 +571,18 @@ def get_session_users():
 
 
 def _loadFileLines(fn):
-    lines = ''
     if os.path.exists(fn):
-        for line in open(fn):
-            lines += line
+        with open(fn) as f:
+            lines = f.readlines()
+            o = len(lines) - 2000
+            if o > 0:
+                result = ''.join(lines[:1000])
+                result += f'\n=============== OMITTED {o} LINES ============\n\n'
+                result += ''.join(lines[-1000:])
+            else:
+                result = ''.join(lines)
 
-    return lines
+    return result
 
 
 @api_bp.route('/get_session_run', methods=['POST'])
@@ -616,11 +622,19 @@ def get_session_run():
 @api_bp.route("/get_classes2d", methods=['POST'])
 def get_classes2d():
     """ Load 2d classification data. """
-    proc = app.dm.get_processing_project(entry_id=request.form['entry_id'])
-    run = proc.get_run(request.form['run_id'])
-    classes = run.get_classes2d(iteration=request.form.get('iteration', None))
-
+    kwargs = request.form.to_dict()
+    run = app.dm.get_processing_project(**kwargs)['run']
+    classes = run.get_classes2d(iteration=kwargs.get('iteration', None))
     return send_json_data(classes)
+
+
+@api_bp.route("/get_file_info", methods=['POST'])
+def get_file_info():
+    """ Load 2d classification data. """
+    kwargs = request.form.to_dict()
+    project = app.dm.get_processing_project(**kwargs)['project']
+    file_info = project.get_file_info(kwargs['path'])
+    return send_json_data(file_info)
 
 
 def get_worker_token(worker):
@@ -821,7 +835,7 @@ def delete_transaction():
 @api_bp.route('/get_forms', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_forms():
-    return send_json_data([f.json() for f in app.dm.get_forms()])
+    return filter_request(app.dm.get_forms)
 
 
 @api_bp.route('/create_form', methods=['POST'])
@@ -856,7 +870,7 @@ def get_config():
 @api_bp.route('/get_projects', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_projects():
-    return send_json_data([p.json() for p in app.dm.get_projects()])
+    return filter_request(app.dm.get_projects)
 
 
 @api_bp.route('/create_project', methods=['POST'])
@@ -907,6 +921,8 @@ def update_entry():
         entry = app.dm.get_entry_by(id=attrs['id'])
         old_files = set(app.dm.get_entry_files(entry))
         save_entry_files(entry, attrs['extra']['data'])
+        # There is a validation about the entry type
+        attrs['type'] = entry.type
         entry = app.dm.update_entry(**attrs)
         new_files = set(app.dm.get_entry_files(entry))
         clean_files(old_files - new_files)
@@ -928,12 +944,12 @@ def delete_entry():
     return _handle_item(handle, 'entry')
 
 
-# ------------------------------ ENTRIES ---------------------------------
+# ------------------------------ PUCKS ---------------------------------
 
 @api_bp.route('/get_pucks', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_pucks():
-    return send_json_data([p.json() for p in app.dm.get_pucks()])
+    return filter_request(app.dm.get_pucks)
 
 
 @api_bp.route('/create_puck', methods=['POST'])
@@ -952,7 +968,6 @@ def update_puck():
 @flask_login.login_required
 def delete_puck():
     return handle_puck(app.dm.delete_puck)
-
 
 # -------------------- UTILS functions ----------------------------------------
 

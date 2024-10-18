@@ -90,16 +90,9 @@ def get_mic_data():
 
 @images_bp.route("/get_micrograph_gridsquare", methods=['POST'])
 def get_micrograph_gridsquare():
-    form = request.form  # shortcut
-    sessionId = int(form['session_id'])
-    session = app.dm.load_session(sessionId)
-    kwargs = {}
-    if 'gsId' in form:
-        kwargs['gsId'] = form['gsId']
-    if 'fhId' in form:
-        kwargs['fhId'] = form['fhId']
-    data = session.data.get_micrograph_gridsquare(**kwargs)
-    session.data.close()
+    kwargs = request.form.to_dict()
+    project = app.dm.get_processing_project(**kwargs)['project']
+    data = project.get_micrograph_gridsquare(**kwargs)
     return send_json_data(data)
 
 
