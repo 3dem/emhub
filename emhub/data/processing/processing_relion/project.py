@@ -332,7 +332,7 @@ class RelionSessionData(SessionData):
         return data_values
 
     def load_ctf_values(self, ctfStar, index=False):
-        data_values = {
+        possible_labels = {
             'rlnDefocusU': {
                 'label': 'Defocus U',
                 'scale': 0.0001,
@@ -358,12 +358,22 @@ class RelionSessionData(SessionData):
                 'unit': 'Å',
                 'data': []
             },
+            'rlnCtfIceRingDensity': {
+              'label': 'Ice Ring Density',
+              'data': []
+            }}
+        data_values = {
             'default_y': 'rlnCtfMaxResolution',
             'default_x': '',
             'has_ctf': True
         }
         indexes = []
         with StarFile(ctfStar) as sf:
+            ti = sf.getTableInfo('micrographs')
+            for k, v in possible_labels.items():
+                if ti.hasColumn(k):
+                    data_values[k] = v
+
             for i, row in enumerate(sf.iterTable('micrographs')):
                 indexes.append(i + 1)
                 rowDict = row._asdict()
