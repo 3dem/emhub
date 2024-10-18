@@ -787,39 +787,32 @@ class DataContent:
 
         return data
 
-
     def get_news(self, **kwargs):
         """ Return news after creating HTML markup. """
         from markupsafe import Markup
         status = kwargs.get('status', 'all')
         dm = self.app.dm  # shortcut
-        newsConfig = dm.get_config('news')
         news = ([], [])  # active/inactive lists
 
-        # allNews = newsConfig['news'] if newsConfig else []
-        # for n in allNews:
-        #     s = n['status']
-        #     if s in all_status:
-        #         n['html'] = Markup(n['text'])
-        #         news[s].append(n)
         project = dm.get_project_by(status='special:news')
-        for e in project.entries:
-            data = e.extra['data']
-            active = data.get('active', False)
-            i = 0 if active else 1
-            news[i].append({
-                'id': e.id,
-                'title': e.title,
-                'text': e.description,
-                'html': Markup(e.description),
-                'active': active,
-                'type': data['type']
-            })
+        if project is not None:
+            for e in project.entries:
+                data = e.extra['data']
+                active = data.get('active', False)
+                i = 0 if active else 1
+                news[i].append({
+                    'id': e.id,
+                    'title': e.title,
+                    'text': e.description,
+                    'html': Markup(e.description),
+                    'active': active,
+                    'type': data['type']
+                })
 
         return {
             'news': news,
             'display': kwargs.get('display', 'table'),
-            'project_id': project.id
+            'project_id': project.id if project else 0
         }
 
 
