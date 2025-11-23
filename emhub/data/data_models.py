@@ -1031,7 +1031,7 @@ def create_data_models(dm):
 
         @property
         def owner_id(self):
-            return self.booking.owner_id if self.booking else None
+            return dm.get_booking_by(id=self.booking_id).owner_id if self.booking_id else None
 
         @property
         def owner(self):
