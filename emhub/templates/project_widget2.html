@@ -296,54 +296,7 @@
 <script>
 
 var project_id = {{ project_id|tojson }};
-
-
-class TestClientApi {
-
-    constructor() {
-        this.project_details = {{ project_details|tojson }};
-    }
-
-    listProjects() {
-      return [];
-    }
-
-    getProject(projectId) {
-      return this.project_details;
-    }
-
-    listProtocols(projectId) {
-      return this.project_details.protocols;
-    }
-
-    getProtocolDetails(projectId, protocolId) {
-      return {};
-    }
-
-    executeProtocol(protocolId, protocolClassName, params) {
-        return null;
-    }
-
-    saveProtocol(protocolId, protocolClassName, params) {
-      return null;
-    }
-
-    createProject({ name, description }) {
-      return {};
-    }
-
-    renameProject(id, newName, newDescription = "") {
-      return {};
-    }
-
-    deleteProject(id) {
-     return {};
-    }
-  }
-
-</script>
-
-<script>
+var project_details = {{ project_details|tojson }};
 
 
   (function () {
@@ -372,7 +325,6 @@ class TestClientApi {
 
 
       // ---------- API client instance ----------
-      var apiClient = new TestClientApi();
 
       // Helper to normalize protocols list
       function normalizeProtocols(data) {
@@ -390,32 +342,31 @@ class TestClientApi {
       // ---------- Widgets services ----------
       var svc = {
         fetchList() {
-          return apiClient.listProjects();
+          return [];
         },
         fetchProject(id) {
-          return apiClient.getProject(id);
+          return project_details;
         },
         loadProtocols(projId) {
-          return apiClient.listProtocols(projId).then(normalizeProtocols);
+          return project_details.protocols;
         },
         fetchProtocolDetails(projectId, protocolId) {
-          return apiClient.getProtocolDetails(projectId, protocolId);
+          return getObjectValue(project_details.protocolDetails, protocolId, {})
         },
         executeProtocol(protocolId, protocolClassName, params) {
-          return apiClient.executeProtocol(protocolId, protocolClassName, params);
+          return null;
         },
         saveProtocol(protocolId, protocolClassName, params) {
-          return apiClient.saveProtocol(protocolId, protocolClassName, params);
+          return null;
         },
         createProject(data) {
-          return apiClient.createProject(data);
+          return null;
         },
         renameProject(id, newName, newDescription) {
-          if (typeof newDescription === "undefined") newDescription = "";
-          return apiClient.renameProject(id, newName, newDescription);
+          return null;
         },
         deleteProject(id) {
-          return apiClient.deleteProject(id);
+          return null;
         },
       };
 
