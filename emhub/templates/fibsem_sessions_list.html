@@ -1,0 +1,84 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "FIBSEM Sessions" %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+
+
+    <!-- table row -->
+    {{ macros.hidden_hour_id() }}
+
+
+    {% for project_id, project_entries in fibsem_sessions.items() %}
+        <div class="card col-12">
+            <div class="card-body">
+                <div class="col-12 mb-3 ml-0 pl-0">
+                    <a href="javascript:createSession({{ project_id }})" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create New Session</a>
+                </div>
+                <div class="row">
+
+           {% for tp in project_entries %}
+                {% set data = tp['extra']['data'] %}
+
+                    <!-- Processing Project Card -->
+                    {% set card_color='#ebf7f9' %} <!-- SPA cards -->
+                    {% set card_color='#F8E5E5' %} <!-- Tomo cards -->
+                    {% set card_color='#E5E5F8' %} <!-- FIBSEM cards -->
+
+                    {# {% set card_color='#ececec' %}  #}
+                    <div class="card w-auto mr-3" style="background-color: {{ card_color }}; min-width: 500px; max-width: 700px">
+
+                        <div class="card-header d-flex" style="background-color: {{ card_color }};">
+
+                            {% set url = url_for_content('fibsem_session', fibsem_session_id=tp['id']) %}
+                            
+                            <a class="mb-0" href="{{ url }}"><h5>{{ tp['title'] }}</h5></a>
+                            <div class=" ml-auto row">
+                                <a href="{{ url }}" class="mr-2"><i class="fas fa-external-link-alt"></i></a>
+                                <a href="javascript:showEntryForm({{ tp['id'] }}, {{ tp['project_id'] }})" class="mr-2"><i class="fas fa-edit"></i></a>
+                                <a href="javascript:deleteSession({{ tp['id'] }}, '{{ tp['title'] }}')" class="mr-2"><i class="fas fa-trash"></i></a>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+{#                            <h5 class="card-title">{{ entry['name'] }}</h5>#}
+                            <p>Path: <small>{{ data['path'] }}</small></p>
+
+                        </div>
+
+                    </div>
+
+                    {% endfor %}
+
+                </div>
+            </div>
+        </div>
+
+    {% endfor %}
+    <!-- end table row -->
+
+</div>
+
+
+<script>
+    function createSession(project_id){
+        showEntryForm(null, project_id, 'fibsem_session');
+    }
+
+    function deleteSession(entry_id, title){
+        var msg = `Do you want to DELETE Session '${title}'?<br><br>`
+        msg += "This will only remove the session from the EMhub data, you need " +
+            "to delete the session folder yourself. "
+        confirm("Delete FIBSEM Session", msg,
+             "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.entry.delete, {id: entry_id}, entryAjaxDone);
+        });
+    }
+
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    })(window, document, window.jQuery);
+</script>
