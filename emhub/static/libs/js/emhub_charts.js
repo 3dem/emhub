@@ -61,7 +61,7 @@ function create_hc_polar(charDivId, data, label, config){
 
 function create_hc_series(container, data, config) {
     function get_micIndex(x) {
-        for (var i = 0; i < data.length - 1; ++i) {
+        for (var i = 0; i < data.length; ++i) {
             if (x >= data[i][0] && x <= data[i+1][0])
                return x - data[i][0] < data[i+1][0] - x ? i : i + 1;
         }
@@ -1370,6 +1370,46 @@ class GridSquareCard extends Card {
     }
 
 }  // class GridSquareCard
+
+
+class AsvSliceCard extends Card {
+    constructor(containerId) {
+        super(containerId);
+        this.overlay = new Overlay(this.id('overlay'));
+        this.slice = null;
+    }
+
+    loadData(slice) {
+        // Do not load if it is the same Slice
+        let index = slice.index;
+        if (this.slice != null && index == this.slice.index)
+            return;
+
+        let self = this;
+        this.slice = slice;
+        this.overlay.show(`Loading slice ${slice.index}`);
+
+        var requestImg = $.ajax({
+            url: Api.urls.get_image,
+            type: "POST",
+            data: {file_path: slice.file_path, max_size: 512},
+            dataType: "json"
+        });
+
+        requestImg.done(function(data) {
+            if (data.src) {
+                $(self.jid('image')).attr('src', data.src);
+            }
+            self.overlay.hide();
+        });
+
+        requestImg.fail(function(jqXHR, textStatus) {
+          alert("Slices failed to load, error: " + textStatus );
+          self.overlay.hide();
+        });
+    }
+
+}  // class AsvSliceCard
 
 class PlotCard extends Card {
     constructor(containerId, dataDict) {

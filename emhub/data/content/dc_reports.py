@@ -971,3 +971,81 @@ def register_content(dc):
             'pi_list': [u for u in dm.get_users() if u.is_pi]
         }
 
+    @dc.content
+    def report_raw_data(**kwargs):
+        dsJsonFile = os.path.expanduser('~/all.json')
+
+        with open(dsJsonFile) as f:
+            dsJson = json.load(f)
+
+        cols = ['Group', 'Total-DS', 'Total-Size', 'Total-SizeHidden']
+        rows = []
+
+        total_count = 0
+        total_size = 0
+
+        years = range(2021, 2026)
+
+        hiddenCols = []
+
+        def _addHidden(index):
+            hiddenCols.extend([
+                {'targets': index, 'visible': False},
+                {'targets': index - 1, 'orderData': [index]}
+            ])
+
+        _addHidden(3)
+
+        for year in years:
+            cols.append(f"{year}-DS")
+            cols.append(f"{year}-Size")
+            _addHidden(len(cols))
+            cols.append(f"{year}-SizeHidden")
+
+        for g, datasets in dsJson.items():
+            size = sum(ds['size'] for ds in datasets)
+            count = len(datasets)
+            yearsSize = defaultdict(lambda: 0)
+            yearsCount = defaultdict(lambda: 0)
+
+            total_size += size
+            total_count += count
+            for ds in datasets:
+                year = int(ds['year'])
+                yearsSize[year] += ds['size']
+                yearsCount[year] += 1
+
+            newRow = {
+                'Group': g,
+                'Total-DS': count,
+                'Total-Size': Pretty.size(size),
+                'Total-SizeHidden': size
+            }
+            for year in years:
+                newRow[f"{year}-DS"] = yearsCount[year]
+                newRow[f"{year}-Size"] = Pretty.size(yearsSize[year])
+                newRow[f"{year}-SizeHidden"] = yearsSize[year]
+
+            rows.append(newRow)
+
+        totalRow = {
+            'Group': 'Total',
+            'Total-DS': total_count,
+            'Total-Size': Pretty.size(total_size),
+            'Total-SizeHidden': total_size
+        }
+        # Compute totals per year
+        for year in years:
+            for col in [f"{year}-DS", f"{year}-SizeHidden"]:
+                totalRow[col] = sum(row[col] for row in rows)
+            totalRow[f"{year}-Size"] = Pretty.size(totalRow[f"{year}-SizeHidden"])
+
+        rows.append(totalRow)
+
+        return {
+            'columns': cols,
+            'rows': rows,
+            'hidden': hiddenCols
+        }
+
+

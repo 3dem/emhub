@@ -294,6 +294,10 @@ function showBookingCosts() {
 
 }  // function showBookingCosts
 
+function showImage(args){
+    var ajaxContent = get_ajax_content("file_preview", args);
+    showImageDialog(ajaxContent);
+}
 
 function showEntryImage(entry_id, imageName){
     var params = {

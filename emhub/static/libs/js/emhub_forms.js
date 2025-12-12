@@ -913,10 +913,9 @@ class ProcessingDashboard {
                         self.getArgs()
                     );
                     reqRun.done(function(data) {
-                        if ('job' in data) {
-                            let jobId = data.job.id;
-                            // showMessage('Operation completed', `Deleted job ${jobId}.`);
-                            self.flowchart.update(job_data['workflow']);
+                        if ('id' in data) {
+                            self.workflow = data.workflow;
+                            self.flowchart.update(self.workflow);
                         }
                         else if ('error' in data) {
                             showError(data['error'])

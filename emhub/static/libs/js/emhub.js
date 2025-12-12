@@ -85,6 +85,17 @@ function getObjectValue(obj, key, default_value) {
     return key in objDict ? obj[key] : default_value;
 }
 
+const getValueByPath = (obj, path) => {
+  const keys = path.split('.');
+  return keys.reduce((currentValue, key) => {
+    // If currentValue is null or undefined at any point,
+    // it means the path is invalid, so return undefined or a default value.
+    if (currentValue === null || typeof currentValue === 'undefined') {
+      return null; // Or return a default value like null
+    }
+    return currentValue[key];
+  }, obj); // Initialize the accumulator with the original object
+};
 
 /**
  * Remove an object from a list.
