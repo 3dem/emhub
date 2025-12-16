@@ -100,11 +100,12 @@ class RelionRun(SessionRun):
             ios['inputs'] = [i.id for i in self.job.inputs]
             ios['outputs'] = [o.id for o in self.job.outputs]
 
-            #
-            # if os.path.exists(infoJson):
-            #     with open(infoJson) as f:
-            #         info = json.load(f)
-            #         # FIXME: Properly annotate inputs/outputs in info.json and read from there
+            if os.path.exists(infoJson):
+                with open(infoJson) as f:
+                    info = json.load(f)
+                    for k in ['inputs', 'outputs']:
+                        if k in info:
+                            ios[k] = [e for e in info[k].values()]
             # elif os.path.exists(jobPipeline):
             #     with StarFile(jobPipeline) as sf:
             #         tables = sf.getTableNames()
@@ -122,10 +123,12 @@ class RelionRun(SessionRun):
         """ Find if there are micrographs (with/without CTF) in outputs. """
         mics = micsCtf = None
         for o in self.getInputsOutputs()['outputs']:
-            if o.endswith('micrographs_ctf.star'):
-                micsCtf = self.project.join(o)
-            elif o.endswith('micrographs.star'):
-                mics = self.project.join(o)
+            if files := o.get('files', []):
+                f = files[0][0]
+                if f.endswith('micrographs_ctf.star'):
+                    micsCtf = self.project.join(o)
+                elif f.endswith('micrographs.star'):
+                    mics = self.project.join(o)
         return mics, micsCtf
 
     def getSummary(self, **kwargs):
