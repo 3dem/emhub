@@ -1,296 +1,33 @@
 {% import "entry_macros.html" as macros %}
 
-<div class="card h-100 col-12">
-    <div class="card-body">
+<div id="project-widget-root" class="projectpage-widget-root">
+  <div id="projects-page-root">
+    <div class="grid" id="grid">
+      <!-- Optional list host (your JS references it as #projects-host) -->
+      <div id="projects-host" class="hidden"></div>
 
-        <div id="project-widget-root">
-          {# We keep only what we need from the user #}
-          {% set is_manager = current_user.is_manager %}
+      <!-- Project page -->
+      <div id="project-page-host"></div>
 
-          <div id="projects-page-root">
-            <div class="grid" id="grid">
-              <!-- Projects list -->
-              <div id="projects-host"></div>
-              <!-- Project page -->
-              <div id="project-page-host"></div>
-              <!-- Protocol detail (ProtocolForm) -->
-              <div id="protocol-detail-host"></div>
-            </div>
+      <!-- Optional protocol detail host (your JS references it as #protocol-detail-host) -->
+      <div id="protocol-detail-host" class="hidden"></div>
 
-            <!-- Common portals, inside the root to isolate them -->
-            <div id="modal-root"></div>
-            <div id="drawer-root"></div>
-            <div id="toast-root"></div>
-            <div id="portal-root"></div>
-            <div id="app"></div>
-            <div id="root"></div>
-          </div>
-        </div>
-
+      <!-- Optional portal root for overlays/menus if you later decide to use it -->
+      <div class="projectpage-portal-root" id="projectpage-portal-root"></div>
     </div>
+  </div>
 </div>
 
-<style>
-  /* ===============================
-   *  Layout only inside the widget
-   * =============================== */
-
-  #project-widget-root {
-    padding-top: 0px;
-    padding-bottom: 0px;
-    margin-top: -20px;
-  }
-
-  #projects-page-root {
-    margin-top: 0;
-    padding-top: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    padding-bottom: 0px;
-  }
-
-  #projects-page-root .grid {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: grid;
-    gap: 16px;
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  #projects-page-root .grid.two-cols {
-    grid-template-columns: 1fr 1.1fr;
-  }
-
-  #projects-page-root .host {
-    border: 1px dashed #bfbfbf;
-    border-radius: 10px;
-    padding: 12px;
-    background: #fafafa;
-    height: 100%;
-    min-height: 0;
-  }
-
-  #projects-page-root .host.fullpage {
-    border: 0;
-    padding: 0;
-    background: transparent;
-  }
-
-  #projects-page-root #project-page-host.fullpage {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-  }
-
-  #projects-page-root #projects-host,
-  #projects-page-root #project-page-host,
-  #projects-page-root #protocol-detail-host {
-    height: 100%;
-    min-height: 0;
-  }
-
-  #projects-page-root #protocol-detail-host {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-
-  #projects-page-root #protocol-detail-host > * {
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-
-  #projects-page-root #protocol-detail-host .protocol-form {
-    display: flex;
-    flex-direction: column;
-    height: 100% !important;
-    min-height: 0;
-  }
-
-  #projects-page-root #protocol-detail-host .protocol-form .form-body {
-    height: auto !important;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
-  }
-
-  #projects-page-root #protocol-detail-host .protocol-form .top-tab-content,
-  #projects-page-root #protocol-detail-host .protocol-form .bottom-tab-content {
-    max-height: none !important;
-  }
-
-  #projects-page-root .hidden {
-    display: none !important;
-  }
-
-  #projects-page-root .error {
-    color: #b91c1c;
-    background: #fee2e2;
-    padding: 10px;
-    border-radius: 8px;
-    white-space: pre-wrap;
-  }
-
-  /* ===============================
-   *  Keep left sidebar visible
-   * =============================== */
-
-  .nav-left-sidebar,
-  .nav-left-sidebar * {
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
-
-  /* Sidebar should start right below the topbar */
-  .nav-left-sidebar {
-    top: 60px !important; /* default theme value */
-  }
-
-  /* ===============================
-   *  Fix topbar only on this page
-   *  (logo size + user menu visibility)
-   * =============================== */
-
-  /* Keep header from becoming a huge banner */
-  .dashboard-header {
-    max-height: 70px !important;
-    overflow: visible !important;
-    position: relative;
-    z-index: 1030;
-  }
-
-  .dashboard-header .navbar {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    min-height: 60px !important;
-    height: 60px !important;
-    display: flex !important;
-    align-items: center !important;
-  }
-
-  /* Force logos to be small, never full-width */
-  .dashboard-header .navbar > img {
-    height: 45px !important;
-    width: auto !important;
-    max-width: none !important;
-  }
-
-  /* Navbar right side must be visible and inline */
-  .dashboard-header .navbar-collapse {
-    display: flex !important;
-    justify-content: flex-end !important;
-    align-items: center !important;
-  }
-
-  .dashboard-header .navbar-nav {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-  }
-
-  .dashboard-header .navbar-nav .nav-item {
-    display: block !important;
-  }
-
-  /* Ensure "admin" text + avatar are always visible */
-  .dashboard-header .nav-user .nav-user-img {
-    display: flex !important;
-    align-items: center !important;
-    gap: 8px !important;
-    font-size: 15px !important;
-    line-height: 1 !important;
-    color: #82849f !important;
-    white-space: nowrap !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    overflow: visible !important;
-  }
-
-  .dashboard-header .nav-user .nav-user-img img {
-    display: inline-block !important;
-    width: 32px !important;
-    height: 32px !important;
-    border-radius: 50% !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-  }
-
-  /* Avoid any generic "img { width: 100% }" from widgets affecting the header */
-  .dashboard-header img {
-    width: auto !important;
-    height: auto !important;
-  }
-
-  /* ===============================
-   *  Force dropdown menu behavior here
-   * =============================== */
-
-  /* Ensure the nav-user dropdown is positioned relative */
-  .dashboard-header .nav-item.nav-user {
-    position: relative !important;
-  }
-
-  /* Base style for the dropdown menu inside the header */
-  .dashboard-header .nav-user-dropdown {
-    position: absolute !important;
-    right: 0 !important;
-    left: auto !important;
-    top: 100% !important;
-    margin-top: 0.5rem;
-    min-width: 220px;
-    z-index: 2000 !important;
-    display: none;
-    visibility: visible !important;
-    opacity: 1 !important;
-  }
-
-  /* When toggled, show the menu */
-  .dashboard-header .nav-user-dropdown.show {
-    display: block !important;
-  }
-
-  /* ===============================
-   *  React workflow node selection
-   *  Force visible border when a node is selected
-   * =============================== */
-
-  /* React Flow default class when a node is selected */
-  #project-widget-root .react-flow__node.selected,
-  #project-widget-root .react-flow__node:focus {
-    border: 4px solid #2563eb !important;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) !important;
-    border-radius: 8px;
-  }
-
-  /* If your nodes use a custom class on top of React Flow */
-  #project-widget-root .workflow-node.selected {
-    border: 4px solid #2563eb !important;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35) !important;
-  }
-
-  /* Ensure search input has space for the icon on the left */
-  #project-widget-root input[placeholder="Search protocol..."] {
-    padding-left: 2.5rem !important;
-  }
-</style>
-
-<!-- Initial props -->
-{#<script id="initial-props" type="application/json">#}
-{#  {{ (props | default({})) | tojson }}#}
-{#</script>#}
-
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', filename='libs/css/projectpage-widget.css') }}?v=1"
+/>
 
 <!-- External ProjectsApiClient -->
 <script defer src="{{ url_for('static', filename='libs/js/projects-api-client.js') }}"></script>
 
 <!-- UMD bundles (adjust paths if needed) -->
-<script defer src="{{ url_for('static', filename='libs/js/projects-widget.js') }}"></script>
 <script defer src="{{ url_for('static', filename='libs/js/projectpage-widget.js') }}"></script>
-<script defer src="{{ url_for('static', filename='libs/js/protocoldetail-widget.js') }}"></script>
 
 
 <script>
