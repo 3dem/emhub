@@ -341,38 +341,40 @@ function createOrUpdateSession(session_params){
         return div;
     }
 
-
     for (var i = 0;  i < params.length; i++) {
         var param = params[i];
-        var base_id = param.name;
+        var paramName = getObjectValue(param, "name", null);
+
+        // Special empty objects (no label or no name) are treated as separators
+        // Other special entries without name, will serve as grouping entities: LineParam, GroupParam
+        var base_id = null;
+        if (nonEmpty(paramName)) {
+            base_id = paramName;
+        } else if (nonEmpty(param.label)) {
+            base_id = sanitizeAndStripAccents(param.label);
+        }
         var param_value = get_param_value(param);
+        let paramClass = getObjectValue(param, "paramClass", "StringParam");
+        let expertLevel = getObjectValue(param, "expertLevel", 0);
 
         var row = document.createElement('div');
         row.className = 'row form-group';
         parent.appendChild(row);
 
-        if (!nonEmpty(base_id)){
+        if (base_id == null){
             // Empty param is a separator
             row.className += ' mt-1 mb-1';
         }
-        else if (param.paramClass === "Group") {  // Groups are special and don't have labels
-                var div = document.createElement('div');
-                div.className = "formgroup col-12"
-                div.innerHTML = "<h1><label class='col-1 text-sm-right mr-3'>" + param.label + "</label></h1></br>"
-                row.appendChild(div);
-                form_addRows(div, param.params, values);
-
-                // <fieldset>
-                //     <legend>Legend</legend> Fieldset
-                // </fieldset>
-                //
-                // <div className="fieldset">
-                //     <h1><span>Legend</span></h1> Fieldset
-                // </div>
+        else if (paramClass === "Group") {  // Groups are special and don't have labels
+            var div = document.createElement('div');
+            div.className = "formgroup col-12"
+            div.innerHTML = "<h1><label class='col-1 text-sm-right mr-3'>" + param.label + "</label></h1></br>"
+            row.appendChild(div);
+            form_addRows(div, param.params, values);
         }
-        else if (param.label) {
+        else {
 
-            if (param.expert == 1) {
+            if (expertLevel == 1) {  // FIXME: Properly handle expertLevel
                 row.style.backgroundColor = "#E6E6E6";
                 row.className += ' scn-expert-param';
                 row.style.display = display_expert;
@@ -385,14 +387,14 @@ function createOrUpdateSession(session_params){
             label.title = param.help;
             row.appendChild(label);
 
-            if (param.paramClass === "LabelParam"){
+            if (paramClass === "LabelParam"){
                 label.classList.replace('col-4', 'col-12');
                 // label.classList.add('text-left');
                 label.classList.replace('text-sm-right', 'text-left')
                 // row.className = 'row text-left';
                 row.style.backgroundColor = "#F5F5F5";
             }
-            else if (param.paramClass === "Line") {
+            else if (paramClass === "Line") {
                 var div = document.createElement('div');
                 div.className = 'row col-8 form-group';
                 //div.style.backgroundColor = 'red';
@@ -403,19 +405,32 @@ function createOrUpdateSession(session_params){
                 }
                 row.appendChild(div);
             }
-            else if (param.paramClass === "EnumParam") {
+            else if (paramClass === "EnumParam") {
+                let display = getObjectValue(param, "display", "combo");
                 let choices = param.choices;
+                let labels = [];
+                let values = [];
+
+                if (Array.isArray(choices)) {
+                    labels = values = choices;
+                } else {  // we assume it should be a dict
+                    for (const key in choices) {
+                      if (choices.hasOwnProperty(key)) {
+                          labels.push(choices[key]);
+                          values.push(key);
+                      }
+                    }
+                }
 
                 var div = document.createElement('div');
                 div.className = 'col-8 form-group';
-                console.log('EnumParam, display: ' + param.display);
 
-                if (param.display == "radio") {
+                if (display == "radio") {
                     div.className = 'row col-8 ml-1';
-                    for (var j = 0; j < choices.length; j++) {
-                        let c = choices[j];
-                        let selected = (param_value == c);
-                        form_addRadio(div, base_id + '-' + j, base_id, c, c, selected);
+                    for (var j = 0; j < labels.length; j++) {
+                        let v = values[j];
+                        let selected = (param_value == v);
+                        form_addRadio(div, base_id + '-' + j, base_id, v, labels[j], selected);
                     }
                 }
                 else { // Combo is the default display option
@@ -425,25 +440,25 @@ function createOrUpdateSession(session_params){
                     select.style.backgroundColor = "#fff";
                     select.style.color = "black";
 
-                    for (var j = 0; j < choices.length; j++) {
+                    for (var j = 0; j < labels.length; j++) {
                         var opt = document.createElement('option');
-                        let c = choices[j];
-                        opt.textContent = c;
-                        opt.selected = param_value == c;
-                        opt.value = c;
+                        let v = values[j];
+                        opt.textContent = labels[j];
+                        opt.selected = param_value == v;
+                        opt.value = v;
                         select.appendChild(opt);
                     }
                     div.appendChild(select);
                 }
                 row.appendChild(div);
             }
-            else if ('valueClass' in param) {
+            else if (paramName != null) {
 
                 function _bool(v){
                     return (v === true || v === 1 || v === '1' || v === 'Yes' || v === 'True' || v === 'true')
                 }
 
-                if (param.paramClass === "BooleanParam") {
+                if (paramClass === "BooleanParam") {
                     var div = document.createElement('div');
                     div.className = 'row col-8 ml-1';
                     let b = _bool(param_value);
@@ -451,13 +466,10 @@ function createOrUpdateSession(session_params){
                     form_addRadio(div, base_id + '-no', base_id, false, 'No', !b);
                     row.appendChild(div);
                 }
-                else {
+                else {  // Default: StringParam
                     row.appendChild(create_input('col-8', param.name, param_value ));
                 }
             }
-        }
-        else {  // Empty space separator
-
         }
 
     }
@@ -915,6 +927,7 @@ class ProcessingDashboard {
                     reqRun.done(function(data) {
                         if ('id' in data) {
                             self.workflow = data.workflow;
+                            this.selected_node.id = null;
                             self.flowchart.update(self.workflow);
                         }
                         else if ('error' in data) {
