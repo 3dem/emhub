@@ -229,16 +229,7 @@ def register_content(dc):
 
     @dc.content
     def project_widget(**kwargs):
-        # Read project_id from query string: /main?content_id=project_widget&project_id=XYZ
-        project_id = 43  # data test
-        # project_id = kwargs.get("project_id")
-        props = {}
-        if project_id:
-            props["initialProjectId"] = project_id
-
-        return {
-            "props": props
-        }
+        return project_widget2(**kwargs)
 
     def get_fake_project(project_id):
         from emhub.tests.scipion_data import projectDetails, protocolDetail
@@ -920,7 +911,6 @@ def register_content(dc):
 
         return fake_projects.get(project_id, None)
 
-
     def get_protocols(workflow):
         from emhub.data.processing import RelionRun
 
@@ -928,8 +918,9 @@ def register_content(dc):
             "id": "PROJECT",
             "children": [],
             "parents": [],
-            "label": "PROJECT",
+            "label": "",
             "status": "",
+            "type": "PROJECT",
             "parameter": [],
             "inputs": [],
             "outputs": [],
@@ -1015,9 +1006,27 @@ def register_content(dc):
             }
         data = {
             'project_id': project_id,
-            'project_details': project_details
+            'project_details': project_details,
+            'project_ids': [43, 871, 878]
         }
         with open(f'project_{project_id}.json', 'w') as f:
             json.dump(project_details, f, indent=4)
 
         return data
+
+    @dc.content
+    def project_flowchart(**kwargs):
+        data = project_widget2(**kwargs)
+        # Convert project_details into a flowchart workflow
+        workflow = []
+        for jobId, job in data['project_details']['protocols'].items():
+            workflow.append({
+                'id': jobId,
+                'label': job['label'],
+                'links': job['children'],
+                'status': job['status'],
+                'type': job.get('type', '')
+            })
+        data['workflow'] = workflow
+        return data
+
