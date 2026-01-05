@@ -1,0 +1,261 @@
+{% import "entry_macros.html" as macros %}
+
+{% set is_manager = current_user.is_manager %}
+{% set is_admin = current_user.is_admin %}
+
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Tomo Session" %}
+    {% set navigation = [('FIBSEM Sessions', url_for_content('fibsem_sessions_list')),
+                         ('Session Overview', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="card card-body">
+        <div class="row">
+            <div class="col-8">
+                <form id="fibsem_session_form">
+{#                    {{ macros.session_dialog_row('Session Path', 'path', fibsem_session['path'], 'Provide session path') }}#}
+
+                    <div class="form-group row ">
+                        <label class="col-2 col-form-label text-right">Session Path</label>
+                        <div class="col-8">
+                            <input type="text" required="" id="session_path" class="form-control" readonly
+                                   value="{{ fibsem_session_path }}" data-key="path">
+                        </div>
+                        <div class="col-2">
+                        </div>
+                    </div>
+                    <div class="form-group row ">
+                        <label class="col-2 col-form-label text-right">JSON file</label>
+                        <div class="col-8">
+                            <input type="text" required="" id="session_path" class="form-control" readonly
+                                   value="{{ json_file }}" data-key="json_path">
+                        </div>
+                        <div class="col-2">
+                            <a href="javascript:showJsonFile()"><icon class="fas fa-file mr-2"></icon></a>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+{#            <div class="col-2 text-right" style="margin-top: 7px;">#}
+{#                <a href="javascript:loadSession(true)" class="btn btn-primary mr-2 mt-3"> Load Dashboard</a>#}
+{#                <a href="javascript:loadWorkflow()" class="btn btn-primary mr-2 mt-3"> Load Workflow</a>#}
+{#                {% if is_admin %}#}
+{#                    <a href="javascript:loadWidget()" class="btn btn-primary mr-2 mt-3"> Load Widget</a>#}
+{#                {% endif %}#}
+{#            </div>#}
+        </div>
+    </div>
+
+    <div class="row col-12 m-0 p-0" id="session-content">
+
+        <div class="row col-12">
+
+            {% if errors %}
+                <h3 class="col-12">Errors:</h3> <br/>
+                <ul>
+                {% for e in errors %}
+                    <li style="color: red">{{ e }}</li>
+                {% endfor %}
+                </ul>
+            {% else %}
+
+                <!-- Plots -->
+                 <div class="col-6">
+
+                    <div class="card">
+                        <div class="card-body">
+
+                            <div class="pills-outline">
+                                <ul class="nav nav-pills mb-2" id="tabTomoNav" role="tablist">
+
+                                    <li class="nav-item">
+                                        <a class="nav-link active" id="tomo-table-tab" data-toggle="tab" href="#tomo-table" role="tab" aria-controls="current" aria-selected="true">Table</a>
+                                    </li>
+
+                                     <li class="nav-item">
+                                        <a class="nav-link" id="tomo-plots-tab" data-toggle="tab" href="#tomo-plots" role="tab" aria-controls="current" aria-selected="false">Plots</a>
+                                    </li>
+
+                                </ul>
+
+                                <div class="tab-content" id="tabTomoContent">
+
+                                    <!-- tab "tomo-table" -->
+                                    <div class="tab-pane fade show active" id="tomo-table" role="tabpanel" aria-labelledby="tomo-table-tab">
+
+                                        <table id="table-tomograms" class="table" style="width:100%">
+                                            <thead>
+                                                <tr>
+                                                    <th>Enabled</th>
+                                                    <th>Index</th>
+                                                    <th>Path</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for s in slices %}
+                                                {% set index = loop.index0 %}
+                                                <tr id="tr_{{ index }}">
+                                                    <td>
+                                                        <input type="checkbox" checked class="chb_enabled" id="chb_enabled_{{ index }}" data-index="{{ index }}" onchange="onChangeEnabled(this)">
+                                                    </td>
+                                                    <td>{{ s['index'] }}</td>
+                                                    <td>
+                                                        <a href="javascript:loadSlice({{ index }})"> {{ s['path']|basename }} </a>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div> <!-- End of Tab tomo-table -->
+
+                                     <!-- tab "tomo-plots" -->
+                                    <div class="tab-pane fade" id="tomo-plots" role="tabpanel" aria-labelledby="tomo-plots-tab">
+{##}
+{#                                        <ul>#}
+{#                                        {% for plot in plots %}#}
+{#                                            <li>{{ plot }}</li>#}
+{#                                        {% endfor %}#}
+{#                                        </ul>#}
+                                    <div class="row col-12">
+                                        <div class="col-9">
+                                            <select id="plots-select" class="selectpicker show-tick" multiple data-selected-text-format="count > 3" data-width="100%" data-live-search="true">
+                                            {% for plot in plots %}
+                                                <option value="{{ plot }}">{{ plot }} </option>
+                                            {% endfor %}
+                                        </select>
+                                        </div>
+                                        <div class="col-3">
+                                            <a href="javascript:updatePlots()" class="btn btn-primary"> Update Plots</a>
+                                        </div>
+                                    </div>
+                                    <div class="row col-12">
+                                        <div id="plots-content">
+                                        </div>
+                                    </div>
+
+                                    </div>
+
+                                </div> <!-- End of TabContent -->
+                            </div> <!-- End of Tab -->
+
+                        </div>
+                    </div>
+                </div> <!-- Summary Table -->
+
+                 <div class="col-6">
+                    {% set card_id='asvslice' %}
+                    {% include 'asvslice_card.html' %}
+                </div> <!-- Plots -->
+
+            {% endif %}
+
+</div>
+
+    </div>
+
+    <div class="row col-12">
+        <h5 id="reload_label"></h5>
+    </div>
+</div>
+
+
+<script>
+    $('select').selectpicker();
+    var fibsem_session_id = {{ fibsem_session_id }};
+    var fibsem_session_path = "{{ fibsem_session_path }}";
+    var json_file = "{{ json_file }}";
+    var slices = {{ slices|tojson }};
+    var sliceCard = null;
+
+
+    function showJsonFile(){
+        loadTextFileOverview({
+            file_path: `${fibsem_session_path}/${json_file}`
+        });
+    }
+
+    function createPlot(container, plotIndex, plotName) {
+        var data = [];
+        for (var i = 0; i < slices.length; i++){
+            let y = getValueByPath(slices[i].metadata, plotName)
+            data.push({x: i, y: parseFloat(y)});
+        }
+        var config = {
+            onclick: function (point) {
+                loadSlice(point.x);
+            },
+            color: '#00ff00',  // '#005b96',
+            label: 'Slice Index',
+            labelY: 'Value',
+            maxX: 50,
+            suffix: '',
+            title: plotName,
+            height: 250
+        }
+
+        var plotDiv = document.createElement('div')
+        plotDiv.id = `plot-div-${plotIndex}`;
+        plotDiv.className = "mt-4";
+        container.appendChild(plotDiv);
+        create_hc_scatter(plotDiv.id, data, config);
+    }
+
+    function updatePlots(){
+        var plots = $('#plots-select').selectpicker('val')
+
+        //alert("Selected plots: " + JSON.stringify(plots));
+        var plotContent = document.getElementById('plots-content');
+        plotContent.innerHTML = '';
+        for (var i = 0; i < plots.length; i++) {
+            createPlot(plotContent, i, plots[i]);
+        }
+    }
+
+    function getSlicePath(index){
+        let slice = slices[index];
+        return `${fibsem_session_path}/${slice.path}`;
+    }
+
+    function showSlice(index){
+        showImage({file_path: getSlicePath(index)});
+    }
+
+    function loadSlice(index){
+        {#var ajaxContent = get_ajax_content("file_preview", {file_path: getSlicePath(index)});#}
+        {#setLoading('slice-div');#}
+        {#load_html_from_ajax('slice-div', ajaxContent);#}
+
+        sliceCard.loadData({
+            index: index,
+            file_path: getSlicePath(index)
+        })
+    }
+
+    var reload_counter = 60;  // 60 seconds to reload
+    function check_reload(){
+        if (reload_counter > 0) {
+            $('#reload_label').text('Reloading in ' + reload_counter + ' seconds.');
+            reload_counter -= 1;
+        }
+        else {
+            loadSession(false);
+            reload_counter = 60;
+        }
+        setTimeout(check_reload, 1000);  // every second
+    }
+
+    //check_reload();
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        sliceCard = new AsvSliceCard('asvslice');
+        loadSlice(0);
+    });
+    })(window, document, window.jQuery);
+
+</script>
