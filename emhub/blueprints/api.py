@@ -51,9 +51,6 @@ import jwt
 from emtools.utils import Pretty, Color
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
-from emhub.tests.scipion_data import projects as scipion_projects
-from emhub.tests.scipion_data import projectDetails as scipion_projectDetails
-from emhub.tests.scipion_data import protocolDetail as scipion_protocolDetail
 
 
 api_bp = flask.Blueprint('api', __name__)
