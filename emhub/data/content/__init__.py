@@ -16,7 +16,7 @@
 
 from .dc_base import DataContent, register_content
 from . import (dc_base, dc_raw, dc_users, dc_reports, dc_bookings,
-               dc_projects, dc_sessions, dc_tomo)
+               dc_projects, dc_sessions, dc_tomo, dc_fibsem)
 
 dc = DataContent()
 
@@ -28,3 +28,4 @@ dc_raw.register_content(dc)
 dc_projects.register_content(dc)
 dc_reports.register_content(dc)
 dc_tomo.register_content(dc)
+dc_fibsem.register_content(dc)
