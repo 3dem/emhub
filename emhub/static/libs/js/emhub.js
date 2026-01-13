@@ -85,6 +85,17 @@ function getObjectValue(obj, key, default_value) {
     return key in objDict ? obj[key] : default_value;
 }
 
+const getValueByPath = (obj, path) => {
+  const keys = path.split('.');
+  return keys.reduce((currentValue, key) => {
+    // If currentValue is null or undefined at any point,
+    // it means the path is invalid, so return undefined or a default value.
+    if (currentValue === null || typeof currentValue === 'undefined') {
+      return null; // Or return a default value like null
+    }
+    return currentValue[key];
+  }, obj); // Initialize the accumulator with the original object
+};
 
 /**
  * Remove an object from a list.
@@ -922,3 +933,18 @@ function escapeRegExp(string) {
 function replaceAll(str, match, replacement){
    return str.replace(new RegExp(escapeRegExp(match), 'g'), ()=>replacement);
 }
+
+function sanitizeAndStripAccents(str) {
+  // 1) Replace any sequence of non-letter/non-number with a single underscore
+  let out = str.replace(/[^\p{L}\p{N}]+/gu, '_');
+  // 2) Collapse multiple underscores
+  out = out.replace(/_+/g, '_');
+  // 3) Trim leading/trailing underscores
+  out = out.replace(/^_+|_+$/g, '');
+  // 4) Remove accents/diacritics by decomposing + stripping combining marks
+  // NFD decomposes letters like "é" -> "e" + "́" (combining mark)
+  // \p{M} matches all combining marks
+  out = out.normalize('NFD').replace(/\p{M}+/gu, '');
+  return out;
+}
+

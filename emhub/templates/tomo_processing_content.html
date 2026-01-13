@@ -11,7 +11,7 @@
                     <h4 class="card-title">{{ menuEntry['label'] }}</h4>
                     <br>
                     {% for job in menuEntry['jobs'] %}
-                    <a href="javascript:processingDashboard.newRun('{{ job }}')" class="btn btn-sm btn-outline-dark">{{ job }}</a>
+                    <a href="javascript:processingDashboard.newRun('{{ job }}')" class="btn btn-sm btn-outline-dark mt-2">{{ job }}</a>
                     {% endfor %}
                     {% for wf in menuEntry['workflows'] %}
                         <a href="#" class="btn btn-sm btn-outline-primary">{{ wf   }}</a>

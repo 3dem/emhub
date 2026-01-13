@@ -265,9 +265,6 @@ def register_content(dc):
     def processing_content(**kwargs):
         ppDict = dc.app.dm.get_processing_project(**kwargs)
         project = ppDict['project']
-
-        print(">>>>>> Loading project manager", flush=True)
-
         from emwrap.base import ProjectManager
         pm = ProjectManager(project.path)
         pm.update()

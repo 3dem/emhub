@@ -272,12 +272,9 @@ def register_content(dc):
         }
 
     @dc.content
-    def entry_file_preview(**kwargs):
-        dm = dc.app.dm
-        entry_id = int(kwargs['entry'])
-        entry = dm.get_entry_by(id=entry_id)
-        filename = kwargs['file']
-        filepath = dm.get_entry_path(entry, filename)
+    def file_preview(**kwargs):
+        filepath = kwargs['file_path']
+        filename = os.path.basename(filepath)
 
         if not os.path.exists(filepath):
             raise Exception("File does not exist. Make you have uploaded it before displaying.")
@@ -295,14 +292,28 @@ def register_content(dc):
             with open(filepath) as f:
                 filedata = f.read()
 
-        return {
+        data = {
             'file_title': kwargs.get('title', ''),
             'file_data': filedata,
-            'file_download': flask.url_for('images.entry', entry=entry_id,
-                                           file=filename, attachment=1),
+            'file_download': '',  # FIXME: Add download url for non-entry files
             'filename': filename,
             'filetype': filetype
         }
+        if entry_id := int(kwargs.get('entry', 0)):
+            data['file_download'] = flask.url_for('images.entry', entry=entry_id,
+                                                  file=filename, attachment=1)
+
+        return data
+
+    @dc.content
+    def entry_file_preview(**kwargs):
+        dm = dc.app.dm
+        entry_id = int(kwargs['entry'])
+        entry = dm.get_entry_by(id=entry_id)
+        filename = kwargs['file']
+        filepath = dm.get_entry_path(entry, filename)
+        kwargs['file_path'] = filepath
+        return file_preview(**kwargs)
 
     @dc.content
     def applications(**kwargs):

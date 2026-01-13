@@ -64,6 +64,11 @@
 <script src="{{ url_for('static', filename='libs/js/emhub_bookings.js') }}"></script>
 <script src="{{ url_for('static', filename='libs/js/emhub_charts.js') }}"></script>
 
+<!-- UMD bundles -->
+{#<script defer src="{{ url_for('static', filename='libs/js/projects-widget.js') }}"></script>#}
+{#<script defer src="{{ url_for('static', filename='libs/js/projectpage-widget.js') }}"></script>#}
+{#<script defer src="{{ url_for('static', filename='libs/js/protocoldetail-widget.js') }}"></script>#}
+
 
 <script type="text/javascript">
     /* Some variables */
@@ -142,6 +147,7 @@
         launch_job: "{{ url_for('api.launch_job') }}",
         delete_job: "{{ url_for('api.delete_job') }}",
         get_classes2d: "{{ url_for('api.get_classes2d') }}",
+        get_image: "{{ url_for('images.get_image') }}",
         get_mic_data: "{{ url_for('images.get_mic_data') }}",
         get_volume_data: "{{ url_for('images.get_volume_data') }}",
         get_micrograph_gridsquare: "{{ url_for('images.get_micrograph_gridsquare') }}"

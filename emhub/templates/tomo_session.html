@@ -50,6 +50,9 @@
             <div class="col-2 text-right" style="margin-top: 7px;">
                 <a href="javascript:loadSession(true)" class="btn btn-primary mr-2 mt-3"> Load Dashboard</a>
                 <a href="javascript:loadWorkflow()" class="btn btn-primary mr-2 mt-3"> Load Workflow</a>
+                {% if is_admin %}
+                    <a href="javascript:loadWidget()" class="btn btn-primary mr-2 mt-3"> Load Widget</a>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -104,6 +107,13 @@
         load_html_from_ajax('session-content',
             get_ajax_content('tomo_processing_content', {entry_id: tomo_session_id}))    ;
     }
+
+    function loadWidget() {
+        setLoading('session-content');
+        load_html_from_ajax('session-content',
+            get_ajax_content('project_widget2', {entry_id: tomo_session_id}))    ;
+    }
+
 
     var reload_counter = 60;  // 60 seconds to reload
     function check_reload(){

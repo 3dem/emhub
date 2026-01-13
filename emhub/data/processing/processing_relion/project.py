@@ -182,6 +182,9 @@ class RelionSessionData(SessionData):
                 'status': status_map.get(job['status'], job['status']),
                 'type': job['jobtype']
             })
+        #
+        # with open('workflow.json', 'w') as f:
+        #     json.dump(protList, f, indent=4)
 
         return protList
 

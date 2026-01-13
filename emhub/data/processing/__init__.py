@@ -16,7 +16,7 @@
 
 import os
 
-from .processing_relion import RelionSessionData
+from .processing_relion import RelionSessionData, RelionRun
 from .processing_scipion import ScipionSessionData
 
 

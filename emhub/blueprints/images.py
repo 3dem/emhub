@@ -36,6 +36,7 @@ from flask import request
 from flask import current_app as app
 
 from emhub.utils import send_json_data
+from emtools.image import Thumbnail
 
 
 images_bp = flask.Blueprint('images', __name__)
@@ -144,3 +145,17 @@ def get_volume_data():
     vol = run.get_volume_data(volName, volume_data='slices', axis=axis)
 
     return send_json_data(vol)
+
+
+@images_bp.route("/get_image", methods=['POST'])
+def get_image():
+    """ Load volume data from a given run and output name.
+    Input: projectId, runId, volName
+    """
+    kwargs = request.form.to_dict()
+    filepath = kwargs['file_path']
+    max_size = int(kwargs.get('max_size', 1024))
+    thumb = Thumbnail(output_format='base64', max_size=(max_size, max_size))
+    image = {'src': 'data:image/%s;base64, ' + thumb.from_path(filepath)}
+
+    return send_json_data(image)

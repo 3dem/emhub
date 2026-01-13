@@ -134,6 +134,7 @@ def register_content(dc):
         tomo_session = json.loads(kwargs['tomo_session'])
         session_path = tomo_session['path']
         s = FolderManager(session_path)
+        table = None
         data = {
             'tomograms': [],
             'session_path': session_path,
@@ -145,6 +146,7 @@ def register_content(dc):
         if s.exists(tomograms_star):
             table = _load_table_from_star(session_path, tomograms_star)
 
+        if table:
             # It is possible to load the table from folder, but better to explicitly
             # generate the tomograms.star
             # table = _load_table_from_folders(session_path, tomo_session)
@@ -226,41 +228,54 @@ def register_content(dc):
         return {}
 
     @dc.content
-    def processing_tomo_list(**kwargs):
+    def pseudo_projects(**kwargs):
+        entry_type = kwargs['entry_type']
+        project_type = f"special:{kwargs.get('project_type', entry_type)}"
+
         dm = dc.app.dm  # shortcut
         uid = dc.app.user.id
         user_projects = dm.get_projects(condition=f"user_id={uid}")
         projects = set(p.id for p in user_projects)
-        entries = dm.get_entries(condition="type='tomo_processing'", asJson=True)
+        entries = dm.get_entries(condition=f"type='{entry_type}'", asJson=True)
         # Group entries by project
-        tomo_projects = defaultdict(lambda: [])
+        pseudo_projects = defaultdict(lambda: [])
         for e in entries:
             pid = e['project_id']
             if pid in projects:
-                tomo_projects[pid].append(e)
-                data = e['extra']['data']
-                e['title'] = e['title'] or os.path.basename(data.get('processing_path', ''))
+                pseudo_projects[pid].append(e)
 
         # If there are no current tomography entries,
         # let's create a default project
-        if not tomo_projects:
+        if not pseudo_projects:
             defaultTomoProject = None
             for p in user_projects:
-                if p.status == 'special:processing_tomo':
+                if p.status == project_type:
                     defaultTomoProject = p
                     break
 
             if defaultTomoProject is None:
-
                 defaultTomoProject = dm.create_project(
                     user_id=uid,
-                    status='special:processing_tomo',
+                    status=project_type,
                     user_can_edit=True,
                     is_confidential=False,
-                    title="Default Project for Tomography processing",
+                    title=f"Default Project for {entry_type} entries",
                     description=""
                 )
-            tomo_projects[defaultTomoProject.id] = []
+            pseudo_projects[defaultTomoProject.id] = []
+
+        return pseudo_projects
+
+    @dc.content
+    def processing_tomo_list(**kwargs):
+        kwargs['entry_type'] = 'tomo_processing'
+        kwargs['project_type'] = 'processing_tomo'
+
+        tomo_projects = dc.get_data('pseudo_projects', **kwargs)
+        for entries in tomo_projects.values():
+            for e in entries:
+                data = e['extra']['data']
+                e['title'] = e['title'] or os.path.basename(data.get('processing_path', ''))
 
         return {
             'tomo_projects': tomo_projects
@@ -276,7 +291,6 @@ def register_content(dc):
         data = dc.get_data('processing_content', **kwargs)
         data['menu'] = ProcessingConfig.get_menu()
         return data
-
 
     # FIXME: More benchmark_ functions to a separate place
     def get_benchmarks():

@@ -1,0 +1,60 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="container-fluid dashboard-content">
+  {# We keep only what we need from the user #}
+  {% set is_manager = current_user.is_manager %}
+
+
+    <!-- Common portals, inside the root to isolate them -->
+    <div id="modal-root"></div>
+    <div id="drawer-root"></div>
+    <div id="toast-root"></div>
+    <div id="portal-root"></div>
+    <div id="app"></div>
+    <div id="root"></div>
+  </div>
+
+ <div class="row">
+     <div class="card col-12">
+         <div class="card-body row align-items-center align-content-center">
+            <label>Project ID</label>
+              <select id="selectpicker-project-id" class="selectpicker ml-1 mr-3"  data-width="auto"  title="Select project" >
+                {% for pid in project_ids %}
+                    {% set selected = 'selected' if pid  == project_id else '' %}
+                    <option {{ selected }} value="{{ pid }}">{{ pid }}</option>
+                {% endfor %}
+                </select>
+            <a href="javascript:loadWidget()" class="btn btn-primary mr-2 mt-3"> Load Widget</a>
+            <a href="javascript:loadFlowchart()" class="btn btn-primary mr-2 mt-3"> Load Workflow</a>
+         </div>
+     </div>
+
+     <div class="col-12" id="project-content">
+         {% include "project_widget2.html" %}
+     </div>
+ </div>
+
+
+</div>
+
+
+<script>
+    $('select').selectpicker();
+
+    function loadWidget() {
+        let pid = $('#selectpicker-project-id').selectpicker('val');
+        setLoading('project-content');
+        load_html_from_ajax('project-content',
+            get_ajax_content('project_widget2', {fake_id: pid}));
+    }
+
+    function loadFlowchart() {
+        let pid = $('#selectpicker-project-id').selectpicker('val');
+        setLoading('project-content');
+        load_html_from_ajax('project-content',
+            get_ajax_content('project_flowchart', {fake_id: pid}));
+    }
+
+
+</script>
+

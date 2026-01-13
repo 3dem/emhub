@@ -8,7 +8,16 @@
                 <h4>Inputs</h4>
                 <ul>
                     {% for i in ios['inputs'] %}
-                        <li><a href="javascript:loadRunFileInfo('{{ i }}')">{{ i }}</a></li>
+                        <li>
+                            <label class="badge badge-info mr-1 mt-1">{{ i['label'] }}</label><br/> <label> ({{ i['info'] }})</label>
+                            <ul>
+                                {% for f in i['files'] %}
+                                    <li>
+                                        <a href="javascript:loadRunFileInfo('{{ f[0] }}')">{{ f[0] }}</a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </li>
                     {% endfor %}
                 </ul>
             </div>
@@ -16,7 +25,14 @@
                 <h4>Outputs</h4>
                 <ul>
                     {% for o in ios['outputs'] %}
-                        <li><a href="javascript:loadRunFileInfo('{{ o }}')">{{ o }}</a></li>
+                        <li>
+                            <label  class="badge badge-info mr-1 mt-1">{{ o['label'] }}</label><br/><label> ({{ o['info'] }})</label>
+                            <ul>
+                                {% for f in o['files'] %}
+                                    <li><a href="javascript:loadRunFileInfo('{{ f[0] }}')">{{ f[0] }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </li>
                     {% endfor %}
                 </ul>
             </div>

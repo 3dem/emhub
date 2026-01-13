@@ -1,0 +1,307 @@
+{% import "entry_macros.html" as macros %}
+
+<!-- Common portals, inside the root to isolate them -->
+    <div id="modal-root"></div>
+    <div id="drawer-root"></div>
+    <div id="toast-root"></div>
+    <div id="portal-root"></div>
+    <div id="app"></div>
+    <div id="root"></div>
+
+<div class="card h-100 col-12">
+    <div class="card-body">
+
+        <div id="project-widget-root" class="projectpage-widget-root">
+          <div id="projects-page-root">
+            <div class="grid" id="grid">
+              <!-- Optional list host (your JS references it as #projects-host) -->
+              <div id="projects-host" class="hidden"></div>
+
+              <!-- Project page -->
+              <div id="project-page-host"></div>
+
+              <!-- Optional protocol detail host (your JS references it as #protocol-detail-host) -->
+              <div id="protocol-detail-host" class="hidden"></div>
+
+              <!-- Optional portal root for overlays/menus if you later decide to use it -->
+              <div class="projectpage-portal-root" id="projectpage-portal-root"></div>
+            </div>
+          </div>
+        </div>
+
+    </div>
+</div>
+
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', filename='libs/css/projectpage-widget.css') }}?v=1"
+/>
+
+<!-- External ProjectsApiClient -->
+<script defer src="{{ url_for('static', filename='libs/js/projects-api-client.js') }}"></script>
+
+<!-- UMD bundles (adjust paths if needed) -->
+<script defer src="{{ url_for('static', filename='libs/js/projectpage-widget.js') }}"></script>
+
+
+<script>
+
+var project_id = {{ project_id|tojson }};
+var project_details = {{ project_details|tojson }};
+
+
+  (function () {
+    "use strict";
+
+    function showBootstrapError(err) {
+      var host = document.querySelector("#projects-host") || document.body;
+      host.innerHTML =
+        '<pre class="error">Host bootstrap error:\n' +
+        String(err && (err.stack || err)) +
+        "</pre>";
+      console.error(err);
+    }
+
+    try {
+      // ---------- Utils ----------
+      function $(sel) {
+        return document.querySelector(sel);
+      }
+
+      var grid = null;
+      var listHostSel = "#projects-host";
+      var projectPageHostSel = "#project-page-host";
+      var protocolDetailHostSel = "#protocol-detail-host";
+
+
+
+      // ---------- API client instance ----------
+
+      // Helper to normalize protocols list
+      function normalizeProtocols(data) {
+        if (Array.isArray(data)) {
+          return data;
+        }
+        if (data && typeof data === "object") {
+          return Object.keys(data).map(function (k) {
+            return data[k];
+          });
+        }
+        return [];
+      }
+
+      // ---------- Widgets services ----------
+      var svc = {
+        fetchList() {
+          return [];
+        },
+        fetchProject(id) {
+          return project_details;
+        },
+        loadProtocols(projId) {
+          return project_details.protocols;
+        },
+        fetchProtocolDetails(projectId, protocolId) {
+          return getObjectValue(project_details.protocolDetails, protocolId, {})
+        },
+        executeProtocol(protocolId, protocolClassName, params) {
+          return null;
+        },
+        saveProtocol(protocolId, protocolClassName, params) {
+          return null;
+        },
+        createProject(data) {
+          return null;
+        },
+        renameProject(id, newName, newDescription) {
+          return null;
+        },
+        deleteProject(id) {
+          return null;
+        },
+      };
+
+      // ---------- Mount state ----------
+      var listRoot = null;
+      var pageRoot = null;
+      var detailRoot = null;
+      var currentProjectId = null;
+      var currentDetailKey = null; // proj:prot
+
+      // ---------- Layout helpers ----------
+
+      function showPageOnly() {
+        var listHost = $(listHostSel);
+        var pageHost = $(projectPageHostSel);
+        var detailHost = $(protocolDetailHostSel);
+        if (pageHost) pageHost.classList.remove("hidden");
+        if (listHost) listHost.classList.add("hidden");
+        if (detailHost) detailHost.classList.add("hidden");
+        if (grid) grid.classList.remove("two-cols");
+      }
+
+      function showPageWithDetail() {
+        var listHost = $(listHostSel);
+        var pageHost = $(projectPageHostSel);
+        var detailHost = $(protocolDetailHostSel);
+        if (pageHost) pageHost.classList.remove("hidden");
+        if (listHost) listHost.classList.add("hidden");
+        if (detailHost) detailHost.classList.remove("hidden");
+        if (grid) grid.classList.add("two-cols");
+      }
+
+      function unmountList() {
+        if (listRoot && listRoot.unmount) {
+          try {
+            listRoot.unmount();
+          } catch (e) {}
+        }
+        listRoot = null;
+        var host = $(listHostSel);
+        if (host) host.innerHTML = "";
+      }
+
+      function unmountDetail() {
+        if (detailRoot && detailRoot.unmount) {
+          try {
+            detailRoot.unmount();
+          } catch (e) {}
+        }
+        detailRoot = null;
+        var host = $(protocolDetailHostSel);
+        if (host) host.innerHTML = "";
+        currentDetailKey = null;
+      }
+
+      // ---------- Mount project page ----------
+      function mountProjectPage(projectId) {
+        var target = $(projectPageHostSel);
+        if (!target) {
+          console.error("[host] missing project page host");
+          return;
+        }
+
+        function tryMount() {
+          var api = window.MyProjectsWidget || window.ProjectPageWidget || window.MyWidgets;
+          var mountFn =
+            api && (api.mountProjectPageWidget || api.mountProjectPage || api.mountPage);
+          if (!mountFn) {
+            console.warn("[host] Project page widget not ready, retrying...");
+            setTimeout(tryMount, 50);
+            return;
+          }
+
+          try {
+            if (currentProjectId !== projectId) {
+              unmountList();
+             // ensureDomRoots();
+              showPageOnly();
+            }
+
+            var pageProps = {
+              onOpenProtocol: function (protocolId) {
+                openProtocolDetail(projectId, protocolId);
+              },
+              onProtocolOpen: function (protocolId) {
+                openProtocolDetail(projectId, protocolId);
+              },
+            };
+
+            if (currentProjectId !== projectId) {
+              pageRoot = mountFn({
+                container: target,
+                service: svc,
+                projectName: String(projectId),
+                props: pageProps,
+              });
+              currentProjectId = String(projectId);
+            }
+
+            showPageOnly();
+            console.log("[host] project page mounted:", projectId);
+          } catch (err) {
+            target.innerHTML =
+              '<pre class="error">ProjectPageWidget error:\n' +
+              String(err && (err.stack || err)) +
+              "</pre>";
+            console.error(err);
+          }
+        }
+
+        tryMount();
+      }
+
+      // ---------- Protocol detail ----------
+      function closeDetailPanel() {
+        unmountDetail();
+        showPageOnly();
+        try {
+          var proj = currentProjectId || "";
+          history.pushState(null, "", "/project/load/" + encodeURIComponent(proj));
+        } catch (e) {}
+      }
+
+      function openProtocolDetail(projectId, protocolId, prefetchedDetail) {
+           // ensureDomRoots();
+
+            var api = null;
+            if (window.MyProjectsWidget && window.MyProjectsWidget.mountProtocolDetailWidget) {
+              api = { mountProtocolDetailWidget: window.MyProjectsWidget.mountProtocolDetailWidget };
+            } else if (window.ProtocolDetailWidget) {
+              api = window.ProtocolDetailWidget;
+            }
+
+            var target = $(protocolDetailHostSel);
+            if (!api || !api.mountProtocolDetailWidget) {
+              console.warn("[host] ProtocolDetailWidget is not ready yet. Retrying...");
+              setTimeout(function () {
+                openProtocolDetail(projectId, protocolId, prefetchedDetail);
+              }, 60);
+              return;
+            }
+            if (!target) {
+              console.error("[host] missing protocol detail host");
+              return;
+            }
+
+            var key = String(projectId) + ":" + String(protocolId);
+            if (currentDetailKey === key && detailRoot) {
+              showPageWithDetail();
+              return;
+            }
+
+            unmountDetail();
+            showPageWithDetail();
+
+            try {
+              detailRoot = api.mountProtocolDetailWidget({
+                container: target,
+                service: svc,
+                projectId: String(projectId),
+                protocolId: String(protocolId),
+                props: {
+                  initialProtocol: prefetchedDetail,
+                  onClose: closeDetailPanel,
+                  variant: "docked",
+                },
+              });
+
+              currentDetailKey = key;
+              try {
+                history.pushState(null, "", "/project/" +  encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId));
+              } catch (e) {}
+              console.log("[host] protocol detail mounted:", key);
+            } catch (err) {
+              target.innerHTML = '<pre class="error">ProtocolDetailWidget error:\n' + String(err && (err.stack || err)) +  "</pre>";
+              console.error(err);
+            }
+      }
+
+        mountProjectPage(project_id);
+
+    } catch (err) {
+      showBootstrapError(err);
+    }
+  })();
+</script>
+

@@ -1,0 +1,207 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Testing Widget" %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+
+    <div id="session_flowchart" class="col-12 workflow-canvas">
+    </div>
+</div>
+
+<script>
+    let sample_workflow = [
+    {
+        "id": "External/job019",
+        "label": "emw-import-ts 0:01:00",
+        "links": [
+            "External/job020"
+        ],
+        "status": "finished",
+        "type": "emw-import-ts"
+    },
+    {
+        "id": "External/job020",
+        "label": "emw-warp-mctf 0:05:37",
+        "links": [
+            "External/job022"
+        ],
+        "status": "finished",
+        "type": "emw-warp-mctf"
+    },
+    {
+        "id": "External/job022",
+        "label": "emw-warp-aretomo 0:01:07",
+        "links": [
+            "External/job023"
+        ],
+        "status": "finished",
+        "type": "emw-warp-aretomo"
+    },
+    {
+        "id": "External/job023",
+        "label": "emw-warp-ctfrec 0:06:06",
+        "links": [],
+        "status": "finished",
+        "type": "emw-warp-ctfrec"
+    },
+    {
+        "id": "External/job024",
+        "label": "emw-import-ts 0:01:00",
+        "links": [
+            "External/job025"
+        ],
+        "status": "finished",
+        "type": "emw-import-ts"
+    },
+    {
+        "id": "External/job025",
+        "label": "emw-warp-mctf 0:04:27",
+        "links": [
+            "External/job027"
+        ],
+        "status": "finished",
+        "type": "emw-warp-mctf"
+    },
+    {
+        "id": "External/job027",
+        "label": "emw-warp-aretomo 0:01:13",
+        "links": [
+            "External/job028",
+            "External/job029"
+        ],
+        "status": "finished",
+        "type": "emw-warp-aretomo"
+    },
+    {
+        "id": "External/job028",
+        "label": "emw-warp-ctfrec 0:04:07",
+        "links": [],
+        "status": "finished",
+        "type": "emw-warp-ctfrec"
+    },
+    {
+        "id": "External/job029",
+        "label": "emw-warp-ctfrec 0:03:01",
+        "links": [
+            "External/job034",
+            "External/job035"
+        ],
+        "status": "finished",
+        "type": "emw-warp-ctfrec"
+    },
+    {
+        "id": "External/job034",
+        "label": "emw-pytom 0:05:22",
+        "links": [],
+        "status": "finished",
+        "type": "emw-pytom"
+    },
+    {
+        "id": "External/job035",
+        "label": "emw-pytom 0:06:14",
+        "links": [
+            "External/job036"
+        ],
+        "status": "finished",
+        "type": "emw-pytom"
+    },
+    {
+        "id": "External/job036",
+        "label": "emw-warp-mctf",
+        "links": [],
+        "status": "Saved",
+        "type": "emw-warp-mctf"
+    },
+    {
+        "id": "External/job037",
+        "label": "emw-import-ts 0:01:00",
+        "links": [
+            "External/job038",
+            "External/job049"
+        ],
+        "status": "finished",
+        "type": "emw-import-ts"
+    },
+    {
+        "id": "External/job038",
+        "label": "emw-warp-mctf 0:04:44",
+        "links": [
+            "External/job039"
+        ],
+        "status": "finished",
+        "type": "emw-warp-mctf"
+    },
+    {
+        "id": "External/job039",
+        "label": "emw-warp-aretomo 0:01:14",
+        "links": [
+            "External/job040"
+        ],
+        "status": "finished",
+        "type": "emw-warp-aretomo"
+    },
+    {
+        "id": "External/job040",
+        "label": "emw-warp-ctfrec 0:03:08",
+        "links": [
+            "External/job041"
+        ],
+        "status": "finished",
+        "type": "emw-warp-ctfrec"
+    },
+    {
+        "id": "External/job041",
+        "label": "emw-pytom 0:06:30",
+        "links": [
+            "External/job042",
+            "External/job047",
+            "External/job048"
+        ],
+        "status": "finished",
+        "type": "emw-pytom"
+    },
+    {
+        "id": "External/job042",
+        "label": "emw-warp-mctf",
+        "links": [],
+        "status": "Saved",
+        "type": "emw-warp-mctf"
+    },
+    {
+        "id": "External/job047",
+        "label": "emw-warp-export_particles 0:06:03",
+        "links": [],
+        "status": "finished",
+        "type": "emw-warp-export_particles"
+    },
+    {
+        "id": "External/job048",
+        "label": "emw-warp-export_particles 0:10:10",
+        "links": [],
+        "status": "finished",
+        "type": "emw-warp-export_particles"
+    },
+    {
+        "id": "External/job049",
+        "label": "emw-warp-mctf 0:01:46",
+        "links": [],
+        "status": "finished",
+        "type": "emw-warp-mctf"
+    }
+];
+
+</script>
+
+<script>
+
+    (function(window, document, $, undefined) {
+    "use strict";
+        // This function is executed after page is loaded
+
+        let container = document.getElementById("session_flowchart");
+        let flowchart = new Flowchart(container, sample_workflow);
+
+    })(window, document, window.jQuery);
+</script>
