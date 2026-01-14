@@ -734,6 +734,51 @@
                 }
             ]
         }
+    },
+    {
+      "name": "entry_form:tomo_processing",
+      "definition": {
+        "title": "Tomography Processing",
+        "params": [
+            {
+                "id": "processing_path",
+                "label": "PROCESSING path"
+            },
+            {
+                "id": "pixel_size",
+                "label": "Pixel Size (Å)"
+            },
+            {
+                "id": "voltage",
+                "label": "Voltage (kV)",
+                "default": 300
+            },
+            {
+                "id": "spherical_aberration",
+                "label": "Spherical aberration (µM)",
+                "default": 2.7
+            },
+            {
+                "id": "amplitude_contrast",
+                "label": "Amplitude contrast",
+                "default": 0.1
+            },
+            {
+                "id": "total_dose",
+                "label": "Dose per tilt"
+            }
+        ],
+        "config": {
+            "show_title": true,
+            "show_desc": true,
+            "validate_func": "entry_tomo_processing_validate"
+        },
+        "content": [
+            {
+                "func": "entry_tomo_processing_content"
+            }
+        ]
+    }
     }
 ],
   
