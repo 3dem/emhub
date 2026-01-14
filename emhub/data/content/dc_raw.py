@@ -958,7 +958,7 @@ def register_content(dc):
 
             prot = {
                 'id': job.id,
-                'label': RelionRun.jobAlias(job),
+                'label': RelionRun.jobAlias(job) or '',
                 'parents': parents,
                 'children': children,
                 'inputs': [],
@@ -982,6 +982,7 @@ def register_content(dc):
 
     @dc.content
     def project_widget2(**kwargs):
+        data = {}
         if fake_id := kwargs.get('fake_id', None):
             project_id = int(fake_id)
             project_details = get_fake_project(project_id)
@@ -995,6 +996,8 @@ def register_content(dc):
             project_path = entry.extra['data'].get('processing_path', '')
             data = dc.get_data('processing_content', **kwargs)
             pp = data['processing_project']
+            protocols = get_protocols(pp.workflow)
+
             project_details = {
                 'id': project_id,
                 "name": project_path,
@@ -1002,13 +1005,13 @@ def register_content(dc):
                 "createdAt": "2025-09-13 15:29:00.670242+02:00",
                 "status": "active",
                 "path": project_path,
-                'protocols': get_protocols(pp.workflow)
+                'protocols': protocols
             }
-        data = {
+        data.update({
             'project_id': project_id,
             'project_details': project_details,
             'project_ids': [43, 871, 878]
-        }
+        })
         with open(f'project_{project_id}.json', 'w') as f:
             json.dump(project_details, f, indent=4)
 
