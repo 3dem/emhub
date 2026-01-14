@@ -84,12 +84,6 @@ def register_content(dc):
         return projects_list(**kwargs)
 
     @dc.content
-    def tomo_sessions_list(**kwargs):
-        return {
-            'tomo_sessions': dc.app.dm.get_config('tomo_sessions')['sessions']
-        }
-
-    @dc.content
     def tomo_export(**kwargs):
         tomo_session = json.loads(kwargs['tomo_session'])
         tomograms = json.loads(kwargs.get('tomograms'))
