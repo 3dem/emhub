@@ -271,7 +271,7 @@ cd {instance_path} && redis-server redis.conf --daemonize yes\n""")
 #!/usr/bin/bash 
 
 # Get the directory of the current script
-export DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+export DIR="$( cd -- "$( dirname -- "${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd )"
 
 export FLASK_APP=emhub
 export EMHUB_INSTANCE=${{DIR}}
