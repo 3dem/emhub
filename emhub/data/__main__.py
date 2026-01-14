@@ -39,12 +39,19 @@ def setup_processing(dm, instance_folder, workspaces):
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav flex-column">
 
-                        <li class="nav-divider"> MAIN </li>
+                        <li class="nav-divider"> PROCESSING </li>
 
                         <ul class="nav flex-column submenu">
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for_content('processing_dashboard') }}">
-                                    <i class="fas fa-tachometer-alt"></i>Processing Dashboard</a>
+                                <a class="nav-link" href="{{ url_for_content('processing_tomo_list') }}">
+                                    <i class="fas fa-tachometer-alt"></i>Tomography</a>
+                            </li>
+                        </ul>
+
+                        <ul class="nav flex-column submenu">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('fibsem_sessions_list') }}">
+                                    <i class="fas fa-tachometer-alt"></i>FIBSEM</a>
                             </li>
                         </ul>
                 </div>
@@ -53,8 +60,7 @@ def setup_processing(dm, instance_folder, workspaces):
     </div>
     <!-- end left sidebar -->
     """
-    print("processing instance created!")
-    extra_folder = os.path.join(instance_folder, 'extra', 'templates') 
+    extra_folder = os.path.join(instance_folder, 'extra', 'templates')
     Process.Logger().mkdir(extra_folder) 
     with open(os.path.join(extra_folder, 'main_left_sidebar.html'), 'w') as f:
         f.write(template)
@@ -70,8 +76,6 @@ def setup_processing(dm, instance_folder, workspaces):
                 print(Color.red(f"Error loading project from: {folder}"))
         
         if projects:
-            
-            print("Creating workspace :", ws)
             p = dm.create_project(
                 user_id=1,  #FIXME
                 status='special:processing',
