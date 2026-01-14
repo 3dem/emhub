@@ -982,10 +982,14 @@ def register_content(dc):
 
     @dc.content
     def project_widget2(**kwargs):
-        data = {}
+        data = {
+            'get_project_args': {}
+        }
+        fake = False
         if fake_id := kwargs.get('fake_id', None):
             project_id = int(fake_id)
             project_details = get_fake_project(project_id)
+            fake = True
             if project_details is None:
                 raise Exception(f"Fake project id: {project_id} not found.")
         else:
@@ -1010,7 +1014,8 @@ def register_content(dc):
         data.update({
             'project_id': project_id,
             'project_details': project_details,
-            'project_ids': [43, 871, 878]
+            'project_ids': [43, 871, 878],
+            'fake_project': fake
         })
         with open(f'project_{project_id}.json', 'w') as f:
             json.dump(project_details, f, indent=4)

@@ -46,6 +46,7 @@
 
 <script>
 
+var fake_project = {{ fake_project|tojson }};
 var project_id = {{ project_id|tojson }};
 var project_details = {{ project_details|tojson }};
 var get_project_args = {{ get_project_args|tojson }};
@@ -91,7 +92,31 @@ async function loadJobDetails(jobId, jobType) {
             //jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
             form_data = all_forms[jobType]
         }
-        result.form = {definition: form_data};
+
+        // Testing if this breaks the widget form display
+        delete form_data.package;
+        delete form_data.logo;
+
+        result.form = {
+            cite: [],
+            color: "#D2F5CB",
+            expertLevel: true,
+            favicon: null,
+            definition: form_data,
+            inputs: [],
+            outputs: [],
+            label: "abc",
+            packageLogo: "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification/cryosparc2_logo.png",
+            projectId: 44,
+            projectName: "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
+            protocolClassName: jobType,
+            protocolId: jobId,
+            protocolName: "protNonUniform3DRefinement_1",
+            scheduleLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/schedule.log",
+            status: "finished",
+            stderrLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stderr",
+            stdoutLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stdout"
+        };
         return result;
 
     } catch (error) {
@@ -150,11 +175,12 @@ async function loadJobDetails(jobId, jobType) {
           return project_details.protocols;
         },
         async fetchProtocolDetails(projectId, protocolId) {
+            if (fake_project)
+                return getObjectValue(project_details.protocolDetails, protocolId, {});
             var jobType = project_details.protocols[protocolId].type;
             var data = await loadJobDetails(protocolId, jobType);
             console.log(JSON.stringify(data, null, 4));
             return data
-           //return getObjectValue(project_details.protocolDetails, protocolId, {})
         },
         executeProtocol(protocolId, protocolClassName, params) {
           return null;
