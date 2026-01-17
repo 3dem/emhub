@@ -171,12 +171,11 @@
         fetchList() {
           return [];
         },
+
         fetchProject(id) {
           return project_details;
         },
-        loadProtocols(projId) {
-          return project_details.protocols;
-        },
+
         async fetchProtocolDetails(projectId, protocolId) {
           if (fake_project)
             return getObjectValue(project_details.protocolDetails, protocolId, {});
@@ -185,12 +184,15 @@
           console.log(JSON.stringify(data, null, 4));
           return data
         },
+
         executeProtocol(protocolId, protocolClassName, params) {
           return null;
         },
+
         saveProtocol(protocolId, protocolClassName, params) {
           return null;
         },
+
         createProject(data) {
           return null;
         },
@@ -200,7 +202,192 @@
         deleteProject(id) {
           return null;
         },
+
+        // workflows API
+        async fetchProjectWorkflows() {
+          return [{
+            "source": "WH",
+            "name": "Basic Virtual Drug Screening Workflow",
+            "description": "This workflow performs the most basic Virtual Drug Screening Pipeline to import a set of small molecules and dock them to an imported protein structure. \r\n",
+            "url": "https://workflowhub.eu/workflows/1364/git/1/raw/basicVDStemplate.json"
+          },
+          {
+            "source": "WH",
+            "name": "Workflow 2D cryosparc",
+            "description": "Automated image processing from movies to 2D classes. Includes CTF estimation, quality filters, box size estimation, training a data-specific picking model, and three 2D classification jobs (25k, 50k, and 100k particles) using CryoSPARC.",
+            "url": "https://workflowhub.eu/workflows/1749/git/1/raw/workflow_2D_cryosparc.json"
+          },
+          {
+            "source": "tomo",
+            "name": "tutorial_apoferritin_STA",
+            "description": "tutorial - from movies to refined volume (SMALL): (EMPIAR-10491).You'll need to download this dataset -> scipion3 testdata --download tomo_apoferritin_tutorial",
+            "templatePath": "/home/yunior/miniconda3/envs/scipion3Web/lib/python3.8/site-packages/tomo/templates/tutorial_apoferritin_STA.json.template"
+          }];
+        },
+
+        async applyWorkflowToProject(projectId, workflowId) {
+          return { success: true };
+        },
+
+
+        // Load protocols API      
+        async loadProtocols(projectId) {
+          return {
+            "Model building": {
+              "text": "Model building",
+              "value": null,
+              "icon": null,
+              "tag": null,
+              "shortCut": null,
+              "openItem": true,
+              "visible": true,
+              "childs": [
+                {
+                  "text": "Imports",
+                  "value": null,
+                  "icon": "bookmark.gif",
+                  "tag": "section",
+                  "shortCut": null,
+                  "openItem": true,
+                  "visible": true,
+                  "childs": [
+                    {
+                      "text": "import volumes",
+                      "value": "ProtImportVolumes",
+                      "icon": {
+                        "top": 32,
+                        "left": 32,
+                        "bottom": 48,
+                        "right": 64,
+                        "name": "new.png"
+                      },
+                      "tag": "protocol",
+                      "shortCut": null,
+                      "openItem": true,
+                      "visible": true,
+                      "childs": []
+                    },
+                    {
+                      "text": "import atomic structure",
+                      "value": "ProtImportPdb",
+                      "icon": {
+                        "top": 32,
+                        "left": 32,
+                        "bottom": 48,
+                        "right": 64,
+                        "name": "beta.png"
+                      },
+                      "tag": "protocol",
+                      "shortCut": null,
+                      "openItem": true,
+                      "visible": true,
+                      "childs": []
+                    },
+                  ]
+                },
+              ]
+            },
+
+            "Random Conical Tilt": {
+              "text": "Random Conical Tilt",
+              "value": null,
+              "icon": null,
+              "tag": null,
+              "shortCut": null,
+              "openItem": true,
+              "visible": true,
+              "childs": [
+                {
+                  "text": "Import micrograph pairs",
+                  "value": "ProtImportMicrographsTiltPairs",
+                  "icon": {
+                    "top": 32,
+                    "left": 32,
+                    "bottom": 48,
+                    "right": 64,
+                    "name": "updated.png"
+                  },
+                  "tag": "protocol",
+                  "shortCut": null,
+                  "openItem": true,
+                  "visible": true,
+                  "childs": []
+                },
+                {
+                  "text": "Import coordinate pairs",
+                  "value": "ProtImportCoordinatesPairs",
+                  "icon": {
+                    "top": 32,
+                    "left": 32,
+                    "bottom": 48,
+                    "right": 64,
+                    "name": "production.png"
+                  },
+                  "tag": "protocol",
+                  "shortCut": null,
+                  "openItem": true,
+                  "visible": true,
+                  "childs": []
+                },
+                {
+                  "text": "Picking micrograph pairs",
+                  "value": "XmippProtParticlePickingPairs",
+                  "icon": {
+                    "top": 32,
+                    "left": 32,
+                    "bottom": 48,
+                    "right": 64,
+                    "name": "production.png"
+                  },
+                  "tag": "protocol",
+                  "shortCut": null,
+                  "openItem": true,
+                  "visible": true,
+                  "childs": []
+                },
+                {
+                  "text": "Extract particle pairs",
+                  "value": "XmippProtExtractParticlesPairs",
+                  "icon": {
+                    "top": 32,
+                    "left": 32,
+                    "bottom": 48,
+                    "right": 64,
+                    "name": "production.png"
+                  },
+                  "tag": "protocol",
+                  "shortCut": null,
+                  "openItem": true,
+                  "visible": true,
+                  "childs": []
+                },
+                {
+                  "text": "Random Conical Tilt",
+                  "value": "XmippProtRCT",
+                  "icon": {
+                    "top": 32,
+                    "left": 32,
+                    "bottom": 48,
+                    "right": 64,
+                    "name": "production.png"
+                  },
+                  "tag": "protocol",
+                  "shortCut": null,
+                  "openItem": true,
+                  "visible": true,
+                  "childs": []
+                }
+              ]
+            }
+          }
+        },
+
+          async fetchNewProtocolDetails(projectId, protocolClass) {
+          console.log('fetchNewProtocolDetails not implemented yet')
+        },
+
       };
+
 
       // ---------- Mount state ----------
       var listRoot = null;
