@@ -115,11 +115,7 @@
         color: "#D2F5CB",
       }
 
-      result.form = {
-        references: [],
-        definition: form_data.sections,
-        help: "",
-      };
+      result.form = form_data;
       return result;
 
     } catch (error) {
@@ -189,7 +185,7 @@
           return null;
         },
         saveProtocol(protocolId, protocolClassName, params) {
-          return null;
+          alert(`Saving protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
         },
         createProject(data) {
           return null;
