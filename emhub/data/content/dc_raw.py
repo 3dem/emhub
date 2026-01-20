@@ -985,37 +985,28 @@ def register_content(dc):
         data = {
             'get_project_args': {}
         }
-        fake = False
-        if fake_id := kwargs.get('fake_id', None):
-            project_id = int(fake_id)
-            project_details = get_fake_project(project_id)
-            fake = True
-            if project_details is None:
-                raise Exception(f"Fake project id: {project_id} not found.")
-        else:
-            project_id = int(kwargs['entry_id'])
-            entry = dc.app.dm.get_entry_by(id=project_id)
-            if entry is None:
-                raise Exception(f"Unexisting tomo project with id: {project_id}")
-            project_path = entry.extra['data'].get('processing_path', '')
-            data = dc.get_data('processing_content', **kwargs)
-            pp = data['processing_project']
-            protocols = get_protocols(pp.workflow)
+        project_id = int(kwargs['entry_id'])
+        entry = dc.app.dm.get_entry_by(id=project_id)
+        if entry is None:
+            raise Exception(f"Unexisting tomo project with id: {project_id}")
+        project_path = entry.extra['data'].get('processing_path', '')
+        data = dc.get_data('processing_content', **kwargs)
+        pp = data['processing_project']
+        protocols = get_protocols(pp.workflow)
 
-            project_details = {
-                'id': project_id,
-                "name": project_path,
-                "shortName": os.path.basename(project_path),
-                "createdAt": "2025-09-13 15:29:00.670242+02:00",
-                "status": "active",
-                "path": project_path,
-                'protocols': protocols
-            }
+        project_details = {
+            'id': project_id,
+            "name": project_path,
+            "shortName": os.path.basename(project_path),
+            "createdAt": "2025-09-13 15:29:00.670242+02:00",
+            "status": "active",
+            "path": project_path,
+            'protocols': protocols
+        }
         data.update({
             'project_id': project_id,
             'project_details': project_details,
             'project_ids': [43, 871, 878],
-            'fake_project': fake
         })
         with open(f'project_{project_id}.json', 'w') as f:
             json.dump(project_details, f, indent=4)
@@ -1037,4 +1028,15 @@ def register_content(dc):
             })
         data['workflow'] = workflow
         return data
+
+    @dc.content
+    def project_widget_fake(**kwargs):
+        fake_id = kwargs['fake_id']
+        project_id = int(fake_id)
+        from emhub.data.fake_projects import load_json
+        project_json = load_json(project_id)
+        return {
+            'project_json': project_json
+        }
+
 
