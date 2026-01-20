@@ -227,10 +227,6 @@ def register_content(dc):
     def test_widget(**kwargs):
         return {}
 
-    @dc.content
-    def project_widget(**kwargs):
-        return project_widget2(**kwargs)
-
     def get_fake_project(project_id):
         from emhub.tests.scipion_data import projectDetails, protocolDetail
         project_43 = projectDetails[43]
@@ -981,7 +977,7 @@ def register_content(dc):
         return protocols
 
     @dc.content
-    def project_widget2(**kwargs):
+    def project_widget(**kwargs):
         data = {
             'get_project_args': {}
         }
@@ -1015,7 +1011,7 @@ def register_content(dc):
 
     @dc.content
     def project_flowchart(**kwargs):
-        data = project_widget2(**kwargs)
+        data = project_widget(**kwargs)
         # Convert project_details into a flowchart workflow
         workflow = []
         for jobId, job in data['project_details']['protocols'].items():

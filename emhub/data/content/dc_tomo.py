@@ -68,7 +68,7 @@ def register_content(dc):
                     'tomo_session_id': tsId
                 }
                 if mode == 'widget':
-                    data.update(dc.get_data('project_widget2', entry_id=tsId, **kwargs))
+                    data.update(dc.get_data('project_widget', entry_id=tsId, **kwargs))
                 elif mode == 'workflow':
                     data.update(tomo_processing_content(entry_id=tsId, **kwargs))
 
