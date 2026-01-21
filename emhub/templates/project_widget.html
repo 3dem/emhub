@@ -43,55 +43,62 @@
 
 
 <script>
-  var project_id = {{ project_id| tojson }};
-  var project_details = {{ project_details| tojson }};
-  var get_project_args = {{ get_project_args| tojson }};
+  var project_id = {{ project_id | tojson }};
+  var project_details = {{ project_details | tojson }};
+  var get_project_args = {{ get_project_args | tojson }};
   var all_forms = {};
+  var menu = {{ menu | tojson }};
 
+
+  function request(url, args){
+      jQuery.extend(args, get_project_args);
+        return $.ajax({
+            url: url,
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify({attrs: args}),
+            dataType: "json"
+        });
+    }
 
   async function loadJobDetails(jobId, jobType) {
     // Load only the values (json) if we already have that form
     // in the all_forms cache
-    var output = jobType in all_forms ? ['json'] : ['form', 'json'];
-
-    var form_data = null;
     var result = {
-      info: {},
-      form: {},
-      values: {}
+        info: {},
+        form: {},
+        values: {}
     }
+
+    // Request json data if jobId != null
+    var output = jobId == null ? [] : ['json'];
+
+    // Only request form if not already requested
+    if (jobType in all_forms)
+        result.form = all_forms[jobType]
+    else
+        output.push('form')
+
+    if (output.length == 0)  // Nothing to request
+        return result;
+
     var args = {
       run_id: jobId,
       job_type: jobType,
       output: output
     };
-    jQuery.extend(args, get_project_args);
 
     try {
-      var data = await $.ajax({
-        url: Api.urls.get_session_run,
-        type: "POST",
-        contentType: 'application/json; charset=utf-8',
-        data: JSON.stringify({ attrs: args }),
-        dataType: "json"
-      });
+      var data = await request(Api.urls.get_session_run, args)
       var run_data = data['run'];
       if ('form' in run_data) {
-        form_data = run_data['form'];
-        all_forms[jobType] = form_data;
-        //jsonEditor.setValue(JSON.stringify(form_data, null, 4), 1);
+        result.form = run_data['form'];
+        all_forms[jobType] = result.form;
       }
 
-      //alert(JSON.stringify(data));
       if ('json' in run_data) {
         result.values = run_data['json']['values'];
-        //jsonEditor.setValue(JSON.stringify(run_data, null, 4), 1);
-        form_data = all_forms[jobType]
       }
-
-      // Testing if this breaks the widget form display
-      delete form_data.package;
-      delete form_data.logo;
 
       result.info = {
         name: jobType,
@@ -113,7 +120,6 @@
         color: "#D2F5CB",
       }
 
-      result.form = form_data;
       return result;
 
     } catch (error) {
@@ -145,21 +151,6 @@
       var projectPageHostSel = "#project-page-host";
       var protocolDetailHostSel = "#protocol-detail-host";
 
-      // ---------- API client instance ----------
-
-      // Helper to normalize protocolsDict list
-      function normalizeProtocols(data) {
-        if (Array.isArray(data)) {
-          return data;
-        }
-        if (data && typeof data === "object") {
-          return Object.keys(data).map(function (k) {
-            return data[k];
-          });
-        }
-        return [];
-      }
-
       // ---------- Widgets services ----------
       var svc = {
         fetchList() {
@@ -173,7 +164,7 @@
         async fetchProtocolDetails(projectId, protocolId) {
           var jobType = project_details.protocols[protocolId].type;
           var data = await loadJobDetails(protocolId, jobType);
-          console.log(JSON.stringify(data, null, 4));
+          //console.log(JSON.stringify(data, null, 4));
           return data
         },
 
@@ -182,10 +173,23 @@
             return {status: 1, errors: ["Not yet implemented"]};
         },
 
-        saveProtocol(projectId, protocolId, protocolClassName, params) {
-          alert(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
-          return {status: 1, errors: ["Not yet implemented"]};
-      },
+        async saveProtocol(projectId, protocolId, protocolClassName, params) {
+          console.log(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+          //return {status: 1, errors: ["Not yet implemented"]};
+            var args = {
+                run_id: protocolId,
+                job_type: protocolClassName,
+                params: params
+            };
+
+            try {
+                var data = await request(Api.urls.save_job, args);
+                return {status: 0};
+            } catch (error) {
+                return {status: 1, errors: [error.statusText]}
+            }
+
+        },
 
         createProject(data) {
           return null;
@@ -199,24 +203,7 @@
 
         // workflows API
         async fetchProjectWorkflows() {
-          return [{
-            "source": "WH",
-            "name": "Basic Virtual Drug Screening Workflow",
-            "description": "This workflow performs the most basic Virtual Drug Screening Pipeline to import a set of small molecules and dock them to an imported protein structure. \r\n",
-            "url": "https://workflowhub.eu/workflows/1364/git/1/raw/basicVDStemplate.json"
-          },
-          {
-            "source": "WH",
-            "name": "Workflow 2D cryosparc",
-            "description": "Automated image processing from movies to 2D classes. Includes CTF estimation, quality filters, box size estimation, training a data-specific picking model, and three 2D classification jobs (25k, 50k, and 100k particles) using CryoSPARC.",
-            "url": "https://workflowhub.eu/workflows/1749/git/1/raw/workflow_2D_cryosparc.json"
-          },
-          {
-            "source": "tomo",
-            "name": "tutorial_apoferritin_STA",
-            "description": "tutorial - from movies to refined volume (SMALL): (EMPIAR-10491).You'll need to download this dataset -> scipion3 testdata --download tomo_apoferritin_tutorial",
-            "templatePath": "/home/yunior/miniconda3/envs/scipion3Web/lib/python3.8/site-packages/tomo/templates/tutorial_apoferritin_STA.json.template"
-          }];
+            return menu.workflows;
         },
 
         async applyWorkflowToProject(projectId, workflowId) {
@@ -226,159 +213,12 @@
 
         // Load protocols API      
         async loadProtocols(projectId) {
-          return {
-            "Model building": {
-              "text": "Model building",
-              "value": null,
-              "icon": null,
-              "tag": null,
-              "shortCut": null,
-              "openItem": true,
-              "visible": true,
-              "childs": [
-                {
-                  "text": "Imports",
-                  "value": null,
-                  "icon": "bookmark.gif",
-                  "tag": "section",
-                  "shortCut": null,
-                  "openItem": true,
-                  "visible": true,
-                  "childs": [
-                    {
-                      "text": "import volumes",
-                      "value": "ProtImportVolumes",
-                      "icon": {
-                        "top": 32,
-                        "left": 32,
-                        "bottom": 48,
-                        "right": 64,
-                        "name": "new.png"
-                      },
-                      "tag": "protocol",
-                      "shortCut": null,
-                      "openItem": true,
-                      "visible": true,
-                      "childs": []
-                    },
-                    {
-                      "text": "import atomic structure",
-                      "value": "ProtImportPdb",
-                      "icon": {
-                        "top": 32,
-                        "left": 32,
-                        "bottom": 48,
-                        "right": 64,
-                        "name": "beta.png"
-                      },
-                      "tag": "protocol",
-                      "shortCut": null,
-                      "openItem": true,
-                      "visible": true,
-                      "childs": []
-                    },
-                  ]
-                },
-              ]
-            },
-
-            "Random Conical Tilt": {
-              "text": "Random Conical Tilt",
-              "value": null,
-              "icon": null,
-              "tag": null,
-              "shortCut": null,
-              "openItem": true,
-              "visible": true,
-              "childs": [
-                {
-                  "text": "Import micrograph pairs",
-                  "value": "ProtImportMicrographsTiltPairs",
-                  "icon": {
-                    "top": 32,
-                    "left": 32,
-                    "bottom": 48,
-                    "right": 64,
-                    "name": "updated.png"
-                  },
-                  "tag": "protocol",
-                  "shortCut": null,
-                  "openItem": true,
-                  "visible": true,
-                  "childs": []
-                },
-                {
-                  "text": "Import coordinate pairs",
-                  "value": "ProtImportCoordinatesPairs",
-                  "icon": {
-                    "top": 32,
-                    "left": 32,
-                    "bottom": 48,
-                    "right": 64,
-                    "name": "production.png"
-                  },
-                  "tag": "protocol",
-                  "shortCut": null,
-                  "openItem": true,
-                  "visible": true,
-                  "childs": []
-                },
-                {
-                  "text": "Picking micrograph pairs",
-                  "value": "XmippProtParticlePickingPairs",
-                  "icon": {
-                    "top": 32,
-                    "left": 32,
-                    "bottom": 48,
-                    "right": 64,
-                    "name": "production.png"
-                  },
-                  "tag": "protocol",
-                  "shortCut": null,
-                  "openItem": true,
-                  "visible": true,
-                  "childs": []
-                },
-                {
-                  "text": "Extract particle pairs",
-                  "value": "XmippProtExtractParticlesPairs",
-                  "icon": {
-                    "top": 32,
-                    "left": 32,
-                    "bottom": 48,
-                    "right": 64,
-                    "name": "production.png"
-                  },
-                  "tag": "protocol",
-                  "shortCut": null,
-                  "openItem": true,
-                  "visible": true,
-                  "childs": []
-                },
-                {
-                  "text": "Random Conical Tilt",
-                  "value": "XmippProtRCT",
-                  "icon": {
-                    "top": 32,
-                    "left": 32,
-                    "bottom": 48,
-                    "right": 64,
-                    "name": "production.png"
-                  },
-                  "tag": "protocol",
-                  "shortCut": null,
-                  "openItem": true,
-                  "visible": true,
-                  "childs": []
-                }
-              ]
-            }
-          }
+            return menu.protocols;
         },
 
-          async fetchNewProtocolDetails(projectId, protocolClass) {
-          console.log('fetchNewProtocolDetails not implemented yet')
-        },
+      async fetchNewProtocolDetails(projectId, protocolClass) {
+          return await loadJobDetails(null, protocolClass);
+        }
 
       };
 

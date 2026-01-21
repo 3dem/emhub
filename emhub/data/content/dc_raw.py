@@ -989,6 +989,8 @@ def register_content(dc):
         data = dc.get_data('processing_content', **kwargs)
         pp = data['processing_project']
         protocols = get_protocols(pp.workflow)
+        from emwrap.base import ProcessingConfig
+
 
         project_details = {
             'id': project_id,
@@ -1003,6 +1005,7 @@ def register_content(dc):
             'project_id': project_id,
             'project_details': project_details,
             'project_ids': [43, 871, 878],
+            'menu': ProcessingConfig._config['new_menu']
         })
         with open(f'project_{project_id}.json', 'w') as f:
             json.dump(project_details, f, indent=4)
