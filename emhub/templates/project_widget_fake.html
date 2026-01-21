@@ -1,53 +1,55 @@
 {% import "entry_macros.html" as macros %}
 
 <!-- Common portals, inside the root to isolate them -->
-    <div id="modal-root"></div>
-    <div id="drawer-root"></div>
-    <div id="toast-root"></div>
-    <div id="portal-root"></div>
-    <div id="app"></div>
-    <div id="root"></div>
+<div id="modal-root"></div>
+<div id="drawer-root"></div>
+<div id="toast-root"></div>
+<div id="portal-root"></div>
+<div id="app"></div>
+<div id="root"></div>
 
 <div class="card h-100 col-12">
-    <div class="card-body">
+  <div class="card-body">
 
-        <div id="project-widget-root" class="projectpage-widget-root">
-          <div id="projects-page-root">
-            <div class="grid" id="grid">
-              <!-- Optional list host (your JS references it as #projects-host) -->
-              <div id="projects-host" class="hidden"></div>
+    <div id="project-widget-root" class="projectpage-widget-root">
+      <div id="projects-page-root">
+        <div class="grid" id="grid">
+          <!-- Optional list host (your JS references it as #projects-host) -->
+          <div id="projects-host" class="hidden"></div>
 
-              <!-- Project page -->
-              <div id="project-page-host"></div>
+          <!-- Project page -->
+          <div id="project-page-host"></div>
 
-              <!-- Optional protocol detail host (your JS references it as #protocol-detail-host) -->
-              <div id="protocol-detail-host" class="hidden"></div>
+          <!-- Optional protocol detail host (your JS references it as #protocol-detail-host) -->
+          <div id="protocol-detail-host" class="hidden"></div>
 
-              <!-- Optional portal root for overlays/menus if you later decide to use it -->
-              <div class="projectpage-portal-root" id="projectpage-portal-root"></div>
-            </div>
-          </div>
+          <!-- Optional portal root for overlays/menus if you later decide to use it -->
+          <div class="projectpage-portal-root" id="projectpage-portal-root"></div>
         </div>
-
+      </div>
     </div>
+
+  </div>
 </div>
 
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', filename='libs/css/projectpage-widget.css') }}?v=1"
-/>
+<link rel="stylesheet" href="{{ url_for('static', filename='libs/css/projectpage-widget.css') }}?v=1" />
 
 <!-- External ProjectsApiClient -->
-<script defer src="{{ url_for('static', filename='libs/js/projects-api-client.js') }}"></script>
+{#
+<script defer src="{{ url_for('static', filename='libs/js/projects-api-client.js') }}"></script>#}
 
 <!-- UMD bundles (adjust paths if needed) -->
 <script defer src="{{ url_for('static', filename='libs/js/projectpage-widget.js') }}"></script>
 
 
 <script>
-
-var project_id = {{ project_id|tojson }};
-var project_details = {{ project_details|tojson }};
+  var project_json = {{ project_json | tojson }};
+  var workflow = project_json.workflow;
+  var protocols = project_json.protocols;
+  var forms = project_json.forms;
+  var menu = project_json.menu;
+  var project_id = workflow.id;
+  var get_project_args = {};
 
 
   (function () {
@@ -73,43 +75,40 @@ var project_details = {{ project_details|tojson }};
       var projectPageHostSel = "#project-page-host";
       var protocolDetailHostSel = "#protocol-detail-host";
 
-
-
-      // ---------- API client instance ----------
-
-      // Helper to normalize protocols list
-      function normalizeProtocols(data) {
-        if (Array.isArray(data)) {
-          return data;
-        }
-        if (data && typeof data === "object") {
-          return Object.keys(data).map(function (k) {
-            return data[k];
-          });
-        }
-        return [];
-      }
-
       // ---------- Widgets services ----------
       var svc = {
         fetchList() {
           return [];
         },
+
         fetchProject(id) {
-          return project_details;
+          return workflow;
         },
-        loadProtocols(projId) {
-          return project_details.protocols;
-        },
+
         fetchProtocolDetails(projectId, protocolId) {
-          return getObjectValue(project_details.protocolDetails, protocolId, {})
+            var data = {info: {}, values: {}, form: {}};
+            if (protocolId in protocols) {
+                let protDetails = protocols[protocolId];
+                data.info = protDetails.info;
+                data.values = protDetails.values;
+                var jobType = data.info.protocolClassName;
+                if (jobType in forms)
+                    data.form = forms[jobType];
+            }
+          console.log(JSON.stringify(data, null, 4));
+          return data
         },
-        executeProtocol(protocolId, protocolClassName, params) {
-          return null;
+
+        executeProtocol(projectId, protocolId, protocolClassName, params) {
+            alert(`EXECUTING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+            return {status: 1, errors: ["Not yet implemented"]};
         },
-        saveProtocol(protocolId, protocolClassName, params) {
-          return null;
-        },
+
+        saveProtocol(projectId, protocolId, protocolClassName, params) {
+          alert(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+          return {status: 1, errors: ["Not yet implemented"]};
+      },
+
         createProject(data) {
           return null;
         },
@@ -119,7 +118,26 @@ var project_details = {{ project_details|tojson }};
         deleteProject(id) {
           return null;
         },
+
+        // Load protocols API
+        async loadProtocols(projectId) {
+          return menu.protocols;
+        },
+        // workflows API
+        async fetchProjectWorkflows() {
+            return menu.workflows;
+        },
+
+        async applyWorkflowToProject(projectId, workflowId) {
+          return { success: true };
+        },
+
+          async fetchNewProtocolDetails(projectId, protocolClass) {
+          console.log('fetchNewProtocolDetails not implemented yet')
+        },
+
       };
+
 
       // ---------- Mount state ----------
       var listRoot = null;
@@ -154,7 +172,7 @@ var project_details = {{ project_details|tojson }};
         if (listRoot && listRoot.unmount) {
           try {
             listRoot.unmount();
-          } catch (e) {}
+          } catch (e) { }
         }
         listRoot = null;
         var host = $(listHostSel);
@@ -165,7 +183,7 @@ var project_details = {{ project_details|tojson }};
         if (detailRoot && detailRoot.unmount) {
           try {
             detailRoot.unmount();
-          } catch (e) {}
+          } catch (e) { }
         }
         detailRoot = null;
         var host = $(protocolDetailHostSel);
@@ -194,7 +212,7 @@ var project_details = {{ project_details|tojson }};
           try {
             if (currentProjectId !== projectId) {
               unmountList();
-             // ensureDomRoots();
+              // ensureDomRoots();
               showPageOnly();
             }
 
@@ -238,70 +256,69 @@ var project_details = {{ project_details|tojson }};
         try {
           var proj = currentProjectId || "";
           history.pushState(null, "", "/project/load/" + encodeURIComponent(proj));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       function openProtocolDetail(projectId, protocolId, prefetchedDetail) {
-           // ensureDomRoots();
+        // ensureDomRoots();
 
-            var api = null;
-            if (window.MyProjectsWidget && window.MyProjectsWidget.mountProtocolDetailWidget) {
-              api = { mountProtocolDetailWidget: window.MyProjectsWidget.mountProtocolDetailWidget };
-            } else if (window.ProtocolDetailWidget) {
-              api = window.ProtocolDetailWidget;
-            }
+        var api = null;
+        if (window.MyProjectsWidget && window.MyProjectsWidget.mountProtocolDetailWidget) {
+          api = { mountProtocolDetailWidget: window.MyProjectsWidget.mountProtocolDetailWidget };
+        } else if (window.ProtocolDetailWidget) {
+          api = window.ProtocolDetailWidget;
+        }
 
-            var target = $(protocolDetailHostSel);
-            if (!api || !api.mountProtocolDetailWidget) {
-              console.warn("[host] ProtocolDetailWidget is not ready yet. Retrying...");
-              setTimeout(function () {
-                openProtocolDetail(projectId, protocolId, prefetchedDetail);
-              }, 60);
-              return;
-            }
-            if (!target) {
-              console.error("[host] missing protocol detail host");
-              return;
-            }
+        var target = $(protocolDetailHostSel);
+        if (!api || !api.mountProtocolDetailWidget) {
+          console.warn("[host] ProtocolDetailWidget is not ready yet. Retrying...");
+          setTimeout(function () {
+            openProtocolDetail(projectId, protocolId, prefetchedDetail);
+          }, 60);
+          return;
+        }
+        if (!target) {
+          console.error("[host] missing protocol detail host");
+          return;
+        }
 
-            var key = String(projectId) + ":" + String(protocolId);
-            if (currentDetailKey === key && detailRoot) {
-              showPageWithDetail();
-              return;
-            }
+        var key = String(projectId) + ":" + String(protocolId);
+        if (currentDetailKey === key && detailRoot) {
+          showPageWithDetail();
+          return;
+        }
 
-            unmountDetail();
-            showPageWithDetail();
+        unmountDetail();
+        showPageWithDetail();
 
-            try {
-              detailRoot = api.mountProtocolDetailWidget({
-                container: target,
-                service: svc,
-                projectId: String(projectId),
-                protocolId: String(protocolId),
-                props: {
-                  initialProtocol: prefetchedDetail,
-                  onClose: closeDetailPanel,
-                  variant: "docked",
-                },
-              });
+        try {
+          detailRoot = api.mountProtocolDetailWidget({
+            container: target,
+            service: svc,
+            projectId: String(projectId),
+            protocolId: String(protocolId),
+            props: {
+              initialProtocol: prefetchedDetail,
+              onClose: closeDetailPanel,
+              variant: "docked",
+            },
+          });
 
-              currentDetailKey = key;
-              try {
-                history.pushState(null, "", "/project/" +  encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId));
-              } catch (e) {}
-              console.log("[host] protocol detail mounted:", key);
-            } catch (err) {
-              target.innerHTML = '<pre class="error">ProtocolDetailWidget error:\n' + String(err && (err.stack || err)) +  "</pre>";
-              console.error(err);
-            }
+          currentDetailKey = key;
+          try {
+            history.pushState(null, "", "/project/" + encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId));
+          } catch (e) { }
+          console.log("[host] protocol detail mounted:", key);
+        } catch (err) {
+          target.innerHTML = '<pre class="error">ProtocolDetailWidget error:\n' + String(err && (err.stack || err)) + "</pre>";
+          console.error(err);
+        }
       }
 
-        mountProjectPage(project_id);
+      mountProjectPage(project_id);
 
     } catch (err) {
       showBootstrapError(err);
     }
   })();
 </script>
-

@@ -60,7 +60,7 @@
                     "label": "Min. diameter for LoG filter (A)",
                     "default": 200,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "The smallest allowed diameter for the blob-detection algorithm. This should correspond to the smallest size of your particles in Angstroms."
                 },
                 {
@@ -68,7 +68,7 @@
                     "label": "Max. diameter for LoG filter (A)",
                     "default": 250,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "The largest allowed diameter for the blob-detection algorithm. This should correspond to the largest size of your particles in Angstroms."
                 },
                 {
@@ -85,7 +85,7 @@
                     "label": "Maximum resolution to consider (A)",
                     "default": 20,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "The Laplacian-of-Gaussian filter will be applied to downscaled micrographs with the corresponding size. Give a negative value to skip downscaling."
                 },
                 {
@@ -114,7 +114,7 @@
                     "label": "Particle diameter (A)",
                     "default": -1,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Diameter of the particle (to be used to infer topaz downscale factor and particle radius)"
                 },
                 {},
@@ -147,7 +147,7 @@
                     "label": "Nr of particles per micrograph:",
                     "default": -1,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Expected average number of particles per micrograph."
                 },
                 {

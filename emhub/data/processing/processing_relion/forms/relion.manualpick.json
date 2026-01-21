@@ -30,7 +30,7 @@
                     "label": "Minimum autopick FOM:",
                     "default": 0,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "The minimum value for the rlnAutopickFigureOfMerit for particles to be extracted."
                 }
             ]
@@ -43,7 +43,7 @@
                     "label": "Particle diameter (A):",
                     "default": 100,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "The diameter of the circle used around picked particles (in Angstroms). Only used for display."
                 },
                 {
@@ -67,7 +67,7 @@
                     "label": "White value:",
                     "default": 0,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Use non-zero values to set the value of the whitest pixel in the micrograph."
                 },
                 {
@@ -75,7 +75,7 @@
                     "label": "Black value:",
                     "default": 100,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "CTFFIND's dAst parameter, GCTFs -astm parameter"
                 },
                 {},
@@ -84,7 +84,7 @@
                     "label": "Lowpass filter (A)",
                     "default": 20,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Lowpass filter that will be applied to the micrographs. Give a negative value to skip the lowpass filter."
                 },
                 {
@@ -92,7 +92,7 @@
                     "label": "Highpass filter (A)",
                     "default": -1,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Highpass filter that will be applied to the micrographs. This may be useful to get rid of background ramps due to uneven ice distributions. Give a negative value to skip the highpass filter. Useful values are often in the range of 200-400 Angstroms."
                 },
                 {

@@ -30,7 +30,7 @@
                     "label": "Phase shift (deg) - Min:",
                     "default": 0,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Minimum, maximum and step size (in degrees) for the search of the phase shift"
                 },
                 {
@@ -38,7 +38,7 @@
                     "label": "Phase shift (deg) - Max:",
                     "default": 180,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Minimum, maximum and step size (in degrees) for the search of the phase shift"
                 },
                 {
@@ -46,7 +46,7 @@
                     "label": "Phase shift (deg) - Step:",
                     "default": 10,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Minimum, maximum and step size (in degrees) for the search of the phase shift"
                 },
                 {
@@ -54,7 +54,7 @@
                     "label": "Amount of astigmatism (A):",
                     "default": 100,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "CTFFIND's dAst parameter, GCTFs -astm parameter"
                 }
             ]
@@ -96,7 +96,7 @@
                     "label": "Estimate CTF on window size (pix)",
                     "default": -1,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "If a positive value is given, a squared window of this size at the center of the micrograph will be used to estimate the CTF. This may be useful to exclude parts of the micrograph that are unsuitable for CTF estimation, e.g. the labels at the edge of phtographic film. \n \n The original micrograph will be used (i.e. this option will be ignored) if a negative value is given."
                 },
                 {
@@ -104,7 +104,7 @@
                     "label": "FFT box size (pix):",
                     "default": 512,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "CTFFIND's Box parameter."
                 },
                 {
@@ -112,7 +112,7 @@
                     "label": "Minimum resolution (A):",
                     "default": 30,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "CTFFIND's ResMin parameter."
                 },
                 {
@@ -120,7 +120,7 @@
                     "label": "Maximum resolution (A):",
                     "default": 5,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "CTFFIND's ResMax parameter."
                 },
                 {
@@ -128,7 +128,7 @@
                     "label": "Minimum defocus value (A):",
                     "default": 5000,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "CTFFIND's dFMin parameter."
                 },
                 {
@@ -136,7 +136,7 @@
                     "label": "Maximum defocus value (A):",
                     "default": 50000,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "CTFFIND's dFMax parameter."
                 },
                 {
@@ -144,7 +144,7 @@
                     "label": "Defocus step size (A):",
                     "default": 500,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "CTFFIND's FStep parameter."
                 }
             ]

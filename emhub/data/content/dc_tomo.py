@@ -53,25 +53,30 @@ def register_content(dc):
     @dc.content
     def tomo_session(**kwargs):
         if tsId := kwargs.get('tomo_session_id', None):
+            mode = kwargs.get('mode', 'workflow')
+
+            print(f">>>>> tomo_session, mode={mode}", flush=True)
+
             if tp := dc.app.dm.get_entry_by(id=tsId):
                 tomo_session = {
                     'path': tp.extra['data']['processing_path'],
                     'tomograms_star': 'tomograms.star',
                 }
-                load_workflow = 'workflow' in kwargs
                 data = {
                     'tomo_session': tomo_session,
                     'tomograms': [],  # To be loaded
-                    'tomo_session_id': tsId,
-                    'workflow': load_workflow
+                    'tomo_session_id': tsId
                 }
-                if load_workflow:
+                if mode == 'widget':
+                    data.update(dc.get_data('project_widget', entry_id=tsId, **kwargs))
+                elif mode == 'workflow':
                     data.update(tomo_processing_content(entry_id=tsId, **kwargs))
 
                 tsession = json.loads(kwargs.get('tomo_session', '{}'))
                 if 'tomograms_star' in tsession:
                     tomo_session['tomograms_star'] = tsession['tomograms_star']
                 data.update(tomo_session_content(tomo_session=json.dumps(tomo_session)))
+                data['mode'] = mode
 
                 return data
             else:

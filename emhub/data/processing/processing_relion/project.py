@@ -201,10 +201,9 @@ class RelionSessionData(SessionData):
             jobValues: values of an existing job, to extend the form if
                 these keys are missing.
         """
-        default = {'valueClass': 'String',
-                   'paramClass': 'StringParam',
+        default = {'paramClass': 'StringParam',
                    'important': False,
-                   'expert': False
+                   'expertLevel': 0
                    }
 
         formDef = {

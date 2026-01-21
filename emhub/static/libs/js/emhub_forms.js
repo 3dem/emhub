@@ -900,12 +900,12 @@ class ProcessingDashboard {
         reqRun.done(function(data) {
             self.jobRequestDone(data, 'Launched');
         });
-    } // function saveJob
+    } // function launchJob
 
     duplicateJob(){
         this.selected_node.id = null;
         this.saveJob();
-    } // function saveJob
+    } // function duplicateJobs
 
     deleteJob() {
 

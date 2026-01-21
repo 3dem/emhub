@@ -227,10 +227,6 @@ def register_content(dc):
     def test_widget(**kwargs):
         return {}
 
-    @dc.content
-    def project_widget(**kwargs):
-        return project_widget2(**kwargs)
-
     def get_fake_project(project_id):
         from emhub.tests.scipion_data import projectDetails, protocolDetail
         project_43 = projectDetails[43]
@@ -958,7 +954,7 @@ def register_content(dc):
 
             prot = {
                 'id': job.id,
-                'label': RelionRun.jobAlias(job),
+                'label': RelionRun.jobAlias(job) or '',
                 'parents': parents,
                 'children': children,
                 'inputs': [],
@@ -981,34 +977,36 @@ def register_content(dc):
         return protocols
 
     @dc.content
-    def project_widget2(**kwargs):
-        if fake_id := kwargs.get('fake_id', None):
-            project_id = int(fake_id)
-            project_details = get_fake_project(project_id)
-            if project_details is None:
-                raise Exception(f"Fake project id: {project_id} not found.")
-        else:
-            project_id = int(kwargs['entry_id'])
-            entry = dc.app.dm.get_entry_by(id=project_id)
-            if entry is None:
-                raise Exception(f"Unexisting tomo project with id: {project_id}")
-            project_path = entry.extra['data'].get('processing_path', '')
-            data = dc.get_data('processing_content', **kwargs)
-            pp = data['processing_project']
-            project_details = {
-                'id': project_id,
-                "name": project_path,
-                "shortName": os.path.basename(project_path),
-                "createdAt": "2025-09-13 15:29:00.670242+02:00",
-                "status": "active",
-                "path": project_path,
-                'protocols': get_protocols(pp.workflow)
-            }
+    def project_widget(**kwargs):
         data = {
+            'get_project_args': {}
+        }
+        project_id = int(kwargs['entry_id'])
+        entry = dc.app.dm.get_entry_by(id=project_id)
+        if entry is None:
+            raise Exception(f"Unexisting tomo project with id: {project_id}")
+        project_path = entry.extra['data'].get('processing_path', '')
+        data = dc.get_data('processing_content', **kwargs)
+        pp = data['processing_project']
+        protocols = get_protocols(pp.workflow)
+        from emwrap.base import ProcessingConfig
+
+
+        project_details = {
+            'id': project_id,
+            "name": project_path,
+            "shortName": os.path.basename(project_path),
+            "createdAt": "2025-09-13 15:29:00.670242+02:00",
+            "status": "active",
+            "path": project_path,
+            'protocols': protocols
+        }
+        data.update({
             'project_id': project_id,
             'project_details': project_details,
-            'project_ids': [43, 871, 878]
-        }
+            'project_ids': [43, 871, 878],
+            'menu': ProcessingConfig._config['new_menu']
+        })
         with open(f'project_{project_id}.json', 'w') as f:
             json.dump(project_details, f, indent=4)
 
@@ -1016,7 +1014,7 @@ def register_content(dc):
 
     @dc.content
     def project_flowchart(**kwargs):
-        data = project_widget2(**kwargs)
+        data = project_widget(**kwargs)
         # Convert project_details into a flowchart workflow
         workflow = []
         for jobId, job in data['project_details']['protocols'].items():
@@ -1029,4 +1027,15 @@ def register_content(dc):
             })
         data['workflow'] = workflow
         return data
+
+    @dc.content
+    def project_widget_fake(**kwargs):
+        fake_id = kwargs['fake_id']
+        project_id = int(fake_id)
+        from emhub.data.fake_projects import load_json
+        project_json = load_json(project_id)
+        return {
+            'project_json': project_json
+        }
+
 

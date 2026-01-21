@@ -58,8 +58,10 @@
     </div>
 
     <div class="row col-12 m-0 p-0" id="session-content">
-        {% if workflow %}
+        {% if mode == 'workflow' %}
             {% include 'tomo_processing_content.html' %}
+        {% elif mode == 'widget' %}
+            {% include 'project_widget.html' %}
         {% else %}
             {% include 'tomo_session_content.html' %}
         {% endif %}
@@ -111,7 +113,7 @@
     function loadWidget() {
         setLoading('session-content');
         load_html_from_ajax('session-content',
-            get_ajax_content('project_widget2', {entry_id: tomo_session_id}))    ;
+            get_ajax_content('project_widget', {entry_id: tomo_session_id}))    ;
     }
 
 

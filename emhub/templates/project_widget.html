@@ -1,60 +1,408 @@
 {% import "entry_macros.html" as macros %}
 
-<div class="container-fluid dashboard-content">
-  {# We keep only what we need from the user #}
-  {% set is_manager = current_user.is_manager %}
+<!-- Common portals, inside the root to isolate them -->
+<div id="modal-root"></div>
+<div id="drawer-root"></div>
+<div id="toast-root"></div>
+<div id="portal-root"></div>
+<div id="app"></div>
+<div id="root"></div>
 
+<div class="card h-100 col-12">
+  <div class="card-body">
 
-    <!-- Common portals, inside the root to isolate them -->
-    <div id="modal-root"></div>
-    <div id="drawer-root"></div>
-    <div id="toast-root"></div>
-    <div id="portal-root"></div>
-    <div id="app"></div>
-    <div id="root"></div>
+    <div id="project-widget-root" class="projectpage-widget-root">
+      <div id="projects-page-root">
+        <div class="grid" id="grid">
+          <!-- Optional list host (your JS references it as #projects-host) -->
+          <div id="projects-host" class="hidden"></div>
+
+          <!-- Project page -->
+          <div id="project-page-host"></div>
+
+          <!-- Optional protocol detail host (your JS references it as #protocol-detail-host) -->
+          <div id="protocol-detail-host" class="hidden"></div>
+
+          <!-- Optional portal root for overlays/menus if you later decide to use it -->
+          <div class="projectpage-portal-root" id="projectpage-portal-root"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
-
- <div class="row">
-     <div class="card col-12">
-         <div class="card-body row align-items-center align-content-center">
-            <label>Project ID</label>
-              <select id="selectpicker-project-id" class="selectpicker ml-1 mr-3"  data-width="auto"  title="Select project" >
-                {% for pid in project_ids %}
-                    {% set selected = 'selected' if pid  == project_id else '' %}
-                    <option {{ selected }} value="{{ pid }}">{{ pid }}</option>
-                {% endfor %}
-                </select>
-            <a href="javascript:loadWidget()" class="btn btn-primary mr-2 mt-3"> Load Widget</a>
-            <a href="javascript:loadFlowchart()" class="btn btn-primary mr-2 mt-3"> Load Workflow</a>
-         </div>
-     </div>
-
-     <div class="col-12" id="project-content">
-         {% include "project_widget2.html" %}
-     </div>
- </div>
-
-
 </div>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='libs/css/projectpage-widget.css') }}?v=1" />
+
+<!-- External ProjectsApiClient -->
+{#
+<script defer src="{{ url_for('static', filename='libs/js/projects-api-client.js') }}"></script>#}
+
+<!-- UMD bundles (adjust paths if needed) -->
+<script defer src="{{ url_for('static', filename='libs/js/projectpage-widget.js') }}"></script>
 
 
 <script>
-    $('select').selectpicker();
+  var project_id = {{ project_id | tojson }};
+  var project_details = {{ project_details | tojson }};
+  var get_project_args = {{ get_project_args | tojson }};
+  var all_forms = {};
+  var menu = {{ menu | tojson }};
 
-    function loadWidget() {
-        let pid = $('#selectpicker-project-id').selectpicker('val');
-        setLoading('project-content');
-        load_html_from_ajax('project-content',
-            get_ajax_content('project_widget2', {fake_id: pid}));
+
+  function request(url, args){
+      jQuery.extend(args, get_project_args);
+        return $.ajax({
+            url: url,
+            type: "POST",
+            contentType: 'application/json; charset=utf-8',
+            data: JSON.stringify({attrs: args}),
+            dataType: "json"
+        });
     }
 
-    function loadFlowchart() {
-        let pid = $('#selectpicker-project-id').selectpicker('val');
-        setLoading('project-content');
-        load_html_from_ajax('project-content',
-            get_ajax_content('project_flowchart', {fake_id: pid}));
+  async function loadJobDetails(jobId, jobType) {
+    // Load only the values (json) if we already have that form
+    // in the all_forms cache
+    var result = {
+        info: {},
+        form: {},
+        values: {}
     }
 
+    // Request json data if jobId != null
+    var output = jobId == null ? [] : ['json'];
 
+    // Only request form if not already requested
+    if (jobType in all_forms)
+        result.form = all_forms[jobType]
+    else
+        output.push('form')
+
+    if (output.length == 0)  // Nothing to request
+        return result;
+
+    var args = {
+      run_id: jobId,
+      job_type: jobType,
+      output: output
+    };
+
+    try {
+      var data = await request(Api.urls.get_session_run, args)
+      var run_data = data['run'];
+      if ('form' in run_data) {
+        result.form = run_data['form'];
+        all_forms[jobType] = result.form;
+      }
+
+      if ('json' in run_data) {
+        result.values = run_data['json']['values'];
+      }
+
+      result.info = {
+        name: jobType,
+        expertLevel: true,
+        favicon: null,
+        label: "abc",
+        packageLogo: "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification/cryosparc2_logo.png",
+        projectId: 44,
+        inputs: [],
+        outputs: [],
+        projectName: "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
+        protocolClassName: jobType,
+        protocolId: jobId,
+        protocolName: "protNonUniform3DRefinement_1",
+        scheduleLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/schedule.log",
+        status: "finished",
+        stderrLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stderr",
+        stdoutLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stdout",
+        color: "#D2F5CB",
+      }
+
+      return result;
+
+    } catch (error) {
+      alert("Error loading job details: " + error.statusText);
+    }
+
+  } // loadJobDetails
+
+  (function () {
+    "use strict";
+
+    function showBootstrapError(err) {
+      var host = document.querySelector("#projects-host") || document.body;
+      host.innerHTML =
+        '<pre class="error">Host bootstrap error:\n' +
+        String(err && (err.stack || err)) +
+        "</pre>";
+      console.error(err);
+    }
+
+    try {
+      // ---------- Utils ----------
+      function $(sel) {
+        return document.querySelector(sel);
+      }
+
+      var grid = null;
+      var listHostSel = "#projects-host";
+      var projectPageHostSel = "#project-page-host";
+      var protocolDetailHostSel = "#protocol-detail-host";
+
+      // ---------- Widgets services ----------
+      var svc = {
+        fetchList() {
+          return [];
+        },
+
+        fetchProject(id) {
+          return project_details;
+        },
+
+        async fetchProtocolDetails(projectId, protocolId) {
+          var jobType = project_details.protocols[protocolId].type;
+          var data = await loadJobDetails(protocolId, jobType);
+          //console.log(JSON.stringify(data, null, 4));
+          return data
+        },
+
+        executeProtocol(projectId, protocolId, protocolClassName, params) {
+            alert(`EXECUTING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+            return {status: 1, errors: ["Not yet implemented"]};
+        },
+
+        async saveProtocol(projectId, protocolId, protocolClassName, params) {
+          console.log(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+          //return {status: 1, errors: ["Not yet implemented"]};
+            var args = {
+                run_id: protocolId,
+                job_type: protocolClassName,
+                params: params
+            };
+
+            try {
+                var data = await request(Api.urls.save_job, args);
+                return {status: 0};
+            } catch (error) {
+                return {status: 1, errors: [error.statusText]}
+            }
+
+        },
+
+        createProject(data) {
+          return null;
+        },
+        renameProject(id, newName, newDescription) {
+          return null;
+        },
+        deleteProject(id) {
+          return null;
+        },
+
+        // workflows API
+        async fetchProjectWorkflows() {
+            return menu.workflows;
+        },
+
+        async applyWorkflowToProject(projectId, workflowId) {
+          return { success: true };
+        },
+
+
+        // Load protocols API      
+        async loadProtocols(projectId) {
+            return menu.protocols;
+        },
+
+      async fetchNewProtocolDetails(projectId, protocolClass) {
+          return await loadJobDetails(null, protocolClass);
+        }
+
+      };
+
+
+      // ---------- Mount state ----------
+      var listRoot = null;
+      var pageRoot = null;
+      var detailRoot = null;
+      var currentProjectId = null;
+      var currentDetailKey = null; // proj:prot
+
+      // ---------- Layout helpers ----------
+
+      function showPageOnly() {
+        var listHost = $(listHostSel);
+        var pageHost = $(projectPageHostSel);
+        var detailHost = $(protocolDetailHostSel);
+        if (pageHost) pageHost.classList.remove("hidden");
+        if (listHost) listHost.classList.add("hidden");
+        if (detailHost) detailHost.classList.add("hidden");
+        if (grid) grid.classList.remove("two-cols");
+      }
+
+      function showPageWithDetail() {
+        var listHost = $(listHostSel);
+        var pageHost = $(projectPageHostSel);
+        var detailHost = $(protocolDetailHostSel);
+        if (pageHost) pageHost.classList.remove("hidden");
+        if (listHost) listHost.classList.add("hidden");
+        if (detailHost) detailHost.classList.remove("hidden");
+        if (grid) grid.classList.add("two-cols");
+      }
+
+      function unmountList() {
+        if (listRoot && listRoot.unmount) {
+          try {
+            listRoot.unmount();
+          } catch (e) { }
+        }
+        listRoot = null;
+        var host = $(listHostSel);
+        if (host) host.innerHTML = "";
+      }
+
+      function unmountDetail() {
+        if (detailRoot && detailRoot.unmount) {
+          try {
+            detailRoot.unmount();
+          } catch (e) { }
+        }
+        detailRoot = null;
+        var host = $(protocolDetailHostSel);
+        if (host) host.innerHTML = "";
+        currentDetailKey = null;
+      }
+
+      // ---------- Mount project page ----------
+      function mountProjectPage(projectId) {
+        var target = $(projectPageHostSel);
+        if (!target) {
+          console.error("[host] missing project page host");
+          return;
+        }
+
+        function tryMount() {
+          var api = window.MyProjectsWidget || window.ProjectPageWidget || window.MyWidgets;
+          var mountFn =
+            api && (api.mountProjectPageWidget || api.mountProjectPage || api.mountPage);
+          if (!mountFn) {
+            console.warn("[host] Project page widget not ready, retrying...");
+            setTimeout(tryMount, 50);
+            return;
+          }
+
+          try {
+            if (currentProjectId !== projectId) {
+              unmountList();
+              // ensureDomRoots();
+              showPageOnly();
+            }
+
+            var pageProps = {
+              onOpenProtocol: function (protocolId) {
+                openProtocolDetail(projectId, protocolId);
+              },
+              onProtocolOpen: function (protocolId) {
+                openProtocolDetail(projectId, protocolId);
+              },
+            };
+
+            if (currentProjectId !== projectId) {
+              pageRoot = mountFn({
+                container: target,
+                service: svc,
+                projectName: String(projectId),
+                props: pageProps,
+              });
+              currentProjectId = String(projectId);
+            }
+
+            showPageOnly();
+            console.log("[host] project page mounted:", projectId);
+          } catch (err) {
+            target.innerHTML =
+              '<pre class="error">ProjectPageWidget error:\n' +
+              String(err && (err.stack || err)) +
+              "</pre>";
+            console.error(err);
+          }
+        }
+
+        tryMount();
+      }
+
+      // ---------- Protocol detail ----------
+      function closeDetailPanel() {
+        unmountDetail();
+        showPageOnly();
+        try {
+          var proj = currentProjectId || "";
+          history.pushState(null, "", "/project/load/" + encodeURIComponent(proj));
+        } catch (e) { }
+      }
+
+      function openProtocolDetail(projectId, protocolId, prefetchedDetail) {
+        // ensureDomRoots();
+
+        var api = null;
+        if (window.MyProjectsWidget && window.MyProjectsWidget.mountProtocolDetailWidget) {
+          api = { mountProtocolDetailWidget: window.MyProjectsWidget.mountProtocolDetailWidget };
+        } else if (window.ProtocolDetailWidget) {
+          api = window.ProtocolDetailWidget;
+        }
+
+        var target = $(protocolDetailHostSel);
+        if (!api || !api.mountProtocolDetailWidget) {
+          console.warn("[host] ProtocolDetailWidget is not ready yet. Retrying...");
+          setTimeout(function () {
+            openProtocolDetail(projectId, protocolId, prefetchedDetail);
+          }, 60);
+          return;
+        }
+        if (!target) {
+          console.error("[host] missing protocol detail host");
+          return;
+        }
+
+        var key = String(projectId) + ":" + String(protocolId);
+        if (currentDetailKey === key && detailRoot) {
+          showPageWithDetail();
+          return;
+        }
+
+        unmountDetail();
+        showPageWithDetail();
+
+        try {
+          detailRoot = api.mountProtocolDetailWidget({
+            container: target,
+            service: svc,
+            projectId: String(projectId),
+            protocolId: String(protocolId),
+            props: {
+              initialProtocol: prefetchedDetail,
+              onClose: closeDetailPanel,
+              variant: "docked",
+            },
+          });
+
+          currentDetailKey = key;
+          try {
+            history.pushState(null, "", "/project/" + encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId));
+          } catch (e) { }
+          console.log("[host] protocol detail mounted:", key);
+        } catch (err) {
+          target.innerHTML = '<pre class="error">ProtocolDetailWidget error:\n' + String(err && (err.stack || err)) + "</pre>";
+          console.error(err);
+        }
+      }
+
+      mountProjectPage(project_id);
+
+    } catch (err) {
+      showBootstrapError(err);
+    }
+  })();
 </script>
-

@@ -40,7 +40,7 @@
                     "label": "EER fractionation:",
                     "default": 32,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "The number of hardware frames to group into one fraction. This option is relevant only for Falcon4 movies in the EER format. Note that all 'frames' in the GUI (e.g. first and last frame for corrected sum, dose per frame) refer to fractions, not raw detector frames. See https://www3.mrc-lmb.cam.ac.uk/relion/index.php/Image_compression#Falcon4_EER for detailed guidance on EER processing."
                 },
                 {
@@ -93,7 +93,7 @@
                     "label": "Bfactor:",
                     "default": 150,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "The B-factor that will be applied to the micrographs."
                 },
                 {
@@ -101,7 +101,7 @@
                     "label": "Number of patches X:",
                     "default": 1,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Number of patches (in X and Y direction) to apply motioncor2."
                 },
                 {
@@ -109,7 +109,7 @@
                     "label": "Number of patches Y:",
                     "default": 1,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Number of patches (in X and Y direction) to apply motioncor2."
                 },
                 {
@@ -117,7 +117,7 @@
                     "label": "Group frames:",
                     "default": 1,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Average together this many frames before calculating the beam-induced shifts."
                 },
                 {
@@ -125,7 +125,7 @@
                     "label": "Binning factor:",
                     "default": 1,
                     "valueClass": "Integer",
-                    "paramClass": "IntegerParam",
+                    "paramClass": "IntParam",
                     "help": "Bin the micrographs this much by a windowing operation in the Fourier Tranform. Binning at this level is hard to un-do later on, but may be useful to down-scale super-resolution images. Float-values may be used. Do make sure though that the resulting micrograph size is even."
                 },
                 {

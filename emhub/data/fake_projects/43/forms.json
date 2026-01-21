@@ -1,0 +1,737 @@
+{
+    "ProtCryoSparcNewNonUniformRefine3D": {
+      "references": [
+        "*Package references:*",
+        "[[http://doi.org/10.1038/nmeth.4169][Punjani et al., Nature Methods, 2017]] ",
+        "[[http://ieeexplore.ieee.org/document/7740877][Brubaker et al., IEEE Trans. Pattern Anal. Mach. Intell., 2017]] ",
+        "[[https://doi.org/10.5281/zenodo.3576630][Daniel Asarnow et al., Zenodo, 2019]] "
+      ],
+      "help": " Apply non-uniform refinement to achieve higher resolution and map\n    quality, especially for membrane proteins. Non-uniform refinement\n    iteratively accounts for regions of a structure that have disordered or\n    flexible density causing local loss of resolution. Accounting for these\n    regions and dynamically estimating their locations can significantly\n    improve resolution in other regions as well as overall map quality by\n    impacting the alignment of particles and reducing the tendency for\n    refinement algorithms to over-fit disordered regions.\n    ",
+      "sections": [
+        {
+          "label": "General",
+          "params": [
+            {
+              "name": "runName",
+              "label": "Run name:",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": true,
+              "help": "Select run name label to identify this run.",
+              "default": "",
+              "paramClass": "StringParam"
+            },
+            {
+              "name": "_objComment",
+              "_objComment": {},
+              "label": "Comment",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": true,
+              "help": "Protocol comments",
+              "paramClass": "StringParam",
+              "default": "",
+              "readOnly": false
+            },
+            {
+              "name": "_useQueue",
+              "label": "Use a queue engine?",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": true,
+              "help": "\n    Click Yes if you want to send this execution to a queue engine like Slurm, Torque, ...\n    The queue commands to launch and stop jobs should be configured at\n    _/home/yunior/Yunior/Projects/ScipionWeb/ScipionAPI/scipion_home/config/hosts.conf_ file.\n    \n    See https://scipion-em.github.io/docs/release-3.0.0/docs/scipion-modes/host-configuration.html for more information.\n        ",
+              "paramClass": "BooleanParam",
+              "default": false,
+              "readOnly": false
+            },
+            {
+              "name": "_prerequisites",
+              "_prerequisites": {},
+              "label": "Wait for",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": true,
+              "help": "\n    Specify a comma separated list of protocol IDs if you want\n    to *schedule* this protocol and wait for those protocols to finish before\n    starting this one.\n    \n    This function will allow you to \"schedule\" many\n    runs that will be executed after each other.\n     \n    See https://scipion-em.github.io/docs/release-3.0.0/docs/user/scipion-gui.html#waiting-for-other-protocols for more information.\n    ",
+              "paramClass": "StringParam",
+              "default": [],
+              "readOnly": false
+            },
+            {
+              "name": "gpuList",
+              "label": "GPU IDs",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "This argument is necessary. By default, the protocol will attempt to launch on GPU 0. You can override the default allocation by providing a list of which GPUs (0,1,2,3, etc) to use. GPU are separated by \",\". For example: \"0,1,5\"",
+              "default": "0",
+              "paramClass": "StringParam"
+            },
+            {
+              "name": "expertLevel",
+              "label": "Expert Level",
+              "display": 0,
+              "choices": [
+                "Normal",
+                "Advanced"
+              ],
+              "condition": null,
+              "_isImportant": true,
+              "paramClass": "EnumParam",
+              "default": 0,
+              "readOnly": false
+            },
+            {
+              "name": "runMode",
+              "label": "Run Mode",
+              "display": 0,
+              "choices": [
+                "Continue",
+                "Restart"
+              ],
+              "condition": null,
+              "_isImportant": true,
+              "paramClass": "EnumParam",
+              "default": 0,
+              "readOnly": false
+            }
+          ]
+        },
+        {
+          "label": "Input",
+          "params": [
+            {
+              "name": "inputParticles",
+              "label": "Input particles",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": true,
+              "help": "Select the input images from the project.",
+              "default": null,
+              "pointerClass": "SetOfParticles",
+              "pointerCondition": null,
+              "allowsNone": false,
+              "strictPointer": false,
+              "paramClass": "PointerParam",
+              "parentId": 2
+            },
+            {
+              "name": "referenceVolume",
+              "label": "Input volume",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": true,
+              "help": "Initial reference 3D map, it should have the same dimensions and the same pixel size as your input particles.",
+              "default": null,
+              "pointerClass": "Volume",
+              "pointerCondition": null,
+              "allowsNone": false,
+              "strictPointer": false,
+              "paramClass": "PointerParam",
+              "parentId": 79
+            },
+            {
+              "name": "refMask",
+              "label": "Mask to be applied to this map(Optional)",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "A volume mask containing a (soft) mask with the same dimensions as the reference(s), and values between 0 and 1, with 1 being 100% protein and 0 being 100% solvent. The reconstructed reference map will be multiplied by this mask. If no mask is given, a soft spherical mask based on the <radius> of the mask for the experimental images will be applied.",
+              "default": null,
+              "pointerClass": "VolumeMask",
+              "pointerCondition": null,
+              "allowsNone": true,
+              "strictPointer": false,
+              "paramClass": "PointerParam"
+            }
+          ]
+        },
+        {
+          "label": "Homogeneous Refinement",
+          "params": [
+            {
+              "name": "symmetryGroup",
+              "label": "Symmetry",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Symmetry as defined by cryosparc. Please note that Dihedral symmetry in cryosparc is defined with respectto y axis (Dyn).\nIf no symmetry is present, use C1.\nSymmetry String (C, D, I, O, T). E.g. C1, D7, C4, etc",
+              "default": "0",
+              "display": 1,
+              "choices": [
+                "Cn (Cn)",
+                "Dn (Dyn)",
+                "T (T222)",
+                "O (O)",
+                "I1 (I222)",
+                "I2 (I222r)"
+              ],
+              "paramClass": "EnumParam"
+            },
+            {
+              "name": "symmetryOrder",
+              "label": "Symmetry Order",
+              "expertLevel": 0,
+              "condition": "symmetryGroup==1 or symmetryGroup==0",
+              "_isImportant": false,
+              "help": "Order of symmetry.",
+              "default": "1",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_symmetry_do_align",
+              "label": "Do symmetry alignment",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Align the input structure to the symmetry axes",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_do_init_scale_est",
+              "label": "Re-estimate greyscale level of input reference",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": null,
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_num_final_iterations",
+              "label": "Number of extra final passes",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Number of extra passes through the data to do after the GS-FSC resolution has stopped improving",
+              "default": "0",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_res_init",
+              "label": "Initial lowpass resolution (A)",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Applied to input structure",
+              "default": "30",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_res_gsfsc_split",
+              "label": "GSFSC split resolution (A)",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Resolution beyond which two GS-FSC halves are independent",
+              "default": "20",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_highpass_res",
+              "label": "Highpass resolution (A)",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": null,
+              "default": null,
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_clip",
+              "label": "Enforce non-negativity",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Clip negative density. Probably should be false",
+              "default": false,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_window",
+              "label": "Skip interpolant premult",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Softly window the structure in real space with a spherical window. Should be true",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_skip_premult",
+              "label": "Window structure in real space",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Leave this as true",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_ignore_dc",
+              "label": "Ignore DC component",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Ignore the DC component of images. Should be true",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_batchsize_init",
+              "label": "Initial batchsize",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Number of images used in the initial iteration. Set to zero to autotune",
+              "default": "0",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_batchsize_epsilon",
+              "label": "Batchsize epsilon",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Controls batch size when autotuning batchsizes. Set closer to zero for larger batches",
+              "default": "0.001",
+              "paramClass": "FloatParam"
+            },
+            {
+              "name": "refine_batchsize_snrfactor",
+              "label": "Batchsize snrfactor",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Specifies the desired improvement in SNR from the images when autotuning batchsizes. Directly multiplies the number of images in the batch",
+              "default": "40.0",
+              "paramClass": "FloatParam"
+            },
+            {
+              "name": "refine_scale_min",
+              "label": "Minimize over per-particle scale",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": null,
+              "default": false,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_scale_start_iter",
+              "label": "Scale min/use start iter",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Iteration to start minimizing over per-particle scale",
+              "default": "0",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_noise_model",
+              "label": "Noise model:",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Noise model to be used. Valid options are white, coloured or symmetric. Symmetric is the default, meaning coloured with radial symmetry",
+              "default": "0",
+              "display": 1,
+              "choices": [
+                "symmetric",
+                "white",
+                "coloured"
+              ],
+              "paramClass": "EnumParam"
+            },
+            {
+              "name": "refine_noise_priorw",
+              "label": "Noise priorw",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Weight of the prior for estimating noise (units of # of images)",
+              "default": "50",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_noise_initw",
+              "label": "Noise initw",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Weight of the initial noise estimate (units of # of images)",
+              "default": "200",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_noise_init_sigmascale",
+              "label": "Noise initial sigma-scale",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Scale factor initially applied to the base noise estimate",
+              "default": "3",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_mask",
+              "label": "Mask:",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Type of masking to use. Either \"dynamic\", \"static\", or \"null\"",
+              "default": "0",
+              "display": 1,
+              "choices": [
+                "dynamic",
+                "static",
+                "null"
+              ],
+              "paramClass": "EnumParam"
+            },
+            {
+              "name": "refine_dynamic_mask_thresh_factor",
+              "label": "Dynamic mask threshold (0-1)",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Level set threshold for selecting regions that are included in the dynamic mask. Probably don't need to change this",
+              "default": "0.2",
+              "paramClass": "FloatParam"
+            },
+            {
+              "name": "refine_dynamic_mask_near_ang",
+              "label": "Dynamic mask near (A)",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Controls extent to which mask is expanded. At the near distance, the mask value is 1.0 (in A)",
+              "default": "6.0",
+              "paramClass": "FloatParam"
+            },
+            {
+              "name": "refine_dynamic_mask_far_ang",
+              "label": "Dynamic mask far (A)",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Controls extent to which mask is expanded. At the far distance the mask value becomes 0.0 (in A)",
+              "default": "14.0",
+              "paramClass": "FloatParam"
+            },
+            {
+              "name": "refine_dynamic_mask_start_res",
+              "label": "Dynamic mask start resolution (A)",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Map resolution at which to start dynamic masking (in A)",
+              "default": "12",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_dynamic_mask_use_abs",
+              "label": "Dynamic mask use absolute value",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Include negative regions if they are more negative than the threshold",
+              "default": false,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_compute_batch_size",
+              "label": "GPU batch size of images",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Batch size of images to process at a time on the GPU. If you run out of GPU memory, try setting this to a small number to override the auto-detect procedure.",
+              "default": null,
+              "paramClass": "IntParam"
+            }
+          ]
+        },
+        {
+          "label": "Defocus Refinement",
+          "params": [
+            {
+              "name": "refine_defocus_refine",
+              "label": "Optimize per-particle defocus",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Minimize over per-particle defocus at each iteration of refinement. The optimal defocus will be used for backprojection as well, and will be written out at each iteration. Defocus refinement will start only once refinement with current defocus values converges. Beware that with small/disordered proteins, defocus refinement may actually make resolutions worse.",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "crl_num_plots",
+              "label": "Num. particles to plot",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Number of particles to make plots for. After this many, stop plotting to save time.",
+              "default": "3",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "crl_min_res_A",
+              "label": "Minimum Fit Res (A)",
+              "expertLevel": 0,
+              "condition": "refine_defocus_refine==true",
+              "_isImportant": false,
+              "help": "The minimum resolution to use during refinement of image aberrations.",
+              "default": "20",
+              "paramClass": "FloatParam"
+            },
+            {
+              "name": "crl_df_range",
+              "label": "Defocus Search Range (A +/-)",
+              "expertLevel": 0,
+              "condition": "refine_defocus_refine==true",
+              "_isImportant": false,
+              "help": "Defocus search range in Angstroms, searching both above and below the input defocus by this amount",
+              "default": "2000",
+              "paramClass": "FloatParam"
+            },
+            {
+              "name": "crl_compute_batch_size",
+              "label": "GPU batch size of images",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": null,
+              "default": null,
+              "paramClass": "IntParam"
+            }
+          ]
+        },
+        {
+          "label": "Global CTF Refinement",
+          "params": [
+            {
+              "name": "refine_ctf_global_refine",
+              "label": "Optimize per-group CTF params",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Optimize the per-exposure-group CTF parameters (for higher-order aberrations) at each iteration of refinement. The optimal CTF will be used for backprojection as well, and will be written out at each iteration. CTF refinement will start only once refinement with current CTF values converges. Beware that with small/disordered proteins, CTF refinement may actually make resolutions worse.",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "crg_num_plots",
+              "label": "Num. groups to plot",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Number of exposure groups to make plots for. After this many, stop plotting to save time.",
+              "default": "3",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "crg_min_res_A",
+              "label": "Minimum Fit Res (A)",
+              "expertLevel": 0,
+              "condition": "refine_ctf_global_refine == true",
+              "_isImportant": false,
+              "help": "The minimum resolution to use during refinement of image aberrations.",
+              "default": "10",
+              "paramClass": "FloatParam"
+            },
+            {
+              "name": "crg_do_tilt",
+              "label": "Fit Tilt",
+              "expertLevel": 0,
+              "condition": "refine_ctf_global_refine == true",
+              "_isImportant": false,
+              "help": "Whether to fit beam tilt.",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "crg_do_trefoil",
+              "label": "Fit Trefoil",
+              "expertLevel": 0,
+              "condition": "refine_ctf_global_refine == true",
+              "_isImportant": false,
+              "help": "Whether to fit beam trefoil.",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "crg_do_spherical",
+              "label": "Fit Spherical Aberration",
+              "expertLevel": 0,
+              "condition": "refine_ctf_global_refine == true",
+              "_isImportant": false,
+              "help": "Whether to fit spherical aberration.",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "crg_do_tetrafoil",
+              "label": "Fit Tetrafoil",
+              "expertLevel": 0,
+              "condition": "refine_ctf_global_refine == true",
+              "_isImportant": false,
+              "help": "Whether to fit beam tetrafoil.",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "crg_compute_batch_size",
+              "label": "GPU batch size of images",
+              "expertLevel": 1,
+              "condition": null,
+              "_isImportant": false,
+              "help": null,
+              "default": null,
+              "paramClass": "IntParam"
+            }
+          ]
+        },
+        {
+          "label": "Ewald Sphere Correction",
+          "params": [
+            {
+              "name": "refine_do_ews_correct",
+              "label": "Do EWS correction",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Whether or not to correct for the curvature of the Ewald Sphere.",
+              "default": false,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_do_ews_correct_align",
+              "label": "Do EWS correction in alignment",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Whether or not to correct for the curvature of the Ewald Sphere.",
+              "default": false,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_ews_zsign",
+              "label": "EWS curvature sign",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Whether to use positive or negative curvature in Ewald Sphere correction.",
+              "default": "0",
+              "display": 1,
+              "choices": [
+                "positive",
+                "negative"
+              ],
+              "paramClass": "EnumParam"
+            },
+            {
+              "name": "refine_ews_simple",
+              "label": "EWS correction method",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Whether to use the simple insertion method, or to use an iterative optimization method, for Ewald Sphere correction.",
+              "default": "0",
+              "display": 1,
+              "choices": [
+                "simple",
+                "iterative"
+              ],
+              "paramClass": "EnumParam"
+            }
+          ]
+        },
+        {
+          "label": "Compute settings",
+          "params": [
+            {
+              "name": "compute_use_ssd",
+              "label": "Cache particle images on SSD",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Whether or not to copy particle images to the local SSD before running. The cache is persistent, so after caching once, particles should be available for subsequent jobs that require the same data. Not using an SSD can dramatically slow down processing.",
+              "default": false,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "compute_lane",
+              "label": "Lane name:",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "The scheduler lane name to add the protocol execution",
+              "default": "default",
+              "paramClass": "StringParam"
+            }
+          ]
+        },
+        {
+          "label": "Advanced Refinement",
+          "params": [
+            {
+              "name": "refine_do_marg",
+              "label": "Adaptive Marginalization",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Efficiently marginalize over poses and shifts using an auto-tuning adaptive sampling strategy. Can improve results on small molecules.",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_nu_enable",
+              "label": "Non-uniform refine enable",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Enable cross-validation-optimal non-uniform regularization during refinement.",
+              "default": true,
+              "paramClass": "BooleanParam"
+            },
+            {
+              "name": "refine_nu_filtertype",
+              "label": "Non-uniform filter type",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "butterworth, rect, or gaussian",
+              "default": "0",
+              "display": 1,
+              "choices": [
+                "butterworth",
+                "rect",
+                "gaussian"
+              ],
+              "paramClass": "EnumParam"
+            },
+            {
+              "name": "refine_nu_order",
+              "label": "Non-uniform filter order",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Order of the butterworth filter used for cross-validation-optimal regularization. Default to 8, probably no need to change this.",
+              "default": "8",
+              "paramClass": "IntParam"
+            },
+            {
+              "name": "refine_nu_awf",
+              "label": "Non-uniform AWF",
+              "expertLevel": 0,
+              "condition": null,
+              "_isImportant": false,
+              "help": "Adaptive Window Factor for cross-validation-optimal regularization. Trade off between fast transitions between regions (AWF should be lower) and more accurate local cross-validation test (AWF should be higher). Default of 3 is good, can try as low as 1.5 ",
+              "default": "3",
+              "paramClass": "FloatParam"
+            }
+          ]
+        }
+      ]
+    }
+  }
