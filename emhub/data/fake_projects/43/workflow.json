@@ -84,7 +84,16 @@
       "parentId": 79
     }
   ],
-  "outputs": [],
+  "outputs": [
+    {
+        "outputStar": {
+        "paramClass": "StringParam",
+        "pointerClass": "StarFile",
+        "info": "particles.star",
+        "value": "/home/yun/particles.star",
+        "parentId": 79
+        }
+    }],
   "cpuTime": "102",
   "elapsedTime": "102",
   "isInteractive": false,
