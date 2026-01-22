@@ -943,11 +943,20 @@ def register_content(dc):
             for i, o in enumerate(job.outputs):
                 outputs.append({
                     f"output{i+1}": {
-                        "_class": "File",
-                        "info": os.path.basename(o.id),
-                        "_objValue": o.id,
-                        "_parentId": job.id,
+                        "paramClass": "StringParam",
+                        "pointerClass": "StarFile",
+                        "info": "Path: " + os.path.basename(o.id),
+                        "value": str(o.id),
+                        "parentId": str(job.id),
                     }
+                    # "outputStar":
+                    # "outputStar": {
+                    #     "paramClass": "StringParam",
+                    #     "pointerClass": "StarFile",
+                    #     "info": "particles.star",
+                    #     "value": "/home/yun/particles.star",
+                    #     "parentId": 79
+                    # }
                 })
                 for c in o.childs:
                     children.append(c.id)
@@ -990,7 +999,6 @@ def register_content(dc):
         pp = data['processing_project']
         protocols = get_protocols(pp.workflow)
         from emwrap.base import ProcessingConfig
-
 
         project_details = {
             'id': project_id,

@@ -151,6 +151,104 @@
       var projectPageHostSel = "#project-page-host";
       var protocolDetailHostSel = "#protocol-detail-host";
 
+
+      // External viewers bridge:
+      // The React widget calls window.externalViewers.resolveAnalyzeViewer(ctx).
+      // If we return a descriptor (iframe or customElement), the widget embeds it inside AnalyzeOutputDialog.
+      // This is the only integration point needed on the Flask side to plug in external viewers.
+      (function initExternalViewersBridge() {
+
+           // Placeholder custom element:
+        // This is a simple viewer to verify the bridge works before we have a real Flask viewer.
+        // Later we can replace the placeholder with:
+        // - kind: "iframe" pointing to a Flask route, or
+        // - kind: "customElement" pointing to a real custom element implemented by us.
+        (function ensureViewerPlaceholderElement() {
+          if (customElements.get("viewer-placeholder")) return;
+
+          class ViewerPlaceholder extends HTMLElement {
+            connectedCallback() {
+              // Render placeholder UI.
+              // It prints the context data so we can confirm what the React modal is passing to this bridge.
+              var projectId = this.getAttribute("projectId") || "";
+              var protocolId = this.getAttribute("protocolId") || "";
+              var outputName = this.getAttribute("outputName") || "";
+              var outputClass = this.getAttribute("outputClass") || "";
+              var value = this.getAttribute("value") || "";
+              var info = this.getAttribute("info") || "";
+              var note = this.getAttribute("note") || "No external viewer is configured yet.";
+
+              var root = this.attachShadow({ mode: "open" });
+              var wrap = document.createElement("div");
+              wrap.style.boxSizing = "border-box";
+              wrap.style.width = "100%";
+              wrap.style.height = "100%";
+              wrap.style.padding = "16px";
+              wrap.style.background = "transparent";
+              wrap.style.color = "inherit";
+              wrap.style.fontFamily = "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
+              wrap.style.overflow = "auto";
+
+              var title = document.createElement("div");
+              title.textContent = "External Viewer Placeholder";
+              title.style.fontSize = "16px";
+              title.style.fontWeight = "600";
+              title.style.marginBottom = "10px";
+
+              var msg = document.createElement("div");
+              msg.textContent = note;
+              msg.style.fontSize = "13px";
+              msg.style.opacity = "0.9";
+              msg.style.marginBottom = "12px";
+
+              var box = document.createElement("pre");
+              box.style.margin = "0";
+              box.style.padding = "12px";
+              box.style.borderRadius = "10px";
+              box.style.background = "rgba(0,0,0,0.04)";
+              box.style.border = "1px solid rgba(0,0,0,0.12)";
+              box.style.whiteSpace = "pre-wrap";
+              box.style.wordBreak = "break-word";
+              box.textContent =
+                "projectId: " + projectId + "\n" +
+                "protocolId: " + protocolId + "\n" +
+                "outputName: " + outputName + "\n" +
+                "outputClass: " + outputClass + "\n" +
+                "info: " + info + "\n" +
+                "value: " + value + "\n";
+
+              wrap.appendChild(title);
+              wrap.appendChild(msg);
+              wrap.appendChild(box);
+              root.appendChild(wrap);
+            }
+          }
+
+          customElements.define("viewer-placeholder", ViewerPlaceholder);
+        })();
+
+        window.externalViewers = {
+            resolveAnalyzeViewer: function (ctx) {
+                console.log(">>>> CTX: ", JSON.stringify(ctx, null, 4));
+
+                return {
+                  kind: "customElement",
+                  tag: "viewer-placeholder",
+                  attrs: {
+                    projectId: ctx.projectId,
+                    protocolId: ctx.parentId,
+                    outputName: ctx.outputName,
+                    outputClass: ctx.pointerClass,
+                    info: ctx.info,
+                    value: ctx.value,
+                    note: "debugAlways=true: forcing placeholder for any output."
+                  }
+                };
+            }
+        };
+
+      })();
+
       // ---------- Widgets services ----------
       var svc = {
         fetchList() {
