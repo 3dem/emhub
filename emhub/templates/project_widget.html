@@ -1,5 +1,20 @@
 {% import "entry_macros.html" as macros %}
 
+<style>
+.spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border-left-color: #09d;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+</style>
+
 <!-- Common portals, inside the root to isolate them -->
 <div id="modal-root"></div>
 <div id="drawer-root"></div>
@@ -151,6 +166,30 @@
       var projectPageHostSel = "#project-page-host";
       var protocolDetailHostSel = "#protocol-detail-host";
 
+      function showStarFile(starFile){
+        let filePath = `${project_details.path}/${starFile}`;
+        loadStarOverview(filePath, 'global');
+      }
+
+      function addHtmlContent(parent) {
+         var box = document.createElement("pre");
+              box.style.margin = "0";
+              box.style.padding = "12px";
+              box.style.borderRadius = "10px";
+              box.style.background = "rgba(0,0,0,0.04)";
+              box.style.border = "1px solid rgba(0,0,0,0.12)";
+              box.style.whiteSpace = "pre-wrap";
+              box.style.wordBreak = "break-word";
+              box.textContent =
+                "projectId: " + projectId + "\n" +
+                "protocolId: " + protocolId + "\n" +
+                "outputName: " + outputName + "\n" +
+                "outputClass: " + outputClass + "\n" +
+                "info: " + info + "\n" +
+                "value: " + value + "\n";
+        parent.appendChild(box);
+      }
+
 
       // External viewers bridge:
       // The React widget calls window.externalViewers.resolveAnalyzeViewer(ctx).
@@ -190,7 +229,7 @@
               wrap.style.overflow = "auto";
 
               var title = document.createElement("div");
-              title.textContent = "External Viewer Placeholder";
+              title.textContent = `External Viewer:  ${value}`;
               title.style.fontSize = "16px";
               title.style.fontWeight = "600";
               title.style.marginBottom = "10px";
@@ -201,26 +240,27 @@
               msg.style.opacity = "0.9";
               msg.style.marginBottom = "12px";
 
-              var box = document.createElement("pre");
-              box.style.margin = "0";
-              box.style.padding = "12px";
-              box.style.borderRadius = "10px";
-              box.style.background = "rgba(0,0,0,0.04)";
-              box.style.border = "1px solid rgba(0,0,0,0.12)";
-              box.style.whiteSpace = "pre-wrap";
-              box.style.wordBreak = "break-word";
-              box.textContent =
-                "projectId: " + projectId + "\n" +
-                "protocolId: " + protocolId + "\n" +
-                "outputName: " + outputName + "\n" +
-                "outputClass: " + outputClass + "\n" +
-                "info: " + info + "\n" +
-                "value: " + value + "\n";
+             var content = document.createElement("div");
+             var loadingHtml = '<h3 class="mt-2 mr-3 text-black-50">Loading...</h3><div class="spinner"></div>';
+             content.innerHTML = loadingHtml;
+             content.id = "viewer-content";
+
+             {# setTimeout(function (){#}
+             {#    content.innerHTML = "<label>Loaded<label>";#}
+             {# }, 3000);#}
+
+             var ajaxContent = get_ajax_content('processing_star_overview',
+                 {file_path: `${project_details.path}/${value}`});
+             ajaxContent.done(function(html) {
+                content.innerHTML = html;
+            });
+            ajaxContent.fail(ajax_request_failed);
 
               wrap.appendChild(title);
               wrap.appendChild(msg);
-              wrap.appendChild(box);
+              wrap.appendChild(content);
               root.appendChild(wrap);
+
             }
           }
 
@@ -268,7 +308,9 @@
         },
 
         executeProtocol(projectId, protocolId, protocolClassName, params) {
-          alert(`EXECUTING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+            showStarFile("External/job050/tilt_series.star");
+
+          // alert(`EXECUTING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
           return { status: 1, errors: ["Not yet implemented"] };
         },
 
