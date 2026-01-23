@@ -21,11 +21,11 @@
       "outputs": [
         {
           "outputName": "outputStar",
-          "paramClass": "StringParam",
+          "paramClass": "PointerParam",
           "pointerClass": "StarFile",
           "info": "particles.star",
           "value": "/home/yun/particles.star",
-          "parentId": 79
+          "parentId": 134
         }
       ]
     },

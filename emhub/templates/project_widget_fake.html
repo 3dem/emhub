@@ -62,7 +62,6 @@
       // If we return a descriptor (iframe or customElement), the widget embeds it inside AnalyzeOutputDialog.
       // This is the only integration point needed on the Flask side to plug in external viewers.
       (function initExternalViewersBridge() {
-
         // Placeholder custom element:
         // This is a simple viewer to verify the bridge works before we have a real Flask viewer.
         // Later we can replace the placeholder with:
@@ -73,17 +72,21 @@
 
           class ViewerPlaceholder extends HTMLElement {
             connectedCallback() {
-              // Render placeholder UI.
-              // It prints the context data so we can confirm what the React modal is passing to this bridge.
+              // renderPlaceholderUi
               var projectId = this.getAttribute("projectId") || "";
               var protocolId = this.getAttribute("protocolId") || "";
               var outputName = this.getAttribute("outputName") || "";
-              var outputClass = this.getAttribute("outputClass") || "";
+              var pointerClass = this.getAttribute("pointerClass") || "";
+
+              var paramClass = this.getAttribute("paramClass") || "";
               var value = this.getAttribute("value") || "";
               var info = this.getAttribute("info") || "";
+
               var note = this.getAttribute("note") || "No external viewer is configured yet.";
 
-              var root = this.attachShadow({ mode: "open" });
+              var root = this.shadowRoot || this.attachShadow({ mode: "open" });
+              root.innerHTML = "";
+
               var wrap = document.createElement("div");
               wrap.style.boxSizing = "border-box";
               wrap.style.width = "100%";
@@ -91,7 +94,8 @@
               wrap.style.padding = "16px";
               wrap.style.background = "transparent";
               wrap.style.color = "inherit";
-              wrap.style.fontFamily = "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
+              wrap.style.fontFamily =
+                "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
               wrap.style.overflow = "auto";
 
               var title = document.createElement("div");
@@ -118,7 +122,8 @@
                 "projectId: " + projectId + "\n" +
                 "protocolId: " + protocolId + "\n" +
                 "outputName: " + outputName + "\n" +
-                "outputClass: " + outputClass + "\n" +
+                "pointerClass: " + pointerClass + "\n" +
+                "paramClass: " + paramClass + "\n" +
                 "info: " + info + "\n" +
                 "value: " + value + "\n";
 
@@ -137,48 +142,14 @@
           try { return String(v); } catch (e) { return ""; }
         }
 
-        function unwrapOutputRaw(raw) {
-          // Unwrap legacy objects like: { SomeName: { ...realOutput... } }
-          if (!raw || typeof raw !== "object") return raw;
-
-          if (raw.pointerClass || raw._class || raw.class || raw.type) return raw;
-
-          var entries = Object.entries(raw);
-          if (entries.length === 1) {
-            var maybeInner = entries[0][1];
-            if (maybeInner && typeof maybeInner === "object") return maybeInner;
-          }
-
-          return raw;
-        }
-
-        function getOutputClass(outputRaw) {
-          var r = unwrapOutputRaw(outputRaw);
-          if (!r || typeof r !== "object") return "";
-          return toStringSafe(r._class || r.pointerClass || r.class || r.type || "");
-        }
-
-        function getCandidatePath(outputRaw) {
-          // Candidate path heuristic:
-          // If the output object contains something like a filename/path/value, this tries to extract it.
-          // When we later build a real viewer URL, we can use this to detect extensions like ".star".
-          var r = unwrapOutputRaw(outputRaw);
-          if (!r || typeof r !== "object") return "";
-          return toStringSafe(r.path || r.filePath || r.fileName || r._objValue || r.value || "");
-        }
-
-        function getOutputValue(outputRaw) {
-          // Extract the minimal pointer-like value often used by the server (e.g. "84.CTFTomoSeries")
-          var r = unwrapOutputRaw(outputRaw);
-          if (!r || typeof r !== "object") return "";
-          return toStringSafe(r.value || r._objValue || "");
-        }
-
-        function getOutputInfo(outputRaw) {
-          // Extract the human readable summary string if present (e.g. "SetOfCTFTomoSeries (1 items)")
-          var r = unwrapOutputRaw(outputRaw);
-          if (!r || typeof r !== "object") return "";
-          return toStringSafe(r.info || "");
+        function getOutputRef(ctx) {
+          // getOutputRef
+          var o = ctx && ctx.output ? ctx.output : null;
+          return {
+            paramClass: toStringSafe(o && o.paramClass),
+            value: toStringSafe(o && o.value),
+            info: toStringSafe(o && o.info),
+          };
         }
 
         function hasStarExtension(text) {
@@ -191,8 +162,8 @@
           //   menu.externalViewers.starOutputNames = ["ctfStar", "particlesStar"]
           var list =
             menu &&
-              menu.externalViewers &&
-              Array.isArray(menu.externalViewers.starOutputNames)
+            menu.externalViewers &&
+            Array.isArray(menu.externalViewers.starOutputNames)
               ? menu.externalViewers.starOutputNames
               : [];
           if (!list || list.length === 0) return false;
@@ -214,25 +185,23 @@
         window.externalViewers.resolvers = window.externalViewers.resolvers || [];
 
         window.externalViewers.registerResolver = function registerResolver(fn) {
-          // Register a custom resolver:
-          // Use this to route specific output types to specific Flask viewers.
+          // registerResolver
           // A resolver receives the ctx and should return:
-          //   { kind: "iframe", src: "..." } OR { kind: "customElement", tag: "...", attrs: {...} } OR null.
+          //   { kind: "iframe", src: "..." }
+          //   OR { kind: "customElement", tag: "...", attrs: {...} }
+          //   OR null.
           if (typeof fn !== "function") return;
           window.externalViewers.resolvers.push(fn);
         };
 
         window.externalViewers.resolveAnalyzeViewer = function resolveAnalyzeViewer(ctx) {
           // ctx contains:
-          //   projectId, protocolId, protocolLabel, outputName, outputClass, outputRaw
+          //   projectId, protocolId, protocolLabel, outputName, pointerClass,paramClass, value, info
           var outputName = toStringSafe(ctx && ctx.outputName);
-          var outputRaw = (ctx && ctx.outputRaw) ? ctx.outputRaw : null;
-
-          var outputRawUnwrapped = unwrapOutputRaw(outputRaw);
-          var outputClass = toStringSafe((ctx && ctx.outputClass) || getOutputClass(outputRawUnwrapped));
-          var candidatePath = getCandidatePath(outputRawUnwrapped);
-          var outputValue = getOutputValue(outputRawUnwrapped);
-          var outputInfo = getOutputInfo(outputRawUnwrapped);
+          var pointerClass = toStringSafe(ctx && ctx.pointerClass);
+          var outputValue = ctx.value;
+          var outputInfo = ctx.info;
+          var outputParamClass = ctx.paramClass;
 
           // Debug switch:
           // Set window.externalViewers.debugAlways = true to force the placeholder for any output.
@@ -244,7 +213,8 @@
                 projectId: toStringSafe(ctx && ctx.projectId),
                 protocolId: toStringSafe(ctx && ctx.protocolId),
                 outputName: outputName,
-                outputClass: outputClass,
+                pointerClass: pointerClass,
+                paramClass: outputParamClass,
                 info: outputInfo,
                 value: outputValue,
                 note: "debugAlways=true: forcing placeholder for any output."
@@ -253,7 +223,7 @@
           }
 
           // Custom resolvers first:
-          // If any registered resolver returns non-null, that viewer wins.
+          // If no resolvers are registered yet, this loop is a no-op (resolvers.length === 0).
           var resolvers = window.externalViewers.resolvers || [];
           for (var i = 0; i < resolvers.length; i++) {
             try {
@@ -264,7 +234,6 @@
             }
           }
 
-
           //---------------------------------------------------------------------------------------------
           // Built-in STAR rule:
           // For STAR-like outputs we currently show a placeholder (so we can validate the data flow).
@@ -272,9 +241,9 @@
 
           var shouldUseStarRule =
             hasStarExtension(outputName) ||
-            hasStarExtension(candidatePath) ||
+            hasStarExtension(outputValue) ||
             isStarOutputName(outputName) ||
-            /(^|[^a-z])star([^a-z]|$)/i.test(outputClass);
+            /(^|[^a-z])star([^a-z]|$)/i.test(pointerClass);
 
           if (shouldUseStarRule) {
             // When we create the Flask endpoint, switch to an iframe like this:
@@ -283,7 +252,8 @@
             //   projectId: ctx && ctx.projectId,
             //   protocolId: ctx && ctx.protocolId,
             //   outputName: outputName,
-            //   outputClass: outputClass,
+            //   pointerClass: pointerClass,
+            //   paramClass: outputParamClass,
             //   value: outputValue,
             //   info: outputInfo
             // });
@@ -298,10 +268,11 @@
                 projectId: toStringSafe(ctx && ctx.projectId),
                 protocolId: toStringSafe(ctx && ctx.protocolId),
                 outputName: outputName,
-                outputClass: outputClass,
+                pointerClass: pointerClass,
+                paramClass: outputParamClass,
                 info: outputInfo,
                 value: outputValue,
-                note: "STAR-like output detected. Replace this placeholder with a real iframe viewer when ready."
+                note: "STAR-like output detected. Replace this placeholder with a real viewer when ready."
               }
             };
           }
@@ -316,7 +287,8 @@
               projectId: toStringSafe(ctx && ctx.projectId),
               protocolId: toStringSafe(ctx && ctx.protocolId),
               outputName: outputName,
-              outputClass: outputClass,
+              pointerClass: pointerClass,
+              paramClass: outputParamClass,
               info: outputInfo,
               value: outputValue,
               note: "This is a generic placeholder. No external viewer matched this output."
@@ -328,13 +300,15 @@
         // Uncomment and adjust when you add real viewer endpoints in Flask.
         //
         // window.externalViewers.registerResolver(function (ctx) {
-        //   var cls = ctx && ctx.outputClass ? String(ctx.outputClass) : "";
+        //   var cls = ctx && ctx.pointerClass ? String(ctx.pointerClass) : "";
         //   var name = ctx && ctx.outputName ? String(ctx.outputName) : "";
+        //   var out = ctx && ctx.output ? ctx.output : {};
         //   if (cls === "myOutput" || name === "myOutput") {
         //     var src = "/viewers/my-output" +
         //       "?projectId=" + encodeURIComponent(ctx.projectId) +
         //       "&protocolId=" + encodeURIComponent(ctx.protocolId) +
-        //       "&outputName=" + encodeURIComponent(name);
+        //       "&outputName=" + encodeURIComponent(name) +
+        //       "&value=" + encodeURIComponent(out.value || "");
         //     return { kind: "iframe", title: "My Output Viewer", src: src };
         //   }
         //   return null;
@@ -365,12 +339,20 @@
         },
 
         executeProtocol(projectId, protocolId, protocolClassName, params) {
-          alert(`EXECUTING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+          alert(
+            "EXECUTING protocol: " + protocolId +
+            ", class: " + protocolClassName +
+            ", params: \n" + JSON.stringify(params, null, 4)
+          );
           return { status: 1, errors: ["Not yet implemented"] };
         },
 
         saveProtocol(projectId, protocolId, protocolClassName, params) {
-          alert(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+          alert(
+            "SAVING protocol: " + protocolId +
+            ", class: " + protocolClassName +
+            ", params: \n" + JSON.stringify(params, null, 4)
+          );
           return { status: 1, errors: ["Not yet implemented"] };
         },
 
@@ -434,9 +416,7 @@
 
       function unmountList() {
         if (listRoot && listRoot.unmount) {
-          try {
-            listRoot.unmount();
-          } catch (e) { }
+          try { listRoot.unmount(); } catch (e) { }
         }
         listRoot = null;
         var host = $(listHostSel);
@@ -445,9 +425,7 @@
 
       function unmountDetail() {
         if (detailRoot && detailRoot.unmount) {
-          try {
-            detailRoot.unmount();
-          } catch (e) { }
+          try { detailRoot.unmount(); } catch (e) { }
         }
         detailRoot = null;
         var host = $(protocolDetailHostSel);
@@ -465,8 +443,7 @@
 
         function tryMount() {
           var api = window.MyProjectsWidget || window.ProjectPageWidget || window.MyWidgets;
-          var mountFn =
-            api && (api.mountProjectPageWidget || api.mountProjectPage || api.mountPage);
+          var mountFn = api && (api.mountProjectPageWidget || api.mountProjectPage || api.mountPage);
           if (!mountFn) {
             console.warn("[host] Project page widget not ready, retrying...");
             setTimeout(tryMount, 50);
@@ -476,7 +453,6 @@
           try {
             if (currentProjectId !== projectId) {
               unmountList();
-              // ensureDomRoots();
               showPageOnly();
             }
 
@@ -524,8 +500,6 @@
       }
 
       function openProtocolDetail(projectId, protocolId, prefetchedDetail) {
-        // ensureDomRoots();
-
         var api = null;
         if (window.MyProjectsWidget && window.MyProjectsWidget.mountProtocolDetailWidget) {
           api = { mountProtocolDetailWidget: window.MyProjectsWidget.mountProtocolDetailWidget };
@@ -570,11 +544,18 @@
 
           currentDetailKey = key;
           try {
-            history.pushState(null, "", "/project/" + encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId));
+            history.pushState(
+              null,
+              "",
+              "/project/" + encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId)
+            );
           } catch (e) { }
           console.log("[host] protocol detail mounted:", key);
         } catch (err) {
-          target.innerHTML = '<pre class="error">ProtocolDetailWidget error:\n' + String(err && (err.stack || err)) + "</pre>";
+          target.innerHTML =
+            '<pre class="error">ProtocolDetailWidget error:\n' +
+            String(err && (err.stack || err)) +
+            "</pre>";
           console.error(err);
         }
       }

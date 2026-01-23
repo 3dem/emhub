@@ -50,24 +50,24 @@
   var menu = {{ menu | tojson }};
 
 
-  function request(url, args){
-      jQuery.extend(args, get_project_args);
-        return $.ajax({
-            url: url,
-            type: "POST",
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify({attrs: args}),
-            dataType: "json"
-        });
-    }
+  function request(url, args) {
+    jQuery.extend(args, get_project_args);
+    return $.ajax({
+      url: url,
+      type: "POST",
+      contentType: 'application/json; charset=utf-8',
+      data: JSON.stringify({ attrs: args }),
+      dataType: "json"
+    });
+  }
 
   async function loadJobDetails(jobId, jobType) {
     // Load only the values (json) if we already have that form
     // in the all_forms cache
     var result = {
-        info: {},
-        form: {},
-        values: {}
+      info: {},
+      form: {},
+      values: {}
     }
 
     // Request json data if jobId != null
@@ -75,12 +75,12 @@
 
     // Only request form if not already requested
     if (jobType in all_forms)
-        result.form = all_forms[jobType]
+      result.form = all_forms[jobType]
     else
-        output.push('form')
+      output.push('form')
 
     if (output.length == 0)  // Nothing to request
-        return result;
+      return result;
 
     var args = {
       run_id: jobId,
@@ -158,7 +158,7 @@
       // This is the only integration point needed on the Flask side to plug in external viewers.
       (function initExternalViewersBridge() {
 
-           // Placeholder custom element:
+        // Placeholder custom element:
         // This is a simple viewer to verify the bridge works before we have a real Flask viewer.
         // Later we can replace the placeholder with:
         // - kind: "iframe" pointing to a Flask route, or
@@ -228,23 +228,24 @@
         })();
 
         window.externalViewers = {
-            resolveAnalyzeViewer: function (ctx) {
-                console.log(">>>> CTX: ", JSON.stringify(ctx, null, 4));
+          resolveAnalyzeViewer: function (ctx) {
+            console.log(">>>> CTX: ", JSON.stringify(ctx, null, 4));
 
-                return {
-                  kind: "customElement",
-                  tag: "viewer-placeholder",
-                  attrs: {
-                    projectId: ctx.projectId,
-                    protocolId: ctx.parentId,
-                    outputName: ctx.outputName,
-                    outputClass: ctx.pointerClass,
-                    info: ctx.info,
-                    value: ctx.value,
-                    note: "debugAlways=true: forcing placeholder for any output."
-                  }
-                };
-            }
+            return {
+              kind: "customElement",
+              tag: "viewer-placeholder",
+              attrs: {
+                projectId:  ctx.projectId,
+                protocolId: ctx.protocolId,
+                outputName: ctx.outputName,
+                pointerClass: ctx.pointerClass,
+                paramClass: ctx.paramClass,
+                info: ctx.info,
+                value: ctx.value,
+                note: "debugAlways=true: forcing placeholder for any output."
+              }
+            };
+          }
         };
 
       })();
@@ -267,25 +268,25 @@
         },
 
         executeProtocol(projectId, protocolId, protocolClassName, params) {
-            alert(`EXECUTING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
-            return {status: 1, errors: ["Not yet implemented"]};
+          alert(`EXECUTING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+          return { status: 1, errors: ["Not yet implemented"] };
         },
 
         async saveProtocol(projectId, protocolId, protocolClassName, params) {
           console.log(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
           //return {status: 1, errors: ["Not yet implemented"]};
-            var args = {
-                run_id: protocolId,
-                job_type: protocolClassName,
-                params: params
-            };
+          var args = {
+            run_id: protocolId,
+            job_type: protocolClassName,
+            params: params
+          };
 
-            try {
-                var data = await request(Api.urls.save_job, args);
-                return {status: 0};
-            } catch (error) {
-                return {status: 1, errors: [error.statusText]}
-            }
+          try {
+            var data = await request(Api.urls.save_job, args);
+            return { status: 0 };
+          } catch (error) {
+            return { status: 1, errors: [error.statusText] }
+          }
 
         },
 
@@ -301,7 +302,7 @@
 
         // workflows API
         async fetchProjectWorkflows() {
-            return menu.workflows;
+          return menu.workflows;
         },
 
         async applyWorkflowToProject(projectId, workflowId) {
@@ -311,10 +312,10 @@
 
         // Load protocols API      
         async loadProtocols(projectId) {
-            return menu.protocols;
+          return menu.protocols;
         },
 
-      async fetchNewProtocolDetails(projectId, protocolClass) {
+        async fetchNewProtocolDetails(projectId, protocolClass) {
           return await loadJobDetails(null, protocolClass);
         }
 
