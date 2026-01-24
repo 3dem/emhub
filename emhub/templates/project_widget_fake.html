@@ -10,20 +10,35 @@
 
 <div class="card h-100 col-12">
   <div class="card-body">
+
     <div id="project-widget-root" class="projectpage-widget-root">
       <div id="projects-page-root">
         <div class="grid" id="grid">
+          <!-- Optional list host (your JS references it as #projects-host) -->
           <div id="projects-host" class="hidden"></div>
+
+          <!-- Project page -->
           <div id="project-page-host"></div>
+
+          <!-- Optional protocol detail host (your JS references it as #protocol-detail-host) -->
           <div id="protocol-detail-host" class="hidden"></div>
+
+          <!-- Optional portal root for overlays/menus if you later decide to use it -->
           <div class="projectpage-portal-root" id="projectpage-portal-root"></div>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
 <link rel="stylesheet" href="{{ url_for('static', filename='libs/css/projectpage-widget.css') }}?v=1" />
+
+<!-- External ProjectsApiClient -->
+{#
+<script defer src="{{ url_for('static', filename='libs/js/projects-api-client.js') }}"></script>#}
+
+<!-- UMD bundles (adjust paths if needed) -->
 <script defer src="{{ url_for('static', filename='libs/js/projectpage-widget.js') }}"></script>
 
 <script>
@@ -34,6 +49,7 @@
   var menu = project_json.menu;
   var project_id = workflow.id;
   var get_project_args = {};
+
 
   (function () {
     "use strict";
@@ -57,263 +73,10 @@
       var projectPageHostSel = "#project-page-host";
       var protocolDetailHostSel = "#protocol-detail-host";
 
-      // External viewers bridge:
-      // The React widget calls window.externalViewers.resolveAnalyzeViewer(ctx).
-      // If we return a descriptor (iframe or customElement), the widget embeds it inside AnalyzeOutputDialog.
-      // This is the only integration point needed on the Flask side to plug in external viewers.
-      (function initExternalViewersBridge() {
-        // Placeholder custom element:
-        // This is a simple viewer to verify the bridge works before we have a real Flask viewer.
-        // Later we can replace the placeholder with:
-        // - kind: "iframe" pointing to a Flask route, or
-        // - kind: "customElement" pointing to a real custom element implemented by us.
-        (function ensureViewerPlaceholderElement() {
-          if (customElements.get("viewer-placeholder")) return;
-
-          class ViewerPlaceholder extends HTMLElement {
-            connectedCallback() {
-              // renderPlaceholderUi
-              var projectId = this.getAttribute("projectId") || "";
-              var protocolId = this.getAttribute("protocolId") || "";
-              var outputName = this.getAttribute("outputName") || "";
-              var pointerClass = this.getAttribute("pointerClass") || "";
-
-              var paramClass = this.getAttribute("paramClass") || "";
-              var value = this.getAttribute("value") || "";
-              var info = this.getAttribute("info") || "";
-
-              var note = this.getAttribute("note") || "No external viewer is configured yet.";
-
-              var root = this.shadowRoot || this.attachShadow({ mode: "open" });
-              root.innerHTML = "";
-
-              var wrap = document.createElement("div");
-              wrap.style.boxSizing = "border-box";
-              wrap.style.width = "100%";
-              wrap.style.height = "100%";
-              wrap.style.padding = "16px";
-              wrap.style.background = "transparent";
-              wrap.style.color = "inherit";
-              wrap.style.fontFamily =
-                "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
-              wrap.style.overflow = "auto";
-
-              var title = document.createElement("div");
-              title.textContent = "External Viewer Placeholder";
-              title.style.fontSize = "16px";
-              title.style.fontWeight = "600";
-              title.style.marginBottom = "10px";
-
-              var msg = document.createElement("div");
-              msg.textContent = note;
-              msg.style.fontSize = "13px";
-              msg.style.opacity = "0.9";
-              msg.style.marginBottom = "12px";
-
-              var box = document.createElement("pre");
-              box.style.margin = "0";
-              box.style.padding = "12px";
-              box.style.borderRadius = "10px";
-              box.style.background = "rgba(0,0,0,0.04)";
-              box.style.border = "1px solid rgba(0,0,0,0.12)";
-              box.style.whiteSpace = "pre-wrap";
-              box.style.wordBreak = "break-word";
-              box.textContent =
-                "projectId: " + projectId + "\n" +
-                "protocolId: " + protocolId + "\n" +
-                "outputName: " + outputName + "\n" +
-                "pointerClass: " + pointerClass + "\n" +
-                "paramClass: " + paramClass + "\n" +
-                "info: " + info + "\n" +
-                "value: " + value + "\n";
-
-              wrap.appendChild(title);
-              wrap.appendChild(msg);
-              wrap.appendChild(box);
-              root.appendChild(wrap);
-            }
-          }
-
-          customElements.define("viewer-placeholder", ViewerPlaceholder);
-        })();
-
-        function toStringSafe(v) {
-          if (v == null) return "";
-          try { return String(v); } catch (e) { return ""; }
-        }
-
-        function getOutputRef(ctx) {
-          // getOutputRef
-          var o = ctx && ctx.output ? ctx.output : null;
-          return {
-            paramClass: toStringSafe(o && o.paramClass),
-            value: toStringSafe(o && o.value),
-            info: toStringSafe(o && o.info),
-          };
-        }
-
-        function hasStarExtension(text) {
-          return /\.star(\?.*)?$/i.test(toStringSafe(text).trim());
-        }
-
-        function isStarOutputName(outputName) {
-          // Server can provide explicit output names that should use the STAR viewer.
-          // Example menu shape:
-          //   menu.externalViewers.starOutputNames = ["ctfStar", "particlesStar"]
-          var list =
-            menu &&
-            menu.externalViewers &&
-            Array.isArray(menu.externalViewers.starOutputNames)
-              ? menu.externalViewers.starOutputNames
-              : [];
-          if (!list || list.length === 0) return false;
-          return list.indexOf(toStringSafe(outputName)) >= 0;
-        }
-
-        function buildQuery(basePath, params) {
-          var q = [];
-          for (var k in params) {
-            if (!Object.prototype.hasOwnProperty.call(params, k)) continue;
-            var v = params[k];
-            if (v == null || v === "") continue;
-            q.push(encodeURIComponent(k) + "=" + encodeURIComponent(toStringSafe(v)));
-          }
-          return basePath + (q.length ? "?" + q.join("&") : "");
-        }
-
-        window.externalViewers = window.externalViewers || {};
-        window.externalViewers.resolvers = window.externalViewers.resolvers || [];
-
-        window.externalViewers.registerResolver = function registerResolver(fn) {
-          // registerResolver
-          // A resolver receives the ctx and should return:
-          //   { kind: "iframe", src: "..." }
-          //   OR { kind: "customElement", tag: "...", attrs: {...} }
-          //   OR null.
-          if (typeof fn !== "function") return;
-          window.externalViewers.resolvers.push(fn);
-        };
-
-        window.externalViewers.resolveAnalyzeViewer = function resolveAnalyzeViewer(ctx) {
-          // ctx contains:
-          //   projectId, protocolId, protocolLabel, outputName, pointerClass,paramClass, value, info
-          var outputName = toStringSafe(ctx && ctx.outputName);
-          var pointerClass = toStringSafe(ctx && ctx.pointerClass);
-          var outputValue = ctx.value;
-          var outputInfo = ctx.info;
-          var outputParamClass = ctx.paramClass;
-
-          // Debug switch:
-          // Set window.externalViewers.debugAlways = true to force the placeholder for any output.
-          if (window.externalViewers && window.externalViewers.debugAlways === true) {
-            return {
-              kind: "customElement",
-              tag: "viewer-placeholder",
-              attrs: {
-                projectId: toStringSafe(ctx && ctx.projectId),
-                protocolId: toStringSafe(ctx && ctx.protocolId),
-                outputName: outputName,
-                pointerClass: pointerClass,
-                paramClass: outputParamClass,
-                info: outputInfo,
-                value: outputValue,
-                note: "debugAlways=true: forcing placeholder for any output."
-              }
-            };
-          }
-
-          // Custom resolvers first:
-          // If no resolvers are registered yet, this loop is a no-op (resolvers.length === 0).
-          var resolvers = window.externalViewers.resolvers || [];
-          for (var i = 0; i < resolvers.length; i++) {
-            try {
-              var r = resolvers[i](ctx);
-              if (r) return r;
-            } catch (e) {
-              console.warn("[host] external viewer resolver error:", e);
-            }
-          }
-
-          //---------------------------------------------------------------------------------------------
-          // Built-in STAR rule:
-          // For STAR-like outputs we currently show a placeholder (so we can validate the data flow).
-          // When our Flask STAR viewer exists, replace the placeholder return with kind: "iframe".
-
-          var shouldUseStarRule =
-            hasStarExtension(outputName) ||
-            hasStarExtension(outputValue) ||
-            isStarOutputName(outputName) ||
-            /(^|[^a-z])star([^a-z]|$)/i.test(pointerClass);
-
-          if (shouldUseStarRule) {
-            // When we create the Flask endpoint, switch to an iframe like this:
-            //
-            // var viewerUrl = buildQuery("/viewers/star", {
-            //   projectId: ctx && ctx.projectId,
-            //   protocolId: ctx && ctx.protocolId,
-            //   outputName: outputName,
-            //   pointerClass: pointerClass,
-            //   paramClass: outputParamClass,
-            //   value: outputValue,
-            //   info: outputInfo
-            // });
-            //
-            // return { kind: "iframe", title: "STAR Viewer", src: viewerUrl };
-            //
-
-            return {
-              kind: "customElement",
-              tag: "viewer-placeholder",
-              attrs: {
-                projectId: toStringSafe(ctx && ctx.projectId),
-                protocolId: toStringSafe(ctx && ctx.protocolId),
-                outputName: outputName,
-                pointerClass: pointerClass,
-                paramClass: outputParamClass,
-                info: outputInfo,
-                value: outputValue,
-                note: "STAR-like output detected. Replace this placeholder with a real viewer when ready."
-              }
-            };
-          }
-
-          // Generic fallback:
-          // This makes it obvious that the bridge works even when no viewer matches.
-          // If you prefer React's default message, return null here instead.
-          return {
-            kind: "customElement",
-            tag: "viewer-placeholder",
-            attrs: {
-              projectId: toStringSafe(ctx && ctx.projectId),
-              protocolId: toStringSafe(ctx && ctx.protocolId),
-              outputName: outputName,
-              pointerClass: pointerClass,
-              paramClass: outputParamClass,
-              info: outputInfo,
-              value: outputValue,
-              note: "This is a generic placeholder. No external viewer matched this output."
-            }
-          };
-        };
-
-        // Example custom resolver (disabled):
-        // Uncomment and adjust when you add real viewer endpoints in Flask.
-        //
-        // window.externalViewers.registerResolver(function (ctx) {
-        //   var cls = ctx && ctx.pointerClass ? String(ctx.pointerClass) : "";
-        //   var name = ctx && ctx.outputName ? String(ctx.outputName) : "";
-        //   var out = ctx && ctx.output ? ctx.output : {};
-        //   if (cls === "myOutput" || name === "myOutput") {
-        //     var src = "/viewers/my-output" +
-        //       "?projectId=" + encodeURIComponent(ctx.projectId) +
-        //       "&protocolId=" + encodeURIComponent(ctx.protocolId) +
-        //       "&outputName=" + encodeURIComponent(name) +
-        //       "&value=" + encodeURIComponent(out.value || "");
-        //     return { kind: "iframe", title: "My Output Viewer", src: src };
-        //   }
-        //   return null;
-        // });
-      })();
+      function showStarFile(starFile) {
+        let filePath = `/home/yunior/tmp/${starFile}`;
+        loadStarOverview(filePath, 'global');
+      }
 
       // widgetsServices
       var svc = {
@@ -336,6 +99,32 @@
           }
           console.log(JSON.stringify(data, null, 4));
           return data;
+        },
+
+        resolveAnalyzeViewer: async function (ctx) {
+          // resolveAnalyzeViewer
+          try {
+            console.log("[host] resolveAnalyzeViewer context:", ctx);
+
+            if (ctx.pointerClass == 'StarFile') {
+              showStarFile("External/job050/tilt_series.star");
+
+              // Mark as handled so the widget won't open its internal AnalyzeOutputDialog.
+              // Use a harmless hash URL to satisfy the "url must be non-empty" requirement
+              // without opening a new tab.
+              return {
+                handled: true,
+                url: "#__external_viewer__",
+                target: "_self"
+              };
+            }
+
+            return { handled: false };
+
+          } catch (err) {
+            console.warn("[host] resolveAnalyzeViewer failed, fallback to internal viewer:", err);
+            return { handled: false };
+          }
         },
 
         executeProtocol(projectId, protocolId, protocolClassName, params) {
