@@ -143,6 +143,15 @@
 
   } // loadJobDetails
 
+  async function requestAction(url, args){
+      try {
+          var data = await request(url, args);
+          return { status: 0, workflow: data.workflow };
+      } catch (error) {
+          return { status: 1, errors: [error.statusText] }
+      }
+  }
+
   (function () {
     "use strict";
 
@@ -292,14 +301,27 @@
 
       // ---------- Widgets services ----------
       var svc = {
-        fetchList() {
-          return [];
+          /* Return the list of projects */
+          fetchList() {
+              return [];
+          },
+
+        createProject(data) {
+            return null;
+        },
+        renameProject(id, newName, newDescription) {
+            return null;
+        },
+        deleteProject(id) {
+            return null;
         },
 
+        /* Get the project workflow */
         fetchProject(id) {
-          return project_details;
+            return project_details;
         },
 
+        /* Get the protocol details */
         async fetchProtocolDetails(projectId, protocolId) {
           var jobType = project_details.protocols[protocolId].type;
           var data = await loadJobDetails(protocolId, jobType);
@@ -308,39 +330,40 @@
         },
 
         executeProtocol(projectId, protocolId, protocolClassName, params) {
-            showStarFile("External/job050/tilt_series.star");
 
           // alert(`EXECUTING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
           return { status: 1, errors: ["Not yet implemented"] };
         },
 
         async saveProtocol(projectId, protocolId, protocolClassName, params) {
-          console.log(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
-          //return {status: 1, errors: ["Not yet implemented"]};
-          var args = {
-            run_id: protocolId,
-            job_type: protocolClassName,
-            params: params
-          };
+            console.log(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
+            //return {status: 1, errors: ["Not yet implemented"]};
+            var args = {
+                run_id: protocolId,
+                job_type: protocolClassName,
+                params: params
+            };
 
-          try {
-            var data = await request(Api.urls.save_job, args);
-            return { status: 0 };
-          } catch (error) {
-            return { status: 1, errors: [error.statusText] }
-          }
-
+            return requestAction(Api.urls.save_job, args);
         },
 
-        createProject(data) {
-          return null;
+        async deleteProtocol(projectId, protocolIds) {
+            let ids = JSON.stringify(protocolIds, null, 4);
+            console.log(`DELETING protocols: \n${ids}`);
+            // return { status: 1, errors: [`Refusing to delete jobs: ${ids}`] };
+            return requestAction(Api.urls.delete_job, {run_id: protocolIds[0]})
         },
-        renameProject(id, newName, newDescription) {
-          return null;
-        },
-        deleteProject(id) {
-          return null;
-        },
+
+          async duplicateProtocol(projectId, items) {
+            // items: { id: string; name?: string }[],
+              var protocolIds = [];
+              for (var i = 0; i < items.length; i++){
+                  protocolIds.push(items[i].id);
+              }
+              let ids = JSON.stringify(protocolIds, null, 4);
+              console.log(`DUPLICATING protocols: \n${ids}`);
+              return { status: 1, errors: [`Refusing to duplicate jobs: ${ids}`] };
+          },
 
         // workflows API
         async fetchProjectWorkflows() {
@@ -359,6 +382,39 @@
 
         async fetchNewProtocolDetails(projectId, protocolClass) {
           return await loadJobDetails(null, protocolClass);
+        },
+
+        resolveAnalyzeViewer: async function (ctx) {
+          // resolveAnalyzeViewer
+          try {
+            console.log("[host] resolveAnalyzeViewer context:", ctx);
+
+            if (ctx.pointerClass == 'StarFile') {
+                // showStarFile(ctx.value);
+                let args = {
+                    tomo_session: JSON.stringify({
+                        path: project_details.path,
+                        tomograms_star: ctx.value
+                    })
+                }
+                load_overview(ctx.value, get_ajax_content('tomo_session_content', args));
+
+                // Mark as handled so the widget won't open its internal AnalyzeOutputDialog.
+                // Use a harmless hash URL to satisfy the "url must be non-empty" requirement
+                // without opening a new tab.
+                return {
+                    handled: true,
+                    url: "#__external_viewer__",
+                    target: "_self"
+                };
+            }
+
+            return { handled: false };
+
+          } catch (err) {
+            console.warn("[host] resolveAnalyzeViewer failed, fallback to internal viewer:", err);
+            return { handled: false };
+          }
         }
 
       };
