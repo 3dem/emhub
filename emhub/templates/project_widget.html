@@ -220,7 +220,7 @@
               throw new Error(data.error);
           project_details.protocols = data.workflow;
           cache.refresh();  // Update cache timestamp after modifying project_details
-          return { status: 0 };
+          //return { status: 0 };
       } catch (error) {
           if ("responseText" in error)
               showError(error.responseText);
@@ -230,9 +230,10 @@
               showError("Received unknown error");
               console.log(JSON.stringify(error, null, 4));
           }
-          return {status: 0};
+          //return {status: 0};
           // return { status: 1, errors: [error.statusText] }
       }
+      return {status: 0, errors: []}
   }
 
   (function () {
