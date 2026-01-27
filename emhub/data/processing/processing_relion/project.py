@@ -141,9 +141,17 @@ class RelionSessionData(SessionData):
         """ Return the run_id for the ctfs used for the general session overview. """
         return self.session['micrographs']
 
-    def get_workflow(self, update=False):
+    def get_workflow(self, update=False, widget=False):
+        """ Return the internal workflow.
+        Args:
+            update: If True, force a load of the workflow, ignoring cached data
+            widget: if True, convert the workflow to the expected structure of the UI widget
+        """
         if update:
             self.workflow = RelionStar.pipeline_to_workflow(self.join('default_pipeline.star'))
+
+        if widget:
+            return SessionData.get_widget_protocols(self.workflow)
 
         protList = []
         status_map = {
@@ -182,9 +190,6 @@ class RelionSessionData(SessionData):
                 'status': status_map.get(job['status'], job['status']),
                 'type': job['jobtype']
             })
-        #
-        # with open('workflow.json', 'w') as f:
-        #     json.dump(protList, f, indent=4)
 
         return protList
 
