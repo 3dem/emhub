@@ -645,6 +645,15 @@ def _loadFileLines(fn):
 
     return result
 
+
+def get_project_manager(**attrs):
+    dm = app.dm
+    pp = dm.get_processing_project(**attrs)
+    project = pp['project']
+    from emwrap.base import ProjectManager
+    return pp, ProjectManager(project.path)
+
+
 @api_bp.route('/get_session_workflow', methods=['POST'])
 @flask_login.login_required
 def get_session_workflow():
@@ -653,15 +662,10 @@ def get_session_workflow():
     Processing project can be loaded from a session_id
     or an entry_id
     """
-    dm = app.dm
-
     def _get_workflow(**attrs):
-        pp = dm.get_processing_project(**attrs)
-        project = pp['project']
-        from emwrap.base import ProjectManager
-        pm = ProjectManager(project.path)
+        pp, pm = get_project_manager(**attrs)
         pm.update()
-        return project.get_workflow(update=True)
+        return pp['project'].get_workflow(update=True)
 
     return _handle_item(_get_workflow, 'workflow')
 
@@ -674,11 +678,8 @@ def get_session_run():
     Processing project can be loaded from a session_id
     or an entry_id
     """
-    dm = app.dm
-
     def _get_run(**attrs):
-        pp = dm.get_processing_project(**attrs)
-        project = pp['project']
+        pp, pm = get_project_manager(**attrs)
         run = pp['run']
         jobtype = run.jobtype if run else attrs['job_type']
         outputs = attrs.get('output', ['json'])
@@ -697,7 +698,7 @@ def get_session_run():
 
         if 'form' in outputs:
             values = run.values if run else None
-            results['form'] = project.get_form_definition(jobtype, jobValues=values)
+            results['form'] = pp['project'].get_form_definition(jobtype, jobValues=values)
 
         return results
 
@@ -712,25 +713,58 @@ def save_job():
     Processing project can be loaded from a session_id
     or an entry_id
     """
-    dm = app.dm
-
     def _save_job(**attrs):
-        pp = dm.get_processing_project(**attrs)
-        project = pp['project']
+        pp, pm = get_project_manager(**attrs)
         run = pp['run']
         jobtype = run.jobtype if run else attrs['job_type']
         params = attrs['params']
-
-        from emwrap.base import ProjectManager
-        pm = ProjectManager(project.path)
         jobTypeOrId = run.id if run else jobtype
         job = pm.saveJob(jobTypeOrId, params)
         return {
             'id': job.id,
-            'workflow': project.get_workflow(update=True)
+            'workflow': pp['project'].get_workflow(update=True,
+                                                   widget=attrs.get('widget', False))
         }
 
     return _handle_item(_save_job, 'job')
+
+@api_bp.route('/duplicate_jobs', methods=['POST'])
+@flask_login.login_required
+def duplicate_jobs():
+    """ This method will duplicate one or more jobs. """
+    def _duplicate_jobs(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        jobIds = attrs['run_ids']
+        new_job_ids = pm.duplicateJobs(jobIds)
+        return {
+            'ids': new_job_ids,
+            'workflow': pp['project'].get_workflow(update=True,
+                                                   widget=attrs.get('widget', False))
+        }
+
+    return _handle_item(_duplicate_jobs, 'job')
+
+
+@api_bp.route('/load_workflow', methods=['POST'])
+@flask_login.login_required
+def load_workflow():
+    """
+    This method will retrieve a run instance.
+    Processing project can be loaded from a session_id
+    or an entry_id
+    """
+    def _load_workflow(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        workflowJobs = json.loads(attrs['workflow_jobs'])
+        new_job_ids = pm.loadWorkflow(workflowJobs)
+        return {
+            'ids': new_job_ids,
+            'workflow': pp['project'].get_workflow(update=True,
+                                                   widget=attrs.get('widget', False))
+        }
+
+    return _handle_item(_load_workflow, 'job')
+
 
 @api_bp.route('/launch_job', methods=['POST'])
 @flask_login.login_required
@@ -740,47 +774,37 @@ def launch_job():
     Processing project can be loaded from a session_id
     or an entry_id
     """
-    dm = app.dm
-
     def _launch_job(**attrs):
-        pp = dm.get_processing_project(**attrs)
-        project = pp['project']
+        pp, pm = get_project_manager(**attrs)
         run = pp['run']
         jobtype = run.jobtype if run else attrs['job_type']
         params = attrs['params']
-
-        from emwrap.base import ProjectManager
-        pm = ProjectManager(project.path)
         jobTypeOrId = run.id if run else jobtype
         job = pm.runJob(jobTypeOrId, params, clean=attrs['clean'])
         return {
             'id': job.id,
-            'workflow': project.get_workflow(update=True)
+            'workflow': pp['project'].get_workflow(update=True,
+                                                   widget=attrs.get('widget', False))
         }
 
     return _handle_item(_launch_job, 'job')
 
 
-@api_bp.route('/delete_job', methods=['POST'])
+@api_bp.route('/delete_jobs', methods=['POST'])
 @flask_login.login_required
-def delete_job():
+def delete_jobs():
     """
     This method will retrieve a run instance.
     Processing project can be loaded from a session_id
     or an entry_id
     """
-    dm = app.dm
-
     def _delete_job(**attrs):
-        pp = dm.get_processing_project(**attrs)
-        project = pp['project']
-        run = pp['run']
-        from emwrap.base import ProjectManager
-        pm = ProjectManager(project.path)
-        pm.deleteJob(run.id)
+        pp, pm = get_project_manager(**attrs)
+        ids = pm.deleteJobs(attrs['run_ids'])
         result = {
-            'id': run.id,
-            'workflow': project.get_workflow(update=True)
+            'id': ids,
+            'workflow': pp['project'].get_workflow(update=True,
+                                                   widget=attrs.get('widget', False))
         }
         return result
 
