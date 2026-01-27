@@ -64,6 +64,57 @@
   var all_forms = {};
   var menu = {{ menu | tojson }};
 
+  var workflows = {
+      "Warp Tutorial": {
+          description: "Basic steps to follow the Warp tutorial",
+          jobs: [
+              {
+                  jobid: "External/job001",
+                  jobtype: "emw-import-ts",
+                  params: {
+                    "mdoc_files": "data/Position*[1-9].mdoc",
+                    "tilt_axis_angle": "850",
+                    "wait.timeout": "1",
+                    "wait.file_change": "1",
+                    "wait.sleep": "1",
+                    "tilt_images": "data/",
+                    "acq.gain": "",
+                    "acq.pixel_size": "1.91",
+                    "acq.voltage": "300",
+                    "acq.cs": "2.7",
+                    "acq.amplitude_constrast": "0.1",
+                    "acq.total_dose": "3.5",
+                    "gain_file": ""
+                    }
+                },
+              {
+                  jobid: "External/job002",
+                  jobtype: "emw-warp-mctf",
+                  params: {
+                      "fs_motion_and_ctf.perdevice": "2",
+                        "fs_motion_and_ctf.m_range_min": "500",
+                        "fs_motion_and_ctf.m_range_max": "10",
+                        "fs_motion_and_ctf.m_bfac": "-500",
+                        "fs_motion_and_ctf.m_grid": "5x5",
+                        "fs_motion_and_ctf.c_range_min": "30",
+                        "fs_motion_and_ctf.c_range_max": "4",
+                        "fs_motion_and_ctf.c_defocus_min": "0.5",
+                        "fs_motion_and_ctf.c_defocus_max": "5",
+                        "fs_motion_and_ctf.c_window": "512",
+                        "fs_motion_and_ctf.c_grid": "1x1",
+                        "gpus": "4",
+                        "input_tiltseries": "External/job001/tilt_series.star",
+                        "create_settings.bin_angpix": "0",
+                        "create_settings.eer_ngroups": "",
+                        "fs_motion_and_ctf.c_use_sum": false,
+                        "fs_motion_and_ctf.out_averages": false,
+                        "fs_motion_and_ctf.out_average_halves": false
+                  }
+              }
+          ]
+      }
+  }
+
 
   function request(url, args) {
     jQuery.extend(args, get_project_args);
@@ -145,10 +196,16 @@
 
   async function requestAction(url, args){
       try {
+          args.widget = true;  // Request the workflow response to be compatible with the project widget
           var data = await request(url, args);
-          return { status: 0, workflow: data.workflow };
+          if ('error' in data)
+              throw new Error(data.error);
+          project_details.protocols = data.job.workflow;
+          return { status: 0 };
       } catch (error) {
-          return { status: 1, errors: [error.statusText] }
+          showError(error.message);
+          return {status: 0};
+          // return { status: 1, errors: [error.statusText] }
       }
   }
 
@@ -180,125 +237,6 @@
         loadStarOverview(filePath, 'global');
       }
 
-      function addHtmlContent(parent) {
-         var box = document.createElement("pre");
-              box.style.margin = "0";
-              box.style.padding = "12px";
-              box.style.borderRadius = "10px";
-              box.style.background = "rgba(0,0,0,0.04)";
-              box.style.border = "1px solid rgba(0,0,0,0.12)";
-              box.style.whiteSpace = "pre-wrap";
-              box.style.wordBreak = "break-word";
-              box.textContent =
-                "projectId: " + projectId + "\n" +
-                "protocolId: " + protocolId + "\n" +
-                "outputName: " + outputName + "\n" +
-                "outputClass: " + outputClass + "\n" +
-                "info: " + info + "\n" +
-                "value: " + value + "\n";
-        parent.appendChild(box);
-      }
-
-
-      // External viewers bridge:
-      // The React widget calls window.externalViewers.resolveAnalyzeViewer(ctx).
-      // If we return a descriptor (iframe or customElement), the widget embeds it inside AnalyzeOutputDialog.
-      // This is the only integration point needed on the Flask side to plug in external viewers.
-      (function initExternalViewersBridge() {
-
-        // Placeholder custom element:
-        // This is a simple viewer to verify the bridge works before we have a real Flask viewer.
-        // Later we can replace the placeholder with:
-        // - kind: "iframe" pointing to a Flask route, or
-        // - kind: "customElement" pointing to a real custom element implemented by us.
-        (function ensureViewerPlaceholderElement() {
-          if (customElements.get("viewer-placeholder")) return;
-
-          class ViewerPlaceholder extends HTMLElement {
-            connectedCallback() {
-              // Render placeholder UI.
-              // It prints the context data so we can confirm what the React modal is passing to this bridge.
-              var projectId = this.getAttribute("projectId") || "";
-              var protocolId = this.getAttribute("protocolId") || "";
-              var outputName = this.getAttribute("outputName") || "";
-              var outputClass = this.getAttribute("outputClass") || "";
-              var value = this.getAttribute("value") || "";
-              var info = this.getAttribute("info") || "";
-              var note = this.getAttribute("note") || "No external viewer is configured yet.";
-
-              var root = this.attachShadow({ mode: "open" });
-              var wrap = document.createElement("div");
-              wrap.style.boxSizing = "border-box";
-              wrap.style.width = "100%";
-              wrap.style.height = "100%";
-              wrap.style.padding = "16px";
-              wrap.style.background = "transparent";
-              wrap.style.color = "inherit";
-              wrap.style.fontFamily = "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
-              wrap.style.overflow = "auto";
-
-              var title = document.createElement("div");
-              title.textContent = `External Viewer:  ${value}`;
-              title.style.fontSize = "16px";
-              title.style.fontWeight = "600";
-              title.style.marginBottom = "10px";
-
-              var msg = document.createElement("div");
-              msg.textContent = note;
-              msg.style.fontSize = "13px";
-              msg.style.opacity = "0.9";
-              msg.style.marginBottom = "12px";
-
-             var content = document.createElement("div");
-             var loadingHtml = '<h3 class="mt-2 mr-3 text-black-50">Loading...</h3><div class="spinner"></div>';
-             content.innerHTML = loadingHtml;
-             content.id = "viewer-content";
-
-             {# setTimeout(function (){#}
-             {#    content.innerHTML = "<label>Loaded<label>";#}
-             {# }, 3000);#}
-
-             var ajaxContent = get_ajax_content('processing_star_overview',
-                 {file_path: `${project_details.path}/${value}`});
-             ajaxContent.done(function(html) {
-                content.innerHTML = html;
-            });
-            ajaxContent.fail(ajax_request_failed);
-
-              wrap.appendChild(title);
-              wrap.appendChild(msg);
-              wrap.appendChild(content);
-              root.appendChild(wrap);
-
-            }
-          }
-
-          customElements.define("viewer-placeholder", ViewerPlaceholder);
-        })();
-
-        window.externalViewers = {
-          resolveAnalyzeViewer: function (ctx) {
-            console.log(">>>> CTX: ", JSON.stringify(ctx, null, 4));
-
-            return {
-              kind: "customElement",
-              tag: "viewer-placeholder",
-              attrs: {
-                projectId:  ctx.projectId,
-                protocolId: ctx.protocolId,
-                outputName: ctx.outputName,
-                pointerClass: ctx.pointerClass,
-                paramClass: ctx.paramClass,
-                info: ctx.info,
-                value: ctx.value,
-                note: "debugAlways=true: forcing placeholder for any output."
-              }
-            };
-          }
-        };
-
-      })();
-
       // ---------- Widgets services ----------
       var svc = {
           /* Return the list of projects */
@@ -318,6 +256,12 @@
 
         /* Get the project workflow */
         fetchProject(id) {
+             var ids = [];
+             for (const [key, value] of Object.entries(project_details.protocols)) {
+                ids.push(key);
+              //console.log(`${key} is ${value}`);
+             }
+             console.log("fetchProject: " + ids.length + "\n" + JSON.stringify(ids, null, 4));
             return project_details;
         },
 
@@ -325,8 +269,7 @@
         async fetchProtocolDetails(projectId, protocolId) {
           var jobType = project_details.protocols[protocolId].type;
           var data = await loadJobDetails(protocolId, jobType);
-          //console.log(JSON.stringify(data, null, 4));
-          return data
+          return data;
         },
 
         executeProtocol(projectId, protocolId, protocolClassName, params) {
@@ -336,22 +279,18 @@
         },
 
         async saveProtocol(projectId, protocolId, protocolClassName, params) {
-            console.log(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
-            //return {status: 1, errors: ["Not yet implemented"]};
             var args = {
                 run_id: protocolId,
                 job_type: protocolClassName,
                 params: params
             };
-
             return requestAction(Api.urls.save_job, args);
         },
 
         async deleteProtocol(projectId, protocolIds) {
             let ids = JSON.stringify(protocolIds, null, 4);
             console.log(`DELETING protocols: \n${ids}`);
-            // return { status: 1, errors: [`Refusing to delete jobs: ${ids}`] };
-            return requestAction(Api.urls.delete_job, {run_id: protocolIds[0]})
+            return requestAction(Api.urls.delete_jobs, {run_ids: protocolIds})
         },
 
           async duplicateProtocol(projectId, items) {
@@ -362,16 +301,31 @@
               }
               let ids = JSON.stringify(protocolIds, null, 4);
               console.log(`DUPLICATING protocols: \n${ids}`);
-              return { status: 1, errors: [`Refusing to duplicate jobs: ${ids}`] };
+              return requestAction(Api.urls.duplicate_jobs, {run_ids: protocolIds});
+              // return { status: 1, errors: [`Refusing to duplicate jobs: ${ids}`] };
           },
 
         // workflows API
-        async fetchProjectWorkflows() {
-          return menu.workflows;
+        async fetchWorkflows() {
+            var workflows_list = [];
+            for (const [key, value] of Object.entries(workflows)) {
+                workflows_list.push({
+                    name: key,
+                    description: value.description
+                });
+             }
+            return workflows_list;
         },
 
-        async applyWorkflowToProject(projectId, workflowId) {
-          return { success: true };
+        async loadWorkflow(projectId, workflowInfo) {
+            let workflowId = workflowInfo.workflowId;
+            if (workflowId in workflows) {
+                let w = workflows[workflowId];
+                return requestAction(Api.urls.load_workflow, {workflow_jobs: JSON.stringify(w.jobs)})
+            }
+            else {
+                showError("Unknown workflow: " + workflowId);
+            }
         },
 
 
@@ -387,8 +341,6 @@
         resolveAnalyzeViewer: async function (ctx) {
           // resolveAnalyzeViewer
           try {
-            console.log("[host] resolveAnalyzeViewer context:", ctx);
-
             if (ctx.pointerClass == 'StarFile') {
                 // showStarFile(ctx.value);
                 let args = {
@@ -589,7 +541,6 @@
           try {
             history.pushState(null, "", "/project/" + encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId));
           } catch (e) { }
-          console.log("[host] protocol detail mounted:", key);
         } catch (err) {
           target.innerHTML = '<pre class="error">ProtocolDetailWidget error:\n' + String(err && (err.stack || err)) + "</pre>";
           console.error(err);
