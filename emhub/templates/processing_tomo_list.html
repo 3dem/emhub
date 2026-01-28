@@ -29,7 +29,7 @@
 
                         <div class="card-header d-flex" style="background-color: {{ card_color }};">
 
-                            {% set url = url_for_content('tomo_session', tomo_session_id=tp['id'], workflow=1) %}
+                            {% set url = url_for_content('tomo_session', tomo_session_id=tp['id'], mode="workflow") %}
                             
                             <a class="mb-0" href="{{ url }}"><h5>{{ tp['title'] }}</h5></a>
                             <div class=" ml-auto row">

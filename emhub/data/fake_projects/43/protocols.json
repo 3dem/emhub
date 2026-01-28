@@ -1,26 +1,35 @@
-
- {
-      "134": {
-        "info": {
-          "label": "3D non-uniform refinement",
-          "protocolName": "protNonUniform3DRefinement_1",
-          "status": "finished",
-          "expertLevel": true,
-          "color": "#D2F5CB",
-          "projectName": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
-          "projectId": 44,
-          "packageLogo": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification/cryosparc2_logo.png",
-          "protocolId": 134,
-          "hosts": [
-            "localhost"
-          ],
-          "favicon": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification/favicon",
-          "protocolClassName": "ProtCryoSparcNewNonUniformRefine3D",
-          "stdoutLog": "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stdout",
-          "stderrLog": "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stderr",
-          "scheduleLog": "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/schedule.log"
-        },
-        "values": {
+{
+  "134": {
+    "info": {
+      "label": "3D non-uniform refinement",
+      "protocolName": "protNonUniform3DRefinement_1",
+      "status": "finished",
+      "expertLevel": true,
+      "color": "#D2F5CB",
+      "projectName": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
+      "projectId": 44,
+      "packageLogo": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification/cryosparc2_logo.png",
+      "protocolId": 134,
+      "hosts": [
+        "localhost"
+      ],
+      "favicon": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification/favicon",
+      "protocolClassName": "ProtCryoSparcNewNonUniformRefine3D",
+      "stdoutLog": "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stdout",
+      "stderrLog": "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stderr",
+      "scheduleLog": "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/schedule.log",
+      "outputs": [
+        {
+          "outputName": "outputStar",
+          "paramClass": "PointerParam",
+          "pointerClass": "StarFile",
+          "info": "particles.star",
+          "value": "/home/yun/particles.star",
+          "parentId": 134
+        }
+      ]
+    },
+    "values": {
       "runName": "protNonUniform3DRefinement_1",
       "_objComment": "",
       "_useQueue": false,
@@ -84,5 +93,5 @@
       "refine_nu_order": 8,
       "refine_nu_awf": 3
     }
-    }
   }
+}

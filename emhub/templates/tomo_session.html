@@ -7,55 +7,10 @@
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = "Tomo Session" %}
-    {% set navigation = [('Tomo Sessions', url_for_content('processing_tomo_list')),
-                         ('Session Overview', '')] %}
+    {% set navigation = [('Tomo Processing', url_for_content('processing_tomo_list')),
+                         ('Project %s'|format(tomo_session_id), ''),
+                         ('Path: %s'|format(tomo_session['path']), '')] %}
     {% include 'include_header.html' %}
-
-    <div class="card card-body">
-        <div class="row">
-            <div class="col-8">
-                <form id="tomo_session_form">
-{#                    {{ macros.session_dialog_row('Session Path', 'path', tomo_session['path'], 'Provide session path') }}#}
-
-                    <div class="form-group row ">
-                        <label class="col-3 col-form-label text-right">Session Path</label>
-                        <div class="col-6">
-                            <input type="text" required="" id="session_path" class="form-control" readonly
-                                   value="{{ tomo_session['path'] }}" data-key="path">
-                        </div>
-                        <div class="col-2">
-                        </div>
-                    </div>
-
-                    {% if folders %}
-                        {{ macros.session_dialog_row('Tomograms List', 'tomograms', tomo_session['tomograms'], 'Provide tomograms folder') }}
-                        {{ macros.session_dialog_row('Reconstruction', 'reconstruction', tomo_session['reconstruction'], 'Provide reconstruction folder') }}
-                        {{ macros.session_dialog_row('Picking', 'picking', tomo_session['picking'], 'Provide Pytom picking path') }}
-                    {% else %}
-                            <div class="form-group row ">
-                                <label class="col-3 col-form-label text-right">Tomograms STAR</label>
-                                <div class="col-6">
-                                    <input type="text" required="" placeholder="Provide tomograms STAR file" id="tomograms_star" class="form-control"
-                                           value="{{ tomo_session['tomograms_star'] }}" data-key="tomograms_star">
-                                </div>
-                                <div class="col-2">
-                                    <a href="javascript:showTomogramsStar()"><icon class="fas fa-file mr-2"></icon></a>
-                                </div>
-                            </div>
-{#                          {{ macros.session_dialog_row('Tomograms STAR', 'tomograms_star', tomo_session['tomograms_star'], 'Provide tomograms STAR file') }}#}
-                    {% endif %}
-                </form>
-            </div>
-
-            <div class="col-2 text-right" style="margin-top: 7px;">
-                <a href="javascript:loadSession(true)" class="btn btn-primary mr-2 mt-3"> Load Dashboard</a>
-                <a href="javascript:loadWorkflow()" class="btn btn-primary mr-2 mt-3"> Load Workflow</a>
-                {% if is_admin %}
-                    <a href="javascript:loadWidget()" class="btn btn-primary mr-2 mt-3"> Load Widget</a>
-                {% endif %}
-            </div>
-        </div>
-    </div>
 
     <div class="row col-12 m-0 p-0" id="session-content">
         {% if mode == 'workflow' %}

@@ -1,379 +1,437 @@
-
 {
-        "id": 43,
-        "name": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
-        "shortName": "TestCryosparc3DClassification",
-        "createdAt": "2025-09-13 15:29:00.670242+02:00",
-        "status": "active",
-        "path": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
-        "protocols": {
-            "2": {
-                "id": "2",
-                "children": ["134", "265", "406", "870"],
-                "parents": ["PROJECT"],
-                "label": "* pwem - import particles",
-                "status": "finished",
-                "parameter": [],
-                "inputs": [],
-                "outputs": [
-                    {
-                        "outputParticles": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "pwem - import particles.outputParticles",
-                            "_parentId": 2
-                        }
+    "id": 43,
+    "name": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
+    "shortName": "TestCryosparc3DClassification",
+    "createdAt": "2025-09-13 15:29:00.670242+02:00",
+    "status": "active",
+    "path": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification",
+    "protocols": {
+        "2": {
+            "id": "2",
+            "children": [
+                "134",
+                "265",
+                "406",
+                "870"
+            ],
+            "parents": [
+                "PROJECT"
+            ],
+            "label": "* pwem - import particles",
+            "status": "finished",
+            "parameter": [],
+            "inputs": [],
+            "outputs": [
+                {
+                    "outputParticles": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "pwem - import particles.outputParticles",
+                        "_parentId": 2
                     }
-                ],
-                "cpuTime": "0",
-                "elapsedTime": "0",
-                "isInteractive": false,
-                "numberOfSteps": 1,
-                "stepsDone": 1
-            },
-            "79": {
-                "id": "79",
-                "children": ["134", "265", "406"],
-                "parents": ["PROJECT"],
-                "label": "* pwem - import volumes",
-                "status": "finished",
-                "parameter": [],
-                "inputs": [],
-                "outputs": [
-                    {
-                        "outputVolume": {
-                            "_class": "Volume",
-                            "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
-                            "_objValue": "pwem - import volumes.outputVolume",
-                            "_parentId": 79
-                        }
+                }
+            ],
+            "cpuTime": "0",
+            "elapsedTime": "0",
+            "isInteractive": false,
+            "numberOfSteps": 1,
+            "stepsDone": 1
+        },
+        "79": {
+            "id": "79",
+            "children": [
+                "134",
+                "265",
+                "406"
+            ],
+            "parents": [
+                "PROJECT"
+            ],
+            "label": "* pwem - import volumes",
+            "status": "finished",
+            "parameter": [],
+            "inputs": [],
+            "outputs": [
+                {
+                    "outputVolume": {
+                        "_class": "Volume",
+                        "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+                        "_objValue": "pwem - import volumes.outputVolume",
+                        "_parentId": 79
                     }
-                ],
-                "cpuTime": "0",
-                "elapsedTime": "0",
-                "isInteractive": false,
-                "numberOfSteps": 1,
-                "stepsDone": 1
-            },
-            "134": {
-  "protocolId": "134",
-  "children": [
-  ],
-  "parents": [
-    "2",
-    "79"
-  ],
-  "label": "protNonUniform3DRefinement_1",
-  "status": "failed",
-  "parameter": [],
-  "inputs": [
-    {
-      "name": "inputParticles",
-      "paramClass": "PointerParam",
-      "pointerClass": "SetOfParticles",
-      "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-      "value": "2.outputParticles",
-      "parentId": 2
-    },
-    {
-      "name": "referenceVolume",
-      "paramClass": "PointerParam",
-      "pointerClass": "Volume",
-      "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
-      "value": "79.outputVolume",
-      "parentId": 79
-    }
-  ],
-  "outputs": [],
-  "cpuTime": "102",
-  "elapsedTime": "102",
-  "isInteractive": false,
-  "numberOfSteps": 3,
-  "stepsDone": 3
-},
-            "265": {
-                "id": "265",
-                "children": ["547", "622"],
-                "parents": ["2", "79"],
-                "label": "protNonUniform3DRefinement_2",
-                "status": "finished",
-                "parameter": [],
-                "inputs": [
-                    {
-                        "inputParticles": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "pwem - import particles.outputParticles",
-                            "_parentId": 2
-                        }
-                    },
-                    {
-                        "referenceVolume": {
-                            "_class": "Volume",
-                            "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
-                            "_objValue": "pwem - import volumes.outputVolume",
-                            "_parentId": 79
-                        }
+                }
+            ],
+            "cpuTime": "0",
+            "elapsedTime": "0",
+            "isInteractive": false,
+            "numberOfSteps": 1,
+            "stepsDone": 1
+        },
+        "134": {
+            "protocolId": "134",
+            "children": [],
+            "parents": [
+                "2",
+                "79"
+            ],
+            "label": "protNonUniform3DRefinement_1",
+            "status": "failed",
+            "parameter": [],
+            "inputs": [
+                {
+                    "name": "inputParticles",
+                    "paramClass": "PointerParam",
+                    "pointerClass": "SetOfParticles",
+                    "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                    "value": "2.outputParticles",
+                    "parentId": 2
+                },
+                {
+                    "name": "referenceVolume",
+                    "paramClass": "PointerParam",
+                    "pointerClass": "Volume",
+                    "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+                    "value": "79.outputVolume",
+                    "parentId": 79
+                }
+            ],
+            "outputs": [
+                {
+                    "outputStar": {
+                        "paramClass": "PointerParam",
+                        "pointerClass": "StarFile",
+                        "info": "particles.star",
+                        "value": "/home/yun/particles.star",
+                        "parentId": 134
                     }
-                ],
-                "outputs": [
-                    {
-                        "outputVolume": {
-                            "_class": "Volume",
-                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
-                            "_objValue": "protNonUniform3DRefinement_2.outputVolume",
-                            "_parentId": 265
-                        }
-                    },
-                    {
-                        "outputParticles": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "protNonUniform3DRefinement_2.outputParticles",
-                            "_parentId": 265
-                        }
-                    },
-                    {
-                        "outputFSC": {
-                            "_class": "SetOfFSCs",
-                            "info": "SetOfFSCs            (5 items)",
-                            "_objValue": "protNonUniform3DRefinement_2.outputFSC",
-                            "_parentId": 265
-                        }
+                }
+            ],
+            "cpuTime": "102",
+            "elapsedTime": "102",
+            "isInteractive": false,
+            "numberOfSteps": 3,
+            "stepsDone": 3
+        },
+        "265": {
+            "id": "265",
+            "children": [
+                "547",
+                "622"
+            ],
+            "parents": [
+                "2",
+                "79"
+            ],
+            "label": "protNonUniform3DRefinement_2",
+            "status": "finished",
+            "parameter": [],
+            "inputs": [
+                {
+                    "inputParticles": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "pwem - import particles.outputParticles",
+                        "_parentId": 2
                     }
-                ],
-                "cpuTime": "89",
-                "elapsedTime": "92",
-                "isInteractive": false,
-                "numberOfSteps": 3,
-                "stepsDone": 3
-            },
-            "406": {
-                "id": "406",
-                "children": ["547", "622"],
-                "parents": ["2", "79"],
-                "label": "protNonUniform3DRefinement_3",
-                "status": "finished",
-                "parameter": [],
-                "inputs": [
-                    {
-                        "inputParticles": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "pwem - import particles.outputParticles",
-                            "_parentId": 2
-                        }
-                    },
-                    {
-                        "referenceVolume": {
-                            "_class": "Volume",
-                            "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
-                            "_objValue": "pwem - import volumes.outputVolume",
-                            "_parentId": 79
-                        }
+                },
+                {
+                    "referenceVolume": {
+                        "_class": "Volume",
+                        "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+                        "_objValue": "pwem - import volumes.outputVolume",
+                        "_parentId": 79
                     }
-                ],
-                "outputs": [
-                    {
-                        "outputVolume": {
-                            "_class": "Volume",
-                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
-                            "_objValue": "protNonUniform3DRefinement_3.outputVolume",
-                            "_parentId": 406
-                        }
-                    },
-                    {
-                        "outputParticles": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "protNonUniform3DRefinement_3.outputParticles",
-                            "_parentId": 406
-                        }
-                    },
-                    {
-                        "outputFSC": {
-                            "_class": "SetOfFSCs",
-                            "info": "SetOfFSCs            (5 items)",
-                            "_objValue": "protNonUniform3DRefinement_3.outputFSC",
-                            "_parentId": 406
-                        }
+                }
+            ],
+            "outputs": [
+                {
+                    "outputVolume": {
+                        "_class": "Volume",
+                        "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                        "_objValue": "protNonUniform3DRefinement_2.outputVolume",
+                        "_parentId": 265
                     }
-                ],
-                "cpuTime": "110",
-                "elapsedTime": "113",
-                "isInteractive": false,
-                "numberOfSteps": 3,
-                "stepsDone": 3
-            },
-            "547": {
-                "id": "547",
-                "children": ["622"],
-                "parents": ["134", "265", "406"],
-                "label": "* Single particles union",
-                "status": "finished",
-                "parameter": [],
-                "inputs": [
-                    {
-                        "inputSets": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "protNonUniform3DRefinement_1.outputParticles",
-                            "_parentId": 134
-                        }
-                    },
-                    {
-                        "inputSets": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "protNonUniform3DRefinement_2.outputParticles",
-                            "_parentId": 265
-                        }
-                    },
-                    {
-                        "inputSets": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "protNonUniform3DRefinement_3.outputParticles",
-                            "_parentId": 406
-                        }
+                },
+                {
+                    "outputStar": {
+                        "paramClass": "PointerParam",
+                        "pointerClass": "StarFile",
+                        "info": "particles.star",
+                        "value": "/home/yun/particles.star",
+                        "parentId": 265
                     }
-                ],
-                "outputs": [
-                    {
-                        "outputSet": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (1119 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "Single particles union.outputSet",
-                            "_parentId": 547
-                        }
+                },
+                {
+                    "outputParticles": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "protNonUniform3DRefinement_2.outputParticles",
+                        "_parentId": 265
                     }
-                ],
-                "cpuTime": "0",
-                "elapsedTime": "0",
-                "isInteractive": false,
-                "numberOfSteps": 1,
-                "stepsDone": 1
-            },
-            "622": {
-                "id": "622",
-                "children": [],
-                "parents": ["547", "406", "265", "134"],
-                "label": "cryosparc2 - 3D Classification6",
-                "status": "finished",
-                "parameter": [],
-                "inputs": [
-                    {
-                        "inputParticles": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (1119 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "Single particles union.outputSet",
-                            "_parentId": 547
-                        }
-                    },
-                    {
-                        "refVolumes": {
-                            "_class": "Volume",
-                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
-                            "_objValue": "protNonUniform3DRefinement_3.outputVolume",
-                            "_parentId": 406
-                        }
-                    },
-                    {
-                        "refVolumes": {
-                            "_class": "Volume",
-                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
-                            "_objValue": "protNonUniform3DRefinement_2.outputVolume",
-                            "_parentId": 265
-                        }
-                    },
-                    {
-                        "refVolumes": {
-                            "_class": "Volume",
-                            "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
-                            "_objValue": "protNonUniform3DRefinement_1.outputVolume",
-                            "_parentId": 134
-                        }
+                },
+                {
+                    "outputFSC": {
+                        "_class": "SetOfFSCs",
+                        "info": "SetOfFSCs            (5 items)",
+                        "_objValue": "protNonUniform3DRefinement_2.outputFSC",
+                        "_parentId": 265
                     }
-                ],
-                "outputs": [
-                    {
-                        "outputClasses": {
-                            "_class": "SetOfClasses3D",
-                            "info": "SetOfClasses3D       (3 items)",
-                            "_objValue": "cryosparc2 - 3D Classification6.outputClasses",
-                            "_parentId": 622
-                        }
-                    },
-                    {
-                        "outputVolumes": {
-                            "_class": "SetOfVolumes",
-                            "info": "Volumes (3 items, 140 x 140 x 140, 4.00 Å/px)",
-                            "_objValue": "cryosparc2 - 3D Classification6.outputVolumes",
-                            "_parentId": 622
-                        }
-                    },
-                    {
-                        "solventMask": {
-                            "_class": "VolumeMask",
-                            "info": "VolumeMask (140 x 140 x 140, 4.00 Å/px)",
-                            "_objValue": "cryosparc2 - 3D Classification6.solventMask",
-                            "_parentId": 622
-                        }
+                }
+            ],
+            "cpuTime": "89",
+            "elapsedTime": "92",
+            "isInteractive": false,
+            "numberOfSteps": 3,
+            "stepsDone": 3
+        },
+        "406": {
+            "id": "406",
+            "children": [
+                "547",
+                "622"
+            ],
+            "parents": [
+                "2",
+                "79"
+            ],
+            "label": "protNonUniform3DRefinement_3",
+            "status": "finished",
+            "parameter": [],
+            "inputs": [
+                {
+                    "inputParticles": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "pwem - import particles.outputParticles",
+                        "_parentId": 2
                     }
-                ],
-                "cpuTime": "98",
-                "elapsedTime": "99",
-                "isInteractive": false,
-                "numberOfSteps": 3,
-                "stepsDone": 3
-            },
-            "870": {
-                "id": "870",
-                "children": [],
-                "parents": ["2"],
-                "label": "cryosparc2 - 2D classification",
-                "status": "saved",
-                "parameter": [],
-                "inputs": [
-                    {
-                        "inputParticles": {
-                            "_class": "SetOfParticles",
-                            "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                            "_objValue": "pwem - import particles.outputParticles",
-                            "_parentId": 2
-                        }
+                },
+                {
+                    "referenceVolume": {
+                        "_class": "Volume",
+                        "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+                        "_objValue": "pwem - import volumes.outputVolume",
+                        "_parentId": 79
                     }
-                ],
-                "outputs": [
-                    {
-                        "outputClasses": {
-                            "_class": "SetOfClasses2D",
-                            "info": "SetOfClasses2D       (5 items)",
-                            "_objValue": "cryosparc2 - 2D classification.outputClasses",
-                            "_parentId": 870
-                        }
+                }
+            ],
+            "outputs": [
+                {
+                    "outputVolume": {
+                        "_class": "Volume",
+                        "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                        "_objValue": "protNonUniform3DRefinement_3.outputVolume",
+                        "_parentId": 406
                     }
-                ],
-                "cpuTime": "47",
-                "elapsedTime": "48",
-                "isInteractive": false,
-                "numberOfSteps": 3,
-                "stepsDone": 3
-            },
-            "PROJECT": {
-                "id": "PROJECT",
-                "children": ["2", "79"],
-                "parents": [],
-                "label": "PROJECT",
-                "status": "",
-                "parameter": [],
-                "inputs": [],
-                "outputs": [],
-                "cpuTime": "",
-                "elapsedTime": "",
-                "isInteractive": false,
-                "numberOfSteps": 0,
-                "stepsDone": 0
-            }
+                },
+                {
+                    "outputParticles": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "protNonUniform3DRefinement_3.outputParticles",
+                        "_parentId": 406
+                    }
+                },
+                {
+                    "outputFSC": {
+                        "_class": "SetOfFSCs",
+                        "info": "SetOfFSCs            (5 items)",
+                        "_objValue": "protNonUniform3DRefinement_3.outputFSC",
+                        "_parentId": 406
+                    }
+                }
+            ],
+            "cpuTime": "110",
+            "elapsedTime": "113",
+            "isInteractive": false,
+            "numberOfSteps": 3,
+            "stepsDone": 3
+        },
+        "547": {
+            "id": "547",
+            "children": [
+                "622"
+            ],
+            "parents": [
+                "134",
+                "265",
+                "406"
+            ],
+            "label": "* Single particles union",
+            "status": "finished",
+            "parameter": [],
+            "inputs": [
+                {
+                    "inputSets": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "protNonUniform3DRefinement_1.outputParticles",
+                        "_parentId": 134
+                    }
+                },
+                {
+                    "inputSets": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "protNonUniform3DRefinement_2.outputParticles",
+                        "_parentId": 265
+                    }
+                },
+                {
+                    "inputSets": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "protNonUniform3DRefinement_3.outputParticles",
+                        "_parentId": 406
+                    }
+                }
+            ],
+            "outputs": [
+                {
+                    "outputSet": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (1119 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "Single particles union.outputSet",
+                        "_parentId": 547
+                    }
+                }
+            ],
+            "cpuTime": "0",
+            "elapsedTime": "0",
+            "isInteractive": false,
+            "numberOfSteps": 1,
+            "stepsDone": 1
+        },
+        "622": {
+            "id": "622",
+            "children": [],
+            "parents": [
+                "547",
+                "406",
+                "265",
+                "134"
+            ],
+            "label": "cryosparc2 - 3D Classification6",
+            "status": "finished",
+            "parameter": [],
+            "inputs": [
+                {
+                    "inputParticles": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (1119 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "Single particles union.outputSet",
+                        "_parentId": 547
+                    }
+                },
+                {
+                    "refVolumes": {
+                        "_class": "Volume",
+                        "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                        "_objValue": "protNonUniform3DRefinement_3.outputVolume",
+                        "_parentId": 406
+                    }
+                },
+                {
+                    "refVolumes": {
+                        "_class": "Volume",
+                        "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                        "_objValue": "protNonUniform3DRefinement_2.outputVolume",
+                        "_parentId": 265
+                    }
+                },
+                {
+                    "refVolumes": {
+                        "_class": "Volume",
+                        "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                        "_objValue": "protNonUniform3DRefinement_1.outputVolume",
+                        "_parentId": 134
+                    }
+                }
+            ],
+            "outputs": [
+                {
+                    "outputClasses": {
+                        "_class": "SetOfClasses3D",
+                        "info": "SetOfClasses3D       (3 items)",
+                        "_objValue": "cryosparc2 - 3D Classification6.outputClasses",
+                        "_parentId": 622
+                    }
+                },
+                {
+                    "outputVolumes": {
+                        "_class": "SetOfVolumes",
+                        "info": "Volumes (3 items, 140 x 140 x 140, 4.00 Å/px)",
+                        "_objValue": "cryosparc2 - 3D Classification6.outputVolumes",
+                        "_parentId": 622
+                    }
+                },
+                {
+                    "solventMask": {
+                        "_class": "VolumeMask",
+                        "info": "VolumeMask (140 x 140 x 140, 4.00 Å/px)",
+                        "_objValue": "cryosparc2 - 3D Classification6.solventMask",
+                        "_parentId": 622
+                    }
+                }
+            ],
+            "cpuTime": "98",
+            "elapsedTime": "99",
+            "isInteractive": false,
+            "numberOfSteps": 3,
+            "stepsDone": 3
+        },
+        "870": {
+            "id": "870",
+            "children": [],
+            "parents": [
+                "2"
+            ],
+            "label": "cryosparc2 - 2D classification",
+            "status": "saved",
+            "parameter": [],
+            "inputs": [
+                {
+                    "inputParticles": {
+                        "_class": "SetOfParticles",
+                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                        "_objValue": "pwem - import particles.outputParticles",
+                        "_parentId": 2
+                    }
+                }
+            ],
+            "outputs": [
+                {
+                    "outputClasses": {
+                        "_class": "SetOfClasses2D",
+                        "info": "SetOfClasses2D       (5 items)",
+                        "_objValue": "cryosparc2 - 2D classification.outputClasses",
+                        "_parentId": 870
+                    }
+                }
+            ],
+            "cpuTime": "47",
+            "elapsedTime": "48",
+            "isInteractive": false,
+            "numberOfSteps": 3,
+            "stepsDone": 3
+        },
+        "PROJECT": {
+            "id": "PROJECT",
+            "children": [
+                "2",
+                "79"
+            ],
+            "parents": [],
+            "label": "PROJECT",
+            "status": "",
+            "parameter": [],
+            "inputs": [],
+            "outputs": [],
+            "cpuTime": "",
+            "elapsedTime": "",
+            "isInteractive": false,
+            "numberOfSteps": 0,
+            "stepsDone": 0
         }
     }
+}

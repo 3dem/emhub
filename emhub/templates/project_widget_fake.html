@@ -41,7 +41,6 @@
 <!-- UMD bundles (adjust paths if needed) -->
 <script defer src="{{ url_for('static', filename='libs/js/projectpage-widget.js') }}"></script>
 
-
 <script>
   var project_json = {{ project_json | tojson }};
   var workflow = project_json.workflow;
@@ -65,7 +64,6 @@
     }
 
     try {
-      // ---------- Utils ----------
       function $(sel) {
         return document.querySelector(sel);
       }
@@ -75,7 +73,12 @@
       var projectPageHostSel = "#project-page-host";
       var protocolDetailHostSel = "#protocol-detail-host";
 
-      // ---------- Widgets services ----------
+      function showStarFile(starFile) {
+        let filePath = `/home/yunior/tmp/${starFile}`;
+        loadStarOverview(filePath, 'global');
+      }
+
+      // widgetsServices
       var svc = {
         fetchList() {
           return [];
@@ -86,28 +89,66 @@
         },
 
         fetchProtocolDetails(projectId, protocolId) {
-            var data = {info: {}, values: {}, form: {}};
-            if (protocolId in protocols) {
-                let protDetails = protocols[protocolId];
-                data.info = protDetails.info;
-                data.values = protDetails.values;
-                var jobType = data.info.protocolClassName;
-                if (jobType in forms)
-                    data.form = forms[jobType];
-            }
+          var data = { info: {}, values: {}, form: {} };
+          if (protocolId in protocols) {
+            var protDetails = protocols[protocolId];
+            data.info = protDetails.info;
+            data.values = protDetails.values;
+            var jobType = data.info.protocolClassName;
+            if (jobType in forms) data.form = forms[jobType];
+          }
           console.log(JSON.stringify(data, null, 4));
-          return data
+          return data;
+        },
+
+        resolveAnalyzeViewer: async function (ctx) {
+          // resolveAnalyzeViewer
+          try {
+            console.log("[host] resolveAnalyzeViewer context:", ctx);
+
+            if (ctx.pointerClass == 'StarFile') {
+              showStarFile("External/job050/tilt_series.star");
+
+              // Mark as handled so the widget won't open its internal AnalyzeOutputDialog.
+              // Use a harmless hash URL to satisfy the "url must be non-empty" requirement
+              // without opening a new tab.
+              return {
+                handled: true,
+                url: "#__external_viewer__",
+                target: "_self"
+              };
+            }
+
+            return { handled: false };
+
+          } catch (err) {
+            console.warn("[host] resolveAnalyzeViewer failed, fallback to internal viewer:", err);
+            return { handled: false };
+          }
         },
 
         executeProtocol(projectId, protocolId, protocolClassName, params) {
-            alert(`EXECUTING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
-            return {status: 1, errors: ["Not yet implemented"]};
+          alert(
+            "EXECUTING protocol: " + protocolId +
+            ", class: " + protocolClassName +
+            ", params: \n" + JSON.stringify(params, null, 4)
+          );
+          return { status: 1, errors: ["Not yet implemented"] };
         },
 
         saveProtocol(projectId, protocolId, protocolClassName, params) {
-          alert(`SAVING protocol: ${protocolId}, class: ${protocolClassName}, params: \n` + JSON.stringify(params, null, 4));
-          return {status: 1, errors: ["Not yet implemented"]};
-      },
+          alert(
+            "SAVING protocol: " + protocolId +
+            ", class: " + protocolClassName +
+            ", params: \n" + JSON.stringify(params, null, 4)
+          );
+          return { status: 1, errors: ["Not yet implemented"] };
+        },
+
+        duplicateProtocol(projectId, items) {
+          alert("Duplicating protocols....." +  JSON.stringify(items, null, 4))
+          return { status: 1, errors: ["Not yet implemented"] };
+        },
 
         createProject(data) {
           return null;
@@ -119,27 +160,26 @@
           return null;
         },
 
-        // Load protocols API
         async loadProtocols(projectId) {
           return menu.protocols;
         },
-        // workflows API
-        async fetchProjectWorkflows() {
-            return menu.workflows;
+
+        async fetchWorkflows() {
+          return menu.workflows;
         },
 
-        async applyWorkflowToProject(projectId, workflowId) {
+        async loadWorkflow(projectId, workflowId) {
           return { success: true };
         },
 
-          async fetchNewProtocolDetails(projectId, protocolClass) {
-          console.log('fetchNewProtocolDetails not implemented yet')
-        },
-
+        async fetchNewProtocolDetails(projectId, protocolClass) {
+          var data = { info: { protocolClassName: protocolClass }, values: {}, form: {} };
+          if (protocolClass in forms) data.form = forms[protocolClass];
+          return data;
+        }
       };
 
-
-      // ---------- Mount state ----------
+      // mountState
       var listRoot = null;
       var pageRoot = null;
       var detailRoot = null;
@@ -170,9 +210,7 @@
 
       function unmountList() {
         if (listRoot && listRoot.unmount) {
-          try {
-            listRoot.unmount();
-          } catch (e) { }
+          try { listRoot.unmount(); } catch (e) { }
         }
         listRoot = null;
         var host = $(listHostSel);
@@ -181,9 +219,7 @@
 
       function unmountDetail() {
         if (detailRoot && detailRoot.unmount) {
-          try {
-            detailRoot.unmount();
-          } catch (e) { }
+          try { detailRoot.unmount(); } catch (e) { }
         }
         detailRoot = null;
         var host = $(protocolDetailHostSel);
@@ -201,8 +237,7 @@
 
         function tryMount() {
           var api = window.MyProjectsWidget || window.ProjectPageWidget || window.MyWidgets;
-          var mountFn =
-            api && (api.mountProjectPageWidget || api.mountProjectPage || api.mountPage);
+          var mountFn = api && (api.mountProjectPageWidget || api.mountProjectPage || api.mountPage);
           if (!mountFn) {
             console.warn("[host] Project page widget not ready, retrying...");
             setTimeout(tryMount, 50);
@@ -212,7 +247,6 @@
           try {
             if (currentProjectId !== projectId) {
               unmountList();
-              // ensureDomRoots();
               showPageOnly();
             }
 
@@ -230,7 +264,7 @@
                 container: target,
                 service: svc,
                 projectName: String(projectId),
-                props: pageProps,
+                props: pageProps
               });
               currentProjectId = String(projectId);
             }
@@ -260,8 +294,6 @@
       }
 
       function openProtocolDetail(projectId, protocolId, prefetchedDetail) {
-        // ensureDomRoots();
-
         var api = null;
         if (window.MyProjectsWidget && window.MyProjectsWidget.mountProtocolDetailWidget) {
           api = { mountProtocolDetailWidget: window.MyProjectsWidget.mountProtocolDetailWidget };
@@ -306,11 +338,18 @@
 
           currentDetailKey = key;
           try {
-            history.pushState(null, "", "/project/" + encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId));
+            history.pushState(
+              null,
+              "",
+              "/project/" + encodeURIComponent(projectId) + "/protocol/" + encodeURIComponent(protocolId)
+            );
           } catch (e) { }
           console.log("[host] protocol detail mounted:", key);
         } catch (err) {
-          target.innerHTML = '<pre class="error">ProtocolDetailWidget error:\n' + String(err && (err.stack || err)) + "</pre>";
+          target.innerHTML =
+            '<pre class="error">ProtocolDetailWidget error:\n' +
+            String(err && (err.stack || err)) +
+            "</pre>";
           console.error(err);
         }
       }
