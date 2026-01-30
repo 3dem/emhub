@@ -23,30 +23,27 @@
         </ul>
     {% else %}
         <!-- Row: Status cards -->
-        <div class="row col-12">
-            {% call macros.status_card_counter('Tomograms', 'counter_tomograms', False) %}
-            {% endcall %}
-
-            {% call macros.status_card_counter('Particles', 'counter_particles', True) %}
-                <span id="tag_particles"></span>
-            {% endcall %}
-
-            {% call macros.status_card_counter('Selection', 'selection', True) %}
-                <div class="row col-12 p-0 m-0">
-                    {{ macros.status_row('Enabled', 0, 'label_enabled') }}
-                    {{ macros.status_row('Disabled', 0, 'label_disabled') }}
-                    <div class="col-12 text-sm-right mt-3">
-                        <a href="javascript:exportSelection()" class="btn btn-outline-dark">  Export Selection </a>
-                    </div>
-                </div>
-            {% endcall %}
-        </div>
+{#        <div class="row col-12">#}
+{#            {% call macros.status_card_counter('Tomograms', 'counter_tomograms', False) %}#}
+{#            {% endcall %}#}
+{##}
+{#            {% call macros.status_card_counter('Particles', 'counter_particles', True) %}#}
+{#                <span id="tag_particles"></span>#}
+{#            {% endcall %}#}
+{##}
+{#            {% call macros.status_card_counter('Selection', 'selection', True) %}#}
+{#                <div class="row col-12 p-0 m-0">#}
+{#                    {{ macros.status_row('Enabled', 0, 'label_enabled') }}#}
+{#                    {{ macros.status_row('Disabled', 0, 'label_disabled') }}#}
+{#                    <div class="col-12 text-sm-right mt-3">#}
+{#                        <a href="javascript:exportSelection()" class="btn btn-outline-dark">  Export Selection </a>#}
+{#                    </div>#}
+{#                </div>#}
+{#            {% endcall %}#}
+{#        </div>#}
 
         <!-- Plots -->
          <div class="col-6">
-
-            <div class="card mt-3">
-                <div class="card-body">
 
                     <div class="pills-outline">
                         <ul class="nav nav-pills mb-2" id="tabTomoNav" role="tablist">
@@ -162,18 +159,13 @@
                         </div> <!-- End of TabContent -->
                     </div> <!-- End of Tab -->
 
-                </div>
-            </div>
         </div> <!-- Summary Table -->
 
          <div class="col-6">
 
-                <div class="card mt-3">
-                    <div class="card-body">
-                        <div id="tomogram-div"></div>
-                    </div>
-                </div>
-            </div> <!-- Plots -->
+            <div id="tomogram-div"></div>
+
+         </div> <!-- Plots -->
 
     {% endif %}
 
