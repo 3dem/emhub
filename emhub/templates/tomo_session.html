@@ -34,15 +34,20 @@
     var tomo_session_id = {{ tomo_session_id|tojson }};
     var tomo_session_path = {{ tomo_session['path']|tojson }};
 
+
+    function projectPath(fileName){
+        return `${tomo_session_path}/${fileName}`;
+    }
+
     function showTomogramsStar(){
         let fileName = $("#tomograms_star").val();
-        let filePath = `${tomo_session_path}/${fileName}`;
-        loadStarOverview(filePath, 'global');
+        loadStarOverview(projectPath(fileName), 'global');
     }
 
     function loadRunFileInfo(fileName) {
-        $("#tomograms_star").val(fileName);
-        loadSession();
+        // $("#tomograms_star").val(fileName);
+        // loadSession();
+        visualizeOutput({file_path: fileName});
     }
 
     function getTomoSession(){
@@ -72,19 +77,36 @@
     }
 
 
-    var reload_counter = 60;  // 60 seconds to reload
-    function check_reload(){
-        if (reload_counter > 0) {
-            $('#reload_label').text('Reloading in ' + reload_counter + ' seconds.');
-            reload_counter -= 1;
-        }
-        else {
-            loadSession(false);
-            reload_counter = 60;
-        }
-        setTimeout(check_reload, 1000);  // every second
+    function visualizeOutput(output){
+
+        let value = projectPath(output.file_path);
+
+          try {
+              var content = null;
+
+              if (value.endsWith('.star')) {
+                  let args = {
+                    tomo_session: JSON.stringify({
+                        path: tomo_session_path,
+                        tomograms_star: value
+                    })}
+                content = get_ajax_content('tomo_session_content', args);
+              }
+              else if (value.endsWith('.mrc'))
+                  content = get_ajax_content('processing_volume_card',
+                                             {file_path: value, volume_data: "slices"});
+
+
+              if (content == null)
+                  throw new Error("Missing viewer for file: " + value);
+
+              load_overview(value, content);
+
+            // Return this for triggering the widget viewers
+            // return { handled: false };
+
+          } catch (err) {
+                showError(err.message);
+          }
     }
-
-    //check_reload();
-
 </script>
