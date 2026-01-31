@@ -359,47 +359,18 @@
         },
 
         resolveAnalyzeViewer: async function (ctx) {
-          // resolveAnalyzeViewer
             console.log(JSON.stringify(ctx, null, 4));
-            let value = `${project_details.path}/${ctx.value}`;
 
-          try {
-              var content = null;
+            visualizeOutput({file_path: ctx.value});
 
-              if (value.endsWith('.star')) {
-                  let args = {
-                    tomo_session: JSON.stringify({
-                        path: project_details.path,
-                        tomograms_star: value
-                    })}
-                content = get_ajax_content('tomo_session_content', args);
-              }
-              else if (value.endsWith('.mrc'))
-                  content = get_ajax_content('processing_volume_card',
-                                             {file_path: value, volume_data: "slices"});
-
-
-              if (content == null)
-                  throw new Error("Missing viewer for file: " + value);
-
-              load_overview(value, content);
-
-            // Return this for triggering the widget viewers
-            // return { handled: false };
-
-          } catch (err) {
-                showError(err.message);
-          }
-          finally {
-              // Mark as handled so the widget won't open its internal AnalyzeOutputDialog.
-                // Use a harmless hash URL to satisfy the "url must be non-empty" requirement
-                // without opening a new tab.
-                return {
-                    handled: true,
-                    url: "#__external_viewer__",
-                    target: "_self"
-                };
-          }
+          // Mark as handled so the widget won't open its internal AnalyzeOutputDialog.
+            // Use a harmless hash URL to satisfy the "url must be non-empty" requirement
+            // without opening a new tab.
+            return {
+                handled: true,
+                url: "#__external_viewer__",
+                target: "_self"
+            };
         }
 
       };
