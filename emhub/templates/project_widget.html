@@ -57,65 +57,65 @@
     isStale: function() {
       return (Date.now() - this.lastUpdated) > this.maxAge;
     },
-    
-    refresh: function() {
+
+    refresh: function () {
       this.lastUpdated = Date.now();
     },
-    
-    getAge: function() {
+
+    getAge: function () {
       return Date.now() - this.lastUpdated;
     }
   };
 
   var workflows = {
-      "Warp Tutorial": {
-          description: "Basic steps to follow the Warp tutorial",
-          jobs: [
-              {
-                  jobid: "External/job001",
-                  jobtype: "emw-import-ts",
-                  params: {
-                    "mdoc_files": "data/Position*[1-9].mdoc",
-                    "tilt_axis_angle": "850",
-                    "wait.timeout": "1",
-                    "wait.file_change": "1",
-                    "wait.sleep": "1",
-                    "tilt_images": "data/",
-                    "acq.gain": "",
-                    "acq.pixel_size": "1.91",
-                    "acq.voltage": "300",
-                    "acq.cs": "2.7",
-                    "acq.amplitude_constrast": "0.1",
-                    "acq.total_dose": "3.5",
-                    "gain_file": ""
-                    }
-                },
-              {
-                  jobid: "External/job002",
-                  jobtype: "emw-warp-mctf",
-                  params: {
-                      "fs_motion_and_ctf.perdevice": "2",
-                        "fs_motion_and_ctf.m_range_min": "500",
-                        "fs_motion_and_ctf.m_range_max": "10",
-                        "fs_motion_and_ctf.m_bfac": "-500",
-                        "fs_motion_and_ctf.m_grid": "5x5",
-                        "fs_motion_and_ctf.c_range_min": "30",
-                        "fs_motion_and_ctf.c_range_max": "4",
-                        "fs_motion_and_ctf.c_defocus_min": "0.5",
-                        "fs_motion_and_ctf.c_defocus_max": "5",
-                        "fs_motion_and_ctf.c_window": "512",
-                        "fs_motion_and_ctf.c_grid": "1x1",
-                        "gpus": "4",
-                        "input_tiltseries": "External/job001/tilt_series.star",
-                        "create_settings.bin_angpix": "0",
-                        "create_settings.eer_ngroups": "",
-                        "fs_motion_and_ctf.c_use_sum": false,
-                        "fs_motion_and_ctf.out_averages": false,
-                        "fs_motion_and_ctf.out_average_halves": false
-                  }
-              }
-          ]
-      }
+    "Warp Tutorial": {
+      description: "Basic steps to follow the Warp tutorial",
+      jobs: [
+        {
+          jobid: "External/job001",
+          jobtype: "emw-import-ts",
+          params: {
+            "mdoc_files": "data/Position*[1-9].mdoc",
+            "tilt_axis_angle": "850",
+            "wait.timeout": "1",
+            "wait.file_change": "1",
+            "wait.sleep": "1",
+            "tilt_images": "data/",
+            "acq.gain": "",
+            "acq.pixel_size": "1.91",
+            "acq.voltage": "300",
+            "acq.cs": "2.7",
+            "acq.amplitude_constrast": "0.1",
+            "acq.total_dose": "3.5",
+            "gain_file": ""
+          }
+        },
+        {
+          jobid: "External/job002",
+          jobtype: "emw-warp-mctf",
+          params: {
+            "fs_motion_and_ctf.perdevice": "2",
+            "fs_motion_and_ctf.m_range_min": "500",
+            "fs_motion_and_ctf.m_range_max": "10",
+            "fs_motion_and_ctf.m_bfac": "-500",
+            "fs_motion_and_ctf.m_grid": "5x5",
+            "fs_motion_and_ctf.c_range_min": "30",
+            "fs_motion_and_ctf.c_range_max": "4",
+            "fs_motion_and_ctf.c_defocus_min": "0.5",
+            "fs_motion_and_ctf.c_defocus_max": "5",
+            "fs_motion_and_ctf.c_window": "512",
+            "fs_motion_and_ctf.c_grid": "1x1",
+            "gpus": "4",
+            "input_tiltseries": "External/job001/tilt_series.star",
+            "create_settings.bin_angpix": "0",
+            "create_settings.eer_ngroups": "",
+            "fs_motion_and_ctf.c_use_sum": false,
+            "fs_motion_and_ctf.out_averages": false,
+            "fs_motion_and_ctf.out_average_halves": false
+          }
+        }
+      ]
+    }
   }
 
 
@@ -199,28 +199,28 @@
 
   } // loadJobDetails
 
-  async function requestAction(url, args){
-      try {
-          args.widget = true;  // Request the workflow response to be compatible with the project widget
-          var data = await request(url, args);
-          if ('error' in data)
-              throw new Error(data.error);
-          project_details.protocols = data.workflow;
-          cache.refresh();  // Update cache timestamp after modifying project_details
-          //return { status: 0 };
-      } catch (error) {
-          if ("responseText" in error)
-              showError(error.responseText);
-          else if ("message" in error)
-              showError(error.message);
-          else {
-              showError("Received unknown error");
-              console.log(JSON.stringify(error, null, 4));
-          }
-          //return {status: 0};
-          // return { status: 1, errors: [error.statusText] }
+  async function requestAction(url, args) {
+    try {
+      args.widget = true;  // Request the workflow response to be compatible with the project widget
+      var data = await request(url, args);
+      if ('error' in data)
+        throw new Error(data.error);
+      project_details.protocols = data.workflow;
+      cache.refresh();  // Update cache timestamp after modifying project_details
+      //return { status: 0 };
+    } catch (error) {
+      if ("responseText" in error)
+        showError(error.responseText);
+      else if ("message" in error)
+        showError(error.message);
+      else {
+        showError("Received unknown error");
+        console.log(JSON.stringify(error, null, 4));
       }
-      return {status: 0, errors: []}
+      //return {status: 0};
+      // return { status: 1, errors: [error.statusText] }
+    }
+    return { status: 0, errors: [] }
   }
 
   (function () {
@@ -246,44 +246,44 @@
       var projectPageHostSel = "#project-page-host";
       var protocolDetailHostSel = "#protocol-detail-host";
 
-      function showStarFile(starFile){
+      function showStarFile(starFile) {
         let filePath = `${project_details.path}/${starFile}`;
         loadStarOverview(filePath, 'global');
       }
 
       // ---------- Widgets services ----------
       var svc = {
-          /* Return the list of projects */
-          fetchList() {
-              return [];
-          },
+        /* Return the list of projects */
+        fetchList() {
+          return [];
+        },
 
         createProject(data) {
-            return null;
+          return null;
         },
         renameProject(id, newName, newDescription) {
-            return null;
+          return null;
         },
         deleteProject(id) {
-            return null;
+          return null;
         },
 
         /* Get the project workflow */
         async fetchProject(id) {
-            // Check if cache is stale and needs refresh from backend
-            if (cache.isStale()) {
-              console.log(`Cache is stale (age: ${cache.getAge()/1000}s), fetching from backend...`);
-               requestAction(Api.urls.get_session_workflow, { project_id: id });
-            } else {
-                console.log(`Using cached project_details (age: ${cache.getAge()/1000}s)`);
-            }
-            
-            var ids = [];
-            for (const [key, value] of Object.entries(project_details.protocols)) {
-                ids.push(key);
-            }
-            console.log("fetchProject: " + ids.length + " protocols");
-            return project_details;
+          // Check if cache is stale and needs refresh from backend
+          if (cache.isStale()) {
+            console.log(`Cache is stale (age: ${cache.getAge() / 1000}s), fetching from backend...`);
+            requestAction(Api.urls.get_session_workflow, { project_id: id });
+          } else {
+            console.log(`Using cached project_details (age: ${cache.getAge() / 1000}s)`);
+          }
+
+          var ids = [];
+          for (const [key, value] of Object.entries(project_details.protocols)) {
+            ids.push(key);
+          }
+          console.log("fetchProject: " + ids.length + " protocols");
+          return project_details;
         },
 
         /* Get the protocol details */
@@ -304,15 +304,16 @@
         },
 
         async saveProtocol(projectId, protocolId, protocolClassName, params) {
-            var args = {
-                run_id: protocolId,
-                job_type: protocolClassName,
-                params: params
-            };
-            return requestAction(Api.urls.save_job, args);
+          var args = {
+            run_id: protocolId,
+            job_type: protocolClassName,
+            params: params
+          };
+          return requestAction(Api.urls.save_job, args);
         },
 
         async deleteProtocol(projectId, protocolIds) {
+
             return requestAction(Api.urls.delete_jobs, {run_ids: protocolIds})
         },
 
@@ -324,28 +325,29 @@
               }
               return requestAction(Api.urls.duplicate_jobs, {run_ids: protocolIds});
           },
+          
 
         // workflows API
         async fetchWorkflows() {
-            var workflows_list = [];
-            for (const [key, value] of Object.entries(workflows)) {
-                workflows_list.push({
-                    name: key,
-                    description: value.description
-                });
-             }
-            return workflows_list;
+          var workflows_list = [];
+          for (const [key, value] of Object.entries(workflows)) {
+            workflows_list.push({
+              name: key,
+              description: value.description
+            });
+          }
+          return workflows_list;
         },
 
         async loadWorkflow(projectId, workflowInfo) {
-            let workflowId = workflowInfo.workflowId;
-            if (workflowId in workflows) {
-                let w = workflows[workflowId];
-                return requestAction(Api.urls.load_workflow, {workflow_jobs: JSON.stringify(w.jobs)})
-            }
-            else {
-                showError("Unknown workflow: " + workflowId);
-            }
+          let workflowId = workflowInfo.workflowId;
+          if (workflowId in workflows) {
+            let w = workflows[workflowId];
+            return requestAction(Api.urls.load_workflow, { workflow_jobs: JSON.stringify(w.jobs) })
+          }
+          else {
+            showError("Unknown workflow: " + workflowId);
+          }
         },
 
 
@@ -359,20 +361,64 @@
         },
 
         resolveAnalyzeViewer: async function (ctx) {
-            console.log(JSON.stringify(ctx, null, 4));
+          console.log(JSON.stringify(ctx, null, 4));
 
-            visualizeOutput({file_path: ctx.value});
+              visualizeOutput({file_path: ctx.value});
 
-          // Mark as handled so the widget won't open its internal AnalyzeOutputDialog.
-            // Use a harmless hash URL to satisfy the "url must be non-empty" requirement
-            // without opening a new tab.
-            return {
-                handled: true,
-                url: "#__external_viewer__",
-                target: "_self"
-            };
+              // Mark as handled so the widget won't open its internal AnalyzeOutputDialog.
+              // Use a harmless hash URL to satisfy the "url must be non-empty" requirement
+              // without opening a new tab.
+              return {
+                  handled: true,
+                  url: "#__external_viewer__",
+                  target: "_self"
+              };
+        },
+
+        async resolveBrowserPaths(projectId, protocolId) {
+          return {
+            "rootAbs": "/home/yunior/ScipionUserData/projects/TestWarpTemplateMatching",
+            "startPath": "Runs/004138_ProtWarpTSMotionCorr",
+            "protocolRoot": "Runs/004138_ProtWarpTSMotionCorr",
+            "path": "/home/yunior/ScipionUserData/projects/TestWarpTemplateMatching/Runs/004138_ProtWarpTSMotionCorr"
+          };
+        },
+
+        async listRemoteDirectory(projectId, protocolId, path) {
+          console.log("Listing remote directory at path: " + path);
+          return {
+            "cwd": "Runs/008237_ProtImodImportTransformationMatrix",
+            "dirName": "/home/yunior/ScipionUserData/projects/TestWarpTemplateMatching/Runs/008237_ProtImodImportTransformationMatrix",
+            "items": [
+              {
+                "name": "extra",
+                "path": "extra",
+                "isDir": true,
+                "size": null,
+                "mime": null
+              },
+              {
+                "name": "logs",
+                "path": "logs",
+                "isDir": true,
+                "size": null,
+                "mime": null
+              },
+              {
+                "name": "TS_1.xf",
+                "path": "TS_1.xf",
+                "isDir": false,
+                "size": 65536,
+                "mime": "text"
+              }
+            ]
+          };
+        },
+
+        async previewProtocolText(projectId, protocolId, path) {
+          return "This is a preview of the text file at path";
         }
-
+        
       };
 
 
