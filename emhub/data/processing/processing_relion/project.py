@@ -33,6 +33,12 @@ from .runs import RelionRun
 
 location = os.path.dirname(__file__)
 
+STATUS_MAP = {
+    'Succeeded': 'finished',
+    'Running': 'running',
+    'Aborted': 'aborted',
+    'Failed': 'failed'
+}
 
 class RelionSessionData(SessionData):
     """
@@ -141,43 +147,45 @@ class RelionSessionData(SessionData):
         """ Return the run_id for the ctfs used for the general session overview. """
         return self.session['micrographs']
 
+    def _job_info(self, job):
+        info = {}
+        infoFile = self.join(job.id, 'info.json')
+        if os.path.exists(infoFile):
+            with open(infoFile) as f:
+                info = json.load(f)
+        return info
+
+    def _job_elapsed(self, jobInfo):
+        elapsed = ''
+        if runs := jobInfo.get('runs', None):
+            if e := runs[-1].get('elapsed', ''):
+                elapsed = " " + e.split('.')[0]
+            elif s := runs[-1].get('start', ''):
+                started = Pretty.parse_datetime(s)
+                e = str(datetime.now() - started)
+                elapsed = " " + e.split('.')[0]
+
+        return elapsed
+
     def get_workflow(self, update=False, widget=False):
         """ Return the internal workflow.
         Args:
             update: If True, force a load of the workflow, ignoring cached data
             widget: if True, convert the workflow to the expected structure of the UI widget
         """
+        from emwrap.base import ProjectManager
         if update:
-            self.workflow = RelionStar.pipeline_to_workflow(self.join('default_pipeline.star'))
+            pm = ProjectManager(self.path)
+            pm.update()
+            self.workflow = pm.get_workflow()
 
         if widget:
-            return SessionData.get_widget_protocols(self.workflow)
+            return self.get_widget_protocols(self.workflow)
 
         protList = []
-        status_map = {
-            'Succeeded': 'finished',
-            'Running': 'running',
-            'Aborted': 'aborted',
-            'Failed': 'failed'
-        }
-
-        def _elapsed(job):
-            elapsed = ''
-            infoFile = self.join(job.id, 'info.json')
-            if os.path.exists(infoFile):
-                with open(infoFile) as f:
-                    info = json.load(f)
-                    if runs := info['runs']:
-                        if e := runs[-1].get('elapsed', ''):
-                            elapsed = " " + e.split('.')[0]
-                        elif s := runs[-1].get('start', ''):
-                            started = Pretty.parse_datetime(s)
-                            e = str(datetime.now() - started)
-                            elapsed = " " + e.split('.')[0]
-
-            return elapsed
 
         for job in self.workflow.jobs():
+            jobInfo = self._job_info(job)
             links = []
             for o in job.outputs:
                 for c in o.childs:
@@ -185,13 +193,87 @@ class RelionSessionData(SessionData):
 
             protList.append({
                 'id': job.id,
-                'label': RelionRun.jobAlias(job) + _elapsed(job),
+                'label': RelionRun.jobAlias(job) + self._job_elapsed(jobInfo),
                 'links': links,
-                'status': status_map.get(job['status'], job['status']),
+                'status': STATUS_MAP.get(job['status'], job['status']),
                 'type': job['jobtype']
             })
 
         return protList
+
+    def get_widget_protocols(self, workflow):
+        """ Convert a project workflow to another
+        structure expected by the widget in the UI.
+        """
+        root = {
+            "id": "PROJECT",
+            "children": [],
+            "parents": [],
+            "label": "",
+            "status": "",
+            "type": "PROJECT",
+            "parameter": [],
+            "inputs": [],
+            "outputs": [],
+            "cpuTime": "",
+            "elapsedTime": "",
+            "isInteractive": False,
+            "numberOfSteps": 0,
+            "stepsDone": 0,
+        }
+        protocols = {
+            "PROJECT": root
+        }
+
+        for job in workflow.jobs():
+            parents = [i.parent.id for i in job.inputs]
+            children = []
+            outputs = []
+            jobInfo = self._job_info(job)
+
+            # FIXME: Find a better way to store the outputs' info without reading many files
+            filesDict = defaultdict(lambda : {'type': 'File', 'info': 'No-info'})
+            if jobInfo:
+                filesDict.update({o['files'][0][0]: o for o in jobInfo['outputs'].values()})
+
+            for i, o in enumerate(job.outputs):
+                data = filesDict[o.id]
+                outputs.append({
+                    'output': {
+                        "_class": data['type'],
+                        "pointerClass": data['type'],
+                        "paramClass": data['type'],
+                        "info": f"{data['type']} ({data['info']})",
+                        "value": o.id,
+                        "parentId": job.id,
+                    }
+                })
+                for c in o.childs:
+                    children.append(c.id)
+
+            prot = {
+                'id': job.id,
+                'label': RelionRun.jobAlias(job) or '',
+                'parents': parents,
+                'children': children,
+                'inputs': [],
+                'outputs': outputs,
+                'status': STATUS_MAP.get(job['status'], job['status']),
+                'type': job['jobtype'],
+                "cpuTime": "0",
+                "elapsedTime": self._job_elapsed(jobInfo),
+                "isInteractive": False,
+                "numberOfSteps": 1,
+                "stepsDone": 1,
+            }
+
+            if not parents:
+                prot['parents'].append(root['id'])
+                root['children'].append(job.id)
+
+            protocols[job.id] = prot
+
+        return protocols
 
     def get_run(self, runId):
         if job := self.workflow.getJob(runId, None):
