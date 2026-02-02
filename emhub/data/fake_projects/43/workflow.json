@@ -23,12 +23,11 @@
             "inputs": [],
             "outputs": [
                 {
-                    "outputParticles": {
-                        "_class": "SetOfParticles",
-                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                        "_objValue": "pwem - import particles.outputParticles",
-                        "_parentId": 2
-                    }
+                    "name": "outputParticles",
+                    "pointerClass": "SetOfParticles",
+                    "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                    "value": "2.outputParticles",
+                    "parentId": 2
                 }
             ],
             "cpuTime": "0",
@@ -53,12 +52,11 @@
             "inputs": [],
             "outputs": [
                 {
-                    "outputVolume": {
-                        "_class": "Volume",
-                        "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
-                        "_objValue": "pwem - import volumes.outputVolume",
-                        "_parentId": 79
-                    }
+                    "name": "outputVolume",
+                    "pointerClass": "Volume",
+                    "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+                    "value": "79.outputVolume",
+                    "parentId": 79
                 }
             ],
             "cpuTime": "0",
@@ -80,7 +78,6 @@
             "inputs": [
                 {
                     "name": "inputParticles",
-                    "paramClass": "PointerParam",
                     "pointerClass": "SetOfParticles",
                     "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
                     "value": "2.outputParticles",
@@ -88,7 +85,6 @@
                 },
                 {
                     "name": "referenceVolume",
-                    "paramClass": "PointerParam",
                     "pointerClass": "Volume",
                     "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
                     "value": "79.outputVolume",
@@ -97,13 +93,25 @@
             ],
             "outputs": [
                 {
-                    "outputStar": {
-                        "paramClass": "PointerParam",
-                        "pointerClass": "StarFile",
-                        "info": "particles.star",
-                        "value": "/home/yun/particles.star",
-                        "parentId": 134
-                    }
+                    "name": "outputVolume",
+                    "pointerClass": "Volume",
+                    "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                    "value": "134.outputVolume",
+                    "parentId": 134
+                },
+                {
+                    "name": "outputParticles",
+                    "pointerClass": "SetOfParticles",
+                    "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                    "value": "134.outputParticles",
+                    "parentId": 134
+                },
+                {
+                    "name": "outputFSC",
+                    "pointerClass": "SetOfFSCs",
+                    "info": "SetOfFSCs            (5 items)",
+                    "value": "134.outputFSC",
+                    "parentId": 134
                 }
             ],
             "cpuTime": "102",
@@ -145,37 +153,25 @@
             ],
             "outputs": [
                 {
-                    "outputVolume": {
-                        "_class": "Volume",
-                        "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
-                        "_objValue": "protNonUniform3DRefinement_2.outputVolume",
-                        "_parentId": 265
-                    }
+                    "name": "outputVolume",
+                    "pointerClass": "Volume",
+                    "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+                    "value": "265.outputVolume",
+                    "parentId": 265
                 },
                 {
-                    "outputStar": {
-                        "paramClass": "PointerParam",
-                        "pointerClass": "StarFile",
-                        "info": "particles.star",
-                        "value": "/home/yun/particles.star",
-                        "parentId": 265
-                    }
+                    "name": "outputParticles",
+                    "pointerClass": "SetOfParticles",
+                    "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+                    "value": "265.outputParticles",
+                    "parentId": 265
                 },
                 {
-                    "outputParticles": {
-                        "_class": "SetOfParticles",
-                        "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
-                        "_objValue": "protNonUniform3DRefinement_2.outputParticles",
-                        "_parentId": 265
-                    }
-                },
-                {
-                    "outputFSC": {
-                        "_class": "SetOfFSCs",
-                        "info": "SetOfFSCs            (5 items)",
-                        "_objValue": "protNonUniform3DRefinement_2.outputFSC",
-                        "_parentId": 265
-                    }
+                    "name": "outputFSC",
+                    "pointerClass": "SetOfFSCs",
+                    "info": "SetOfFSCs            (5 items)",
+                    "value": "265.outputFSC",
+                    "parentId": 265
                 }
             ],
             "cpuTime": "89",
