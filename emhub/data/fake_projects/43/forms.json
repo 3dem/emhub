@@ -79,20 +79,6 @@
               "paramClass": "EnumParam",
               "default": 0,
               "readOnly": false
-            },
-            {
-              "name": "runMode",
-              "label": "Run Mode",
-              "display": 0,
-              "choices": [
-                "Continue",
-                "Restart"
-              ],
-              "condition": null,
-              "_isImportant": true,
-              "paramClass": "EnumParam",
-              "default": 0,
-              "readOnly": false
             }
           ]
         },
@@ -109,10 +95,11 @@
               "default": null,
               "pointerClass": "SetOfParticles",
               "pointerCondition": null,
-              "allowsNone": false,
+              "allowsNull": false,
               "strictPointer": false,
               "paramClass": "PointerParam",
-              "parentId": 2
+              "parentId": 2,
+              "readOnly": true
             },
             {
               "name": "referenceVolume",
@@ -124,10 +111,11 @@
               "default": null,
               "pointerClass": "Volume",
               "pointerCondition": null,
-              "allowsNone": false,
+              "allowsNull": false,
               "strictPointer": false,
               "paramClass": "PointerParam",
-              "parentId": 79
+              "parentId": 79,
+              "readOnly": true
             },
             {
               "name": "refMask",
@@ -139,9 +127,10 @@
               "default": null,
               "pointerClass": "VolumeMask",
               "pointerCondition": null,
-              "allowsNone": true,
+              "allowsNull": true,
               "strictPointer": false,
-              "paramClass": "PointerParam"
+              "paramClass": "PointerParam",
+              "readOnly": true
             }
           ]
         },
@@ -184,7 +173,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Align the input structure to the symmetry axes",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
@@ -194,7 +183,7 @@
               "condition": null,
               "_isImportant": false,
               "help": null,
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
@@ -244,7 +233,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Clip negative density. Probably should be false",
-              "default": false,
+              "default": "False",
               "paramClass": "BooleanParam"
             },
             {
@@ -254,7 +243,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Softly window the structure in real space with a spherical window. Should be true",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
@@ -264,7 +253,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Leave this as true",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
@@ -274,7 +263,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Ignore the DC component of images. Should be true",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
@@ -314,7 +303,7 @@
               "condition": null,
               "_isImportant": false,
               "help": null,
-              "default": false,
+              "default": "False",
               "paramClass": "BooleanParam"
             },
             {
@@ -436,7 +425,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Include negative regions if they are more negative than the threshold",
-              "default": false,
+              "default": "False",
               "paramClass": "BooleanParam"
             },
             {
@@ -461,7 +450,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Minimize over per-particle defocus at each iteration of refinement. The optimal defocus will be used for backprojection as well, and will be written out at each iteration. Defocus refinement will start only once refinement with current defocus values converges. Beware that with small/disordered proteins, defocus refinement may actually make resolutions worse.",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
@@ -478,7 +467,7 @@
               "name": "crl_min_res_A",
               "label": "Minimum Fit Res (A)",
               "expertLevel": 0,
-              "condition": "refine_defocus_refine==true",
+              "condition": "refine_defocus_refine==True",
               "_isImportant": false,
               "help": "The minimum resolution to use during refinement of image aberrations.",
               "default": "20",
@@ -488,7 +477,7 @@
               "name": "crl_df_range",
               "label": "Defocus Search Range (A +/-)",
               "expertLevel": 0,
-              "condition": "refine_defocus_refine==true",
+              "condition": "refine_defocus_refine==True",
               "_isImportant": false,
               "help": "Defocus search range in Angstroms, searching both above and below the input defocus by this amount",
               "default": "2000",
@@ -516,7 +505,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Optimize the per-exposure-group CTF parameters (for higher-order aberrations) at each iteration of refinement. The optimal CTF will be used for backprojection as well, and will be written out at each iteration. CTF refinement will start only once refinement with current CTF values converges. Beware that with small/disordered proteins, CTF refinement may actually make resolutions worse.",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
@@ -533,7 +522,7 @@
               "name": "crg_min_res_A",
               "label": "Minimum Fit Res (A)",
               "expertLevel": 0,
-              "condition": "refine_ctf_global_refine == true",
+              "condition": "refine_ctf_global_refine == True",
               "_isImportant": false,
               "help": "The minimum resolution to use during refinement of image aberrations.",
               "default": "10",
@@ -543,40 +532,40 @@
               "name": "crg_do_tilt",
               "label": "Fit Tilt",
               "expertLevel": 0,
-              "condition": "refine_ctf_global_refine == true",
+              "condition": "refine_ctf_global_refine == True",
               "_isImportant": false,
               "help": "Whether to fit beam tilt.",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
               "name": "crg_do_trefoil",
               "label": "Fit Trefoil",
               "expertLevel": 0,
-              "condition": "refine_ctf_global_refine == true",
+              "condition": "refine_ctf_global_refine == True",
               "_isImportant": false,
               "help": "Whether to fit beam trefoil.",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
               "name": "crg_do_spherical",
               "label": "Fit Spherical Aberration",
               "expertLevel": 0,
-              "condition": "refine_ctf_global_refine == true",
+              "condition": "refine_ctf_global_refine == True",
               "_isImportant": false,
               "help": "Whether to fit spherical aberration.",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
               "name": "crg_do_tetrafoil",
               "label": "Fit Tetrafoil",
               "expertLevel": 0,
-              "condition": "refine_ctf_global_refine == true",
+              "condition": "refine_ctf_global_refine == True",
               "_isImportant": false,
               "help": "Whether to fit beam tetrafoil.",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
@@ -601,7 +590,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Whether or not to correct for the curvature of the Ewald Sphere.",
-              "default": false,
+              "default": "False",
               "paramClass": "BooleanParam"
             },
             {
@@ -611,7 +600,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Whether or not to correct for the curvature of the Ewald Sphere.",
-              "default": false,
+              "default": "False",
               "paramClass": "BooleanParam"
             },
             {
@@ -656,7 +645,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Whether or not to copy particle images to the local SSD before running. The cache is persistent, so after caching once, particles should be available for subsequent jobs that require the same data. Not using an SSD can dramatically slow down processing.",
-              "default": false,
+              "default": "False",
               "paramClass": "BooleanParam"
             },
             {
@@ -681,7 +670,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Efficiently marginalize over poses and shifts using an auto-tuning adaptive sampling strategy. Can improve results on small molecules.",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
@@ -691,7 +680,7 @@
               "condition": null,
               "_isImportant": false,
               "help": "Enable cross-validation-optimal non-uniform regularization during refinement.",
-              "default": true,
+              "default": "True",
               "paramClass": "BooleanParam"
             },
             {
