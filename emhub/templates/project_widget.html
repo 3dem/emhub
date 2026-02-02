@@ -133,7 +133,8 @@
   async function loadJobDetails(jobId, jobType) {
     // Load only the values (json) if we already have that form
     // in the all_forms cache
-      var jobNode = project_details.protocols[jobId];
+    // jobNode may be null for new protocols (jobId == null)
+    var jobNode = jobId ? project_details.protocols[jobId] : null;
 
     var result = {
       info: {},
@@ -185,7 +186,7 @@
         protocolId: jobId,
         protocolName: jobType,
         scheduleLog: null,
-        status: jobNode.status,
+        status: jobNode ? jobNode.status : 'new',
         stderrLog: null,
         stdoutLog: null,
         color: "#D2F5CB",
@@ -305,19 +306,17 @@
         /* Get the protocol details */
         async fetchProtocolDetails(projectId, protocolId) {
           var jobType = project_details.protocols[protocolId].type;
-          var data = await loadJobDetails(protocolId, jobType);
-          return data;
+          return await loadJobDetails(protocolId, jobType);
         },
 
         executeProtocol(projectId, protocolId, protocolClassName, params, mode) {
             var args = {
                 run_id: protocolId,
                 job_type: protocolClassName,
-                clean: false,
+                clean: false,  // FIXME: when mode is properly passed
                 params: params
             };
-            alert("Execute mode: " + JSON.stringify(mode, null, 4));
-            return;
+            console.log("Execute mode: " + JSON.stringify(mode, null, 4));
             return requestAction(Api.urls.launch_job, args);
         },
 
@@ -402,12 +401,6 @@
         },
 
         async listRemoteDirectory(projectId, protocolId, path) {
-            var relPath = path.replace(project_details.path + '/', '');
-
-          console.log("Listing remote directory at path: " + path);
-
-
-
           let args = { root: project_details.path, path: path };
           var items = [];
           await handleRequestData(Api.urls.list_project_dir, args, function (data){
