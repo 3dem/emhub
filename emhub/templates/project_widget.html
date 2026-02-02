@@ -396,14 +396,19 @@
         async resolveBrowserPaths(projectId, protocolId) {
           return {
             "rootAbs": project_details.path,
-            "startPath": project_details.path,
+            "startPath": '.',
             "protocolRoot": protocolId,
             "path": projectPath(protocolId)
           };
         },
 
         async listRemoteDirectory(projectId, protocolId, path) {
+            var relPath = path.replace(project_details.path + '/', '');
+
           console.log("Listing remote directory at path: " + path);
+
+
+
           let args = { root: project_details.path, path: path };
           var items = [];
           await handleRequestData(Api.urls.list_project_dir, args, function (data){
@@ -411,7 +416,7 @@
           });
           return {
             "cwd": path,
-            "dirName": path,
+            "dirName": projectPath(path),
             "items": items
           };
         },

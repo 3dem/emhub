@@ -239,14 +239,11 @@ class RelionSessionData(SessionData):
             for i, o in enumerate(job.outputs):
                 data = filesDict[o.id]
                 outputs.append({
-                    'output': {
-                        "_class": data['type'],
-                        "pointerClass": data['type'],
-                        "paramClass": data['type'],
-                        "info": f"{data['type']} ({data['info']})",
-                        "value": o.id,
-                        "parentId": job.id,
-                    }
+                    "outputName": data['label'],
+                    "pointerClass": data['type'],
+                    "info": f"{data['type']} ({data['info']})",
+                    "value": o.id,
+                    "parentId": job.id
                 })
                 for c in o.childs:
                     children.append(c.id)
