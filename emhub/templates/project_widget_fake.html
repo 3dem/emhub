@@ -176,7 +176,48 @@
           var data = { info: { protocolClassName: protocolClass }, values: {}, form: {} };
           if (protocolClass in forms) data.form = forms[protocolClass];
           return data;
+        },
+
+        async resolveBrowserPaths(projectId, protocolId) {
+          return {
+            "rootAbs": "/home/yunior/ScipionUserData/projects/TestWarpTemplateMatching",
+            "startPath": "Runs/004138_ProtWarpTSMotionCorr",
+            "protocolRoot": "Runs/004138_ProtWarpTSMotionCorr",
+          };
+        },
+
+        async listRemoteDirectory(projectId, protocolId, path) {
+          console.log("Listing remote directory at path: " + path);
+          return [
+              {
+                "name": "extra",
+                "path": "extra",
+                "isDir": true,
+                "size": null,
+                "mime": null
+              },
+              {
+                "name": "logs",
+                "path": "logs",
+                "isDir": true,
+                "size": null,
+                "mime": null
+              },
+              {
+                "name": "TS_1.out",
+                "path": "TS_1.out",
+                "isDir": false,
+                "size": 65536,
+                "mime": "text"
+              }
+            ]
+          
+        },
+
+        async previewProtocolText(projectId, protocolId, path) {
+          return "This is a preview of the text file at path";
         }
+      
       };
 
       // mountState
