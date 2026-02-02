@@ -288,7 +288,7 @@ def register_content(dc):
     @dc.content
     def tomo_processing_content(**kwargs):
         data = dc.get_data('processing_content', **kwargs)
-        data['menu'] = ProcessingConfig.get_menu()
+        data['menu'] = dc.app.dm.get_config('processing_menus')['menu_flowchart']['protocols']
         return data
 
     # FIXME: More benchmark_ functions to a separate place

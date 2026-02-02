@@ -397,8 +397,7 @@
           return {
             "rootAbs": project_details.path,
             "startPath": '.',
-            "protocolRoot": protocolId,
-            "path": projectPath(protocolId)
+            "protocolRoot": protocolId
           };
         },
 
@@ -414,11 +413,7 @@
           await handleRequestData(Api.urls.list_project_dir, args, function (data){
             items = data.items;
           });
-          return {
-            "cwd": path,
-            "dirName": projectPath(path),
-            "items": items
-          };
+          return items;
         },
 
         async previewProtocolText(projectId, protocolId, path) {
