@@ -184,11 +184,21 @@
         protocolClassName: jobType,
         protocolId: jobId,
         protocolName: jobType,
-        scheduleLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/schedule.log",
+        scheduleLog: null,
         status: jobNode.status,
-        stderrLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stderr",
-        stdoutLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stdout",
+        stderrLog: null,
+        stdoutLog: null,
         color: "#D2F5CB",
+          executeMode: {
+            launch: {
+                label: 'Launch',
+                help: 'Launch the job with the selected parameters.'
+            },
+            restart: {
+                label: 'Restart',
+                help: 'Restart'
+            }
+          }
       }
 
       return result;
@@ -299,13 +309,15 @@
           return data;
         },
 
-        executeProtocol(projectId, protocolId, protocolClassName, params) {
+        executeProtocol(projectId, protocolId, protocolClassName, params, mode) {
             var args = {
                 run_id: protocolId,
                 job_type: protocolClassName,
                 clean: false,
                 params: params
             };
+            alert("Execute mode: " + JSON.stringify(mode, null, 4));
+            return;
             return requestAction(Api.urls.launch_job, args);
         },
 
