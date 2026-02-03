@@ -736,6 +736,24 @@ def get_file_preview():
 
     return _handle_item(_handle, 'preview')
 
+@api_bp.route('/get_file_chunks', methods=['POST'])
+@flask_login.login_required
+def get_file_chunks():
+    """ Read file content in chunks base on offsets for one or more files."""
+    def _handle(**attrs):
+        chunks = attrs['chunks']
+        for ch in chunks:
+            if os.path.exists(ch['path']):
+                with open(ch['path']) as f:
+                    f.seek(ch['offset'])
+                    ch['content'] = f.read() 
+                    ch['offset'] = f.tell()
+            else:
+                ch['content'] = "File does not exist"
+                ch['offset'] = 0
+
+        return chunks
+    return _handle_item(_handle, 'chunks')    
 
 def handle_workflow(handle_func=None):
     def _handle(**attrs):

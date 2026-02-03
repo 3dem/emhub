@@ -97,7 +97,7 @@
             var jobType = data.info.protocolClassName;
             if (jobType in forms) data.form = forms[jobType];
           }
-          console.log(JSON.stringify(data, null, 4));
+          //console.log(JSON.stringify(data, null, 4));
           return data;
         },
 
@@ -127,11 +127,12 @@
           }
         },
 
-        executeProtocol(projectId, protocolId, protocolClassName, params) {
+        executeProtocol(projectId, protocolId, protocolClassName, params, mode) {
           alert(
             "EXECUTING protocol: " + protocolId +
             ", class: " + protocolClassName +
-            ", params: \n" + JSON.stringify(params, null, 4)
+            ", params: \n" + JSON.stringify(params, null, 4) +
+            ", mode: " + mode
           );
           return { status: 1, errors: ["Not yet implemented"] };
         },
@@ -146,7 +147,7 @@
         },
 
         duplicateProtocol(projectId, items) {
-          alert("Duplicating protocols....." +  JSON.stringify(items, null, 4))
+          alert("Duplicating protocols....." + JSON.stringify(items, null, 4))
           return { status: 1, errors: ["Not yet implemented"] };
         },
 
@@ -189,35 +190,56 @@
         async listRemoteDirectory(projectId, protocolId, path) {
           console.log("Listing remote directory at path: " + path);
           return [
-              {
-                "name": "extra",
-                "path": "extra",
-                "isDir": true,
-                "size": null,
-                "mime": null
-              },
-              {
-                "name": "logs",
-                "path": "logs",
-                "isDir": true,
-                "size": null,
-                "mime": null
-              },
-              {
-                "name": "TS_1.out",
-                "path": "TS_1.out",
-                "isDir": false,
-                "size": 65536,
-                "mime": "text"
-              }
-            ]
-          
+            {
+              "name": "extra",
+              "path": "extra",
+              "isDir": true,
+              "size": null,
+              "mime": null
+            },
+            {
+              "name": "logs",
+              "path": "logs",
+              "isDir": true,
+              "size": null,
+              "mime": null
+            },
+            {
+              "name": "TS_1.out",
+              "path": "TS_1.out",
+              "isDir": false,
+              "size": 65536,
+              "mime": "text"
+            }
+          ]
+
         },
 
         async previewProtocolText(projectId, protocolId, path) {
           return "This is a preview of the text file at path";
-        }
-      
+        },
+
+        async fetchProtocolLogChannels(projectId, protocolId) {
+          return {
+            channels: [{
+              id: "default",
+              label: "Default",
+              order: 0
+            }]
+          };
+        },
+
+        async fetchProtocolLogsChunk(projectId, protocolId, offsets) {
+          return {
+            chunks: [{
+              channel: "default",
+              content: `Log content starting at offset ${offsets}...\n` +
+                `This is a simulated log entry for protocol ${protocolId} in project ${projectId}.\n` +
+                `...\nEnd of log chunk.\n`,
+              offset: 10
+            }],
+          };
+        },
       };
 
       // mountState
