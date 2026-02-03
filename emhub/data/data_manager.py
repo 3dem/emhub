@@ -811,7 +811,6 @@ class DataManager(DbManager):
             
         return result
 
-
     def clear_session_data(self, **attrs):
         session = self.get_session_by(id=attrs['id'])
         data_path = self._session_data_path(session)

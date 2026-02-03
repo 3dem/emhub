@@ -133,7 +133,8 @@
   async function loadJobDetails(jobId, jobType) {
     // Load only the values (json) if we already have that form
     // in the all_forms cache
-      var jobNode = project_details.protocols[jobId];
+    // jobNode may be null for new protocols (jobId == null)
+    var jobNode = jobId ? project_details.protocols[jobId] : null;
 
     var result = {
       info: {},
@@ -184,11 +185,21 @@
         protocolClassName: jobType,
         protocolId: jobId,
         protocolName: jobType,
-        scheduleLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/schedule.log",
-        status: jobNode.status,
-        stderrLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stderr",
-        stdoutLog: "Runs/000134_ProtCryoSparcNewNonUniformRefine3D/logs/run.stdout",
+        scheduleLog: null,
+        status: jobNode ? jobNode.status : 'new',
+        stderrLog: null,
+        stdoutLog: null,
         color: "#D2F5CB",
+          executeMode: {
+            launch: {
+                label: 'Launch',
+                help: 'Launch the job with the selected parameters.'
+            },
+            restart: {
+                label: 'Restart',
+                help: 'Restart'
+            }
+          }
       }
 
       return result;
@@ -199,14 +210,14 @@
 
   } // loadJobDetails
 
-  async function requestAction(url, args) {
+  async function handleRequestData(url, args, func) {
     try {
-      args.widget = true;  // Request the workflow response to be compatible with the project widget
       var data = await request(url, args);
       if ('error' in data)
         throw new Error(data.error);
-      project_details.protocols = data.workflow;
-      cache.refresh();  // Update cache timestamp after modifying project_details
+
+      // Call the function with the data
+      func(data);
       //return { status: 0 };
     } catch (error) {
       if ("responseText" in error)
@@ -217,11 +228,17 @@
         showError("Received unknown error");
         console.log(JSON.stringify(error, null, 4));
       }
-      //return {status: 0};
-      // return { status: 1, errors: [error.statusText] }
     }
+  } // function handleRequestData
+
+  async function requestAction(url, args) {
+    args.widget = true;  // Request the workflow response to be compatible with the project widget
+    await handleRequestData(url, args, function (data){
+      project_details.protocols = data.workflow;
+      cache.refresh();  // Update cache timestamp after modifying project_details
+    });
     return { status: 0, errors: [] }
-  }
+  } // function requestAction
 
   (function () {
     "use strict";
@@ -274,32 +291,32 @@
           if (cache.isStale()) {
             console.log(`Cache is stale (age: ${cache.getAge() / 1000}s), fetching from backend...`);
             requestAction(Api.urls.get_session_workflow, { project_id: id });
+            {# var ids = [];#}
+            {#  for (const [key, value] of Object.entries(project_details.protocols)) {#}
+            {#    ids.push(key);#}
+            {#  }#}
+            {#  console.log("fetchProject: " + ids.length + " protocols");#}
           } else {
             console.log(`Using cached project_details (age: ${cache.getAge() / 1000}s)`);
           }
 
-          var ids = [];
-          for (const [key, value] of Object.entries(project_details.protocols)) {
-            ids.push(key);
-          }
-          console.log("fetchProject: " + ids.length + " protocols");
           return project_details;
         },
 
         /* Get the protocol details */
         async fetchProtocolDetails(projectId, protocolId) {
           var jobType = project_details.protocols[protocolId].type;
-          var data = await loadJobDetails(protocolId, jobType);
-          return data;
+          return await loadJobDetails(protocolId, jobType);
         },
 
-        executeProtocol(projectId, protocolId, protocolClassName, params) {
+        executeProtocol(projectId, protocolId, protocolClassName, params, mode) {
             var args = {
                 run_id: protocolId,
                 job_type: protocolClassName,
-                clean: false,
+                clean: false,  // FIXME: when mode is properly passed
                 params: params
             };
+            console.log("Execute mode: " + JSON.stringify(mode, null, 4));
             return requestAction(Api.urls.launch_job, args);
         },
 
@@ -377,46 +394,28 @@
 
         async resolveBrowserPaths(projectId, protocolId) {
           return {
-            "rootAbs": "/home/yunior/ScipionUserData/projects/TestWarpTemplateMatching",
-            "startPath": "Runs/004138_ProtWarpTSMotionCorr",
-            "protocolRoot": "Runs/004138_ProtWarpTSMotionCorr",
-            "path": "/home/yunior/ScipionUserData/projects/TestWarpTemplateMatching/Runs/004138_ProtWarpTSMotionCorr"
+            "rootAbs": project_details.path,
+            "startPath": '.',
+            "protocolRoot": protocolId
           };
         },
 
         async listRemoteDirectory(projectId, protocolId, path) {
-          console.log("Listing remote directory at path: " + path);
-          return {
-            "cwd": "Runs/008237_ProtImodImportTransformationMatrix",
-            "dirName": "/home/yunior/ScipionUserData/projects/TestWarpTemplateMatching/Runs/008237_ProtImodImportTransformationMatrix",
-            "items": [
-              {
-                "name": "extra",
-                "path": "extra",
-                "isDir": true,
-                "size": null,
-                "mime": null
-              },
-              {
-                "name": "logs",
-                "path": "logs",
-                "isDir": true,
-                "size": null,
-                "mime": null
-              },
-              {
-                "name": "TS_1.xf",
-                "path": "TS_1.xf",
-                "isDir": false,
-                "size": 65536,
-                "mime": "text"
-              }
-            ]
-          };
+          let args = { root: project_details.path, path: path };
+          var items = [];
+          await handleRequestData(Api.urls.list_project_dir, args, function (data){
+            items = data.items;
+          });
+          return items;
         },
 
         async previewProtocolText(projectId, protocolId, path) {
-          return "This is a preview of the text file at path";
+          let args = { root: project_details.path, path: path };
+          var preview = '';
+          await handleRequestData(Api.urls.get_file_preview, args, function (data){
+            preview = data.preview;
+          });
+          return preview;
         }
         
       };

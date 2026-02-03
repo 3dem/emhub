@@ -48,7 +48,7 @@ from flask import current_app as app
 import flask_login
 import jwt
 
-from emtools.utils import Pretty, Color
+from emtools.utils import Pretty, Color, Path
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 
@@ -685,6 +685,56 @@ def get_project_manager(**attrs):
     from emwrap.base import ProjectManager
     pm = ProjectManager(pp['project'].path)
     return pp, pm
+
+
+@api_bp.route('/list_project_dir', methods=['POST'])
+@flask_login.login_required
+def list_project_dir():
+    def _handle(**attrs):
+        root = attrs['root']
+        path = attrs['path']
+        full_path = os.path.join(root, path)    
+        items = []
+        for fn in os.listdir(full_path):
+            fn_path = os.path.join(full_path, fn)
+            item = {
+                'name': fn,
+                'path': os.path.join(path, fn),
+                'isDir': False,
+                'size': 0,
+                'mime': None
+            }
+            if os.path.exists(fn_path):
+                if os.path.isdir(fn_path):
+                    item['isDir'] = True
+                else:
+                    item['size'] = os.path.getsize(fn_path)
+                    if Path.isText(fn):
+                        item['mime'] = "text"
+            items.append(item)
+        return items
+
+    return _handle_item(_handle, 'items')
+
+
+@api_bp.route('/get_file_preview', methods=['POST'])
+@flask_login.login_required
+def get_file_preview():
+    def _handle(**attrs):
+        root = attrs['root']
+        path = attrs['path']
+        full_path = os.path.join(root, path)
+
+        if not os.path.exists(full_path):
+            return "Files does not exists"
+
+        if Path.isText(path):
+            with open(full_path) as f:
+                return '\n'.join(f.readlines())
+
+        return "Unknown how to preview this file type."
+
+    return _handle_item(_handle, 'preview')
 
 
 def handle_workflow(handle_func=None):
