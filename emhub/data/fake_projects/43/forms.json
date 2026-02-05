@@ -6,7 +6,8 @@
         "[[http://ieeexplore.ieee.org/document/7740877][Brubaker et al., IEEE Trans. Pattern Anal. Mach. Intell., 2017]] ",
         "[[https://doi.org/10.5281/zenodo.3576630][Daniel Asarnow et al., Zenodo, 2019]] "
       ],
-      "help": " Apply non-uniform refinement to achieve higher resolution and map\n    quality, especially for membrane proteins. Non-uniform refinement\n    iteratively accounts for regions of a structure that have disordered or\n    flexible density causing local loss of resolution. Accounting for these\n    regions and dynamically estimating their locations can significantly\n    improve resolution in other regions as well as overall map quality by\n    impacting the alignment of particles and reducing the tendency for\n    refinement algorithms to over-fit disordered regions.\n    ",
+      "help": " Apply non-uniform refinement to achieve higher resolution and map quality, especially for membrane proteins. \n\n Non-uniform refinement iteratively accounts for regions of a structure that have disordered or flexible density causing local loss of resolution. Accounting for these regions and dynamically estimating their locations can significantly  improve resolution in other regions as well as overall map quality by  impacting the alignment of particles and reducing the tendency for refinement algorithms to over-fit disordered regions.\n\n  *Package references:* \n[[http://doi.org/10.1038/nmeth.4169][Punjani et al., Nature Methods, 2017]] ",
+      
       "sections": [
         {
           "label": "General",

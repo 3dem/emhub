@@ -55,8 +55,8 @@
               "childs": []
             },
             {
-              "text": "import atomic structure",
-              "value": "ProtImportPdb",
+              "text": "CS-NonUniform Refinement",
+              "value": "ProtCryoSparcNewNonUniformRefine3D",
               "icon": {
                 "top": 32,
                 "left": 32,
