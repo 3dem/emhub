@@ -167,25 +167,25 @@
     (function(window, document, $, undefined) {
     "use strict";
 
-    $('select').selectpicker();
+        $('select').selectpicker();
 
-    $('.datetimepicker-input').datetimepicker({
-        format: 'YYYY/MM/DD'
-    });
+        $('.datetimepicker-input').datetimepicker({
+            format: 'YYYY/MM/DD'
+        });
 
-    /* Register when the Booking type change */
-    $('input[type=radio][name=booking-type-radio]').change(function() {
-        booking_type = this.value;
-        $('#booking-slot-auth').prop('readonly', this.value != 'slot');
-    });
+        /* Register when the Booking type change */
+        $('input[type=radio][name=booking-type-radio]').change(function() {
+            booking_type = this.value;
+            $('#booking-slot-auth').prop('readonly', this.value != 'slot');
+        });
 
-    $('input[type=radio][name=booking-repeat-radio]').change(function() {
-        repeat_value = this.value;
-    });
+        $('input[type=radio][name=booking-repeat-radio]').change(function() {
+            repeat_value = this.value;
+        });
 
-    $('input[type=radio][name=booking-modify-radio]').change(function() {
-        modify_all = this.value == 'yes';
-    });
+        $('input[type=radio][name=booking-modify-radio]').change(function() {
+            modify_all = this.value == 'yes';
+        });
 
     })(window, document, window.jQuery);
 
@@ -202,7 +202,7 @@
 
     $(document).ready(function(){
         load_main_content("{{ content_id }}", {{ params|tojson }});
-    });
+     });
 
     /* ---------------- RESOURCE functions ------------------*/
     /** Get the resource object from its id */

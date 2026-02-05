@@ -4,13 +4,7 @@
 {% set is_admin = current_user.is_admin %}
 
 
-<div class="container-fluid dashboard-content">
-    <!-- Header -->
-    {% set title = "Tomo Session" %}
-    {% set navigation = [('Tomo Processing', url_for_content('processing_tomo_list')),
-                         ('Project %s'|format(tomo_session_id), ''),
-                         ('Path: %s'|format(tomo_session['path']), '')] %}
-    {% include 'include_header.html' %}
+<div class="mt-2 p-0">
 
     <div class="row col-12 m-0 p-0" id="session-content">
         {% if mode == 'workflow' %}
@@ -26,14 +20,19 @@
     <div class="row col-12">
         <h5 id="reload_label"></h5>
     </div>
-</div>
+ </div>
 
 
 <script>
     $('select').selectpicker();
     var tomo_session_id = {{ tomo_session_id|tojson }};
     var tomo_session_path = {{ tomo_session['path']|tojson }};
+    var tomo_session_title = {{ tomo_session['title']|tojson }};
 
+    // alert("Running: "+ $('#topbar-content').html());
+    $('#topbar-content').html(`<span class="h5 ml-3">Tomography Project:</span><span class="h5 ml-3 text-dark">${tomo_session_title}</span>`);
+    // Remove the left sidebar
+    //$('.nav-left-sidebar').fadeOut();
 
     function projectPath(fileName){
         return `${tomo_session_path}/${fileName}`;
