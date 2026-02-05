@@ -806,7 +806,7 @@ def load_workflow():
     or an entry_id
     """
     def _load_workflow(pp, pm, **attrs):
-        pm.loadWorkflow(json.loads(attrs['workflow_jobs']))
+        pm.loadWorkflow(workflow_id=attrs['workflow_id'])
 
     return handle_workflow(_load_workflow)
 

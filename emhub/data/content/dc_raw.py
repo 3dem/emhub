@@ -248,11 +248,12 @@ def register_content(dc):
             "path": project_path,
             'protocols': protocols
         }
+        pmenu = dc.app.dm.get_config('processing_menus')['menu_widget']
         data.update({
             'project_id': project_id,
             'project_details': project_details,
             'project_ids': [43, 871, 878],
-            'menu': dc.app.dm.get_config('processing_menus')['menu_widget']
+            'menu': pmenu
         })
         with open(f'project_{project_id}.json', 'w') as f:
             json.dump(project_details, f, indent=4)

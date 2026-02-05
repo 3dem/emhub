@@ -55,11 +55,12 @@ def register_content(dc):
         if tsId := kwargs.get('tomo_session_id', None):
             mode = kwargs.get('mode', 'workflow')
 
-            print(f">>>>> tomo_session, mode={mode}", flush=True)
-
             if tp := dc.app.dm.get_entry_by(id=tsId):
+                data = tp.extra['data']
+                path = data['processing_path']
                 tomo_session = {
-                    'path': tp.extra['data']['processing_path'],
+                    'path': path,
+                    'title': data.get('title', os.path.basename(path)),
                     'tomograms_star': 'tomograms.star',
                 }
                 data = {
@@ -77,7 +78,6 @@ def register_content(dc):
                     tomo_session['tomograms_star'] = tsession['tomograms_star']
                 data.update(tomo_session_content(tomo_session=json.dumps(tomo_session)))
                 data['mode'] = mode
-
                 return data
             else:
                 raise Exception(f"Can load tomography session: {tsId}")
