@@ -238,21 +238,35 @@ def register_content(dc):
         entries = dm.get_entries(condition=f"type='{entry_type}'", asJson=True)
         # Group entries by project
         pseudo_projects = defaultdict(lambda: [])
+        shared_projects = []
+        default_project_id = None
+
+        def _title(e):
+            data = e['extra']['data']
+            e['title'] = e['title'] or os.path.basename(data.get('processing_path', ''))
+            return e
+
+
         for e in entries:
             pid = e['project_id']
             if pid in projects:
-                pseudo_projects[pid].append(e)
+                pseudo_projects[pid].append(_title(e))
+                default_project_id = pid
+            else:
+                data = e['extra'].get('data', {})
+                shared = data.get('share_table', [])
+                if any(r['user_email'] == dc.app.user.email for r in shared):
+                    shared_projects.append(_title(e))
 
         # If there are no current tomography entries,
         # let's create a default project
-        if not pseudo_projects:
-            defaultTomoProject = None
+        if default_project_id is None:
             for p in user_projects:
                 if p.status == project_type:
-                    defaultTomoProject = p
+                    default_project_id = p.id
                     break
 
-            if defaultTomoProject is None:
+            if default_project_id is None:
                 defaultTomoProject = dm.create_project(
                     user_id=uid,
                     status=project_type,
@@ -261,24 +275,23 @@ def register_content(dc):
                     title=f"Default Project for {entry_type} entries",
                     description=""
                 )
-            pseudo_projects[defaultTomoProject.id] = []
+                default_project_id = defaultTomoProject.id
 
-        return pseudo_projects
+            pseudo_projects[default_project_id] = []
+
+        return {
+            'pseudo_projects': pseudo_projects, 
+            'shared_projects': shared_projects,
+            'default_project_id': default_project_id
+        }
 
     @dc.content
     def processing_tomo_list(**kwargs):
         kwargs['entry_type'] = 'tomo_processing'
         kwargs['project_type'] = 'processing_tomo'
-
-        tomo_projects = dc.get_data('pseudo_projects', **kwargs)
-        for entries in tomo_projects.values():
-            for e in entries:
-                data = e['extra']['data']
-                e['title'] = e['title'] or os.path.basename(data.get('processing_path', ''))
-
-        return {
-            'tomo_projects': tomo_projects
-        }
+        data = dc.get_data('pseudo_projects', **kwargs)
+        data['tomo_projects'] = data['pseudo_projects']
+        return data
 
     @dc.content
     def processing_tomo(**kwargs):

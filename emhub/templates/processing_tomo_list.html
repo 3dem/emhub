@@ -1,5 +1,33 @@
 {% import "entry_macros.html" as macros %}
 
+{% macro project_card(tp) -%}
+    {% set data = tp['extra'].get('data', {}) %}
+    <!-- Processing Project Card -->
+    {% set card_color='#ebf7f9' %}
+
+    <div class="card w-auto mr-3" style="background-color: {{ card_color }}; min-width: 500px; max-width: 700px">
+
+        <div class="card-header d-flex" style="background-color: {{ card_color }};">
+
+            {% set url = url_for_content('tomo_session', tomo_session_id=tp['id'], mode="widget") %}
+            
+            <a class="mb-0" href="{{ url }}"><h5>{{ tp['title'] }}</h5></a>
+            <div class=" ml-auto row">
+                <a href="{{ url }}" class="mr-2"><i class="fas fa-external-link-alt"></i></a>
+                <a href="javascript:showEntryForm({{ tp['id'] }}, {{ tp['project_id'] }})" class="mr-2"><i class="fas fa-edit"></i></a>
+                <a href="javascript:deleteTomoProject({{ tp['id'] }}, '{{ tp['title'] }}')" class="mr-2"><i class="fas fa-trash"></i></a>
+            </div>
+        </div>
+
+        <div class="card-body">
+            <p>Path: <small>{{ data['processing_path'] }}</small></p>
+
+        </div>
+
+    </div>
+{%- endmacro %}
+
+
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = "Tomo Processing" %}
@@ -10,51 +38,22 @@
     <!-- table row -->
     {{ macros.hidden_hour_id() }}
 
+    <div class="row"> 
+        <div class="col-12 mb-3 ml-0 pl-0">
+            <a href="javascript:createTomoProject({{ default_project_id }})" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create New Project</a>
+        </div>
 
     {% for project_id, project_entries in tomo_projects.items() %}
+  
         <div class="card col-12">
+            <div class="card-header"><h3>My Projects</h3></div>
             <div class="card-body">
-                <div class="col-12 mb-3 ml-0 pl-0">
-                    <a href="javascript:createTomoProject({{ project_id }})" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create New Project</a>
-                </div>
+                
                 <div class="row">
 
-           {% for tp in project_entries %}
-                {% set data = tp['extra']['data'] %}
-
-                    <!-- Processing Project Card -->
-                    {% set card_color='#ebf7f9' %}
-                    {# {% set card_color='#ececec' %}  #}
-                    <div class="card w-auto mr-3" style="background-color: {{ card_color }}; min-width: 500px; max-width: 700px">
-
-                        <div class="card-header d-flex" style="background-color: {{ card_color }};">
-
-                            {% set url = url_for_content('tomo_session', tomo_session_id=tp['id'], mode="widget") %}
+                    {% for tp in project_entries %}
                             
-                            <a class="mb-0" href="{{ url }}"><h5>{{ tp['title'] }}</h5></a>
-                            <div class=" ml-auto row">
-                                <a href="{{ url }}" class="mr-2"><i class="fas fa-external-link-alt"></i></a>
-                                <a href="javascript:showEntryForm({{ tp['id'] }}, {{ tp['project_id'] }})" class="mr-2"><i class="fas fa-edit"></i></a>
-                                <a href="javascript:deleteTomoProject({{ tp['id'] }}, '{{ tp['title'] }}')" class="mr-2"><i class="fas fa-trash"></i></a>
-{#                                <div class="dropdown ml-2">#}
-{#                                    <a class="toolbar" href="#" role="button" id="dropdownMenu-{{ tp['id'] }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">#}
-{#                                        <i class="fas fa-ellipsis-v"></i> </a>#}
-{#                                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenu-{{ tp['id'] }}">#}
-{#                                        <a class="dropdown-item" href="#">Action</a>#}
-{#                                        <a class="dropdown-item" href="#">Another action</a>#}
-{#                                        <a class="dropdown-item" href="#">Something else here</a>#}
-{#                                    </div>#}
-{#                                </div>#}
-                            </div>
-                        </div>
-
-                        <div class="card-body">
-{#                            <h5 class="card-title">{{ entry['name'] }}</h5>#}
-                            <p>Path: <small>{{ data['processing_path'] }}</small></p>
-
-                        </div>
-
-                    </div>
+                        {{ project_card(tp) }}
 
                     {% endfor %}
 
@@ -65,8 +64,24 @@
     {% endfor %}
     <!-- end table row -->
 
-</div>
+    <div class="card col-12">
+        <div class="card-header"><h3>Shared with me</h3></div>
+        <div class="card-body">
+            
+            <div class="row">
 
+                {% for tp in shared_projects %}
+                        
+                    {{ project_card(tp) }}
+
+                {% endfor %}
+
+            </div>
+        </div>
+    </div>
+
+    </div>
+</div>
 
 <script>
     function createTomoProject(project_id){
