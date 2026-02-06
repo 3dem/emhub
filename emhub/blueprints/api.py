@@ -730,7 +730,7 @@ def get_file_preview():
 
         if Path.isText(path):
             with open(full_path) as f:
-                return '\n'.join(f.readlines())
+                return f.read()
 
         return "Unknown how to preview this file type."
 
