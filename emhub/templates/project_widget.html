@@ -359,6 +359,11 @@
               id: "run.err",
               label: "run.err",
               order: 1
+            },
+            {
+              id: "commands.txt",
+              label: "commands.txt",
+              order: 2
             }
           ]
           };
@@ -376,6 +381,11 @@
               channel: "run.err",
               offset: offsets['run.err'],
               path: projectPath(`${protocolId}/run.err`)
+            },
+            {
+              channel: "commands.txt",
+              offset: offsets['commands.txt'],
+              path: projectPath(`${protocolId}/commands.txt`)
             }];
           await handleRequestData(Api.urls.get_file_chunks, { chunks: chunks }, function (data){
             chunks = data.chunks;

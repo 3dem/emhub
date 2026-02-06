@@ -19,7 +19,7 @@ from glob import glob
 import numpy as np
 import base64
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import mrcfile
 from emtools.utils import Path, Timer, Pretty, FolderManager
@@ -159,13 +159,20 @@ class RelionSessionData(SessionData):
         elapsed = ''
         if runs := jobInfo.get('runs', None):
             if e := runs[-1].get('elapsed', ''):
-                elapsed = " " + e.split('.')[0]
+                elapsed = e.split('.')[0]
             elif s := runs[-1].get('start', ''):
                 started = Pretty.parse_datetime(s)
                 e = str(datetime.now() - started)
-                elapsed = " " + e.split('.')[0]
+                elapsed = e.split('.')[0]
 
         return elapsed
+
+    def _job_elapsed_seconds(self, jobInfo):
+        seconds = 0
+        if jobElapsed := self._job_elapsed(jobInfo):
+            td = Pretty.parse_timedelta(jobElapsed)
+            seconds = td.days * 24 * 60 * 60 + td.seconds
+        return seconds
 
     def get_workflow(self, update=False, widget=False):
         """ Return the internal workflow.
@@ -193,7 +200,7 @@ class RelionSessionData(SessionData):
 
             protList.append({
                 'id': job.id,
-                'label': RelionRun.jobAlias(job) + self._job_elapsed(jobInfo),
+                'label': RelionRun.jobAlias(job) + ' ' + self._job_elapsed(jobInfo),
                 'links': links,
                 'status': STATUS_MAP.get(job['status'], job['status']),
                 'type': job['jobtype']
@@ -259,7 +266,7 @@ class RelionSessionData(SessionData):
                 'status': STATUS_MAP.get(job['status'], job['status']),
                 'type': job['jobtype'],
                 "cpuTime": "0",
-                "elapsedTime": self._job_elapsed(jobInfo),
+                "elapsedTime": self._job_elapsed_seconds(jobInfo),
                 "isInteractive": False,
                 "numberOfSteps": 1,
                 "stepsDone": 1,
