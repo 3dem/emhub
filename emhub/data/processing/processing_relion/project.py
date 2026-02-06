@@ -312,6 +312,7 @@ class RelionSessionData(SessionData):
                 allParams.add(name)
 
         if jobForm := ProcessingConfig.get_job_form(jobType):
+            formDef['help'] = jobForm.get('help', '')
             for paramDef in ProcessingConfig.iter_form_params(jobForm):
                 _register(paramDef)
             for sectionDef in jobForm['sections']:
