@@ -22,31 +22,12 @@
         {% endfor %}
         </ul>
     {% else %}
-        <!-- Row: Status cards -->
-{#        <div class="row col-12">#}
-{#            {% call macros.status_card_counter('Tomograms', 'counter_tomograms', False) %}#}
-{#            {% endcall %}#}
-{##}
-{#            {% call macros.status_card_counter('Particles', 'counter_particles', True) %}#}
-{#                <span id="tag_particles"></span>#}
-{#            {% endcall %}#}
-{##}
-{#            {% call macros.status_card_counter('Selection', 'selection', True) %}#}
-{#                <div class="row col-12 p-0 m-0">#}
-{#                    {{ macros.status_row('Enabled', 0, 'label_enabled') }}#}
-{#                    {{ macros.status_row('Disabled', 0, 'label_disabled') }}#}
-{#                    <div class="col-12 text-sm-right mt-3">#}
-{#                        <a href="javascript:exportSelection()" class="btn btn-outline-dark">  Export Selection </a>#}
-{#                    </div>#}
-{#                </div>#}
-{#            {% endcall %}#}
-{#        </div>#}
 
         <!-- Plots -->
          <div class="col-6">
 
-                    <div class="pills-outline">
-                        <ul class="nav nav-pills mb-2" id="tabTomoNav" role="tablist">
+                    <div class="simple-card">
+                        <ul class="nav nav-tabs" id="tabTomoNav" role="tablist">
 
                             <li class="nav-item">
                                 <a class="nav-link active" id="tomo-table-tab" data-toggle="tab" href="#tomo-table" role="tab" aria-controls="current" aria-selected="true">Table</a>
@@ -58,14 +39,14 @@
 
                         </ul>
 
-                        <div class="tab-content" id="tabTomoContent">
+                        <div class="tab-content m-0 p-0" id="tabTomoContent">
 
                             <!-- tab "tomo-table" -->
-                            <div class="tab-pane fade show active" id="tomo-table" role="tabpanel" aria-labelledby="tomo-table-tab">
+                            <div class="tab-pane fade show active m-0 p-0" id="tomo-table" role="tabpanel" aria-labelledby="tomo-table-tab" style="height: 700px">
 
-                                <table id="table-tomograms" class="table" style="width:100%">
+                                <table id="table-tomograms" class="table  m-0 p-0" style="width:100%">
                                     <thead>
-                                        <tr>
+                                        <tr style="background-color: #eaeaea">
                                             <th>Enabled</th>
                                             <th>Index</th>
                                             <th>TomoName</th>
@@ -131,7 +112,7 @@
                             </div> <!-- End of Tab tomo-table -->
 
                              <!-- tab "tomo-plots" -->
-                            <div class="tab-pane fade" id="tomo-plots" role="tabpanel" aria-labelledby="tomo-plots-tab">
+                            <div class="tab-pane fade" id="tomo-plots" role="tabpanel" aria-labelledby="tomo-plots-tab" style="height: 700px">
 
                                 <div class="row">
                                     <div class="col-8" id="tomo-pts-scatter-div">
@@ -324,8 +305,8 @@
         });
         //session_setCounter('tag_particles', Math.round(total_particles/tomograms.length) + " / tomogram");
         var percent = Math.round(selected * 100 / tomograms.length);
-        session_setCounter('label_enabled', `${selected}  (${percent}%)  ${selected_particles} particles`);
-        session_setCounter('label_disabled', `${tomograms.length - selected}  (${100 - percent}%)`);
+         //session_setCounter('label_enabled', `${selected}  (${percent}%)  ${selected_particles} particles`);
+        //session_setCounter('label_disabled', `${tomograms.length - selected}  (${100 - percent}%)`);
     }
 
     function createPlotCard(){
@@ -353,8 +334,6 @@
             default_y: "numberOfParticles"
         };
         plot_card = new PlotCard('particles_plot', data_values);
-        {#plot_card.onPointClick = function (index) {#}
-        {#    mic_card_overview.loadMicData(index + 1) };#}
         plot_card.makePlots();
     }
 
@@ -402,10 +381,10 @@
             max_thick = Math.min(max_thick, df);
         }
 
-        session_setCounter('counter_tomograms', tomograms.length);
-        session_setCounter('counter_particles', total_particles);
-        session_setCounter('tag_particles', Math.round(total_particles/tomograms.length) + " / tomogram");
-        session_setCounter('label_enabled', tomograms.length);
+        // session_setCounter('counter_tomograms', tomograms.length);
+        //session_setCounter('counter_particles', total_particles);
+        //session_setCounter('tag_particles', Math.round(total_particles/tomograms.length) + " / tomogram");
+        //session_setCounter('label_enabled', tomograms.length);
 
         var config = {
             onclick: function (point) {

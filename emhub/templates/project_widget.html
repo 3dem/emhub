@@ -324,7 +324,7 @@
         async resolveBrowserPaths(projectId, protocolId) {
           return {
             "rootAbs": project_details.path,
-            "startPath": '.',
+            "startPath": protocolId != null ? protocolId : '.',
             "protocolRoot": protocolId
           };
         },

@@ -99,7 +99,13 @@
               if (content == null)
                   throw new Error("Missing viewer for file: " + value);
 
-              load_overview(value, content);
+              load_overview(value, content, function() {
+                let basename = getBasename(value);
+                if (basename.startsWith('tomogram'))
+                    loadTomogram(0);
+                else
+                    loadAlignedTs(0);
+              });
 
             // Return this for triggering the widget viewers
             // return { handled: false };

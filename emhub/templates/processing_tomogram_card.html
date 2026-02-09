@@ -7,7 +7,7 @@
         <div class="card ml-3">
             <h4 class="card-header" id="{{ card_id }}_header"> {{ file_path|basename }}</h4>
             <div class="card-body" id="" style="background-color: white">
-                <div class="col-12 m-0 p-0" id="{{ card_id }}_volSlider" style="background-color: white"></div>
+                <div class="col-12 m-0 p-0" id="{{ card_id }}_volSlider"></div>
             </div>
         </div>
     </div>
@@ -33,7 +33,7 @@
                 slice_dim: 1024,
                 coordinates: coordinates
             });
-        {##}
+        {# #}
         {#console.log("card: " + $(`#${slider_z}`).width())#}
         {#console.log("canvas: " + $(`#${slider_z}_vol_canvas`).width())#}
         {#console.log("slider: " + $(`#${slider_z}_slider_row`).width())#}
