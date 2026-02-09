@@ -1038,30 +1038,30 @@ class ImageSliderCard extends Card {
         this.cooordinates = config.coordinates
         this.ruler = this.createRuler();
 
-        const width = getObjectValue(config, 'slice_dim', 128);
-        var styleStr = '" style="width: 100%"';
-
-        //var html = '<div class="row"><div class="col-12"><img id="' + this.id('image') + styleStr + '></div>';
-
-
-        var figureHtml = '<figure className="figure">';
-        figureHtml += `<canvas id="${this.id('canvas')}"></canvas>`;
-        figureHtml += '</figure>';
-
         for (const [sliceIndex, sliceImg] of Object.entries(slices)) {
             this.indexes.push(sliceIndex);
         }
         const N = this.indexes.length;
-        var sliderHtml = `<div class="row col-12 id="${this.id('slider_row')}" style="width: 500px">`;
-        sliderHtml += '<div class="col-12 align-content-start align-items-start text-left"><input id="' + this.id('slider_input') + styleStr + '" type="range" min="0" value="0" max="' + (N - 1) + '" step="1"></div>';
-        sliderHtml += '<div class="col-3" id="' + this.id('image_dim_text') + '">Y dim: 500px</div>'
-        sliderHtml += '<div class="col-3" id="' + this.id('slider_text') + '"></div>'
-        sliderHtml += '<div class="col-5" id="' + this.id('ruler_text') + '">Ruler: click to activate</div>'
-        sliderHtml += '<div class="col-1" id="' + this.id('ruler_clear') + '"><a><i class="fa fa-eraser"></i> </a></div>'
-        sliderHtml += '</div>';
 
-        var bodyHtml = getObjectValue(config, "slider_ontop", false) ? `${sliderHtml}${figureHtml}` : `${figureHtml}${sliderHtml}`;
-        var html = `<div>${bodyHtml}</div>`;
+        let slider_ontop = getObjectValue(config, 'slider_ontop', false);
+
+        // Use inline-block wrapper so container shrinks to canvas size
+        // and slider width matches the canvas
+        var figureHtml = '<figure class="figure mb-2" style="margin: 0; padding: 0; display: block;">';
+        figureHtml += `<canvas id="${this.id('canvas')}" style="display: block;"></canvas>`;
+        figureHtml += '</figure>';
+
+        var sliderHtml = `<div id="${this.id('slider_row')}" style="width: 100%;">`;
+        sliderHtml += `<input id="${this.id('slider_input')}" type="range" min="0" value="0" max="${N - 1}" step="1" style="width: 100%;">`;
+        sliderHtml += `<div class="d-flex justify-content-between" style="font-size: 0.85em;">`;
+        sliderHtml += `<span id="${this.id('image_dim_text')}"></span>`;
+        sliderHtml += `<span id="${this.id('slider_text')}"></span>`;
+        //sliderHtml += `<span id="${this.id('ruler_text')}">Ruler: click to activate</span>`;
+        //sliderHtml += `<span id="${this.id('ruler_clear')}"><a><i class="fa fa-eraser"></i></a></span>`;
+        sliderHtml += '</div></div>';
+
+        var bodyHtml = slider_ontop ? `${sliderHtml}${figureHtml}` : `${figureHtml}${sliderHtml}`;
+        var html = `<div style="display: inline-block;">${bodyHtml}</div>`;
 
         this.container.innerHTML = html;
 
@@ -1126,13 +1126,17 @@ class VolumeSliderCard extends Card {
 
         const minWidth = 3 * width;
         var html = '<div class="row m-0 p-0">';
-        const styleStr = '';  //'" style="width: ' + width + 'px">';
+        const styleStrX = 'background-color:blue';  //'" style="width: ' + width + 'px">';
+        const styleStrY = 'background-color:green';  //'" style="width: ' + width + 'px">';
+        const styleStrZ = 'background-color:red';  //'" style="width: ' + width + 'px">';
         html = '<div class="row col-12">'
-        html += `<div id="${this.id('slider_y')}" ${styleStr}></div>`;
+        html += `<div id="${this.id('slider_y')}" ${styleStrY}></div>`;
         html += '</div>';
-        html += '<div class="row col-12">'
-        html += `<div class="mr-4" id="${this.id('slider_z')}" ${styleStr}></div>`;
-        html += `<div id="${this.id('slider_x')}" ${styleStr}></div>`;
+        
+        html += '<div class="row col-12 mt-3">'
+        html += `<div class="mr-4" id="${this.id('slider_z')}" ${styleStrZ}></div>`;
+        
+        html += `<div id="${this.id('slider_x')}" ${styleStrX}></div>`;
         html += '</div>';
 
         this.container.innerHTML = html;

@@ -669,12 +669,12 @@ function setLoading(containerId) {
       $('#' + containerId).html(loadingHtml);
 }
 
-function load_overview(title, ajax_content){
+function load_overview(title, ajax_content, afterLoad){
 
     $('#overview-modal-title').text(title);
     setLoading('overview-content');
     $('#overview-modal').modal('show');
-     load_html_from_ajax('overview-content', ajax_content);
+     load_html_from_ajax('overview-content', ajax_content, afterLoad);
 }
 
 function loadTextFileOverview(args){
@@ -682,13 +682,13 @@ function loadTextFileOverview(args){
     load_overview(title, get_ajax_content('processing_textfile_overview', args));
 }
 
-function loadStarOverview(path, tableName) {
+function loadStarOverview(path, tableName, afterLoad) {
     var args = {
         file_path: path
     };
     if (nonEmpty(tableName))
         args.default_table = tableName;
-    load_overview(path, get_ajax_content('processing_star_overview', args));
+    load_overview(path, get_ajax_content('processing_star_overview', args), afterLoad);
 }
 
 function loadStarRows(path, tableName) {
@@ -947,4 +947,13 @@ function sanitizeAndStripAccents(str) {
   out = out.normalize('NFD').replace(/\p{M}+/gu, '');
   return out;
 }
+
+function getBasename(pathStr) {
+    // Find the last occurrence of '/' or '\'
+    const lastSeparatorIndex = Math.max(pathStr.lastIndexOf('/'), pathStr.lastIndexOf('\\'));
+    // Extract the part after the last separator
+    const filename = pathStr.substring(lastSeparatorIndex + 1);
+  
+    return filename;
+  }
 
