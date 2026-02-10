@@ -30,19 +30,10 @@
 
         var vs = new VolumeSliderCard(volSlider, slices,
             {
-                slice_dim: 1024,
+                slice_dim: 512,
                 coordinates: coordinates
             });
-        {# #}
-        {#console.log("card: " + $(`#${slider_z}`).width())#}
-        {#console.log("canvas: " + $(`#${slider_z}_vol_canvas`).width())#}
-        {#console.log("slider: " + $(`#${slider_z}_slider_row`).width())#}
 
-        // From SPA Live session_resize
-        //var canvas = document.getElementById("canvas_micrograph");
-        {#var w = $("#canvas_micrograph").width();#}
-        {#var h = Math.round(w / canvas_ratio);#}
-        {#$("#canvas_micrograph").height(h);#}
 
 });
 })(window, document, window.jQuery);

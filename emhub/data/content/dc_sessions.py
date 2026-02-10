@@ -409,13 +409,23 @@ def register_content(dc):
             # volThumb = Thumbnail(max_size=(slice_dim, slice_dim),
             #                      output_format='base64',
             #                      contrast_factor=0.1)
-
-            volThumb = Thumbnail(output_format='base64',
-                                 contrast_factor=0.1)
+            args = {
+                'output_format': 'base64',
+                'contrast_factor': 0.1
+            }
+            if min_max := kwargs.get('min_max', None):
+                if min_max == 'auto':
+                    print(">>> Auto min/max", flush=True)
+                    args['min_max'] = (mrc.data.min(), mrc.data.max())
+                else:
+                    args['min_max'] = (min_max[0], min_max[1])
+            
+            volThumb = Thumbnail(**args)
 
             # volThumb = Thumbnail(output_format='base64',
             #                      contrast_factor=0.1)
                                  #min_max=(mrc.data.min(), mrc.data.max()))
+                                 
             # if slice_number := int(kwargs.get('slice_number', 0)):
             #     # Do not take slices from star/end since they are usually empty
             #     n4 = np.round(xdim / 4)
@@ -452,22 +462,59 @@ def register_content(dc):
 
         return data
 
+    def load_data_from_md(**kwargs):
+        project_path = kwargs['project_path']
+        ts_md = kwargs['ts_md']
+        data = {
+            'slices': {'z': []},
+            'file_path': ts_md,
+            'slice_step': 1,
+            'slice_dim': 512,
+            'coordinates': {'x': [], 'y': [], 'z': []},
+            'axis': 'z'
+        }
+
+        micThumb = Thumbnail.Micrograph(contrast_factor=0.1)
+        micThumb = Thumbnail(max_size=(data['slice_dim'], data['slice_dim']),
+                             output_format='base64',
+                             contrast_factor=0.5)
+        psdThumb = Thumbnail.Psd(contrast_factor=0.5)
+
+        starPath = os.path.join(project_path, ts_md)
+        print(">>> Star path", starPath, flush=True)
+
+        if os.path.exists(starPath):
+            with StarFile(starPath) as sf:
+                tableName = sf.getTableNames()[0]
+                zslices = data['slices']['z']
+                for row in sf.iterTable(tableName):
+                    micPath = os.path.join(project_path, row.rlnMicrographName)
+                    psdPath = os.path.join(project_path, row.rlnCtfPowerSpectrum)
+                    # zslices.append(micThumb.from_mrc(micPath))
+                    zslices.append(psdThumb.from_mrc(psdPath))
+                    break
+
+        return data
+
     @dc.content
     def processing_tomogram_card(**kwargs):
-        # kwargs['slice_step'] = 10
-        data = processing_volume_card(**kwargs)
-        x = []
-        y = []
-        z = []
-        data['coordinates'] = {'x': x, 'y': y, 'z': z}
+        if 'ts_md' in kwargs:
+            data = load_data_from_md(**kwargs)
+        else:
+            data = processing_volume_card(**kwargs)
 
-        if coords_md := kwargs.get('coords_md', ''):
-            if os.path.exists(coords_md):
-                with StarFile(coords_md) as sf:
-                    for row in sf.iterTable('particles'):
-                        x.append(round(row.rlnCoordinateX))
-                        y.append(round(row.rlnCoordinateY))
-                        z.append(round(row.rlnCoordinateZ))
+            x = []
+            y = []
+            z = []
+            data['coordinates'] = {'x': x, 'y': y, 'z': z}
+
+            if coords_md := kwargs.get('coords_md', ''):
+                if os.path.exists(coords_md):
+                    with StarFile(coords_md) as sf:
+                        for row in sf.iterTable('particles'):
+                            x.append(round(row.rlnCoordinateX))
+                            y.append(round(row.rlnCoordinateY))
+                            z.append(round(row.rlnCoordinateZ))
 
         return data
 
