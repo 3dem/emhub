@@ -42,7 +42,7 @@
                         <div class="tab-content m-0 p-0" id="tabTomoContent">
 
                             <!-- tab "tomo-table" -->
-                            <div class="tab-pane fade show active m-0 p-0" id="tomo-table" role="tabpanel" aria-labelledby="tomo-table-tab" style="height: 700px">
+                            <div class="tab-pane fade show active m-0 p-0" id="tomo-table" role="tabpanel" aria-labelledby="tomo-table-tab" style="height: 650px; overflow-y: auto;">
 
                                 <table id="table-tomograms" class="table  m-0 p-0" style="width:100%">
                                     <thead>
@@ -54,7 +54,7 @@
                                             {{ condHeader('coords_n', 'Coords') }}
                                             {{ condHeader('thickness', 'Thickness') }}
                                             <th>Metadata</th>
-                                            <th>TS / Tomogram</th>
+                                            <th>Data</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -84,7 +84,7 @@
                                             {% call cond('coords_n') %}
                                                 <td><a href="javascript:loadCoordinatesStar({{ index }})">{{ t['coords_n'] }}</a></td>
                                             {% endcall %}
-                                            {% call cond('coords_n') %}
+                                            {% call cond('thickness') %}
                                                 <td>{{ t['thickness'] }}</td>
                                             {% endcall %}
                                             <td>
@@ -96,7 +96,7 @@
                                             <td>
                                                 {% set tomo = tomograms[index] %}
                                                 {% if tomo['ts_md'] %}
-                                                    <a href="javascript:loadTsMetadata({{ index }})"><icon class="far fa-images mr-2"></icon></a>
+                                                    <a href="javascript:loadAlignedTs({{ index }})"><icon class="far fa-images mr-2"></icon></a>
                                                 {% endif %}
                                                 {% if tomo['aligned_ts'] %}
                                                     <a href="javascript:loadAlignedTs({{ index }})"><icon class="fas fa-images mr-2"></icon></a>
@@ -204,11 +204,18 @@
     }
 
     function loadAlignedTs(index) {
-        let aligned_ts = getObjectValue(tomograms[index], 'aligned_ts', null);
-        if (aligned_ts === null) {
-            showError("There is not aligned tilt-series information. ")
+        var args = null;
+        
+        let ts_md = getObjectValue(tomograms[index], 'ts_md', null);
+        if (ts_md != null) {
+            args = { 
+                project_path: tomo_session_path,
+                ts_md: ts_md 
+            };
         }
-        else {
+        
+        let aligned_ts = getObjectValue(tomograms[index], 'aligned_ts', null);
+        if (aligned_ts != null) {
             var args = {
                 file_path: aligned_ts,
                 volume_data: 'slices',
@@ -216,9 +223,13 @@
                 slice_step: 1,
                 slice_dim: 512
             };
+        }
 
+        if (args == null) {
+            showError("There is not tilt-series information. ")
+        }
+        else {
             setLoading('tomogram-div');
-
             load_html_from_ajax('tomogram-div',
                 get_ajax_content('processing_tomogram_card', args))
         }

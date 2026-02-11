@@ -93,7 +93,11 @@
               }
               else if (value.endsWith('.mrc'))
                   content = get_ajax_content('processing_volume_card',
-                                             {file_path: value, volume_data: "slices"});
+                                             {file_path: value, 
+                                              volume_data: "slices array",
+                                              axis: "z x y",
+                                              min_max: "auto"
+                                                }); 
 
 
               if (content == null)
