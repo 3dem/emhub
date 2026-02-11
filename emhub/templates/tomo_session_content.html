@@ -42,7 +42,7 @@
                         <div class="tab-content m-0 p-0" id="tabTomoContent">
 
                             <!-- tab "tomo-table" -->
-                            <div class="tab-pane fade show active m-0 p-0" id="tomo-table" role="tabpanel" aria-labelledby="tomo-table-tab" style="height: 700px">
+                            <div class="tab-pane fade show active m-0 p-0" id="tomo-table" role="tabpanel" aria-labelledby="tomo-table-tab" style="height: 650px; overflow-y: auto;">
 
                                 <table id="table-tomograms" class="table  m-0 p-0" style="width:100%">
                                     <thead>
@@ -54,7 +54,7 @@
                                             {{ condHeader('coords_n', 'Coords') }}
                                             {{ condHeader('thickness', 'Thickness') }}
                                             <th>Metadata</th>
-                                            <th>TS / Tomogram</th>
+                                            <th>Data</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -84,7 +84,7 @@
                                             {% call cond('coords_n') %}
                                                 <td><a href="javascript:loadCoordinatesStar({{ index }})">{{ t['coords_n'] }}</a></td>
                                             {% endcall %}
-                                            {% call cond('coords_n') %}
+                                            {% call cond('thickness') %}
                                                 <td>{{ t['thickness'] }}</td>
                                             {% endcall %}
                                             <td>
