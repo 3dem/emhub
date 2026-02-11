@@ -830,10 +830,6 @@ class DataManager(DbManager):
 
         return self.update_session(**attrs)
 
-    # -------------------------- WORKERS AND TASKS ----------------------------
-
-
-    # -------------------------- INVOICE PERIODS ------------------------------
     def get_invoice_periods(self, condition=None, orderBy=None, asJson=False):
         """ Returns a list.
         condition example: text("id<:value and name=:name")
@@ -1126,6 +1122,14 @@ class DataManager(DbManager):
 
         _add_from_dict(data)
         return files
+
+    def update_entry_extra(self, **attrs):
+        """ Update only certain elements from the extra property. """
+        entry = self.get_entry_by(id=attrs['id'])
+        extra = dict(entry.extra)
+        extra.update(attrs['extra'])
+        attrs['extra'] = extra
+        return self.update_entry(**attrs)
 
     # ---------------------------- PUCKS ---------------------------------
     def create_puck(self, **attrs):

@@ -673,7 +673,10 @@ def get_session_run():
 
         if 'form' in outputs:
             values = run.values if run else None
+            Pretty.dprint("Gettign form: " + jobtype)
             results['form'] = pp['project'].get_form_definition(jobtype, jobValues=values)
+            from pprint import pprint
+            pprint(results['form'])
 
         return results
 
@@ -1164,6 +1167,15 @@ def update_entry():
         new_files = set(app.dm.get_entry_files(entry))
         clean_files(old_files - new_files)
         return entry.json()
+
+    return _handle_item(handle, 'entry')
+
+
+@api_bp.route('/update_entry_extra', methods=['POST'])
+@flask_login.login_required
+def update_entry_extra():
+    def handle(**attrs):
+        return app.dm.update_entry_extra(**attrs).json()
 
     return _handle_item(handle, 'entry')
 

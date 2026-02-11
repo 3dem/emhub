@@ -106,7 +106,8 @@
             create: "{{ url_for('api.create_entry') }}",
             update: "{{ url_for('api.update_entry') }}",
             delete: "{{ url_for('api.delete_entry') }}",
-            image: "{{ url_for('images.entry') }}"
+            image: "{{ url_for('images.entry') }}",
+            update_extra: "{{ url_for('api.update_entry_extra') }}"
         },
         template: {
             create: "{{ url_for('api.create_template') }}",

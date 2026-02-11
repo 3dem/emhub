@@ -44,9 +44,11 @@
 <script>
   var project_id = {{ project_id | tojson }};
   var project_details = {{ project_details | tojson }};
+  var project_entry_extra = {{ project_entry_extra | tojson }};
   var get_project_args = {{ get_project_args | tojson }};
   var all_forms = {};
   var menu = {{ menu | tojson }};
+  var workflows = {{ menu['workflows']|tojson }};
 
   // Caching mechanism for project_details
   var cache = {
@@ -65,8 +67,7 @@
       return Date.now() - this.lastUpdated;
     }
   };
-
-  var workflows = {{ menu['workflows']|tojson }};
+  
 
   function request(url, args) {
     jQuery.extend(args, get_project_args);
@@ -78,6 +79,36 @@
       dataType: "json"
     });
   }
+
+  let project_tags = project_entry_extra.tags.project;
+  let protocol_tags = project_entry_extra.tags.protocols;  
+
+  function findTagIndex(tagId) {
+    for (var i = 0; i < project_tags.length; i++) 
+      if (project_tags[i].id === tagId) 
+        return i;
+    return null;
+  } 
+  
+  async function updateProjectTag(tagId, payload) {
+      var tagIndex = findTagIndex(tagId);
+      if (tagIndex === null) 
+        project_tags.push(payload);
+      else 
+        project_tags[tagIndex] = payload;
+      updateProjectEntryExtraTags();
+      return payload;         
+    }
+
+  async function updateProjectEntryExtraTags() {
+    await handleRequestData(
+       Api.urls.entry.update_extra, 
+       {id: project_id, extra: {tags: project_entry_extra.tags}}, 
+       function (data){
+            // Don't do anything with the data            
+      });
+    return { success: true };
+  } // function updateProjectTags
 
   async function loadJobDetails(jobId, jobType) {
     // Load only the values (json) if we already have that form
@@ -393,8 +424,45 @@
 
           console.log("fetchProtocolLogsChunk: chunks: " + JSON.stringify(chunks, null, 4));
           return {chunks: chunks}
-        }
+        },
 
+        async listProjectTags(projectId) {
+          return project_tags;
+        },
+
+        async createProjectTag(projectId, payload) {
+          payload.id = payload.title;
+          return updateProjectTag(null, payload);
+        },        
+
+        async updateProjectTag(projectId, tagId, payload) {
+          return updateProjectTag(tagId, payload);       
+        },
+
+        async deleteProjectTag(projectId, tagId) {
+          var tagIndex = findTagIndex(tagId);
+          if (tagIndex === null) 
+            return { success: false, error: "Tag not found" };          
+          project_tags.splice(tagIndex, 1);
+          updateProjectEntryExtraTags();
+          return { success: true };
+        },        
+        // async listProtocolTagIds(projectId, protocolId) {
+        //   var tagIds = getObjectDefault(protocol_tags, protocolId, []);
+        //   console.log("listProtocolTagIds: protocolId: " + protocolId + " tagIds: " + JSON.stringify(tagIds, null, 4));
+        //   return {
+        //     protocolId: protocolId,
+        //     tagIds: tagIds           
+        //   }
+        // },
+
+        async setProtocolTagIds(projectId, protocolId, tagIds) {
+          protocol_tags[protocolId] = tagIds; 
+          project_details.protocols[protocolId].tags = tagIds;
+          console.log("setProtocolTagIds: " + JSON.stringify(tagIds, null, 4));
+          updateProjectEntryExtraTags();
+          return { tagIds: tagIds }
+        }
       };
 
       // ---------- Mount state ----------

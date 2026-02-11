@@ -238,6 +238,9 @@ def register_content(dc):
         pp = data['processing_project']
         from emwrap.base import ProcessingConfig
         protocols = pp.get_workflow(widget=True)
+        protocol_tags = entry.extra.get('tags', {}).get('protocols', {})
+        for p in protocols.values():
+            p['tags'] = protocol_tags.get(p['id'], [])
 
         project_details = {
             'id': project_id,
@@ -248,11 +251,25 @@ def register_content(dc):
             "path": project_path,
             'protocols': protocols
         }
+
+        def _fixIcon(item):
+            if item.get('tag') == 'protocol':
+                if 'icon' not in item:
+                    item['icon'] = {'name': 'production.png'}
+            elif 'childs' in item:
+                for child in item['childs']:
+                    _fixIcon(child)
+
         pmenu = dc.app.dm.get_config('processing_menus')['menu_widget']
+        # Add the icon for all protocols
+        for sectionName, section in pmenu['protocols'].items():
+            _fixIcon(section)
+
         data.update({
             'project_id': project_id,
             'project_details': project_details,
             'project_ids': [43, 871, 878],
+            'project_entry_extra': entry.extra,
             'menu': pmenu
         })
         with open(f'project_{project_id}.json', 'w') as f:
