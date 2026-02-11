@@ -146,6 +146,11 @@
           return { status: 1, errors: ["Not yet implemented"] };
         },
 
+        stopProtocol(projectId, ids) {
+          alert("Stoping protocols....." + JSON.stringify(ids, null, 4))
+          return { status: 1, errors: ["Not yet implemented"] }
+        },
+
         duplicateProtocol(projectId, items) {
           alert("Duplicating protocols....." + JSON.stringify(items, null, 4))
           return { status: 1, errors: ["Not yet implemented"] };
@@ -239,6 +244,83 @@
               offset: 10
             }],
           };
+        },
+
+        async listProjectTags(projectId) {
+          return [
+            {
+              "id": "f9630f30-d27c-4a7c-af69-a85c6fff024b",
+              "projectId": 15,
+              "title": "Picking",
+              "description": null,
+              "color": "#3b82f6",
+              "createdAt": "2026-02-11T04:08:32.749996+01:00",
+              "updatedAt": null
+            },
+            {
+              "id": "63e79476-23b7-4299-8542-b167b8b1d22e",
+              "projectId": 15,
+              "title": "Processing",
+              "description": null,
+              "color": "#ef4444",
+              "createdAt": "2026-02-11T03:28:47.173776+01:00",
+              "updatedAt": null
+            }
+          ]
+        },
+
+        async createProjectTag(projectId, payload) {
+          payload = {
+            "title": "Postprocessing",
+            "description": null,
+            "color": "#f59e0b"
+          }
+          return {
+            "id": "ce7c63c8-7a46-4ece-a9bc-cc80cc5cc8a6",
+            "projectId": 15,
+            "title": "Postprocessing",
+            "description": null,
+            "color": "#f59e0b",
+            "createdAt": "2026-02-11T15:35:42.836561+01:00",
+            "updatedAt": null
+          }
+        },
+
+        async updateProjectTag(projectId, tagId, payload) {
+          payload = {
+            "title": "Picking",
+            "description": null,
+            "color": "#ec4899"
+          }
+
+          return {
+            "id": "f9630f30-d27c-4a7c-af69-a85c6fff024b",
+            "projectId": 15,
+            "title": "Picking2",
+            "description": null,
+            "color": "#ec4899",
+            "createdAt": "2026-02-11T04:08:32.749996+01:00",
+            "updatedAt": "2026-02-11T15:40:05.626484+01:00"
+          }
+
+        },
+
+        async deleteProjectTag(projectId, tagId) {
+          return { success: true }
+        },
+
+
+        async listProtocolTagIds(projectId, protocolId) {
+          return {
+            "protocolId": 870,
+            "tagIds": [
+              "63e79476-23b7-4299-8542-b167b8b1d22e"
+            ]
+          }
+        },
+
+        async setProtocolTagIds(projectId, protocolId, tagIds) {
+          return { tagIds: ["63e79476-23b7-4299-8542-b167b8b1d22e"] }
         },
       };
 
