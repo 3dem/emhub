@@ -118,7 +118,8 @@
             "elapsedTime": "102",
             "isInteractive": false,
             "numberOfSteps": 3,
-            "stepsDone": 3
+            "stepsDone": 3,
+            "tags": ["63e79476-23b7-4299-8542-b167b8b1d22e"]
         },
         "265": {
             "id": "265",
