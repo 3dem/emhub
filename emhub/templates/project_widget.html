@@ -206,7 +206,6 @@
         showError(error.message);
       else {
         showError("Received unknown error");
-        console.log(JSON.stringify(error, null, 4));
       }
     }
   } // function handleRequestData
@@ -214,6 +213,14 @@
   async function requestAction(url, args) {
     args.widget = true;  // Request the workflow response to be compatible with the project widget
     await handleRequestData(url, args, function (data){
+      // Let's update the tags from the current project_details.protocols before updating the project_details
+      for (const protocolId in data.workflow) {
+        var newProtocol = data.workflow[protocolId];
+        var protocol = getObjectValue(project_details.protocols, protocolId, null);
+        if (protocol) {
+          newProtocol.tags = getObjectValue(protocol, 'tags', []);
+        }
+      }
       project_details.protocols = data.workflow;
       cache.refresh();  // Update cache timestamp after modifying project_details
     });
@@ -269,11 +276,8 @@
         async fetchProject(id) {
           // Check if cache is stale and needs refresh from backend
           if (cache.isStale()) {
-            console.log(`Cache is stale (age: ${cache.getAge() / 1000}s), fetching from backend...`);
             requestAction(Api.urls.get_session_workflow, { project_id: id });
-          } else {
-            console.log(`Using cached project_details (age: ${cache.getAge() / 1000}s)`);
-          }
+          } 
 
           return project_details;
         },
@@ -304,7 +308,11 @@
         },
 
         async deleteProtocol(projectId, protocolIds) {
-
+          // Let's remove the tags from the protocol_tags before deleting the protocols
+          for (const protocolId of protocolIds) {
+            delete protocol_tags[protocolId];
+          }
+          updateProjectEntryExtraTags();
             return requestAction(Api.urls.delete_jobs, {run_ids: protocolIds})
         },
 
@@ -338,8 +346,6 @@
         },
 
         resolveAnalyzeViewer: async function (ctx) {
-          console.log(JSON.stringify(ctx, null, 4));
-
               visualizeOutput({file_path: ctx.value});
 
               // Mark as handled so the widget won't open its internal AnalyzeOutputDialog.
@@ -401,8 +407,6 @@
         },
 
         async fetchProtocolLogsChunk(projectId, protocolId, offsets) {
-          console.log("fetchProtocolLogsChunk: offsets: " + JSON.stringify(offsets, null, 4));
-
           var chunks = [{
               channel: "run.out",
               offset: offsets['run.out'],
@@ -422,7 +426,6 @@
             chunks = data.chunks;
           });
 
-          console.log("fetchProtocolLogsChunk: chunks: " + JSON.stringify(chunks, null, 4));
           return {chunks: chunks}
         },
 
@@ -447,19 +450,10 @@
           updateProjectEntryExtraTags();
           return { success: true };
         },        
-        // async listProtocolTagIds(projectId, protocolId) {
-        //   var tagIds = getObjectDefault(protocol_tags, protocolId, []);
-        //   console.log("listProtocolTagIds: protocolId: " + protocolId + " tagIds: " + JSON.stringify(tagIds, null, 4));
-        //   return {
-        //     protocolId: protocolId,
-        //     tagIds: tagIds           
-        //   }
-        // },
 
         async setProtocolTagIds(projectId, protocolId, tagIds) {
           protocol_tags[protocolId] = tagIds; 
           project_details.protocols[protocolId].tags = tagIds;
-          console.log("setProtocolTagIds: " + JSON.stringify(tagIds, null, 4));
           updateProjectEntryExtraTags();
           return { tagIds: tagIds }
         }
@@ -562,7 +556,6 @@
             }
 
             showPageOnly();
-            console.log("[host] project page mounted:", projectId);
           } catch (err) {
             target.innerHTML =
               '<pre class="error">ProjectPageWidget error:\n' +
