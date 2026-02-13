@@ -322,6 +322,46 @@
         async setProtocolTagIds(projectId, protocolId, tagIds) {
           return { tagIds: ["63e79476-23b7-4299-8542-b167b8b1d22e"] }
         },
+
+        async getContextMenuVisibilityPolicy(projectId) {
+          // Returns a per-action visibility policy for the protocol node context menu within the given project.
+          return {
+            open: true,
+            browse: true,
+            rename: true,
+            duplicate: true,
+            delete: true,
+            restart: true,
+            continue: true,
+            reset: true,
+            stop: true,
+            selectFrom: true,
+            selectTo: true,
+            manageTags: true,
+            openProtocolClass: true,
+            export: true,
+            upload: true,
+            nextSteps: true,
+          };
+        },
+
+        async getNextProtocolSuggestions(projectId, protocolId) {
+          // Returns "next-step" protocol suggestions for a given protocol within a project(help and installed keys are optional).
+          return [
+            {
+              protocolName: "CryoCARE Prediction",
+              protocolClass: "ProtCryoCAREPrediction",
+              help: "Generate the final restored tomogram by applying the cryoCARE trained network to bothtomograms followed by per-pixel averaging.",
+              installed: "installed",
+            },
+            {
+              protocolName: "vectorial picking",
+              protocolClass: "DynamoBoxing",
+              help: 'Manual vectorial picker from Dynamo. After choosing the Tomogram to be picked, the tomo slicer from Dynamo will be    direclty loaded with all the models previously saved in the disk (if any).    This picking will only save the "user points" defined in a set of models. It is possible to    create several models at once in a given tomogram. Once the coordinates are defined,    the models are automatically saved in the catalogue and registered.    Currently the following Dynamo models are supported:        - Ellipsoidal Vesicle',
+              installed: "Missing. Available in scipion-em-dynamo plugin.",
+            },
+          ];
+        },
       };
 
       // mountState
