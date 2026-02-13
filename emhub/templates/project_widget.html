@@ -456,7 +456,29 @@
           project_details.protocols[protocolId].tags = tagIds;
           updateProjectEntryExtraTags();
           return { tagIds: tagIds }
-        }
+        },
+
+        async getContextMenuVisibilityPolicy(projectId) {
+          // Returns a per-action visibility policy for the protocol node context menu within the given project.
+          return {
+            open: true,
+            browse: true,
+            rename: true,
+            duplicate: true,
+            delete: true,
+            restart: false,
+            continue: false,
+            reset: false,
+            stop: true,
+            selectFrom: true,
+            selectTo: true,
+            manageTags: true,
+            openProtocolClass: true,
+            export: true,
+            upload: false,
+            nextSteps: false,
+          };
+        },
       };
 
       // ---------- Mount state ----------
