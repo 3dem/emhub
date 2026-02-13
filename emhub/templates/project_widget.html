@@ -90,14 +90,14 @@
     return null;
   } 
   
-  async function updateProjectTag(tagId, payload) {
+  async function updateProjectTag(tagId, payload) {    
       var tagIndex = findTagIndex(tagId);
       if (tagIndex === null) 
         project_tags.push(payload);
       else 
         project_tags[tagIndex] = payload;
       updateProjectEntryExtraTags();
-      return payload;         
+      return payload;        
     }
 
   async function updateProjectEntryExtraTags() {
@@ -434,11 +434,12 @@
         },
 
         async createProjectTag(projectId, payload) {
-          payload.id = payload.title;
+          payload.id = crypto.randomUUID();
           return updateProjectTag(null, payload);
         },        
 
         async updateProjectTag(projectId, tagId, payload) {
+          payload.id = tagId;
           return updateProjectTag(tagId, payload);       
         },
 
