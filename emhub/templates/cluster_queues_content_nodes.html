@@ -1,0 +1,86 @@
+
+
+<div class="col-12 row p-0">
+
+    {% for queue in queues %}
+
+    <div class="card mr-3"  style="min-width: 700px;">
+        <div class="card-header">
+            <div class="row">
+                <h3 class="col">{{ queue['label'] }}</h3>
+                <div class="row col-auto align-right"><label class="mr-1">Usage: </label> <h3>{{ queue['usage'] }}%</h3></div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+
+            <div class="table-responsive mb-2">
+                <table class="table" style="width: 100%">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                    <th class="border-0" style="width: 15%">Host</th>
+                    <th class="border-0" style="width: 15%">Usage</th>
+                    <th class="border-0" style="width: 15%">Cores</th>
+                    <th class="border-0" style="width: 15%">GPUs</th>
+                    <th class="border-0" style="width: 20%">Users/Jobs&nbsp;&nbsp;Status</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+
+                    {% for host in queue['nodes'] %}
+                        {% set hostJobs = jobs.get(host, {}) %}
+                        {% set users = hostJobs.get('users', {}) %}
+                        {% set cores = hostJobs.get('used_cores', 0)|int %}
+                        {% set coresMax = hostJobs.get('max_cores', 0)|int %}
+                        {% set gpus = hostJobs.get('used_gpus', 0)|int %}
+                        {% set gpusMax = hostJobs.get('max_gpus', 0)|int %}
+                        {% set status = hostJobs.get('status', '') %}
+                        {% set bgColor = '#EFFDEE' if cores == 0 else 'transparent' %}
+                        {% set unavail = ('closed' in status or 'unavail' in status) %}
+                        {% set bgColor = '#fbd9d3' if unavail else bgColor %}
+                        {% set bgColor = hostJobs['color'] %}
+                        <tr style="background-color: {{ bgColor }}">
+                            <td><span style="font-size: 1.1em;">{{ host }}</span></td>
+                            <td>{{ hostJobs['usage'] }} %</td>
+                            <td>{{ cores }} / {{ coresMax }}</td>
+                            <td>{{ gpus }} / {{ gpusMax }}</td>
+                            <td>
+                                {% if mode == 'compact' %}
+                                    {{ users|length }} / {{ hostJobs['jobs'] }}
+                                    <!-- <a href="{{ url_for_content('cluster_user', user=u) }}" class="badge-pill badge-dark mr-1 mt-1" >{{ users|length }}</a>
+                                    <a href="{{ url_for_content('cluster_job_details', host=host, user=user) }}" class="badge badge-info mr-1 mt-1" >0</a> -->
+                                    {% if unavail %}
+                                        &nbsp;&nbsp;{{ status }}
+                                    {% endif %}
+                                {% else %}
+                                    {% for u, ujobs in users.items() %}
+                                    <div class="row" style="border-style: none; border-width: 1px; border-color: black">
+                                            <a href="{{ url_for_content('cluster_user', user=u) }}" class="badge-pill badge-dark mr-1 mt-1" >{{ u }}</a>
+                                            <a href="{{ url_for_content('cluster_job_details', host=host, user=user) }}" class="badge badge-info mr-1 mt-1" >{{ ujobs|length }}</a>
+                                    </div>
+
+
+                                    {% endfor %}
+                                    {% if unavail %}
+                                        <div class="row mt-2"><strong>{{ status }}</strong></div>
+                                    {% endif %}
+                                {% endif %}
+
+                            
+
+                            </td>
+
+                        </tr>
+                    {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    {% endfor %}
+
+
+</div>
+

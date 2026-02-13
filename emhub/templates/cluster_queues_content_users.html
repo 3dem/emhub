@@ -1,0 +1,40 @@
+
+
+<div class="col-12 row p-0">
+
+        <div class="card-body p-0 col-6">
+
+            <div id="queues-users-plot" style="height: 750px; width: 650px"></div>
+
+        </div>
+
+
+</div>
+
+<script>
+    var users = {{ users|tojson }};
+
+    (function(window, document, $, undefined) {
+        "use strict";
+
+        var categories = [];
+        var series = [
+            {name: 'cores', data: []},
+            {name: 'gpus', data: []},
+            {name: 'jobs', data: []}
+        ]
+
+        for (var i = 0; i < users.length; i++){
+            var user = users[i];
+            categories.push(user.name);
+            series[0].data.push(user.cores);
+            series[1].data.push(user.gpus);
+            series[2].data.push(user.jobs);
+        }
+
+        create_hc_vcolumns('queues-users-plot',
+            {categories: categories, series: series})
+
+    })(window, document, window.jQuery);
+
+</script>

@@ -238,7 +238,12 @@ def register_content(dc):
         pp = data['processing_project']
         from emwrap.base import ProcessingConfig
         protocols = pp.get_workflow(widget=True)
-        protocol_tags = entry.extra.get('tags', {}).get('protocols', {})
+        if 'tags' not in entry.extra:
+            entry.extra['tags'] = {
+                'project': [],
+                'protocols': {}
+            }
+        protocol_tags = entry.extra['tags']['protocols']
         for p in protocols.values():
             p['tags'] = protocol_tags.get(p['id'], [])
 

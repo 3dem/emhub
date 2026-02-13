@@ -1,0 +1,54 @@
+
+
+<div class="col-12 row p-0">
+
+
+    <div class="card mr-3"  style="min-width: 700px;">
+        <div class="card-header">
+            <div class="row">
+                <h4 class="col">Availability- Reference jobs</h4>
+            </div>
+        </div>
+        <div class="card-body p-0">
+
+            <div class="table-responsive mb-2">
+                <table class="table" style="width: 98%">
+                    <thead class="bg-light">
+                    <tr class="border-0">
+                    <th class="border-0" style="width: 15%">GPUs</th>
+                    <th class="border-0" style="width: 15%">cores</th>
+                    <th class="border-0" style="width: 15%">memory (Gb)</th>
+                    <th class="border-0" style="width: 15%">Available Slots</th>
+                    <th class="border-0" style="width: 15%">Similar Pending</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+
+                    {% for gpus, row in avail.items() %}
+                        <tr style="background-color: {{ bgColor }}">
+                            <td><h5>{{ gpus }}</h5></td>
+                            <td>{{ row['cpus'] }}</td>
+                            <td>{{ row['mem'] }}</td>
+                            <td>{{ row['job'] }} </td>
+                            <td>{{ row['similar'] }}</td>
+                        </tr>
+                    {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+
+</div>
+
+{#<div class="col-12">#}
+{#<textarea style="height: 300px; width: 500px" rows="20" cols="50" class="form-control" id="ws-description">#}
+{##}
+{#                    {{ predictions|tojson }}#}
+{##}
+{#            </textarea>#}
+{#</div>#}
+

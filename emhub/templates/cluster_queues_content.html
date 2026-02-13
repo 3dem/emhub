@@ -1,0 +1,67 @@
+
+<div class="col-12 row p-0">
+
+    <div class="card mr-3"  style="min-width: 700px;">
+        <div class="card-header">
+            <div class="row">
+            </div>
+
+        </div>
+    </div>
+
+    <div class="card mr-3"  style="min-width: 700px;">
+        <div class="card-header">
+            <div class="row">
+                <div class="col-4">Tab: <h4>{{ tab }}</h4></div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="card"  style="min-width: 700px;">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-4">Last updated: <h4>{{ updated }}</h4></div>
+                <div class="col-4">Next refresh: <h4 id="reload_label"></h4></div>
+                <div class="col-4"><a href="javascript:reloadQueues()" class="btn btn-primary"><i class="fas fa-redo"></i> Refresh</a></div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<div class="pills-outline">
+    <ul class="nav nav-pills mb-2" id="tabTomoNav" role="tablist">
+
+        <li class="nav-item">
+            {% set ariaSelected = 'true' if tab == 'nodes' else 'false' %}
+            {% set activeStr = 'active' if tab == 'nodes' else '' %}
+            <a class="nav-link {{ activeStr }}" id="queue-nodes-tab" data-toggle="tab" href="#queue-nodes" role="tab" aria-controls="current" aria-selected="{{ ariaSelected }}"  onclick="selectTab('nodes')">Nodes</a>
+        </li>
+
+         <li class="nav-item">
+             {% set ariaSelected = 'true' if tab == 'users' else 'false' %}
+             {% set activeStr = 'active' if tab == 'users' else '' %}
+            <a class="nav-link {{ activeStr }}" id="queue-users-tab" data-toggle="tab" href="#queue-users" role="tab" aria-controls="current" aria-selected="{{ ariaSelected }}" onclick="selectTab('users')">Users</a>
+        </li>
+
+    </ul>
+
+    <div class="tab-content" id="tabTomoContent">
+        <!-- tab "queue-nodes" -->
+        {% set activeStr = 'show active' if tab == 'nodes' else '' %}
+        <div class="tab-pane fade {{ activeStr }}" id="queue-nodes" role="tabpanel" aria-labelledby="queue-nodes-tab">
+            {% include "cluster_queues_content_nodes.html" %}
+        </div>
+
+        <!-- tab "queue-users" -->
+        {% set activeStr = 'show active' if tab == 'users' else '' %}
+        <div class="tab-pane fade {{ activeStr }}" id="queue-users" role="tabpanel" aria-labelledby="queue-users-tab">
+             {% include "cluster_queues_content_users.html" %}
+        </div>
+    </div>
+</div>
+
+
+
