@@ -16,9 +16,12 @@
             <div class="card">
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table id="projects-table" class="table">
+                        <table id="projects-table" class="table w-100">
                             <thead>
                             <tr>
+                                {% if is_admin %}
+                                    <th>actions</th>
+                                {% endif %}
                                 <th>id</th>
                                 <th>date</th>
                                 <th>type</th>
@@ -30,14 +33,18 @@
                                 <th>created by</th>
                                 <th>last updated</th>
                                 <th>last updated by</th>
-                                {% if is_admin %}
-                                    <th>actions</th>
-                                {% endif %}
                             </tr>
                             </thead>
                             <tbody>
                             {% for e in entries %}
                                 <tr>
+                                    {% if is_admin %}
+                                        <td>
+                                            <div class="col-1"><a href="javascript:editEntry({{ e.id }})"><i class="fas fa-edit"></i>   </a></div>
+                                            <div class="col-1"><a href="javascript:deleteEntry({{ e.id }}, '{{ e.title }}')"><i class="fas fa-trash-alt"></i></a></div>
+                                        </td>
+                                    {% endif %}
+                                        
                                     <td>{{ e.id }}</td>
                                     <td>{{ e.date|pretty_date }}</td>
                                     <td>{{ e.type }}</td>
@@ -49,12 +56,7 @@
                                     <td>{{ e.creation_user.name }}</td>
                                     <td>{{ e.last_update_date|pretty_datetime }}</td>
                                     <td>{{ e.last_update_user.name }}</td>
-                                    <td>
-                                    {% if is_admin %}
-                                        <div class="col-1"><a href="javascript:editEntry({{ e.id }})"><i class="fas fa-edit"></i>   </a></div>
-                                        <div class="col-1"><a href="javascript:deleteEntry({{ e.id }}, '{{ e.title }}')"><i class="fas fa-trash-alt"></i></a></div>
-                                    {% endif %}
-                                    </td>
+                                    
                                 </tr>
                             {% endfor %}
 
@@ -114,7 +116,7 @@
     sDom: 'lfrtip',
     paging: false,
     info: false,
-    order: [[ 0, "desc" ]]
+    order: [[ 1, "desc" ]]
     //ordering: false
     });
 
