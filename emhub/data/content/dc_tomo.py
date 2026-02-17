@@ -299,6 +299,32 @@ def register_content(dc):
         return dc.get(**kwargs)
 
     @dc.content
+    def fsc_plot(**kwargs):
+        fscStar = kwargs['path']
+        table = StarFile.getTableFromFile('', fscStar, guessType=False)
+        resolution = []
+        fscSeries = []
+        fscSeriesDict = {}
+        fscLabels = ['wrpFSCUnmasked', 'wrpFSCRandomized', 'wrpFSCCorrected', 'wrpFSCMasked']
+        for label in fscLabels:
+            s = {"name": label, "data": []}
+            fscSeriesDict[label] = s
+            fscSeries.append(s)
+        
+        for row in table[1:]:
+            r = float(row.wrpResolution)
+            if r < 20:
+                resolution.append(r)
+                for label in fscLabels:
+                    # [x, y] pairs so Highcharts can use resolution on x-axis
+                    fscSeriesDict[label]['data'].append([r, float(getattr(row, label))])
+
+        return {
+            'fsc_series': fscSeries,
+            'resolution': resolution
+        }
+
+    @dc.content
     def tomo_processing_content(**kwargs):
         data = dc.get_data('processing_content', **kwargs)
         data['menu'] = dc.app.dm.get_config('processing_menus')['menu_flowchart']['protocols']

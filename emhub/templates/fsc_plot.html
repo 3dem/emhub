@@ -1,0 +1,21 @@
+{% import "entry_macros.html" as macros %}
+
+ <div class="simple-card col-12 align-center text-center">
+    <div id="plot-fsc" class="col-6"></div>
+ </div>
+
+
+<script>
+    var fscSeries = {{ fsc_series|tojson }};
+
+(function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+
+        create_hc_fscplot('plot-fsc', fscSeries);
+
+    });
+
+})(window, document, window.jQuery);
+
+</script>

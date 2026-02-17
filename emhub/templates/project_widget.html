@@ -434,7 +434,7 @@
         },
 
         async createProjectTag(projectId, payload) {
-          payload.id = crypto.randomUUID();
+          payload.id = randomUUID();
           return updateProjectTag(null, payload);
         },        
 

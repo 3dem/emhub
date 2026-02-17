@@ -83,7 +83,11 @@
           try {
               var content = null;
 
-              if (value.endsWith('.star')) {
+              if (value.endsWith('fsc.star')){
+                  console.log("Loading FSC plot for: " + value);
+                content = get_ajax_content('fsc_plot', {path: value});
+              }
+              else if (value.endsWith('.star')) {
                   let args = {
                     tomo_session: JSON.stringify({
                         path: tomo_session_path,
