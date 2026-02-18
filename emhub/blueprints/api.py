@@ -673,7 +673,7 @@ def get_session_run():
 
         if 'form' in outputs:
             values = run.values if run else None
-            Pretty.dprint("Gettign form: " + jobtype)
+            Pretty.dprint("Getting form: " + jobtype)
             results['form'] = pp['project'].get_form_definition(jobtype, jobValues=values)
             from pprint import pprint
             pprint(results['form'])
