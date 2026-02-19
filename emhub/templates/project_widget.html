@@ -375,7 +375,16 @@
           return items;
         },
 
-        async previewProtocolText(projectId, protocolId, path) {
+        // async previewProtocolText(projectId, protocolId, path) {
+        //   let args = { root: project_details.path, path: path };
+        //   var preview = '';
+        //   await handleRequestData(Api.urls.get_file_preview, args, function (data){
+        //     preview = data.preview;
+        //   });
+        //   return preview;
+        // },
+
+        async previewRemoteEntry(projectId, protocolId, path) {
           let args = { root: project_details.path, path: path };
           var preview = '';
           await handleRequestData(Api.urls.get_file_preview, args, function (data){
