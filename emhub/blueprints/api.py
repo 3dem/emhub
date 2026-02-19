@@ -48,11 +48,9 @@ from flask import current_app as app
 import flask_login
 import jwt
 
-from emtools.image import Thumbnail
 from emtools.utils import Pretty, Color, Path
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
-                         
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -731,47 +729,13 @@ def get_file_preview():
         full_path = os.path.join(root, path)
 
         if not os.path.exists(full_path):
-            raise Exception("File does not exist: " + full_path)
+            return "Files does not exists"
 
-        s = os.stat(full_path)
+        if Path.isText(path):
+            with open(full_path) as f:
+                return f.read()
 
-        info = {
-            "kind": "none",
-            "mime": "text/plain",
-            "meta": {
-                "name": path,
-                "size": Pretty.size(s.st_size),
-                "modified": Pretty.modified(full_path)
-            },
-            "truncated": False,
-            "note": "Cannot preview this file type."
-        }
-        try:
-
-            if Path.isText(path):
-                with open(full_path) as f:
-                    info.update({
-                        'text': f.read(),
-                        'mime': "text/plain",
-                        'kind': "text"
-                    })
-            elif Path.isImage(path) or Path.isEmImage(path):
-                info.update({
-                    "mime": "image/png",
-                    "kind": "image",
-                    "source": {
-                        "sourceType": "base64",
-                        "dataBase64": Thumbnail.Preview(full_path)
-                    }
-                })
-        except Exception as e:
-            app.logger.error(f"Error generating preview for {full_path}: {e}")
-            info.update({
-                "note": "ERROR: %s" % traceback.format_exc(),
-                "error": str(e)
-            })
-
-        return info
+        return "Unknown how to preview this file type."
 
     return _handle_item(_handle, 'preview')
 
