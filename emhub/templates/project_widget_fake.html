@@ -220,8 +220,72 @@
 
         },
 
-        async previewProtocolText(projectId, protocolId, path) {
-          return "This is a preview of the text file at path";
+        async previewRemoteEntry(projectId, protocolId, path) {
+          
+          const textKind = {
+            "kind": "text",
+            "mime": "text/plain",
+            "meta": {
+              "name": "run.log",
+              "size": "12 MB"
+            },
+            "truncated": false,
+            "text": "hello\nworld\n"
+          }
+
+          const jsonKind = {
+            "kind": "text",
+            "mime": "application/json",
+            "meta": {
+              "name": "params.json",
+              "sizeBytes": 999
+            },
+            "truncated": false,
+            "text": "{\n  \"a\": 1,\n  \"b\": true\n}"
+          }
+
+          const tableKind = {
+            "kind": "table",
+            "mime": "text/csv",
+            "meta": {
+              "name": "items.csv",
+              "rowCount": 2
+            },
+            "truncated": false,
+            "columns": ["id", "name"],
+            "rows": [
+              [1, "one"],
+              [2, "two"]
+            ]
+          }
+
+          const imageKind = {
+            "kind": "image",
+            "mime": "image/png",
+            "meta": {
+              "Name": "vol.mrc",
+              "Dimension": "512x512x256",
+              "Pixelsize": "1.2 A/px",
+              "Size": "9 GB",
+              "Note": "Central slice rendered as color PNG thumbnail",
+            },
+            "truncated": false,
+            "source": {
+              "sourceType": "base64",
+              "dataBase64": "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAIAAADTED8xAAADMElEQVR4nOzVwQnAIBQFQYXff81RUkQCOyDj1YOPnbXWPmeTRef+/3O/OyBjzh3CD95BfqICMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMO0TAAD//2Anhf4QtqobAAAAAElFTkSuQmCC"
+            }
+          }
+
+          const noneKind = {
+            "kind": "none",
+            "mime": "application/pdf",
+            "meta": {
+              "name": "report.pdf"
+            },
+            "truncated": false,
+            "note": "PDF preview is not available in this dialog."
+          }
+          return imageKind
         },
 
         async fetchProtocolLogChannels(projectId, protocolId) {
