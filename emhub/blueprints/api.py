@@ -48,6 +48,7 @@ from flask import current_app as app
 import flask_login
 import jwt
 
+from emtools.image import Thumbnail
 from emtools.utils import Pretty, Color, Path
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
@@ -673,7 +674,7 @@ def get_session_run():
 
         if 'form' in outputs:
             values = run.values if run else None
-            Pretty.dprint("Gettign form: " + jobtype)
+            Pretty.dprint("Getting form: " + jobtype)
             results['form'] = pp['project'].get_form_definition(jobtype, jobValues=values)
             from pprint import pprint
             pprint(results['form'])
@@ -727,15 +728,45 @@ def get_file_preview():
         root = attrs['root']
         path = attrs['path']
         full_path = os.path.join(root, path)
+        s = os.stat(full_path)
+        
+        info = {
+            "kind": "none",
+            "mime": "text/plain",
+            "meta": {
+                "name": path,
+                "size": Pretty.size(s.st_size),
+                "modified": Pretty.modified(full_path)
+            },
+            "truncated": False,
+            "note": "Cannot preview this file type."
+        }
+        try:
 
-        if not os.path.exists(full_path):
-            return "Files does not exists"
+            if Path.isText(path):
+                with open(full_path) as f:
+                    info.update({
+                        'text': f.read(),
+                        'mime': "text/plain",
+                        'kind': "text"
+                    })
+            elif Path.isImage(path) or Path.isEmImage(path):
+                info.update({
+                    "mime": "image/png",
+                    "kind": "image",
+                    "source": {
+                        "sourceType": "base64",
+                        "dataBase64": Thumbnail.Preview(full_path)
+                    }
+                })
+        except Exception as e:
+            app.logger.error(f"Error generating preview for {full_path}: {e}")
+            info.update({
+                "note": "ERROR: %s" % traceback.format_exc(),
+                "error": str(e)
+            })
 
-        if Path.isText(path):
-            with open(full_path) as f:
-                return f.read()
-
-        return "Unknown how to preview this file type."
+        return info
 
     return _handle_item(_handle, 'preview')
 
