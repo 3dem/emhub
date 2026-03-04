@@ -86,7 +86,8 @@ def register_content(dc):
     @dc.content
     def cluster_queues(**kwargs):
         dm = dc.app.dm
-        queuesConf = dm.get_config('queues')
+        clusterName = kwargs['cluster_name']
+        queuesConf = dm.get_config('queues')[clusterName]
         queuesLayout = queuesConf['layout']
 
         # Initialize jobs dict based on the Layout
@@ -182,7 +183,8 @@ def register_content(dc):
             'updated': Pretty.modified(jsonfile),
             'tab': kwargs.get('tab', 'nodes'),
             'users': users,
-            'mode': kwargs.get('mode', 'compact')
+            'mode': kwargs.get('mode', 'compact'),
+            'cluster_name': clusterName
         }
 
     @dc.content

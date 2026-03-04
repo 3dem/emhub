@@ -1,0 +1,103 @@
+{# WarpPopulation view: left panel = list of .mrc / .star files, right panel = selected volume or star viewer #}
+<div class="card h-100">
+    <div class="card-body">
+        <div class="row p-0">
+            <div class="col-2">
+                <div class="card">
+                    <h4 class="card-header">Population files</h4>
+                    <div class="card-body p-2">
+                        <div class="list-group list-group-flush" id="population-file-list">
+                            {% for f in files %}
+                            <a href="javascript:void(0)" class="list-group-item list-group-item-action population-file-item py-1"
+                               data-path="{{ f.path|e }}" data-type="{{ f.type }}">{{ f.name }}</a>
+                            {% else %}
+                            <div class="text-muted p-2">No .mrc or .star files in this folder.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-5">
+                <div class="card">
+                    <h4 class="card-header" id="population-viewer-title-volume">Select a file</h4>
+                    <div class="card-body p-2" id="population-viewer-content-volume">
+                        <p class="text-muted">Choose a volume (.mrc) or star file from the list to display it here.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-5">
+                <div class="card">
+                    <div class="card-body p-2" id="population-viewer-content-star">
+                        <p class="text-muted">Choose a volume (.mrc) or star file from the list to display it here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(window, document, $, undefined) {
+    "use strict";
+    var populationPath = {{ population_path|tojson }};
+    var files = {{ files|tojson }};
+    var default_star = {{ default_star|tojson }};
+    var default_mrc = {{ default_mrc|tojson }};
+
+    function loadVolume(path) {
+        $('#population-viewer-title-volume').text(path.split(/[/\\]/).pop());
+        $('#population-viewer-content-volume').html('<div class="text-muted">Loading volume...</div>');
+        var content = get_ajax_content('processing_volume_card', {
+            file_path: path,
+            volume_data: "slices array",
+            axis: "z x y",
+            min_max: "auto",
+            card_id: "population_vol",
+            card_view: "tabs"
+        });
+        content.done(function(html) {
+            $('#population-viewer-content-volume').html(html);
+        });
+        content.fail(function() {
+            $('#population-viewer-content-volume').html('<p class="text-danger">Failed to load volume.</p>');
+        });
+    }
+
+    function loadStar(path) {
+        $('#population-viewer-content-star').html('<div class="text-muted">Loading star file...</div>');
+        var content = null;
+        if (path.endsWith('fsc.star')) {
+            content = get_ajax_content('fsc_plot', {path: path});
+        } else {
+            content = get_ajax_content('processing_star_overview', { file_path: path });
+        }
+        content.done(function(html) {
+            $('#population-viewer-content-star').html(html);
+        });
+        content.fail(function() {
+            $('#population-viewer-content-star').html('<p class="text-danger">Failed to load star file.</p>');
+        });
+    }
+
+    $(function() {
+        $('.population-file-item').on('click', function() {
+            var path = $(this).data('path');
+            var type = $(this).data('type');
+            $('.population-file-item').removeClass('active');
+            $(this).addClass('active');
+            if (type === 'mrc') {
+                loadVolume(path);
+            } else {
+                loadStar(path);
+            }
+        });
+    });
+    if (default_star) {
+        loadStar(default_star);
+    }
+    if (default_mrc) {
+        loadVolume(default_mrc);
+    }    
+
+})(window, document, window.jQuery);
+</script>

@@ -1,5 +1,7 @@
 {% set card_id = card_id or 'vol_card' %}
+{% set card_view = card_view or 'cards' %}
 
+{% if card_view == 'cards' %}
 <div class="row">
 
     <!-- Slider Column -->
@@ -32,7 +34,7 @@
                 </div>
 
                 <!-- div used to draw the volume slices -->
-                <div class="col p-0" id="{{ card_id }}_volume-slices" style="height: 600px; overflow-y: auto;"></div>
+                <div class="col p-0" id="{{ card_id }}_volume-slices" style="height: 500px; overflow-y: auto;"></div>
 
             </div>
         </div>
@@ -46,15 +48,57 @@
             <div class="card-body" id="{{ card_id }}_vol_3d">
 
                 <!-- div used to render 3d volume -->
-                <div id="{{ card_id }}_vol_viewport" style="width:100%; height: 600px"></div>
+                <div id="{{ card_id }}_vol_viewport" style="width:100%; height: 500px"></div>
                 <div class="mt-2"><input id="{{ card_id }}_vol_viewport_slider" type="range" min="0" max="255", step="1"></div>
             </div>
         </div>
     </div>
     {% endif %}
 
-
 </div>
+
+{% elif card_view == 'tabs' %}
+<div class="row col-12 m-0 p-0">
+    <div class="pills-outline col-12 m-0 p-0">
+        <div class="tab-content m-0 p-0 col-12" id="tabTomoContent">
+            <ul class="nav nav-pills" id="tabVolumeNav" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="volume-3d-tab" data-toggle="tab" href="#volume-3d" role="tab" aria-controls="volume-3d" aria-selected="true">3D Viewer</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="volume-slider-tab" data-toggle="tab" href="#volume-slider" role="tab" aria-controls="volume-slider" aria-selected="false">Sliders</a>
+                </li>                
+                
+            </ul>
+            <div class="tab-content" id="tabVolumeContent">
+                                
+                <div class="tab-pane fade show active" id="volume-3d" role="tabpanel" aria-labelledby="volume-3d-tab">
+
+                    <div class="card-body" id="{{ card_id }}_vol_3d">
+                        <!-- div used to render 3d volume -->
+                        <div id="{{ card_id }}_vol_viewport" style="width:100%; height: 500px"></div>
+                        <div class="mt-2"><input id="{{ card_id }}_vol_viewport_slider" type="range" min="0" max="255", step="1"></div>
+                    </div>
+
+                </div>
+                <div class="tab-pane fade" id="volume-slider" role="tabpanel" aria-labelledby="volume-slider-tab">
+
+                    <div class="card-body" id="{{ card_id }}_vol_slider" style="height: 500px; overflow-y: auto;"></div>
+                    
+                </div>                
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row col-12">
+    <div class="card-body" id="{{ card_id }}_vol_3d">
+        <!-- div used to render 3d volume -->
+        <div id="{{ card_id }}_vol_viewport" style="width:100%; height: 500px"></div>
+        <div class="mt-2"><input id="{{ card_id }}_vol_viewport_slider" type="range" min="0" max="255", step="1"></div>
+    </div>
+</div>
+{% endif %}
 
 
 <script>
@@ -68,17 +112,15 @@
     (function(window, document, $, undefined) {
     "use strict";
     $(function() {
-        drawVolData("{{ card_id }}_volume-slices", slices.z);
+        // drawVolData("{{ card_id }}_volume-slices", slices.z);
+        // $('input[name="{{ card_id }}_axis_switch"]').change(function () {
+        //     drawVolData("{{ card_id }}_volume-slices", slices[$(this).val()]);
+        // })
 
         var vs = new VolumeSliderCard("{{ card_id }}_vol_slider", slices,
             {slice_dim: slice_dim});
 
         {% if array %}
-            $('input[name="{{ card_id }}_axis_switch"]').change(function () {
-                drawVolData("{{ card_id }}_volume-slices", slices[$(this).val()]);
-            })
-
-
             var array = {{ array|tojson }};
             renderVolume3D("{{ card_id }}_vol_viewport", array, dimensions);
         {% endif %}

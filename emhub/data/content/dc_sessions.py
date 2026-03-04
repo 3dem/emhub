@@ -38,7 +38,7 @@ import numpy as np
 
 import mrcfile
 
-from emtools.utils import Pretty, Path
+from emtools.utils import Pretty, Path, Timer
 from emtools.metadata import Bins, TsBins, EPU, StarFile
 from emtools.image import Thumbnail
 
@@ -389,7 +389,11 @@ def register_content(dc):
 
         volume_data = kwargs.get('volume_data', 'info')
 
+        t = Timer()
+        t.tic()
         mrc = mrcfile.open(volPath, permissive=True)
+        t.toc("Loaded MRC file")
+        
         zdim, ydim, xdim = mrc.data.shape
         slice_dim = int(kwargs.get('slice_dim', 128))
         slice_step = int(kwargs.get('slice_step', 1))
@@ -397,13 +401,17 @@ def register_content(dc):
         data = {
             'file_path': volPath,
             'dimensions': [xdim, ydim, zdim],
-            'slice_dim': slice_dim
+            'slice_dim': slice_dim,
+            'card_view': kwargs.get('card_view', 'cards')
         }
+        if 'card_id' in kwargs:
+            data['card_id'] = kwargs['card_id']
 
         if volume_data == "info":
             return data
 
         if "slices" in volume_data:
+            t.tic()
             axis = kwargs.get('axis', 'z')
 
             # volThumb = Thumbnail(max_size=(slice_dim, slice_dim),
@@ -453,14 +461,58 @@ def register_content(dc):
                 'slices': slices,
                 'axis': axis
             })
+            t.toc("Loaded slices")
 
         if 'array' in volume_data:
+            t.tic()
             iMax = mrc.data.max()  # min(imean + 10 * isd, imageArray.max())
             iMin = mrc.data.min()  # max(imean - 10 * isd, imageArray.min())
             im255 = ((mrc.data - iMin) / (iMax - iMin) * 255).astype(np.uint8)
             data['array'] = base64.b64encode(im255).decode("utf-8")
+            t.toc("Loaded array")
 
         return data
+
+    @dc.content
+    def processing_population_content(**kwargs):
+        """Content for WarpPopulation view: list .mrc and .star files in a directory."""
+        population_path = kwargs.get('population_path') or kwargs.get('file_path', '')
+
+        from emtools.metadata import WarpPopulation
+        wp = WarpPopulation(population_path)
+        population_dir = os.path.dirname(population_path)
+        species_path = os.path.join(population_dir, os.path.dirname(wp.Species[0]['path']))
+        default_star = ''
+        default_mrc = ''
+        allowed_suffixes = ('.mrc', '.mrcs', '.star')
+        files = []
+        for name in sorted(os.listdir(species_path)):
+            if name.startswith('.'):
+                continue
+            path = os.path.join(species_path, name)
+            if not os.path.isfile(path):
+                continue
+            low = name.lower()
+            if low.endswith('.mrc') or low.endswith('.mrcs'):
+                t = 'mrc'   
+            elif low.endswith('.star'):
+                t = 'star'
+            else:
+                t = 'unknown'
+            
+            if name.endswith('fsc.star'):
+                default_star = path
+            elif name.endswith('filtsharp.mrc'):
+                default_mrc = path
+
+            files.append({'name': name, 'path': path, 'type': t})
+
+        return {
+            'population_path': species_path,
+            'files': files,
+            'default_star': default_star,
+            'default_mrc': default_mrc
+        }
 
     def load_data_from_md(**kwargs):
         project_path = kwargs['project_path']

@@ -83,7 +83,11 @@
           try {
               var content = null;
 
-              if (value.endsWith('fsc.star')){
+              // WarpPopulation: directory containing .mrc and .star files
+              if (value.toLowerCase().endsWith('population')) {
+                  content = get_ajax_content('processing_population_content', {population_path: value});
+              }
+              else if (value.endsWith('fsc.star')){
                   console.log("Loading FSC plot for: " + value);
                 content = get_ajax_content('fsc_plot', {path: value});
               }
@@ -95,13 +99,13 @@
                     })}
                 content = get_ajax_content('tomo_session_content', args);
               }
-              else if (value.endsWith('.mrc'))
+              else if (value.endsWith('.mrc') || value.endsWith('.mrcs'))
                   content = get_ajax_content('processing_volume_card',
-                                             {file_path: value, 
+                                             {file_path: value,
                                               volume_data: "slices array",
                                               axis: "z x y",
                                               min_max: "auto"
-                                                }); 
+                                                });
 
 
               if (content == null)
@@ -111,7 +115,7 @@
                 let basename = getBasename(value);
                 if (basename.startsWith('tomogram'))
                     loadTomogram(0);
-                else
+                else if (value.endsWith('series.star'))
                     loadAlignedTs(0);
               });
 

@@ -982,15 +982,20 @@ function drawClasses2d(containerId, classes, showSel, run_id){
 
 function drawVolData(containerId, volSlices){
     var container = document.getElementById(containerId);
-    var imgStr, infoStr = null;
-    var html = '<div class="col-12 row">';
+    console.log("Drawing volume slices: " + containerId);
+    if (nonEmpty(container)) {
+        var imgStr, infoStr = null;
+        var html = '<div class="col-12 row">';
 
-    for (const [sliceIndex, sliceImg] of Object.entries(volSlices)) {
-        imgStr = '<img src="data:image/png;base64,' + sliceImg + '" style="border: solid 3px; width: 100px">';
-        infoStr = '<p class="text-muted mb-0"><small>' + sliceIndex + '</small></p>';
-        html += '<div style="padding: 1px; min-width: 100px;">' + imgStr + infoStr + '</div>';
+        for (const [sliceIndex, sliceImg] of Object.entries(volSlices)) {
+            imgStr = '<img src="data:image/png;base64,' + sliceImg + '" style="border: solid 3px; width: 100px">';
+            infoStr = '<p class="text-muted mb-0"><small>' + sliceIndex + '</small></p>';
+            html += '<div style="padding: 1px; min-width: 100px;">' + imgStr + infoStr + '</div>';
+        }
+        container.innerHTML = html + '</div>';
+    } else {
+        showError("Container with Id " + containerId + " does not exist");
     }
-    container.innerHTML = html + '</div>';
 }
 
 
