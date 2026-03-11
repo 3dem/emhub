@@ -36,7 +36,7 @@
                                 <td>{{ user.id }}</td>
                                 <td><a href="javascript:showUser({{ user.id }})"><img width="50px" src="{{ user.image }}"></a></td>
                                 <td>{{ user.status }}</td>
-                                <td>{{ user.username }}</td>
+                                <td>{{ user.username }} ({{ current_app.get_ldap_username(user.email) }})</td>
                                 <td>{{ user.email }}</td>
                                 <td>{{ user.name }}</td>
                                 <td>{{ user.roles }}</td>

@@ -135,6 +135,7 @@ def create_app(test_config=None):
     app.jinja_loader = jinja2.FileSystemLoader(template_folders)
 
     def register_basic_params(kwargs):
+        kwargs['current_app'] = app
         kwargs['is_devel'] = app.is_devel
         kwargs['version'] = __version__
         kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
@@ -427,6 +428,33 @@ def create_app(test_config=None):
         """
         return b.total_cost
 
+    def get_ldap_username(email):
+        ldap_username = None
+
+        if not app.config.get('CASE_SENSITIVE_USERNAMES', True):
+            email = email.lower()
+
+        user = app.dm.get_user_by(username=email)
+
+        if user:  # First check that the user in the db, then try to authenticate
+
+            auth_local = user.auth_local or not app.use_ldap
+
+            if auth_local:
+                raise Exception("LDAP authentication is not configured.")
+            else:
+                with ldap_manager.connection as conn:
+                    search_filter = f'(mail={email})'
+                    # attributes=['sAMAccountName'] retrieves the short username
+                    conn.search(
+                        search_base=app.config['LDAP_BASE_DN'],
+                        search_filter=search_filter,
+                        attributes=['sAMAccountName']
+                    )
+                    ldap_username = conn.entries[0].sAMAccountName.value if conn.entries else None
+
+        return ldap_username
+
     app.jinja_env.globals.update(url_for_content=url_for_content)
     app.jinja_env.add_extension('jinja2.ext.do')
     app.jinja_env.filters['basename'] = basename
@@ -490,6 +518,8 @@ def create_app(test_config=None):
     app.jinja_env.filters['pretty_datetime'] = app.dm.local_datetime
 
     app.booking_cost = booking_cost
+    app.get_ldap_username = get_ldap_username
+
 
     extra_setup = load_module('app_setup')
     if extra_setup and 'setup_app' in dir(extra_setup):
