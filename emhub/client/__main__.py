@@ -39,7 +39,7 @@ import os
 import sys
 import json
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime
 from pprint import pprint
 
 from .data_client import open_client, config
@@ -56,6 +56,265 @@ def date_str(datetimeStr):
 def date(datetimeStr):
     dateStr = datetimeStr.split('T')[0]
     return datetime.strptime(dateStr, '%Y-%m-%d')
+
+
+def _booking_days(start_iso, end_iso):
+    """Days spanned by a booking (inclusive); start/end are API ISO strings."""
+    start = datetime.fromisoformat(start_iso.replace('Z', '+00:00'))
+    end = datetime.fromisoformat(end_iso.replace('Z', '+00:00'))
+    return max(1, (end.date() - start.date()).days + 1)
+
+
+def _resource_daily_cost(res):
+    """Daily cost from resource.extra (0 if missing)."""
+    return int((res.get('extra') or {}).get('daily_cost', 0))
+
+
+def parse_booking_filters(filter_strings):
+    """
+    Parse -f/--filter arguments into a dict for retrieve_bookings_list.
+
+    Syntax (space-separated key=value; multiple -f flags are merged):
+      user=ID       — owner_id must equal ID (integer)
+      resource=...  — resource_id or resource name (comma-separated); each token
+                      is either an integer id or a name, e.g. resource=Krios01,3
+      pi=ID         — booking included if owner's pi_id == ID, or application's
+                      first PI id == ID (lab / application PI match)
+
+    Example:
+      -f "user=120 resource=1,3"
+      -f "resource=Krios01,3"
+      -f "pi=123"
+    """
+    out = {}
+    if not filter_strings:
+        return out
+    for part in filter_strings:
+        for token in part.split():
+            if '=' not in token:
+                continue
+            key, val = token.split('=', 1)
+            key = key.strip().lower()
+            val = val.strip()
+            if key == 'user':
+                out['user'] = int(val)
+            elif key == 'resource':
+                out['resource'] = [x.strip() for x in val.split(',') if x.strip()]
+            elif key == 'pi':
+                out['pi'] = int(val)
+    return out
+
+
+def retrieve_bookings_list(start_str, end_str, filters=None):
+    """
+    Fetch bookings in [start_str, end_str] via get_bookings_range (func=to_json)
+    and return a list of display dicts: date, user, pi_name, app_code, days,
+    resource, total (cost = days * daily_cost per resource).
+
+    filters: optional dict from parse_booking_filters(); all given criteria
+    must match (AND). Empty filters dict means no filtering.
+    """
+    filters = filters or {}
+    with open_client() as dc:
+        r = dc.request('get_users', jsonData={})
+        r.raise_for_status()
+        users_by_id = {u['id']: u for u in r.json()}
+
+        r = dc.request('get_resources', jsonData={})
+        r.raise_for_status()
+        resources_list = r.json()
+        resources_by_id = {res['id']: res for res in resources_list}
+        resource_lookup = {}
+        for res in resources_list:
+            rid = res['id']
+            resource_lookup[str(rid)] = rid
+            if res.get('name'):
+                resource_lookup[res['name'].lower()] = rid
+
+        allowed_resource_ids = None
+        tokens = filters.get('resource') or []
+        if tokens:
+            allowed_resource_ids = set()
+            for t in tokens:
+                key = t if t.isdigit() else t.lower()
+                rid = resource_lookup.get(key)
+                if rid is not None:
+                    allowed_resource_ids.add(rid)
+
+        r = dc.request('get_applications', jsonData={})
+        r.raise_for_status()
+        applications_by_id = {a['id']: a for a in r.json()}
+
+        r = dc.request(
+            'get_bookings_range',
+            jsonData={'start': start_str, 'end': end_str, 'func': 'to_json'},
+        )
+        r.raise_for_status()
+        bookings = r.json()
+
+    rows = []
+    for b in bookings:
+        resource_id = b.get('resource_id')
+        application_id = b.get('application_id')
+        owner_id = b.get('owner_id')
+        start_iso = b.get('start') or ''
+        end_iso = b.get('end') or ''
+
+        # --- apply filters (AND) ---
+        if filters.get('user') is not None:
+            if owner_id != filters['user']:
+                continue
+        if allowed_resource_ids is not None:
+            if resource_id is None or resource_id not in allowed_resource_ids:
+                continue
+        if filters.get('pi') is not None:
+            owner = users_by_id.get(owner_id) if owner_id else None
+            owner_pi = owner.get('pi_id') if owner else None
+            app_pi_id = None
+            if application_id:
+                app = applications_by_id.get(application_id)
+                if app:
+                    pi_list = app.get('pi_list') or []
+                    app_pi_id = pi_list[0] if pi_list else app.get('creator_id')
+            pi_match = (owner_pi == filters['pi']) or (app_pi_id == filters['pi'])
+            if not pi_match:
+                continue
+
+        resource = resources_by_id.get(resource_id) if resource_id else None
+        resource_name = resource.get('name', '?') if resource else '?'
+        daily_cost = _resource_daily_cost(resource) if resource else 0
+        days = _booking_days(start_iso, end_iso)
+        total_cost = days * daily_cost
+
+        pi_name = ''
+        app_code = ''
+        pi_id_resolved = None
+        if application_id:
+            app = applications_by_id.get(application_id)
+            if app:
+                app_code = app.get('code') or app.get('alias') or str(application_id)
+                pi_list = app.get('pi_list') or []
+                pi_id_resolved = pi_list[0] if pi_list else app.get('creator_id')
+                if pi_id_resolved is not None:
+                    u = users_by_id.get(pi_id_resolved)
+                    if u:
+                        label = u.get('name') or u.get('email') or str(pi_id_resolved)
+                        pi_name = '%s (%s)' % (label, pi_id_resolved)
+        if not pi_name and owner_id:
+            owner = users_by_id.get(owner_id)
+            if owner and owner.get('pi_id'):
+                pi_id_resolved = owner['pi_id']
+                u = users_by_id.get(pi_id_resolved)
+                if u:
+                    label = u.get('name') or u.get('email') or '?'
+                    pi_name = '%s (%s)' % (label, pi_id_resolved)
+                else:
+                    pi_name = '? (%s)' % pi_id_resolved
+            elif owner:
+                # No PI link; show owner as fallback with owner id
+                label = owner.get('name') or owner.get('email') or '?'
+                pi_name = '%s (%s)' % (label, owner_id)
+
+        owner = users_by_id.get(owner_id) if owner_id else None
+        if owner:
+            label = owner.get('name') or owner.get('email') or '?'
+            user_name = '%s (%s)' % (label, owner_id)
+        else:
+            user_name = '—'
+
+        rows.append({
+            'id': b.get('id'),
+            'date': start_iso[:10] if start_iso else '',
+            'user': user_name,
+            'pi_name': pi_name or '—',
+            'app_code': app_code or '—',
+            'days': days,
+            'resource': resource_name,
+            'total': total_cost,
+        })
+    return rows
+
+
+def print_bookings_list(rows, start_str, end_str):
+    """Print bookings rows as a column-aligned table to stdout."""
+    # wu/wp wider to fit "Name (id)" for user and PI
+    wd, wu, wp, wa, wdays, wr, wc = 12, 30, 30, 14, 5, 16, 10
+    fmt = (
+        '{date:<{wd}} {user:<{wu}} {pi_name:<{wp}} {app_code:<{wa}} '
+        '{days:>{wdays}} {resource:<{wr}} {total:>{wc}}'
+    )
+    header = fmt.format(
+        date='Date', user='User', pi_name='PI', app_code='Application',
+        days='Days', resource='Resource', total='Cost',
+        wd=wd, wu=wu, wp=wp, wa=wa, wdays=wdays, wr=wr, wc=wc,
+    )
+    print('Bookings ({} – {})'.format(start_str, end_str))
+    print('-' * len(header))
+    print(header)
+    print('-' * len(header))
+    for row in rows:
+        print(fmt.format(
+            date=row['date'],
+            user=(row['user'] or '—')[:wu],
+            pi_name=(row['pi_name'] or '—')[:wp],
+            app_code=(row['app_code'] or '—')[:wa],
+            days=row['days'],
+            resource=(row['resource'] or '?')[:wr],
+            total=row['total'],
+            wd=wd, wu=wu, wp=wp, wa=wa, wdays=wdays, wr=wr, wc=wc,
+        ))
+    print('-' * len(header))
+    print('Total: {} bookings, grand total cost: {}'.format(
+        len(rows), sum(r['total'] for r in rows)))
+
+
+def delete_bookings_list(rows):
+    """
+    Delete each booking by id via delete_booking API.
+    Bookings with sessions cannot be deleted (server error).
+    """
+    deleted = 0
+    errors = []
+    with open_client() as dc:
+        for row in rows:
+            bid = row.get('id')
+            if bid is None:
+                continue
+            r = dc.request('delete_booking', jsonData={'attrs': {'id': bid}})
+            result = r.json()
+            if result.get('error'):
+                errors.append((bid, result['error']))
+            else:
+                deleted += 1
+                print('Deleted booking id=%s' % bid)
+    print('Deleted %d booking(s).' % deleted)
+    if errors:
+        print(Color.red('%d failed:' % len(errors)))
+        for bid, err in errors:
+            print(Color.red('  id=%s: %s' % (bid, err)))
+
+
+def process_booking(args):
+    """booking subparser: list or delete bookings in date range (with filters)."""
+    filters = parse_booking_filters(args.filter or [])
+    if getattr(args, 'delete', False):
+        # Avoid deleting entire range by mistake
+        if not filters and not getattr(args, 'force', False):
+            print(Color.red(
+                'Refusing to delete with no filters (would delete all in range). '
+                'Add -f filters or pass --force.'
+            ))
+            sys.exit(1)
+    rows = retrieve_bookings_list(args.start, args.end, filters=filters)
+    if getattr(args, 'delete', False):
+        if not rows:
+            print('No bookings match; nothing to delete.')
+            return
+        print('About to delete %d booking(s) in %s – %s.' % (
+            len(rows), args.start, args.end))
+        delete_bookings_list(rows)
+    else:
+        print_bookings_list(rows, args.start, args.end)
 
 
 def process_users(args):
@@ -142,7 +401,6 @@ def process_forms(args):
 
 
 def process_sessions(args):
-
     with open_client() as dc:
         def _session_create_or_update(s):
             if 'owner_id' in s:
@@ -376,6 +634,43 @@ def main():
                            help="Retrieve sessions starting from this date onwards."
                                 "Format: YYYY-MM-DD. ")
 
+    # ------------------------- Booking subparser -------------------------------
+    booking_p = subparsers.add_parser(
+        "booking",
+        help="List or delete bookings in a date range (table: date, user, PI, "
+             "application, days, resource, cost). Use -d to delete matches; "
+             "requires -f filters unless --force.",
+    )
+    booking_p.add_argument(
+        'start',
+        help='Start date (YYYY-MM-DD)',
+    )
+    booking_p.add_argument(
+        'end',
+        help='End date (YYYY-MM-DD)',
+    )
+    booking_p.add_argument(
+        '--filter', '-f',
+        action='append',
+        metavar='EXPR',
+        help='Filter bookings (space-separated key=value; repeat -f to add). '
+             'user=ID — owner user id; resource=1,Krios01 — resource id(s) and/or '
+             'name(s), comma-separated; pi=ID — owner pi_id or application PI. '
+             'Example: -f "user=120 resource=Krios01,3"',
+    )
+    booking_p.add_argument(
+        '--delete', '-d',
+        action='store_true',
+        help='Delete bookings that match the date range and filters (same selection '
+             'as listing). Requires at least one -f unless --force.',
+    )
+    booking_p.add_argument(
+        '--force',
+        action='store_true',
+        help='With --delete, allow deleting all bookings in range when no -f filters '
+             'are given (dangerous).',
+    )
+
     # ------------------------- Puck subparser -------------------------------
     puck_p = subparsers.add_parser("puck")
 
@@ -431,6 +726,9 @@ def main():
 
     elif args.entity == 'session':
         process_sessions(args)
+
+    elif args.entity == 'booking':
+        process_booking(args)
 
     elif args.entity == 'puck':
         process_pucks(args)
