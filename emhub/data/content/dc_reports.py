@@ -504,6 +504,9 @@ def register_content(dc):
                 else:
                     pi = b.owner.get_pi()
                 if not pi or pi.id not in pi_list:
+                    # Still count toward calendar utilization (pie); only PI
+                    # attribution for bar charts is skipped below.
+                    _register(b, "used")
                     continue
                 entry_key = str(pi.id)
                 entry_app = pi_apps[pi.id].code
@@ -568,13 +571,19 @@ def register_content(dc):
         entries_sorted = list(_sorted_entries(entries_usage.values()))
 
         # Compute used and unused days per microscope based on
-        # total days minus usage (including maintenance, downtime, or special)
-        start = datetime_from_isoformat(range_dict['start'].replace('/', '-'))
-        end = datetime_from_isoformat(range_dict['end'].replace('/', '-'))
+        # total days minus usage (including maintenance, downtime, or special).
+        # Use facility-local calendar bounds (same as get_bookings_range /
+        # _get_range); _register uses local dates from dm.dt_as_local.
+        range_start = datetime_from_isoformat(
+            range_dict['start'].replace('/', '-'))
+        range_end = datetime_from_isoformat(
+            range_dict['end'].replace('/', '-'))
+        start = dm.date(range_start.date())
+        end = dm.date(range_end.date())
         print(f">>>> start: {Pretty.datetime(start)}:", flush=True)
         print(f">>>> end: {Pretty.datetime(end)}:", flush=True)
 
-        period_days = (end - start).days + 1
+        period_days = (end.date() - start.date()).days + 1
         period_units = period_days * 2
 
         calendar_max = defaultdict(lambda: 0)
@@ -602,14 +611,14 @@ def register_content(dc):
 
         for k, v in entries_down.items():
             v['total_days'] = calendar_max.get(k, 0) * 2
-        total_usage = calendar_max.get('used') * 2
+        total_usage = calendar_max.get('used', 0) * 2
 
         other_total = sum(e['total_days'] for e in entries_down.values())
         unused_total = period_units - total_usage - other_total
         #
-        # print(">>>> period_days: ", other_total, flush=True)
-        # print(">>>> other_total: ", other_total, flush=True)
-        # print(">>>> unused_total: ", unused_total, flush=True)
+        print(">>>> period_days: ", period_days, flush=True)
+        print(">>>> other_total: ", other_total, flush=True)
+        print(">>>> unused_total: ", unused_total, flush=True)
 
         used_entry = _entry(key='used', label='Used', total_days=total_usage,
                             color='#3CB371')
