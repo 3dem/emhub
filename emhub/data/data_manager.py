@@ -409,9 +409,8 @@ class DataManager(DbManager):
 
         def _add_booking(attrs):
             b = self.create_basic_booking(attrs)
-            self.__validate_booking(b,
-                                    check_min_booking=check_min_booking,
-                                    check_max_booking=check_max_booking)
+            self.validate_booking(b, check_min_booking=check_min_booking, 
+                                  check_max_booking=check_max_booking)
             bookings.append(b)
 
         if repeat_value == 'no':
@@ -460,7 +459,7 @@ class DataManager(DbManager):
             if repeater:
                 repeater.move()  # move start, end for repeating bookings
 
-            self.__validate_booking(b)
+            self.validate_booking(b)
 
         result = self._modify_bookings(attrs, update)
 
@@ -1282,6 +1281,9 @@ class DataManager(DbManager):
         _set_user('operator')
 
         return b
+
+    def validate_booking(self, booking, **kwargs):
+        return self.__validate_booking(booking, **kwargs)
 
     def __validate_booking(self, booking, **kwargs):
         r = self.get_resource_by(id=booking.resource_id)
