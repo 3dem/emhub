@@ -905,6 +905,62 @@ function makeSameHeight(className){
     });
 }
 
+/**
+ * Like makeSameHeight, but only matches elements on the same horizontal row.
+ * Elements with the same class whose top offset differs by at most tolerancePx
+ * are treated as one row; height is equalized within each row only.
+ *
+ * @param {string} className - CSS class (without dot), same as makeSameHeight.
+ * @param {number} [tolerancePx=8] - Max vertical distance (px) between tops to count as the same row.
+ */
+function makeSameHeightPerRow(className, tolerancePx) {
+    var tol = tolerancePx != null ? tolerancePx : 8;
+    var selector = '.' + className;
+    var $els = $(selector);
+    if ($els.length === 0) {
+        return;
+    }
+
+    var items = [];
+    $els.each(function () {
+        var $el = $(this);
+        items.push({ $el: $el, top: $el.offset().top, left: $el.offset().left });
+    });
+
+    items.sort(function (a, b) {
+        if (Math.abs(a.top - b.top) > tol) {
+            return a.top - b.top;
+        }
+        return a.left - b.left;
+    });
+
+    var rowTop = items[0].top;
+    var row = [items[0]];
+    var rows = [];
+
+    for (var i = 1; i < items.length; i++) {
+        if (Math.abs(items[i].top - rowTop) <= tol) {
+            row.push(items[i]);
+        } else {
+            rows.push(row);
+            row = [items[i]];
+            rowTop = items[i].top;
+        }
+    }
+    rows.push(row);
+
+    for (var r = 0; r < rows.length; r++) {
+        var maxHeight = 0;
+        var cells = rows[r];
+        for (var j = 0; j < cells.length; j++) {
+            maxHeight = Math.max(maxHeight, cells[j].$el.height());
+        }
+        for (var k = 0; k < cells.length; k++) {
+            cells[k].$el.css('height', maxHeight + 'px');
+        }
+    }
+}
+
 
 class Timer {
     constructor() {
