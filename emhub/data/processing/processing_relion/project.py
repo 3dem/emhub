@@ -325,6 +325,50 @@ class RelionSessionData(SessionData):
             for sectionDef in jobForm['sections']:
                 formDef['sections'].append(sectionDef)
 
+        # Add queue parameters if defined in the config
+        # Check if already exists a Compute section and add the queue parameters to it
+        if queues := ProcessingConfig.get_queues():
+            computeSection = None
+            for sectionDef in jobForm['sections']:
+                if sectionDef['label'] == 'Compute':
+                    computeSection = sectionDef
+                    break
+            if computeSection is None:
+                computeSection = {'label': 'Compute', 'params': []}
+                formDef['sections'].append(computeSection)
+
+            queueParam = {
+                "name": "queue.param.name",
+                "label": "Queue",
+                "help": "Select the queue to use for this job.",
+                "paramClass": "EnumParam",
+                "choices": {q['name']: q['name'] for q in queues},
+                "default": queues[0]['name']
+            }
+            queueGroup = {
+                'label': 'Queue', 
+                'paramClass': 'Group', 
+                'params': [queueParam]
+            }
+            _register(queueParam)
+
+            for queue in queues:
+                qname = queue['name']
+                for param in queue['params']:
+                    # Copy so we never mutate ProcessingConfig queue definitions in
+                    # place — repeated get_form_definition calls would otherwise
+                    # keep prepending queue.param.{qname}. to names.
+                    param = {**param}
+                    full_name = f"queue.param.{qname}.{param['name']}"
+                    cond = param.get('condition', '')
+                    qcond = f"queue.param.name == '{qname}'"
+                    param['name'] = full_name
+                    param['condition'] = f"{cond} and {qcond}" if cond else qcond
+                    queueGroup['params'].append(param)
+                    _register(param)
+
+            computeSection['params'].append(queueGroup)
+
         if jobValues:
             extraParams = []
             for k, v in jobValues.items():
@@ -334,7 +378,6 @@ class RelionSessionData(SessionData):
             if extraParams:
                 formDef['sections'].append({'label': 'extra params',
                                             'params': extraParams})
-
         return formDef
 
 
