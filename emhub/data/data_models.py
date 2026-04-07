@@ -172,7 +172,7 @@ def create_data_models(dm):
     class User(UserMixin, Base):
         """Model for user accounts."""
         __tablename__ = 'users'
-        ROLES = ['user', 'admin', 'manager', 'head', 'pi', 'independent']
+        ROLES = ['user', 'admin', 'manager', 'head', 'pi']
 
         STATUSES = ['pending', 'active', 'inactive']
 
@@ -454,6 +454,20 @@ def create_data_models(dm):
         @university.setter
         def university(self, value):
             self.__setExtra('university', value)
+
+        @property
+        def independent_resources(self):
+            """ Property for independent resources. """
+            return self.__getExtra('independent_resources', [])
+
+        @independent_resources.setter
+        def independent_resources(self, value):
+            self.__setExtra('independent_resources', value)
+
+        @property
+        def is_independent(self, resource_id):
+            """ Property for independent user. """
+            return resource_id in self.independent_resources
 
 
     class Template(Base):

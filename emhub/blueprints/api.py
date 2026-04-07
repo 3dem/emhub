@@ -165,6 +165,9 @@ def update_user_form():
             # check that there are not other users referencing this one as pi
             # still this will not be a very common case
 
+        if 'user-indepent-resources' in f:
+            attrs['extra'] = {'independent_resources': [int(v) for v in f['user-indepent-resources'].split(',')]}
+
         password = f['user-password'].strip()
         if password:
             attrs['password'] = password
@@ -674,10 +677,7 @@ def get_session_run():
 
         if 'form' in outputs:
             values = run.values if run else None
-            Pretty.dprint("Getting form: " + jobtype)
             results['form'] = pp['project'].get_form_definition(jobtype, jobValues=values)
-            from pprint import pprint
-            pprint(results['form'])
 
         return results
 

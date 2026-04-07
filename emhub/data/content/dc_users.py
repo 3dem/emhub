@@ -101,7 +101,7 @@ def register_content(dc):
 
         data['pi_label'] = pi_label
         data['user_statuses'] = dc.app.dm.User.STATUSES
-
+        data['independent_config'] = dc.app.dm.get_config('resources').get('independent', [])
         return data
 
     @dc.content

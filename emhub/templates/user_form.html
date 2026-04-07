@@ -51,7 +51,7 @@
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">Status</label>
                         <div class="col-12 col-sm-8 col-form-label text-sm-left">
-                            <select id="user-status-select" name="user-status-select", class="selectpicker">
+                            <select id="user-status-select" name="user-status-select", class="selectpicker" {{disabled}}>
                                 {% for s in user_statuses %}
                                     {% set selected = 'selected' if user.status == s else '' %}
                                     <option value="{{ s }}" {{ selected }}>{{ s }} </option>
@@ -106,6 +106,27 @@
                         </div>
                     </div>
 
+
+                    <!-- Independent On Resources -->
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Independent On</label>
+                        <div class="col-12 col-sm-8 col-lg-6">
+
+                            {% set independent_resources = user.extra.get('independent_resources', []) %}
+
+                            <select id="user-indepent-resources" name="user-indepent-resources" class="selectpicker show-tick" multiple data-width="100%" title="Independent Instruments...">
+                                {% for r in resources %}
+                                    {% if r['name'] in independent_config %}
+                                        {% set selected = 'selected' if r['id'] in independent_resources else '' %}
+                                        <option value="{{r['id']}}" class="badge" {{ selected }} style="background: {{ r['color'] }}; color: #fff;">{{r['name']}}</option>
+                                
+                                    {% endif %}
+                                {% endfor %}
+                            </select> 
+
+                        </div>
+                    </div>
+
                     <!-- PI -->
                     <div class="form-group row">
                         <label class="col-12 col-sm-3 col-form-label text-sm-right">PI</label>
@@ -123,6 +144,7 @@
                             {% endif %}
                         </div>
                     </div>
+
             </div>
 
                 </div>
@@ -227,6 +249,8 @@ function onUserOkButtonClick() {
         showMessage('ERROR', 'Password can not contains spaces');
         return;
     }
+
+    formData.set('user-indepent-resources', $('#user-indepent-resources').val());
 
     var ajaxContent = $.ajax({
         url: "{{ url_for('api.update_user_form') }}",
