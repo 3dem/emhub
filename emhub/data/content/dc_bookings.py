@@ -119,8 +119,13 @@ def register_content(dc):
             booking = dm.get_booking_by(id=booking_id)
             pi = user.get_pi()
             pid = 0 if pi is None else pi.id
-            if not read_only:
-                read_only = not (user.is_manager or user.id == booking.owner.id or user.id == pid)
+            if user.is_manager:
+                read_only = False
+            elif not read_only:
+                if booking.type != 'booking':
+                    read_only = True
+                else:
+                    read_only = not (user.id == booking.owner.id or user.id == pid)
 
             if dates:
                 booking.start = dates['start']
@@ -173,8 +178,7 @@ def register_content(dc):
             formName = None
 
         if not formName:
-            raise Exception("There is no Experiment defined for "
-                            "this Instrument.")
+            raise Exception("There is no Experiment form defined for this Instrument.")
         form = dm.get_form_by(name=formName)
         data = dc.dynamic_form(form, **kwargs)
         data['mode'] = kwargs.get('mode', 'modal')

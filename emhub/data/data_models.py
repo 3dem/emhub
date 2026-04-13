@@ -464,11 +464,9 @@ def create_data_models(dm):
         def independent_resources(self, value):
             self.__setExtra('independent_resources', value)
 
-        @property
         def is_independent(self, resource_id):
-            """ Property for independent user. """
+            """ Return True if the user is independent for the given resource. """
             return resource_id in self.independent_resources
-
 
     class Template(Base):
         """ Classes used as template to create Applications.

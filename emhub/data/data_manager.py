@@ -1432,6 +1432,16 @@ class DataManager(DbManager):
             raise Exception("Users can not delete/modify bookings for "
                             "this type of resource.")
 
+        if booking.type == 'slot': 
+            raise Exception("Slots can only be deleted or modified by the staff. ")
+
+        def _pi_of_owner(owner):
+            return user.is_pi and owner.same_pi(user)
+            
+        owner = self.get_user_by(id=booking.owner_id)
+        if owner is None or not _pi_of_owner(owner):
+            raise Exception("You are not authorized to delete/modify this booking. ")
+
         # latest_cancellation might be defined as a measure to prevent users
         # to delete bookings before that amount of time
         # latest_cancellation = 0 means that there is not restriction
