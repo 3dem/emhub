@@ -197,15 +197,17 @@
 {%- endmacro %}
 
 {% macro session_type(b) -%}
-    {% set session_type = b.extra.get('session_type', '') %}
-    {% if session_type == 'Tomography' %}
+    
+    {% set exp = b.experiment if b.experiment else {} %}
+    {% set extra = b.extra if b.extra else {} %}
+    {% set session_type = extra.get('session_type', '') %}
+    {% set exp_session_type = exp.get('session_type', '') %}
+    {% if exp.get('bsl2', False) %}
+        <img src="{{ url_for('static', filename='images/biohazard.png') }}" height="20px">
+    {% endif %}
+    {% if exp_session_type == 'Tomography' or session_type == 'Tomography' %}
         <label class="bg-dark text-light pl-1 pr-1" style="border-radius: 5px;">T</label>
     {% endif %}
-{#    <a href="{{ url_for_content('session_default', session_id=s.id) }}" class="btn btn-info btn-sm mr-0 mb-1">#}
-{#        <span size="font-weight: bold">{{ s.shortname }}</span>  </br>#}
-{#        Img <span class="badge badge-light mt-2 mr-2">{{ s.images }}</span>#}
-{#        Size <span class="badge badge-light mt-1">{{ s.total_size|pretty_size }}</span>#}
-{#    </a>#}
 {%- endmacro %}
 
 

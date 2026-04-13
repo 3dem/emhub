@@ -397,7 +397,7 @@ def process_forms(args):
         else:
             for f in forms:
                 if str(f['id']) == args.list or f['name'] == args.list:
-                    pprint(f)
+                    print(json.dumps(f, indent=4))
 
 
 def process_sessions(args):
