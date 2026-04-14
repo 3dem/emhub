@@ -178,6 +178,18 @@
           return { success: true };
         },
 
+        async exportProtocols(projectId, payload) {
+          var protocolIds = payload.protocolIds;
+          var directoryPath = payload.directoryPath;
+          var filename = payload.filename;
+          alert(
+            "Exporting protocols: " + JSON.stringify(protocolIds, null, 4) +
+            "\nto directory: " + directoryPath +
+            "\nwith filename: " + filename
+          );
+          return { success: true };
+        },
+
         async fetchNewProtocolDetails(projectId, protocolClass) {
           var data = { info: { protocolClassName: protocolClass }, values: {}, form: {} };
           if (protocolClass in forms) data.form = forms[protocolClass];
@@ -221,7 +233,7 @@
         },
 
         async previewRemoteEntry(projectId, protocolId, path) {
-          
+
           const textKind = {
             "kind": "text",
             "mime": "text/plain",
