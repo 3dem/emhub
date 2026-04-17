@@ -35,9 +35,10 @@
 
                         <div class="col-7">
                             <select id="selectpicker-resource" class="selectpicker show-tick" data-width="auto" data-key="resource_id" title="Select Resource to book..." {{ select_readonly }}  onchange="onResourceChanged(this)">
+                            {% set rid = booking.resource_id|int if booking.resource_id else 0 %}
                             {% for r in resources %}
-                                {% if r['user_can_book'] %}
-                                    {% set selected = 'selected' if r['id'] == booking.resource_id|int else '' %}
+                                {% if r['user_can_book'] or r['id'] == rid %}
+                                    {% set selected = 'selected' if r['id'] == rid else '' %}
                                     {% if select_resource or selected %}
                                         <option {{ selected }} value="{{r['id']}}" data-content="<span class='badge' style='background: {{ r['color'] }}; color: #fff;'>{{r['name']}}</span>">{{r['name']}}</option>
                                     {% endif %}
@@ -298,6 +299,7 @@
     var booking_id = {{ booking.id or 0 }};
     var experiment_mode = {{ show_experiment|tojson }};
     var booking_extra = {{ booking.extra|tojson }};
+    var booking_experiment = {{ booking.experiment|tojson }};
 
     function onResourceChanged() {
         var v = $("#selectpicker-resource").selectpicker('val');
@@ -312,9 +314,12 @@
     setDateAndTime('booking-end', '{{ booking.end.isoformat() }}');
     // We don't need to update stop date since it is only used at creation
     $('#booking-repeat-stop-date').datetimepicker({format: 'YYYY/MM/DD'});
+    var v = $("#selectpicker-resource").selectpicker('val');
 
-    if (booking_id && experiment_mode === 'embedded')
-        setTimeout(function (){ showExperimentForm(booking_id, experiment_mode); }, 500);
+    if (experiment_mode === 'embedded' && nonEmpty(v)) {
+        last_experiment = booking_experiment;
+        setTimeout(function (){ showExperimentForm(booking_id, experiment_mode); }, 100);
+    }
 
 
 

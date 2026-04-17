@@ -12,8 +12,17 @@
                     {% for user in users[1:] %}
                         <li>
                             <div class="row">
-                                <div class="col-5"><a href="javascript:showUser({{ user.id }})">{{ user['name'] }}</a></div>
-                                <div class="col-7"><label>{{ user['email'] }}</label></div>
+                                {% if current_user.is_manager %}
+                                    <div class="col-2">
+                                        <div class="row">
+                                            <button class="btn btn-sm btn-outline-light" onclick="showUserProfile({{ user['id'] }})"><i class="far fa-user"></i></button>
+                                            <button class="btn btn-sm btn-outline-light" onclick="showUser({{ user['id'] }})"><i class="far fa-edit"></i></button>
+                                            <button class="btn btn-sm btn-outline-light" onclick="deleteUser({{ user['id'] }})"><i class="far fa-trash-alt"></i></button>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                <div class="col-5"><a href="javascript:showUser({{ user['id'] }})">{{ user['name'] }}</a></div>
+                                <div class="col-5"><label>{{ user['email'] }}</label></div>
                             </div>
                         </li>
                     {% endfor %}

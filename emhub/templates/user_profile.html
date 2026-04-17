@@ -6,10 +6,10 @@
 <div class="card">
                 <div class="card-body">
                     <div class="text-center">
-                        <h2 class="font-24 mb-0">{{ current_user.name }}</h2>
+                        <h2 class="font-24 mb-0">{{ user.name }}</h2>
                         <div>
                             <p></br>Roles:
-                                {% for r in current_user.roles %}
+                                {% for r in user.roles %}
                                 <a href="#" class="badge badge-light mr-1">{{ r }}</a>
                                 {% endfor %}
                             </p>
@@ -20,14 +20,14 @@
                     <h3 class="font-16">Contact Information</h3>
                     <div class="">
                         <ul class="list-unstyled mb-0">
-                        <li class="mb-2"><i class="fas fa-fw fa-envelope mr-2"></i>{{ current_user.email }}</li>
-                        <li class="mb-0"><i class="fas fa-fw fa-phone mr-2"></i>{{ current_user.phone }}</li>
+                        <li class="mb-2"><i class="fas fa-fw fa-envelope mr-2"></i>{{ user.email }}</li>
+                        <li class="mb-0"><i class="fas fa-fw fa-phone mr-2"></i>{{ user.phone }}</li>
                     </ul>
                     </div>
                 </div>
                 <div class="card-body border-top">
-                    {% set head_label = 'Facility Head' if current_user.is_staff else 'PI' %}
-                    {% set members_label = 'Facility Staff' if current_user.is_staff else 'Lab Members' %}
+                    {% set head_label = 'Facility Head' if user.is_staff('cryoem') else 'PI' %}
+                    {% set members_label = 'Facility Staff' if user.is_staff('cryoem') else 'Lab Members' %}
                     {% set head = lab_members[0] %}
                     <div class="row">
                         <h3 class="font-16 pl-3">{{ head_label }}</h3> <a class="pl-3" href="javascript:showUser({{ head['id'] }})">{{ head['name'] }}</a>
@@ -47,7 +47,7 @@
                 <div class="card-body border-top">
                     <h3 class="font-16">Applications</h3>
                     <div>
-                        {% for a in current_user.get_applications() %}
+                        {% for a in user.get_applications() %}
                             <a href="#" class="badge badge-success mr-1">{{ a.code     }}</a>
                         {% endfor %}
                     </div>
