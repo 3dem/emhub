@@ -153,6 +153,12 @@ class DataManager(DbManager):
 
     def update_user(self, **attrs):
         """ Update an existing user. """
+        try:
+            pi_id = int(attrs['pi_id'])
+        except:
+            pi_id = None
+        attrs['pi_id'] = pi_id
+
         if 'password' in attrs:
             attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
             del attrs['password']

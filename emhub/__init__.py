@@ -259,7 +259,7 @@ def create_app(test_config=None):
         """ This view will be called as POST from a currently logged admin user.
          It will allow admins to login as another users for troubleshooting.
         """
-        if not app.user.is_admin:
+        if not app.user.is_manager:
             return send_error("Current user is not admin!")
 
         username = flask.request.json['username']

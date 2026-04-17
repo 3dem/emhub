@@ -158,15 +158,25 @@ def update_user_form():
             attrs['roles'] = roles
 
         if 'user-pi-select' in f:
-            pi_id = int(f['user-pi-select'])
-            if pi_id:
-                attrs['pi_id'] = pi_id
+            try:
+                pi_id = int(f['user-pi-select'])
+            except:
+                pi_id = None
+
+            attrs['pi_id'] = pi_id
             # TODO: Validate if a user is not longer PI
             # check that there are not other users referencing this one as pi
             # still this will not be a very common case
 
-        if 'user-indepent-resources' in f:
-            attrs['extra'] = {'independent_resources': [int(v) for v in f['user-indepent-resources'].split(',')]}
+        if independent_resources := f.get('user-indepent-resources', ''):
+            def _val(v):
+                try:
+                    return int(v)
+                except:
+                    return None
+            attrs['extra'] = {
+                'independent_resources': [_val(v) for v in independent_resources.split(',') if _val(v)]
+            }
 
         password = f['user-password'].strip()
         if password:
@@ -191,8 +201,13 @@ def update_user_form():
         return send_json_data({'user': attrs})
 
     except Exception as e:
-        print(e)
-        return send_error('ERROR from Server: %s' % e)
+        import traceback
+        tb = traceback.format_exc()
+        error = {
+            'message': str(e),
+            'body': tb
+        }
+        return send_error('ERROR from Server: %s' % tb)
 
 
 @api_bp.route('/get_users', methods=['POST'])
@@ -616,10 +631,6 @@ def set_frames():
 
     microscope = d['microscope']
     frames = d['frames']
-
-    from pprint import pprint
-    print(">>>>>>>> ", microscope)
-    pprint(frames)
 
     return send_json_data({'OK': True})
 
@@ -1233,7 +1244,6 @@ def send_email():
             raise Exception("ERROR: You need to configure a Mail server within EMhub "
                             "to send emails.")
         app.mm.send_mail(attrs['dst'], attrs['subject'], attrs['body'])
-        print(attrs)
         return True
 
     return _handle_item(handle, 'result')
