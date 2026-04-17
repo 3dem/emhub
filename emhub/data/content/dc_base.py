@@ -83,9 +83,10 @@ class DataContent:
         return func
 
     def get_lab_members(self, user):
-        unit = user.staff_unit
-        if user.is_staff(unit):
-            return [u.json() for u in self._get_facility_staff(unit)]
+        # FIXME: Check how we want to display units/teams or staff members
+        # unit = user.staff_unit
+        # if user.is_staff(unit):
+        #     return [u.json() for u in self._get_facility_staff(unit)]
 
         pi = user.get_pi()
         if pi is None:
@@ -310,7 +311,6 @@ class DataContent:
             data = entry.extra['data']
             dstr = data.get('suggested_date', None)
             rid = int(data.get('microscope_id', 0))
-
             if dstr and rid:
                 r = scopes[rid]
                 days = data.get('days', '1')
@@ -337,8 +337,11 @@ class DataContent:
                     project_id=p.id,
                     project=p,
                     extra={
-                        'session_type': data.get('session_type', ''),
                         'entry_id': entry.id
+                    },
+                    experiment={
+                        'session_type': data.get('session_type', ''),
+                        'bsl2': data.get('bsl2', False)
                     }
                 )
 

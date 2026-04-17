@@ -430,7 +430,7 @@ def register_content(dc):
             'last_update_date': e.last_update_date
             } for e in logbook.entries
         ]
-        if r := logbook.extra.get('resource_id', 0):
+        if r := logbook.extra.get('resource_id', 0) and int(kwargs.get('bookings', 0)):
             resource = dm.get_resource_by(id=r)
             title = resource.name
             for b in dm.get_bookings(condition=f"resource_id={r}", orderBy='start'):

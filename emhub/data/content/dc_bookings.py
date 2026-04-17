@@ -105,6 +105,7 @@ def register_content(dc):
         user = dc.app.user
         select_resource = int(kwargs.pop('select_resource', 1))
         read_only = bool(int(kwargs.pop('read_only', 0)))
+        entry_resources = []
 
         if 'start' in kwargs and 'end' in kwargs:
             dates = {

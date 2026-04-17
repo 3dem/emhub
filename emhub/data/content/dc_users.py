@@ -117,8 +117,10 @@ def register_content(dc):
 
     @dc.content
     def user_profile(**kwargs):
+        user = dc.app.dm.get_user_by(id=kwargs['user_id'])
         return {
-            'lab_members': dc.get_lab_members(dc.app.user)
+            'lab_members': dc.get_lab_members(user),
+            'user': user
         }
 
     @dc.content
