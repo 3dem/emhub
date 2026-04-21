@@ -382,7 +382,7 @@ class RelionSessionData(SessionData):
 
 
     def get_classes2d_runs(self):
-        classesPath = os.path.join(self.classes2d, 'Classes2D')
+        classesPath = os.path.join(self.session['classes2d'], 'Classes2D')
         runs = []
         if os.path.exists(classesPath):
             for d in sorted(os.listdir(classesPath)):
@@ -397,7 +397,7 @@ class RelionSessionData(SessionData):
             items = []
         else:
             batch = runs2d[runId]
-            p = os.path.join(self.classes2d, 'Classes2D', batch, '*_classes.mrcs')
+            p = os.path.join(self.session['classes2d'], 'Classes2D', batch, '*_classes.mrcs')
             items = self.get_classes2d_data(pattern=p, root=self.path)
         return {
             'runs': [{'id': i, 'label': r} for i, r in enumerate(runs2d)],
@@ -410,7 +410,7 @@ class RelionSessionData(SessionData):
 
     def save_classes2d_selection(self, runId, selection):
         batch = self.get_classes2d_runs()[runId]
-        p = os.path.join(self.classes2d, 'Classes2D', batch, '*_classes.mrcs')
+        p = os.path.join(self.session['classes2d'], 'Classes2D', batch, '*_classes.mrcs')
         if files := glob(p):
             files.sort()
             avgMrcs = files[-1]

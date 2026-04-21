@@ -38,6 +38,7 @@ where a `DataClient` instance is created, logged in and out.
 import os
 import sys
 import json
+import copy
 import argparse
 from datetime import datetime
 from pprint import pprint
@@ -559,6 +560,173 @@ def process_entries(args):
                                             date_str(e['date'])))
 
 
+def _processing_path_key(e):
+    """Full processing_path from extra['data'] (match key for restore)."""
+    return ((e.get('extra') or {}).get('data') or {}).get('processing_path') or ''
+
+
+def _entry_processing_path(e, max_len=72):
+    """Path from extra['data']['processing_path'], truncated for terminal tables."""
+    p = _processing_path_key(e)
+    if len(p) > max_len:
+        return p[: max_len - 3] + '...'
+    return p
+
+
+def _processing_delete_all():
+    """Remove every tomo_processing entry."""
+    cond = "type='tomo_processing'"
+    deleted = 0
+    errors = []
+    with open_client() as dc:
+        r = dc.request('get_entries', jsonData={'condition': cond})
+        r.raise_for_status()
+        entries = r.json()
+        for e in entries:
+            rid = e['id']
+            r2 = dc.request('delete_entry', jsonData={'attrs': {'id': rid}})
+            result = r2.json()
+            if result.get('error'):
+                errors.append((rid, result['error']))
+            else:
+                deleted += 1
+                print('Deleted entry id=%s' % rid)
+    print('Deleted %d tomo_processing entr%s.' % (
+        deleted, 'y' if deleted == 1 else 'ies'))
+    if errors:
+        print(Color.red('%d failed:' % len(errors)))
+        for rid, err in errors:
+            print(Color.red('  id=%s: %s' % (rid, err)))
+
+
+def _processing_restore(project_id, json_path):
+    """Create/update tomo_processing entries under project_id from a --save JSON file."""
+    try:
+        pid = int(project_id)
+    except (TypeError, ValueError):
+        print(Color.red('Invalid PROJECT_ID: %r' % project_id))
+        return
+
+    if not os.path.isfile(json_path):
+        print(Color.red('File not found: %s' % json_path))
+        return
+
+    with open(json_path) as f:
+        file_entries = json.load(f)
+
+    if not isinstance(file_entries, list):
+        print(Color.red('JSON must be a list of entry objects (same format as --save).'))
+        return
+
+    cond = "project_id=%s and type='tomo_processing'" % pid
+    created = updated = 0
+    errors = []
+
+    with open_client() as dc:
+        r = dc.request('get_entries', jsonData={'condition': cond})
+        r.raise_for_status()
+        existing_list = r.json()
+
+        by_path = {}
+        for e in existing_list:
+            k = _processing_path_key(e)
+            if not k:
+                continue
+            if k in by_path:
+                print(Color.red(
+                    'Warning: duplicate processing_path %r in DB (ids %s and %s); '
+                    'using the latter.' % (k, by_path[k]['id'], e['id'])))
+            by_path[k] = e
+
+        for item in file_entries:
+            path_key = _processing_path_key(item)
+            if not path_key:
+                print('Skipping list item with no extra.data.processing_path')
+                continue
+
+            if path_key in by_path:
+                ex = by_path[path_key]
+                attrs = copy.deepcopy(item)
+                attrs['id'] = ex['id']
+                attrs['project_id'] = pid
+                attrs['type'] = 'tomo_processing'
+                attrs['validate'] = False
+                r2 = dc.request('update_entry', jsonData={'attrs': attrs})
+                result = r2.json()
+                if result.get('error'):
+                    errors.append((ex['id'], result['error']))
+                    print(Color.red('Update id=%s failed: %s' % (ex['id'], result['error'])))
+                else:
+                    updated += 1
+                    print('Updated entry id=%s path=%r' % (ex['id'], path_key))
+            else:
+                attrs = copy.deepcopy(item)
+                attrs.pop('id', None)
+                attrs.pop('validate', None)
+                attrs['project_id'] = pid
+                attrs['type'] = 'tomo_processing'
+                r2 = dc.request('create_entry', jsonData={'attrs': attrs})
+                result = r2.json()
+                if result.get('error'):
+                    errors.append((path_key, result['error']))
+                    print(Color.red('Create failed for %r: %s' % (path_key, result['error'])))
+                else:
+                    created += 1
+                    ent = result.get('entry') or result
+                    new_id = ent.get('id') if isinstance(ent, dict) else None
+                    print('Created entry id=%s path=%r' % (new_id, path_key))
+                    if new_id and isinstance(ent, dict):
+                        by_path[path_key] = ent
+
+    print('Restore finished: %d created, %d updated.' % (created, updated))
+    if errors:
+        print(Color.red('%d operation(s) failed (see above).' % len(errors)))
+
+
+def process_processing(args):
+    """processing subparser: list, save, delete, or restore tomo_processing entries."""
+    if getattr(args, 'delete', False):
+        _processing_delete_all()
+        return
+
+    if getattr(args, 'restore', None):
+        project_id, json_path = args.restore
+        _processing_restore(project_id, json_path)
+        return
+
+    if not args.list and not args.save:
+        print('Specify --list (-l) and/or --save (-s) JSON_FILE, '
+              'or --delete (-d), or --restore (-r) PROJECT_ID JSON_FILE.')
+        return
+
+    cond = "type='tomo_processing'"
+    with open_client() as dc:
+        r = dc.request('get_entries', jsonData={'condition': cond})
+        r.raise_for_status()
+        entries = r.json()
+
+    if args.list:
+        wtype, wdate, wpath = 25, 12, 72
+        row_format = u"{:>6}   {:>6}   {:<%d} {:<%d} {:%d}" % (wtype, wdate, wpath)
+        print(row_format.format("ID", "ProjId", "Type", "Date", "Processing path"))
+        for e in entries:
+            print(row_format.format(
+                e['id'],
+                "P:%04d" % e['project_id'],
+                e['type'],
+                date_str(e['date']),
+                _entry_processing_path(e, max_len=wpath),
+            ))
+        print('Total: %d tomo_processing entr%s.' % (
+            len(entries), 'y' if len(entries) == 1 else 'ies'))
+
+    if args.save:
+        print('Writing %d entr%s to %s...' % (
+            len(entries), 'y' if len(entries) == 1 else 'ies', args.save))
+        with open(args.save, 'w') as f:
+            json.dump(entries, f, indent=4)
+
+
 def dump(keys, json_file):
     from emhub.client import open_client, config
 
@@ -689,6 +857,36 @@ def main():
     g = entry_p.add_mutually_exclusive_group()
     g.add_argument('--list', '-l')
 
+    # ------------------------- Processing subparser -------------------------------
+    processing_p = subparsers.add_parser(
+        "processing",
+        help="List, export, delete, or restore tomography processing entries "
+             "(type tomo_processing).",
+    )
+    processing_p.add_argument(
+        '--list', '-l',
+        action='store_true',
+        help='List all tomo_processing entries (table: id, project, type, date, '
+             'processing path).',
+    )
+    processing_p.add_argument(
+        '--save', '-s',
+        metavar='JSON_FILE',
+        help='Save all tomo_processing entries as JSON to this file.',
+    )
+    processing_p.add_argument(
+        '--delete', '-d',
+        action='store_true',
+        help='Delete all tomo_processing entries.',
+    )
+    processing_p.add_argument(
+        '--restore', '-r',
+        nargs=2,
+        metavar=('PROJECT_ID', 'JSON_FILE'),
+        help='Restore entries from a --save JSON file into PROJECT_ID: match by '
+             'processing_path, update existing or create new.',
+    )
+
     # ------------------------- Mail subparser -------------------------------
     mail_p = subparsers.add_parser("email")
     mail_p.add_argument('dst', help="Destination email. ", nargs='+')
@@ -740,6 +938,9 @@ def main():
 
     elif args.entity == 'entry':
         process_entries(args)
+
+    elif args.entity == 'processing':
+        process_processing(args)
 
     elif args.entity == 'method':
         print("method: ", args.method)
