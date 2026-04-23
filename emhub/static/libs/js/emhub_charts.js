@@ -797,14 +797,16 @@ function drawMicrograph(containerId, micrograph, drawValue) {
         $(`#${ruler.textId}`).text(`Ruler: ${ruler.distPx.toFixed(2)} px / ${distA.toFixed(2)} Å`);
     });
 
-    $(`#${ruler.clearId}`).on('click', function (){
-            ruler.points = [];
-          ruler.isMeasuring = false;
-          ruler.draggingPoint = null;
-          ruler.draggingCenter = false;
-            $(`#${ruler.textId}`).text('Ruler: click to activate');
-          draw();
-    })
+    // if (nonEmpty(ruler.clearId)) {
+    //     $(`#${ruler.clearId}`).on('click', function (){
+    //             ruler.points = [];
+    //         ruler.isMeasuring = false;
+    //         ruler.draggingPoint = null;
+    //         ruler.draggingCenter = false;
+    //             $(`#${ruler.textId}`).text('Ruler: click to activate');
+    //         draw();
+    //     })
+    // }
 
     // clearBtn.addEventListener('click', () => {
     //
