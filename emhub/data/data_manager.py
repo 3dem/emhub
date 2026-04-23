@@ -782,6 +782,7 @@ class DataManager(DbManager):
         """ Create a Processing Project instance from a path.
         If entry_id is provided, we retrieve the path from there.
         """
+        print(">>> get_processing_project: ", json.dumps(kwargs, indent=4), flush=True)
         args = {}
         if 'path' in kwargs:
             processing_path = kwargs['path']
@@ -1251,7 +1252,7 @@ class DataManager(DbManager):
         perms = self.get_config('permissions').get('content', {})
         return self._user.has_any_role(perms.get(permissionKey, []))
 
-    def check_resource_access(self, resource, permissionKey):
+    def check_resource_access(self, resource, permissionKey, debug=False):
         """ Check if the user has permission to access bookings for this
         resource based on the resource tags and user's roles. """
 
@@ -1259,11 +1260,19 @@ class DataManager(DbManager):
             return True
 
         perms = self.get_config('permissions')
+        
         def _user_allowed(roles):
             return 'user' in roles or self._user.has_any_role(roles)
 
-        return any(t in resource.tags and _user_allowed(u)
+        r = any(t in resource.tags and _user_allowed(u)
                     for t, u in perms.get(permissionKey, {}).items())
+        if debug:
+            print(f"resource.tags: {resource.tags}", flush=True)
+            print(f"permissionKey: {permissionKey}", flush=True)
+            print(f"roles: {self._user.roles}", flush=True)
+            print(json.dumps(perms, indent=4), flush=True)
+            print(f"access: {r}", flush=True)
+        return r
 
     # ------------------- BOOKING helper functions -----------------------------
     def create_basic_booking(self, attrs, **kwargs):
@@ -1438,14 +1447,15 @@ class DataManager(DbManager):
             raise Exception("Users can not delete/modify bookings for "
                             "this type of resource.")
 
-        if booking.type == 'slot': 
-            raise Exception("Slots can only be deleted or modified by the staff. ")
+        if booking.type != 'booking': 
+            raise Exception("Special bookings (e.g. slots, downtimes, maintenance) can only be deleted or modified by the staff. ")
 
         def _pi_of_owner(owner):
             return user.is_pi and owner.same_pi(user)
             
         owner = self.get_user_by(id=booking.owner_id)
-        if owner is None or not _pi_of_owner(owner):
+        can_modify = owner is not None and (owner.id == user.id or owner.get_pi() == user)
+        if not can_modify:
             raise Exception("You are not authorized to delete/modify this booking. ")
 
         # latest_cancellation might be defined as a measure to prevent users

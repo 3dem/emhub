@@ -137,6 +137,7 @@ def register_content(dc):
             entry = dm.get_entry_by(id=kwargs['entry_id'])
             scopes = {r.id: r for r in dm.get_resources() if r.is_microscope}
             booking = dc.booking_from_entry(entry, scopes)
+            
         else:  # New Booking
             args = dict(kwargs)
             args.pop('content_id')
