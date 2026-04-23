@@ -855,6 +855,19 @@ def load_workflow():
 
     return handle_workflow(_load_workflow)
 
+
+@api_bp.route('/export_workflow', methods=['POST'])
+@flask_login.login_required
+def export_workflow():
+    """
+    Export a workflow from a set of jobs ids.
+    """
+    def _export_workflow(pp, pm, **attrs):
+        pm.exportWorkflow(attrs['run_ids'], attrs['output_path'])
+
+    return handle_workflow(_export_workflow)
+
+
 @api_bp.route('/launch_job', methods=['POST'])
 @flask_login.login_required
 def launch_job():

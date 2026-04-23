@@ -335,6 +335,16 @@
             return requestAction(Api.urls.load_workflow, { workflow_id: workflowInfo.workflowId });
         },
 
+        async exportProtocols(projectId, payload) {
+          var protocolIds = payload.protocolIds;
+          var filePath = `${payload.directoryPath}/${payload.filename}`;
+          // alert(
+          //   "Exporting protocols: " + JSON.stringify(protocolIds, null, 4) +
+          //   "\nto file: " + filePath );
+          return requestAction(Api.urls.export_workflow, { run_ids: protocolIds, output_path: filePath });
+          // return { success: true };
+        },
+
 
         // Load protocols API      
         async loadProtocols(projectId) {

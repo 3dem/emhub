@@ -403,6 +403,15 @@ def process_forms(args):
 
 def process_sessions(args):
     with open_client() as dc:
+        def _request(method, attrs):
+            r = dc.request(method, jsonData={'attrs': attrs})
+            rjson = r.json()
+            if 'error' in rjson:
+                print(Color.red(rjson['error']))
+            else:
+                print(rjson)
+            return rjson
+
         def _session_create_or_update(s):
             if 'owner_id' in s:
                 del s['owner_id']  # This is from booking, not session
@@ -413,12 +422,8 @@ def process_sessions(args):
             else:
                 print(f">>> Updating session ID={s['id']}")
                 url_prefix = 'update'
-            r = dc.request(f'{url_prefix}_session', jsonData={'attrs': s})
-            rjson = r.json()
-            if 'error' in rjson:
-                print(Color.red(rjson['error']))
-            else:
-                print(rjson)
+
+            _request(f'{url_prefix}_session', s)
 
         if update := args.update:
             if os.path.exists(update):  # Update sessions from a JSON file
@@ -430,15 +435,25 @@ def process_sessions(args):
                 session_id = int(args.update)
                 r = dc.request('get_sessions', jsonData={'condition': 'id=%s' % session_id})
                 s = r.json()[0]
+                extra = s['extra']
                 raw = s['extra']['raw']
-                rawPath = raw['path']
+                cwd = os.path.abspath(os.getcwd())
+                rawPath = os.path.realpath(os.path.join(cwd, 'data'))
+                #rawPath = raw['path']
+                raw['path'] = rawPath
+                extra['otf'] = {
+                    "cryolo_model": "",
+                    "host": "cryo-em-wkst04.stjude.org",
+                    "path": cwd,
+                    "status": "running",
+                    "workflow": "emwrap"
+                }
                 if os.path.exists(rawPath):
-                    mf = MovieFiles(root=rawPath)
-                    mf.scan()
-
-                    self.worker.request('update_session_extra',
-                                        {'id': self.session['id'], 'extra': extra})
-                print(json.dumps(s, indent=4))
+                    mf = MovieFiles()
+                    mf.scan(rawPath)
+                    raw.update(mf.info())
+                    _request('update_session', {'id': session_id, 'extra': extra})
+                    #print(json.dumps(extra, indent=4))
             return
 
         sessions = dc.request('get_sessions', jsonData=None).json()
