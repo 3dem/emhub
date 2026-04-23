@@ -58,16 +58,26 @@ class RelionSessionData(SessionData):
         self.movDataTable = None
         self.micDataTable = None
 
-        if self.session['movies'] and os.path.exists(self.session['movies']):
-            with StarFile(self.session['movies']) as sf:
+        def _session_path(key):
+            if key in self.session:
+                sp = self.join(self.session[key])
+                if os.path.exists(sp):
+                    return sp
+            return None
+
+        if movies := _session_path('movies'):
+            with StarFile(movies) as sf:
                 self.movDataTable = sf.getTable('movies')
                 self.movDataDict = {r.rlnImageId: r for r in self.movDataTable} if self.movDataTable else {}
 
-        if self.session['micrographs'] and os.path.exists(self.session['micrographs']):
-            with StarFile(self.session['micrographs']) as sf:
+        if micrographs := _session_path('micrographs'):
+            with StarFile(micrographs) as sf:
                 self.micOpticsTable = sf.getTable('optics')
                 self.micDataTable = sf.getTable('micrographs')
                 self.micDataDict = {r.rlnImageId: r for r in self.micDataTable} if self.micDataTable else {}
+
+    def __str__(self):
+        return f"RelionSessionData(path={self.path}, session={self.session})"
 
     def get_stats(self):
 
@@ -113,12 +123,13 @@ class RelionSessionData(SessionData):
         else:
             coords = 0
 
-        return {
+        stats = {
             'movies': movieStats,
             'ctfs': _stats_from_table(self.micDataTable, 'rlnMicrographName'),
             'classes2d': len(self.get_classes2d_runs()),
             'coordinates': {'count': coords}
         }
+        return stats
 
     def importTimestamps(self):
         for row in self.movDataTable:
@@ -145,7 +156,8 @@ class RelionSessionData(SessionData):
 
     def get_ctfs_runid(self):
         """ Return the run_id for the ctfs used for the general session overview. """
-        return self.session['micrographs']
+        # Remove the last part (filename) from the path
+        return '/'.join(self.session['micrographs'].split('/')[:-1])
 
     def _job_info(self, job):
         info = {}
@@ -382,7 +394,7 @@ class RelionSessionData(SessionData):
 
 
     def get_classes2d_runs(self):
-        classesPath = os.path.join(self.session['classes2d'], 'Classes2D')
+        classesPath = self.join(self.session['classes2d'], 'Classes2D')
         runs = []
         if os.path.exists(classesPath):
             for d in sorted(os.listdir(classesPath)):
@@ -397,7 +409,7 @@ class RelionSessionData(SessionData):
             items = []
         else:
             batch = runs2d[runId]
-            p = os.path.join(self.session['classes2d'], 'Classes2D', batch, '*_classes.mrcs')
+            p = self.join(self.session['classes2d'], 'Classes2D', batch, '*_classes.mrcs')
             items = self.get_classes2d_data(pattern=p, root=self.path)
         return {
             'runs': [{'id': i, 'label': r} for i, r in enumerate(runs2d)],
@@ -509,7 +521,6 @@ class RelionSessionData(SessionData):
             labels = ['rlnCoordinateX', 'rlnCoordinateY', 'rlnAutopickFigureOfMerit']
             table = ''
 
-        print(">>>>> Reading coords from: ", coordStar, flush=True)
         with StarFile(coordStar) as sf:
             if t := sf.getTable(table):
                 for c in t:
@@ -676,7 +687,7 @@ class RelionSessionData(SessionData):
         resolution = []
         particles = 0
 
-        gsRoot = os.path.dirname(self.session['movies'])
+        gsRoot = os.path.dirname(self.join(self.session['movies']))
         gsDir = FolderManager(os.path.join(gsRoot, 'EPU', 'GridSquares', gsId))
 
         for fn in gsDir.listdir():

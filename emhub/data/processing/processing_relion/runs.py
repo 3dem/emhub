@@ -122,13 +122,14 @@ class RelionRun(SessionRun):
     def _getOutputMics(self):
         """ Find if there are micrographs (with/without CTF) in outputs. """
         mics = micsCtf = None
+        
         for o in self.getInputsOutputs()['outputs']:
             if files := o.get('files', []):
                 f = files[0][0]
                 if f.endswith('micrographs_ctf.star'):
-                    micsCtf = self.project.join(o)
+                    micsCtf = self.project.join(f)
                 elif f.endswith('micrographs.star'):
-                    mics = self.project.join(o)
+                    mics = self.project.join(f)
         return mics, micsCtf
 
     def getSummary(self, **kwargs):
@@ -151,8 +152,6 @@ class RelionRun(SessionRun):
 
             with StarFile(mics) as sf:
                 for row in sf.iterTable('micrographs'):
-                    print(row, type(row))
-
                     for col in columns:
                         d = row._asdict()
                         data_values[col]['data'].append(d[col])
