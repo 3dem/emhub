@@ -9,10 +9,10 @@
     <div class="row col-12 m-0 p-0" id="session-content">
         {% if mode == 'workflow' %}
             {% include 'tomo_processing_content.html' %}
-        {% elif mode == 'widget' %}
-            {% include 'project_widget.html' %}
-        {% else %}
+        {% elif mode == 'session' %}
             {% include 'tomo_session_content.html' %}
+        {% else %}
+            {% include 'project_widget.html' %}
         {% endif %}
 
     </div>

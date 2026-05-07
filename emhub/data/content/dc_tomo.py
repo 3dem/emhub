@@ -53,7 +53,7 @@ def register_content(dc):
     @dc.content
     def tomo_session(**kwargs):
         if tsId := kwargs.get('tomo_session_id', None):
-            mode = kwargs.get('mode', 'workflow')
+            mode = kwargs.get('mode', 'widget')
 
             if tp := dc.app.dm.get_entry_by(id=tsId):
                 data = tp.extra['data']
