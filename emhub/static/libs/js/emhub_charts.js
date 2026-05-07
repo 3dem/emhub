@@ -403,6 +403,13 @@ function create_hc_usage(containerId, chartType, usageData, drilldownData, args)
             }
         },
     plotOptions: {
+        pie:{
+            dataLabels: {
+                enabled: true,
+                //rotation: -90,
+            },
+            size: 300
+        },
         series: {
             dataLabels: {
                 enabled: true,
@@ -426,6 +433,12 @@ function create_hc_usage(containerId, chartType, usageData, drilldownData, args)
     ],
     drilldown: {
         series: drilldownData
+    },
+    exporting: {
+        enabled: true,
+        sourceWidth: 512,
+        sourceHeight: 512,
+        scale: 1,
     }
 });
 }

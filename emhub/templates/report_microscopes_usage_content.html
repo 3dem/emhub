@@ -25,11 +25,6 @@
                                     {% for k in types_colors %}
                                             <th>{{ k  }}</th>
                                         {% endfor %}
-{#                                    <th>Maintenance</th>#}
-{#                                    <th>Repair</th>#}
-{#                                    <th>Downtime</th>#}
-{##}
-{#                                    <th>Special</th>#}
                                     <th>Unused</th>
                                 </tr>
                                 </thead>
@@ -42,10 +37,6 @@
                                         {% for k in types_colors %}
                                             <td>{{ ed[k]  }}</td>
                                         {% endfor %}
-{#                                        <td>{{ ed['maintenance']  }}</td>#}
-{#                                        <td>{{ ed['repair']  }}</td>#}
-{#                                        <td>{{ ed['downtime']  }}</td>#}
-{#                                        <td>{{ ed['special']  }}</td>#}
                                         <td> {{ ed['unused']  }}  </td>
 
                                     </tr>

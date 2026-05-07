@@ -725,12 +725,20 @@ def register_content(dc):
 
         # Create monthly histogram for plotting (Highcharts)
         sessions_monthly = defaultdict(lambda: [0, 0, 0])
+        # Distinct booking owners per calendar year and instrument (for users_yearly)
+        users_yearly_emails = defaultdict(lambda: defaultdict(set))
         for s in sessions:
             movies = s.total_movies
             b = s.booking
-            if (s.resource_id not in selected_resources or movies <= 100 or
-                b is None or b.start < start_date or b.end > end_date):
+
+            if (s.resource_id not in selected_resources or b is None):
                 continue
+
+            users_yearly_emails[s.start.year][s.resource_id].add(b.owner.email)
+
+            if movies <= 100 or b.start < start_date or b.end > end_date:
+                continue
+            
             dkey = s.start.strftime('%Y-%m-01')
             sm = sessions_monthly[dkey]
             sm[0] += 1
@@ -770,10 +778,24 @@ def register_content(dc):
             total += users_monthly[k]
             users_monthly_data.append((k, total))
 
+        users_yearly = {}
+        for year in sorted(users_yearly_emails.keys()):
+            by_resource = {}
+            year_emails = set()
+            for rid in selected_resources:
+                emails = users_yearly_emails[year].get(rid, set())
+                by_resource[rid] = len(emails)
+                year_emails.update(emails)
+            users_yearly[year] = {
+                'by_resource': by_resource,
+                'total': len(year_emails),
+            }
+
         data.update(
             {'sessions': sessions,
              'sessions_monthly': [(k, v[0], v[1], v[2]) for k, v in sessions_monthly.items()],
              'users_monthly': users_monthly_data,
+             'users_yearly': users_yearly,
              'sessions_images': sessions_images,
              'sessions_size': sessions_size,
              'avg_images': sum(sessions_images) // n,
