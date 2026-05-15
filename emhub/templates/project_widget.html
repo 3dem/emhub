@@ -307,6 +307,11 @@
           return requestAction(Api.urls.save_job, args);
         },
 
+        stopProtocol(projectId, ids) {
+          alert("Stoping protocols....." + JSON.stringify(ids, null, 4))
+          return { status: 1, errors: ["Not yet implemented"] }
+        },
+
         async deleteProtocol(projectId, protocolIds) {
           // Let's remove the tags from the protocol_tags before deleting the protocols
           for (const protocolId of protocolIds) {
