@@ -30,6 +30,7 @@ Register content functions related to Sessions
 """
 import os
 import flask
+import datetime as dt
 
 from emtools.utils import Path
 from emtools.image import Thumbnail
@@ -204,72 +205,17 @@ def register_content(dc):
         if entry is None:
             raise Exception("Please provide a valid Entry id. ")
 
-        entry_config = dm.get_entry_config(entry.type)
-        data = entry.extra['data']
+        formDef = dm.get_form_definition('logbook_microscope')
+        entry_config = formDef['config']
 
-        if not 'report' in entry_config:
+        if report := entry_config.get('report', None):
+            kwargs['content_id'] = report
+            data = dc.get(**kwargs)
+            data['template'] = f'{report}.html'
+        else:
             raise Exception("There is no Report associated with this Entry. ")
 
-        images = []
-
-        # Convert images in data form to base64
-        thumb = Thumbnail(output_format='base64')
-
-        for k, v in data.items():
-            if k.endswith('_image') and v.strip():
-                fn = dm.get_entry_path(entry, v)
-                data[k] = 'data:image/%s;base64, ' + thumb.from_path(fn)
-
-        for k, v in data.items():
-            if k.endswith('_images') or k.endswith('images_table'):
-                for row in v:
-                    if 'image_file' in row:
-                        fn = dm.get_entry_path(entry, row['image_file'])
-                        row['image_data'] = 'data:image/%s;base64, ' + base64.from_path(fn)
-                        images.append(row)
-
-        # Group data rows by gridboxes (label)
-        if entry.type in ['grids_preparation', 'grids_storage']:
-            # TODO: Some possible validations
-            # TODO:      - There are no more that 4 slots per gridbox
-            # TODO:      - There are no duplicated slots
-            table = data[entry.type + '_table']
-            gridboxes = {}
-
-            for row in table:
-                label = row.get('gridbox_label', '')
-                if label not in gridboxes:
-                    gridboxes[label] = {}
-                slots = map(int, row['grid_position'])
-                for s in slots:
-                    gridboxes[label][s] = row
-
-            data['gridboxes'] = gridboxes
-
-        session = None
-        if entry.type == 'data_acquisition':
-            session_name = data.get('session_name', '').strip().lower()
-            session = dm.get_session_by(name=session_name)
-
-        pi = entry.project.user.get_pi()
-        # TODO: We should store some properties in EMhub and avoid this request
-        try:
-            pi_info = dc.app.sll_pm.fetchAccountDetailsJson(pi.email) if pi else None
-        except:
-            pi_info = None
-
-        # Create a default dict based on data to avoid missing key errors in report
-        ddata = defaultdict(lambda: 'UNKNOWN')
-        ddata.update(data)
-
-        return {
-            'entry': entry,
-            'entry_config': entry_config,
-            'data': ddata,
-            'images': images,
-            'pi_info': pi_info,
-            'session': session
-        }
+        return data
 
     @dc.content
     def file_preview(**kwargs):
@@ -396,68 +342,206 @@ def register_content(dc):
     def logbooks(**kwargs):
         logbooks = []
         rlogbooks = []
-        for r, p in _logbooks():
-            if r:
-                rlogbooks.append(p)
-            else:
-                logbooks.append(p)
 
-        return {
+        data = logbook_content(**kwargs)
+
+        for logbook in data['logbooks']:
+            if r := logbook.extra.get('resource_id', 0):
+                rlogbooks.append(logbook)
+            else:
+                logbooks.append(logbook)
+
+        def _count_dict():
+            return {'total': 0, 'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'solved': 0}
+        
+        logbook_count = {}
+
+        for e in data['logentries']:
+            lb_id = e['logbook_id']
+            for lb_id in [0, e['logbook_id']]:
+                if lb_id not in logbook_count:
+                    logbook_count[lb_id] = _count_dict()
+                logbook_count[lb_id]['total'] += 1
+                if e['status']:
+                    logbook_count[lb_id][e['status']] += 1
+
+        data.update({
             'logbooks': logbooks,
             'rlogbooks': rlogbooks,
-            'resources_dict': {r['id']: r for r in _resources()}
+            'logbook_count': logbook_count
+        })
+
+        return data
+
+    @dc.content
+    def logbook_entryform_content(**kwargs):
+        dm = dc.app.dm
+        formDef = dm.get_form_definition('logbook_microscope')
+        # formDef['config']['request_resources']
+        return {
+            'users': [{'id': u.id, 'name': u.name} for u in dm.get_users() if u.is_active and u.is_manager],
+            'tags': ["k3", "krios", "DMP", "filesystem", "pipeline", "LN2"]
         }
 
     @dc.content
+    def logbook_entryform_validate(entry):
+        dm = dc.app.dm  # shortcut
+        data = entry.extra['data']
+
+        dates = []
+
+        for a in data.get('actions', []):
+            if not a.get('status', ''):
+                raise Exception(f"Please select the status for all actions.")
+            if not a.get('date', ''):
+                raise Exception(f"Please select the date for all actions.")
+            try:
+                d = dm.date(dt.datetime.strptime(a['date'], '%Y/%m/%d'))
+                dates.append(d)
+            except ValueError:
+                raise Exception(f"Please provide a valid date for all actions.")
+
+        for i, d in enumerate(dates[:-1]):
+            if d > dates[i+1]:
+                raise Exception(f"All actions must be in chronological order.")
+
+        
+    @dc.content
     def logbook_content(**kwargs):
         dm = dc.app.dm
-        logbook_id = int(kwargs.get('logbook', 0))
-        logbook = dm.get_project_by(id=logbook_id)
+        logbooks = []
+        logentries = []
 
-        if logbook is None:
-            raise Exception(f"There is no logbook with id: {logbook_id}")
+        logbook_ids = kwargs.get('logbook', '0')
+        all_logbooks = {lb.id: lb for lb in dm.get_projects(condition='status="special:logbook"')}
+        # Add some metadata to each logbook
+        for logbook in all_logbooks.values():
+            rid = int(logbook.extra.get('resource_id', 0))
+            resource = dm.get_resource_by(id=rid)
+            logbook_title = resource.name if resource else logbook.title
+            logbook.title = logbook_title
+            logbook.resource = resource
 
-        if logbook.status != 'special:logbook':
-            raise Exception(f"Project with id {logbook_id} is not a logbook.")
+        if logbook_ids == '0':
+            logbooks.extend(list(all_logbooks.values()))
+        else:            
+            for logbook_id in logbook_ids.split(','):
+                logbook = all_logbooks.get(int(logbook_id), None)
 
-        logentries = [{
-            'id': e.id,
-            'date': e.date,
-            'type': e.type,
-            'title': e.title,
-            'desc': e.description,
-            'user': e.creation_user,
-            'last_update_date': e.last_update_date
-            } for e in logbook.entries
-        ]
-        if r := logbook.extra.get('resource_id', 0) and int(kwargs.get('bookings', 0)):
-            resource = dm.get_resource_by(id=r)
-            title = resource.name
-            for b in dm.get_bookings(condition=f"resource_id={r}", orderBy='start'):
-                e = {
-                    'id': b.id,
-                    'date': b.start,
-                    'type': 'booking',
-                    'title': b.title,
-                    'desc': b.description,
-                    'user': b.creator,
-                    'last_update_date': b.end
-                }
-                logentries.append(e)
-                for s in b.session:
-                    se = dict(e)
-                    se.update(session_id=s.id, type='session', title='Name = ' + s.shortname)
-                    logentries.append(se)
+                if logbook is None:
+                    raise Exception(f"There is no logbook with id: {logbook_id}")
+
+                logbooks.append(logbook)
+
+        if len(logbooks) == 0:
+            raise Exception("No logbooks found.")
         else:
-            resource = None
-            title = logbook.title
+            title = 'Logbooks'
+
+        show = kwargs.get('show', '')
+        show_bookings = 'b' in show
+        show_sessions = 's' in show
+
+        def _entry_status(e):
+            actions = e.extra.get('data', {}).get('actions', [])
+            return actions[-1].get('status', '') if actions else ''
+
+        for logbook in logbooks:
+            rid = int(logbook.extra.get('resource_id', 0))
+            logentries.extend([{
+                'logbook_id': logbook.id,
+                'logbook_title': logbook.title,
+                'resource_id': rid,
+                'status': _entry_status(e),
+                'id': e.id,
+                'date': e.date,
+                'type': e.type,
+                'title': e.title,
+                'desc': e.description,
+                'user': e.creation_user,
+                'last_update_date': e.last_update_date
+                } for e in logbook.entries
+            ])
+
+            if show_bookings and resource:
+                for b in dm.get_bookings(condition=f"resource_id={resource.id}", orderBy='start'):
+                    e = {
+                        'resource_id': rid,
+                        'id': b.id,
+                        'date': b.start,
+                        'type': 'booking',
+                        'title': f"Booking: {b.title}",
+                        'user': b.creator,
+                        'last_update_date': b.end
+                    }
+                    logentries.append(e)
+                    if show_sessions:
+                        for s in b.session:
+                            se = dict(e)
+                            se.update(session_id=s.id, type='session', title=f"Session: {s.shortname}")
+                            logentries.append(se)
+
+        if len(logbooks) == 1:
+            entries_menu = logbooks[0].extra.get('entries_menu') or []
+        else:
+            entries_menu = []
 
         return {
+            'title': title,
             'logtitle': title,
-            'logbook': logbook,
+            'logbooks': logbooks,
+            'all_logbooks': all_logbooks,
             'logentries': logentries,
-            'entries_menu': logbook.extra['entries_menu']
+            'entries_menu': entries_menu,
+            'resources_dict': {r['id']: r for r in _resources()},
+            'show': show,
         }
+
+    @dc.content
+    def logbooks_entries_content(**kwargs):
+        return logbook_content(**kwargs)
+
+    @dc.content
+    def logbook_entryform_report(**kwargs):
+        dm = dc.app.dm
+        entry_id = kwargs['entry_id']
+        entry = dm.get_entry_by(id=entry_id) if entry_id else None
+        return {
+            'entry': entry,
+            'logbook_entry_actions': _logbook_entry_report_actions(dm, entry),
+        }
+
+    def _logbook_entry_report_actions(dm, entry):
+        """Build rows for logbook_entryform_report: date, status, user label, optional base64 thumb."""
+        thumb = Thumbnail(output_format='base64', max_size=(128, 128))
+        rows = []
+        extra_data = (entry.extra or {}).get('data') or {}
+        for action in extra_data.get('actions') or []:
+            if not isinstance(action, dict):
+                continue
+            uid = int(action.get('user', 0))
+            user = dm.get_user_by(id=uid)
+            user_label = app.shortname(user)
+            thumb_uri = None
+            for key in ('image', 'image_file', 'photo', 'screenshot', 'attachment'):
+                fn = (action.get(key) or '').strip()
+                if not fn:
+                    continue
+                path = dm.get_entry_path(entry, fn)
+                if os.path.exists(path) and Path.isImage(os.path.basename(path)):
+                    try:
+                        thumb_uri = 'data:image/%s;base64, ' + thumb.from_path(path)
+                        break
+                    except Exception:
+                        pass
+
+            rows.append({
+                'date': action.get('date', '') or '—',
+                'status': action.get('status', '') or '—',
+                'user': user_label,
+                'thumb': thumb_uri,
+            })
+        return rows
 
     @dc.content
     def logbook_form(**kwargs):

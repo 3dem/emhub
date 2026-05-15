@@ -1,0 +1,119 @@
+{% import "entry_macros.html" as macros %}
+
+{% macro logbook_title_cell(logbook_title, resource_id) -%}
+    {% if resource_id > 0 %}
+        {% set r = resources_dict[resource_id] %}
+        {{ macros.resource(r) }}
+    {% else %}
+        {{ logbook_title }}
+    {% endif %}
+{%- endmacro %}
+
+
+<div class="col-12 mb-3 ml-0 pl-0">
+    {% if is_manager %}
+            {% set n = logbooks|length %}
+            {% set entry = entries_menu[0] %}
+            {% if n > 1 %}
+                    <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-plus-circle"></i> Add Entry </a>
+                    <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
+                        {% for logbook in logbooks %}
+                            {% set entries_menu = logbook.extra['entries_menu'] %}
+                            {% set entry = entries_menu[0] %}
+                            <a class="dropdown-item" href="javascript:showEntryForm(null, {{ logbook.id }}, '{{ entry[0] }}')">{{ logbook.title }}</a>
+                        {% endfor %}
+                    </div>
+            {% elif n > 0 %}
+                {% set entries_menu = logbook.extra['entries_menu'] %}
+                {% set entry = entries_menu[0] %}
+                <a class="btn btn-primary" href="javascript:showEntryForm(null, {{ logbooks[0].id }}, '{{ entry[0] }}')" role="button" id="addEntryBtn">
+                    <i class="fas fa-plus-circle"></i> Add Entry </a>
+            {% endif %}
+    {% endif %}
+</div>
+
+<div class="table-responsive">
+
+    {% if logbooks %}
+        <table id="entries-table" class="table table-striped table-bordered" style="width:100%">
+            <thead>
+            <tr>
+                <th> actions </th>
+                <th>date</th>
+                <th>logbook</th>
+                <th>status</th>
+                <th>title</th>
+                <th>creator</th>
+                <td>last_update</td>
+
+            </tr>
+            </thead>
+            <tbody>
+                {% for e in logentries %}
+                    {% set eid = e['id'] %}
+                    {% set etype = e['type'] %}
+                    {% set logbook_id = e['logbook_id'] %}
+                    {% set resource_id = e['resource_id'] %}
+                <tr>
+                    <td>
+                        <div class="row">
+                        {% if etype == 'booking' %}
+                            {% if current_user.is_manager %}
+                                <div class="col-1"><a href="javascript:showBookingForm({booking_id: {{ eid }}})"><i class="fas fa-edit"></i>   </a></div>
+                                <div class="col-1"><a href="javascript:deleteBooking({id: {{ eid }} })"><i class="fas fa-trash-alt"></i></a></div>
+                            {% endif %}
+                            <div class="col-1"><a href="javascript:showBookingForm({booking_id: {{ eid }}, read_only: 1})"><i class="fas fa-eye"></i>   </a></div>
+                        {% elif etype == 'session' %}
+                            {% if current_user.is_manager %}
+                                <div class="col-1"><a href="javascript:showSessionForm({{ eid }}, {{ e['session_id'] }})"><i class="fas fa-edit"></i>   </a></div>
+                                <div class="col-1"><a href="javascript:deleteSession({{ e['session_id'] }})"><i class="fas fa-trash-alt"></i></a></div>
+                            {% endif %}
+                            <div class="col-1"><a href="javascript:showSessionForm({{ eid }}, {{ e['session_id'] }})"><i class="fas fa-eye"></i>   </a></div>
+                        {% else %}
+                            {% if current_user.is_manager %}
+                                <div class="col-1"><a href="javascript:showEntryForm({{ eid }}, {{ logbook_id }})"><i class="fas fa-edit"></i>   </a></div>
+                                <div class="col-1"><a href="javascript:deleteEntry({{ eid }}, '{{ e['title'] }}')"><i class="fas fa-trash-alt"></i></a></div>
+                            {% endif %}
+                            <div class="col-1"><a href="javascript:showEntryReport({{ eid }})"><i class="fas fa-eye"></i>   </a></div>
+
+                        {% endif %}
+                        </div>
+
+                    </td>
+                    <td>{{ e['date']|pretty_date }}</td>
+                    <td>
+                        {{ logbook_title_cell(e['logbook_title'], resource_id) }}
+                    </td>
+                    <td>{{ macros.logbook_entry_status(e['status']) }}</td>
+                    <td>{{ e['title'] }} </td>
+                    <td>{{ e['user'].name }}</td>
+                    <td>{{ e['last_update_date']|pretty_datetime }} </td>
+
+                </tr>
+            {% endfor %}
+
+            </tbody>
+        </table>
+    {% endif %}
+
+</div>
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+        // initLogbookEntriesTable();
+        $('#entries-table').DataTable({
+            order: [[1, "desc"]],
+            pageLength: 50
+        });
+
+    })(window, document, window.jQuery);
+
+    function showEntryReport(entry_id) {
+        show_modal_from_ajax('entry-modal',
+            get_ajax_content("entry_report", {entry_id: entry_id}));
+    }
+
+</script>

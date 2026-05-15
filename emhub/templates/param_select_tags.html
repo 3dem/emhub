@@ -1,0 +1,18 @@
+
+{# Single dynamic param: it can be different types of inputs #}
+{# It can be included from forms or tables. #}
+
+{# PARAMS:  #}
+{#     param: the param dict. #}
+{#     value: the value of this param #}
+{#     data_key: the key that will be used to store this value. #}
+{#     row_values: defined if used in a table with all values for that row #}
+
+{% set classStr = 'selectpicker show-tick' if selectpicker else '' %}
+
+<select class="{{ classStr }}"  title="None"  {{ data_key }}, multiple data-width="100%">
+    {% for tag in tags %}
+        {% set selected = 'selected' if tag in value else '' %}
+        <option {{ selected }} value="{{ tag }}">{{ tag }}</option>
+    {% endfor %}
+</select>

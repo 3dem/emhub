@@ -1,15 +1,8 @@
-{% macro name_id(user) -%}
-    {% if user %}
-        {{ user|shortname }} ({{ user.id }})
-    {% endif %}
-{%- endmacro %}
-
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = logtitle %}
-    {% set navigation = [('Logs', url_for_content('logbooks')), (logtitle, '')] %}
+    {% set navigation = [('Logbooks', url_for_content('logbooks')), ('Entries', '')] %}
     {% include 'include_header.html' %}
-    {% import "entry_macros.html" as macros %}
     {%  set is_admin = current_user.is_admin %}
     {% set is_manager = current_user.is_manager %}
 
@@ -18,10 +11,46 @@
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
             <div class="card">
                 <div class="card-header">
+                    <!-- Calendar selection header row -->
+                    <div class="row" style="margin-bottom: 20px;">
+                        <div class="col col-auto">
+                            <h3> Entries </h3>
+                        </div>
+                        <div class="col nopadding">
+
+                        </div>
+                        
+                        <div class="col col-auto">
+
+                            <div class="row align-items-center">
+                                <div class="col text-right pt-3">
+                                    <h5> Logbooks </h5>
+                                </div>
+                                <select id="selectpicker-logbook-entries" class="selectpicker show-tick" multiple data-width="auto" data-selected-text-format="count > 2" title="Select Resource to display..."  data-actions-box="true">
+                                {% for logbook in all_logbooks.values() %}
+                                    {% if logbook.resource %}
+                                        {% set r = logbook.resource %}
+                                        <option value="{{logbook.id}}" class="badge" style="background: {{ r['color'] }}; color: #fff;">{{ r['name'] }}</option>
+                                    {% else %}
+                                        <option value="{{logbook.id}}" class="badge">{{ logbook.title }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                                </select>
+                                <div class="form-check form-check-inline ml-2 align-middle">
+                                    <input class="form-check-input" type="checkbox" id="logbook-show-bookings"{% if 'b' in show %} checked{% endif %}>
+                                    <label class="form-check-label" for="logbook-show-bookings">Bookings and Sessions</label>
+                                </div>
+                                
+                                <a href="javascript:updateEntries()" class="btn btn-primary ml-3 mr-3"> Update </a>
+                            </div>
+
+                        </div>
+                    </div>
+
+
 <!--                    <h5 class="mb-0">Entries</h5>-->
                      <div class="col-12">
-                        {% if is_manager%}
-                            {% if logbook %}
+                        {% if is_manager and logbooks|length == 1 %}
                                 {% set n = entries_menu|length %}
                                 {% if n > 1 %}
                                     <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -31,87 +60,22 @@
                                             {% if not entry %}
                                                 <div class="dropdown-divider"></div>
                                             {% else %}
-                                                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ logbook.id }}, '{{ entry[0] }}')">{{ entry[1] }}</a>
+                                                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ logbooks[0].id }}, '{{ entry[0] }}')">{{ entry[1] }}</a>
                                             {% endif %}
                                         {% endfor %}
                                     </div>
                                 {% elif n > 0 %}
                                     {% set entry = entries_menu[0] %}
-                                    <a class="btn btn-primary" href="javascript:showEntryForm(null, {{ logbook.id }}, '{{ entry[0] }}')" role="button" id="addEntryBtn">
+                                    <a class="btn btn-primary" href="javascript:showEntryForm(null, {{ logbooks[0].id }}, '{{ entry[0] }}')" role="button" id="addEntryBtn">
                                         <i class="fas fa-plus-circle"></i> Add Entry </a>
                                 {% endif %}
-                            {% else %}
-                                <!-- Resource case -->
-                                 <a class="btn btn-primary" href="javascript:javascript:createBooking({{resource.id}})" role="button" id="addBookingBtn">
-                                    <i class="fas fa-plus-circle"></i> Add Booking </a>
-                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
 
                 <div class="card-body">
-                    <div class="table-responsive">
-
-                        {% if logbook %}
-                            <table id="entries-table" class="table table-striped table-bordered" style="width:100%">
-                                <thead>
-                                <tr>
-                                    <th> actions </th>
-                                    <th>id</th>
-                                    <th>date</th>
-                                    <th>type</th>
-                                    <th>title</th>
-                                    <th>description</th>
-                                    <th>creator</th>
-                                    <td>last_update</td>
-
-                                </tr>
-                                </thead>
-                                <tbody>
-                                    {% for e in logentries %}
-                                        {% set eid = e['id'] %}
-                                        {% set etype = e['type'] %}
-                                    <tr>
-                                        <td>
-                                            <div class="row">
-                                            {% if etype == 'booking' %}
-                                                {% if is_manager %}
-                                                    <div class="col-1"><a href="javascript:showBookingForm({booking_id: {{ eid }}})"><i class="fas fa-edit"></i>   </a></div>
-                                                    <div class="col-1"><a href="javascript:deleteBooking({id: {{ eid }} })"><i class="fas fa-trash-alt"></i></a></div>
-                                                {% endif %}
-                                                <div class="col-1"><a href="javascript:showBookingForm({booking_id: {{ eid }}, read_only: 1})"><i class="fas fa-eye"></i>   </a></div>
-                                              {% elif etype == 'session' %}
-                                                {% if is_manager %}
-                                                    <div class="col-1"><a href="javascript:showSessionForm({{ eid }}, {{ e['session_id'] }})"><i class="fas fa-edit"></i>   </a></div>
-                                                    <div class="col-1"><a href="javascript:deleteSession({{ e['session_id'] }})"><i class="fas fa-trash-alt"></i></a></div>
-                                                {% endif %}
-                                                <div class="col-1"><a href="javascript:showSessionForm({{ eid }}, {{ e['session_id'] }})"><i class="fas fa-eye"></i>   </a></div>
-                                            {% else %}
-                                                {% if is_manager %}
-                                                    <div class="col-1"><a href="javascript:showEntryForm({{ eid }}, {{ logbook.id }})"><i class="fas fa-edit"></i>   </a></div>
-                                                    <div class="col-1"><a href="javascript:deleteEntry({{ eid }}, '{{ e['title'] }}')"><i class="fas fa-trash-alt"></i></a></div>
-                                                {% endif %}
-                                                <div class="col-1"><a href="javascript:showEntryForm({{ eid }}, {{ logbook.id }}, null, null, 1)"><i class="fas fa-eye"></i>   </a></div>
-
-                                            {% endif %}
-                                            </div>
-
-                                        </td>
-                                        <td>{{ eid }}</td>
-                                        <td>{{ e['date']|pretty_datetime }}</td>
-                                        <td>{{ e['type'] }}</td>
-                                        <td>{{ e['title'] }}</td>
-                                        <td>{{ e['description'] }}</td>
-                                        <td>{{ e['user'].name }}</td>
-                                        <td>{{ e['last_update_date']|pretty_datetime }} </td>
-
-                                    </tr>
-                                {% endfor %}
-
-                                </tbody>
-                            </table>
-                        {% endif %}
-
+                    <div id="logbooks-entries-content">
+                        {% include 'logbooks_entries_content.html' %}
                     </div>
                 </div>
 
@@ -124,10 +88,31 @@
 
 
 <script>
+    (function(window, document, $, undefined) {
+    "use strict";
 
+        $('select').selectpicker();
 
-    $('.table').DataTable({
-        order: [[2, "desc"]],
-        "pageLength": 50
-    });
+        $('#selectpicker-logbook-entries').selectpicker('val', {{ logbooks|map(attribute='id')|list|tojson }});
+
+    })(window, document, window.jQuery);
+
+    function getLogbookShowParam() {
+        var show = '';
+        if ($('#logbook-show-bookings').prop('checked')) {
+            show += 'bs';
+        }
+        return show;
+    }
+
+    function updateEntries() {
+        var ids = $('#selectpicker-logbook-entries').selectpicker('val');
+        var logbookParam = (ids && ids.length) ? ids.join(',') : '0';
+        var show = getLogbookShowParam();
+        setLoading('logbooks-entries-content');
+        load_html_from_ajax('logbooks-entries-content',
+            get_ajax_content('logbooks_entries_content', { logbook: logbookParam, show: show }),
+            null);
+    }
+
 </script>

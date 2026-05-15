@@ -1,0 +1,50 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="container-fluid px-0">
+    <h4 class="border-bottom pb-2 mb-3">Logbook entry</h4>
+
+    <dl class="row mb-4">
+        <dt class="col-sm-3">Created by</dt>
+        <dd class="col-sm-9">{{ entry.creation_user.name if entry.creation_user else '—' }}</dd>
+
+        <dt class="col-sm-3">Title</dt>
+        <dd class="col-sm-9">{{ entry.title }}</dd>
+
+        <dt class="col-sm-3">Description</dt>
+        <dd class="col-sm-9">{{ entry.description or '' }}</dd>
+    </dl>
+
+    {% if logbook_entry_actions %}
+        <h5 class="mb-2">Actions</h5>
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+                <thead class="thead-light">
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">User</th>
+                        <th scope="col">Image</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in logbook_entry_actions %}
+                        <tr>
+                            <td>{{ row.date }}</td>
+                            <td>{{ macros.logbook_entry_status(row.status)|safe }}</td>
+                            <td>{{ row.user }}</td>
+                            <td class="text-center align-middle">
+                                {% if row.thumb %}
+                                    <img src="{{ row.thumb }}" alt="" class="img-thumbnail" style="max-width: 128px; max-height: 128px;">
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted mb-0">No actions recorded for this entry.</p>
+    {% endif %}
+</div>

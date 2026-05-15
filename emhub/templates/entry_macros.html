@@ -453,3 +453,18 @@
         <label class="col-8" id="{{ id }}">{{ value }}</label>
     </div>
 {%- endmacro  %}
+
+
+{% macro logbook_entry_status(status) -%}
+    {% if status == 'critical' %}
+        <span class="badge-pill badge-danger align-self-start">{{ status }}</span>
+    {% elif status == 'high' %}
+        <span class="badge-pill badge-warning align-self-start">{{ status }}</span>
+    {% elif status == 'medium' %}
+        <span class="badge-pill badge-info align-self-start">{{ status }}</span>
+    {% elif status == 'low' %}
+        <span class="badge-pill badge-light align-self-start">{{ status }}</span>    
+    {% else %}
+        {{ status }}
+    {% endif %}
+{%- endmacro %}

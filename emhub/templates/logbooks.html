@@ -3,133 +3,202 @@
 <!-- ============================================================== -->
 <!-- Logbooks page  -->
 <!-- ============================================================== -->
-<div class="container-fluid dashboard-content">
-    <!-- Header -->
-    {% set title = "Logs" %}
-    {% set navigation = [('Logs', '')] %}
-    {% include 'include_header.html' %}
-    {% import "entry_macros.html" as macros %}
-    {% set is_manager = current_user.is_manager %}
 
-        <div class="row col-12"><h3 class="mr-5 mt-2">Instruments</h3>
-            <div class="mb-4">
-                <a class="btn btn-primary" href="javascript:javascript:showLogbookForm(0, 1)" role="button" id="addBookingBtn" style="min-width: 220px">
-                        <i class="fas fa-plus-circle"></i> Create Instrument Logbook </a>
-            </div>
-        </div>
+{% import "entry_macros.html" as macros %}
+{% set is_manager = current_user.is_manager %}
 
-        <div class="row">
-            {% for lb in rlogbooks %}
-                {% set r = resources_dict[lb.extra['resource_id']] %}
+{% macro logbook_card(title, logbook_id, resource_id, entries_menu) -%}
 
-                <div class="col-auto mb-4" style="min-width: 450px; max-width: 450px;">
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <div class="row align-items-left justify-content-start">
-                                <div class="col-2 mr-0 pr-0">
-                                    <img src="{{ r['image'] }}" alt="{{ r['name'] }}" width="48" style="margin-right: 0;">
-                                </div>
-                                <div class="col-4 text-left ml-0 pl-0 mt-2">
-                                    <h3><a href="{{ url_for_content('logbook_content', logbook=lb.id) }}" class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 20px">{{r['name']}}</a></h3>
-                                </div>
-                                <div class="row align-items-right justify-content-end col-6">
-                                    <div class="toolbar ml-auto d-flex">
-                                        <a class="" id="href-{{ r['id'] }}" href="{{ url_for_content('logbook_content', logbook=lb.id) }}"><i class="fas fa-clipboard-list"></i></a>
+    <div class="col-auto mb-4" style="min-width: 450px; max-width: 450px;">
+        <div class="card h-100">
+            <div class="card-header">
+                <div class="row align-items-left justify-content-start">
+                    <div class="col-2 mr-0 pr-0 mt-2">
+                        <h4><i class="fas fa-book"></i></h4>
+                    </div>
+                    {% set url = url_for_content('logbook_content', logbook=logbook_id) %}
+                    <div class="col-4 text-left ml-0 pl-0 mt-2">
+                        {% if resource_id %}
+                            {% set r = resources_dict[resource_id] %}
+                            <h5><a href="{{ url_for_content('logbook_content', logbook=logbook_id) }}" class="badge" style="background: {{ r['color'] }}; color: #fff; font-size: 16px">{{r['name']}}</a></h5>
+                        {% else %}
+                            <h5><a href="{{ url }}" class="badge" style="background: #a9a9a9; color: #fff; font-size: 16px">{{title}}</a></h5>
+                        {% endif %}
+                        
+                    </div>
+                    <div class="row align-items-right justify-content-end col-6">
+                        <div class="toolbar ml-auto d-flex">
 
-                                        {% if is_manager %}
-                                            <a href="javascript:createBooking({{ r['id'] }})"><i class="fas fa-plus-circle ml-3"></i></a>
+                            <a href="{{ url }}"><i class="fas fa-clipboard-list"></i></a>
 
-                                             <div class="dropdown ml-2">
-                                                <a class="toolbar" href="#" role="button" id="dropdownMenuLink2-{{ lb.id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-ellipsis-v"></i>  </a>
-                                                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink2-{{ lb.id }}">
-                                                        <a class="dropdown-item" href="javascript:showLogbookForm({{ lb.id }}, 0)">Edit</a>
-                                                        <a class="dropdown-item" href="javascript:deleteLogbook({{ lb.id }}, 0)">Delete</a>
-                                                    </div>
-                                            </div>
-                                        {% endif %}
+                            {% if is_manager and logbook_id > 0 %}  
+
+                                {% set n = entries_menu|length %}
+                                {% if n > 1 %}
+                                    <div class="dropdown ml-2">
+                                        <a class="toolbar" href="#" role="button" id="dropdownMenuLink-{{ logbook_id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-plus-circle"></i>  </a>
+                                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink-{{ logbook_id }}">
+                                            {% for entry in entries_menu %}
+                                                {% if not entry %}
+                                                    <div class="dropdown-divider"></div>
+                                                {% else %}
+                                                    <a class="dropdown-item" href="javascript:showEntryForm(null, {{ logbook_id }}, '{{ entry[0] }}')">{{ entry[1] }}</a>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
 
-                        </div>
-                        <div class="card-body pt-0">
+                                {% else %}
+                                    {% set entry = entries_menu[0] %}
+                                    <a href="javascript:showEntryForm(null, {{ logbook_id }}, '{{ entry[0] }}')"><i class="fas fa-plus-circle ml-2"></i></a>
+                                {% endif %}
+
+
+                                <div class="dropdown ml-2">
+                                    <a class="toolbar" href="#" role="button" id="dropdownMenuLink2-{{ logbook_id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-ellipsis-v"></i>  </a>
+                                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink2-{{ logbook_id }}">
+                                            <a class="dropdown-item" href="javascript:showLogbookForm({{ logbook_id }}, 0)">Edit</a>
+                                            <a class="dropdown-item" href="javascript:deleteLogbook({{ logbook_id }}, 0)">Delete</a>
+                                        </div>
+                                </div>
+                            {% endif %}
 
                         </div>
                     </div>
                 </div>
-            {% endfor %}
-        </div>
 
-    </br>
-        <div class="row col-12"><h3 class="mr-5 mt-2">Logbooks</h3>
-            <div class="mb-4">
-                <a class="btn btn-primary" href="javascript:javascript:showLogbookForm(0, 0)" role="button" id="addBookingBtn"  style="min-width: 220px">
-                        <i class="fas fa-plus-circle"></i> Create General Logbook </a>
+            </div>
+            <div class="card-body pt-0">
+                {% set total = logbook_count.get(logbook_id, {}).get('total', 0)|int %}
+                {% if total > 0 %}
+                    <div class="row mt-1 ml-1"><p class="mt-1">Total entries:</p><h4 class="ml-2 mt-1">{{ total }}</h4></div>
+                    <div class="row mt-1 ml-1"><p class="mt-1">
+                        <h4 class="ml-2 mt-1"></h4>
+                        {% for status in ['critical', 'high', 'medium', 'low'] %}
+                            {% set count = logbook_count.get(logbook_id, {}).get(status, 0)|int %}
+                            {% if count > 0 %}
+                                {{ macros.logbook_entry_status(status) }} <h4 class="ml-2 mr-3">{{ count }}</h4>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
         </div>
-            <div class="row">
-                {% for lb in logbooks %}
+    </div>
 
-                    <div class="col-auto mb-4" style="min-width: 450px; max-width: 450px;">
-                        <div class="card h-100">
-                            <div class="card-header">
-                                <div class="row align-items-left justify-content-start">
-                                    <div class="col-2 mr-0 pr-0 mt-2">
-                                        <h3><i class="fas fa-book"></i></h3>
-                                    </div>
-                                    <div class="col-4 text-left ml-0 pl-0 mt-2">
-                                        <h3><a href="{{ url_for_content('logbook_content', logbook=lb.id) }}" class="badge" style="background: #a9a9a9; color: #fff; font-size: 20px">{{lb.title}}</a></h3>
-                                    </div>
-                                    <div class="row align-items-right justify-content-end col-6">
-                                        <div class="toolbar ml-auto d-flex">
+{%- endmacro %}
 
-                                            <a href="{{ url_for_content('logbook_content', logbook=lb.id) }}"><i class="fas fa-clipboard-list"></i></a>
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Logbooks" %}
+    {% set navigation = [('Logbooks', '')] %}
+    {% include 'include_header.html' %}
 
-                                            {% if is_manager %}
 
-                                                {% set entries_menu = lb.extra['entries_menu'] %}
-                                                {% set n = entries_menu|length %}
-                                                {% if n > 1 %}
+    <div class="row">
+
+        <div class="col-6">
+            <div class="row col-12"><h3 class="mr-5 mt-2">Additional Logbooks</h3>
+                <div class="mb-4">
+                    <a class="btn btn-primary" href="javascript:javascript:showLogbookForm(0, 0)" role="button" id="addBookingBtn"  style="min-width: 220px">
+                            <i class="fas fa-plus-circle"></i> Create General Logbook </a>
+                </div>
+            </div>
+                <div class="row">
+                    {{ logbook_card("ALL", 0, 0, []) }}
+
+                    {% for lb in logbooks %}
+    
+                        <!-- <div class="col-auto mb-4" style="min-width: 450px; max-width: 450px;">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <div class="row align-items-left justify-content-start">
+                                        <div class="col-2 mr-0 pr-0 mt-2">
+                                            <h3><i class="fas fa-book"></i></h3>
+                                        </div>
+                                        <div class="col-4 text-left ml-0 pl-0 mt-2">
+                                            <h3><a href="{{ url_for_content('logbook_content', logbook=lb.id) }}" class="badge" style="background: #a9a9a9; color: #fff; font-size: 20px">{{lb.title}}</a></h3>
+                                        </div>
+                                        <div class="row align-items-right justify-content-end col-6">
+                                            <div class="toolbar ml-auto d-flex">
+    
+                                                <a href="{{ url_for_content('logbook_content', logbook=lb.id) }}"><i class="fas fa-clipboard-list"></i></a>
+    
+                                                {% if is_manager %}
+    
+                                                    {% set entries_menu = lb.extra['entries_menu'] %}
+                                                    {% set n = entries_menu|length %}
+                                                    {% if n > 1 %}
+                                                        <div class="dropdown ml-2">
+                                                            <a class="toolbar" href="#" role="button" id="dropdownMenuLink-{{ lb.id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-plus-circle"></i>  </a>
+                                                            <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink-{{ lb.id }}">
+                                                                {% for entry in entries_menu %}
+                                                                    {% if not entry %}
+                                                                        <div class="dropdown-divider"></div>
+                                                                    {% else %}
+                                                                        <a class="dropdown-item" href="javascript:showEntryForm(null, {{ lb.id }}, '{{ entry[0] }}')">{{ entry[1] }}</a>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            </div>
+                                                        </div>
+    
+                                                    {% else %}
+                                                        {% set entry = entries_menu[0] %}
+                                                         <a href="javascript:showEntryForm(null, {{ lb.id }}, '{{ entry[0] }}')"><i class="fas fa-plus-circle ml-2"></i></a>
+                                                    {% endif %}
+    
+    
                                                     <div class="dropdown ml-2">
-                                                        <a class="toolbar" href="#" role="button" id="dropdownMenuLink-{{ lb.id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-plus-circle"></i>  </a>
-                                                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink-{{ lb.id }}">
-                                                            {% for entry in entries_menu %}
-                                                                {% if not entry %}
-                                                                    <div class="dropdown-divider"></div>
-                                                                {% else %}
-                                                                    <a class="dropdown-item" href="javascript:showEntryForm(null, {{ lb.id }}, '{{ entry[0] }}')">{{ entry[1] }}</a>
-                                                                {% endif %}
-                                                            {% endfor %}
-                                                        </div>
+                                                        <a class="toolbar" href="#" role="button" id="dropdownMenuLink2-{{ lb.id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-ellipsis-v"></i>  </a>
+                                                            <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink2-{{ lb.id }}">
+                                                                <a class="dropdown-item" href="javascript:showLogbookForm({{ lb.id }}, 0)">Edit</a>
+                                                                <a class="dropdown-item" href="javascript:deleteLogbook({{ lb.id }}, 0)">Delete</a>
+                                                            </div>
                                                     </div>
-
-                                                {% else %}
-                                                    {% set entry = entries_menu[0] %}
-                                                     <a href="javascript:showEntryForm(null, {{ lb.id }}, '{{ entry[0] }}')"><i class="fas fa-plus-circle ml-2"></i></a>
                                                 {% endif %}
-
-
-                                                <div class="dropdown ml-2">
-                                                    <a class="toolbar" href="#" role="button" id="dropdownMenuLink2-{{ lb.id }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> <i class="fas fa-ellipsis-v"></i>  </a>
-                                                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="dropdownMenuLink2-{{ lb.id }}">
-                                                            <a class="dropdown-item" href="javascript:showLogbookForm({{ lb.id }}, 0)">Edit</a>
-                                                            <a class="dropdown-item" href="javascript:deleteLogbook({{ lb.id }}, 0)">Delete</a>
-                                                        </div>
-                                                </div>
-                                            {% endif %}
-
+    
+                                            </div>
                                         </div>
                                     </div>
+    
                                 </div>
-
+                                <div class="card-body pt-0">
+                                    <div class="row mt-1 ml-1"><p class="mt-1">Total entries:</p><h4 class="ml-2">{{ logbook_count[lb.id] }}</h4></div>
+                                </div>
                             </div>
-                            <div class="card-body pt-0">
+                        </div> -->
 
-                            </div>
-                        </div>
-                    </div>
+                        {{ logbook_card(lb.title, lb.id, 0, lb.extra['entries_menu']) }}
+
+                    {% endfor %}
+                </div>
+        </div>
+
+        <div class="col-6">
+
+            <div class="row col-12"><h3 class="mr-5 mt-2">Instrument Logbooks</h3>
+                <div class="mb-4">
+                    <a class="btn btn-primary" href="javascript:javascript:showLogbookForm(0, 1)" role="button" id="addBookingBtn" style="min-width: 220px">
+                            <i class="fas fa-plus-circle"></i> Create Instrument Logbook </a>
+                </div>
+            </div>
+
+            <div class="row">
+                {% for lb in rlogbooks %}
+                    {% set r = resources_dict[lb.extra['resource_id']] %}
+
+
+                    {{ logbook_card(r['name'], lb.id, lb.extra['resource_id'], lb.extra['entries_menu']) }}
                 {% endfor %}
             </div>
+        </div>
+    </div>
+
+
+
+    </br>
+
+
 
 </div>
 <!-- ============================================================== -->
