@@ -152,8 +152,44 @@
         },
 
         duplicateProtocol(projectId, items) {
-          alert("Duplicating protocols....." + JSON.stringify(items, null, 4))
-          return { status: 1, errors: ["Not yet implemented"] };
+          const duplicated = items.map((item) => ({
+            sourceId: String(item.id ?? item.protocolId ?? item),
+            newId: String(Math.floor(50000 + Math.random() * 10000)),
+          }));
+
+          const response = {
+            status: 0,
+            errors: [],
+            workflow: [],
+            duplicated,
+          };
+
+          alert("Duplicating protocols...\n" + JSON.stringify(response, null, 4));
+
+          return response;
+        },
+
+        renameProtocol(projectId, protocolId, payload) {
+          const { runName, comment } = payload ?? {};
+
+          const response = {
+            status: 0,
+            errors: [],
+            workflow: [],
+            renamed: {
+              projectId: String(projectId),
+              protocolId: String(protocolId),
+              runName: runName ?? "",
+              comment: comment ?? "",
+            },
+          };
+
+          alert(
+            "Renaming protocol...\n" +
+            JSON.stringify(response, null, 4)
+          );
+
+          return response;
         },
 
         createProject(data) {
