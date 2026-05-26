@@ -216,6 +216,19 @@ def create_app(test_config=None):
         next_content = flask.request.args.get('next_content', 'dashboard')
         return _redirect('main', content_id=next_content)
 
+    def _default_login_user(username, password):
+        user = None
+
+        if not app.config.get('CASE_SENSITIVE_USERNAMES', True):
+            username = username.lower()
+
+        if user := app.dm.get_user_by(username=username):  # First check that the user in the db, then try to authenticate
+            # Local authentication
+            if not user.check_password(password):
+                user = None
+
+        return user
+
     @app.route('/do_login', methods=['POST'])
     def do_login():
         """ This view will be called as POST from the user login page. """
@@ -223,25 +236,9 @@ def create_app(test_config=None):
         password = flask.request.form['password']
         next_content = flask.request.form.get('next_content', 'index')
         authenticated = None
-        user = None
-
-        if not app.config.get('CASE_SENSITIVE_USERNAMES', True):
-            username = username.lower()
-
-        user = app.dm.get_user_by(username=username)
-
-        if user:  # First check that the user in the db, then try to authenticate
-
-            auth_local = user.auth_local or not app.use_ldap
-
-            if auth_local:
-                if not user.check_password(password):
-                    user = None
-            else:
-                response = ldap_manager.authenticate(username, password)
-                # Specifics are configurable.  That information is not presently used.
-                if response.status != flask_ldap3_login.AuthenticationResponseStatus.success:
-                    user = None  # Failed authentication
+        
+        login_user_func = getattr(app, 'login_user', _default_login_user)
+        user = login_user_func(username, password)
 
         if not user:
             flask.flash('Invalid username or password')
@@ -443,7 +440,7 @@ def create_app(test_config=None):
             if auth_local:
                 raise Exception("LDAP authentication is not configured.")
             else:
-                with ldap_manager.connection as conn:
+                with app.ldap_manager.connection as conn:
                     search_filter = f'(mail={email})'
                     # attributes=['sAMAccountName'] retrieves the short username
                     conn.search(
@@ -492,7 +489,7 @@ def create_app(test_config=None):
 
     if app.use_ldap:
         import flask_ldap3_login
-        ldap_manager = flask_ldap3_login.LDAP3LoginManager(app)
+        app.ldap_manager = flask_ldap3_login.LDAP3LoginManager(app)
 
     if app.config.get('MAIL_SERVER', None):
         app.mm = MailManager(app)

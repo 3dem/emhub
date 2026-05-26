@@ -910,10 +910,21 @@ class DataManager(DbManager):
             attrs['user_id'] = self._user.id
 
         now = self.now()
+        creation_user_id = attrs.pop('creation_user_id', None)
+        if creation_user_id is None:
+            creation_user_id = self._user.id
+        else:
+            creation_user_id = int(creation_user_id)
+            if creation_user_id != self._user.id:
+                if not self._user.is_manager:
+                    creation_user_id = self._user.id
+                elif self.get_user_by(id=creation_user_id) is None:
+                    creation_user_id = self._user.id
+
         attrs.update({
             'date': now,
             'creation_date': now,
-            'creation_user_id': self._user.id,
+            'creation_user_id': creation_user_id,
             'last_update_date': now,
             'last_update_user_id': self._user.id,
         })
@@ -1052,10 +1063,21 @@ class DataManager(DbManager):
             return self.__validate_entry(validate_func, attrs)
 
         now = self.now()
+        creation_user_id = attrs.pop('creation_user_id', None)
+        if creation_user_id is None:
+            creation_user_id = self._user.id
+        else:
+            creation_user_id = int(creation_user_id)
+            if creation_user_id != self._user.id:
+                if not self._user.is_manager:
+                    creation_user_id = self._user.id
+                elif self.get_user_by(id=creation_user_id) is None:
+                    creation_user_id = self._user.id
+
         attrs.update({
             'date': attrs.get('date', now),
             'creation_date': now,
-            'creation_user_id': self._user.id,
+            'creation_user_id': creation_user_id,
             'last_update_date': now,
             'last_update_user_id': self._user.id,
             'special_create': __create
