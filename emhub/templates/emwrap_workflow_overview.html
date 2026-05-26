@@ -1,0 +1,102 @@
+<div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 80%">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">{{ workflow_file }}</h3>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <div class="row m-0">               
+
+                <div class="col-12 p-0">
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Name</label>
+                        <div class="col-12 col-sm-9">
+                            <input type="text" id="workflow-name" class="form-control" value="{{ workflow_name }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 p-0">
+                    <div class="form-group row">
+                        <label class="col-12 col-sm-3 col-form-label text-sm-right">Description</label>
+                        <div class="col-12 col-sm-9">
+                            <textarea id="workflow-description" class="form-control" rows="4">{{ workflow_description }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 p-0 mb-2">
+                    <label class="mb-0">Jobs JSON</label>
+                </div>
+
+                <div id="workflow-editor" class="editor-json-black col-12 p-0" style="height: 500px"></div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            {% if current_user.is_manager %}
+            <button type="button" class="btn btn-outline-dark" onclick="onWorkflowUpdate()">Update</button>
+            {% endif %}
+            <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    var workflow_id = {{ workflow_id|tojson }};
+    var workflow_file = {{ workflow_file|tojson }};
+    var workflow_jobs = {{ workflow_jobs|tojson }};
+    var workflow_editor = null;
+
+    (function(window, document, $, undefined) {
+    "use strict";
+    $(function() {
+        workflow_editor = ace.edit("workflow-editor");
+        workflow_editor.setTheme("ace/theme/monokai");
+        workflow_editor.session.setMode("ace/mode/json");
+        workflow_editor.setValue(JSON.stringify(workflow_jobs, null, 4), -1);
+    });
+    })(window, document, window.jQuery);
+
+    function onWorkflowUpdate() {
+        var jobs = null;
+        var name = document.getElementById('workflow-name').value.trim();
+        var description = document.getElementById('workflow-description').value.trim();
+
+        if (!name) {
+            showError("Workflow name can not be empty.");
+            return;
+        }
+
+        try {
+            jobs = JSON.parse(workflow_editor.getValue());
+        } catch (err) {
+            showError("Invalid jobs JSON: " + err.toString());
+            return;
+        }
+
+        send_ajax_json("{{ url_for('api.update_emwrap_workflow') }}",
+            {
+                workflow_id: workflow_id,
+                name: name,
+                description: description,
+                jobs: jobs
+            },
+            function(jsonResponse) {
+                if ('workflow' in jsonResponse) {
+                    workflow_editor.setValue(JSON.stringify(jobs, null, 4), -1);
+                    $('#workflow-modal').modal('hide');
+                    showMessage('Workflow updated', 'Saved changes to <code>' + workflow_file + '</code>.');
+                }
+                else if ('error' in jsonResponse) {
+                    showError(jsonResponse.error);
+                }
+                else {
+                    showError('Unexpected response from server.');
+                }
+            });
+    }
+</script>

@@ -51,6 +51,37 @@ DEFAULT_SESSION = {
 def register_content(dc):
 
     @dc.content
+    def emwrap_config(**kwargs):
+        if not dc.app.user.is_manager:
+            raise Exception("Invalid access")
+
+        report = ProcessingConfig.get_config_report()
+
+        return {
+            'config_summary': report['summary'],
+            'workflow_rows': report['workflow_rows'],
+            'job_rows': report['job_rows'],
+            'program_rows': report['program_rows'],
+        }
+
+    @dc.content
+    def emwrap_workflow_overview(**kwargs):
+        if not dc.app.user.is_manager:
+            raise Exception("Invalid access")
+
+        workflow_id = kwargs['workflow_id']
+        workflow_file = ProcessingConfig.get_workflow_file(workflow_id)
+        workflow_def = ProcessingConfig.get_workflow(workflow_id)
+
+        return {
+            'workflow_id': workflow_id,
+            'workflow_file': os.path.basename(workflow_file),
+            'workflow_name': workflow_def.get('name', workflow_id),
+            'workflow_description': workflow_def.get('description', ''),
+            'workflow_jobs': workflow_def.get('jobs', [])
+        }
+
+    @dc.content
     def tomo_session(**kwargs):
         if tsId := kwargs.get('tomo_session_id', None):
             mode = kwargs.get('mode', 'widget')
@@ -185,6 +216,7 @@ def register_content(dc):
 
         keys = [
             "processing_path",
+            "data_path",
             "pixel_size",
             "voltage",
             "spherical_aberration",
@@ -192,17 +224,29 @@ def register_content(dc):
             "total_dose"
         ]
 
+        dpath = data.get('data_path', '')
+        ppath = data.get('processing_path', '')
+
         for k in keys:
             v = data.get(k, '')
             if not v:
                 raise Exception(f"Provide a value for '{k}', it can not be empty.")
-            if k == 'processing_path':
-                ppath = v
-                if not os.path.exists(v):
-                    raise Exception(f"Processing path '{v}' does not exist!")
 
-        fm = FolderManager(ppath)
-        if not fm.exists('default_pipeline.star'):
+        if not os.path.exists(dpath):
+            raise Exception(f"Data path '{dpath}' does not exist!")
+
+        if os.path.exists(ppath):
+            pipeline_star = os.path.join(ppath, 'default_pipeline.star')
+            if not os.path.exists(pipeline_star):
+                raise Exception(f"Pipeline star file '{pipeline_star}' does not exist!. "
+                                f"Please choose an existing project or create a new one.")
+            
+        else:
+            parent_path = os.path.dirname(ppath)
+            if not os.path.exists(parent_path):
+                raise Exception(f"Parent path '{parent_path}' does not exist!")
+            # Create a new project in the parent path
+            os.makedirs(ppath)
             from emwrap.base import ProjectManager
             pm = ProjectManager(ppath, create=True)
             # Also create an import job template with the provided values
@@ -221,6 +265,8 @@ def register_content(dc):
                 "wait.sleep": "1"
             }
             pm.saveJob('emw-import-ts', args)
+            os.symlink(data['data_path'], os.path.join(ppath, 'data'))
+
 
     @dc.content
     def entry_tomo_processing_content(**kwargs):

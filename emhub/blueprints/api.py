@@ -1156,6 +1156,31 @@ def get_config():
     return _handle_item(_get_config, 'config')
 
 
+@api_bp.route('/update_emwrap_workflow', methods=['POST'])
+@flask_login.login_required
+def update_emwrap_workflow():
+    def _update_emwrap_workflow(**attrs):
+        if not flask_login.current_user.is_manager:
+            raise Exception("Invalid access")
+
+        from emwrap.base import ProcessingConfig
+
+        workflow_id = attrs['workflow_id']
+        definition = {
+            'name': attrs['name'],
+            'description': attrs.get('description', ''),
+            'jobs': attrs['jobs']
+        }
+        workflow_file = ProcessingConfig.save_workflow(workflow_id, definition)
+
+        return {
+            'workflow_id': workflow_id,
+            'workflow_file': workflow_file
+        }
+
+    return _handle_item(_update_emwrap_workflow, 'workflow')
+
+
 # ------------------------------ PROJECTS ---------------------------------
 
 @api_bp.route('/get_projects', methods=['GET', 'POST'])
