@@ -139,7 +139,8 @@
         puck: {
             create: "{{ url_for('api.create_puck') }}",
             update: "{{ url_for('api.update_puck') }}",
-            delete: "{{ url_for('api.delete_puck') }}"
+            delete: "{{ url_for('api.delete_puck') }}",
+            get: "{{ url_for('api.get_pucks') }}"
         },
         get_session_data: "{{ url_for('api.get_session_data') }}",
         get_session_run: "{{ url_for('api.get_session_run') }}",

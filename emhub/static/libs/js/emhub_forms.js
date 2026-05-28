@@ -476,7 +476,7 @@ function createOrUpdateSession(session_params){
  } // function form_addRows
 
 
-/** Create a dynamic form based on teh JSON definition of sections and params
+/** Create a dynamic form based on the JSON definition of sections and params
  * */
  function form_create(form, values, elementId, protocol) {
      var formElement = document.getElementById(elementId);

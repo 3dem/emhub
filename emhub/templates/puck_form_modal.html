@@ -1,0 +1,73 @@
+<div class="puck-form-fields-content"
+     data-puck-extra='{{ puck_extra|tojson }}'
+     data-puck-dewar="{{ puck.dewar }}"
+     data-puck-cane="{{ puck.cane }}"
+     data-puck-is-new="{{ 'true' if is_new else 'false' }}">
+    <div class="form-group row">
+        <label class="col-12 col-sm-3 col-form-label text-sm-right" for="puck-label-input">Label</label>
+        <div class="col-12 col-sm-8 col-lg-9">
+            <input type="text" class="form-control" id="puck-label-input"
+                   value="{{ puck.label }}" required>
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label class="col-12 col-sm-3 col-form-label text-sm-right" for="puck-color-input">Color</label>
+        <div class="col-12 col-sm-8 col-lg-9">
+            <input type="text" class="form-control" id="puck-color-input"
+                   value="{{ puck.color or '#d3d3d3' }}" data-control="hue">
+        </div>
+    </div>
+
+    <div class="form-group row">
+        <label class="col-12 col-sm-3 col-form-label text-sm-right" for="puck-location-select">Position</label>
+        <div class="col-12 col-sm-8 col-lg-9">
+            <select id="puck-location-select" class="selectpicker form-control"
+                    data-live-search="true" data-width="100%" title="Select location">
+                {% for opt in location_options %}
+                    <option value="{{ opt.value }}"
+                            {% if opt.value == location_value %}selected{% endif %}>
+                        {{ opt.label }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        function resolveCssColor(color) {
+            if (!color) {
+                return '#d3d3d3';
+            }
+            if (color.charAt(0) === '#') {
+                return color;
+            }
+            var el = document.createElement('span');
+            el.style.display = 'none';
+            el.style.color = color;
+            document.body.appendChild(el);
+            var resolved = window.getComputedStyle(el).color;
+            document.body.removeChild(el);
+            return resolved || color;
+        }
+
+        var $color = $('#puck-color-input');
+        if ($color.data('minicolors-initialized')) {
+            $color.minicolors('destroy');
+        }
+        $color.val(resolveCssColor($color.val()));
+        $color.minicolors({
+            theme: 'bootstrap',
+            control: 'hue',
+            position: 'bottom left'
+        });
+
+        var $loc = $('#puck-location-select');
+        if ($loc.parent().hasClass('bootstrap-select')) {
+            $loc.selectpicker('destroy');
+        }
+        $loc.selectpicker({liveSearch: true, width: '100%'});
+    })();
+</script>

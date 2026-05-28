@@ -2207,3 +2207,346 @@ function create_hc_fscplot(containerId, fscSeries){
     });
 
 }
+
+
+// ---------------------------------------------------------------------------
+// Puck canvas visualization
+// ---------------------------------------------------------------------------
+
+/**
+ * Canvas visualization for a puck and its gridbox slots.
+ */
+class PuckCanvasView {
+
+    static DEFAULT_LAYOUT = [2, 3, 4, 3];
+
+    static COLOR_UNUSED = '#adb5bd';
+    static COLOR_USED = '#28a745';
+    static COLOR_RESERVED = '#fd7e14';
+    static COLOR_SHIPPING = '#6f42c1';
+    static COLOR_PUCK_DEFAULT = '#d3d3d3';
+
+    /**
+     * @param {HTMLCanvasElement|string} canvas - canvas element or id
+     * @param {object} options
+     * @param {string} [options.puckColor]
+     * @param {number} [options.maxGridboxes]
+     * @param {object} [options.gridboxes] - map position -> gridbox data
+     * @param {number} [options.puckId]
+     * @param {function(number, boolean): void} [options.onGridboxClick]
+     * @param {number[]} [options.layout] - slots per row
+     */
+    constructor(canvas, options) {
+        options = options || {};
+        this.canvas = typeof canvas === 'string'
+            ? document.getElementById(canvas)
+            : canvas;
+        if (!this.canvas) {
+            throw new Error('PuckCanvasView: canvas not found');
+        }
+
+        this.ctx = this.canvas.getContext('2d');
+        this.puckColor = options.puckColor || PuckCanvasView.COLOR_PUCK_DEFAULT;
+        this.maxGridboxes = options.maxGridboxes || 12;
+        this.gridboxes = options.gridboxes || {};
+        this.puckId = options.puckId;
+        this.onGridboxClick = options.onGridboxClick || function () {};
+        this.layout = options.layout || PuckCanvasView.DEFAULT_LAYOUT;
+
+        this._displaySize = 0;
+        this._puckRadius = 0;
+        this._gridboxRadius = 0;
+        this._slots = [];
+        this._hoverPosition = null;
+        this._tooltip = null;
+
+        this._onClick = this._handleClick.bind(this);
+        this._onMove = this._handleMove.bind(this);
+        this._onLeave = this._handleLeave.bind(this);
+
+        this.canvas.addEventListener('click', this._onClick);
+        this.canvas.addEventListener('mousemove', this._onMove);
+        this.canvas.addEventListener('mouseleave', this._onLeave);
+
+        this._resize();
+        this.draw();
+    }
+
+    static normalizeGridboxes(gridboxes) {
+        var normalized = {};
+        if (!gridboxes) {
+            return normalized;
+        }
+        for (var key in gridboxes) {
+            if (gridboxes.hasOwnProperty(key)) {
+                normalized[parseInt(key, 10)] = gridboxes[key];
+            }
+        }
+        return normalized;
+    }
+
+    static darkenColor(color) {
+        var probe = document.createElement('span');
+        probe.style.display = 'none';
+        probe.style.color = color || PuckCanvasView.COLOR_PUCK_DEFAULT;
+        document.body.appendChild(probe);
+        var rgb = window.getComputedStyle(probe).color;
+        document.body.removeChild(probe);
+
+        var parts = rgb.match(/\d+/g);
+        if (!parts || parts.length < 3) {
+            return '#888888';
+        }
+        var factor = 0.62;
+        var r = Math.max(0, Math.floor(parseInt(parts[0], 10) * factor));
+        var g = Math.max(0, Math.floor(parseInt(parts[1], 10) * factor));
+        var b = Math.max(0, Math.floor(parseInt(parts[2], 10) * factor));
+        return 'rgb(' + r + ', ' + g + ', ' + b + ')';
+    }
+
+    setGridboxes(gridboxes) {
+        this.gridboxes = PuckCanvasView.normalizeGridboxes(gridboxes);
+        this.draw();
+    }
+
+    setPuckColor(color) {
+        this.puckColor = color || PuckCanvasView.COLOR_PUCK_DEFAULT;
+        this.draw();
+    }
+
+    destroy() {
+        this.canvas.removeEventListener('click', this._onClick);
+        this.canvas.removeEventListener('mousemove', this._onMove);
+        this.canvas.removeEventListener('mouseleave', this._onLeave);
+        this._hideTooltip();
+        if (this._tooltip && this._tooltip.parentNode) {
+            this._tooltip.parentNode.removeChild(this._tooltip);
+        }
+        this._tooltip = null;
+    }
+
+    _ensureTooltip() {
+        if (this._tooltip) {
+            return;
+        }
+        this._tooltip = document.createElement('div');
+        this._tooltip.className = 'puck-canvas-tooltip';
+        this._tooltip.style.cssText =
+            'position:fixed;display:none;z-index:1060;padding:6px 10px;' +
+            'font-size:0.95rem;font-weight:500;color:#fff;background:#212529;' +
+            'border-radius:4px;pointer-events:none;white-space:nowrap;' +
+            'box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+        document.body.appendChild(this._tooltip);
+    }
+
+    _gridboxLabel(position) {
+        var gridbox = this._getGridbox(position);
+        if (!gridbox) {
+            return null;
+        }
+        var label = gridbox.gridbox_label || gridbox.label;
+        if (label === undefined || label === null || label === '') {
+            return null;
+        }
+        return String(label);
+    }
+
+    _showTooltip(text, clientX, clientY) {
+        this._ensureTooltip();
+        this._tooltip.textContent = text;
+        this._tooltip.style.display = 'block';
+        this._tooltip.style.left = (clientX + 14) + 'px';
+        this._tooltip.style.top = (clientY + 14) + 'px';
+    }
+
+    _hideTooltip() {
+        if (this._tooltip) {
+            this._tooltip.style.display = 'none';
+        }
+    }
+
+    _resize() {
+        var size = this.canvas.clientWidth || parseInt(this.canvas.getAttribute('width'), 10) || 420;
+        var dpr = window.devicePixelRatio || 1;
+        this.canvas.width = Math.floor(size * dpr);
+        this.canvas.height = Math.floor(size * dpr);
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        this._displaySize = size;
+        this._puckRadius = size / 2 - 12;
+        this._gridboxRadius = this._puckRadius * 0.162;
+        this._computeSlots();
+    }
+
+    _getGridbox(position) {
+        var key = parseInt(position, 10);
+        return this.gridboxes[key] || this.gridboxes[String(key)] || null;
+    }
+
+    _gridboxFillColor(position) {
+        var gridbox = this._getGridbox(position);
+        if (!gridbox) {
+            return PuckCanvasView.COLOR_UNUSED;
+        }
+        var status = String(gridbox.status || '').toLowerCase();
+        if (status === 'reserved') {
+            return PuckCanvasView.COLOR_RESERVED;
+        }
+        if (status === 'shipping') {
+            return PuckCanvasView.COLOR_SHIPPING;
+        }
+        return PuckCanvasView.COLOR_USED;
+    }
+
+    _buildLayoutSlots() {
+        var slots = [];
+        var position = 1;
+        for (var row = 0; row < this.layout.length && position <= this.maxGridboxes; row++) {
+            var count = this.layout[row];
+            for (var col = 0; col < count && position <= this.maxGridboxes; col++) {
+                slots.push({
+                    position: position,
+                    row: row,
+                    col: col,
+                    colsInRow: count
+                });
+                position += 1;
+            }
+        }
+        return slots;
+    }
+
+    _computeSlots() {
+        var cx = this._displaySize / 2;
+        var cy = this._displaySize / 2;
+        var rowCount = this.layout.length;
+        var rowYs = [];
+        var inner = this._puckRadius - this._gridboxRadius - 8;
+        var top = cy - inner * 0.72;
+        var step = (inner * 1.44) / Math.max(rowCount - 1, 1);
+
+        for (var r = 0; r < rowCount; r++) {
+            rowYs.push(top + r * step);
+        }
+
+        var maxCols = Math.max.apply(null, this.layout);
+        var colStep = (inner * 1.5) / Math.max(maxCols - 1, 1);
+
+        this._slots = [];
+        var layoutSlots = this._buildLayoutSlots();
+
+        for (var i = 0; i < layoutSlots.length; i++) {
+            var slot = layoutSlots[i];
+            var x = cx + (slot.col - (slot.colsInRow - 1) / 2) * colStep;
+            var y = rowYs[slot.row];
+            this._slots.push({
+                position: slot.position,
+                x: x,
+                y: y,
+                r: this._gridboxRadius
+            });
+        }
+    }
+
+    _canvasPoint(event) {
+        var rect = this.canvas.getBoundingClientRect();
+        var scaleX = this._displaySize / rect.width;
+        var scaleY = this._displaySize / rect.height;
+        return {
+            x: (event.clientX - rect.left) * scaleX,
+            y: (event.clientY - rect.top) * scaleY
+        };
+    }
+
+    _hitTest(x, y) {
+        for (var i = 0; i < this._slots.length; i++) {
+            var slot = this._slots[i];
+            var dx = x - slot.x;
+            var dy = y - slot.y;
+            if (Math.sqrt(dx * dx + dy * dy) <= slot.r + 2) {
+                return slot.position;
+            }
+        }
+        return null;
+    }
+
+    _handleClick(event) {
+        var pt = this._canvasPoint(event);
+        var position = this._hitTest(pt.x, pt.y);
+        if (position === null) {
+            return;
+        }
+        var hasGridbox = this._getGridbox(position) !== null;
+        this.onGridboxClick(position, hasGridbox);
+    }
+
+    _handleLeave() {
+        this._hoverPosition = null;
+        this.canvas.style.cursor = 'default';
+        this._hideTooltip();
+        this.draw();
+    }
+
+    _handleMove(event) {
+        var pt = this._canvasPoint(event);
+        var position = this._hitTest(pt.x, pt.y);
+        if (position !== this._hoverPosition) {
+            this._hoverPosition = position;
+            this.canvas.style.cursor = position !== null ? 'pointer' : 'default';
+            this.draw();
+        }
+        if (position !== null) {
+            var label = this._gridboxLabel(position);
+            if (label) {
+                this._showTooltip(label, event.clientX, event.clientY);
+            } else {
+                this._hideTooltip();
+            }
+        } else {
+            this._hideTooltip();
+        }
+    }
+
+    draw() {
+        if (!this._displaySize) {
+            this._resize();
+        }
+
+        var ctx = this.ctx;
+        var size = this._displaySize;
+        var cx = size / 2;
+        var cy = size / 2;
+
+        ctx.clearRect(0, 0, size, size);
+
+        var fill = this.puckColor || PuckCanvasView.COLOR_PUCK_DEFAULT;
+        var stroke = PuckCanvasView.darkenColor(fill);
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, this._puckRadius, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = stroke;
+        ctx.stroke();
+
+        for (var i = 0; i < this._slots.length; i++) {
+            var slot = this._slots[i];
+            var color = this._gridboxFillColor(slot.position);
+            var isHover = this._hoverPosition === slot.position;
+
+            ctx.beginPath();
+            ctx.arc(slot.x, slot.y, slot.r, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.lineWidth = isHover ? 2.5 : 1.5;
+            ctx.strokeStyle = isHover ? '#212529' : '#ffffff';
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold ' + Math.max(9, Math.round(slot.r * 1.1)) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(slot.position), slot.x, slot.y);
+        }
+    }
+}

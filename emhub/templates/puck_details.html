@@ -1,0 +1,42 @@
+{% if puck %}
+    <div class="col-12">
+        <div class="mb-3">
+            <h3 class="mb-0">Puck: {{ puck.label }}</h3>
+        </div>
+
+        <div id="puck-details-canvas" class="text-center">
+            <canvas id="puck-canvas" width="420" height="420" style="width: 100%; max-width: 420px;"></canvas>
+            <div class="mt-3 puck-canvas-legend text-muted">
+                <span class="mr-4"><span style="color: #adb5bd; font-size: 1.25em;">&#9679;</span> unused</span>
+                <span class="mr-4"><span style="color: #28a745; font-size: 1.25em;">&#9679;</span> used</span>
+                <span class="mr-4"><span style="color: #fd7e14; font-size: 1.25em;">&#9679;</span> reserved</span>
+                <span><span style="color: #6f42c1; font-size: 1.25em;">&#9679;</span> shipping</span>
+            </div>
+        </div>
+
+        <style>
+            .puck-canvas-legend {
+                font-size: 1.05rem;
+            }
+        </style>
+    </div>
+
+    <script>
+        var currentPuckId = {{ puck.id }};
+        var currentPuckColor = {{ puck.color|tojson }};
+        var currentPuckMaxGridboxes = {{ puck.max_gridboxes() }};
+        var currentPuckGridboxes = PuckCanvasView.normalizeGridboxes({{ puck.gridboxes()|tojson }});
+        var puckCanvasView = null;
+
+        setPucksView('single');
+        initPuckCanvasView();
+    </script>
+{% else %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Select a Puck</h5>
+            </div>
+        </div>
+    </div>
+{% endif %}

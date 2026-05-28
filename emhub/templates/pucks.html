@@ -1,0 +1,924 @@
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Pucks List" %}
+    {% include 'include_header.html' %}
+    {% set is_manager = current_user.is_manager %}
+    {% set is_admin = current_user.is_admin %}
+    {% set selected_dewar_id = dewar['id'] if dewar else none %}
+    {% set selected_cane_id = cane['id'] if cane else none %}
+
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-colorpicker/@claviska/jquery-minicolors/jquery.minicolors.css') }}">
+
+<style>
+    .cane-select-btn {
+        font-weight: 500;
+        border: 3px solid transparent !important;
+    }
+    .cane-select-btn.cane-selected {
+        border: 4px solid #212529 !important;
+        box-shadow: 0 0 0 2px #fff inset;
+    }
+</style>
+
+<!-- table row -->
+<div class="row">
+    <div class="col-3">
+        <div class="row">
+
+            <div class="col-12 accrodion-regular">
+                <div id="accordion2">
+                    {% for dewar in storage.dewars() %}
+                        {% set d = dewar['id'] %}
+                        {% set expanded = "true" if loop.first else "false" %}
+                        {% set show = "show" if loop.first else "" %}
+
+                        <div class="card">
+                            <div class="card-header" id="heading-dewar-{{ d }}">
+                                <h5 class="mb-0">
+                                    <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapse-dewar-{{ d }}" aria-expanded="{{ expanded }}" aria-controls="collapse-dewar-{{ d }}">
+                                        <span class="fas fa-angle-down mr-3"></span>Dewar {{ d }}
+                                    </button>
+                                </h5>
+                            </div>
+                            <div id="collapse-dewar-{{ d }}" class="collapse {{ show }}" aria-labelledby="heading-dewar-{{ d }}" data-parent="#accordion2">
+                                <div class="card-body">
+                                    {% for cane_entry in dewar['canes'] %}
+                                    {% set c = cane_entry['id'] %}
+                                    <div class="row col-12 mb-2">   
+                                        <div>
+                                            <a href="javascript:editCane({{ d }}, {{ c }})">
+                                                <i class="far fa-edit"></i>
+                                            </a>
+                                        </div>
+                                        <div class="ml-3">
+                                            <a href="javascript:loadPucksCane({{ d }}, {{ c }}, 0)"
+                                               id="cane-btn-{{ d }}-{{ c }}"
+                                               class="btn btn-sm cane-select-btn mr-1{% if selected_dewar_id == d and selected_cane_id == c %} cane-selected{% endif %}"
+                                               style="background-color: {{ cane_entry['color'] }}; color: white;">
+                                                cane {{ c }}
+                                            </a>
+                                        </div>
+                                        <div class="ml-3">
+                                            {% set cane_usage = storage.cane_gridboxes_usage(d, c) %}
+                                            <label class="mb-0 text-muted" title="{{ cane_usage.used }} of {{ cane_usage.max }} gridboxes used">
+                                                {% if cane_usage.max > 0 %}
+                                                    {{ cane_usage.used }}/{{ cane_usage.max }} ({{ cane_usage.percentage }}%)
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </label>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                                    <div class="row col-12 mt-2">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary"
+                                                onclick="addCane({{ d }})">
+                                            <i class="fas fa-plus-circle"></i> Add Cane
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+                    </div>
+    </div>
+
+<div id="cane-content" class="col-9 p-0 m-0">
+    {% include "pucks_cane.html" %}
+</div>
+
+</div>
+<!-- end table row -->
+
+
+</div>
+
+<script>
+    var range = {{ pucks_range|tojson }};
+    var dewar = {{ dewar.id if dewar else 0 }};
+    var cane = {{ cane.id if cane else 0 }};
+    function getPucksView() {
+        return window._pucks_view || 'all';
+    }
+
+    function setPucksView(mode) {
+        window._pucks_view = mode;
+    }
+
+    setPucksView('all');
+
+    var puckGridboxDialog = {
+        puckId: null,
+        position: null,
+        hasGridbox: false,
+        dewarId: null,
+        caneId: null,
+        viewMode: null,
+        gridboxesSnapshot: null
+    };
+
+    var puckExtraEditor = null;
+
+    (function initPuckExtraEditor() {
+        var editorEl = document.getElementById('puck-extra-editor');
+        if (!editorEl) {
+            return;
+        }
+        puckExtraEditor = ace.edit('puck-extra-editor');
+        puckExtraEditor.setTheme('ace/theme/monokai');
+        puckExtraEditor.session.setMode('ace/mode/json');
+    })();
+
+    function loadPucksCane(dewarId, caneId, puck) {
+        $('.cane-select-btn').removeClass('cane-selected');
+        $('#cane-btn-' + dewarId + '-' + caneId).addClass('cane-selected');
+        dewar = dewarId;
+        cane = caneId;
+
+        load_html_from_ajax('cane-content',
+            get_ajax_content('pucks_cane', {dewar: dewarId, cane: caneId, puck: puck})
+        );
+    }
+
+    if (dewar && cane) {
+        $('#cane-btn-' + dewar + '-' + cane).addClass('cane-selected');
+    }
+
+    function loadPucksCaneDetails(dewarId, caneId) {
+        let puckId = 0;
+        $('#pucks-cane-table .puck-select-btn').removeClass('puck-selected');
+        $('#puck-btn-' + puckId).addClass('puck-selected');
+        setPucksView('all');
+        load_html_from_ajax('puck-content',
+            get_ajax_content('pucks_cane_details', {dewar: dewarId, cane: caneId})
+        );
+    }
+
+    var puckEditDialog = {puckId: null, dewarId: null, caneId: null, isNew: false};
+    var caneEditDialog = {dewarId: null, caneId: null, formId: null, pucks: [], isNew: false};
+    var configUpdateFormUrl = "{{ url_for('api.update_form') }}";
+    var configGetConfigUrl = "{{ url_for('api.get_config') }}";
+
+    function addCane(dewarId) {
+        openCaneForm(dewarId, 0);
+    }
+
+    function editCane(dewarId, caneId) {
+        openCaneForm(dewarId, caneId);
+    }
+
+    function openCaneForm(dewarId, caneId) {
+        caneEditDialog.dewarId = dewarId;
+        caneEditDialog.caneId = caneId;
+
+        var ajaxContent = get_ajax_content('cane_form', {
+            dewar_id: dewarId,
+            cane_id: caneId || 0,
+            pucks_range: range
+        });
+
+        ajaxContent.done(function (html) {
+            if (html.indexOf('error-modal-title') >= 0) {
+                $('#cane-modal').html(html);
+                $('#cane-modal').modal('show');
+                return;
+            }
+
+            $('#cane-modal').html(html);
+            caneEditDialog.formId = parseInt($('#cane-form-id').val(), 10);
+            caneEditDialog.isNew = $('#cane-is-new').val() === 'true';
+            caneEditDialog.caneId = parseInt($('#cane-cane-id').val(), 10);
+            var pucksEl = document.getElementById('cane-pucks-json');
+            caneEditDialog.pucks = pucksEl ? JSON.parse(pucksEl.textContent) : [];
+            $('#cane-btn-save').off('click').on('click', saveCane);
+            $('#cane-btn-delete').off('click').on('click', deleteCane);
+            $('#cane-modal').modal('show');
+        });
+
+        ajaxContent.fail(function (jqXHR, textStatus) {
+            showError('Request failed: ' + textStatus);
+        });
+    }
+
+    function findDewarInConfig(definition, dewarId) {
+        var dewars = definition.dewars || [];
+        for (var i = 0; i < dewars.length; i++) {
+            if (dewars[i].id == dewarId) {
+                return dewars[i];
+            }
+        }
+        return null;
+    }
+
+    function caneIdExistsInConfig(definition, dewarId, caneId, excludeId) {
+        var dewar = findDewarInConfig(definition, dewarId);
+        if (!dewar) {
+            return false;
+        }
+        var canes = dewar.canes || [];
+        for (var j = 0; j < canes.length; j++) {
+            if (canes[j].id == caneId && canes[j].id != excludeId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function parseCaneIdInput() {
+        var newCaneId = parseInt($('#cane-id-input').val(), 10);
+        if (isNaN(newCaneId) || newCaneId <= 0) {
+            showError('Cane ID must be a positive integer.');
+            return null;
+        }
+        return newCaneId;
+    }
+
+    function saveDewarsConfig(formId, definition, onSuccess) {
+        send_ajax_json(configUpdateFormUrl, {
+            id: formId,
+            definition: definition
+        }, function (updateResponse) {
+            if ('error' in updateResponse) {
+                showError(updateResponse.error);
+                return;
+            }
+            onSuccess();
+        });
+    }
+
+    function updatePucksCaneSequentially(pucks, newCaneId, index, onDone, onError) {
+        if (index >= pucks.length) {
+            onDone();
+            return;
+        }
+        send_ajax_json(Api.urls.puck.update, {
+            id: pucks[index].id,
+            cane: newCaneId
+        }, function (jsonResponse) {
+            if ('error' in jsonResponse) {
+                onError(jsonResponse.error);
+                return;
+            }
+            updatePucksCaneSequentially(pucks, newCaneId, index + 1, onDone, onError);
+        });
+    }
+
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function buildCaneDeleteQuestion(caneLabel, pucks) {
+        var html = '<p>Delete cane <strong>' + escapeHtml(caneLabel) +
+            '</strong> and all pucks on this cane? This cannot be undone.</p>';
+        if (!pucks.length) {
+            html += '<p><em>No pucks assigned to this cane.</em></p>';
+        } else {
+            html += '<p>The following ' + pucks.length + ' puck(s) will be deleted:</p><ul>';
+            for (var i = 0; i < pucks.length; i++) {
+                var p = pucks[i];
+                html += '<li>Position ' + escapeHtml(p.position) + ' — ' +
+                    escapeHtml(p.label) + ' (id ' + escapeHtml(p.id) + ')</li>';
+            }
+            html += '</ul>';
+        }
+        return html;
+    }
+
+    function removeCaneFromConfig(definition, dewarId, caneId) {
+        var dewars = definition.dewars || [];
+        for (var i = 0; i < dewars.length; i++) {
+            if (dewars[i].id != dewarId) {
+                continue;
+            }
+            var canes = dewars[i].canes || [];
+            dewars[i].canes = canes.filter(function (c) {
+                return c.id != caneId;
+            });
+            return true;
+        }
+        return false;
+    }
+
+    function deletePucksSequentially(pucks, index, onDone, onError) {
+        if (index >= pucks.length) {
+            onDone();
+            return;
+        }
+        send_ajax_json(Api.urls.puck.delete, {id: pucks[index].id}, function (jsonResponse) {
+            if ('error' in jsonResponse) {
+                onError(jsonResponse.error);
+                return;
+            }
+            deletePucksSequentially(pucks, index + 1, onDone, onError);
+        });
+    }
+
+    function deleteCane() {
+        var pucks = caneEditDialog.pucks || [];
+        var dewarId = caneEditDialog.dewarId;
+        var caneId = caneEditDialog.caneId;
+        var formId = caneEditDialog.formId;
+        var caneLabel = $('#cane-label-input').val().trim() ||
+            ('Cane ' + caneId + ' (Dewar ' + dewarId + ')');
+
+        confirm('Delete Cane',
+            buildCaneDeleteQuestion(caneLabel, pucks),
+            'No', 'Yes',
+            function () {
+                deletePucksSequentially(pucks, 0, function () {
+                    send_ajax_json(configGetConfigUrl, {config: 'dewars'}, function (jsonResponse) {
+                        if ('error' in jsonResponse) {
+                            showError(jsonResponse.error);
+                            return;
+                        }
+                        if (!jsonResponse.config) {
+                            showError('Dewars configuration not found.');
+                            return;
+                        }
+
+                        var definition = jsonResponse.config;
+                        if (!removeCaneFromConfig(definition, dewarId, caneId)) {
+                            showError('Cane not found in dewars configuration.');
+                            return;
+                        }
+
+                        send_ajax_json(configUpdateFormUrl, {
+                            id: formId,
+                            definition: definition
+                        }, function (updateResponse) {
+                            if ('error' in updateResponse) {
+                                showError(updateResponse.error);
+                                return;
+                            }
+
+                            $('#cane-modal').modal('hide');
+                            window.location.reload();
+                        });
+                    });
+                }, function (err) {
+                    showError(err);
+                });
+            });
+    }
+
+    function updateCaneInConfig(definition, dewarId, oldCaneId, newCaneId, label, color) {
+        var dewar = findDewarInConfig(definition, dewarId);
+        if (!dewar) {
+            return false;
+        }
+        var canes = dewar.canes || [];
+        for (var j = 0; j < canes.length; j++) {
+            if (canes[j].id == oldCaneId) {
+                canes[j].id = newCaneId;
+                canes[j].label = label;
+                canes[j].color = color;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function addCaneToConfig(definition, dewarId, cane) {
+        var dewar = findDewarInConfig(definition, dewarId);
+        if (!dewar) {
+            return false;
+        }
+        if (!dewar.canes) {
+            dewar.canes = [];
+        }
+        dewar.canes.push(cane);
+        return true;
+    }
+
+    function saveCane() {
+        var label = $('#cane-label-input').val().trim();
+        if (!label) {
+            showError('Label is required.');
+            return;
+        }
+
+        var newCaneId = parseCaneIdInput();
+        if (newCaneId === null) {
+            return;
+        }
+
+        var color = $('#cane-color-input').val();
+        var dewarId = caneEditDialog.dewarId;
+        var oldCaneId = caneEditDialog.caneId;
+        var formId = caneEditDialog.formId;
+        var isNew = caneEditDialog.isNew;
+        var pucks = caneEditDialog.pucks || [];
+
+        send_ajax_json(configGetConfigUrl, {config: 'dewars'}, function (jsonResponse) {
+            if ('error' in jsonResponse) {
+                showError(jsonResponse.error);
+                return;
+            }
+            if (!jsonResponse.config) {
+                showError('Dewars configuration not found.');
+                return;
+            }
+
+            var definition = jsonResponse.config;
+
+            if (isNew) {
+                if (caneIdExistsInConfig(definition, dewarId, newCaneId)) {
+                    showError('Cane ID ' + newCaneId + ' is already used in this dewar.');
+                    return;
+                }
+                if (!addCaneToConfig(definition, dewarId, {
+                    id: newCaneId,
+                    label: label,
+                    color: color
+                })) {
+                    showError('Dewar not found in dewars configuration.');
+                    return;
+                }
+                saveDewarsConfig(formId, definition, function () {
+                    $('#cane-modal').modal('hide');
+                    window.location.reload();
+                });
+                return;
+            }
+
+            if (caneIdExistsInConfig(definition, dewarId, newCaneId, oldCaneId)) {
+                showError('Cane ID ' + newCaneId + ' is already used in this dewar.');
+                return;
+            }
+
+            function commitCaneConfig() {
+                if (!updateCaneInConfig(definition, dewarId, oldCaneId, newCaneId, label, color)) {
+                    showError('Cane not found in dewars configuration.');
+                    return;
+                }
+                saveDewarsConfig(formId, definition, function () {
+                    $('#cane-modal').modal('hide');
+                    if (newCaneId != oldCaneId || caneEditDialog.isNew) {
+                        window.location.reload();
+                    } else {
+                        reloadAfterCaneSave(dewarId, newCaneId, label, color);
+                    }
+                });
+            }
+
+            if (newCaneId != oldCaneId && pucks.length) {
+                updatePucksCaneSequentially(pucks, newCaneId, 0, commitCaneConfig, showError);
+            } else {
+                commitCaneConfig();
+            }
+        });
+    }
+
+    function reloadAfterCaneSave(dewarId, caneId, label, color) {
+        var btn = $('#cane-btn-' + dewarId + '-' + caneId);
+        if (btn.length) {
+            btn.css('background-color', color);
+            if (label) {
+                btn.attr('title', label);
+            }
+        }
+
+        if (dewar === dewarId && cane === caneId) {
+            var puckArg = (getPucksView() === 'single' && puckEditDialog.puckId) ?
+                puckEditDialog.puckId : 0;
+            loadPucksCane(dewarId, caneId, puckArg);
+        }
+    }
+
+    function addPuck(dewarId, caneId, position) {
+        openPuckForm({puck_id: 0, dewar: dewarId, cane: caneId, position: position});
+    }
+
+    function editPuck(puckId) {
+        openPuckForm({puck_id: puckId});
+    }
+
+    function openPuckForm(params) {
+        params.pucks_range = range;
+        puckEditDialog.isNew = !params.puck_id;
+        puckEditDialog.puckId = params.puck_id || null;
+
+        var ajaxContent = get_ajax_content('puck_form', params);
+
+        ajaxContent.done(function (html) {
+            if (html.indexOf('error-modal-title') >= 0) {
+                showError('Could not load puck form.');
+                return;
+            }
+
+            $('#puck-form-fields').html(html);
+            var fieldsRoot = document.querySelector('#puck-form-fields [data-puck-extra]');
+            var extra = {};
+            if (fieldsRoot && fieldsRoot.dataset.puckExtra) {
+                extra = JSON.parse(fieldsRoot.dataset.puckExtra);
+            }
+            if (fieldsRoot) {
+                puckEditDialog.dewarId = parseInt(fieldsRoot.dataset.puckDewar, 10);
+                puckEditDialog.caneId = parseInt(fieldsRoot.dataset.puckCane, 10);
+                puckEditDialog.isNew = fieldsRoot.dataset.puckIsNew === 'true';
+            }
+            if (puckExtraEditor) {
+                puckExtraEditor.setValue(JSON.stringify(extra, null, 4));
+                puckExtraEditor.clearSelection();
+            }
+
+            if (puckEditDialog.isNew) {
+                var posLabel = params.position ||
+                    ($('#puck-location-select option:selected').text() || '');
+                $('#puck-modal-title').text('New Puck' + (posLabel ? ' — ' + posLabel : ''));
+                $('#puck-btn-delete').hide();
+            } else {
+                $('#puck-modal-title').text('Edit Puck — ' + $('#puck-label-input').val());
+                $('#puck-btn-delete').show();
+            }
+            $('#puck-btn-save').off('click').on('click', savePuck);
+            $('#puck-btn-delete').off('click').on('click', deletePuck);
+            $('#puck-modal').modal('show');
+        });
+
+        ajaxContent.fail(function (jqXHR, textStatus) {
+            showError('Request failed: ' + textStatus);
+        });
+    }
+
+    function parsePuckLocation(value) {
+        var parts = String(value).split('|');
+        if (parts.length !== 3) {
+            throw new Error('Invalid location');
+        }
+        return {
+            dewar: parseInt(parts[0], 10),
+            cane: parseInt(parts[1], 10),
+            position: parseInt(parts[2], 10)
+        };
+    }
+
+    function savePuck() {
+        var label = $('#puck-label-input').val().trim();
+        if (!label) {
+            showError('Label is required.');
+            return;
+        }
+
+        var extra;
+        try {
+            extra = JSON.parse(puckExtraEditor.getValue());
+        } catch (e) {
+            showError('Extra must be valid JSON: ' + e.message);
+            return;
+        }
+
+        var loc;
+        try {
+            loc = parsePuckLocation($('#puck-location-select').selectpicker('val'));
+        } catch (e) {
+            showError('Please select a valid position.');
+            return;
+        }
+
+        var attrs = {
+            label: label,
+            color: $('#puck-color-input').val(),
+            dewar: loc.dewar,
+            cane: loc.cane,
+            position: loc.position,
+            extra: extra
+        };
+
+        var url = Api.urls.puck.update;
+        if (puckEditDialog.isNew) {
+            url = Api.urls.puck.create;
+            attrs.code = 'D' + loc.dewar + 'C' + loc.cane + 'P' + loc.position +
+                '-' + Date.now();
+        } else {
+            attrs.id = puckEditDialog.puckId;
+        }
+
+        send_ajax_json(url, attrs, function (jsonResponse) {
+            if ('error' in jsonResponse) {
+                showError(jsonResponse.error);
+                return;
+            }
+            if (!('puck' in jsonResponse)) {
+                showError('Unexpected response from server.');
+                return;
+            }
+
+            $('#puck-modal').modal('hide');
+            setPucksView('all');
+            reloadCaneAfterPuckSave(jsonResponse.puck);
+        });
+    }
+
+    function reloadCaneView(dewarId, caneId, puckId) {
+        dewar = dewarId;
+        cane = caneId;
+
+        var ajaxContent = get_ajax_content('pucks_cane', {
+            dewar: dewarId,
+            cane: caneId,
+            puck: puckId || 0,
+            pucks_range: range
+        });
+
+        load_html_from_ajax('cane-content', ajaxContent, function () {
+            $('.cane-select-btn').removeClass('cane-selected');
+            $('#cane-btn-' + dewarId + '-' + caneId).addClass('cane-selected');
+            if (getPucksView() === 'single' && puckId) {
+                loadPucksDetails(puckId);
+            } else {
+                loadPucksCaneDetails(dewarId, caneId);
+            }
+        });
+    }
+
+    function reloadCaneAfterPuckSave(puck) {
+        reloadCaneView(puck.dewar, puck.cane, getPucksView() === 'single' ? puck.id : 0);
+    }
+
+    function deletePuck() {
+        var label = $('#puck-label-input').val().trim() || ('Puck ' + puckEditDialog.puckId);
+        confirm('Delete Puck',
+            'Delete puck "' + label + '"? This cannot be undone.',
+            'No', 'Yes',
+            function () {
+                var dewarId = puckEditDialog.dewarId || dewar;
+                var caneId = puckEditDialog.caneId || cane;
+
+                send_ajax_json(Api.urls.puck.delete, {
+                    id: puckEditDialog.puckId
+                }, function (jsonResponse) {
+                    if ('error' in jsonResponse) {
+                        showError(jsonResponse.error);
+                        return;
+                    }
+
+                    $('#puck-modal').modal('hide');
+                    setPucksView('all');
+                    reloadCaneView(dewarId, caneId, 0);
+                });
+            });
+    }
+
+    function loadPucksDetails(puckId) {
+        $('#pucks-cane-table .puck-select-btn').removeClass('puck-selected');
+        $('#puck-btn-' + puckId).addClass('puck-selected');
+        setPucksView('single');
+
+        load_html_from_ajax('puck-content',
+            get_ajax_content('puck_details', {puck: puckId})
+        );
+    }
+
+    function initPuckCanvasView() {
+            if (typeof PuckCanvasView === 'undefined') {
+                showError('Puck canvas component is not loaded.');
+                return;
+            }
+
+            if (!puckCanvasView) {
+                puckCanvasView = new PuckCanvasView('puck-canvas', {
+                    puckColor: currentPuckColor,
+                    maxGridboxes: currentPuckMaxGridboxes,
+                    gridboxes: currentPuckGridboxes,
+                    puckId: currentPuckId,
+                    onGridboxClick: function (position, hasGridbox) {
+                        editPuckGridbox(currentPuckId, position, hasGridbox, 'single');
+                    }
+                });
+            } else {
+                puckCanvasView.setPuckColor(currentPuckColor);
+                puckCanvasView.setGridboxes(currentPuckGridboxes);
+            }
+        }
+
+        function editPuckGridbox(puckId, position, hasGridbox, mode) {
+            if (mode) {
+                setPucksView(mode);
+            } else if (!window._pucks_view) {
+                setPucksView(getPucksView());
+            }
+            puckGridboxDialog.puckId = puckId;
+            puckGridboxDialog.position = position;
+            puckGridboxDialog.hasGridbox = hasGridbox;
+            puckGridboxDialog.viewMode = mode || getPucksView();
+            puckGridboxDialog.dewarId = dewar;
+            puckGridboxDialog.caneId = cane;
+            puckGridboxDialog.gridboxesSnapshot = null;
+
+            var params = {
+                puck_id: puckId,
+                position: position
+            };
+
+            var ajaxContent = get_ajax_content('puck_gridbox_form', params);
+
+            ajaxContent.done(function (html) {
+                if (html.indexOf('error-modal-title') >= 0) {
+                    $('#gridbox-modal').html(html);
+                    $('#gridbox-modal').modal('show');
+                    return;
+                }
+
+                $('#gridbox-modal').html(html);
+                capturePuckGridboxSnapshot();
+                $('#dynamic-btn-ok').off('click').on('click', savePuckGridbox);
+                $('#dynamic-btn-cancel').off('click');
+
+                var deleteBtn = $('#gridbox-btn-delete');
+                if (deleteBtn.length) {
+                    deleteBtn.off('click').on('click', deletePuckGridbox);
+                }
+
+                $('#gridbox-modal').modal('show');
+            });
+
+            ajaxContent.fail(function (jqXHR, textStatus) {
+                showError("Request failed: " + textStatus);
+            });
+        }
+
+        function normalizeGridboxKeys(gridboxes) {
+            return PuckCanvasView.normalizeGridboxes(gridboxes);
+        }
+
+        function cloneGridboxes(gridboxes) {
+            return normalizeGridboxKeys(JSON.parse(JSON.stringify(gridboxes || {})));
+        }
+
+        function capturePuckGridboxSnapshot() {
+            puckGridboxDialog.gridboxesSnapshot = null;
+            var ctx = document.getElementById('gridbox-form-context');
+            if (!ctx) {
+                return;
+            }
+            try {
+                puckGridboxDialog.gridboxesSnapshot =
+                    normalizeGridboxKeys(JSON.parse(ctx.dataset.puckGridboxes || '{}'));
+            } catch (e) {
+                puckGridboxDialog.gridboxesSnapshot = null;
+            }
+        }
+
+        function clearPuckGridboxSnapshot() {
+            puckGridboxDialog.gridboxesSnapshot = null;
+        }
+
+        function puckGridboxUpdateDone(jsonResponse) {
+            if ('error' in jsonResponse) {
+                showError(jsonResponse.error);
+                return false;
+            }
+            if (!('puck' in jsonResponse)) {
+                showError('Unexpected response from server.');
+                return false;
+            }
+            return true;
+        }
+
+        function syncCurrentPuckGridboxesFromResponse(jsonResponse) {
+            var viewMode = puckGridboxDialog.viewMode || getPucksView();
+            if (viewMode !== 'single') {
+                return;
+            }
+            if (typeof currentPuckId === 'undefined' ||
+                puckGridboxDialog.puckId !== currentPuckId) {
+                return;
+            }
+            var extra = jsonResponse.puck.extra || {};
+            currentPuckGridboxes = normalizeGridboxKeys(extra.gridboxes || {});
+            if (puckCanvasView) {
+                puckCanvasView.setGridboxes(currentPuckGridboxes);
+            }
+        }
+
+        function updatePuckUsageCells(puck) {
+            if (!puck || !puck.id) {
+                return;
+            }
+            var row = $('#puck-row-' + puck.id);
+            if (!row.length) {
+                return;
+            }
+            var extra = puck.extra || {};
+            var gridboxes = normalizeGridboxKeys(extra.gridboxes || {});
+            var usedCount = Object.keys(gridboxes).length;
+            var max = parseInt(extra.max_gridboxes, 10) || 12;
+            var pct = max > 0 ? Math.round(usedCount / max * 1000) / 10 : 0;
+
+            row.find('.puck-used-col').text(usedCount);
+            row.find('.puck-pct-col').text(pct > 0 ? pct : '');
+        }
+
+        function withPuckGridboxes(puckId, callback) {
+            if (puckGridboxDialog.gridboxesSnapshot !== null &&
+                puckGridboxDialog.puckId === puckId) {
+                callback(cloneGridboxes(puckGridboxDialog.gridboxesSnapshot));
+                return;
+            }
+
+            send_ajax_json(Api.urls.puck.get, {condition: 'id=' + puckId}, function (pucks) {
+                if (!pucks || !pucks.length) {
+                    showError('Puck not found.');
+                    return;
+                }
+                var extra = pucks[0].extra || {};
+                callback(cloneGridboxes(extra.gridboxes || {}));
+            });
+        }
+
+        function savePuckGridbox() {
+            var values = getFormAsJson('dynamic-form');
+            var puckId = puckGridboxDialog.puckId;
+            var position = parseInt(puckGridboxDialog.position, 10);
+
+            withPuckGridboxes(puckId, function (gridboxes) {
+                gridboxes[position] = values;
+                send_ajax_json(Api.urls.puck.update, {
+                    id: puckId,
+                    extra: {gridboxes: gridboxes}
+                }, function (jsonResponse) {
+                    if (!puckGridboxUpdateDone(jsonResponse)) {
+                        return;
+                    }
+                    syncCurrentPuckGridboxesFromResponse(jsonResponse);
+                    clearPuckGridboxSnapshot();
+                    $('#gridbox-modal').modal('hide');
+                    afterPuckUpdate(jsonResponse.puck);
+                });
+            });
+        }
+
+        function deletePuckGridbox() {
+            confirm('Delete gridbox',
+                'Remove gridbox data from position ' + puckGridboxDialog.position + '?',
+                'Cancel', 'Delete',
+                function () {
+                    var puckId = puckGridboxDialog.puckId;
+                    var position = parseInt(puckGridboxDialog.position, 10);
+
+                    withPuckGridboxes(puckId, function (gridboxes) {
+                        delete gridboxes[position];
+                        send_ajax_json(Api.urls.puck.update, {
+                            id: puckId,
+                            extra: {gridboxes: gridboxes}
+                        }, function (jsonResponse) {
+                            if (!puckGridboxUpdateDone(jsonResponse)) {
+                                return;
+                            }
+                            syncCurrentPuckGridboxesFromResponse(jsonResponse);
+                            clearPuckGridboxSnapshot();
+                            $('#gridbox-modal').modal('hide');
+                            afterPuckUpdate(jsonResponse.puck);
+                        });
+                    });
+                });
+        }
+
+        function afterPuckUpdate(updatedPuck) {
+            var view = puckGridboxDialog.viewMode || getPucksView();
+            if (updatedPuck) {
+                updatePuckUsageCells(updatedPuck);
+            }
+            if (view === 'single') {
+                loadPucksDetails(puckGridboxDialog.puckId);
+            } else if (view === 'all') {
+                loadPucksCaneDetails(
+                    puckGridboxDialog.dewarId || dewar,
+                    puckGridboxDialog.caneId || cane
+                );
+            } else {
+                showError('Invalid view mode: ' + view);
+            }
+        }
+
+    // function loadPuck(dewar, cane, puck) {
+    //     load_html_from_ajax('puck-content',
+    //         get_ajax_content('grids_puck', {dewar: dewar, cane: cane, puck: puck, pucks_range: range})
+    //     );
+    //     var title = document.getElementById('location-title');
+    //     title.innerText = "Dewar " + dewar + " - Cane " + cane + " - Puck " + puck;
+    // }
+
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    var table = $('#table-pucks').DataTable({
+        sDom: 'lfrtip',
+        paging: false,  // no paging
+        info: false
+
+    });
+
+
+    })(window, document, window.jQuery);
+</script>
+<script src="{{ url_for('static', filename='vendor/bootstrap-colorpicker/@claviska/jquery-minicolors/jquery.minicolors.min.js') }}"></script>

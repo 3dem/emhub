@@ -1378,13 +1378,81 @@ def create_data_models(dm):
             extra[key] = value
             self.extra = extra
 
+        def max_gridboxes(self):
+            """ Return the maximum number of gridboxes inside this puck. """
+            return self.__getExtra('max_gridboxes', 12)
+
+        def set_max_gridboxes(self, max_gridboxes):
+            self.__setExtra('max_gridboxes', max_gridboxes)
+
+        def gridboxes(self):
+            """ Return a dictionary of the used positions inside this puck. """
+            return self.__getExtra('gridboxes', {})
+
+        def _gridbox_key(self, position):
+            return int(position)
+
+        def get_gridbox(self, position):
+            gridboxes = self.gridboxes()
+            key = self._gridbox_key(position)
+            gb = gridboxes.get(key, gridboxes.get(str(key)))
+            if gb is not None:
+                gb = dict(gb)
+                gb['label'] = gb.get('sample', 'No-sample')
+
+            return gb
+
+        def set_gridbox(self, position, gridbox):
+            gridboxes = dict(self.gridboxes())
+            key = self._gridbox_key(position)
+            gridboxes[key] = gridbox
+            gridboxes.pop(str(key), None)
+            self.__setExtra('gridboxes', gridboxes)
+
+        def delete_gridbox(self, position):
+            gridboxes = dict(self.gridboxes())
+            key = self._gridbox_key(position)
+            gridboxes.pop(key, None)
+            gridboxes.pop(str(key), None)
+            self.__setExtra('gridboxes', gridboxes)
+
+        def gridboxes_usage(self):
+            return {
+                'used': len(self.gridboxes()),
+                'max': self.max_gridboxes(),
+                'free': self.max_gridboxes() - len(self.gridboxes()),
+                'percentage': round(len(self.gridboxes()) / self.max_gridboxes() * 100, 1)
+            }
+
+        # Match PuckCanvasView in emhub_charts.js
+        GRIDBOX_COLOR_UNUSED = '#adb5bd'
+        GRIDBOX_COLOR_USED = '#28a745'
+        GRIDBOX_COLOR_RESERVED = '#fd7e14'
+        GRIDBOX_COLOR_SHIPPING = '#6f42c1'
+
+        def gridbox_fill_color(self, position):
+            """Fill color for a gridbox slot (same convention as puck canvas)."""
+            gridbox = self.get_gridbox(position)
+            if not gridbox:
+                return self.GRIDBOX_COLOR_UNUSED
+            status = str(gridbox.get('status', '')).lower()
+            if status == 'reserved':
+                return self.GRIDBOX_COLOR_RESERVED
+            if status == 'shipping':
+                return self.GRIDBOX_COLOR_SHIPPING
+            return self.GRIDBOX_COLOR_USED
+
     class PuckStorage:
         """ Simple class to organize pucks access. """
 
         def __init__(self, pucks):
+            self._config = dm.get_config('dewars', {})
+
             self._locDict = OrderedDict()
             self._idDict = OrderedDict()
-            self._dewars = OrderedDict()
+            self._dewars = {d['id']: d for d in self._config['dewars']}
+            for dewar in self._dewars.values():
+                dewar['canes_dict'] = {c['id']: c for c in dewar['canes']}
 
             def _locKey(p):
                 return p.dewar * 10000 + p.cane * 100 + p.position
@@ -1393,23 +1461,34 @@ def create_data_models(dm):
             last_cane = 0
             for puck in sorted(pucks, key=lambda p: _locKey(p)):
                 puckJson = puck.json()
-                d, c, p = loc = self.__puckLoc(puckJson)
-                self._idDict[puck.id] = self._locDict[loc] = puckJson
+                d, c, p = loc = self.__puckLoc(puck)
+                self._idDict[puck.id] = self._locDict[loc] = puck
+                self.__validateLoc(d, c)
 
-                # Register dewar info (from first puck)
-                if d != last_dewar:
-                    dewar = dict(puck.extra.get('dewar', {}))
-                    last_dewar = dewar['id'] = d
-                    dewar['canes'] = OrderedDict()
-                    self._dewars[d] = dewar
+                # JMRT: 2026-05-27: removed dewar and cane registration from first puck
+                #                   now it will be read from config form config:dewars
+                # # Register dewar info (from first puck)
+                # if d != last_dewar:
+                #     dewar = dict(puck.extra.get('dewar', {}))
+                #     last_dewar = dewar['id'] = d
+                #     dewar['canes'] = OrderedDict()
+                #     self._dewars[d] = dewar
 
-                if c != last_cane:
-                    cane = dict(puck.extra.get('cane', {}))
-                    last_cane = cane['id'] = c
-                    dewar['canes'][c] = cane
+                # if c != last_cane:
+                #     cane = dict(puck.extra.get('cane', {}))
+                #     last_cane = cane['id'] = c
+                #     dewar['canes'][c] = cane
+
+        def __validateLoc(self, d, c=None):
+            if dewar := self._dewars.get(d, None):
+                if c is not None and c not in dewar['canes_dict']:
+                    raise ValueError(f"Cane {c} not found in dewar {d}")
+            else:
+                raise ValueError(f"Dewar {d} not found in config")
 
         def __puckLoc(self, puck):
-            return puck['dewar'], puck['cane'], puck['position']
+            return puck.dewar, puck.cane, puck.position
+            #return puck['dewar'], puck['cane'], puck['position']
 
         def __matchLoc(self, puck, loc):
             def _match(v1, v2):
@@ -1421,9 +1500,23 @@ def create_data_models(dm):
         def pucks(self, dewar=None, cane=None, position=None):
             loc = (dewar, cane, position)
 
-            for p in sorted(self._idDict.values(), key=lambda p: p['id']):
+            for p in sorted(self._idDict.values(), key=lambda p: p.id):
                 if self.__matchLoc(p, loc):
                     yield p
+
+        def puck_at(self, dewar, cane, position):
+            """Return the puck at a cane position, or None if empty."""
+            return self._locDict.get((dewar, cane, position))
+
+        def cane_position_slots(self, dewar, cane, max_position=12):
+            """Ordered slots for a cane, one entry per position (puck may be None)."""
+            slots = []
+            for pos in range(1, max_position + 1):
+                slots.append({
+                    'position': pos,
+                    'puck': self.puck_at(dewar, cane, pos),
+                })
+            return slots
 
         def get_puck(self, id_or_loc):
             """ Retrieve puck by id or by location. """
@@ -1431,14 +1524,84 @@ def create_data_models(dm):
             return d[id_or_loc]
 
         def dewars(self):
-            return self._dewars.values()
+            return list(self._dewars.values())
 
         def get_dewar(self, d):
+            self.__validateLoc(d)
             return self._dewars.get(d, None)
 
         def get_cane(self, d, c):
-            cane = self._dewars[d]['canes'].get(c, None) if d in self._dewars else None
+            self.__validateLoc(d, c)
+            cane = self._dewars[d]['canes_dict'][c]
             return cane
+
+        def next_cane_id(self, dewar):
+            """Return a new cane id not used within the given dewar."""
+            ids = [c['id'] for c in self._dewars[dewar].get('canes', [])]
+            return max(ids, default=0) + 1
+
+        def cane_id_exists(self, dewar, cane_id, exclude_id=None):
+            """Return True if cane_id is already used in this dewar."""
+            for c in self._dewars[dewar].get('canes', []):
+                if c['id'] == cane_id and c['id'] != exclude_id:
+                    return True
+            return False
+
+        def cane_gridboxes_usage(self, dewar, cane):
+            """Aggregate gridbox capacity and usage for all pucks on a cane."""
+            used = 0
+            max_total = 0
+            for puck in self.pucks(dewar, cane):
+                usage = puck.gridboxes_usage()
+                used += usage['used']
+                max_total += usage['max']
+            percentage = round(used / max_total * 100, 1) if max_total else 0
+            return {
+                'used': used,
+                'max': max_total,
+                'free': max_total - used,
+                'percentage': percentage,
+            }
+
+        @staticmethod
+        def location_value(dewar_id, cane_id, position):
+            """Encoded location for select options (dewar|cane|position)."""
+            return '%s|%s|%s' % (dewar_id, cane_id, position)
+
+        @staticmethod
+        def parse_location_value(value):
+            """Return (dewar, cane, position) from encoded location value."""
+            parts = str(value).split('|')
+            if len(parts) != 3:
+                raise ValueError('Invalid puck location: %s' % value)
+            return int(parts[0]), int(parts[1]), int(parts[2])
+
+        def _occupied_locations(self, exclude_puck_id=None):
+            """Return set of (dewar, cane, position) tuples that already have a puck."""
+            occupied = set()
+            for puck in self._idDict.values():
+                if exclude_puck_id is not None and puck.id == exclude_puck_id:
+                    continue
+                occupied.add(self.__puckLoc(puck))
+            return occupied
+
+        def location_options(self, puck_id=None, max_position=12):
+            """Build select options for empty slots (and the puck's current slot)."""
+            occupied = self._occupied_locations(exclude_puck_id=puck_id)
+            options = []
+            for dewar in self.dewars():
+                d_id = dewar['id']
+                for cane in dewar['canes']:
+                    c_id = cane['id']
+                    cane_label = cane.get('label') or ('cane %s' % c_id)
+                    for position in range(1, max_position + 1):
+                        if (d_id, c_id, position) in occupied:
+                            continue
+                        options.append({
+                            'value': self.location_value(d_id, c_id, position),
+                            'label': 'Dewar %s / %s / %s' % (d_id, cane_label, position),
+                        })
+            return options
 
     dm.Form = Form
     dm.User = User

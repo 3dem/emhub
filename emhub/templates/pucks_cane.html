@@ -1,0 +1,169 @@
+<style>
+    .pucks-cane-tables-wrap {
+        --pucks-cane-row-height: 3rem;
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+    }
+    .pucks-cane-left {
+        flex: 0 0 34%;
+        max-width: 34%;
+    }
+    .pucks-cane-right {
+        flex: 1 1 66%;
+        min-width: 0;
+    }
+    .pucks-cane-table-left {
+        border-right: 0;
+    }
+    .pucks-cane-table-right {
+        border-left: 0;
+        width: 100%;
+    }
+    .pucks-cane-table-left th,
+    .pucks-cane-table-left td,
+    .pucks-cane-table-right th,
+    .pucks-cane-table-right td {
+        vertical-align: middle;
+    }
+    .pucks-cane-sync-header th {
+        padding: 0.5rem 0.75rem;
+        line-height: 1.25;
+        white-space: nowrap;
+    }
+    #pucks-cane-table tbody tr.pucks-cane-sync-row,
+    #pucks-cane-gridboxes-table tbody tr.pucks-cane-sync-row {
+        height: var(--pucks-cane-row-height);
+    }
+    .pucks-cane-sync-row > td,
+    .pucks-cane-sync-row > th {
+        padding: 0.35rem 0.5rem;
+        height: var(--pucks-cane-row-height);
+        min-height: var(--pucks-cane-row-height);
+        max-height: var(--pucks-cane-row-height);
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+    .pucks-cane-sync-row .puck-gridboxes-cell {
+        height: var(--pucks-cane-row-height);
+        min-height: var(--pucks-cane-row-height);
+        max-height: var(--pucks-cane-row-height);
+        white-space: nowrap;
+        line-height: 0;
+        vertical-align: middle;
+    }
+    .pucks-cane-sync-row .puck-slot-cell {
+        height: var(--pucks-cane-row-height);
+        padding-top: 0.35rem;
+        padding-bottom: 0.35rem;
+        vertical-align: middle;
+    }
+    .pucks-cane-sync-row.puck-row-empty > td,
+    .pucks-cane-sync-row.puck-gridboxes-row-empty > td {
+        background-color: #f8f9fa;
+    }
+    #pucks-cane-table .puck-select-btn {
+        font-weight: 500;
+        border: 3px solid transparent !important;
+        padding-top: 0.2rem;
+        padding-bottom: 0.2rem;
+    }
+    #pucks-cane-table .puck-select-btn.puck-selected {
+        border: 4px solid #212529 !important;
+        box-shadow: 0 0 0 2px #fff inset;
+    }
+    #pucks-cane-table .puck-add-btn {
+        font-weight: 500;
+        padding-top: 0.2rem;
+        padding-bottom: 0.2rem;
+    }
+    .puck-gridbox-btn {
+        width: 2rem;
+        height: 2rem;
+        min-width: 2rem;
+        padding: 0;
+        margin: 2px;
+        border-radius: 50%;
+        border: 2px solid rgba(0, 0, 0, 0.2);
+        font-size: 0.7rem;
+        font-weight: 600;
+        line-height: 1;
+        color: #fff;
+        vertical-align: middle;
+    }
+    .puck-gridbox-btn:hover {
+        filter: brightness(0.92);
+        color: #fff;
+    }
+    .puck-gridboxes-empty {
+        display: inline-block;
+        width: 100%;
+        height: 2rem;
+        vertical-align: middle;
+    }
+</style>
+
+{% if not cane %}
+
+    <div class="col-12">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Select a Cane from a Dewar</h5>
+        </div>
+    </div>
+    </div>
+
+{% else %}
+
+    <div class="col-12">
+        {% set d = dewar['id'] %}
+        {% set c = cane['id'] %}
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0" id="location-title">Dewar {{ d }} - Cane {{ c }} </h3>
+            </div>
+            <div class="card-body">
+
+                <div class="pucks-cane-tables-wrap">
+                    <div class="pucks-cane-left table-responsive">
+                        <table id="pucks-cane-table" class="table table-bordered table-sm mb-0 pucks-cane-table-left">
+                            <thead>
+                            <tr class="pucks-cane-sync-header">
+                                <th>#</th>
+                                <th>Puck</th>
+                                <th>Used</th>
+                                <th>%</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for slot in storage.cane_position_slots(d, c) %}
+                                {% include "pucks_cane_row.html" %}
+                            {% endfor %}
+                            <tr id="puck-row-0" class="pucks-cane-sync-row puck-row">
+                                <td></td>
+                                <td class="p-0">
+                                    <button type="button"
+                                            id="puck-btn-0"
+                                            class="btn btn-sm btn-block puck-select-btn{% if not puck %} puck-selected{% endif %}"
+                                            onclick="loadPucksCaneDetails({{ d }}, {{ c }})">
+                                        All Pucks
+                                    </button>
+                                </td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="puck-content" class="pucks-cane-right">
+                        {% include "pucks_cane_details.html" %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+{% endif %}

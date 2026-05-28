@@ -26,6 +26,7 @@
 # *
 # **************************************************************************
 
+import copy
 import os
 import datetime as dt
 import json
@@ -844,6 +845,175 @@ class DataContent:
 
 
 def register_content(dc):
+
+    @dc.content
+    def pucks(**kwargs):
+        dm = app.dm  # shortcut
+        dewar = cane = puck = None
+        
+        # JMRT: 2026-05-27: range is used to limit the number of pucks to load
+        pucks_range = kwargs.get('pucks_range', '1-9999')  
+        min_id, max_id = pucks_range.split('-')
+        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        pucks = dm.get_pucks(condition=condStr, orderBy='id')
+        storage = dm.PuckStorage(pucks)
+
+        # This function is used when selecting a dewar or a cane or a puck
+        if dewar_id := int(kwargs.get('dewar', 0) or 0):
+            dewar = storage.get_dewar(dewar_id)
+            if cane_id := int(kwargs.get('cane', 0) or 0):
+                cane = storage.get_cane(dewar_id, cane_id)
+        if puck_id := int(kwargs.get('puck', 0) or 0):
+            puck = storage.get_puck(puck_id)
+
+        return {
+            'storage': storage,
+            'dewar': dewar,
+            'cane': cane,
+            'puck': puck,
+            'pucks_range': pucks_range
+        }
+
+    @dc.content
+    def pucks_cane(**kwargs): 
+        return pucks(**kwargs)
+
+    @dc.content
+    def pucks_cane_details(**kwargs):
+        return pucks(**kwargs)
+
+    @dc.content
+    def puck_details(**kwargs):
+        return pucks(**kwargs)
+
+    @dc.content
+    def cane_form(**kwargs):
+        dm = app.dm
+        dewar_id = int(kwargs.get('dewar_id', 0) or 0)
+        cane_id = int(kwargs.get('cane_id', 0) or 0)
+        is_new = cane_id <= 0
+
+        config_form = dm.get_form_by_name('config:dewars')
+        if config_form is None:
+            raise Exception("Missing config:dewars form")
+
+        pucks_range = kwargs.get('pucks_range', '1-9999')
+        min_id, max_id = pucks_range.split('-')
+        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        pucks = dm.get_pucks(condition=condStr, orderBy='id')
+        storage = dm.PuckStorage(pucks)
+
+        if is_new:
+            if not dewar_id:
+                raise Exception("dewar_id is required to add a cane")
+            storage.get_dewar(dewar_id)
+            cane = {
+                'id': storage.next_cane_id(dewar_id),
+                'label': '',
+                'color': '#d3d3d3',
+            }
+            cane_pucks = []
+        else:
+            cane = storage.get_cane(dewar_id, cane_id)
+            cane_pucks = [
+                {'id': p.id, 'label': p.label, 'position': p.position}
+                for p in storage.pucks(dewar_id, cane_id)
+            ]
+
+        return {
+            'cane': cane,
+            'dewar_id': dewar_id,
+            'cane_id': cane['id'],
+            'is_new': is_new,
+            'form_id': config_form.id,
+            'color_value': cane.get('color') or '#d3d3d3',
+            'cane_pucks': cane_pucks,
+        }
+
+    @dc.content
+    def puck_form(**kwargs):
+        from types import SimpleNamespace
+
+        dm = app.dm
+        puck_id = int(kwargs.get('puck_id', 0) or 0)
+
+        pucks_range = kwargs.get('pucks_range', '1-9999')
+        min_id, max_id = pucks_range.split('-')
+        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        pucks = dm.get_pucks(condition=condStr, orderBy='id')
+        storage = dm.PuckStorage(pucks)
+
+        is_new = puck_id <= 0
+        if is_new:
+            dewar_id = int(kwargs.get('dewar', 0) or 0)
+            cane_id = int(kwargs.get('cane', 0) or 0)
+            position = int(kwargs.get('position', 0) or 0)
+            if not dewar_id or not cane_id or not position:
+                raise Exception("dewar, cane and position are required for a new puck")
+            if storage.puck_at(dewar_id, cane_id, position):
+                raise Exception("Position %s is already occupied" % position)
+
+            cane = storage.get_cane(dewar_id, cane_id)
+            cane_label = cane.get('label') or ('cane %s' % cane_id)
+            location_value = storage.location_value(dewar_id, cane_id, position)
+            location_options = [{
+                'value': location_value,
+                'label': 'Dewar %s / %s / %s' % (dewar_id, cane_label, position),
+            }]
+            puck = SimpleNamespace(
+                id=None,
+                label='',
+                color='#d3d3d3',
+                dewar=dewar_id,
+                cane=cane_id,
+                position=position,
+            )
+            puck_extra = {}
+        else:
+            puck = dm.get_puck_by(id=puck_id)
+            if puck is None:
+                raise Exception("Puck %s not found" % puck_id)
+            location_value = storage.location_value(
+                puck.dewar, puck.cane, puck.position)
+            location_options = storage.location_options(puck_id=puck.id)
+            puck_extra = puck.extra or {}
+
+        return {
+            'puck': puck,
+            'storage': storage,
+            'is_new': is_new,
+            'location_value': location_value,
+            'location_options': location_options,
+            'puck_extra': puck_extra,
+        }
+
+    @dc.content
+    def puck_gridbox_form(**kwargs):
+        dm = app.dm
+        puck_id = int(kwargs.get('puck_id', 0) or 0)
+        position = int(kwargs.get('position', 0) or 0)
+        puck = dm.get_puck_by(id=puck_id)
+
+        if puck is None:
+            raise Exception("Puck %s not found" % puck_id)
+
+        form = dm.get_form_by_name('form:puck_gridbox')
+        if form is None:
+            raise Exception("Missing form:puck_gridbox")
+
+        gridboxes_snapshot = copy.deepcopy(puck.gridboxes())
+        gridbox = puck.get_gridbox(position)
+        if 'form_values' not in kwargs and gridbox:
+            kwargs['form_values'] = json.dumps(gridbox)
+
+        data = dc.dynamic_form(form, **kwargs)
+        data.update({
+            'puck_id': puck_id,
+            'position': position,
+            'has_gridbox': gridbox is not None,
+            'gridboxes_snapshot': gridboxes_snapshot,
+        })
+        return data
 
     @dc.content
     def grids_cane(**kwargs):

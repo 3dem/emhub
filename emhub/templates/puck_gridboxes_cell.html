@@ -1,0 +1,14 @@
+{% for i in range(1, puck.max_gridboxes() + 1) %}
+    {% set gridbox = puck.get_gridbox(i) %}
+    {% set tip = '' %}
+    {% if gridbox %}
+        {% set tip = gridbox.get('gridbox_label') or gridbox.get('label') or '' %}
+    {% endif %}
+    <button type="button"
+            class="btn puck-gridbox-btn"
+            style="background-color: {{ puck.gridbox_fill_color(i) }};"
+            title="{{ tip if tip else 'Slot ' ~ i }}"
+            onclick="editPuckGridbox({{ puck.id }}, {{ i }}, {{ 'true' if gridbox else 'false' }}, 'all')">
+        {{ i }}
+    </button>
+{% endfor %}

@@ -1,0 +1,12 @@
+{# slot: {position, puck} #}
+<tr id="puck-gridboxes-row-{{ slot.puck.id if slot.puck else ('empty-' ~ slot.position) }}"
+    class="pucks-cane-sync-row puck-gridboxes-row{% if not slot.puck %} puck-gridboxes-row-empty{% endif %}">
+    <td class="p-1 puck-gridboxes-cell">
+        {% if slot.puck %}
+            {% set puck = slot.puck %}
+            {% include "puck_gridboxes_cell.html" %}
+        {% else %}
+            <span class="puck-gridboxes-empty" aria-hidden="true"></span>
+        {% endif %}
+    </td>
+</tr>

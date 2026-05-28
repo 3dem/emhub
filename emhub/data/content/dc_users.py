@@ -29,13 +29,32 @@
 Register content functions related to Sessions
 """
 import os
+import json
+import time
 
 
 def register_content(dc):
 
     @dc.content
     def users_list(**kwargs):
-        return dc.get_users_list()
+        ldap = int(kwargs.get('ldap', 0))
+        data = dc.get_users_list()
+        users = data['users']
+        # ldap_map_file = '/Users/jdela80/ldap_map.json'
+        # if ldap:
+        #     ldap_map = {}
+        #     for u in users:
+        #         ldap_map[u.email] = dc.app.get_ldap_username(u.email)
+        #         time.sleep(1) # wait 1 second to avoid rate limiting
+        #     with open(ldap_map_file, 'w') as f:
+        #         json.dump(ldap_map, f)
+        # else:
+        #     with open(ldap_map_file, 'r') as f:
+        #         ldap_map = json.load(f)
+
+        # for u in users:
+        #     u.ldap_username = ldap_map.get(u.email, None)
+        return {'users': users}
 
     @dc.content
     def users_groups_cards(**kwargs):

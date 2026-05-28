@@ -1,0 +1,47 @@
+{# slot: {position, puck}; d, c: dewar/cane ids #}
+<tr id="puck-row-{% if slot.puck %}{{ slot.puck.id }}{% else %}empty-{{ slot.position }}{% endif %}"
+    class="pucks-cane-sync-row puck-row{% if not slot.puck %} puck-row-empty{% endif %}">
+    <td class="text-center">{{ slot.position }}</td>
+    <td class="puck-slot-cell">
+        {% if slot.puck %}
+            {% set cane_puck = slot.puck %}
+            {% set usage = cane_puck.gridboxes_usage() %}
+            <div class="row no-gutters align-items-center">
+                <div class="col-1 pr-1">
+                    <a href="javascript:editPuck({{ cane_puck.id }})">
+                        <i class="far fa-edit"></i>
+                    </a>
+                </div>
+                <div class="col-11">
+                    <button type="button"
+                            id="puck-btn-{{ cane_puck.id }}"
+                            class="btn btn-sm btn-block puck-select-btn{% if puck and puck.id == cane_puck.id %} puck-selected{% endif %}"
+                            style="background-color: {{ cane_puck.color }}; color: white;"
+                            onclick="loadPucksDetails({{ cane_puck.id }})">
+                        {{ cane_puck.label }}
+                    </button>
+                </div>
+            </div>
+        {% else %}
+            <div class="row no-gutters align-items-center">
+                <div class="col-1 pr-1"></div>
+                <div class="col-11">
+                    <button type="button"
+                            class="btn btn-outline-primary btn-block puck-add-btn"
+                            onclick="addPuck({{ d }}, {{ c }}, {{ slot.position }})">
+                        <i class="fas fa-plus-circle"></i> Add Puck
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+    </td>
+    <td class="text-center puck-used-col">
+        {% if slot.puck %}{{ slot.puck.gridboxes()|length }}{% endif %}
+    </td>
+    <td class="text-center puck-pct-col">
+        {% if slot.puck %}
+            {% set usage = slot.puck.gridboxes_usage() %}
+            {{ usage.percentage if usage.percentage > 0 else '' }}
+        {% endif %}
+    </td>
+</tr>

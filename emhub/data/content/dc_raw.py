@@ -120,7 +120,7 @@ def register_content(dc):
 
     @dc.content
     def raw_pucks_list(**kwargs):
-        kwargs['content_id'] = 'grids_cane'
+        kwargs['content_id'] = 'pucks'
         return dc.get(**kwargs)
 
     @dc.content

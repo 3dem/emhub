@@ -1,0 +1,17 @@
+<div class="table-responsive pucks-cane-gridboxes-panel h-100">
+    <table id="pucks-cane-gridboxes-table" class="table table-bordered table-sm mb-0 pucks-cane-table-right">
+        <thead>
+        <tr class="pucks-cane-sync-header">
+            <th>Gridboxes</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for slot in storage.cane_position_slots(dewar['id'], cane['id']) %}
+            {% include "pucks_cane_gridboxes_row.html" %}
+        {% endfor %}
+        <tr id="puck-gridboxes-row-0" class="pucks-cane-sync-row puck-gridboxes-row">
+            <td class="puck-gridboxes-cell">&nbsp;</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
