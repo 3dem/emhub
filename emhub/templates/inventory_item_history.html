@@ -1,0 +1,81 @@
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "History — " ~ item.title %}
+    {% set about = "Add and remove operations for this inventory item." %}
+    {% set navigation = [('Admin', ''), ('Inventory', url_for_content('inventory')), ('History', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+            <div class="card">
+                <h5 class="card-header">Operations</h5>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table" id="table-inventory-history">
+                            <thead class="bg-light">
+                                <tr class="border-0">
+                                    <th class="border-0">Date</th>
+                                    <th class="border-0">Operation</th>
+                                    <th class="border-0">Quantity</th>
+                                    <th class="border-0">Balance</th>
+                                    <th class="border-0">Cost{% if currency %} ({{ currency }}){% endif %}</th>
+                                    {% if current_user.is_manager %}
+                                    <th class="border-0">Actions</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for row in history %}
+                                <tr>
+                                    <td>{{ row.date|pretty_datetime }}</td>
+                                    <td>{{ row.operation }}</td>
+                                    <td>{{ row.quantity_display }}</td>
+                                    <td>{{ row.balance }}</td>
+                                    <td>{{ row.cost }}</td>
+                                    {% if current_user.is_manager %}
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-light"
+                                                onclick="javascript:editInventoryHistoryEntry({{ row.entry_id }}, {{ project_id }}, {{ item.id }})">
+                                            <i class="far fa-edit"></i></button>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                            {% if history %}
+                            <tfoot class="bg-light">
+                            <tr class="font-weight-bold">
+                                <td colspan="4" class="border-0 text-right">Total cost (additions)</td>
+                                <td class="border-0">{{ total_cost }}{% if currency %} {{ currency }}{% endif %}</td>
+                                {% if current_user.is_manager %}
+                                <td class="border-0"></td>
+                                {% endif %}
+                            </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    window.inventoryHistoryContext = {item_id: {{ item.id }}};
+
+    $('#table-inventory-history').DataTable({
+        ordering: false,
+        searching: false,
+        lengthChange: false,
+        paging: false,
+        info: false
+    });
+
+    })(window, document, window.jQuery);
+</script>

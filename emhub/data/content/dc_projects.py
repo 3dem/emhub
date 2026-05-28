@@ -28,6 +28,7 @@
 """
 Register content functions related to Sessions
 """
+import json
 import os
 import flask
 import datetime as dt
@@ -180,7 +181,12 @@ def register_content(dc):
         data = {}
 
         if form:
-            dc.set_form_values(form, entry.extra.get('data', {}))
+            form_data = entry.extra.get('data', {})
+            if preload := kwargs.get('data'):
+                if isinstance(preload, str):
+                    preload = json.loads(preload)
+                form_data = {**form_data, **preload}
+            dc.set_form_values(form, form_data)
             if 'config' in form.definition:
                 form_config = form.definition['config']
             dc.load_form_content(form, data)

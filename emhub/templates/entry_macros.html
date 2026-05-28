@@ -468,3 +468,22 @@
         {{ status }}
     {% endif %}
 {%- endmacro %}
+
+
+{% macro inventory_quantity_status(quantity, data) -%}
+    {% set low_val = data.get('low') %}
+    {% set medium_val = data.get('medium') %}
+    {% if low_val is not none and low_val != '' and medium_val is not none and medium_val != '' %}
+        {% set low = low_val|int %}
+        {% set medium = medium_val|int %}
+        {% if quantity < low %}
+            <span class="badge-pill badge-danger align-self-start">low</span>
+        {% elif quantity < medium %}
+            <span class="badge-pill badge-warning align-self-start">medium</span>
+        {% else %}
+            <span class="badge-pill badge-success align-self-start">in-stock</span>
+        {% endif %}
+    {% else %}
+        <span class="badge-pill badge-light align-self-start">in-stock</span>
+    {% endif %}
+{%- endmacro %}

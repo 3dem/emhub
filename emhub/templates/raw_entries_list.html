@@ -22,6 +22,7 @@
                                 {% if is_admin %}
                                     <th>actions</th>
                                 {% endif %}
+                                <th>pid</th>
                                 <th>id</th>
                                 <th>date</th>
                                 <th>type</th>
@@ -44,7 +45,7 @@
                                             <div class="col-1"><a href="javascript:deleteEntry({{ e.id }}, '{{ e.title }}')"><i class="fas fa-trash-alt"></i></a></div>
                                         </td>
                                     {% endif %}
-                                        
+                                    <td>{{ e.project_id }}</td>
                                     <td>{{ e.id }}</td>
                                     <td>{{ e.date|pretty_date }}</td>
                                     <td>{{ e.type }}</td>

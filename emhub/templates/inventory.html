@@ -1,0 +1,110 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="container-fluid  dashboard-content">
+    <!-- Header -->
+    {% set title = "Inventory" %}
+    {% set about = "Facility inventory items." %}
+    {% set navigation = [('Admin', ''), ('Inventory', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="row">
+        <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
+
+            {% if current_user.is_manager %}
+                <div class="col-12 mb-3 ml-0 pl-0">
+                    <a href="javascript:showEntryForm(null, {{ project_id }}, 'inventory_item')" class="btn btn-primary">
+                        <i class="fas fa-plus-circle"></i> Add Item</a>
+                </div>
+            {% endif %}
+
+            <div class="card">
+                <h5 class="card-header">Inventory List</h5>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table" id="inventory-table">
+                            <thead class="bg-light">
+                                <tr class="border-0">
+                                    
+                                    <th class="border-0">Item</th>
+                                    <th class="border-0">Quantity</th>
+                                    <th class="border-0">Status</th>
+                                    <th class="border-0">Last Updated</th>
+                                    <th class="border-0">History</th>
+                                    <th class="border-0">Total Cost{% if currency %} ({{ currency }}){% endif %}</th>
+                                    {% if current_user.is_manager %}
+                                        <th class="border-0">Actions</th>
+                                    {% endif %}
+                                    
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for item in inventory_items %}
+                                <tr>
+                                    
+                                    <td>
+                                        {% if item.icon_url %}
+                                            <div class="m-r-10 d-inline-block align-middle">
+                                                <img src="{{ item.icon_url }}" alt="" class="rounded" width="64" height="64">
+                                            </div>
+                                        {% endif %}
+                                        {{ item.title }}
+                                    </td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ macros.inventory_quantity_status(item.quantity, item.data) }}</td>
+                                    <td>{{ item.date|pretty_date }}</td>
+                                    
+                                    <td>
+                                        {% set n = item.history|length %}
+                                        
+                                        {% if n > 0 %}
+                                            <a href="javascript:showEntryHistory({{ item.id }})"><span class="badge badge-pill badge-info">{{ n }}</span></a>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.total_cost }}</td>
+                                    {% if current_user.is_manager %}
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-light"
+                                                    onclick="javascript:showEntryForm({{ item.id }}, {{ project_id }})">
+                                                <i class="far fa-edit"></i></button>
+                                            <button class="btn btn-sm btn-outline-light"
+                                                    onclick="javascript:deleteEntry({{ item.id }}, {{ item.title|tojson }})">
+                                                <i class="far fa-trash-alt"></i></button>
+                                            <button type="button"
+                                                class="btn btn-sm btn-outline-primary ml-3" onclick="javascript:showEntryForm(null, {{ project_id }}, 'inventory_add', null, 0, {item: {{ item.id }}})">
+                                                <i class="fas fa-plus-circle"></i> Add
+                                            </button>
+                                            <button type="button"
+                                                class="btn btn-sm btn-outline-danger" onclick="javascript:showEntryForm(null, {{ project_id }}, 'inventory_remove', null, 0, {item: {{ item.id }}})">
+                                                <i class="fas fa-minus-circle"></i> Remove
+                                            </button>
+                                        </td>
+                                    {% endif %}
+                                    
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+    window.inventoryHistoryContext = null;
+
+    $('#inventory-table').DataTable({
+        ordering: false,
+        searching: false,
+        lengthChange: false,
+        paging: false,
+        info: false
+    });
+
+    })(window, document, window.jQuery);
+</script>

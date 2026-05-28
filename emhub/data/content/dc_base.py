@@ -843,6 +843,170 @@ class DataContent:
             'project_id': project.id if project else 0
         }
 
+    def get_inventory_project(self):
+        """ Return the inventory project, creating it if it does not exist."""
+        dm = self.app.dm
+        inventory_status = 'special:inventory'
+        project = dm.get_project_by(status=inventory_status)
+        if project is None:
+            project = dm.create_project(
+                status=inventory_status,
+                title='Inventory Project',
+                description='Facility inventory',
+                validate=False,
+            )
+
+        if project is None:
+            raise Exception("Inventory project not found and could not be created")
+
+        return project
+
+
+    def get_inventory_items(self, project):
+        items = []
+        entry_type = 'inventory_item'
+    
+        # Skip entries that are being created
+        entries = [e for e in project.entries if e.id]
+
+
+        for e in sorted(entries, key=lambda x: x.id, reverse=True):
+            if e.type != entry_type:
+                continue
+            data = e.extra.get('data', {})
+            icon = data.get('icon')
+            icon_url = None
+            if icon:
+                icon_url = flask.url_for('images.entry', entry=e.id, file=icon)
+            items.append({
+                'id': e.id,
+                'title': e.title,
+                'quantity': int(data.get('quantity', 0)),
+                'total_cost': 0.0,
+                'history': [],
+                'date': e.date,
+                'description': e.description,
+                'data': data,
+                'icon_url': icon_url,
+            })
+
+        return items
+
+    def get_inventory(self, **kwargs):
+        """Return inventory items from the special:inventory project."""
+        project = self.get_inventory_project()
+        inventory_items = self.get_inventory_items(project)
+        items_dict = {item['id']: item for item in inventory_items}
+
+        # Compute the total quantity of each item, taking into account 
+        # the initial quantity and the added/removed quantities
+        entry_type_operations = {
+            'inventory_add': 1,
+            'inventory_remove': -1
+        }
+
+        for e in project.entries:
+            data = e.extra['data']
+
+            if sign := entry_type_operations.get(e.type, None):
+                quantity = sign * int(data.get('quantity', 0))
+                item_id = int(data['item']) # item id
+                if item := items_dict.get(item_id, None):
+                    item['quantity'] += quantity
+                    if e.type == 'inventory_add':
+                        cost_val = data.get('total_cost', 0)
+                        try:
+                            item['total_cost'] += float(cost_val) if cost_val not in (None, '') else 0.0
+                        except (TypeError, ValueError):
+                            pass
+                    item['history'].append({
+                        'type': e.type,
+                        'quantity': quantity,
+                        'date': e.date,
+                        'user': e.last_update_user.email,
+                    })
+                else:
+                    raise Exception(f"Item ID {item_id} not found in inventory items")
+
+        dm = self.app.dm
+        currency = dm.get_config('resources').get('currency', '')
+
+        return {
+            'inventory_items': inventory_items,
+            'project_id': project.id,
+            'currency': currency,
+        }
+
+    def get_inventory_item_history(self, item_id):
+        """Return add/remove history for an inventory item with running balance."""
+        dm = self.app.dm
+        item_id = int(item_id)
+        project = self.get_inventory_project()
+        item_entry = dm.get_entry_by(id=item_id)
+
+        if item_entry is None or item_entry.type != 'inventory_item':
+            raise Exception(f"Invalid inventory item id: {item_id}")
+
+        if item_entry.project_id != project.id:
+            raise Exception(f"Entry {item_id} does not belong to the inventory project")
+
+        initial_qty = int(item_entry.extra.get('data', {}).get('quantity', 0))
+        operations = []
+        total_cost = 0.0
+
+        for e in project.entries:
+            if e.type not in ('inventory_add', 'inventory_remove'):
+                continue
+
+            data = e.extra.get('data', {})
+            if int(data.get('item', 0)) != item_id:
+                continue
+
+            qty = int(data.get('quantity', 0))
+            is_add = e.type == 'inventory_add'
+            signed_qty = qty if is_add else -qty
+
+            if is_add:
+                cost_val = data.get('total_cost', 0)
+                try:
+                    cost = float(cost_val) if cost_val not in (None, '') else 0.0
+                except (TypeError, ValueError):
+                    cost = 0.0
+                total_cost += cost
+            else:
+                cost = 0.0
+
+            operations.append({
+                'entry_id': e.id,
+                'entry_type': e.type,
+                'date': e.date,
+                'operation': 'Add' if is_add else 'Remove',
+                'quantity': signed_qty,
+                'quantity_display': f"+{qty}" if is_add else f"-{qty}",
+                'cost': cost,
+            })
+
+        operations.sort(key=lambda x: x['date'])
+        balance = initial_qty
+        for op in operations:
+            balance += op['quantity']
+            op['balance'] = balance
+
+        operations.sort(key=lambda x: x['date'], reverse=True)
+
+        currency = dm.get_config('resources').get('currency', '')
+
+        return {
+            'item': {
+                'id': item_id,
+                'title': item_entry.title,
+            },
+            'history': operations,
+            'total_cost': total_cost,
+            'currency': currency,
+            'project_id': project.id,
+        }
+
 
 def register_content(dc):
 
@@ -1183,3 +1347,40 @@ def register_content(dc):
     @dc.content
     def news(**kwargs):
         return dc.get_news(**kwargs)
+
+    @dc.content
+    def inventory(**kwargs):
+        return dc.get_inventory(**kwargs)
+
+    @dc.content
+    def inventory_item_history(**kwargs):
+        return dc.get_inventory_item_history(kwargs['item_id'])
+
+    @dc.content
+    def inventory_items(**kwargs):
+        project = dc.get_inventory_project()
+        return {'inventory_items': dc.get_inventory_items(project)}
+
+    @dc.content
+    def validate_inventory_item(entry):
+        if not entry.title or not entry.title.strip():
+            raise Exception("Title can not be empty")
+
+        data = entry.extra.get('data', {})
+
+        def _validate_int_field(key, label, *, required=False, positive=False):
+            value = data.get(key)
+            if value is None or value == '':
+                if required:
+                    raise Exception(f"{label} is required")
+                return
+            try:
+                n = int(value)
+            except (TypeError, ValueError):
+                raise Exception(f"{label} must be an integer")
+            if positive and n <= 0:
+                raise Exception(f"{label} must be greater than zero")
+
+        _validate_int_field('quantity', 'Quantity', required=True)
+        _validate_int_field('low', 'Low', positive=True)
+        _validate_int_field('medium', 'Medium', positive=True)

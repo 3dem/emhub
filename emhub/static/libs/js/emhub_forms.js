@@ -62,15 +62,17 @@ function projectAjaxDone(jsonResponse) {
 }
 
 /* --------------------- ENTRIES ------------------------------ */
-function showEntryForm(entry_id, project_id, entry_type, copy_entry, read_only) {
-    show_modal_from_ajax('entry-modal',
-                         get_ajax_content("entry_form",
-                                   {entry_id: entry_id,
-                                    entry_type: entry_type,
-                                    entry_project_id: project_id,
-                                    copy_entry: copy_entry,
-                                    read_only: read_only
-                                   }));
+function showEntryForm(entry_id, project_id, entry_type, copy_entry, read_only, data) {
+    var params = {entry_id: entry_id,
+                  entry_type: entry_type,
+                  entry_project_id: project_id,
+                  copy_entry: copy_entry,
+                  read_only: read_only || 0
+                 };
+    if (data)
+        params.data = JSON.stringify(data);
+
+    show_modal_from_ajax('entry-modal', get_ajax_content("entry_form", params));
 }  // function showEntryForm
 
 function deleteEntry(entry_id, entry_title) {
@@ -110,13 +112,46 @@ function onEntryOkButtonClick() {
 
 /** Helper functions to handle Template AJAX response or failure */
 function entryAjaxDone(jsonResponse) {
+    if (window.inventoryHistoryContext) {
+        inventoryHistoryEntryAjaxDone(jsonResponse);
+        return;
+    }
     ajax_request_done(jsonResponse, 'entry');
+}
+
+function inventoryHistoryEntryAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('entry' in jsonResponse) {
+    } else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    } else {
+        error = 'Unexpected response from server.';
+    }
+
+    if (error) {
+        showError(error);
+    } else {
+        $('#entry-modal').modal('hide');
+        load_main_content('inventory_item_history',
+            {item_id: window.inventoryHistoryContext.item_id});
+    }
 }
 
 function showEntryReport(entry_id) {
     show_modal_from_ajax('entry-modal',
         get_ajax_content("entry_report", {entry_id: entry_id}));
 }  // function showEntryReport
+
+function showEntryHistory(item_id) {
+    window.inventoryHistoryContext = {item_id: item_id};
+    load_main_content('inventory_item_history', {item_id: item_id});
+}  // function showEntryHistory
+
+function editInventoryHistoryEntry(entry_id, project_id, item_id) {
+    window.inventoryHistoryContext = {item_id: item_id};
+    showEntryForm(entry_id, project_id);
+}  // function editInventoryHistoryEntry
 
 
 /* --------------------- RESOURCES ------------------------------ */

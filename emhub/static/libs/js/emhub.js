@@ -555,7 +555,6 @@ function load_html_from_ajax(container_id, ajaxContent, afterLoad) {
 function show_modal_from_ajax(container_id, ajaxContent) {
     ajaxContent.done(function(html) {
         $('#' + container_id).html(html);
-        // Timing, maybe implement Timer for js code
         $('#' + container_id).modal('show');
     });
 

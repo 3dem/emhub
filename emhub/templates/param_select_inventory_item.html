@@ -1,0 +1,21 @@
+
+{# Single dynamic param: it can be different types of inputs #}
+{# It can be included from forms or tables. #}
+
+{# This param is used to select an inventory item from the inventory list. #}
+
+{# PARAMS:  #}
+{#     param: the param dict. #}
+{#     value: the value of this param #}
+{#     data_key: the key that will be used to store this value. #}
+{#     row_values: defined if used in a table with all values for that row #}
+
+{% set classStr = 'selectpicker show-tick' if selectpicker else '' %}
+
+<select class="{{ classStr }}" data-width="auto"  title="None"  {{ data_key }}>
+    {% for item in inventory_items %}
+        {% set v = value|default(0)|int %}
+        {% set selected = 'selected' if v == item['id'] else '' %}
+        <option {{ selected }} value="{{ item['id'] }}">{{item['title']}}</option>
+    {% endfor %}
+</select>
