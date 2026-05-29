@@ -168,6 +168,8 @@ def register_content(dc):
                              description='',
                              extra={})
 
+        project = entry.project
+
         entry_config = dm.get_entry_config(entry.type)
         form_id = "entry_form:%s" % entry.type
         form = dm.get_form_by(name=form_id)

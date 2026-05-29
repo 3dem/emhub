@@ -908,6 +908,23 @@ class DataContent:
 
         return items
 
+    @staticmethod
+    def _inventory_operation_item_id(data, inventory_items):
+        """Resolve item id from operation data (``item`` or backup ``item_index``)."""
+        item_id = data.get('item')
+        if item_id not in (None, ''):
+            return int(item_id)
+
+        item_index = data.get('item_index')
+        if item_index in (None, ''):
+            return None
+
+        sorted_ids = sorted(item['id'] for item in inventory_items)
+        item_index = int(item_index)
+        if item_index < 0 or item_index >= len(sorted_ids):
+            return None
+        return sorted_ids[item_index]
+
     def _apply_inventory_operations(self, project, inventory_items):
         items_dict = {item['id']: item for item in inventory_items}
         entry_type_operations = {
@@ -916,11 +933,17 @@ class DataContent:
         }
 
         for e in project.entries:
+            if not e.id:
+                continue
+
             data = e.extra.get('data', {})
 
             if sign := entry_type_operations.get(e.type, None):
+                item_id = self._inventory_operation_item_id(data, inventory_items)
+                if item_id is None:
+                    continue
+
                 quantity = sign * int(data.get('quantity', 0))
-                item_id = int(data['item'])
                 if item := items_dict.get(item_id, None):
                     item['quantity'] += quantity
                     if e.type == 'inventory_add':
@@ -1007,13 +1030,15 @@ class DataContent:
         initial_qty = int(item_entry.extra.get('data', {}).get('quantity', 0))
         operations = []
         total_cost = 0.0
+        inventory_items = self.get_inventory_items(project)
 
         for e in project.entries:
             if e.type not in ('inventory_add', 'inventory_remove'):
                 continue
 
             data = e.extra.get('data', {})
-            if int(data.get('item', 0)) != item_id:
+            op_item_id = self._inventory_operation_item_id(data, inventory_items)
+            if op_item_id != item_id:
                 continue
 
             qty = int(data.get('quantity', 0))
@@ -1451,6 +1476,28 @@ def register_content(dc):
             inventory.creation_user = inventory.user = user
 
         return {'inventory': inventory}
+
+    @dc.content
+    def validate_inventory_add(entry):
+        data = entry.extra.get('data', {})
+        item_id = data.get('item')
+        if item_id in (None, ''):
+            raise Exception("Item is required")
+
+        try:
+            int(item_id)
+        except (TypeError, ValueError):
+            raise Exception("Item must be a valid inventory item")
+
+        quantity = data.get('quantity')
+        if quantity in (None, ''):
+            raise Exception("Quantity is required")
+        try:
+            qty = int(quantity)
+        except (TypeError, ValueError):
+            raise Exception("Quantity must be an integer")
+        if qty <= 0:
+            raise Exception("Quantity must be greater than zero")
 
     @dc.content
     def validate_inventory_item(entry):

@@ -368,6 +368,11 @@ def process_forms(args):
     with open_client() as dc:
         forms = dc.request('get_forms', jsonData=None).json()
         form_ids = set(f['id'] for f in forms)
+        form_dict = {f['id']: f for f in forms}
+
+        if args.list and args.list != 'all':
+            list_ids = [int(id) for id in args.list.split()]
+            forms = [form_dict[id] for id in list_ids]
 
     if jsonForms := args.update:
         print(f"Loading Forms from json: {jsonForms}...")
@@ -385,20 +390,19 @@ def process_forms(args):
     elif jsonForms := args.save:
         print(f"Writing Forms to json: {jsonForms}...")
         with open(jsonForms, 'w') as f:
-            formList = [{'id': f['id'], 'name': f['name'],
-                         'definition': f['definition']} for f in forms]
+            fields = ['name', 'definition'] if args.no_ids else ['id', 'name', 'definition']
+            formList = [{field: f[field] for field in fields} for f in forms]
             json.dump(formList, f, indent=4)
 
     elif args.list:
-        if args.list == 'all':
+        if len(forms) > 1:
             row_format = u"{:<10}{:<35}"
             print(row_format.format("Form ID", "Name"))
             for f in forms:
                 print(row_format.format(f['id'], f['name']))
         else:
-            for f in forms:
-                if str(f['id']) == args.list or f['name'] == args.list:
-                    print(json.dumps(f, indent=4))
+            f = forms[0]
+            print(json.dumps(f, indent=4))
 
 
 def process_sessions(args):
@@ -795,7 +799,9 @@ def main():
                    help="Store forms definition in a json file. ")
     g.add_argument('--update', metavar='FORMS_JSON_FILE',
                    help="Update forms with data from the json file. ")
-    g.add_argument('--list', '-l')
+    form_p.add_argument('--list', '-l', nargs='?', const='all', default='')
+    form_p.add_argument('--no-ids', '-n', action='store_true', default=False,
+                        help="Do not include IDs in the saved JSON file.")
 
     # ------------------------- Session subparser -------------------------------
     session_p = subparsers.add_parser("session")
