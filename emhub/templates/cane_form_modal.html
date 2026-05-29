@@ -38,6 +38,23 @@
                                value="{{ color_value }}" data-control="hue">
                     </div>
                 </div>
+
+                {% if not is_new %}
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label text-sm-right" for="cane-location-select">Location</label>
+                    <div class="col-sm-9">
+                        <select id="cane-location-select" class="selectpicker form-control"
+                                data-live-search="true" data-width="100%" title="Select location">
+                            {% for opt in location_options %}
+                                <option value="{{ opt.value }}"
+                                        {% if opt.value == location_value %}selected{% endif %}>
+                                    {{ opt.label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                {% endif %}
             </form>
             <script type="application/json" id="cane-pucks-json">{{ cane_pucks|tojson }}</script>
         </div>
@@ -54,14 +71,45 @@
 
 <script>
     (function () {
+        function resolveCssColor(color) {
+            if (!color) {
+                return '#d3d3d3';
+            }
+            if (color.charAt(0) === '#') {
+                return color;
+            }
+            var el = document.createElement('span');
+            el.style.display = 'none';
+            el.style.color = color;
+            document.body.appendChild(el);
+            var resolved = window.getComputedStyle(el).color;
+            document.body.removeChild(el);
+            return resolved || color;
+        }
+
         var $color = $('#cane-color-input');
         if ($color.data('minicolors-initialized')) {
             $color.minicolors('destroy');
         }
+        $color.val(resolveCssColor($color.val()));
         $color.minicolors({
             theme: 'bootstrap',
             control: 'hue',
             position: 'bottom left'
         });
+
+        var $loc = $('#cane-location-select');
+        if ($loc.length) {
+            if ($loc.parent().hasClass('bootstrap-select')) {
+                $loc.selectpicker('destroy');
+            }
+            $loc.selectpicker({liveSearch: true, width: '100%'});
+            $loc.on('changed.bs.select', function () {
+                var parts = String($(this).val()).split('|');
+                if (parts.length === 2) {
+                    $('#cane-id-input').val(parts[1]);
+                }
+            });
+        }
     })();
 </script>

@@ -116,7 +116,29 @@ function entryAjaxDone(jsonResponse) {
         inventoryHistoryEntryAjaxDone(jsonResponse);
         return;
     }
+    if (typeof updateEntries === 'function' && document.getElementById('logbooks-entries-content')) {
+        logbookEntryAjaxDone(jsonResponse);
+        return;
+    }
     ajax_request_done(jsonResponse, 'entry');
+}
+
+function logbookEntryAjaxDone(jsonResponse) {
+    var error = null;
+
+    if ('entry' in jsonResponse) {
+    } else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    } else {
+        error = 'Unexpected response from server.';
+    }
+
+    if (error) {
+        showError(error);
+    } else {
+        $('#entry-modal').modal('hide');
+        updateEntries();
+    }
 }
 
 function inventoryHistoryEntryAjaxDone(jsonResponse) {

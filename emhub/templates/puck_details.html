@@ -1,5 +1,5 @@
 {% if puck %}
-    <div class="col-12">
+    <div id="puck-details-root" class="col-12">
         <div class="mb-3">
             <h3 class="mb-0">Puck: {{ puck.label }}</h3>
         </div>
@@ -20,16 +20,18 @@
             }
         </style>
     </div>
-
+    <script type="application/json" id="puck-details-data">{{ {
+        'id': puck.id,
+        'color': puck.color,
+        'max_gridboxes': puck.max_gridboxes(),
+        'gridboxes': puck.gridboxes()
+    }|tojson }}</script>
     <script>
-        var currentPuckId = {{ puck.id }};
-        var currentPuckColor = {{ puck.color|tojson }};
-        var currentPuckMaxGridboxes = {{ puck.max_gridboxes() }};
-        var currentPuckGridboxes = PuckCanvasView.normalizeGridboxes({{ puck.gridboxes()|tojson }});
-        var puckCanvasView = null;
-
-        setPucksView('single');
-        initPuckCanvasView();
+        (function () {
+            if (typeof applyPuckDetailsFromDom === 'function') {
+                applyPuckDetailsFromDom();
+            }
+        })();
     </script>
 {% else %}
     <div class="col-12">

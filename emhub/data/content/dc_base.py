@@ -1095,6 +1095,9 @@ def register_content(dc):
 
     @dc.content
     def pucks(**kwargs):
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+
         dm = app.dm  # shortcut
         dewar = cane = puck = None
         
@@ -1135,6 +1138,9 @@ def register_content(dc):
 
     @dc.content
     def cane_form(**kwargs):
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+
         dm = app.dm
         dewar_id = int(kwargs.get('dewar_id', 0) or 0)
         cane_id = int(kwargs.get('cane_id', 0) or 0)
@@ -1166,8 +1172,10 @@ def register_content(dc):
                 {'id': p.id, 'label': p.label, 'position': p.position}
                 for p in storage.pucks(dewar_id, cane_id)
             ]
+            location_value = storage.cane_location_value(dewar_id, cane_id)
+            location_options = storage.cane_location_options(dewar_id, cane_id)
 
-        return {
+        result = {
             'cane': cane,
             'dewar_id': dewar_id,
             'cane_id': cane['id'],
@@ -1176,11 +1184,17 @@ def register_content(dc):
             'color_value': cane.get('color') or '#d3d3d3',
             'cane_pucks': cane_pucks,
         }
+        if not is_new:
+            result['location_value'] = location_value
+            result['location_options'] = location_options
+        return result
 
     @dc.content
     def puck_form(**kwargs):
         from types import SimpleNamespace
-
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+            
         dm = app.dm
         puck_id = int(kwargs.get('puck_id', 0) or 0)
 
@@ -1236,6 +1250,9 @@ def register_content(dc):
 
     @dc.content
     def puck_gridbox_form(**kwargs):
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+            
         dm = app.dm
         puck_id = int(kwargs.get('puck_id', 0) or 0)
         position = int(kwargs.get('position', 0) or 0)
@@ -1429,22 +1446,37 @@ def register_content(dc):
 
     @dc.content
     def news(**kwargs):
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+            
         return dc.get_news(**kwargs)
 
     @dc.content
     def inventories(**kwargs):
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+            
         return dc.get_inventories(**kwargs)
 
     @dc.content
     def inventory(**kwargs):
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+            
         return dc.get_inventory(**kwargs)
 
     @dc.content
     def inventory_item_history(**kwargs):
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+            
         return dc.get_inventory_item_history(kwargs['item_id'])
 
     @dc.content
     def inventory_items(**kwargs):
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+            
         project_id = (kwargs.get('inventory') or kwargs.get('project_id')
                       or kwargs.get('entry_project_id'))
         if not project_id:
@@ -1456,6 +1488,9 @@ def register_content(dc):
 
     @dc.content
     def inventory_form(**kwargs):
+        if not app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+            
         dm = dc.app.dm
         user = dc.app.user
         inventory_id = int(kwargs.get('inventory_id', 0))

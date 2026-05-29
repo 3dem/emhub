@@ -351,6 +351,9 @@ def register_content(dc):
 
     @dc.content
     def logbooks(**kwargs):
+        if not dc.app.user.is_manager:
+            raise Exception("You are not authorized to access this page")
+            
         logbooks = []
         rlogbooks = []
 
@@ -474,9 +477,12 @@ def register_content(dc):
                 } for e in logbook.entries
             ])
 
+            resource = logbook.resource
             if show_bookings and resource:
                 for b in dm.get_bookings(condition=f"resource_id={resource.id}", orderBy='start'):
                     e = {
+                        'logbook_id': logbook.id,
+                        'logbook_title': logbook.title,
                         'resource_id': rid,
                         'id': b.id,
                         'date': b.start,

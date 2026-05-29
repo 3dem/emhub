@@ -6,6 +6,8 @@
     {% endif %}
     <button type="button"
             class="btn puck-gridbox-btn"
+            data-toggle="tooltip"
+            data-placement="top"
             style="background-color: {{ puck.gridbox_fill_color(i) }};"
             title="{{ tip if tip else 'Slot ' ~ i }}"
             onclick="editPuckGridbox({{ puck.id }}, {{ i }}, {{ 'true' if gridbox else 'false' }}, 'all')">

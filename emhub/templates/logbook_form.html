@@ -2,7 +2,7 @@
 <!-- Logbook Form Modal Content -->
 <!-- ============================================================== -->
 {% set is_manager = current_user.is_manager %}
-{% set can_edit = is_manager or current_user.can_edit_project(project) %}
+{% set can_edit = is_manager or current_user.can_edit_project(logbook) %}
 {% set readonly = '' if can_edit else 'readonly' %}
 {% set status_readonly = '' if is_manager else 'readonly' %}
 {% set disabled = '' if is_manager else 'disabled' %}

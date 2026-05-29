@@ -1508,7 +1508,7 @@ def create_data_models(dm):
             """Return the puck at a cane position, or None if empty."""
             return self._locDict.get((dewar, cane, position))
 
-        def cane_position_slots(self, dewar, cane, max_position=12):
+        def cane_position_slots(self, dewar, cane, max_position=10):
             """Ordered slots for a cane, one entry per position (puck may be None)."""
             slots = []
             for pos in range(1, max_position + 1):
@@ -1601,6 +1601,52 @@ def create_data_models(dm):
                             'value': self.location_value(d_id, c_id, position),
                             'label': 'Dewar %s / %s / %s' % (d_id, cane_label, position),
                         })
+            return options
+
+        @staticmethod
+        def cane_location_value(dewar_id, cane_id):
+            """Encoded cane location for select options (dewar|cane)."""
+            return '%s|%s' % (dewar_id, cane_id)
+
+        @staticmethod
+        def parse_cane_location_value(value):
+            """Return (dewar, cane) from encoded cane location value."""
+            parts = str(value).split('|')
+            if len(parts) != 2:
+                raise ValueError('Invalid cane location: %s' % value)
+            return int(parts[0]), int(parts[1])
+
+        def _occupied_cane_slots(self):
+            """Return set of (dewar, cane) tuples that already have a cane."""
+            occupied = set()
+            for dewar in self.dewars():
+                d_id = dewar['id']
+                for cane in dewar.get('canes', []):
+                    occupied.add((d_id, cane['id']))
+            return occupied
+
+        def cane_location_options(self, dewar_id, cane_id, max_cane=12):
+            """Build select options for empty cane slots (and the current slot)."""
+            occupied = self._occupied_cane_slots()
+            current = (dewar_id, cane_id)
+            options = []
+            for dewar in self.dewars():
+                d_id = dewar['id']
+                canes_dict = dewar.get('canes_dict', {})
+                max_id = max([c['id'] for c in dewar.get('canes', [])] + [max_cane])
+                for position in range(1, max_id + 1):
+                    loc = (d_id, position)
+                    if loc in occupied and loc != current:
+                        continue
+                    if loc == current:
+                        cane = canes_dict.get(position, {})
+                        cane_label = cane.get('label') or ('cane %s' % position)
+                    else:
+                        cane_label = 'cane %s' % position
+                    options.append({
+                        'value': self.cane_location_value(d_id, position),
+                        'label': 'Dewar %s / %s' % (d_id, cane_label),
+                    })
             return options
 
     dm.Form = Form

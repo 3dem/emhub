@@ -49,28 +49,7 @@
 
 
 <!--                    <h5 class="mb-0">Entries</h5>-->
-                     <div class="col-12">
-                        {% if is_manager and logbooks|length == 1 %}
-                                {% set n = entries_menu|length %}
-                                {% if n > 1 %}
-                                    <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        <i class="fas fa-plus-circle"></i> Add Entry </a>
-                                    <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
-                                        {% for entry in entries_menu %}
-                                            {% if not entry %}
-                                                <div class="dropdown-divider"></div>
-                                            {% else %}
-                                                <a class="dropdown-item" href="javascript:showEntryForm(null, {{ logbooks[0].id }}, '{{ entry[0] }}')">{{ entry[1] }}</a>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
-                                {% elif n > 0 %}
-                                    {% set entry = entries_menu[0] %}
-                                    <a class="btn btn-primary" href="javascript:showEntryForm(null, {{ logbooks[0].id }}, '{{ entry[0] }}')" role="button" id="addEntryBtn">
-                                        <i class="fas fa-plus-circle"></i> Add Entry </a>
-                                {% endif %}
-                        {% endif %}
-                    </div>
+                     
                 </div>
 
                 <div class="card-body">
@@ -105,10 +84,23 @@
         return show;
     }
 
+    function syncLogbookUrl(logbookParam, show) {
+        var url = new URL(window.location.href);
+        url.searchParams.set('content_id', 'logbook_content');
+        url.searchParams.set('logbook', logbookParam);
+        if (show) {
+            url.searchParams.set('show', show);
+        } else {
+            url.searchParams.delete('show');
+        }
+        window.history.replaceState({}, '', url);
+    }
+
     function updateEntries() {
         var ids = $('#selectpicker-logbook-entries').selectpicker('val');
         var logbookParam = (ids && ids.length) ? ids.join(',') : '0';
         var show = getLogbookShowParam();
+        syncLogbookUrl(logbookParam, show);
         setLoading('logbooks-entries-content');
         load_html_from_ajax('logbooks-entries-content',
             get_ajax_content('logbooks_entries_content', { logbook: logbookParam, show: show }),

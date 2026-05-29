@@ -2309,6 +2309,11 @@ class PuckCanvasView {
         this.draw();
     }
 
+    refreshLayout() {
+        this._resize();
+        this.draw();
+    }
+
     setPuckColor(color) {
         this.puckColor = color || PuckCanvasView.COLOR_PUCK_DEFAULT;
         this.draw();
@@ -2342,11 +2347,11 @@ class PuckCanvasView {
     _gridboxLabel(position) {
         var gridbox = this._getGridbox(position);
         if (!gridbox) {
-            return null;
+            return 'Slot ' + position;
         }
-        var label = gridbox.gridbox_label || gridbox.label;
-        if (label === undefined || label === null || label === '') {
-            return null;
+        var label = gridbox.gridbox_label || gridbox.label || gridbox.sample;
+        if (label === undefined || label === null || String(label).trim() === '') {
+            return 'Slot ' + position;
         }
         return String(label);
     }

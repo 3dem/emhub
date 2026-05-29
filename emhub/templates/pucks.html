@@ -44,6 +44,7 @@
                                 <div class="card-body">
                                     {% for cane_entry in dewar['canes'] %}
                                     {% set c = cane_entry['id'] %}
+                                    {% set cane_label = cane_entry.get('label') or ('cane ' ~ c) %}
                                     <div class="row col-12 mb-2">   
                                         <div>
                                             <a href="javascript:editCane({{ d }}, {{ c }})">
@@ -54,8 +55,9 @@
                                             <a href="javascript:loadPucksCane({{ d }}, {{ c }}, 0)"
                                                id="cane-btn-{{ d }}-{{ c }}"
                                                class="btn btn-sm cane-select-btn mr-1{% if selected_dewar_id == d and selected_cane_id == c %} cane-selected{% endif %}"
-                                               style="background-color: {{ cane_entry['color'] }}; color: white;">
-                                                cane {{ c }}
+                                               style="background-color: {{ cane_entry['color'] }}; color: white;"
+                                               title="Cane {{ c }}">
+                                                {{ cane_label }}
                                             </a>
                                         </div>
                                         <div class="ml-3">
@@ -140,7 +142,10 @@
         cane = caneId;
 
         load_html_from_ajax('cane-content',
-            get_ajax_content('pucks_cane', {dewar: dewarId, cane: caneId, puck: puck})
+            get_ajax_content('pucks_cane', {dewar: dewarId, cane: caneId, puck: puck}),
+            function () {
+                initPuckGridboxTooltips('#cane-content');
+            }
         );
     }
 
@@ -154,12 +159,35 @@
         $('#puck-btn-' + puckId).addClass('puck-selected');
         setPucksView('all');
         load_html_from_ajax('puck-content',
-            get_ajax_content('pucks_cane_details', {dewar: dewarId, cane: caneId})
+            get_ajax_content('pucks_cane_details', {dewar: dewarId, cane: caneId}),
+            function () {
+                initPuckGridboxTooltips('#puck-content');
+            }
         );
+    }
+
+    function initPuckGridboxTooltips(root) {
+        var $buttons = root ? $(root).find('.puck-gridbox-btn[title]') :
+            $('.puck-gridbox-btn[title]');
+        $buttons.each(function () {
+            var $btn = $(this);
+            if ($btn.data('bs.tooltip')) {
+                $btn.tooltip('dispose');
+            }
+            $btn.tooltip({
+                container: 'body',
+                delay: {show: 100, hide: 0}
+            });
+        });
     }
 
     var puckEditDialog = {puckId: null, dewarId: null, caneId: null, isNew: false};
     var caneEditDialog = {dewarId: null, caneId: null, formId: null, pucks: [], isNew: false};
+    var puckCanvasView = null;
+    var currentPuckId = null;
+    var currentPuckColor = null;
+    var currentPuckMaxGridboxes = 12;
+    var currentPuckGridboxes = {};
     var configUpdateFormUrl = "{{ url_for('api.update_form') }}";
     var configGetConfigUrl = "{{ url_for('api.get_config') }}";
 
@@ -250,21 +278,38 @@
         });
     }
 
-    function updatePucksCaneSequentially(pucks, newCaneId, index, onDone, onError) {
+    function updatePucksLocationSequentially(pucks, dewarId, caneId, index, onDone, onError) {
         if (index >= pucks.length) {
             onDone();
             return;
         }
         send_ajax_json(Api.urls.puck.update, {
             id: pucks[index].id,
-            cane: newCaneId
+            dewar: dewarId,
+            cane: caneId
         }, function (jsonResponse) {
             if ('error' in jsonResponse) {
                 onError(jsonResponse.error);
                 return;
             }
-            updatePucksCaneSequentially(pucks, newCaneId, index + 1, onDone, onError);
+            updatePucksLocationSequentially(pucks, dewarId, caneId, index + 1, onDone, onError);
         });
+    }
+
+    function updatePucksCaneSequentially(pucks, newCaneId, index, onDone, onError) {
+        updatePucksLocationSequentially(
+            pucks, caneEditDialog.dewarId, newCaneId, index, onDone, onError);
+    }
+
+    function parseCaneLocation(value) {
+        var parts = String(value).split('|');
+        if (parts.length !== 2) {
+            throw new Error('Invalid location');
+        }
+        return {
+            dewar: parseInt(parts[0], 10),
+            cane: parseInt(parts[1], 10)
+        };
     }
 
     function escapeHtml(text) {
@@ -449,8 +494,57 @@
                 return;
             }
 
-            if (caneIdExistsInConfig(definition, dewarId, newCaneId, oldCaneId)) {
+            var targetDewar = dewarId;
+            var targetCane = oldCaneId;
+            if ($('#cane-location-select').length) {
+                try {
+                    var targetLoc = parseCaneLocation($('#cane-location-select').selectpicker('val'));
+                    targetDewar = targetLoc.dewar;
+                    targetCane = targetLoc.cane;
+                } catch (e) {
+                    showError('Please select a valid location.');
+                    return;
+                }
+            }
+
+            var moving = targetDewar != dewarId || targetCane != oldCaneId;
+
+            if (!moving && caneIdExistsInConfig(definition, dewarId, newCaneId, oldCaneId)) {
                 showError('Cane ID ' + newCaneId + ' is already used in this dewar.');
+                return;
+            }
+
+            if (moving) {
+                if (caneIdExistsInConfig(definition, targetDewar, targetCane)) {
+                    showError('Selected cane position is already occupied.');
+                    return;
+                }
+
+                function commitCaneMove() {
+                    if (!removeCaneFromConfig(definition, dewarId, oldCaneId)) {
+                        showError('Cane not found in dewars configuration.');
+                        return;
+                    }
+                    if (!addCaneToConfig(definition, targetDewar, {
+                        id: targetCane,
+                        label: label,
+                        color: color
+                    })) {
+                        showError('Dewar not found in dewars configuration.');
+                        return;
+                    }
+                    saveDewarsConfig(formId, definition, function () {
+                        $('#cane-modal').modal('hide');
+                        window.location.reload();
+                    });
+                }
+
+                if (pucks.length) {
+                    updatePucksLocationSequentially(
+                        pucks, targetDewar, targetCane, 0, commitCaneMove, showError);
+                } else {
+                    commitCaneMove();
+                }
                 return;
             }
 
@@ -481,9 +575,8 @@
         var btn = $('#cane-btn-' + dewarId + '-' + caneId);
         if (btn.length) {
             btn.css('background-color', color);
-            if (label) {
-                btn.attr('title', label);
-            }
+            btn.text(label || ('cane ' + caneId));
+            btn.attr('title', 'Cane ' + caneId);
         }
 
         if (dewar === dewarId && cane === caneId) {
@@ -673,9 +766,30 @@
         $('#puck-btn-' + puckId).addClass('puck-selected');
         setPucksView('single');
 
-        load_html_from_ajax('puck-content',
-            get_ajax_content('puck_details', {puck: puckId})
-        );
+        var ajaxContent = get_ajax_content('puck_details', {puck: puckId});
+        ajaxContent.done(function (html) {
+            $('#puck-content').html(html);
+            applyPuckDetailsFromDom();
+        });
+        ajaxContent.fail(ajax_request_failed);
+    }
+
+    function applyPuckDetailsFromDom() {
+        var dataEl = document.getElementById('puck-details-data');
+        if (!dataEl) {
+            return;
+        }
+        try {
+            var data = JSON.parse(dataEl.textContent);
+            currentPuckId = data.id;
+            currentPuckColor = data.color;
+            currentPuckMaxGridboxes = data.max_gridboxes || 12;
+            currentPuckGridboxes = PuckCanvasView.normalizeGridboxes(data.gridboxes || {});
+            setPucksView('single');
+            initPuckCanvasView();
+        } catch (e) {
+            showError('Could not load puck canvas: ' + e.message);
+        }
     }
 
     function initPuckCanvasView() {
@@ -684,8 +798,18 @@
                 return;
             }
 
+            var canvasEl = document.getElementById('puck-canvas');
+            if (!canvasEl) {
+                return;
+            }
+
+            if (puckCanvasView && puckCanvasView.canvas !== canvasEl) {
+                puckCanvasView.destroy();
+                puckCanvasView = null;
+            }
+
             if (!puckCanvasView) {
-                puckCanvasView = new PuckCanvasView('puck-canvas', {
+                puckCanvasView = new PuckCanvasView(canvasEl, {
                     puckColor: currentPuckColor,
                     maxGridboxes: currentPuckMaxGridboxes,
                     gridboxes: currentPuckGridboxes,
@@ -695,8 +819,13 @@
                     }
                 });
             } else {
+                puckCanvasView.puckId = currentPuckId;
+                puckCanvasView.onGridboxClick = function (position, hasGridbox) {
+                    editPuckGridbox(currentPuckId, position, hasGridbox, 'single');
+                };
                 puckCanvasView.setPuckColor(currentPuckColor);
                 puckCanvasView.setGridboxes(currentPuckGridboxes);
+                puckCanvasView.refreshLayout();
             }
         }
 
@@ -910,6 +1039,8 @@
 
     (function(window, document, $, undefined) {
     "use strict";
+
+    initPuckGridboxTooltips('#cane-content');
 
     var table = $('#table-pucks').DataTable({
         sDom: 'lfrtip',

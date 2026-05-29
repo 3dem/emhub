@@ -9,27 +9,44 @@
     {% endif %}
 {%- endmacro %}
 
+{% macro default_entry_type(entries_menu) -%}
+    {%- for entry in entries_menu if entry -%}
+        {%- if loop.first %}{{ entry[0] }}{% endif -%}
+    {%- endfor -%}
+{%- endmacro %}
+
+
+{% set is_manager = current_user.is_manager %}
 
 <div class="col-12 mb-3 ml-0 pl-0">
     {% if is_manager %}
-            {% set n = logbooks|length %}
-            {% set entry = entries_menu[0] %}
-            {% if n > 1 %}
-                    <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        <i class="fas fa-plus-circle"></i> Add Entry </a>
-                    <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
-                        {% for logbook in logbooks %}
-                            {% set entries_menu = logbook.extra['entries_menu'] %}
-                            {% set entry = entries_menu[0] %}
-                            <a class="dropdown-item" href="javascript:showEntryForm(null, {{ logbook.id }}, '{{ entry[0] }}')">{{ logbook.title }}</a>
-                        {% endfor %}
-                    </div>
-            {% elif n > 0 %}
-                {% set entries_menu = logbook.extra['entries_menu'] %}
-                {% set entry = entries_menu[0] %}
-                <a class="btn btn-primary" href="javascript:showEntryForm(null, {{ logbooks[0].id }}, '{{ entry[0] }}')" role="button" id="addEntryBtn">
+        {% set n = logbooks|length %}
+        {% if n > 1 %}
+            {% set ns = namespace(has_entry=false) %}
+            {% for logbook in logbooks %}
+                {% if default_entry_type(logbook.extra.get('entries_menu') or []) %}
+                    {% set ns.has_entry = true %}
+                {% endif %}
+            {% endfor %}
+            {% if ns.has_entry %}
+                <a class="btn btn-primary dropdown-toggle" href="#" role="button" id="addEntryBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <i class="fas fa-plus-circle"></i> Add Entry </a>
+                <div class="dropdown-menu dropdown-menu-left" aria-labelledby="addEntryBtn">
+                    {% for logbook in logbooks %}
+                        {% set entry_type = default_entry_type(logbook.extra.get('entries_menu') or []) %}
+                        {% if entry_type %}
+                            <a class="dropdown-item" href="javascript:showEntryForm(null, {{ logbook.id }}, '{{ entry_type }}')">{{ logbook.title }}</a>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% elif n == 1 %}
+            {% set entry_type = default_entry_type(entries_menu) %}
+            {% if entry_type %}
+                <a class="btn btn-primary" href="javascript:showEntryForm(null, {{ logbooks[0].id }}, '{{ entry_type }}')" role="button" id="addEntryBtn">
                     <i class="fas fa-plus-circle"></i> Add Entry </a>
             {% endif %}
+        {% endif %}
     {% endif %}
 </div>
 
