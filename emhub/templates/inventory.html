@@ -2,9 +2,9 @@
 
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
-    {% set title = "Inventory" %}
+    {% set title = inventory.title %}
     {% set about = "Facility inventory items." %}
-    {% set navigation = [('Admin', ''), ('Inventory', '')] %}
+    {% set navigation = [('Admin', ''), ('Inventories', url_for_content('inventories')), (inventory.title, '')] %}
     {% include 'include_header.html' %}
 
     <div class="row">
@@ -18,7 +18,7 @@
             {% endif %}
 
             <div class="card">
-                <h5 class="card-header">Inventory List</h5>
+                <h5 class="card-header">{{ inventory.title }} — Items</h5>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table" id="inventory-table">
@@ -57,7 +57,7 @@
                                         {% set n = item.history|length %}
                                         
                                         {% if n > 0 %}
-                                            <a href="javascript:showEntryHistory({{ item.id }})"><span class="badge badge-pill badge-info">{{ n }}</span></a>
+                                            <a href="javascript:showEntryHistory({{ item.id }}, {{ project_id }})"><span class="badge badge-pill badge-info">{{ n }}</span></a>
                                         {% endif %}
                                     </td>
                                     <td>{{ item.total_cost }}</td>

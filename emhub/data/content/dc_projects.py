@@ -190,6 +190,9 @@ def register_content(dc):
             if 'config' in form.definition:
                 form_config = form.definition['config']
             dc.load_form_content(form, data)
+            if project.status == dc.INVENTORY_STATUS:
+                data['inventory_items'] = dc.get_inventory_items_with_operations(
+                    project)
             entry_label = entry_label or form.definition['title']
 
         data.update({

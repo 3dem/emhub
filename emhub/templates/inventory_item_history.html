@@ -3,7 +3,7 @@
     <!-- Header -->
     {% set title = "History — " ~ item.title %}
     {% set about = "Add and remove operations for this inventory item." %}
-    {% set navigation = [('Admin', ''), ('Inventory', url_for_content('inventory')), ('History', '')] %}
+    {% set navigation = [('Admin', ''), ('Inventories', url_for_content('inventories')), (inventory.title, url_for_content('inventory', inventory=inventory.id)), ('History', '')] %}
     {% include 'include_header.html' %}
 
     <div class="row">
@@ -67,7 +67,7 @@
     (function(window, document, $, undefined) {
     "use strict";
 
-    window.inventoryHistoryContext = {item_id: {{ item.id }}};
+    window.inventoryHistoryContext = {item_id: {{ item.id }}, inventory_id: {{ inventory.id }}};
 
     $('#table-inventory-history').DataTable({
         ordering: false,

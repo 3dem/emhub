@@ -1,0 +1,134 @@
+
+{% import "entry_macros.html" as macros %}
+
+{% macro inventory_card(inv) -%}
+    <div class="col-auto mb-4" style="min-width: 450px; max-width: 450px;">
+        <div class="card h-100">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col-2 mr-0 pr-0">
+                        <h4><i class="fas fa-warehouse"></i></h4>
+                    </div>
+                    <div class="col text-left ml-0 pl-0">
+                        {% set url = url_for_content('inventory', inventory=inv.id) %}
+                        <h5>
+                            <a href="{{ url }}" class="badge" style="background: #5a6a7a; color: #fff; font-size: 16px">{{ inv.title }}</a>
+                        </h5>
+                    </div>
+                    <div class="col-auto">
+                        <div class="d-flex align-items-center">
+                            <a href="{{ url }}" class="mr-2" title="View items"><i class="fas fa-list"></i></a>
+                            {% if current_user.is_manager %}
+                            <a href="javascript:showInventoryForm({{ inv.id }})" title="Edit inventory"><i class="far fa-edit"></i></a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body pt-0">
+                <div class="row mt-1 ml-1">
+                    <p class="mt-1 mb-0">Total items:</p>
+                    <h4 class="ml-2 mt-1 mb-0">{{ inv.total_items }}</h4>
+                </div>
+                {% if inv.low_count > 0 or inv.medium_count > 0 %}
+                <div class="row mt-2 ml-1 align-items-center">
+                    <p class="mt-1 mb-0 mr-2">Availability:</p>
+                    {% if inv.low_count > 0 %}
+                        <span class="badge badge-pill badge-danger mr-2">low {{ inv.low_count }}</span>
+                    {% endif %}
+                    {% if inv.medium_count > 0 %}
+                        <span class="badge badge-pill badge-warning mr-2">medium {{ inv.medium_count }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if inv.description %}
+                <p class="text-muted small mt-2 mb-0">{{ inv.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{%- endmacro %}
+
+<div class="container-fluid dashboard-content">
+    {% set title = "Inventories" %}
+    {% set about = "Facility inventory collections." %}
+    {% set navigation = [('Admin', ''), ('Inventories', '')] %}
+    {% include 'include_header.html' %}
+
+    <div class="row">
+        <div class="col-12">
+            {% if current_user.is_manager %}
+            <div class="mb-4">
+                <a class="btn btn-primary" href="javascript:showInventoryForm(0)" role="button">
+                    <i class="fas fa-plus-circle"></i> Create Inventory</a>
+            </div>
+            {% endif %}
+
+            <div class="row">
+                {% for inv in inventories %}
+                    {{ inventory_card(inv) }}
+                {% else %}
+                    <div class="col-12">
+                        <p class="text-muted">No inventories yet.{% if current_user.is_manager %} Create one to get started.{% endif %}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="inventory-modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+</div>
+
+<script>
+function showInventoryForm(inventory_id) {
+    show_modal_from_ajax('inventory-modal',
+        get_ajax_content('inventory_form', {inventory_id: inventory_id}));
+}
+
+function onInventoryOkButtonClick() {
+    var title = $('#inventory-title').val().trim();
+    if (!title) {
+        showError("Title can not be empty.");
+        return;
+    }
+
+    var idRaw = $('#inventory-id').val();
+    var inventoryId = idRaw ? parseInt(idRaw, 10) : null;
+    if (!inventoryId || inventoryId <= 0 || Number.isNaN(inventoryId)) {
+        inventoryId = null;
+    }
+
+    var inventory = {
+        status: 'special:inventory',
+        title: title,
+        description: $('#inventory-description').val(),
+        validate: false,
+    };
+    if (inventoryId) {
+        inventory.id = inventoryId;
+    }
+
+    send_ajax_json(Api.get('project', inventoryId), inventory, inventoryProjectAjaxDone);
+}
+
+function inventoryProjectAjaxDone(jsonResponse) {
+    var error = null;
+    if ('project' in jsonResponse) {
+    } else if ('error' in jsonResponse) {
+        error = jsonResponse.error;
+    } else {
+        error = 'Unexpected response from server.';
+    }
+    if (error) {
+        showError(error);
+    } else {
+        $('#inventory-modal').modal('hide');
+        load_main_content('inventories');
+    }
+}
+
+(function(window, document, $, undefined) {
+    "use strict";
+})(window, document, window.jQuery);
+</script>

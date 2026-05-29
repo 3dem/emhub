@@ -843,24 +843,40 @@ class DataContent:
             'project_id': project.id if project else 0
         }
 
-    def get_inventory_project(self):
-        """ Return the inventory project, creating it if it does not exist."""
+    INVENTORY_STATUS = 'special:inventory'
+
+    def get_inventory_projects(self):
         dm = self.app.dm
-        inventory_status = 'special:inventory'
-        project = dm.get_project_by(status=inventory_status)
-        if project is None:
-            project = dm.create_project(
-                status=inventory_status,
-                title='Inventory Project',
-                description='Facility inventory',
-                validate=False,
-            )
+        return dm.get_projects(
+            condition=f'status="{self.INVENTORY_STATUS}"',
+            orderBy='title',
+        )
 
-        if project is None:
-            raise Exception("Inventory project not found and could not be created")
-
+    def get_inventory_project(self, project_id):
+        """Return an inventory project by id."""
+        dm = self.app.dm
+        project_id = int(project_id)
+        project = dm.get_project_by(id=project_id)
+        if project is None or project.status != self.INVENTORY_STATUS:
+            raise Exception(f"Invalid inventory id: {project_id}")
         return project
 
+    @staticmethod
+    def _inventory_item_availability(quantity, data):
+        low_val = data.get('low')
+        medium_val = data.get('medium')
+        if low_val in (None, '') or medium_val in (None, ''):
+            return None
+        try:
+            low = int(low_val)
+            medium = int(medium_val)
+        except (TypeError, ValueError):
+            return None
+        if quantity < low:
+            return 'low'
+        if quantity < medium:
+            return 'medium'
+        return 'in-stock'
 
     def get_inventory_items(self, project):
         items = []
@@ -892,25 +908,19 @@ class DataContent:
 
         return items
 
-    def get_inventory(self, **kwargs):
-        """Return inventory items from the special:inventory project."""
-        project = self.get_inventory_project()
-        inventory_items = self.get_inventory_items(project)
+    def _apply_inventory_operations(self, project, inventory_items):
         items_dict = {item['id']: item for item in inventory_items}
-
-        # Compute the total quantity of each item, taking into account 
-        # the initial quantity and the added/removed quantities
         entry_type_operations = {
             'inventory_add': 1,
-            'inventory_remove': -1
+            'inventory_remove': -1,
         }
 
         for e in project.entries:
-            data = e.extra['data']
+            data = e.extra.get('data', {})
 
             if sign := entry_type_operations.get(e.type, None):
                 quantity = sign * int(data.get('quantity', 0))
-                item_id = int(data['item']) # item id
+                item_id = int(data['item'])
                 if item := items_dict.get(item_id, None):
                     item['quantity'] += quantity
                     if e.type == 'inventory_add':
@@ -928,12 +938,56 @@ class DataContent:
                 else:
                     raise Exception(f"Item ID {item_id} not found in inventory items")
 
+        return inventory_items
+
+    def get_inventory_items_with_operations(self, project):
+        inventory_items = self.get_inventory_items(project)
+        return self._apply_inventory_operations(project, inventory_items)
+
+    def get_inventory_summary(self, project):
+        inventory_items = self.get_inventory_items_with_operations(project)
+        low_count = medium_count = 0
+        for item in inventory_items:
+            status = self._inventory_item_availability(item['quantity'], item['data'])
+            if status == 'low':
+                low_count += 1
+            elif status == 'medium':
+                medium_count += 1
+
+        return {
+            'id': project.id,
+            'title': project.title,
+            'description': project.description or '',
+            'total_items': len(inventory_items),
+            'low_count': low_count,
+            'medium_count': medium_count,
+        }
+
+    def get_inventories(self, **kwargs):
+        inventories = [
+            self.get_inventory_summary(p) for p in self.get_inventory_projects()
+        ]
+        return {'inventories': inventories}
+
+    def get_inventory(self, **kwargs):
+        """Return inventory items for a given inventory project."""
+        project_id = kwargs.get('inventory') or kwargs.get('project_id')
+        if not project_id:
+            raise Exception("Please specify an inventory (inventory id).")
+
+        project = self.get_inventory_project(project_id)
+        inventory_items = self.get_inventory_items_with_operations(project)
+
         dm = self.app.dm
         currency = dm.get_config('resources').get('currency', '')
 
         return {
             'inventory_items': inventory_items,
             'project_id': project.id,
+            'inventory': {
+                'id': project.id,
+                'title': project.title,
+            },
             'currency': currency,
         }
 
@@ -941,14 +995,14 @@ class DataContent:
         """Return add/remove history for an inventory item with running balance."""
         dm = self.app.dm
         item_id = int(item_id)
-        project = self.get_inventory_project()
         item_entry = dm.get_entry_by(id=item_id)
 
         if item_entry is None or item_entry.type != 'inventory_item':
             raise Exception(f"Invalid inventory item id: {item_id}")
 
-        if item_entry.project_id != project.id:
-            raise Exception(f"Entry {item_id} does not belong to the inventory project")
+        project = dm.get_project_by(id=item_entry.project_id)
+        if project is None or project.status != self.INVENTORY_STATUS:
+            raise Exception(f"Entry {item_id} does not belong to an inventory project")
 
         initial_qty = int(item_entry.extra.get('data', {}).get('quantity', 0))
         operations = []
@@ -1000,6 +1054,10 @@ class DataContent:
             'item': {
                 'id': item_id,
                 'title': item_entry.title,
+            },
+            'inventory': {
+                'id': project.id,
+                'title': project.title,
             },
             'history': operations,
             'total_cost': total_cost,
@@ -1349,6 +1407,10 @@ def register_content(dc):
         return dc.get_news(**kwargs)
 
     @dc.content
+    def inventories(**kwargs):
+        return dc.get_inventories(**kwargs)
+
+    @dc.content
     def inventory(**kwargs):
         return dc.get_inventory(**kwargs)
 
@@ -1358,8 +1420,37 @@ def register_content(dc):
 
     @dc.content
     def inventory_items(**kwargs):
-        project = dc.get_inventory_project()
-        return {'inventory_items': dc.get_inventory_items(project)}
+        project_id = (kwargs.get('inventory') or kwargs.get('project_id')
+                      or kwargs.get('entry_project_id'))
+        if not project_id:
+            return {'inventory_items': []}
+        project = dc.get_inventory_project(project_id)
+        return {
+            'inventory_items': dc.get_inventory_items_with_operations(project)
+        }
+
+    @dc.content
+    def inventory_form(**kwargs):
+        dm = dc.app.dm
+        user = dc.app.user
+        inventory_id = int(kwargs.get('inventory_id', 0))
+
+        if inventory_id:
+            inventory = dc.get_inventory_project(inventory_id)
+        else:
+            now = dm.now()
+            inventory = dm.Project(
+                status=dc.INVENTORY_STATUS,
+                date=now,
+                last_update_date=now,
+                last_update_user_id=user.id,
+                title='',
+                description='',
+                extra={},
+            )
+            inventory.creation_user = inventory.user = user
+
+        return {'inventory': inventory}
 
     @dc.content
     def validate_inventory_item(entry):

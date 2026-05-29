@@ -10,7 +10,7 @@ class Api {
 
     static get(key, id) {
         const url = Api.urls[key];
-        return id != null && !Number.isNaN(id) ? url.update : url.create;
+        return id != null && id > 0 && !Number.isNaN(id) ? url.update : url.create;
     }
 }
 

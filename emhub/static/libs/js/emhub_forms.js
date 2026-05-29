@@ -133,8 +133,11 @@ function inventoryHistoryEntryAjaxDone(jsonResponse) {
         showError(error);
     } else {
         $('#entry-modal').modal('hide');
-        load_main_content('inventory_item_history',
-            {item_id: window.inventoryHistoryContext.item_id});
+        var params = {item_id: window.inventoryHistoryContext.item_id};
+        if (window.inventoryHistoryContext.inventory_id) {
+            params.inventory = window.inventoryHistoryContext.inventory_id;
+        }
+        load_main_content('inventory_item_history', params);
     }
 }
 
@@ -143,13 +146,13 @@ function showEntryReport(entry_id) {
         get_ajax_content("entry_report", {entry_id: entry_id}));
 }  // function showEntryReport
 
-function showEntryHistory(item_id) {
-    window.inventoryHistoryContext = {item_id: item_id};
+function showEntryHistory(item_id, inventory_id) {
+    window.inventoryHistoryContext = {item_id: item_id, inventory_id: inventory_id};
     load_main_content('inventory_item_history', {item_id: item_id});
 }  // function showEntryHistory
 
 function editInventoryHistoryEntry(entry_id, project_id, item_id) {
-    window.inventoryHistoryContext = {item_id: item_id};
+    window.inventoryHistoryContext = {item_id: item_id, inventory_id: project_id};
     showEntryForm(entry_id, project_id);
 }  // function editInventoryHistoryEntry
 
