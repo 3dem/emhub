@@ -1,0 +1,413 @@
+var project_id = {{ project_id | tojson }};
+var project_details = {{ project_details | tojson }};
+var project_entry_extra = {{ project_entry_extra | tojson }};
+var get_project_args = {{ get_project_args | tojson }};
+var all_forms = {};
+var menu = {{ menu | tojson }};
+var workflows = {{ menu['workflows']|tojson }};
+
+// Caching mechanism for project_details
+var cache = {
+  lastUpdated: Date.now(),
+  maxAge: 60000,
+
+  isStale: function() {
+    return (Date.now() - this.lastUpdated) > this.maxAge;
+  },
+
+  refresh: function () {
+    this.lastUpdated = Date.now();
+  },
+
+  getAge: function () {
+    return Date.now() - this.lastUpdated;
+  }
+};
+
+function request(url, args) {
+  jQuery.extend(args, get_project_args);
+  return $.ajax({
+    url: url,
+    type: "POST",
+    contentType: 'application/json; charset=utf-8',
+    data: JSON.stringify({ attrs: args }),
+    dataType: "json"
+  });
+}
+
+let project_tags = project_entry_extra.tags.project;
+let protocol_tags = project_entry_extra.tags.protocols;
+
+function findTagIndex(tagId) {
+  for (var i = 0; i < project_tags.length; i++)
+    if (project_tags[i].id === tagId)
+      return i;
+  return null;
+}
+
+async function updateProjectTag(tagId, payload) {
+  var tagIndex = findTagIndex(tagId);
+  if (tagIndex === null)
+    project_tags.push(payload);
+  else
+    project_tags[tagIndex] = payload;
+  updateProjectEntryExtraTags();
+  return payload;
+}
+
+async function updateProjectEntryExtraTags() {
+  await handleRequestData(
+    Api.urls.entry.update_extra,
+    {id: project_id, extra: {tags: project_entry_extra.tags}},
+    function (data){
+      // Don't do anything with the data
+    });
+  return { success: true };
+}
+
+async function loadJobDetails(jobId, jobType) {
+  var jobNode = jobId ? project_details.protocols[jobId] : null;
+
+  var result = {
+    info: {},
+    form: {},
+    values: {}
+  }
+
+  var output = jobId == null ? [] : ['json'];
+
+  if (jobType in all_forms)
+    result.form = all_forms[jobType]
+  else
+    output.push('form')
+
+  if (output.length == 0)
+    return result;
+
+  var args = {
+    run_id: jobId,
+    job_type: jobType,
+    output: output
+  };
+
+  try {
+    var data = await request(Api.urls.get_session_run, args)
+    var run_data = data['run'];
+    if ('form' in run_data) {
+      result.form = run_data['form'];
+      all_forms[jobType] = result.form;
+    }
+
+    if ('json' in run_data) {
+      result.values = run_data['json']['values'];
+    }
+
+    result.info = {
+      name: jobType,
+      expertLevel: true,
+      favicon: null,
+      label: "abc",
+      packageLogo: "",
+      projectId: 44,
+      inputs: [],
+      outputs: [],
+      projectName: "",
+      protocolClassName: jobType,
+      protocolId: jobId,
+      protocolName: jobType,
+      scheduleLog: null,
+      status: jobNode ? jobNode.status : 'new',
+      stderrLog: null,
+      stdoutLog: null,
+      color: "#D2F5CB",
+      executeMode: {
+        launch: {
+          label: 'Launch',
+          help: 'Launch the job with the selected parameters.'
+        },
+        restart: {
+          label: 'Restart',
+          help: 'Clear the entire output folder and restart the job.'
+        }
+      }
+    }
+
+    return result;
+
+  } catch (error) {
+    alert("Error loading job details: " + error.statusText);
+  }
+}
+
+async function handleRequestData(url, args, func) {
+  try {
+    var data = await request(url, args);
+    if ('error' in data)
+      throw new Error(data.error);
+
+    func(data);
+  } catch (error) {
+    if ("responseText" in error)
+      showError(error.responseText);
+    else if ("message" in error)
+      showError(error.message);
+    else {
+      showError("Received unknown error");
+    }
+  }
+}
+
+async function requestAction(url, args) {
+  args.widget = true;
+  var duplicated = [];
+  await handleRequestData(url, args, function (data) {
+    var payload = data.workflow;
+    var protocols = payload.protocols || payload;
+
+    if (payload.duplicated)
+      duplicated = payload.duplicated;
+
+    for (const protocolId in protocols) {
+      var newProtocol = protocols[protocolId];
+      var protocol = getObjectValue(project_details.protocols, protocolId, null);
+      if (protocol) {
+        newProtocol.tags = getObjectValue(protocol, 'tags', []);
+      }
+    }
+    project_details.protocols = protocols;
+    cache.refresh();
+  });
+  return {
+    status: 0,
+    errors: [],
+    workflow: project_details.protocols,
+    duplicated: duplicated,
+  };
+}
+
+var svc = {
+  fetchList() {
+    return [];
+  },
+
+  createProject(data) {
+    return null;
+  },
+  renameProject(id, newName, newDescription) {
+    return null;
+  },
+  deleteProject(id) {
+    return null;
+  },
+
+  async fetchProject(id) {
+    if (cache.isStale()) {
+      requestAction(Api.urls.get_session_workflow, { project_id: id });
+    }
+
+    return project_details;
+  },
+
+  async fetchProtocolDetails(projectId, protocolId) {
+    var jobType = project_details.protocols[protocolId].type;
+    return await loadJobDetails(protocolId, jobType);
+  },
+
+  executeProtocol(projectId, protocolId, protocolClassName, params, mode) {
+    var args = {
+      run_id: protocolId,
+      job_type: protocolClassName,
+      clean: mode === 'restart',
+      params: params
+    };
+    return requestAction(Api.urls.launch_job, args);
+  },
+
+  async saveProtocol(projectId, protocolId, protocolClassName, params) {
+    var args = {
+      run_id: protocolId,
+      job_type: protocolClassName,
+      params: params
+    };
+    return requestAction(Api.urls.save_job, args);
+  },
+
+  stopProtocol(projectId, ids) {
+    alert("Stoping protocols....." + JSON.stringify(ids, null, 4))
+    return { status: 1, errors: ["Not yet implemented"] }
+  },
+
+  async deleteProtocol(projectId, protocolIds) {
+    for (const protocolId of protocolIds) {
+      delete protocol_tags[protocolId];
+    }
+    updateProjectEntryExtraTags();
+    return requestAction(Api.urls.delete_jobs, {run_ids: protocolIds})
+  },
+
+  async duplicateProtocol(projectId, items) {
+    var protocolIds = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var protocolId = item.id != null ? item.id : item.protocolId;
+      if (protocolId != null)
+        protocolIds.push(protocolId);
+    }
+    if (protocolIds.length === 0)
+      return { status: 0, errors: [], workflow: project_details.protocols, duplicated: [] };
+
+    return requestAction(Api.urls.duplicate_jobs, { run_ids: protocolIds });
+  },
+
+  async fetchWorkflows() {
+    return workflows;
+  },
+
+  async loadWorkflow(projectId, workflowInfo) {
+    return requestAction(Api.urls.load_workflow, { workflow_id: workflowInfo.workflowId });
+  },
+
+  async exportProtocols(projectId, payload) {
+    var protocolIds = payload.protocolIds;
+    var filePath = `${payload.directoryPath}/${payload.filename}`;
+    return requestAction(Api.urls.export_workflow, { run_ids: protocolIds, output_path: filePath });
+  },
+
+  async loadProtocols(projectId) {
+    return menu.protocols;
+  },
+
+  async fetchNewProtocolDetails(projectId, protocolClass) {
+    return await loadJobDetails(null, protocolClass);
+  },
+
+  resolveAnalyzeViewer: async function (ctx) {
+    visualizeOutput({file_path: ctx.value});
+
+    return {
+      handled: true,
+      url: "#__external_viewer__",
+      target: "_self"
+    };
+  },
+
+  async resolveBrowserPaths(projectId, protocolId) {
+    return {
+      "rootAbs": project_details.path,
+      "startPath": protocolId != null ? protocolId : '.',
+      "protocolRoot": protocolId
+    };
+  },
+
+  async listRemoteDirectory(projectId, protocolId, path) {
+    let args = { root: project_details.path, path: path };
+    var items = [];
+    await handleRequestData(Api.urls.list_project_dir, args, function (data){
+      items = data.items;
+    });
+    return items;
+  },
+
+  async previewRemoteEntry(projectId, protocolId, path) {
+    let args = { root: project_details.path, path: path };
+    var preview = '';
+    await handleRequestData(Api.urls.get_file_preview, args, function (data){
+      preview = data.preview;
+    });
+    return preview;
+  },
+
+  async fetchProtocolLogChannels(projectId, protocolId) {
+    return {
+      channels: [{
+        id: "run.out",
+        label: "run.out",
+        order: 0
+      },
+      {
+        id: "run.err",
+        label: "run.err",
+        order: 1
+      },
+      {
+        id: "commands.txt",
+        label: "commands.txt",
+        order: 2
+      }]
+    };
+  },
+
+  async fetchProtocolLogsChunk(projectId, protocolId, offsets) {
+    var chunks = [{
+      channel: "run.out",
+      offset: offsets['run.out'],
+      path: projectPath(`${protocolId}/run.out`)
+    },
+    {
+      channel: "run.err",
+      offset: offsets['run.err'],
+      path: projectPath(`${protocolId}/run.err`)
+    },
+    {
+      channel: "commands.txt",
+      offset: offsets['commands.txt'],
+      path: projectPath(`${protocolId}/commands.txt`)
+    }];
+    await handleRequestData(Api.urls.get_file_chunks, { chunks: chunks }, function (data){
+      chunks = data.chunks;
+    });
+
+    return {chunks: chunks}
+  },
+
+  async listProjectTags(projectId) {
+    return project_tags;
+  },
+
+  async createProjectTag(projectId, payload) {
+    payload.id = randomUUID();
+    return updateProjectTag(null, payload);
+  },
+
+  async updateProjectTag(projectId, tagId, payload) {
+    payload.id = tagId;
+    return updateProjectTag(tagId, payload);
+  },
+
+  async deleteProjectTag(projectId, tagId) {
+    var tagIndex = findTagIndex(tagId);
+    if (tagIndex === null)
+      return { success: false, error: "Tag not found" };
+    project_tags.splice(tagIndex, 1);
+    updateProjectEntryExtraTags();
+    return { success: true };
+  },
+
+  async setProtocolTagIds(projectId, protocolId, tagIds) {
+    protocol_tags[protocolId] = tagIds;
+    project_details.protocols[protocolId].tags = tagIds;
+    updateProjectEntryExtraTags();
+    return { tagIds: tagIds }
+  },
+
+  async getContextMenuVisibilityPolicy(projectId) {
+    return {
+      open: true,
+      browse: true,
+      rename: true,
+      duplicate: true,
+      delete: true,
+      restart: false,
+      continue: false,
+      reset: false,
+      stop: true,
+      selectFrom: true,
+      selectTo: true,
+      manageTags: true,
+      openProtocolClass: true,
+      export: true,
+      upload: false,
+      nextSteps: false,
+    };
+  },
+};

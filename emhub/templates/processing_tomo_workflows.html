@@ -1,0 +1,101 @@
+{% import "entry_macros.html" as macros %}
+
+{% macro workflow_card(wf) -%}
+    {% set card_color='#E8EEF5' %}
+    {% set url = url_for_content('processing_tomo_workflows', workflow_id=wf['id']) %}
+
+    <div class="card w-auto mr-3 mb-3" style="background-color: {{ card_color }}; min-width: 500px; max-width: 700px">
+
+        <div class="card-header d-flex" style="background-color: {{ card_color }};">
+            <a class="mb-0" href="{{ url }}"><h5 class="mb-0">{{ wf['title'] }}</h5></a>
+            <div class="ml-auto row">
+                <a href="{{ url }}" class="mr-2" title="Open workflow">
+                    <i class="fas fa-external-link-alt"></i>
+                </a>
+                {% if current_user.is_manager %}
+                <a href="javascript:showWorkflowFile('{{ wf['id'] }}')" class="mr-2" title="Edit JSON">
+                    <i class="fas fa-edit"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card-body">
+            <p class="mb-2"><small>File: <code>{{ wf['file'] }}</code></small></p>
+            {% if wf['description'] %}
+            <p class="mb-0">{{ wf['description'] }}</p>
+            {% else %}
+            <p class="mb-0 text-muted"><small>No description.</small></p>
+            {% endif %}
+        </div>
+
+    </div>
+{%- endmacro %}
+
+
+<div class="container-fluid dashboard-content">
+    {% if workflow_id is defined %}
+        {% set title = workflow_name %}
+        {% set navigation = [
+            ('Processing', url_for_content('processing_tomo_list')),
+            ('Workflows', url_for_content('processing_tomo_workflows')),
+            (workflow_name, '')
+        ] %}
+    {% else %}
+        {% set title = "Workflows" %}
+        {% set navigation = [('Processing', url_for_content('processing_tomo_list')), ('Workflows', '')] %}
+    {% endif %}
+    {% include 'include_header.html' %}
+
+    {{ macros.hidden_hour_id() }}
+
+    {% if workflow_id is defined %}    
+        {% include 'project_widget_workflow.html' %}
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex align-items-center">
+                    <strong class="mr-2">Worfklows Path (from  EMWRAP_CONFIG)</strong>
+                    <code>{{ workflows_dir }}</code>
+                    {% if workflows_dir_exists %}
+                    
+                    {% elif workflows_dir != 'NO WORKFLOWS DIR SET' %}
+                    <span class="badge badge-danger ml-2">Missing dir</span>
+                    {% else %}
+                    <span class="badge badge-warning ml-2">Unset</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if workflows %}
+                    <div class="row">
+                        {% for wf in workflows %}
+                            {{ workflow_card(wf) }}
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No workflows were found in the EMwrap configuration.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if current_user.is_manager %}
+<div class="modal fade" id="workflow-modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+</div>
+{% endif %}
+
+<script>
+    function showWorkflowFile(workflowId) {
+        show_modal_from_ajax('workflow-modal',
+            get_ajax_content('emwrap_workflow_overview', {workflow_id: workflowId}));
+    }
+
+    function showWorkflowEditor(workflowId) {
+        show_modal_from_ajax('workflow-modal',
+            get_ajax_content('project_widget_workflow', {workflow_id: workflowId}));
+    }
+</script>

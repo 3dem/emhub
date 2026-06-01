@@ -111,11 +111,15 @@
                             <tr>
                                 <td><code>{{ row.name }}</code></td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-light"
+                                    <button class="btn btn-sm btn-outline-light mr-1"
+                                            title="Edit JSON"
                                             data-workflow-id="{{ row.workflow_id }}"
                                             onclick="showWorkflowFile(this.dataset.workflowId)">
                                         <i class="far fa-edit"></i>
                                     </button>
+                                    <a href="{{ url_for_content('processing_tomo_workflows', workflow_id=row.workflow_id) }}" class="mr-2" title="Open workflow">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </a>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -211,5 +215,10 @@
     function showWorkflowFile(workflowId) {
         show_modal_from_ajax('workflow-modal',
             get_ajax_content('emwrap_workflow_overview', {workflow_id: workflowId}));
+    }
+
+    function showWorkflowEditor(workflowId) {
+        show_modal_from_ajax('workflow-modal',
+            get_ajax_content('project_widget_workflow', {workflow_id: workflowId}));
     }
 </script>

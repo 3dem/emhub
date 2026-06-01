@@ -1,0 +1,399 @@
+var project_json = {{ project_json | tojson }};
+var workflow = project_json.workflow;
+var protocols = project_json.protocols;
+var forms = project_json.forms;
+var menu = project_json.menu;
+var project_id = workflow.id;
+var get_project_args = {};
+
+function showStarFile(starFile) {
+  let filePath = `/home/yunior/tmp/${starFile}`;
+  loadStarOverview(filePath, 'global');
+}
+
+var svc = {
+  fetchList() {
+    return [];
+  },
+
+  fetchProject(id) {
+    return workflow;
+  },
+
+  fetchProtocolDetails(projectId, protocolId) {
+    var data = { info: {}, values: {}, form: {} };
+    if (protocolId in protocols) {
+      var protDetails = protocols[protocolId];
+      data.info = protDetails.info;
+      data.values = protDetails.values;
+      var jobType = data.info.protocolClassName;
+      if (jobType in forms) data.form = forms[jobType];
+    }
+    return data;
+  },
+
+  resolveAnalyzeViewer: async function (ctx) {
+    try {
+      console.log("[host] resolveAnalyzeViewer context:", ctx);
+
+      if (ctx.pointerClass == 'StarFile') {
+        showStarFile("External/job050/tilt_series.star");
+
+        return {
+          handled: true,
+          url: "#__external_viewer__",
+          target: "_self"
+        };
+      }
+
+      return { handled: false };
+
+    } catch (err) {
+      console.warn("[host] resolveAnalyzeViewer failed, fallback to internal viewer:", err);
+      return { handled: false };
+    }
+  },
+
+  executeProtocol(projectId, protocolId, protocolClassName, params, mode) {
+    alert(
+      "EXECUTING protocol: " + protocolId +
+      ", class: " + protocolClassName +
+      ", params: \n" + JSON.stringify(params, null, 4) +
+      ", mode: " + mode
+    );
+    return { status: 1, errors: ["Not yet implemented"] };
+  },
+
+  saveProtocol(projectId, protocolId, protocolClassName, params) {
+    alert(
+      "SAVING protocol: " + protocolId +
+      ", class: " + protocolClassName +
+      ", params: \n" + JSON.stringify(params, null, 4)
+    );
+    return { status: 1, errors: ["Not yet implemented"] };
+  },
+
+  stopProtocol(projectId, ids) {
+    alert("Stoping protocols....." + JSON.stringify(ids, null, 4))
+    return { status: 1, errors: ["Not yet implemented"] }
+  },
+
+  duplicateProtocol(projectId, items) {
+    const duplicated = items.map((item) => ({
+      sourceId: String(item.id ?? item.protocolId ?? item),
+      newId: String(Math.floor(50000 + Math.random() * 10000)),
+    }));
+
+    const response = {
+      status: 0,
+      errors: [],
+      workflow: [],
+      duplicated,
+    };
+
+    alert("Duplicating protocols...\n" + JSON.stringify(response, null, 4));
+
+    return response;
+  },
+
+  renameProtocol(projectId, protocolId, payload) {
+    const { runName, comment } = payload ?? {};
+
+    const response = {
+      status: 0,
+      errors: [],
+      workflow: [],
+      renamed: {
+        projectId: String(projectId),
+        protocolId: String(protocolId),
+        runName: runName ?? "",
+        comment: comment ?? "",
+      },
+    };
+
+    alert(
+      "Renaming protocol...\n" +
+      JSON.stringify(response, null, 4)
+    );
+
+    return response;
+  },
+
+  createProject(data) {
+    return null;
+  },
+  renameProject(id, newName, newDescription) {
+    return null;
+  },
+  deleteProject(id) {
+    return null;
+  },
+
+  async loadProtocols(projectId) {
+    return menu.protocols;
+  },
+
+  async fetchWorkflows() {
+    return menu.workflows;
+  },
+
+  async loadWorkflow(projectId, workflowId) {
+    return { success: true };
+  },
+
+  async exportProtocols(projectId, payload) {
+    var protocolIds = payload.protocolIds;
+    var directoryPath = payload.directoryPath;
+    var filename = payload.filename;
+    alert(
+      "Exporting protocols: " + JSON.stringify(protocolIds, null, 4) +
+      "\nto directory: " + directoryPath +
+      "\nwith filename: " + filename
+    );
+    return { success: true };
+  },
+
+  async fetchNewProtocolDetails(projectId, protocolClass) {
+    var data = { info: { protocolClassName: protocolClass }, values: {}, form: {} };
+    if (protocolClass in forms) data.form = forms[protocolClass];
+    return data;
+  },
+
+  async resolveBrowserPaths(projectId, protocolId) {
+    return {
+      "rootAbs": "/home/yunior/ScipionUserData/projects/TestWarpTemplateMatching",
+      "startPath": "Runs/004138_ProtWarpTSMotionCorr",
+      "protocolRoot": "Runs/004138_ProtWarpTSMotionCorr",
+    };
+  },
+
+  async listRemoteDirectory(projectId, protocolId, path) {
+    console.log("Listing remote directory at path: " + path);
+    return [
+      {
+        "name": "extra",
+        "path": "extra",
+        "isDir": true,
+        "size": null,
+        "mime": null
+      },
+      {
+        "name": "logs",
+        "path": "logs",
+        "isDir": true,
+        "size": null,
+        "mime": null
+      },
+      {
+        "name": "TS_1.out",
+        "path": "TS_1.out",
+        "isDir": false,
+        "size": 65536,
+        "mime": "text"
+      }
+    ]
+  },
+
+  async previewRemoteEntry(projectId, protocolId, path) {
+
+    const textKind = {
+      "kind": "text",
+      "mime": "text/plain",
+      "meta": {
+        "name": "run.log",
+        "size": "12 MB"
+      },
+      "truncated": false,
+      "text": "hello\nworld\n"
+    }
+
+    const jsonKind = {
+      "kind": "text",
+      "mime": "application/json",
+      "meta": {
+        "name": "params.json",
+        "sizeBytes": 999
+      },
+      "truncated": false,
+      "text": "{\n  \"a\": 1,\n  \"b\": true\n}"
+    }
+
+    const tableKind = {
+      "kind": "table",
+      "mime": "text/csv",
+      "meta": {
+        "name": "items.csv",
+        "rowCount": 2
+      },
+      "truncated": false,
+      "columns": ["id", "name"],
+      "rows": [
+        [1, "one"],
+        [2, "two"]
+      ]
+    }
+
+    const imageKind = {
+      "kind": "image",
+      "mime": "image/png",
+      "meta": {
+        "Name": "vol.mrc",
+        "Dimension": "512x512x256",
+        "Pixelsize": "1.2 A/px",
+        "Size": "9 GB",
+        "Note": "Central slice rendered as color PNG thumbnail",
+      },
+      "truncated": false,
+      "source": {
+        "sourceType": "base64",
+        "dataBase64": "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAIAAADTED8xAAADMElEQVR4nOzVwQnAIBQFQYXff81RUkQCOyDj1YOPnbXWPmeTRef+/3O/OyBjzh3CD95BfqICMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMK0CMO0TAAD//2Anhf4QtqobAAAAAElFTkSuQmCC"
+      }
+    }
+
+    const noneKind = {
+      "kind": "none",
+      "mime": "application/pdf",
+      "meta": {
+        "name": "report.pdf"
+      },
+      "truncated": false,
+      "note": "PDF preview is not available in this dialog."
+    }
+    return imageKind
+  },
+
+  async fetchProtocolLogChannels(projectId, protocolId) {
+    return {
+      channels: [{
+        id: "default",
+        label: "Default",
+        order: 0
+      }]
+    };
+  },
+
+  async fetchProtocolLogsChunk(projectId, protocolId, offsets) {
+    return {
+      chunks: [{
+        channel: "default",
+        content: `Log content starting at offset ${offsets}...\n` +
+          `This is a simulated log entry for protocol ${protocolId} in project ${projectId}.\n` +
+          `...\nEnd of log chunk.\n`,
+        offset: 10
+      }],
+    };
+  },
+
+  async listProjectTags(projectId) {
+    return [
+      {
+        "id": "f9630f30-d27c-4a7c-af69-a85c6fff024b",
+        "projectId": 15,
+        "title": "Picking",
+        "description": null,
+        "color": "#3b82f6",
+        "createdAt": "2026-02-11T04:08:32.749996+01:00",
+        "updatedAt": null
+      },
+      {
+        "id": "63e79476-23b7-4299-8542-b167b8b1d22e",
+        "projectId": 15,
+        "title": "Processing",
+        "description": null,
+        "color": "#ef4444",
+        "createdAt": "2026-02-11T03:28:47.173776+01:00",
+        "updatedAt": null
+      }
+    ]
+  },
+
+  async createProjectTag(projectId, payload) {
+    payload = {
+      "title": "Postprocessing",
+      "description": null,
+      "color": "#f59e0b"
+    }
+    return {
+      "id": "ce7c63c8-7a46-4ece-a9bc-cc80cc5cc8a6",
+      "projectId": 15,
+      "title": "Postprocessing",
+      "description": null,
+      "color": "#f59e0b",
+      "createdAt": "2026-02-11T15:35:42.836561+01:00",
+      "updatedAt": null
+    }
+  },
+
+  async updateProjectTag(projectId, tagId, payload) {
+    payload = {
+      "title": "Picking",
+      "description": null,
+      "color": "#ec4899"
+    }
+
+    return {
+      "id": "f9630f30-d27c-4a7c-af69-a85c6fff024b",
+      "projectId": 15,
+      "title": "Picking2",
+      "description": null,
+      "color": "#ec4899",
+      "createdAt": "2026-02-11T04:08:32.749996+01:00",
+      "updatedAt": "2026-02-11T15:40:05.626484+01:00"
+    }
+
+  },
+
+  async deleteProjectTag(projectId, tagId) {
+    return { success: true }
+  },
+
+  async listProtocolTagIds(projectId, protocolId) {
+    return {
+      "protocolId": 870,
+      "tagIds": [
+        "63e79476-23b7-4299-8542-b167b8b1d22e"
+      ]
+    }
+  },
+
+  async setProtocolTagIds(projectId, protocolId, tagIds) {
+    return { tagIds: ["63e79476-23b7-4299-8542-b167b8b1d22e"] }
+  },
+
+  async getContextMenuVisibilityPolicy(projectId) {
+    return {
+      open: true,
+      browse: true,
+      rename: true,
+      duplicate: true,
+      delete: true,
+      restart: true,
+      continue: true,
+      reset: true,
+      stop: true,
+      selectFrom: true,
+      selectTo: true,
+      manageTags: true,
+      export: true,
+      upload: true,
+      nextSteps: true,
+    };
+  },
+
+  async getNextProtocolSuggestions(projectId, protocolId) {
+    return [
+      {
+        protocolName: "CryoCARE Prediction",
+        protocolClass: "ProtCryoCAREPrediction",
+        help: "Generate the final restored tomogram by applying the cryoCARE trained network to bothtomograms followed by per-pixel averaging.",
+        installed: "installed",
+      },
+      {
+        protocolName: "vectorial picking",
+        protocolClass: "DynamoBoxing",
+        help: 'Manual vectorial picker from Dynamo. After choosing the Tomogram to be picked, the tomo slicer from Dynamo will be    direclty loaded with all the models previously saved in the disk (if any).    This picking will only save the "user points" defined in a set of models. It is possible to    create several models at once in a given tomogram. Once the coordinates are defined,    the models are automatically saved in the catalogue and registered.    Currently the following Dynamo models are supported:        - Ellipsoidal Vesicle',
+        installed: "Missing. Available in scipion-em-dynamo plugin.",
+      },
+    ];
+  },
+};

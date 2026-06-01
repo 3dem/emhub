@@ -1,0 +1,29 @@
+{% import "entry_macros.html" as macros %}
+
+<!-- Common portals, inside the root to isolate them -->
+<div id="modal-root"></div>
+<div id="drawer-root"></div>
+<div id="toast-root"></div>
+<div id="portal-root"></div>
+<div id="app"></div>
+<div id="root"></div>
+
+<div class="card {{ card_extra_class | default('') }} col-12">
+  <div class="card-body">
+
+    <div id="project-widget-root" class="projectpage-widget-root">
+      <div id="projects-page-root">
+        <div class="grid" id="grid">
+          <div id="projects-host" class="hidden"></div>
+          <div id="project-page-host"></div>
+          <div id="protocol-detail-host" class="hidden"></div>
+          <div class="projectpage-portal-root" id="projectpage-portal-root"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='libs/css/projectpage-widget.css') }}?v=1" />
+<script defer src="{{ url_for('static', filename='libs/js/projectpage-widget.js') }}"></script>

@@ -37,7 +37,8 @@ STATUS_MAP = {
     'Succeeded': 'finished',
     'Running': 'running',
     'Aborted': 'aborted',
-    'Failed': 'failed'
+    'Failed': 'failed',
+    'Saved': 'saved',
 }
 
 class RelionSessionData(SessionData):

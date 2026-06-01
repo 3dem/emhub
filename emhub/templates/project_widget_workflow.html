@@ -1,0 +1,19 @@
+<div class="mb-2">
+  <small class="text-muted">
+  Editing workflow template <code>{{ workflow_file }}</code>
+  {% if workflow_description %}
+  — {{ workflow_description }}
+  {% endif %}
+  </small>
+</div>
+
+{% set card_extra_class = '' %}
+{% include 'project_widget_shell.html' %}
+
+<script>
+{% include 'project_widget_svc_workflow.html' %}
+</script>
+
+<script>
+{% include 'project_widget_bootstrap.html' %}
+</script>
