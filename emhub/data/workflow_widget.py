@@ -26,6 +26,13 @@ def get_job_form_definition(job_type, job_values=None):
     )
 
 
+def _param_references_job(param_value, job_id):
+    """Return True when a param value points at a job folder or its outputs."""
+    if not isinstance(param_value, str):
+        return False
+    return param_value == job_id or param_value.startswith(f'{job_id}/')
+
+
 def _build_job_graph(jobs):
     """Infer parent/child links from parameter references between job ids."""
     job_dict = {}
@@ -43,7 +50,7 @@ def _build_job_graph(jobs):
             if not isinstance(value, str):
                 continue
             for other_id in job_dict:
-                if other_id != job_id and value.startswith(other_id):
+                if other_id != job_id and _param_references_job(value, other_id):
                     job_info['parents'].add(other_id)
                     job_dict[other_id]['children'].add(job_id)
 
@@ -145,8 +152,8 @@ class WorkflowEditor:
     def _remap_param_value(value, parents, id_map):
         if not isinstance(value, str):
             return value
-        for parent_id in parents:
-            if value.startswith(parent_id):
+        for parent_id in sorted(parents, key=len, reverse=True):
+            if _param_references_job(value, parent_id):
                 if parent_id in id_map:
                     return value.replace(parent_id, id_map[parent_id], 1)
                 return ''
@@ -160,36 +167,45 @@ class WorkflowEditor:
         self._ensure_jobs()
 
         for job_id, job_info in job_dict.items():
-            for key, value in job_info['params'].items():
+            for key, value in (job_info.get('params') or {}).items():
                 for other_id in job_dict:
-                    if other_id != job_id and isinstance(value, str) and value.startswith(other_id):
+                    if other_id != job_id and _param_references_job(value, other_id):
                         job_info['parents'].add(other_id)
                         job_dict[other_id]['children'].add(job_id)
 
-        to_duplicate = [job_id for job_id in job_dict if not job_dict[job_id]['parents']]
+        remaining = set(job_dict.keys())
         id_map = {}
 
-        while to_duplicate:
-            job_id = to_duplicate.pop(0)
-            job_info = job_dict[job_id]
-            folder = 'External'
-            match = _JOB_ID_RE.match(job_id)
-            if match:
-                folder = match.group('folder')
+        while remaining:
+            ready = [
+                job_id for job_id in remaining
+                if job_dict[job_id]['parents'].issubset(id_map)
+            ]
+            if not ready:
+                raise Exception(
+                    "Workflow job dependency cycle or missing parent references."
+                )
 
-            new_id = self._next_job_id(folder)
-            new_params = {
-                key: self._remap_param_value(value, job_info['parents'], id_map)
-                for key, value in job_info['params'].items()
-            }
-            entry = {
-                'jobid': new_id,
-                'jobtype': job_info['jobtype'],
-                'params': new_params,
-            }
-            self.jobs.append(entry)
-            id_map[job_id] = new_id
-            to_duplicate.extend(job_info['children'])
+            for job_id in ready:
+                job_info = job_dict[job_id]
+                folder = 'External'
+                match = _JOB_ID_RE.match(job_id)
+                if match:
+                    folder = match.group('folder')
+
+                new_id = self._next_job_id(folder)
+                new_params = {
+                    key: self._remap_param_value(value, job_info['parents'], id_map)
+                    for key, value in job_info['params'].items()
+                }
+                entry = {
+                    'jobid': new_id,
+                    'jobtype': job_info['jobtype'],
+                    'params': new_params,
+                }
+                self.jobs.append(entry)
+                id_map[job_id] = new_id
+                remaining.remove(job_id)
 
         return id_map
 

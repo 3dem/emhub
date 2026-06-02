@@ -804,8 +804,11 @@ def get_file_chunks():
 def handle_workflow(handle_func=None):
     def _handle(**attrs):
         pp, pm = get_project_manager(**attrs)
+        result = None
         if handle_func:
-            handle_func(pp, pm, **attrs)
+            result = handle_func(pp, pm, **attrs)
+        if result is not None:
+            return result
         return pp['project'].get_workflow(update=True, widget=attrs.get('widget', False))
     return _handle_item(_handle, 'workflow')
 
@@ -846,7 +849,7 @@ def duplicate_jobs():
         ]
         return {'protocols': protocols, 'duplicated': duplicated}
 
-    return _handle_item(_duplicate_jobs, 'workflow')
+    return handle_workflow(_duplicate_jobs)
 
 
 @api_bp.route('/load_workflow', methods=['POST'])
@@ -858,7 +861,29 @@ def load_workflow():
     or an entry_id
     """
     def _load_workflow(pp, pm, **attrs):
-        pm.loadWorkflow(workflow_id=attrs['workflow_id'])
+        from emwrap.base import ProcessingConfig
+
+        workflow_id = attrs['workflow_id']
+        workflow_file = ProcessingConfig.get_workflow_file(workflow_id)
+        if not os.path.exists(workflow_file):
+            raise Exception(f"Workflow file not found: {workflow_file}")
+
+        workflow = ProcessingConfig.get_workflow(workflow_id)
+        expected_jobs = len(workflow.get('jobs', []))
+        id_map = pm.loadWorkflow(workflow_id=workflow_id)
+        if len(id_map) != expected_jobs:
+            raise Exception(
+                f"Workflow load mismatch for {workflow_id}: "
+                f"expected {expected_jobs} jobs from {workflow_file}, "
+                f"created {len(id_map)}"
+            )
+        protocols = pp['project'].get_workflow(update=True, widget=True)
+        return {
+            'protocols': protocols,
+            'workflow_id': workflow_id,
+            'workflow_file': os.path.basename(workflow_file),
+            'loaded_jobs': len(id_map),
+        }
 
     return handle_workflow(_load_workflow)
 

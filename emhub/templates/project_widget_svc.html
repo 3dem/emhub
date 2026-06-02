@@ -264,7 +264,8 @@ var svc = {
   },
 
   async loadWorkflow(projectId, workflowInfo) {
-    return requestAction(Api.urls.load_workflow, { workflow_id: workflowInfo.workflowId });
+    var workflow_id = workflowInfo.workflowId || workflowInfo.id;
+    return requestAction(Api.urls.load_workflow, { workflow_id: workflow_id });
   },
 
   async exportProtocols(projectId, payload) {
