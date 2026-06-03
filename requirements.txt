@@ -4,7 +4,7 @@ Flask==2.3.2
 Flask-Login==0.6.2
 Flask-Mail==0.9.1
 Flask-Markdown==0.3
-gevent==23.7.0
+gevent==23.9.1
 greenlet==2.0.2
 gunicorn==21.2.0
 itsdangerous==2.1.2
