@@ -351,7 +351,7 @@ class RelionSessionData(SessionData):
                 formDef['sections'].append(computeSection)
 
             queueParam = {
-                "name": "queue.param.name",
+                "name": "queue.name",
                 "label": "Queue",
                 "help": "Select the queue to use for this job.",
                 "paramClass": "EnumParam",
@@ -374,7 +374,7 @@ class RelionSessionData(SessionData):
                     param = {**param}
                     full_name = f"queue.param.{qname}.{param['name']}"
                     cond = param.get('condition', '')
-                    qcond = f"queue.param.name == '{qname}'"
+                    qcond = f"queue.name == '{qname}'"
                     param['name'] = full_name
                     param['condition'] = f"{cond} and {qcond}" if cond else qcond
                     queueGroup['params'].append(param)
