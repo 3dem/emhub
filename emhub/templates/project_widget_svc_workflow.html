@@ -1,0 +1,468 @@
+var project_id = {{ project_id | tojson }};
+var workflow_id = {{ workflow_id | tojson }};
+var workflow_file = {{ workflow_file | tojson }};
+var workflow_name = {{ workflow_name | tojson }};
+var workflow_description = {{ workflow_description | tojson }};
+var workflow_jobs = {{ workflow_jobs | tojson }};
+var workflow_templates = {{ workflow_templates | tojson }};
+var project_details = {{ project_details | tojson }};
+var project_entry_extra = {{ project_entry_extra | tojson }};
+var get_project_args = {{ get_project_args | tojson }};
+var all_forms = {{ forms | tojson }};
+var menu = {{ menu | tojson }};
+var workflows = {{ menu['workflows']|tojson }};
+
+let project_tags = project_entry_extra.tags.project;
+let protocol_tags = project_entry_extra.tags.protocols;
+
+function request(url, args) {
+  return $.ajax({
+    url: url,
+    type: "POST",
+    contentType: 'application/json; charset=utf-8',
+    data: JSON.stringify({ attrs: args }),
+    dataType: "json"
+  });
+}
+
+async function handleRequestData(url, args, func) {
+  try {
+    var data = await request(url, args);
+    if ('error' in data)
+      throw new Error(data.error);
+    if (func)
+      func(data);
+  } catch (error) {
+    if ("responseText" in error)
+      showError(error.responseText);
+    else if ("message" in error)
+      showError(error.message);
+    else {
+      showError("Received unknown error");
+    }
+    throw error;
+  }
+}
+
+function nextJobId(folder) {
+  folder = folder || 'External';
+  var maxIndex = 0;
+  workflow_jobs.forEach(function (job) {
+    var match = job.jobid.match(/^[^/]+\/job(\d+)$/i);
+    if (match)
+      maxIndex = Math.max(maxIndex, parseInt(match[1], 10));
+  });
+  var index = String(maxIndex + 1).padStart(3, '0');
+  return folder + '/job' + index;
+}
+
+function buildJobGraph(entries) {
+  var graph = {};
+  entries.forEach(function (entry) {
+    graph[entry.jobid] = { entry: entry, parents: {}, children: {} };
+  });
+
+  Object.keys(graph).forEach(function (jobId) {
+    var params = graph[jobId].entry.params || {};
+    Object.keys(params).forEach(function (key) {
+      var value = params[key];
+      if (typeof value !== 'string')
+        return;
+      Object.keys(graph).forEach(function (otherId) {
+        if (otherId !== jobId && value.indexOf(otherId) === 0) {
+          graph[jobId].parents[otherId] = true;
+          graph[otherId].children[jobId] = true;
+        }
+      });
+    });
+  });
+
+  return graph;
+}
+
+function protocolTemplate(jobId, jobType, parents, children) {
+  return {
+    id: jobId,
+    label: jobType,
+    parents: parents.slice(),
+    children: children.slice(),
+    inputs: [],
+    outputs: [],
+    status: 'saved',
+    type: jobType,
+    parameter: [],
+    cpuTime: '0',
+    elapsedTime: '0',
+    isInteractive: false,
+    numberOfSteps: 1,
+    stepsDone: 0,
+    tags: [],
+  };
+}
+
+function jobsToProtocols(jobs) {
+  var graph = buildJobGraph(jobs);
+  var root = protocolTemplate('PROJECT', 'PROJECT', [], []);
+  var protocols = { PROJECT: root };
+
+  Object.keys(graph).forEach(function (jobId) {
+    var jobInfo = graph[jobId];
+    var parents = Object.keys(jobInfo.parents);
+    var children = Object.keys(jobInfo.children);
+    if (parents.length === 0) {
+      parents = ['PROJECT'];
+      root.children.push(jobId);
+    }
+    protocols[jobId] = protocolTemplate(
+      jobId,
+      jobInfo.entry.jobtype,
+      parents,
+      children
+    );
+  });
+
+  return protocols;
+}
+
+function rebuildProtocolsFromJobs() {
+  project_details.protocols = jobsToProtocols(workflow_jobs);
+}
+
+function findJob(jobId) {
+  jobId = String(jobId);
+  for (var i = 0; i < workflow_jobs.length; i++) {
+    if (String(workflow_jobs[i].jobid) === jobId)
+      return workflow_jobs[i];
+  }
+  return null;
+}
+
+function upsertJob(jobId, jobType, params) {
+  var job = findJob(jobId);
+  if (!job) {
+    job = { jobid: jobId, jobtype: jobType, params: params || {} };
+    workflow_jobs.push(job);
+  } else {
+    job.jobtype = jobType;
+    job.params = params || {};
+  }
+  return job;
+}
+
+function removeJobsFromGraph(protocolIds) {
+  var removed = {};
+  protocolIds.forEach(function (id) { removed[id] = true; });
+
+  workflow_jobs = workflow_jobs.filter(function (job) {
+    return !removed[job.jobid];
+  });
+
+  Object.keys(project_details.protocols).forEach(function (protocolId) {
+    if (removed[protocolId])
+      delete project_details.protocols[protocolId];
+  });
+
+  Object.keys(project_details.protocols).forEach(function (protocolId) {
+    var protocol = project_details.protocols[protocolId];
+    if (!protocol)
+      return;
+    protocol.parents = (protocol.parents || []).filter(function (id) {
+      return !removed[id];
+    });
+    protocol.children = (protocol.children || []).filter(function (id) {
+      return !removed[id];
+    });
+  });
+
+  workflow_jobs.forEach(function (job) {
+    var params = job.params || {};
+    var cleaned = {};
+    Object.keys(params).forEach(function (key) {
+      var value = params[key];
+      if (typeof value === 'string') {
+        var drop = false;
+        protocolIds.forEach(function (id) {
+          if (value.indexOf(id) === 0)
+            drop = true;
+        });
+        if (!drop)
+          cleaned[key] = value;
+      } else {
+        cleaned[key] = value;
+      }
+    });
+    job.params = cleaned;
+  });
+}
+
+function applyWorkflowSaveResponse(data) {
+  var payload = data.workflow;
+  if (!payload)
+    return;
+  if (payload.jobs)
+    workflow_jobs = payload.jobs;
+  if (payload.protocols)
+    project_details.protocols = payload.protocols;
+}
+
+async function saveEntireWorkflow(extraAttrs) {
+  var attrs = {
+    workflow_id: workflow_id,
+    name: workflow_name,
+    description: workflow_description,
+    jobs: workflow_jobs,
+  };
+  if (extraAttrs)
+    jQuery.extend(attrs, extraAttrs);
+
+  var duplicated = [];
+  await handleRequestData(Api.urls.update_emwrap_workflow, attrs, function (data) {
+    applyWorkflowSaveResponse(data);
+    if (data.workflow && data.workflow.duplicated)
+      duplicated = data.workflow.duplicated;
+  });
+  return {
+    status: 0,
+    errors: [],
+    workflow: project_details.protocols,
+    duplicated: duplicated,
+  };
+}
+
+function protocolInfo(jobId, jobType) {
+  return {
+    name: jobType,
+    expertLevel: true,
+    favicon: null,
+    label: jobType,
+    packageLogo: '',
+    projectId: jobId,
+    inputs: [],
+    outputs: [],
+    projectName: '',
+    protocolClassName: jobType,
+    protocolId: jobId,
+    protocolName: jobType,
+    scheduleLog: null,
+    status: 'saved',
+    stderrLog: null,
+    stdoutLog: null,
+    color: '#D2F5CB',
+    executeMode: {
+      launch: {
+        label: 'Launch',
+        help: 'Launch is disabled while editing a workflow template file.',
+      },
+      restart: {
+        label: 'Restart',
+        help: 'Restart is disabled while editing a workflow template file.',
+      },
+    },
+  };
+}
+
+async function loadJobDetails(jobId, jobType) {
+  var job = jobId ? findJob(jobId) : null;
+  var values = job ? JSON.parse(JSON.stringify(job.params || {})) : {};
+  var form = all_forms[jobType];
+  if (!form) {
+    showError('Form not found for job type: ' + jobType);
+    return { info: {}, form: {}, values: {} };
+  }
+
+  return {
+    info: protocolInfo(jobId || '', jobType),
+    form: form,
+    values: values,
+  };
+}
+
+var svc = {
+  fetchList() {
+    return [];
+  },
+
+  createProject(data) {
+    return null;
+  },
+  renameProject(id, newName, newDescription) {
+    return null;
+  },
+  deleteProject(id) {
+    return null;
+  },
+
+  async fetchProject(id) {
+    return project_details;
+  },
+
+  async fetchProtocolDetails(projectId, protocolId) {
+    var jobType = project_details.protocols[protocolId].type;
+    return await loadJobDetails(protocolId, jobType);
+  },
+
+  executeProtocol(projectId, protocolId, protocolClassName, params, mode) {
+    return {
+      status: 1,
+      errors: ["Execution is disabled while editing workflow template files."],
+    };
+  },
+
+  async saveProtocol(projectId, protocolId, protocolClassName, params) {
+    var jobId = protocolId || nextJobId();
+    upsertJob(jobId, protocolClassName, params);
+    if (!project_details.protocols[jobId]) {
+      rebuildProtocolsFromJobs();
+    }
+    return saveEntireWorkflow();
+  },
+
+  stopProtocol(projectId, ids) {
+    return {
+      status: 1,
+      errors: ["Stop is disabled while editing workflow template files."],
+    };
+  },
+
+  async deleteProtocol(projectId, protocolIds) {
+    removeJobsFromGraph(protocolIds);
+    rebuildProtocolsFromJobs();
+    return saveEntireWorkflow();
+  },
+
+  async duplicateProtocol(projectId, items) {
+    var protocolIds = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var protocolId = item.id != null ? item.id : item.protocolId;
+      if (protocolId != null)
+        protocolIds.push(protocolId);
+    }
+    if (protocolIds.length === 0)
+      return { status: 0, errors: [], workflow: project_details.protocols, duplicated: [] };
+
+    return saveEntireWorkflow({
+      action: 'duplicate',
+      run_ids: protocolIds,
+    });
+  },
+
+  async fetchWorkflows() {
+    return workflows;
+  },
+
+  async loadWorkflow(projectId, workflowInfo) {
+    var templateId = workflowInfo.workflowId || workflowInfo.id;
+    if (!workflow_templates[templateId]) {
+      return {
+        status: 1,
+        errors: ["Unknown workflow template: " + templateId],
+      };
+    }
+
+    return saveEntireWorkflow({
+      action: 'load_template',
+      template_workflow_id: templateId,
+    });
+  },
+
+  async exportProtocols(projectId, payload) {
+    return {
+      status: 1,
+      errors: ["Export is disabled while editing workflow template files."],
+    };
+  },
+
+  async loadProtocols(projectId) {
+    return menu.protocols;
+  },
+
+  async fetchNewProtocolDetails(projectId, protocolClass) {
+    return await loadJobDetails(null, protocolClass);
+  },
+
+  resolveAnalyzeViewer: async function (ctx) {
+    return { handled: false };
+  },
+
+  async resolveBrowserPaths(projectId, protocolId) {
+    return {
+      rootAbs: project_details.path,
+      startPath: ".",
+      protocolRoot: protocolId,
+    };
+  },
+
+  async listRemoteDirectory(projectId, protocolId, path) {
+    return [];
+  },
+
+  async previewRemoteEntry(projectId, protocolId, path) {
+    return {
+      kind: "none",
+      note: "File browsing is disabled while editing workflow template files.",
+    };
+  },
+
+  async fetchProtocolLogChannels(projectId, protocolId) {
+    return { channels: [] };
+  },
+
+  async fetchProtocolLogsChunk(projectId, protocolId, offsets) {
+    return { chunks: [] };
+  },
+
+  async listProjectTags(projectId) {
+    return project_tags;
+  },
+
+  async createProjectTag(projectId, payload) {
+    payload.id = randomUUID();
+    project_tags.push(payload);
+    return payload;
+  },
+
+  async updateProjectTag(projectId, tagId, payload) {
+    payload.id = tagId;
+    for (var i = 0; i < project_tags.length; i++) {
+      if (project_tags[i].id === tagId) {
+        project_tags[i] = payload;
+        break;
+      }
+    }
+    return payload;
+  },
+
+  async deleteProjectTag(projectId, tagId) {
+    project_tags = project_tags.filter(function (tag) { return tag.id !== tagId; });
+    return { success: true };
+  },
+
+  async setProtocolTagIds(projectId, protocolId, tagIds) {
+    protocol_tags[protocolId] = tagIds;
+    if (project_details.protocols[protocolId])
+      project_details.protocols[protocolId].tags = tagIds;
+    return { tagIds: tagIds };
+  },
+
+  async getContextMenuVisibilityPolicy(projectId) {
+    return {
+      open: true,
+      browse: false,
+      rename: false,
+      duplicate: true,
+      delete: true,
+      restart: false,
+      continue: false,
+      reset: false,
+      stop: false,
+      selectFrom: true,
+      selectTo: true,
+      manageTags: false,
+      openProtocolClass: true,
+      export: false,
+      upload: false,
+      nextSteps: false,
+    };
+  },
+};

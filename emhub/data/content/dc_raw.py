@@ -266,6 +266,19 @@ def register_content(dc):
                     _fixIcon(child)
 
         pmenu = dc.app.dm.get_config('processing_menus')['menu_widget']
+        # Use EMwrap workflow template files as the loadable workflow menu
+        pmenu = {
+            **pmenu,
+            'workflows': [
+                {
+                    'id': wf['id'],
+                    'name': wf['title'],
+                    'description': wf.get('description', ''),
+                    'tag': 'workflow',
+                }
+                for wf in ProcessingConfig.list_workflows()
+            ],
+        }
         # Add the icon for all protocols
         for sectionName, section in pmenu['protocols'].items():
             _fixIcon(section)

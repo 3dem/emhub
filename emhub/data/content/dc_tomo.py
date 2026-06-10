@@ -50,6 +50,42 @@ DEFAULT_SESSION = {
 
 def register_content(dc):
 
+    def _get_workflow_widget_data(workflow_id):
+        from emhub.data.workflow_widget import WorkflowEditor
+
+        data = WorkflowEditor(workflow_id).get_widget_data()
+
+        def _fixIcon(item):
+            if item.get('tag') == 'protocol':
+                if 'icon' not in item:
+                    item['icon'] = {'name': 'production.png'}
+            elif 'childs' in item:
+                for child in item['childs']:
+                    _fixIcon(child)
+
+        pmenu = dc.app.dm.get_config('processing_menus')['menu_widget']
+        for section in pmenu.get('protocols', {}).values():
+            _fixIcon(section)
+
+        data['menu'] = pmenu
+        return data
+
+    @dc.content
+    def processing_tomo_workflows(**kwargs):
+        workflows_dir = ProcessingConfig.get_workflows_dir()
+        workflows_exists = bool(workflows_dir) and os.path.exists(workflows_dir)
+
+        data = {
+            'workflows': ProcessingConfig.list_workflows(),
+            'workflows_dir': workflows_dir or 'NO WORKFLOWS DIR SET',
+            'workflows_dir_exists': workflows_exists,
+        }
+
+        if workflow_id := kwargs.get('workflow_id'):
+            data.update(_get_workflow_widget_data(workflow_id))
+
+        return data
+
     @dc.content
     def emwrap_config(**kwargs):
         if not dc.app.user.is_manager:
@@ -80,6 +116,13 @@ def register_content(dc):
             'workflow_description': workflow_def.get('description', ''),
             'workflow_jobs': workflow_def.get('jobs', [])
         }
+
+    @dc.content
+    def project_widget_workflow(**kwargs):
+        if not dc.app.user.is_manager:
+            raise Exception("Invalid access")
+
+        return _get_workflow_widget_data(kwargs['workflow_id'])
 
     @dc.content
     def tomo_session(**kwargs):

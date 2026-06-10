@@ -35,6 +35,7 @@ and the server `DataManager`.
 
 """
 
+import copy
 import os
 import time
 import json
@@ -803,8 +804,11 @@ def get_file_chunks():
 def handle_workflow(handle_func=None):
     def _handle(**attrs):
         pp, pm = get_project_manager(**attrs)
+        result = None
         if handle_func:
-            handle_func(pp, pm, **attrs)
+            result = handle_func(pp, pm, **attrs)
+        if result is not None:
+            return result
         return pp['project'].get_workflow(update=True, widget=attrs.get('widget', False))
     return _handle_item(_handle, 'workflow')
 
@@ -837,7 +841,13 @@ def save_job():
 def duplicate_jobs():
     """ This method will duplicate one or more jobs. """
     def _duplicate_jobs(pp, pm, **attrs):
-        pm.duplicateJobs(attrs['run_ids'])
+        id_map = pm.duplicateJobs(attrs['run_ids'])
+        protocols = pp['project'].get_workflow(update=True, widget=True)
+        duplicated = [
+            {'sourceId': old_id, 'newId': new_id}
+            for old_id, new_id in id_map.items()
+        ]
+        return {'protocols': protocols, 'duplicated': duplicated}
 
     return handle_workflow(_duplicate_jobs)
 
@@ -851,7 +861,29 @@ def load_workflow():
     or an entry_id
     """
     def _load_workflow(pp, pm, **attrs):
-        pm.loadWorkflow(workflow_id=attrs['workflow_id'])
+        from emwrap.base import ProcessingConfig
+
+        workflow_id = attrs['workflow_id']
+        workflow_file = ProcessingConfig.get_workflow_file(workflow_id)
+        if not os.path.exists(workflow_file):
+            raise Exception(f"Workflow file not found: {workflow_file}")
+
+        workflow = ProcessingConfig.get_workflow(workflow_id)
+        expected_jobs = len(workflow.get('jobs', []))
+        id_map = pm.loadWorkflow(workflow_id=workflow_id)
+        if len(id_map) != expected_jobs:
+            raise Exception(
+                f"Workflow load mismatch for {workflow_id}: "
+                f"expected {expected_jobs} jobs from {workflow_file}, "
+                f"created {len(id_map)}"
+            )
+        protocols = pp['project'].get_workflow(update=True, widget=True)
+        return {
+            'protocols': protocols,
+            'workflow_id': workflow_id,
+            'workflow_file': os.path.basename(workflow_file),
+            'loaded_jobs': len(id_map),
+        }
 
     return handle_workflow(_load_workflow)
 
@@ -1165,18 +1197,41 @@ def update_emwrap_workflow():
 
         from emwrap.base import ProcessingConfig
 
-        workflow_id = attrs['workflow_id']
-        definition = {
-            'name': attrs['name'],
-            'description': attrs.get('description', ''),
-            'jobs': attrs['jobs']
-        }
-        workflow_file = ProcessingConfig.save_workflow(workflow_id, definition)
+        from emhub.data.workflow_widget import WorkflowEditor
 
-        return {
+        workflow_id = attrs['workflow_id']
+        jobs = attrs['jobs']
+        editor = WorkflowEditor(workflow_id, jobs=jobs)
+        editor.load()
+        protocols = None
+        duplicated = None
+
+        action = attrs.get('action')
+        if action == 'duplicate':
+            protocols, duplicated = editor.duplicate_jobs(attrs['run_ids'])
+            jobs = editor.jobs
+        elif action == 'load_template':
+            protocols = editor.load_template(attrs['template_workflow_id'])
+            jobs = editor.jobs
+
+        workflow_def = copy.deepcopy(editor.workflow_def)
+        workflow_def['name'] = attrs['name']
+        workflow_def['description'] = attrs.get(
+            'description', workflow_def.get('description', '')
+        )
+        workflow_def['jobs'] = jobs
+        workflow_file = ProcessingConfig.save_workflow(workflow_id, workflow_def)
+
+        result = {
             'workflow_id': workflow_id,
-            'workflow_file': workflow_file
+            'workflow_file': workflow_file,
+            'jobs': jobs,
         }
+        if protocols is not None:
+            result['protocols'] = protocols
+        if duplicated is not None:
+            result['duplicated'] = duplicated
+        return result
 
     return _handle_item(_update_emwrap_workflow, 'workflow')
 
