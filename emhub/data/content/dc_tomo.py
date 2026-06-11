@@ -236,8 +236,8 @@ def register_content(dc):
 
             _addCol('tomoName', 'rlnTomoName')
             _addCol('coords_md', 'rlnCoordinatesMetadata', join=True)
-            _addCol('coords_n', 'rlnCoordinatesCount')
-            _addCol('tomo_fn', 'rlnTomogram', join=True)
+            _addCol('coords_n', 'rlnParticleNumber')
+            _addCol('tomo_fn', 'rlnTomoReconstructedTomogram', join=True)
             _addCol('md', 'rlnTomoTiltSeriesStarFile', join=True)
             _addCol('ts_md', 'rlnTomoTiltSeriesStarFile', join=True)
             _addCol('aligned_ts', 'rlnTiltSeriesAligned', join=True)
