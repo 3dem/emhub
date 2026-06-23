@@ -247,6 +247,7 @@ def register_content(dc):
 
             for row in table:
                 values = {k: func(row) for k, func in colsMap.items()}
+                values['aligned_ts_params'] = True
                 tomograms.append(values)
 
         return data

@@ -88,7 +88,7 @@
                                                 <td>{{ t['thickness'] }}</td>
                                             {% endcall %}
                                             <td>
-                                                <a href="javascript:loadTomoStar({{ index }})">tomostar</a>
+                                                <a href="javascript:loadTomoStar({{ index }})">metadata</a>
                                                 {% if t['tomo_xml'] %}
                                                     &nbsp;/&nbsp; <a href="javascript:loadTomoXml({{ index }})">xml</a>
                                                 {% endif %}
@@ -101,9 +101,13 @@
                                                 {% if tomo['aligned_ts'] %}
                                                     <a href="javascript:loadAlignedTs({{ index }})"><icon class="fas fa-images mr-2"></icon></a>
                                                 {% endif %}
+                                                {% if tomo['aligned_ts_params'] %}
+                                                    <a href="javascript:plotAlignedTsParams({{ index }})"><icon class="fas fa-images mr-2"></icon></a>
+                                                {% endif %}
                                                 {% if tomo['tomo_fn'] %}
                                                     <a href="javascript:loadTomogram({{ index }})"><icon class="fas fa-cube mr-2"></icon></a>
                                                 {% endif %}
+
                                             </td>
                                         </tr>
                                     {% endfor %}
@@ -200,6 +204,10 @@
     }
 
     function loadTsMetadata(index){
+        loadStarOverview(tomograms[index].ts_md);
+    }
+
+    function plotAlignedTsParams(index) {
         loadStarOverview(tomograms[index].ts_md);
     }
 
