@@ -55,7 +55,9 @@ class RelionSessionData(SessionData):
                 # for k in ['movies', 'micrographs', 'coordinates', 'classes2d']:
                 #     setattr(self, k, self.join(session.get(k, '')))
 
-        self.workflow = RelionStar.pipeline_to_workflow(self.join('default_pipeline.star'))
+        # Workflow is now accessed via the project
+        # self.workflow = RelionStar.pipeline_to_workflow(self.join('default_pipeline.star'))
+        self._load_project()
         self.movDataTable = None
         self.micDataTable = None
 
@@ -187,24 +189,27 @@ class RelionSessionData(SessionData):
             seconds = td.days * 24 * 60 * 60 + td.seconds
         return seconds
 
+    def _load_project(self):
+        self.project = ProjectManager(self.path)
+        self.project.update()
+
     def get_workflow(self, update=False, widget=False):
         """ Return the internal workflow.
         Args:
             update: If True, force a load of the workflow, ignoring cached data
             widget: if True, convert the workflow to the expected structure of the UI widget
         """
-        from emwrap.base import ProjectManager
         if update:
-            pm = ProjectManager(self.path)
-            pm.update()
-            self.workflow = pm.get_workflow()
+            self._load_project()
+
+        wf = self.project.get_workflow()
 
         if widget:
-            return self.get_widget_protocols(self.workflow)
+            return self.get_widget_protocols(wf)
 
         protList = []
 
-        for job in self.workflow.jobs():
+        for job in wf.jobs():
             jobInfo = self._job_info(job)
             links = []
             for o in job.outputs:
@@ -252,17 +257,18 @@ class RelionSessionData(SessionData):
             jobInfo = self._job_info(job)
 
             # FIXME: Find a better way to store the outputs' info without reading many files
-            filesDict = defaultdict(lambda : {'type': 'File', 'info': 'No-info'})
-            if jobInfo:
-                filesDict.update({o['files'][0][0]: o for o in jobInfo['outputs'].values()})
+            # filesDict = defaultdict(lambda : {'type': 'File', 'info': 'No-info'})
+            # if jobInfo:
+            #     filesDict.update({o['files'][0][0]: o for o in jobInfo['outputs'].values()})
 
             for i, o in enumerate(job.outputs):
-                data = filesDict[o.id]
-                dt = data['type']
+                data = o.get('data', {})
+                dt = data.get('type', 'No-type')
+                di = data.get('info', o.id)
                 outputs.append({
                     "outputName": data.get('label', dt),
                     "pointerClass": dt,
-                    "info": f"{dt} ({data['info']})",
+                    "info": f"{dt} ({di})",
                     "value": o.id,
                     "parentId": job.id
                 })
@@ -294,7 +300,8 @@ class RelionSessionData(SessionData):
         return protocols
 
     def get_run(self, runId):
-        if job := self.workflow.getJob(runId, None):
+        wf = self.project.get_workflow()
+        if job := wf.getJob(runId, None):
             return RelionRun(self, self.join(runId), job, data=runId)
         else:
             return None
