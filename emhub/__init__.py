@@ -66,6 +66,9 @@ def create_app(test_config=None):
             return module
         return None
 
+    def default_content():
+        return os.environ.get('EMHUB_DEFAULT_CONTENT', 'dashboard')
+
     extra_api = load_module('api')
     if extra_api and 'extend_api' in dir(extra_api):
         print(f"Extending api from: {extra_api.__file__}")
@@ -186,7 +189,7 @@ def create_app(test_config=None):
 
         if app.user.is_authenticated:
             if content_id == 'user_login':  # Redirects to Dashboard by default
-                kwargs['content_id'] = 'dashboard'
+                kwargs['content_id'] = default_content()
             app.user.image = app.dc.user_profile_image(app.user)
             kwargs['view_usage_report'] = dm.check_user_access('usage_report')
         else:
@@ -213,7 +216,7 @@ def create_app(test_config=None):
         """ This view will be called when the user lands in the login page (GET)
         and also when login credentials are submitted (POST).
         """
-        next_content = flask.request.args.get('next_content', 'dashboard')
+        next_content = flask.request.args.get('next_content', default_content())
         return _redirect('main', content_id=next_content)
 
     def _default_login_user(username, password):
@@ -247,7 +250,7 @@ def create_app(test_config=None):
         flask_login.login_user(user)
 
         if next_content == 'user_login':
-            next_content = 'dashboard'
+            next_content = default_content()
         return _redirect('main', content_id=next_content)
 
     @app.route('/do_switch_login', methods=['POST'])

@@ -280,8 +280,24 @@ export EMHUB_PASSWORD=admin
 export EMHUB_SERVER_URL=http://127.0.0.1:5000
 
 """)
+        run_fn = os.path.join(instance_path, 'run.sh')
+        self._action(f'Creating run script: {run_fn}')
+        with open(run_fn, 'w') as f:
+            f.write(f"""
+#!/usr/bin/bash 
 
-        useCmd = Color.green(f"source {fn}\nflask run --debug\n")
+# Get the directory of the current script
+export DIR="$( cd -- "$( dirname -- "${{BASH_SOURCE[0]}}" )" &> /dev/null && pwd )"
+
+. ${{DIR}}/bashrc
+flask run --debug
+
+""")
+
+        # Give execute permissions to the run script
+        Process.system(f"chmod +x {run_fn}", color=Color.green)
+
+        useCmd = Color.green(f"{instance_path}/run.sh\n")
         print(f"\n"
               f"EMhub instance sucessfully created!!!\n"
               f"To use it do:\n\n"

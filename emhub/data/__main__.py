@@ -47,13 +47,6 @@ def setup_processing(dm, instance_folder, workspaces):
                                     <i class="fas fa-tachometer-alt"></i>Tomography</a>
                             </li>
                         </ul>
-
-                        <ul class="nav flex-column submenu">
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for_content('fibsem_sessions_list') }}">
-                                    <i class="fas fa-tachometer-alt"></i>FIBSEM</a>
-                            </li>
-                        </ul>
                 </div>
             </nav>
         </div>
@@ -64,6 +57,9 @@ def setup_processing(dm, instance_folder, workspaces):
     Process.Logger().mkdir(extra_folder) 
     with open(os.path.join(extra_folder, 'main_left_sidebar.html'), 'w') as f:
         f.write(template)
+
+    with open(os.path.join(instance_folder, 'bashrc'), 'a') as f:
+        f.write(f"export EMHUB_DEFAULT_CONTENT=processing_tomo_list\n")
 
     for ws in workspaces:
         projects = []
@@ -78,37 +74,36 @@ def setup_processing(dm, instance_folder, workspaces):
         if projects:
             p = dm.create_project(
                 user_id=1,  #FIXME
-                status='special:processing',
+                status='special:processing_tomo',
                 user_can_edit=True,
                 is_confidential=False,
                 title=os.path.basename(Path.rmslash(ws)),
                 description="Workspace imported from " + ws
             )
             for proj_folder in projects:
-                print("   - creating project: ", proj_folder)
-                dm.create_entry(project_id=p.id,
-                        type='data_processing',
-                        extra={"data": {"project_path": proj_folder}})
+                print("   - registering project: ", proj_folder)
+                extra = {"data": {"processing_path": proj_folder, "share_table": []}}
+                dm.create_entry(project_id=p.id, type='tomo_processing', extra=extra)
 
 
 def main():
     p = argparse.ArgumentParser(prog='emh-data')
     g = p.add_mutually_exclusive_group()
 
-    g.add_argument('--create_instance', nargs='*',
+    g.add_argument('--create_instance', '-c', nargs='*',
                    metavar=('FOLDER', 'JSON_FILE'),
                    help="Create a new instance in a FOLDER from a JSON_FILE. "
                         "If not FOLDER is provided, it will use by default:"
                         "~/.emhub/instances/test. "
                         "If not JSON is provided, a default one will be "
                         "created with some test data. ")
-    g.add_argument('--create_minimal', metavar='FOLDER',
+    g.add_argument('--create_minimal', '-m', metavar='FOLDER',
                    help="Same as --create_instance but using a minimal "
                         "JSON file for the instance creation. ")
-    g.add_argument('--create_processing', nargs='+',  metavar=('FOLDER', 'WORKSPACE_FOLDER'),
+    g.add_argument('--create_processing_tomo', '-t', nargs='+',  metavar=('FOLDER', 'WORKSPACE_FOLDER'),
                    help="Create a new instance in FOLDER customized for "
                         "a data processing workspace. ")
-    g.add_argument('--dump', nargs=2,
+    g.add_argument('--dump', '-d', nargs=2,
                    metavar=('KEYS', 'JSON_FILE'),
                    help="Dump data related to an Entity in the data model."
                         "For example: forms, resources, etc. "
@@ -135,7 +130,7 @@ def main():
     elif minimal := args.create_minimal:
         create_instance(minimal, MINIMAL_JSON, args.force)
 
-    elif processing := args.create_processing:
+    elif processing := args.create_processing_tomo:
         instance_path = processing[0]
         workspaces = processing[1:]
 

@@ -258,26 +258,11 @@ def register_content(dc):
         data = e['extra']['data']
         ppath = None
 
-        keys = [
-            "processing_path",
-            "data_path",
-            "pixel_size",
-            "voltage",
-            "spherical_aberration",
-            "amplitude_contrast",
-            "total_dose"
-        ]
-
         dpath = data.get('data_path', '')
         ppath = data.get('processing_path', '')
 
-        for k in keys:
-            v = data.get(k, '')
-            if not v:
-                raise Exception(f"Provide a value for '{k}', it can not be empty.")
-
-        if not os.path.exists(dpath):
-            raise Exception(f"Data path '{dpath}' does not exist!")
+        if not ppath:
+            raise Exception(f"Processing path can not be empty.")
 
         if os.path.exists(ppath):
             pipeline_star = os.path.join(ppath, 'default_pipeline.star')
@@ -286,29 +271,20 @@ def register_content(dc):
                                 f"Please choose an existing project or create a new one.")
             
         else:
+            # Only require the data path if the project path does not exist
+            if not dpath:
+                raise Exception(f"Data path is required to create a new project.")
+
+            if not os.path.exists(dpath):
+                raise Exception(f"Data path '{dpath}' does not exist!")
+
             parent_path = os.path.dirname(ppath)
             if not os.path.exists(parent_path):
                 raise Exception(f"Parent path '{parent_path}' does not exist!")
             # Create a new project in the parent path
             os.makedirs(ppath)
             from emwrap.base import ProjectManager
-            pm = ProjectManager(ppath, create=True)
-            # Also create an import job template with the provided values
-            args = {
-                "tilt_images": "data/",
-                "mdoc_files": "data/Position*[1-9].mdoc",
-                "gain_file": "",
-                "tilt_axis_angle": "85",
-                "acq.pixel_size": data['pixel_size'],
-                "acq.voltage": data['voltage'],
-                "acq.cs": data['spherical_aberration'],
-                "acq.amplitude_constrast": data['amplitude_contrast'],
-                "acq.total_dose": data['total_dose'],
-                "wait.timeout": "1",
-                "wait.file_change": "1",
-                "wait.sleep": "1"
-            }
-            pm.saveJob('emw-import-ts', args)
+            pm = ProjectManager(ppath, create=True)            
             os.symlink(data['data_path'], os.path.join(ppath, 'data'))
 
 
