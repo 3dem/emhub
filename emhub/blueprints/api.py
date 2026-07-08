@@ -809,6 +809,7 @@ def handle_workflow(handle_func=None):
             result = handle_func(pp, pm, **attrs)
         if result is not None:
             return result
+        print(f"{Pretty.now()} >>>>>> {Color.warn('Getting workflow from' + pp['project'].path)}", flush=True)
         return pp['project'].get_workflow(update=True, widget=attrs.get('widget', False))
     return _handle_item(_handle, 'workflow')
 

@@ -290,8 +290,8 @@ def register_content(dc):
             'project_entry_extra': entry.extra,
             'menu': pmenu
         })
-        with open(f'project_{project_id}.json', 'w') as f:
-            json.dump(project_details, f, indent=4)
+        # with open(f'project_{project_id}.json', 'w') as f:
+        #     json.dump(project_details, f, indent=4)
 
         return data
 
