@@ -932,6 +932,17 @@ def delete_jobs():
     return handle_workflow(_delete_job)
 
 
+@api_bp.route('/stop_jobs', methods=['POST'])
+@flask_login.login_required
+def stop_jobs():
+    """ Stop one or more launched/running jobs. """
+    def _stop_jobs(pp, pm, **attrs):
+        for run_id in attrs['run_ids']:
+            pm.stopJob(run_id)
+
+    return handle_workflow(_stop_jobs)
+
+
 @api_bp.route("/get_classes2d", methods=['POST'])
 def get_classes2d():
     """ Load 2d classification data. """

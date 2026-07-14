@@ -378,7 +378,7 @@ class RelionSessionData(SessionData):
 
             for queue in queues:
                 qname = queue['name']
-                for param in queue['params']:
+                for param in queue.get('params', []):
                     # Copy so we never mutate ProcessingConfig queue definitions in
                     # place — repeated get_form_definition calls would otherwise
                     # keep prepending queue.param.{qname}. to names.

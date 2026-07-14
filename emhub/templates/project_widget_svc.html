@@ -226,6 +226,9 @@ var svc = {
   },
 
   executeProtocol(projectId, protocolId, protocolClassName, params, mode) {
+    if (mode === 'stop')
+      return this.stopProtocol(projectId, [protocolId]);
+
     var args = {
       run_id: protocolId,
       job_type: protocolClassName,
@@ -245,8 +248,7 @@ var svc = {
   },
 
   stopProtocol(projectId, ids) {
-    alert("Stoping protocols....." + JSON.stringify(ids, null, 4))
-    return { status: 1, errors: ["Not yet implemented"] }
+    return requestAction(Api.urls.stop_jobs, { run_ids: ids });
   },
 
   async deleteProtocol(projectId, protocolIds) {
