@@ -36,6 +36,7 @@ location = os.path.dirname(__file__)
 STATUS_MAP = {
     'Succeeded': 'finished',
     'Running': 'running',
+    'Launched': 'launched',
     'Aborted': 'aborted',
     'Failed': 'failed',
     'Saved': 'saved',
@@ -190,19 +191,21 @@ class RelionSessionData(SessionData):
         return seconds
 
     def _load_project(self):
+        print(f"{Pretty.now()} >>>>>> Loading workflow from {self.path}", flush=True)
         self.project = ProjectManager(self.path)
         self.project.update()
 
     def get_workflow(self, update=False, widget=False):
         """ Return the internal workflow.
         Args:
-            update: If True, force a load of the workflow, ignoring cached data
+            update: If True, force a reload of the project from disk
             widget: if True, convert the workflow to the expected structure of the UI widget
         """
-        if update:
+        if update or not getattr(self, 'project', None):
             self._load_project()
 
         wf = self.project.get_workflow()
+        
 
         if widget:
             return self.get_widget_protocols(wf)
@@ -262,11 +265,12 @@ class RelionSessionData(SessionData):
             #     filesDict.update({o['files'][0][0]: o for o in jobInfo['outputs'].values()})
 
             for i, o in enumerate(job.outputs):
-                data = o.get('data', {})
-                dt = data.get('type', 'No-type')
-                di = data.get('info', o.id)
+                #data = o.get('data', {})
+                dt = o.get('datatype', 'No-type')
+                di = o.get('info', o.id)
+                label = o.get('label', dt)
                 outputs.append({
-                    "outputName": data.get('label', dt),
+                    "outputName": label,
                     "pointerClass": dt,
                     "info": f"{dt} ({di})",
                     "value": o.id,
