@@ -36,6 +36,7 @@ location = os.path.dirname(__file__)
 STATUS_MAP = {
     'Succeeded': 'finished',
     'Running': 'running',
+    'Launched': 'launched',
     'Aborted': 'aborted',
     'Failed': 'failed',
     'Saved': 'saved',

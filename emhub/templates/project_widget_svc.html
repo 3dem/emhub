@@ -201,8 +201,20 @@ var svc = {
   },
 
   async fetchProject(id) {
-    if (cache.isStale()) {
-      requestAction(Api.urls.get_session_workflow, { project_id: id });
+    // Refresh when cache is old, or whenever any job is still active so
+    // RELION_JOB_* status files are picked up by the backend update().
+    var needsRefresh = cache.isStale();
+    if (!needsRefresh) {
+      for (const protocolId in project_details.protocols) {
+        var status = String(project_details.protocols[protocolId].status || '').toLowerCase();
+        if (status === 'running' || status === 'launched' || status === 'scheduled') {
+          needsRefresh = true;
+          break;
+        }
+      }
+    }
+    if (needsRefresh) {
+      await requestAction(Api.urls.get_session_workflow, { project_id: id });
     }
 
     return project_details;

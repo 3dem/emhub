@@ -223,7 +223,7 @@ class SessionTaskHandler(TaskHandler):
             userFolder = baseName
         rawRoot = self.sconfig['raw']['root']
         fullName = self.get_session_fullname()
-        # Offload server path where to transfer the files
+        # Offload server path where to transfer the files   
         rawPath = os.path.join(rawRoot, self.users['group'], self.microscope,
                                str(datetime.now().year), 'raw', 'EPU',
                                userFolder, fullName)
