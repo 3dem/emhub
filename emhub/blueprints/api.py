@@ -698,8 +698,11 @@ def get_session_run():
 
 def get_project_manager(**attrs):
     pp = app.dm.get_processing_project(**attrs)
-    from emwrap.base import ProjectManager
-    pm = ProjectManager(pp['project'].path)
+    session = pp['project']
+    pm = getattr(session, 'project', None)
+    if pm is None:
+        from emwrap.base import ProjectManager
+        pm = ProjectManager(session.path)
     return pp, pm
 
 
@@ -801,7 +804,7 @@ def get_file_chunks():
         return chunks
     return _handle_item(_handle, 'chunks')    
 
-def handle_workflow(handle_func=None):
+def handle_workflow(handle_func=None, reload=False):
     def _handle(**attrs):
         pp, pm = get_project_manager(**attrs)
         result = None
@@ -810,7 +813,8 @@ def handle_workflow(handle_func=None):
         if result is not None:
             return result
         print(f"{Pretty.now()} >>>>>> {Color.warn('Getting workflow from' + pp['project'].path)}", flush=True)
-        return pp['project'].get_workflow(update=True, widget=attrs.get('widget', False))
+        return pp['project'].get_workflow(
+            update=reload, widget=attrs.get('widget', False))
     return _handle_item(_handle, 'workflow')
 
 
@@ -843,7 +847,7 @@ def duplicate_jobs():
     """ This method will duplicate one or more jobs. """
     def _duplicate_jobs(pp, pm, **attrs):
         id_map = pm.duplicateJobs(attrs['run_ids'])
-        protocols = pp['project'].get_workflow(update=True, widget=True)
+        protocols = pp['project'].get_workflow(widget=True)
         duplicated = [
             {'sourceId': old_id, 'newId': new_id}
             for old_id, new_id in id_map.items()
@@ -878,7 +882,7 @@ def load_workflow():
                 f"expected {expected_jobs} jobs from {workflow_file}, "
                 f"created {len(id_map)}"
             )
-        protocols = pp['project'].get_workflow(update=True, widget=True)
+        protocols = pp['project'].get_workflow(widget=True)
         return {
             'protocols': protocols,
             'workflow_id': workflow_id,

@@ -198,7 +198,9 @@ class RelionSessionData(SessionData):
     def get_workflow(self, update=False, widget=False):
         """ Return the internal workflow.
         Args:
-            update: If True, force a reload of the project from disk
+            update: If True, reload the project from disk and refresh job status.
+                Normally unnecessary within a request: RelionSessionData.__init__
+                already loads and updates once via _load_project().
             widget: if True, convert the workflow to the expected structure of the UI widget
         """
         if update or not getattr(self, 'project', None):
@@ -366,7 +368,7 @@ class RelionSessionData(SessionData):
                 "label": "Queue",
                 "help": "Select the queue to use for this job.",
                 "paramClass": "EnumParam",
-                "choices": {q['name']: q['name'] for q in queues},
+                "choices": {q['name']: q.get('label', q['name']) for q in queues},
                 "default": queues[0]['name']
             }
             queueGroup = {
