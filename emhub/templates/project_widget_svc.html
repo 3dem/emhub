@@ -185,6 +185,44 @@ async function requestAction(url, args) {
   };
 }
 
+async function loadTableViewData(starPath, pointerClass) {
+  var tableViewData = null;
+  await handleRequestData(
+    Api.urls.get_table_view_data,
+    {
+      root: project_details.path,
+      starPath: starPath,
+      pointerClass: pointerClass,
+      tableKey: 'global',
+    },
+    function (data) {
+      tableViewData = data.tableViewData;
+    },
+  );
+  return tableViewData || { columns: [], rows: [] };
+}
+
+async function buildTableViewerAnalyzeDecision(ctx, pointerClass) {
+  var outputPath = ctx.value || ctx.outputRaw?.value || '';
+  var tableViewData = await loadTableViewData(outputPath, pointerClass);
+  return {
+    handled: true,
+    viewer: 'table-viewer-pane',
+    title: ctx.outputName,
+    emptyPaneMessage: 'Select a row and click an action to view metadata or plots.',
+    tableViewContext: {
+      projectId: ctx.projectId,
+      protocolId: ctx.protocolId,
+      outputName: ctx.outputName,
+      outputPath: outputPath,
+      pointerClass: pointerClass,
+      tableKey: 'global',
+      protocolLabel: ctx.protocolLabel,
+    },
+    tableViewData: tableViewData,
+  };
+}
+
 var svc = {
   fetchList() {
     return [];
@@ -297,7 +335,14 @@ var svc = {
   },
 
   resolveAnalyzeViewer: async function (ctx) {
-    visualizeOutput({file_path: ctx.value});
+    var pointerClass = String(ctx.pointerClass || ctx.outputRaw?.pointerClass || '').replace(/\s+/g, '');
+    var outputPath = ctx.value || ctx.outputRaw?.value || '';
+
+    if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries') {
+      return buildTableViewerAnalyzeDecision(ctx, pointerClass);
+    }
+
+    visualizeOutput({ file_path: outputPath || ctx.value });
 
     return {
       handled: true,
@@ -423,6 +468,41 @@ var svc = {
       export: true,
       upload: false,
       nextSteps: false,
+    };
+  },
+
+  /**
+   * Return right-pane content when a row action is triggered.
+   * request: { ...context, rowId, actionId, row }
+   */
+  async resolveTableViewPane(request) {
+    var starRel = request.row?.cells?.starFile
+      || request.row?.cells?.rlnTomoTiltSeriesStarFile
+      || '';
+
+    if (!starRel) {
+      return { kind: 'empty', message: 'No tilt-series STAR file for this row.' };
+    }
+
+    var paneContent = null;
+    await handleRequestData(
+      Api.urls.resolve_table_view_pane,
+      {
+        root: project_details.path,
+        starPath: starRel,
+        pointerClass: request.pointerClass,
+        actionId: request.actionId,
+        rowId: request.rowId,
+        rowLabel: request.row?.cells?.tomoName || request.rowId,
+      },
+      function (data) {
+        paneContent = data.paneContent;
+      },
+    );
+
+    return paneContent || {
+      kind: 'empty',
+      message: 'Could not load viewer content.',
     };
   },
 };
