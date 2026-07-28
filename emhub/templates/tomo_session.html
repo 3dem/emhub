@@ -92,13 +92,19 @@
                 content = get_ajax_content('fsc_plot', {path: value});
               }
               else if (value.endsWith('.star')) {
-
-                  let args = {
-                    tomo_session: JSON.stringify({
-                        path: tomo_session_path,
-                        tomograms_star: value
-                    })}
-                content = get_ajax_content('tomo_session_content', args);
+                  let relPath = output.file_path;
+                  let session = { path: tomo_session_path };
+                  if (relPath.endsWith('optimisation_set.star') || relPath.endsWith('particles.star')) {
+                      session.coordinates_star = relPath;
+                      if (!relPath.endsWith('optimisation_set.star')) {
+                          session.tomograms_star = relPath.replace(/particles\.star$/, 'tomograms.star');
+                      }
+                  } else {
+                      session.tomograms_star = relPath;
+                  }
+                  content = get_ajax_content('tomo_session_content', {
+                      tomo_session: JSON.stringify(session)
+                  });
               }
               else if (value.endsWith('.mrc') || value.endsWith('.mrcs'))
                   content = get_ajax_content('processing_volume_card',
@@ -113,11 +119,16 @@
                   throw new Error("Missing viewer for file: " + value);
 
               load_overview(value, content, function() {
-                let basename = getBasename(value);
-                if (basename.startsWith('tomogram'))
+                let relPath = output.file_path;
+                if (relPath.endsWith('optimisation_set.star') || relPath.endsWith('particles.star')) {
                     loadTomogram(0);
-                else if (value.endsWith('series.star'))
-                    loadAlignedTs(0);
+                } else {
+                    let basename = getBasename(value);
+                    if (basename.startsWith('tomogram'))
+                        loadTomogram(0);
+                    else if (value.endsWith('series.star'))
+                        loadAlignedTs(0);
+                }
               });
 
             // Return this for triggering the widget viewers

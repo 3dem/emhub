@@ -550,18 +550,20 @@ def register_content(dc):
         else:
             data = processing_volume_card(**kwargs)
 
-            x = []
-            y = []
-            z = []
-            data['coordinates'] = {'x': x, 'y': y, 'z': z}
+            data['coordinates'] = {'x': [], 'y': [], 'z': []}
 
-            if coords_md := kwargs.get('coords_md', ''):
-                if os.path.exists(coords_md):
-                    with StarFile(coords_md) as sf:
-                        for row in sf.iterTable('particles'):
-                            x.append(round(row.rlnCoordinateX))
-                            y.append(round(row.rlnCoordinateY))
-                            z.append(round(row.rlnCoordinateZ))
+            coords_set = kwargs.get('coords_set') or kwargs.get('output_path')
+            project_path = kwargs.get('project_path') or kwargs.get('root')
+            tomo_name = kwargs.get('tomo_name')
+
+            if coords_set and project_path and tomo_name:
+                from emhub.data.coords3d import load_tomogram_card_coordinates
+
+                data['coordinates'] = load_tomogram_card_coordinates(
+                    project_path,
+                    coords_set,
+                    tomo_name=tomo_name,
+                )
 
         return data
 
