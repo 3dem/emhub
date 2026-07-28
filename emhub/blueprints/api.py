@@ -51,9 +51,9 @@ import jwt
 
 from emtools.image import Thumbnail
 from emtools.utils import Pretty, Color, Path
-from emtools.metadata import StarFile
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
+from .api_viewers import *
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -787,103 +787,6 @@ def get_file_preview():
     return _handle_item(_handle, 'preview')
 
 
-TABLE_VIEW_SPECS = {
-    'tiltseriesmovies': {
-        'title': 'Tilt series movies',
-        'columns': [
-            {'id': 'tomoName', 'label': 'Tomo name', 'align': 'left'},
-            {'id': 'starFile', 'label': 'Tilt series STAR', 'align': 'left'},
-            {'id': 'pixelSize', 'label': 'Pixel size (Å/px)', 'align': 'right'},
-        ],
-        'cell_fields': {
-            'tomoName': 'rlnTomoName',
-            'starFile': 'rlnTomoTiltSeriesStarFile',
-            'pixelSize': 'rlnMicrographOriginalPixelSize',
-        },
-        'actions': [
-            {'id': 'metadata', 'label': 'metadata'},
-            {'id': 'tilt-angles', 'label': 'tilt angles'},
-        ],
-    },
-    'tiltseries': {
-        'title': 'Tilt series',
-        'columns': [
-            {'id': 'tomoName', 'label': 'Tomo name', 'align': 'left'},
-            {'id': 'pixelSize', 'label': 'Pixel size (Å/px)', 'align': 'right'},
-            {'id': 'tsPixelSize', 'label': 'TS pixel size (Å/px)', 'align': 'right'},
-        ],
-        'cell_fields': {
-            'tomoName': 'rlnTomoName',
-            'starFile': 'rlnTomoTiltSeriesStarFile',
-            'pixelSize': 'rlnMicrographOriginalPixelSize',
-            'tsPixelSize': 'rlnTomoTiltSeriesPixelSize',
-        },
-        'actions': [
-            {'id': 'metadata', 'label': 'metadata'},
-            {'id': 'tilt-angles', 'label': 'tilt angles'},
-            {'id': 'motion', 'label': 'motion'},
-        ],
-    },
-}
-
-
-def _table_view_row_cells(spec, star_cells):
-    return {
-        cell_id: star_cells.get(star_col, '')
-        for cell_id, star_col in spec['cell_fields'].items()
-    }
-
-
-def _normalize_table_view_type(pointer_class):
-    key = (pointer_class or '').replace(' ', '').lower()
-    if key in TABLE_VIEW_SPECS:
-        return key
-    return None
-
-
-def _resolve_table_view_type(pointer_class, star_path):
-    type_key = _normalize_table_view_type(pointer_class)
-    if type_key:
-        return type_key
-    if '_series' in os.path.basename(star_path or ''):
-        return 'tiltseriesmovies'
-    return None
-
-
-def _table_view_valid_actions(type_key):
-    return {action['id'] for action in TABLE_VIEW_SPECS[type_key]['actions']}
-
-
-def _build_global_tilt_series_table(full_path, type_key):
-    """Build TableViewerPane rows from a global tilt-series STAR file."""
-    spec = TABLE_VIEW_SPECS[type_key]
-    with StarFile(full_path) as sf:
-        table_names = sf.getTableNames()
-        if not table_names:
-            return {'columns': [], 'rows': [], 'title': spec['title']}
-
-        table_name = 'global' if 'global' in table_names else table_names[0]
-        columns = list(spec['columns'])
-
-        rows = []
-        for idx, row in enumerate(sf.iterTable(table_name, guessType=False)):
-            star_cells = row._asdict()
-            row_cells = _table_view_row_cells(spec, star_cells)
-            tomo_name = row_cells.get('tomoName', '')
-
-            rows.append({
-                'id': tomo_name or idx,
-                'cells': row_cells,
-                'actions': list(spec['actions']),
-            })
-
-        return {
-            'title': f"{spec['title']} ({len(rows)} items)",
-            'columns': columns,
-            'rows': rows,
-        }
-
-
 @api_bp.route('/get_table_view_data', methods=['POST'])
 @flask_login.login_required
 def get_table_view_data():
@@ -899,153 +802,13 @@ def get_table_view_data():
         if not os.path.exists(full_path):
             raise Exception(f'STAR file not found: {star_path}')
 
-        type_key = _resolve_table_view_type(pointer_class, star_path)
+        type_key = resolve_table_view_type(pointer_class, star_path)
         if type_key:
-            return _build_global_tilt_series_table(full_path, type_key)
+            return build_global_tilt_series_table(full_path, type_key, root=root)
 
         raise Exception(f'Unsupported table view type: {pointer_class or star_path}')
 
     return _handle_item(_handle, 'tableViewData')
-
-
-def _resolve_series_star_table_name(sf):
-    table_names = sf.getTableNames()
-    if not table_names:
-        return None
-    for name in table_names:
-        if name != 'global':
-            return name
-    return table_names[0]
-
-
-def _build_tilt_angles_plot_content(full_path, title=None):
-    """Plot pre-exposure vs nominal stage tilt angle from a per-series STAR file."""
-    x_col = 'rlnTomoNominalStageTiltAngle'
-    y_col = 'rlnMicrographPreExposure'
-
-    with StarFile(full_path) as sf:
-        table_name = _resolve_series_star_table_name(sf)
-        if not table_name:
-            raise Exception('STAR file has no tables')
-
-        col_names = sf.getTableInfo(table_name).getColumnNames()
-        if x_col not in col_names:
-            raise Exception(f'STAR file is missing column {x_col}')
-        if y_col not in col_names:
-            raise Exception(f'STAR file is missing column {y_col}')
-
-        points = []
-        for row in sf.iterTable(table_name, guessType=False):
-            cells = row._asdict()
-            try:
-                x_val = float(cells.get(x_col))
-                y_val = float(cells.get(y_col))
-            except (TypeError, ValueError):
-                continue
-            points.append((x_val, y_val))
-
-    if not points:
-        raise Exception('No tilt-angle / pre-exposure values found in STAR file')
-
-    points.sort(key=lambda item: item[0])
-    xs = [p[0] for p in points]
-    ys = [p[1] for p in points]
-    basename = os.path.basename(full_path)
-
-    return {
-        'kind': 'plotly',
-        'title': title or f'Tilt angles — {basename}',
-        'figure': {
-            'data': [{
-                'type': 'scatter',
-                'mode': 'lines+markers',
-                'x': xs,
-                'y': ys,
-                'marker': {'size': 7},
-                'line': {'width': 1.5},
-                'name': 'Pre-exposure',
-            }],
-            'layout': {
-                'xaxis': {'title': 'Nominal stage tilt angle (°)'},
-                'yaxis': {'title': 'Pre-exposure (e-/Å²)'},
-                'margin': {'l': 64, 'r': 16, 't': 36, 'b': 52},
-                'showlegend': False,
-            },
-        },
-    }
-
-
-def _build_motion_plot_content(full_path, title=None):
-    """Plot accumulated motion vs nominal stage tilt angle from a per-series STAR file."""
-    x_col = 'rlnTomoNominalStageTiltAngle'
-    motion_series = [
-        ('rlnAccumMotionTotal', 'Total'),
-        ('rlnAccumMotionEarly', 'Early'),
-        ('rlnAccumMotionLate', 'Late'),
-    ]
-
-    with StarFile(full_path) as sf:
-        table_name = _resolve_series_star_table_name(sf)
-        if not table_name:
-            raise Exception('STAR file has no tables')
-
-        col_names = sf.getTableInfo(table_name).getColumnNames()
-        if x_col not in col_names:
-            raise Exception(f'STAR file is missing column {x_col}')
-
-        available_motion = [
-            (col, label) for col, label in motion_series if col in col_names
-        ]
-        if not available_motion:
-            raise Exception('STAR file has no accumulated motion columns')
-
-        points_by_series = {col: [] for col, _ in available_motion}
-        for row in sf.iterTable(table_name, guessType=False):
-            cells = row._asdict()
-            try:
-                x_val = float(cells.get(x_col))
-            except (TypeError, ValueError):
-                continue
-            for col, _ in available_motion:
-                try:
-                    y_val = float(cells.get(col))
-                except (TypeError, ValueError):
-                    continue
-                points_by_series[col].append((x_val, y_val))
-
-    traces = []
-    for col, label in available_motion:
-        points = points_by_series[col]
-        if not points:
-            continue
-        points.sort(key=lambda item: item[0])
-        traces.append({
-            'type': 'scatter',
-            'mode': 'lines+markers',
-            'x': [p[0] for p in points],
-            'y': [p[1] for p in points],
-            'marker': {'size': 7},
-            'line': {'width': 1.5},
-            'name': label,
-        })
-
-    if not traces:
-        raise Exception('No motion values found in STAR file')
-
-    basename = os.path.basename(full_path)
-    return {
-        'kind': 'plotly',
-        'title': title or f'Motion — {basename}',
-        'figure': {
-            'data': traces,
-            'layout': {
-                'xaxis': {'title': 'Nominal stage tilt angle (°)'},
-                'yaxis': {'title': 'Accumulated motion (Å)'},
-                'margin': {'l': 64, 'r': 16, 't': 36, 'b': 52},
-                'showlegend': len(traces) > 1,
-            },
-        },
-    }
 
 
 @api_bp.route('/resolve_table_view_pane', methods=['POST'])
@@ -1067,59 +830,106 @@ def resolve_table_view_pane():
         if not os.path.exists(full_path):
             raise Exception(f'STAR file not found: {star_rel}')
 
-        type_key = _resolve_table_view_type(pointer_class, star_rel)
+        type_key = resolve_table_view_type(pointer_class, star_rel)
         if not type_key:
             raise Exception(f'Unsupported table view type: {pointer_class or star_rel}')
 
-        valid_actions = _table_view_valid_actions(type_key)
-        if action_id not in valid_actions:
+        if not action_allowed_for_series(type_key, action_id, full_path):
             raise Exception(
                 f'Action {action_id!r} is not supported for {type_key}'
             )
 
         row_label = attrs.get('rowLabel') or attrs.get('rowId') or os.path.basename(star_rel)
-        title_base = os.path.basename(star_rel)
 
         if action_id == 'tilt-angles':
-            return _build_tilt_angles_plot_content(
+            return build_tilt_angles_plot_content(
                 full_path,
                 title=f'Tilt angles — {row_label}',
             )
 
+        if action_id == 'defocus':
+            return build_defocus_plot_content(
+                full_path,
+                title=f'Defocus — {row_label}',
+            )
+
         if action_id == 'motion':
-            return _build_motion_plot_content(
+            return build_motion_plot_content(
                 full_path,
                 title=f'Motion — {row_label}',
             )
 
         if action_id == 'metadata':
-            info = {
-                'kind': 'none',
-                'mime': 'text/plain',
-                'meta': {'name': star_rel},
-                'truncated': False,
-                'note': 'Cannot preview this file type.',
-            }
-            if Path.isText(star_rel):
-                with open(full_path) as f:
-                    info.update({
-                        'text': f.read(),
-                        'mime': 'text/plain',
-                        'kind': 'text',
-                    })
-            if info.get('kind') != 'text':
-                note = info.get('note') or info.get('error') or 'Could not load STAR file preview.'
-                return {'kind': 'empty', 'message': note, 'title': title_base}
-
-            return {
-                'kind': 'text',
-                'title': title_base,
-                'text': info['text'],
-            }
+            return build_metadata_pane_content(star_rel, full_path)
 
         raise Exception(f'Unsupported table view action: {action_id}')
 
     return _handle_item(_handle, 'paneContent')
+
+
+def _coords3d_output_path(attrs, protocol_id=None):
+    output_path = (
+        attrs.get('outputPath')
+        or attrs.get('output_path')
+        or attrs.get('outputName')
+        or attrs.get('output_name')
+    )
+    if output_path:
+        return output_path
+    protocol_id = protocol_id or attrs.get('protocolId') or attrs.get('protocol_id')
+    if protocol_id:
+        return os.path.join(protocol_id, 'optimisation_set.star')
+    raise Exception('Missing outputPath / outputName')
+
+
+@api_bp.route('/list_coords3d_tomograms', methods=['POST'])
+@flask_login.login_required
+def list_coords3d_tomograms():
+    def _handle(**attrs):
+        from emhub.data.coords3d import load_coords3d_tomograms
+
+        root = attrs['root']
+        output_path = _coords3d_output_path(attrs)
+        return load_coords3d_tomograms(root, output_path)
+
+    return _handle_item(_handle, 'tomograms')
+
+
+@api_bp.route('/fetch_coords3d_for_tomogram', methods=['POST'])
+@flask_login.login_required
+def fetch_coords3d_for_tomogram():
+    def _handle(**attrs):
+        from emhub.data.coords3d import load_coords3d_for_tomogram
+
+        root = attrs['root']
+        output_path = _coords3d_output_path(attrs)
+        tomo_id = attrs.get('tomoId') or attrs.get('tomo_id')
+        if not tomo_id:
+            raise Exception('Missing tomoId')
+        return load_coords3d_for_tomogram(root, output_path, tomo_id)
+
+    return _handle_item(_handle, 'coords3d')
+
+
+@api_bp.route('/fetch_coords3d_tomogram_slice', methods=['POST'])
+@flask_login.login_required
+def fetch_coords3d_tomogram_slice():
+    def _handle(**attrs):
+        from emhub.data.coords3d import load_coords3d_tomogram_slice
+
+        root = attrs['root']
+        output_path = _coords3d_output_path(attrs)
+        tomo_id = attrs.get('tomoId') or attrs.get('tomo_id')
+        if not tomo_id:
+            raise Exception('Missing tomoId')
+        slice_index = attrs.get('index')
+        if slice_index is None:
+            raise Exception('Missing slice index')
+        axis = attrs.get('axis', 'z')
+        return load_coords3d_tomogram_slice(
+            root, output_path, tomo_id, slice_index, axis=axis)
+
+    return _handle_item(_handle, 'slice')
 
 
 @api_bp.route('/get_file_chunks', methods=['POST'])
