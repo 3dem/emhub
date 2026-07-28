@@ -150,6 +150,8 @@ def register_content(dc):
                 tsession = json.loads(kwargs.get('tomo_session', '{}'))
                 if 'tomograms_star' in tsession:
                     tomo_session['tomograms_star'] = tsession['tomograms_star']
+                if 'coordinates_star' in tsession:
+                    tomo_session['coordinates_star'] = tsession['coordinates_star']
                 data.update(tomo_session_content(tomo_session=json.dumps(tomo_session)))
                 data['mode'] = mode
                 return data
@@ -182,7 +184,10 @@ def register_content(dc):
         }
 
     def _load_table_from_star(session_path, star_file):
-        star_path = os.path.join(session_path, star_file)
+        if os.path.isabs(star_file):
+            star_path = star_file
+        else:
+            star_path = os.path.join(session_path, star_file)
 
         if not os.path.exists(star_path):
             raise Exception(f"Star file '{star_path}' does not exist")
@@ -211,18 +216,53 @@ def register_content(dc):
         data = {
             'tomograms': [],
             'session_path': session_path,
-            'columns_map': {}
+            'columns_map': {},
+            'coordinates_star': tomo_session.get('coordinates_star', ''),
+            'errors': [],
         }
 
         tomograms_star = tomo_session.get('tomograms_star', 'tomograms.star')
+        coordinates_star = data['coordinates_star']
+        particles_star = ''
 
-        if s.exists(tomograms_star):
+        def _apply_coords_paths(coords_path):
+            nonlocal tomograms_star, particles_star, coordinates_star
+            from emhub.data.coords3d import resolve_coords_set
+            paths = resolve_coords_set(session_path, coords_path)
+            particles_star = paths['particles_star']
+            coordinates_star = coords_path
+            data['coordinates_star'] = coordinates_star
+            if paths.get('tomograms_star'):
+                tomograms_star = paths['tomograms_star']
+                return
+            coords_abs = coords_path if os.path.isabs(coords_path) else os.path.join(
+                session_path, coords_path)
+            candidate = os.path.join(os.path.dirname(coords_abs), 'tomograms.star')
+            if os.path.exists(candidate):
+                tomograms_star = candidate
+
+        if coordinates_star:
+            try:
+                _apply_coords_paths(coordinates_star)
+            except Exception as e:
+                particles_star = ''
+                data['errors'].append(str(e))
+        elif os.path.basename(tomograms_star) == 'optimisation_set.star':
+            try:
+                _apply_coords_paths(tomograms_star)
+            except Exception as e:
+                particles_star = ''
+                data['errors'].append(str(e))
+
+        star_exists = (
+            os.path.exists(tomograms_star)
+            if os.path.isabs(tomograms_star)
+            else s.exists(tomograms_star)
+        )
+        if star_exists:
             table = _load_table_from_star(session_path, tomograms_star)
 
         if table:
-            # It is possible to load the table from folder, but better to explicitly
-            # generate the tomograms.star
-            # table = _load_table_from_folders(session_path, tomo_session)
             tomograms = data['tomograms']
             colsMap = data['columns_map']
             cols = table.getColumnNames()
@@ -235,8 +275,6 @@ def register_content(dc):
                     colsMap[key] = lambda row: _join(getattr(row, label)) if join else getattr(row, label)
 
             _addCol('tomoName', 'rlnTomoName')
-            _addCol('coords_md', 'rlnCoordinatesMetadata', join=True)
-            _addCol('coords_n', 'rlnParticleNumber')
             _addCol('tomo_fn', 'rlnTomoReconstructedTomogram', join=True)
             _addCol('md', 'rlnTomoTiltSeriesStarFile', join=True)
             _addCol('ts_md', 'rlnTomoTiltSeriesStarFile', join=True)
@@ -244,10 +282,16 @@ def register_content(dc):
             _addCol('tomo_xml', 'wrpTomoMetadataXml', join=True)
             _addCol('defocus', 'rlnDefocus')
             _addCol('thickness', 'rlnThickness')
+            if coordinates_star and particles_star:
+                colsMap['coords_n'] = lambda _row: True
 
             for row in table:
                 values = {k: func(row) for k, func in colsMap.items()}
                 values['aligned_ts_params'] = True
+                if coordinates_star and particles_star:
+                    from emhub.data.coords3d import count_particles_for_tomo
+                    values['coords_n'] = count_particles_for_tomo(
+                        session_path, coordinates_star, values.get('tomoName', ''))
                 tomograms.append(values)
 
         return data
