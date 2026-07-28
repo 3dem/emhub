@@ -267,9 +267,9 @@ class RelionSessionData(SessionData):
             #     filesDict.update({o['files'][0][0]: o for o in jobInfo['outputs'].values()})
 
             for i, o in enumerate(job.outputs):
-                #data = o.get('data', {})
-                dt = o.get('datatype', 'No-type')
-                di = o.get('info', o.id)
+                cached = self.project._data.getOutputInfo(o.id)
+                dt = o.get('datatype') or cached.get('type', 'No-type')
+                di = o.get('info') or cached.get('info', o.id)
                 label = o.get('label', dt)
                 outputs.append({
                     "outputName": label,
