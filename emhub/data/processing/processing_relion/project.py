@@ -317,12 +317,17 @@ class RelionSessionData(SessionData):
         else:
             return None
 
-    def get_form_definition(self, jobType, jobValues=None):
+    def get_form_definition(self, jobType, jobValues=None, runId=None):
         """ Return the form for a given jobType.
         Args:
             jobType: the type of the job.
             jobValues: values of an existing job, to extend the form if
                 these keys are missing.
+            runId: job folder id (e.g. WarpMctf/job003). Required for the
+                no-JSON-form fallback: those job types have no static form
+                definition, so parameter names come from that run's job.star
+                and differ per run. runId locates the correct file when
+                jobValues was not loaded yet.
         """
         default = {'paramClass': 'StringParam',
                    'important': False,
@@ -349,66 +354,90 @@ class RelionSessionData(SessionData):
                 _set_defaults(paramDef)
                 allParams.add(name)
 
-        if jobForm := ProcessingConfig.get_job_form(jobType):
+        # For jobs without a JSON form, the GUI builds fields from job.star.
+        # jobValues is usually filled by RelionRun, but callers may only pass
+        # runId (e.g. form-only requests); read the star file directly then.
+        if jobValues is None and runId:
+            jobStar = self.join(runId, 'job.star')
+            if os.path.exists(jobStar):
+                jobValues = RelionStar.read_jobstar(jobStar)
+
+        jobForm = ProcessingConfig.get_job_form(jobType)
+
+        if jobForm:
             formDef['help'] = jobForm.get('help', '')
             for paramDef in ProcessingConfig.iter_form_params(jobForm):
                 _register(paramDef)
             for sectionDef in jobForm['sections']:
                 formDef['sections'].append(sectionDef)
 
-        # Add queue parameters if defined in the config
-        # Check if already exists a Compute section and add the queue parameters to it
-        if queues := ProcessingConfig.get_queues():
-            computeSection = None
-            for sectionDef in jobForm['sections']:
-                if sectionDef['label'] == 'Compute':
-                    computeSection = sectionDef
-                    break
-            if computeSection is None:
-                computeSection = {'label': 'Compute', 'params': []}
-                formDef['sections'].append(computeSection)
+            # Add queue parameters if defined in the config
+            if queues := ProcessingConfig.get_queues():
+                computeSection = None
+                for sectionDef in jobForm['sections']:
+                    if sectionDef['label'] == 'Compute':
+                        computeSection = sectionDef
+                        break
+                if computeSection is None:
+                    computeSection = {'label': 'Compute', 'params': []}
+                    formDef['sections'].append(computeSection)
 
-            queueParam = {
-                "name": "queue.name",
-                "label": "Queue",
-                "help": "Select the queue to use for this job.",
-                "paramClass": "EnumParam",
-                "choices": {q['name']: q.get('label', q['name']) for q in queues},
-                "default": queues[0]['name']
-            }
-            queueGroup = {
-                'label': 'Queue', 
-                'paramClass': 'Group', 
-                'params': [queueParam]
-            }
-            _register(queueParam)
+                queueParam = {
+                    "name": "queue.name",
+                    "label": "Queue",
+                    "help": "Select the queue to use for this job.",
+                    "paramClass": "EnumParam",
+                    "choices": {q['name']: q.get('label', q['name']) for q in queues},
+                    "default": queues[0]['name']
+                }
+                queueGroup = {
+                    'label': 'Queue',
+                    'paramClass': 'Group',
+                    'params': [queueParam]
+                }
+                _register(queueParam)
 
-            for queue in queues:
-                qname = queue['name']
-                for param in queue.get('params', []):
-                    # Copy so we never mutate ProcessingConfig queue definitions in
-                    # place — repeated get_form_definition calls would otherwise
-                    # keep prepending queue.param.{qname}. to names.
-                    param = {**param}
-                    full_name = f"queue.param.{qname}.{param['name']}"
-                    cond = param.get('condition', '')
-                    qcond = f"queue.name == '{qname}'"
-                    param['name'] = full_name
-                    param['condition'] = f"{cond} and {qcond}" if cond else qcond
-                    queueGroup['params'].append(param)
-                    _register(param)
+                for queue in queues:
+                    qname = queue['name']
+                    for param in queue.get('params', []):
+                        # Copy so we never mutate ProcessingConfig queue definitions in
+                        # place — repeated get_form_definition calls would otherwise
+                        # keep prepending queue.param.{qname}. to names.
+                        param = {**param}
+                        full_name = f"queue.param.{qname}.{param['name']}"
+                        cond = param.get('condition', '')
+                        qcond = f"queue.name == '{qname}'"
+                        param['name'] = full_name
+                        param['condition'] = f"{cond} and {qcond}" if cond else qcond
+                        queueGroup['params'].append(param)
+                        _register(param)
 
-            computeSection['params'].append(queueGroup)
+                computeSection['params'].append(queueGroup)
 
-        if jobValues:
-            extraParams = []
-            for k, v in jobValues.items():
-                if k not in allParams:
-                    extraParams.append(_set_defaults({'label': k, 'name': k}))
+            if jobValues:
+                extraParams = []
+                for k in sorted(jobValues.keys()):
+                    if k not in allParams:
+                        extraParams.append(_set_defaults({'label': k, 'name': k}))
 
-            if extraParams:
-                formDef['sections'].append({'label': 'extra params',
-                                            'params': extraParams})
+                if extraParams:
+                    formDef['sections'].append({'label': 'extra params',
+                                                'params': extraParams})
+        else:
+            # No emwrap form JSON: one Parameters section from this run's
+            # job.star (not shared across runs of the same job type).
+            params = []
+            for key in sorted((jobValues or {}).keys()):
+                paramDef = _set_defaults({'label': key, 'name': key})
+                _register(paramDef)
+                params.append(paramDef)
+
+            formDef['sections'].append({
+                'label': 'Parameters',
+                'params': params,
+            })
+            formDef['source'] = 'jobstar'
+
         return formDef
 
 

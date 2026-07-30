@@ -76,7 +76,7 @@ async function loadJobDetails(jobId, jobType) {
 
   var output = jobId == null ? [] : ['json'];
 
-  if (jobType in all_forms)
+  if (jobId == null && jobType in all_forms)
     result.form = all_forms[jobType]
   else
     output.push('form')
@@ -95,7 +95,9 @@ async function loadJobDetails(jobId, jobType) {
     var run_data = data['run'];
     if ('form' in run_data) {
       result.form = run_data['form'];
-      all_forms[jobType] = result.form;
+      if (jobId == null && run_data['form'].source !== 'jobstar') {
+        all_forms[jobType] = result.form;
+      }
     }
 
     if ('json' in run_data) {

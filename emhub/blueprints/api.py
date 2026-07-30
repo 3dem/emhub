@@ -690,7 +690,15 @@ def get_session_run():
 
         if 'form' in outputs:
             values = run.values if run else None
-            results['form'] = pp['project'].get_form_definition(jobtype, jobValues=values)
+            # Pass runId so get_form_definition can read job.star when there
+            # is no JSON form and jobValues was not provided (params are
+            # per-run, keyed by folder id, not by job type alone).
+            run_id = run.id if run else attrs.get('run_id')
+            results['form'] = pp['project'].get_form_definition(
+                jobtype,
+                jobValues=values,
+                runId=run_id,
+            )
 
         return results
 
