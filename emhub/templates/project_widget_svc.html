@@ -340,7 +340,7 @@ var svc = {
     var pointerClass = String(ctx.pointerClass || ctx.outputRaw?.pointerClass || '').replace(/\s+/g, '');
     var outputPath = ctx.value || ctx.outputRaw?.value || '';
 
-    if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries') {
+    if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles') {
       return buildTableViewerAnalyzeDecision(ctx, pointerClass);
     }
 
@@ -508,19 +508,35 @@ var svc = {
    */
   async resolveTableViewPane(request) {
     var columnId = request.columnId || request.column_id || '';
-    var starRel = '';
+    var pathCellFields = {
+      starFile: 'starFilePath',
+      alignedStack: 'alignedStackPath',
+      tomogram: 'tomogramPath',
+    };
+    var pathRel = '';
 
     if (columnId && request.row && request.row.cells) {
-      starRel = request.row.cells[columnId] || '';
+      var pathKey = pathCellFields[columnId] || columnId;
+      pathRel = request.row.cells[pathKey] || '';
+      if (!pathRel && pathCellFields[columnId] == null) {
+        pathRel = request.row.cells[columnId] || '';
+      }
     }
-    if (!starRel) {
-      starRel = request.row?.cells?.starFile
+    if (!pathRel) {
+      pathRel = request.row?.cells?.starFilePath
+        || request.row?.cells?.starFile
         || request.row?.cells?.rlnTomoTiltSeriesStarFile
+        || request.row?.cells?.alignedStackPath
+        || request.row?.cells?.alignedStack
+        || request.row?.cells?.rlnTiltSeriesAligned
+        || request.row?.cells?.tomogramPath
+        || request.row?.cells?.tomogram
+        || request.row?.cells?.rlnTomoReconstructedTomogram
         || '';
     }
 
-    if (!starRel) {
-      return { kind: 'empty', message: 'No tilt-series STAR file for this row.' };
+    if (!pathRel) {
+      return { kind: 'empty', message: 'No path available for this row action.' };
     }
 
     var paneContent = null;
@@ -528,7 +544,8 @@ var svc = {
       Api.urls.resolve_table_view_pane,
       {
         root: project_details.path,
-        starPath: starRel,
+        starPath: pathRel,
+        outputPath: request.outputPath,
         pointerClass: request.pointerClass,
         actionId: request.actionId,
         columnId: columnId || undefined,

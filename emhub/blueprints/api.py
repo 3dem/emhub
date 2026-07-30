@@ -811,6 +811,8 @@ def get_table_view_data():
             raise Exception(f'STAR file not found: {star_path}')
 
         type_key = resolve_table_view_type(pointer_class, star_path)
+        if type_key == 'tomocoordinates':
+            return build_tomocoordinates_table(star_path, root=root)
         if type_key:
             return build_global_tilt_series_table(full_path, type_key, root=root)
 
@@ -829,55 +831,76 @@ def resolve_table_view_pane():
         column_id = attrs.get('columnId') or attrs.get('column_id')
         row = attrs.get('row') or {}
         row_cells = row.get('cells') or {}
-        star_rel = (
-            attrs.get('starPath')
-            or attrs.get('starFile')
-            or attrs.get('path')
+
+        type_hint_path = resolve_table_view_type_hint(attrs, row_cells)
+        type_key = resolve_table_view_type(pointer_class, type_hint_path)
+        if not type_key:
+            raise Exception(f'Unsupported table view type: {pointer_class or type_hint_path}')
+
+        row_label = (
+            attrs.get('rowLabel')
+            or attrs.get('rowId')
+            or row_cells.get('tomoName')
+            or os.path.basename(type_hint_path or '')
         )
-        if not star_rel and column_id:
-            star_rel = row_cells.get(column_id)
-        if not star_rel:
-            star_rel = row_cells.get('starFile') or row_cells.get('rlnTomoTiltSeriesStarFile')
+
+        if action_id == 'aligned-slices':
+            stack_rel = resolve_row_aligned_stack_path(row_cells, column_id)
+            if not stack_rel:
+                raise Exception('Missing aligned tilt series stack path')
+            if not action_allowed_for_series(type_key, action_id, None):
+                raise Exception(
+                    f'Action {action_id!r} is not supported for {type_key}'
+                )
+            return build_aligned_stack_slider_pane_content(
+                root,
+                stack_rel,
+                title=stack_rel,
+            )
+
+        if action_id == 'volume-slices':
+            tomo_rel = resolve_row_tomogram_path(row_cells, column_id)
+            if not tomo_rel:
+                raise Exception('Missing tomogram path')
+            if not action_allowed_for_series(type_key, action_id, None):
+                raise Exception(
+                    f'Action {action_id!r} is not supported for {type_key}'
+                )
+            coordinates = None
+            if type_key == 'tomocoordinates':
+                from emhub.data.coords3d import load_tomogram_card_coordinates
+
+                output_path = (
+                    attrs.get('outputPath')
+                    or attrs.get('path')
+                    or attrs.get('starPath')
+                )
+                if not output_path:
+                    raise Exception('Missing optimisation_set.star output path')
+                tomo_name = row_cells.get('tomoName') or row_label
+                coordinates = load_tomogram_card_coordinates(
+                    root,
+                    output_path,
+                    tomo_name,
+                )
+            return build_tomogram_volume_slider_pane_content(
+                root,
+                tomo_rel,
+                title=tomo_rel,
+                coordinates=coordinates,
+            )
+
+        star_rel = resolve_row_star_path(attrs, row_cells, column_id)
         if not star_rel:
             raise Exception('Missing star file path')
 
-        full_path = os.path.join(root, star_rel)
-        if not os.path.exists(full_path):
-            raise Exception(f'STAR file not found: {star_rel}')
-
-        type_key = resolve_table_view_type(pointer_class, star_rel)
-        if not type_key:
-            raise Exception(f'Unsupported table view type: {pointer_class or star_rel}')
-
-        if not action_allowed_for_series(type_key, action_id, full_path):
-            raise Exception(
-                f'Action {action_id!r} is not supported for {type_key}'
-            )
-
-        row_label = attrs.get('rowLabel') or attrs.get('rowId') or os.path.basename(star_rel)
-
-        if action_id == 'tilt-angles':
-            return build_tilt_angles_plot_content(
-                full_path,
-                title=f'Tilt angles — {row_label}',
-            )
-
-        if action_id == 'defocus':
-            return build_defocus_plot_content(
-                full_path,
-                title=f'Defocus — {row_label}',
-            )
-
-        if action_id == 'motion':
-            return build_motion_plot_content(
-                full_path,
-                title=f'Motion — {row_label}',
-            )
-
-        if action_id == 'metadata':
-            return build_metadata_pane_content(star_rel, full_path)
-
-        raise Exception(f'Unsupported table view action: {action_id}')
+        return build_series_star_pane_content(
+            action_id,
+            root,
+            star_rel,
+            row_label,
+            type_key,
+        )
 
     return _handle_item(_handle, 'paneContent')
 
