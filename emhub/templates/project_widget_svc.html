@@ -471,14 +471,51 @@ var svc = {
     };
   },
 
+  async renameProtocol(projectId, protocolId, payload) {
+    var runName = String(payload?.runName ?? '').trim();
+    var comment = String(payload?.comment ?? '').trim();
+    var protocol = null;
+
+    await handleRequestData(
+      Api.urls.save_job_annotation,
+      {
+        run_id: protocolId,
+        runName: runName,
+        comment: comment,
+      },
+      function (data) {
+        protocol = data.protocol;
+      },
+    );
+
+    if (project_details.protocols[protocolId]) {
+      project_details.protocols[protocolId].runName = protocol?.runName ?? runName;
+      project_details.protocols[protocolId].comment = protocol?.comment ?? comment;
+    }
+
+    return protocol || {
+      id: protocolId,
+      runName: runName,
+      comment: comment,
+    };
+  },
+
   /**
    * Return right-pane content when a row action is triggered.
    * request: { ...context, rowId, actionId, row }
    */
   async resolveTableViewPane(request) {
-    var starRel = request.row?.cells?.starFile
-      || request.row?.cells?.rlnTomoTiltSeriesStarFile
-      || '';
+    var columnId = request.columnId || request.column_id || '';
+    var starRel = '';
+
+    if (columnId && request.row && request.row.cells) {
+      starRel = request.row.cells[columnId] || '';
+    }
+    if (!starRel) {
+      starRel = request.row?.cells?.starFile
+        || request.row?.cells?.rlnTomoTiltSeriesStarFile
+        || '';
+    }
 
     if (!starRel) {
       return { kind: 'empty', message: 'No tilt-series STAR file for this row.' };
@@ -492,7 +529,9 @@ var svc = {
         starPath: starRel,
         pointerClass: request.pointerClass,
         actionId: request.actionId,
+        columnId: columnId || undefined,
         rowId: request.rowId,
+        row: request.row,
         rowLabel: request.row?.cells?.tomoName || request.rowId,
       },
       function (data) {

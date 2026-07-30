@@ -818,11 +818,18 @@ def resolve_table_view_pane():
         root = attrs['root']
         action_id = attrs.get('actionId') or attrs.get('action_id')
         pointer_class = attrs.get('pointerClass') or attrs.get('pointer_class')
+        column_id = attrs.get('columnId') or attrs.get('column_id')
+        row = attrs.get('row') or {}
+        row_cells = row.get('cells') or {}
         star_rel = (
             attrs.get('starPath')
             or attrs.get('starFile')
             or attrs.get('path')
         )
+        if not star_rel and column_id:
+            star_rel = row_cells.get(column_id)
+        if not star_rel:
+            star_rel = row_cells.get('starFile') or row_cells.get('rlnTomoTiltSeriesStarFile')
         if not star_rel:
             raise Exception('Missing star file path')
 
@@ -969,6 +976,33 @@ def handle_workflow(handle_func=None, reload=False):
 @flask_login.login_required
 def get_session_workflow():
     return handle_workflow()
+
+
+@api_bp.route('/save_job_annotation', methods=['POST'])
+@flask_login.login_required
+def save_job_annotation():
+    """Save run name and comment for a processing job."""
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        run_id = (
+            attrs.get('run_id')
+            or attrs.get('protocolId')
+            or attrs.get('protocol_id')
+        )
+        if not run_id:
+            raise Exception('Missing run_id / protocolId')
+
+        run_name = attrs.get('runName') or attrs.get('run_name') or ''
+        comment = attrs.get('comment') or ''
+        pm.saveJobAnnotation(run_id, run_name, comment)
+        annotation = pm.getJobAnnotation(run_id)
+        return {
+            'id': run_id,
+            'runName': annotation['runName'],
+            'comment': annotation['comment'],
+        }
+
+    return _handle_item(_handle, 'protocol')
 
 
 @api_bp.route('/save_job', methods=['POST'])

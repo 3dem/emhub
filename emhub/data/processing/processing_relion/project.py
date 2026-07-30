@@ -303,6 +303,11 @@ class RelionSessionData(SessionData):
 
             protocols[job.id] = prot
 
+        for protocol_id, protocol in protocols.items():
+            if protocol_id == 'PROJECT':
+                continue
+            protocol.update(self.project.getJobAnnotation(protocol_id))
+
         return protocols
 
     def get_run(self, runId):

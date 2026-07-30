@@ -98,23 +98,19 @@ var svc = {
 
   renameProtocol(projectId, protocolId, payload) {
     const { runName, comment } = payload ?? {};
+    const runNameValue = String(runName ?? '').trim();
+    const commentValue = String(comment ?? '').trim();
+
+    if (protocolId in protocols) {
+      protocols[protocolId].runName = runNameValue;
+      protocols[protocolId].comment = commentValue;
+    }
 
     const response = {
-      status: 0,
-      errors: [],
-      workflow: [],
-      renamed: {
-        projectId: String(projectId),
-        protocolId: String(protocolId),
-        runName: runName ?? "",
-        comment: comment ?? "",
-      },
+      id: String(protocolId),
+      runName: runNameValue,
+      comment: commentValue,
     };
-
-    alert(
-      "Renaming protocol...\n" +
-      JSON.stringify(response, null, 4)
-    );
 
     return response;
   },
