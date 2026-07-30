@@ -38,7 +38,7 @@ TABLE_VIEW_SPECS = {
         'title': 'Tilt series movies',
         'columns': [
             {'id': 'tomoName', 'label': 'Tomo name', 'align': 'left'},
-            {'id': 'starFile', 'label': 'Tilt series STAR', 'align': 'left'},
+            {'id': 'starFile', 'label': 'Metadata', 'align': 'left'},
             {'id': 'pixelSize', 'label': 'Pixel size (Å/px)', 'align': 'right'},
         ],
         'cell_fields': {
@@ -47,7 +47,7 @@ TABLE_VIEW_SPECS = {
             'pixelSize': 'rlnMicrographOriginalPixelSize',
         },
         'actions': [
-            {'id': 'metadata', 'label': 'metadata'},
+            {'id': 'metadata', 'label': 'metadata', 'column': 'starFile'},
             {'id': 'tilt-angles', 'label': 'tilt angles'},
         ],
     },
@@ -55,6 +55,7 @@ TABLE_VIEW_SPECS = {
         'title': 'Tilt series',
         'columns': [
             {'id': 'tomoName', 'label': 'Tomo name', 'align': 'left'},
+            {'id': 'starFile', 'label': 'Metadata', 'align': 'left'},
             {'id': 'pixelSize', 'label': 'Pixel size (Å/px)', 'align': 'right'},
             {'id': 'tsPixelSize', 'label': 'TS pixel size (Å/px)', 'align': 'right'},
         ],
@@ -65,7 +66,7 @@ TABLE_VIEW_SPECS = {
             'tsPixelSize': 'rlnTomoTiltSeriesPixelSize',
         },
         'actions': [
-            {'id': 'metadata', 'label': 'metadata'},
+            {'id': 'metadata', 'label': 'metadata', 'column': 'starFile'},
             {'id': 'tilt-angles', 'label': 'tilt angles'},
             {'id': 'motion', 'label': 'motion'},
         ],
@@ -164,8 +165,33 @@ def action_allowed_for_series(type_key, action_id, series_star_path):
     return False
 
 
+def _table_view_action_payload(action):
+    return {'id': action['id'], 'label': action['label']}
+
+
+def _table_view_column_actions(spec):
+    """Attach static column-bound actions to column definitions."""
+    columns = []
+    for col in spec['columns']:
+        col_def = dict(col)
+        col_actions = [
+            _table_view_action_payload(action)
+            for action in spec['actions']
+            if action.get('column') == col['id']
+        ]
+        if col_actions:
+            col_def['actions'] = col_actions
+        columns.append(col_def)
+    return columns
+
+
 def _table_view_row_actions(spec, type_key, row_cells, root=None):
-    actions = list(spec['actions'])
+    """Return row-level actions (those not bound to a column)."""
+    actions = [
+        _table_view_action_payload(action)
+        for action in spec['actions']
+        if not action.get('column')
+    ]
     star_rel = row_cells.get('starFile')
     if root and star_rel and type_key in TABLE_VIEW_OPTIONAL_ACTIONS:
         actions.extend(
@@ -183,7 +209,7 @@ def build_global_tilt_series_table(full_path, type_key, root=None):
             return {'columns': [], 'rows': [], 'title': spec['title']}
 
         table_name = 'global' if 'global' in table_names else table_names[0]
-        columns = list(spec['columns'])
+        columns = _table_view_column_actions(spec)
 
         rows = []
         for idx, row in enumerate(sf.iterTable(table_name, guessType=False)):
