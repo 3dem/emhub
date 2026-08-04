@@ -43,7 +43,7 @@ import argparse
 from datetime import datetime
 from pprint import pprint
 
-from .data_client import open_client, config
+from .data_client import open_client, config, DataClient
 
 from emtools.utils import Pretty, Color, Path, FolderManager
 from emtools.metadata import MovieFiles, StarFile
@@ -364,7 +364,179 @@ def process_users(args):
                                     piStr, str(user['roles'])))
 
 
+def _fetch_forms(server_url=None):
+    """Return all forms from the given server (default: configured local URL)."""
+    if server_url:
+        dc = DataClient(server_url=server_url)
+        dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+        try:
+            return dc.request('get_forms', jsonData=None).json()
+        finally:
+            dc.logout()
+    with open_client() as dc:
+        return dc.request('get_forms', jsonData=None).json()
+
+
+def _diff_json(local, remote, path=''):
+    """Return (path, local_value, remote_value) tuples for differing JSON nodes."""
+    diffs = []
+    if type(local) is not type(remote):
+        diffs.append((path or '.', local, remote))
+        return diffs
+
+    if isinstance(local, dict):
+        for key in sorted(set(local) | set(remote)):
+            sub_path = f"{path}.{key}" if path else key
+            if key not in local:
+                diffs.append((sub_path, None, remote[key]))
+            elif key not in remote:
+                diffs.append((sub_path, local[key], None))
+            else:
+                diffs.extend(_diff_json(local[key], remote[key], sub_path))
+    elif isinstance(local, list):
+        for i in range(max(len(local), len(remote))):
+            sub_path = f"{path}[{i}]"
+            if i >= len(local):
+                diffs.append((sub_path, None, remote[i]))
+            elif i >= len(remote):
+                diffs.append((sub_path, local[i], None))
+            else:
+                diffs.extend(_diff_json(local[i], remote[i], sub_path))
+    elif local != remote:
+        diffs.append((path or '.', local, remote))
+    return diffs
+
+
+def _format_diff_value(value):
+    if isinstance(value, (dict, list)):
+        text = json.dumps(value, sort_keys=True)
+        if len(text) > 100:
+            return text[:97] + '...'
+        return text
+    return repr(value)
+
+
+def _print_form_definition_diffs(name, local_f, remote_f, diffs):
+    """Print path-level definition differences for a single form."""
+    id_note = ''
+    if local_f['id'] != remote_f['id']:
+        id_note = f" (ids: local={local_f['id']}, remote={remote_f['id']})"
+    print(f"\n{Color.bold(name)}{id_note} — {len(diffs)} difference(s):")
+    for path, local_val, remote_val in diffs:
+        print(f"  {path}:")
+        print(f"    local:  {_format_diff_value(local_val)}")
+        print(f"    remote: {_format_diff_value(remote_val)}")
+
+
+def process_forms_compare(compare_args):
+    """Compare forms on the local server with another EMhub instance."""
+    remote_url = compare_args[0]
+    detail_form = ' '.join(compare_args[1:]) if len(compare_args) > 1 else None
+
+    local_url = config.EMHUB_SERVER_URL
+    print("Comparing forms:")
+    print(f"  Local:  {local_url}")
+    print(f"  Remote: {remote_url}")
+
+    local_forms = _fetch_forms()
+    remote_forms = _fetch_forms(remote_url)
+
+    local_by_name = {f['name']: f for f in local_forms}
+    remote_by_name = {f['name']: f for f in remote_forms}
+
+    only_local = sorted(set(local_by_name) - set(remote_by_name))
+    only_remote = sorted(set(remote_by_name) - set(local_by_name))
+    common = sorted(set(local_by_name) & set(remote_by_name))
+
+    ok = []
+    changed = []
+    for name in common:
+        local_f = local_by_name[name]
+        remote_f = remote_by_name[name]
+        diffs = _diff_json(
+            local_f.get('definition', {}),
+            remote_f.get('definition', {}),
+            'definition',
+        )
+        if diffs:
+            changed.append((name, local_f, remote_f, diffs))
+        else:
+            ok.append(name)
+
+    print(f"\nSummary: local={len(local_forms)}  remote={len(remote_forms)}  "
+          f"ok={len(ok)}  missing={len(only_remote)}  extra={len(only_local)}  "
+          f"diff={len(changed)}")
+
+    row_format = u"{:<10}{}"
+    if ok:
+        print(Color.green(f"\nOK ({len(ok)}):"))
+        for name in ok:
+            print(row_format.format('[OK]', name))
+
+    if only_remote:
+        print(Color.warn(f"\nMissing on local ({len(only_remote)}):"))
+        for name in only_remote:
+            f = remote_by_name[name]
+            print(row_format.format('[MISSING]', f"[remote id={f['id']}] {name}"))
+
+    if only_local:
+        print(Color.warn(f"\nExtra on local ({len(only_local)}):"))
+        for name in only_local:
+            f = local_by_name[name]
+            print(row_format.format('[EXTRA]', f"[local id={f['id']}] {name}"))
+
+    if changed:
+        print(Color.red(f"\nContent differences ({len(changed)}):"))
+        for name, local_f, remote_f, diffs in changed:
+            id_note = ''
+            if local_f['id'] != remote_f['id']:
+                id_note = f" (local id={local_f['id']}, remote id={remote_f['id']})"
+            print(row_format.format(
+                '[DIFF]',
+                f"{name}{id_note} — {len(diffs)} difference(s)",
+            ))
+
+    if not ok and not only_local and not only_remote and not changed:
+        print(Color.green("\nNo forms found on either server."))
+    elif not only_local and not only_remote and not changed:
+        print(Color.green("\nAll forms match."))
+
+    if detail_form is None:
+        return
+
+    print(f"\n{'=' * 60}")
+    print(f"Definition diff for: {detail_form}")
+    if detail_form in local_by_name and detail_form in remote_by_name:
+        local_f = local_by_name[detail_form]
+        remote_f = remote_by_name[detail_form]
+        diffs = _diff_json(
+            local_f.get('definition', {}),
+            remote_f.get('definition', {}),
+            'definition',
+        )
+        if diffs:
+            _print_form_definition_diffs(detail_form, local_f, remote_f, diffs)
+        else:
+            print(Color.green("No definition differences for this form."))
+    elif detail_form in only_local:
+        print(Color.warn("Form exists only on local server."))
+    elif detail_form in only_remote:
+        print(Color.warn("Form exists only on remote server."))
+    else:
+        known = sorted(set(local_by_name) | set(remote_by_name))
+        print(Color.red(f"Form not found: {detail_form!r}"))
+        close = [n for n in known if detail_form in n]
+        if close:
+            print("Did you mean:")
+            for n in close[:10]:
+                print(f"  {n}")
+
+
 def process_forms(args):
+    if args.compare:
+        process_forms_compare(args.compare)
+        return
+
     with open_client() as dc:
         forms = dc.request('get_forms', jsonData=None).json()
         form_ids = set(f['id'] for f in forms)
@@ -799,6 +971,11 @@ def main():
                    help="Store forms definition in a json file. ")
     g.add_argument('--update', metavar='FORMS_JSON_FILE',
                    help="Update forms with data from the json file. ")
+    g.add_argument('--compare', nargs='+',
+                   metavar=('EMHUB_URL', 'FORM_NAME'),
+                   help="Compare forms with another EMhub server. "
+                        "Optionally pass a form name to show definition "
+                        "differences for that form only.")
     form_p.add_argument('--list', '-l', nargs='?', const='all', default='')
     form_p.add_argument('--no-ids', '-n', action='store_true', default=False,
                         help="Do not include IDs in the saved JSON file.")
