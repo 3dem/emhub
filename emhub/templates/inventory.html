@@ -1,30 +1,58 @@
 {% import "entry_macros.html" as macros %}
 
+{% set col_count = 7 if current_user.is_manager else 6 %}
+{% if inventory_sections|length == 1 %}
+    {% set title = inventory_sections[0].inventory.title %}
+{% else %}
+    {% set title = "Inventories (" ~ inventory_sections|length ~ ")" %}
+{% endif %}
+
 <div class="container-fluid  dashboard-content">
     <!-- Header -->
-    {% set title = inventory.title %}
     {% set about = "Facility inventory items." %}
-    {% set navigation = [('Admin', ''), ('Inventories', url_for_content('inventories')), (inventory.title, '')] %}
+    {% set navigation = [('Admin', ''), ('Inventories', url_for_content('inventories')), (title, '')] %}
     {% include 'include_header.html' %}
 
     <div class="row">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
 
-            {% if current_user.is_manager %}
-                <div class="col-12 mb-3 ml-0 pl-0">
-                    <a href="javascript:showEntryForm(null, {{ project_id }}, 'inventory_item')" class="btn btn-primary">
-                        <i class="fas fa-plus-circle"></i> Add Item</a>
+            <div class="card mb-3">
+                <div class="card-body py-3">
+                    <div class="row align-items-center">
+                        <div class="col col-auto">
+                            <h5 class="mb-0">Inventories</h5>
+                        </div>
+                        <div class="col"></div>
+                        <div class="col col-auto">
+                            <div class="row align-items-center">
+                                <div class="col text-right pt-1">
+                                    <label for="selectpicker-inventories" class="mb-0">Show</label>
+                                </div>
+                                <select id="selectpicker-inventories"
+                                        class="selectpicker show-tick"
+                                        multiple
+                                        data-width="auto"
+                                        data-selected-text-format="count > 2"
+                                        title="Select inventories..."
+                                        data-actions-box="true">
+                                    {% for inv in all_inventories %}
+                                        <option value="{{ inv.id }}">{{ inv.title }}</option>
+                                    {% endfor %}
+                                </select>
+                                <a href="javascript:updateInventoryView()" class="btn btn-primary ml-3">Update</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            {% endif %}
+            </div>
 
             <div class="card">
-                <h5 class="card-header">{{ inventory.title }} — Items</h5>
+                <h5 class="card-header">Items</h5>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table" id="inventory-table">
                             <thead class="bg-light">
                                 <tr class="border-0">
-                                    
                                     <th class="border-0">Item</th>
                                     <th class="border-0">Quantity</th>
                                     <th class="border-0">Status</th>
@@ -34,13 +62,24 @@
                                     {% if current_user.is_manager %}
                                         <th class="border-0">Actions</th>
                                     {% endif %}
-                                    
                                 </tr>
                             </thead>
                             <tbody>
-                            {% for item in inventory_items %}
+                            {% for section in inventory_sections %}
+                                <tr class="inventory-section-header bg-light">
+                                    <td colspan="{{ col_count }}" class="font-weight-bold">
+                                        <div class="d-flex align-items-center justify-content-between py-1">
+                                            <span>{{ section.inventory.title }}</span>
+                                            {% if current_user.is_manager %}
+                                                <a href="javascript:showEntryForm(null, {{ section.project_id }}, 'inventory_item')"
+                                                   class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-plus-circle"></i> Add Item</a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% for item in section.inventory_items %}
                                 <tr>
-                                    
                                     <td>
                                         {% if item.icon_url %}
                                             <div class="m-r-10 d-inline-block align-middle">
@@ -50,37 +89,39 @@
                                         {{ item.title }}
                                     </td>
                                     <td>{{ item.quantity }}</td>
-                                    <td>{{ macros.inventory_quantity_status(item.quantity, item.data) }}</td>
+                                    <td>{{ macros.inventory_availability_badge(item.availability) }}</td>
                                     <td>{{ item.date|pretty_date }}</td>
-                                    
                                     <td>
                                         {% set n = item.history|length %}
-                                        
                                         {% if n > 0 %}
-                                            <a href="javascript:showEntryHistory({{ item.id }}, {{ project_id }})"><span class="badge badge-pill badge-info">{{ n }}</span></a>
+                                            <a href="javascript:showEntryHistory({{ item.id }}, {{ section.project_id }})"><span class="badge badge-pill badge-info">{{ n }}</span></a>
                                         {% endif %}
                                     </td>
                                     <td>{{ item.total_cost }}</td>
                                     {% if current_user.is_manager %}
                                         <td>
                                             <button class="btn btn-sm btn-outline-light"
-                                                    onclick="javascript:showEntryForm({{ item.id }}, {{ project_id }})">
+                                                    onclick="javascript:showEntryForm({{ item.id }}, {{ section.project_id }})">
                                                 <i class="far fa-edit"></i></button>
                                             <button class="btn btn-sm btn-outline-light"
                                                     onclick="javascript:deleteEntry({{ item.id }}, {{ item.title|tojson }})">
                                                 <i class="far fa-trash-alt"></i></button>
                                             <button type="button"
-                                                class="btn btn-sm btn-outline-primary ml-3" onclick="javascript:showEntryForm(null, {{ project_id }}, 'inventory_add', null, 0, {item: {{ item.id }}})">
+                                                class="btn btn-sm btn-outline-primary ml-3" onclick="javascript:showEntryForm(null, {{ section.project_id }}, 'inventory_add', null, 0, {item: {{ item.id }}})">
                                                 <i class="fas fa-plus-circle"></i> Add
                                             </button>
                                             <button type="button"
-                                                class="btn btn-sm btn-outline-danger" onclick="javascript:showEntryForm(null, {{ project_id }}, 'inventory_remove', null, 0, {item: {{ item.id }}})">
+                                                class="btn btn-sm btn-outline-danger" onclick="javascript:showEntryForm(null, {{ section.project_id }}, 'inventory_remove', null, 0, {item: {{ item.id }}})">
                                                 <i class="fas fa-minus-circle"></i> Remove
                                             </button>
                                         </td>
                                     {% endif %}
-                                    
                                 </tr>
+                                {% else %}
+                                <tr class="text-muted">
+                                    <td colspan="{{ col_count }}" class="pl-4">No items in this inventory.</td>
+                                </tr>
+                                {% endfor %}
                             {% endfor %}
                             </tbody>
                         </table>
@@ -98,6 +139,10 @@
 
     window.inventoryHistoryContext = null;
 
+    $('select').selectpicker();
+    $('#selectpicker-inventories').selectpicker('val', {{ selected_inventory_ids|tojson }});
+    syncInventoryUrl(getSelectedInventoryParam());
+
     $('#inventory-table').DataTable({
         ordering: false,
         searching: false,
@@ -107,4 +152,22 @@
     });
 
     })(window, document, window.jQuery);
+
+    function getSelectedInventoryParam() {
+        var ids = $('#selectpicker-inventories').selectpicker('val');
+        return (ids && ids.length) ? ids.join(',') : '0';
+    }
+
+    function syncInventoryUrl(inventoryParam) {
+        var url = new URL(window.location.href);
+        url.searchParams.set('content_id', 'inventory');
+        url.searchParams.set('inventory', inventoryParam);
+        window.history.replaceState({}, '', url);
+    }
+
+    function updateInventoryView() {
+        var inventoryParam = getSelectedInventoryParam();
+        syncInventoryUrl(inventoryParam);
+        load_main_content('inventory', {inventory: inventoryParam});
+    }
 </script>

@@ -865,16 +865,24 @@ class DataContent:
     def _inventory_item_availability(quantity, data):
         low_val = data.get('low')
         medium_val = data.get('medium')
-        if low_val in (None, '') or medium_val in (None, ''):
+
+        low = medium = None
+        if low_val not in (None, ''):
+            try:
+                low = int(low_val)
+            except (TypeError, ValueError):
+                pass
+        if medium_val not in (None, ''):
+            try:
+                medium = int(medium_val)
+            except (TypeError, ValueError):
+                pass
+
+        if low is None and medium is None:
             return None
-        try:
-            low = int(low_val)
-            medium = int(medium_val)
-        except (TypeError, ValueError):
-            return None
-        if quantity < low:
+        if low is not None and quantity < low:
             return 'low'
-        if quantity < medium:
+        if medium is not None and quantity < medium:
             return 'medium'
         return 'in-stock'
 
@@ -965,7 +973,11 @@ class DataContent:
 
     def get_inventory_items_with_operations(self, project):
         inventory_items = self.get_inventory_items(project)
-        return self._apply_inventory_operations(project, inventory_items)
+        inventory_items = self._apply_inventory_operations(project, inventory_items)
+        for item in inventory_items:
+            item['availability'] = self._inventory_item_availability(
+                item['quantity'], item['data'])
+        return inventory_items
 
     def get_inventory_summary(self, project):
         inventory_items = self.get_inventory_items_with_operations(project)
@@ -992,25 +1004,74 @@ class DataContent:
         ]
         return {'inventories': inventories}
 
-    def get_inventory(self, **kwargs):
-        """Return inventory items for a given inventory project."""
-        project_id = kwargs.get('inventory') or kwargs.get('project_id')
-        if not project_id:
-            raise Exception("Please specify an inventory (inventory id).")
+    @staticmethod
+    def parse_inventory_ids(inventory_param, all_projects):
+        """Parse ``inventory`` kwarg: all inventories, or comma-separated ids."""
+        if inventory_param in (None, '', '0'):
+            return [p.id for p in all_projects]
 
-        project = self.get_inventory_project(project_id)
-        inventory_items = self.get_inventory_items_with_operations(project)
+        ids = []
+        seen = set()
+        for part in str(inventory_param).split(','):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                inv_id = int(part)
+            except (TypeError, ValueError):
+                raise Exception(f"Invalid inventory id: {part!r}")
+            if inv_id in seen:
+                continue
+            seen.add(inv_id)
+            ids.append(inv_id)
+
+        if not ids:
+            raise Exception("Please specify an inventory (inventory id).")
+        return ids
+
+    def get_inventory(self, **kwargs):
+        """Return items for one or more inventory projects.
+
+        The ``inventory`` (or ``project_id``) argument may be a single id or a
+        comma-separated list of ids. Use ``0`` or omit it to select all
+        inventories.
+        """
+        inventory_param = kwargs.get('inventory') or kwargs.get('project_id')
+        all_projects = self.get_inventory_projects()
+        all_inventories = [self.get_inventory_summary(p) for p in all_projects]
+        valid_ids = {p.id for p in all_projects}
+
+        selected_ids = self.parse_inventory_ids(inventory_param, all_projects)
+        for inv_id in selected_ids:
+            if inv_id not in valid_ids:
+                raise Exception(f"There is no inventory with id: {inv_id}")
+
+        sections = []
+        for inv_id in selected_ids:
+            project = self.get_inventory_project(inv_id)
+            sections.append({
+                'inventory': {
+                    'id': project.id,
+                    'title': project.title,
+                },
+                'project_id': project.id,
+                'inventory_items': self.get_inventory_items_with_operations(project),
+            })
+
+        if not sections:
+            raise Exception("No inventories found.")
 
         dm = self.app.dm
         currency = dm.get_config('resources').get('currency', '')
 
+        first = sections[0]
         return {
-            'inventory_items': inventory_items,
-            'project_id': project.id,
-            'inventory': {
-                'id': project.id,
-                'title': project.title,
-            },
+            'inventory_sections': sections,
+            'all_inventories': all_inventories,
+            'selected_inventory_ids': selected_ids,
+            'inventory_items': first['inventory_items'],
+            'project_id': first['project_id'],
+            'inventory': first['inventory'],
             'currency': currency,
         }
 
@@ -1129,6 +1190,10 @@ def register_content(dc):
 
     @dc.content
     def pucks_cane_details(**kwargs):
+        return pucks(**kwargs)
+
+    @dc.content
+    def pucks_all_table(**kwargs):
         return pucks(**kwargs)
 
     @dc.content
@@ -1558,3 +1623,12 @@ def register_content(dc):
         _validate_int_field('quantity', 'Quantity', required=True)
         _validate_int_field('low', 'Low', positive=True)
         _validate_int_field('medium', 'Medium', positive=True)
+
+        low_raw = data.get('low')
+        medium_raw = data.get('medium')
+        if (low_raw not in (None, '') and medium_raw not in (None, '')):
+            try:
+                if int(low_raw) >= int(medium_raw):
+                    raise Exception("Low value must be less than Medium value")
+            except (TypeError, ValueError):
+                pass
