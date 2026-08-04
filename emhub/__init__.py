@@ -192,6 +192,8 @@ def create_app(test_config=None):
                 kwargs['content_id'] = default_content()
             app.user.image = app.dc.user_profile_image(app.user)
             kwargs['view_usage_report'] = dm.check_user_access('usage_report')
+            kwargs['view_pucks'] = dm.check_user_access('pucks')
+            kwargs['view_inventories'] = dm.check_user_access('inventories')
         else:
             if content_id not in NO_LOGIN_CONTENT:
                 kwargs = {'content_id': 'user_login',

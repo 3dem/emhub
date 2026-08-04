@@ -1095,8 +1095,7 @@ def register_content(dc):
 
     @dc.content
     def pucks(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
+        dc.check_user_access('pucks')
 
         dm = app.dm  # shortcut
         dewar = cane = puck = None
@@ -1138,8 +1137,7 @@ def register_content(dc):
 
     @dc.content
     def cane_form(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
+        dc.check_user_access('pucks')
 
         dm = app.dm
         dewar_id = int(kwargs.get('dewar_id', 0) or 0)
@@ -1194,9 +1192,8 @@ def register_content(dc):
     @dc.content
     def puck_form(**kwargs):
         from types import SimpleNamespace
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('pucks')
+
         dm = app.dm
         puck_id = int(kwargs.get('puck_id', 0) or 0)
 
@@ -1254,9 +1251,8 @@ def register_content(dc):
 
     @dc.content
     def puck_gridbox_form(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('pucks')
+
         dm = app.dm
         puck_id = int(kwargs.get('puck_id', 0) or 0)
         position = int(kwargs.get('position', 0) or 0)
@@ -1285,6 +1281,8 @@ def register_content(dc):
 
     @dc.content
     def grids_cane(**kwargs):
+        dc.check_user_access('pucks')
+
         dm = app.dm  # shortcut
 
         range = kwargs.get('pucks_range', '1-9999')  # by default all
@@ -1457,30 +1455,26 @@ def register_content(dc):
 
     @dc.content
     def inventories(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         return dc.get_inventories(**kwargs)
 
     @dc.content
     def inventory(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         return dc.get_inventory(**kwargs)
 
     @dc.content
     def inventory_item_history(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         return dc.get_inventory_item_history(kwargs['item_id'])
 
     @dc.content
     def inventory_items(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         project_id = (kwargs.get('inventory') or kwargs.get('project_id')
                       or kwargs.get('entry_project_id'))
         if not project_id:
@@ -1492,9 +1486,8 @@ def register_content(dc):
 
     @dc.content
     def inventory_form(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         dm = dc.app.dm
         user = dc.app.user
         inventory_id = int(kwargs.get('inventory_id', 0))
@@ -1518,6 +1511,8 @@ def register_content(dc):
 
     @dc.content
     def validate_inventory_add(entry):
+        dc.check_user_access('inventories')
+
         data = entry.extra.get('data', {})
         item_id = data.get('item')
         if item_id in (None, ''):
@@ -1540,6 +1535,8 @@ def register_content(dc):
 
     @dc.content
     def validate_inventory_item(entry):
+        dc.check_user_access('inventories')
+
         if not entry.title or not entry.title.strip():
             raise Exception("Title can not be empty")
 
