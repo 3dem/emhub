@@ -26,6 +26,14 @@
         <div class="row">
 
             <div class="col-12 accrodion-regular">
+                <div class="mb-3">
+                    <button type="button"
+                            id="all-pucks-btn"
+                            class="btn btn-sm btn-outline-primary btn-block"
+                            onclick="loadPucksAll()">
+                        <i class="fas fa-table"></i> Load All Pucks
+                    </button>
+                </div>
                 <div id="accordion2">
                     {% for dewar in storage.dewars() %}
                         {% set d = dewar['id'] %}
@@ -138,6 +146,7 @@
 
     function loadPucksCane(dewarId, caneId, puck) {
         $('.cane-select-btn').removeClass('cane-selected');
+        $('#all-pucks-btn').removeClass('all-pucks-active');
         $('#cane-btn-' + dewarId + '-' + caneId).addClass('cane-selected');
         dewar = dewarId;
         cane = caneId;
@@ -148,6 +157,45 @@
                 initPuckGridboxTooltips('#cane-content');
             }
         );
+    }
+
+    function loadPucksAll() {
+        $('.cane-select-btn').removeClass('cane-selected');
+        $('#all-pucks-btn').addClass('all-pucks-active');
+        dewar = 0;
+        cane = 0;
+        setPucksView('all');
+
+        load_html_from_ajax('cane-content',
+            get_ajax_content('pucks_all_table', {pucks_range: range}),
+            function () {
+                initPucksAllTable();
+            }
+        );
+    }
+
+    function initPucksAllTable() {
+        var $table = $('#pucks-all-table');
+        if (!$table.length) {
+            return;
+        }
+        if ($.fn.DataTable.isDataTable($table)) {
+            $table.DataTable().destroy();
+        }
+        $table.DataTable({
+            pageLength: 25,
+            order: [[0, 'asc'], [1, 'asc'], [2, 'asc'], [4, 'asc']]
+        });
+    }
+
+    function goToPuck(dewarId, caneId, puckId) {
+        loadPucksCane(dewarId, caneId, puckId);
+    }
+
+    function openPuckFromAll(dewarId, caneId, puckId, slot, hasGridbox) {
+        dewar = dewarId;
+        cane = caneId;
+        editPuckGridbox(puckId, slot, hasGridbox, 'all');
     }
 
     if (dewar && cane) {
@@ -1021,10 +1069,14 @@
             if (view === 'single') {
                 loadPucksDetails(puckGridboxDialog.puckId);
             } else if (view === 'all') {
-                loadPucksCaneDetails(
-                    puckGridboxDialog.dewarId || dewar,
-                    puckGridboxDialog.caneId || cane
-                );
+                if ($('#all-pucks-btn').hasClass('all-pucks-active')) {
+                    loadPucksAll();
+                } else {
+                    loadPucksCaneDetails(
+                        puckGridboxDialog.dewarId || dewar,
+                        puckGridboxDialog.caneId || cane
+                    );
+                }
             } else {
                 showError('Invalid view mode: ' + view);
             }
@@ -1042,14 +1094,6 @@
     "use strict";
 
     initPuckGridboxTooltips('#cane-content');
-
-    var table = $('#table-pucks').DataTable({
-        sDom: 'lfrtip',
-        paging: false,  // no paging
-        info: false
-
-    });
-
 
     })(window, document, window.jQuery);
 </script>
