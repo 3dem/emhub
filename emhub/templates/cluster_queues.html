@@ -19,13 +19,22 @@
     var timeOutId = null;
     var tab = {{ tab|tojson }};
     var cluster_name = {{ cluster_name|tojson }};
+    var mode = {{ mode|tojson }};
 
     function selectTab(newTab){
         tab = newTab;
     }
 
+    function selectMode(newMode){
+        if (mode !== newMode) {
+            mode = newMode;
+            reloadQueues();
+        }
+    }
+
     function reloadQueues(){
-        var ajaxContent = get_ajax_content('cluster_queues_content', {tab: tab, cluster_name: cluster_name});
+        var ajaxContent = get_ajax_content('cluster_queues_content',
+            {tab: tab, cluster_name: cluster_name, mode: mode});
             ajaxContent.done(function(html) {
                 $('#queues_content').html(html);
                 clearTimeout(timeOutId);

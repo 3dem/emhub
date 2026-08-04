@@ -2,9 +2,15 @@
 
 <div class="col-12 row p-0">
 
-        <div class="card-body p-0 col-6">
+        <div class="card-body p-0 col-6 pr-5">
 
             <div id="queues-users-plot" style="height: 750px; width: 650px"></div>
+
+        </div>
+
+        <div class="card-body p-0 col-6 pl-5">
+
+            <div id="queues-labs-plot" style="height: 750px; width: 650px"></div>
 
         </div>
 
@@ -13,6 +19,7 @@
 
 <script>
     var users = {{ users|tojson }};
+    var labs = {{ labs|tojson }};
 
     (function(window, document, $, undefined) {
         "use strict";
@@ -33,7 +40,25 @@
         }
 
         create_hc_vcolumns('queues-users-plot',
-            {categories: categories, series: series})
+            {title: 'Usage by Users', categories: categories, series: series})
+
+        categories = [];
+        series = [
+            {name: 'cores', data: []},
+            {name: 'gpus', data: []},
+            {name: 'jobs', data: []}
+        ]
+
+        for (var j = 0; j < labs.length; j++){
+            var lab = labs[j];
+            categories.push(lab.name);
+            series[0].data.push(lab.cores);
+            series[1].data.push(lab.gpus);
+            series[2].data.push(lab.jobs);
+        }
+
+        create_hc_vcolumns('queues-labs-plot',
+            {title: 'Usage by Labs', categories: categories, series: series})
 
     })(window, document, window.jQuery);
 

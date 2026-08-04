@@ -603,7 +603,7 @@ function create_hc_vcolumns(containerId, config){
             type: 'bar'
         },
         title: {
-            text: 'Usage by users'
+            text: config.title || 'Usage by users'
         },
         xAxis: {
             categories: config.categories,
