@@ -1175,9 +1175,11 @@ def register_content(dc):
             location_value = storage.cane_location_value(dewar_id, cane_id)
             location_options = storage.cane_location_options(dewar_id, cane_id)
 
+        dewar = storage.get_dewar(dewar_id)
         result = {
             'cane': cane,
             'dewar_id': dewar_id,
+            'dewar_label': storage.dewar_display_label(dewar),
             'cane_id': cane['id'],
             'is_new': is_new,
             'form_id': config_form.id,
@@ -1214,12 +1216,14 @@ def register_content(dc):
             if storage.puck_at(dewar_id, cane_id, position):
                 raise Exception("Position %s is already occupied" % position)
 
+            dewar = storage.get_dewar(dewar_id)
+            dewar_label = storage.dewar_display_label(dewar)
             cane = storage.get_cane(dewar_id, cane_id)
             cane_label = cane.get('label') or ('cane %s' % cane_id)
             location_value = storage.location_value(dewar_id, cane_id, position)
             location_options = [{
                 'value': location_value,
-                'label': 'Dewar %s / %s / %s' % (dewar_id, cane_label, position),
+                'label': '%s / %s / %s' % (dewar_label, cane_label, position),
             }]
             puck = SimpleNamespace(
                 id=None,

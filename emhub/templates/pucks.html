@@ -29,6 +29,7 @@
                 <div id="accordion2">
                     {% for dewar in storage.dewars() %}
                         {% set d = dewar['id'] %}
+                        {% set dewar_label = dewar.get('label') or ('Dewar ' ~ d) %}
                         {% set expanded = "true" if loop.first else "false" %}
                         {% set show = "show" if loop.first else "" %}
 
@@ -36,7 +37,7 @@
                             <div class="card-header" id="heading-dewar-{{ d }}">
                                 <h5 class="mb-0">
                                     <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapse-dewar-{{ d }}" aria-expanded="{{ expanded }}" aria-controls="collapse-dewar-{{ d }}">
-                                        <span class="fas fa-angle-down mr-3"></span>Dewar {{ d }}
+                                        <span class="fas fa-angle-down mr-3"></span>{{ dewar_label }}
                                     </button>
                                 </h5>
                             </div>
