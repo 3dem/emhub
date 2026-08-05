@@ -1599,6 +1599,11 @@ def register_content(dc):
             raise Exception("Quantity must be greater than zero")
 
     @dc.content
+    def validate_inventory_remove(entry):
+        return validate_inventory_add(entry)
+            
+
+    @dc.content
     def validate_inventory_item(entry):
         dc.check_user_access('inventories')
 
