@@ -1585,12 +1585,19 @@ def create_data_models(dm):
                 occupied.add(self.__puckLoc(puck))
             return occupied
 
+        @staticmethod
+        def dewar_display_label(dewar):
+            """Return configured dewar label or default 'Dewar {id}'."""
+            d_id = dewar['id']
+            return dewar.get('label') or ('Dewar %s' % d_id)
+
         def location_options(self, puck_id=None, max_position=12):
             """Build select options for empty slots (and the puck's current slot)."""
             occupied = self._occupied_locations(exclude_puck_id=puck_id)
             options = []
             for dewar in self.dewars():
                 d_id = dewar['id']
+                dewar_label = self.dewar_display_label(dewar)
                 for cane in dewar['canes']:
                     c_id = cane['id']
                     cane_label = cane.get('label') or ('cane %s' % c_id)
@@ -1599,7 +1606,7 @@ def create_data_models(dm):
                             continue
                         options.append({
                             'value': self.location_value(d_id, c_id, position),
-                            'label': 'Dewar %s / %s / %s' % (d_id, cane_label, position),
+                            'label': '%s / %s / %s' % (dewar_label, cane_label, position),
                         })
             return options
 
@@ -1632,6 +1639,7 @@ def create_data_models(dm):
             options = []
             for dewar in self.dewars():
                 d_id = dewar['id']
+                dewar_label = self.dewar_display_label(dewar)
                 canes_dict = dewar.get('canes_dict', {})
                 max_id = max([c['id'] for c in dewar.get('canes', [])] + [max_cane])
                 for position in range(1, max_id + 1):
@@ -1645,7 +1653,7 @@ def create_data_models(dm):
                         cane_label = 'cane %s' % position
                     options.append({
                         'value': self.cane_location_value(d_id, position),
-                        'label': 'Dewar %s / %s' % (d_id, cane_label),
+                        'label': '%s / %s' % (dewar_label, cane_label),
                     })
             return options
 

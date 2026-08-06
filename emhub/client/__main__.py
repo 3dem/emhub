@@ -43,7 +43,7 @@ import argparse
 from datetime import datetime
 from pprint import pprint
 
-from .data_client import open_client, config
+from .data_client import open_client, config, DataClient
 
 from emtools.utils import Pretty, Color, Path, FolderManager
 from emtools.metadata import MovieFiles, StarFile
@@ -364,7 +364,255 @@ def process_users(args):
                                     piStr, str(user['roles'])))
 
 
+def _fetch_forms(server_url=None):
+    """Return all forms from the given server (default: configured local URL)."""
+    if server_url:
+        dc = DataClient(server_url=server_url)
+        dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+        try:
+            return dc.request('get_forms', jsonData=None).json()
+        finally:
+            dc.logout()
+    with open_client() as dc:
+        return dc.request('get_forms', jsonData=None).json()
+
+
+def _diff_json(local, remote, path=''):
+    """Return (path, local_value, remote_value) tuples for differing JSON nodes."""
+    diffs = []
+    if type(local) is not type(remote):
+        diffs.append((path or '.', local, remote))
+        return diffs
+
+    if isinstance(local, dict):
+        for key in sorted(set(local) | set(remote)):
+            sub_path = f"{path}.{key}" if path else key
+            if key not in local:
+                diffs.append((sub_path, None, remote[key]))
+            elif key not in remote:
+                diffs.append((sub_path, local[key], None))
+            else:
+                diffs.extend(_diff_json(local[key], remote[key], sub_path))
+    elif isinstance(local, list):
+        for i in range(max(len(local), len(remote))):
+            sub_path = f"{path}[{i}]"
+            if i >= len(local):
+                diffs.append((sub_path, None, remote[i]))
+            elif i >= len(remote):
+                diffs.append((sub_path, local[i], None))
+            else:
+                diffs.extend(_diff_json(local[i], remote[i], sub_path))
+    elif local != remote:
+        diffs.append((path or '.', local, remote))
+    return diffs
+
+
+def _format_diff_value(value):
+    if isinstance(value, (dict, list)):
+        text = json.dumps(value, sort_keys=True)
+        if len(text) > 100:
+            return text[:97] + '...'
+        return text
+    return repr(value)
+
+
+def _print_form_definition_diffs(name, local_f, remote_f, diffs):
+    """Print path-level definition differences for a single form."""
+    id_note = ''
+    if local_f['id'] != remote_f['id']:
+        id_note = f" (ids: local={local_f['id']}, remote={remote_f['id']})"
+    print(f"\n{Color.bold(name)}{id_note} — {len(diffs)} difference(s):")
+    for path, local_val, remote_val in diffs:
+        print(f"  {path}:")
+        print(f"    local:  {_format_diff_value(local_val)}")
+        print(f"    remote: {_format_diff_value(remote_val)}")
+
+
+def _print_form_compare_detail(form_name, local_by_name, remote_by_name,
+                               only_local, only_remote):
+    """Print definition diff (or status) for a single named form."""
+    print(f"\n{'=' * 60}")
+    print(f"Definition diff for: {form_name}")
+    if form_name in local_by_name and form_name in remote_by_name:
+        local_f = local_by_name[form_name]
+        remote_f = remote_by_name[form_name]
+        diffs = _diff_json(
+            local_f.get('definition', {}),
+            remote_f.get('definition', {}),
+            'definition',
+        )
+        if diffs:
+            _print_form_definition_diffs(form_name, local_f, remote_f, diffs)
+        else:
+            print(Color.green("No definition differences for this form."))
+    elif form_name in only_local:
+        print(Color.warn("Form exists only on local server."))
+    elif form_name in only_remote:
+        print(Color.warn("Form exists only on remote server."))
+    else:
+        print(Color.red(f"Form not found: {form_name!r}"))
+
+
+def process_forms_compare(compare_args):
+    """Compare forms on the local server with another EMhub instance."""
+    if not compare_args:
+        print(Color.red("Usage: emh-client form --compare EMHUB_URL [FORM_NAME ...]"))
+        sys.exit(1)
+
+    remote_url = compare_args[0]
+    detail_forms = compare_args[1:]
+
+    local_url = config.EMHUB_SERVER_URL
+    print("Comparing forms:")
+    print(f"  Local:  {local_url}")
+    print(f"  Remote: {remote_url}")
+
+    local_forms = _fetch_forms()
+    remote_forms = _fetch_forms(remote_url)
+
+    local_by_name = {f['name']: f for f in local_forms}
+    remote_by_name = {f['name']: f for f in remote_forms}
+
+    only_local = sorted(set(local_by_name) - set(remote_by_name))
+    only_remote = sorted(set(remote_by_name) - set(local_by_name))
+    common = sorted(set(local_by_name) & set(remote_by_name))
+
+    ok = []
+    changed = []
+    for name in common:
+        local_f = local_by_name[name]
+        remote_f = remote_by_name[name]
+        diffs = _diff_json(
+            local_f.get('definition', {}),
+            remote_f.get('definition', {}),
+            'definition',
+        )
+        if diffs:
+            changed.append((name, local_f, remote_f, diffs))
+        else:
+            ok.append(name)
+
+    print(f"\nSummary: local={len(local_forms)}  remote={len(remote_forms)}  "
+          f"ok={len(ok)}  missing={len(only_remote)}  extra={len(only_local)}  "
+          f"diff={len(changed)}")
+
+    row_format = u"{:<10}{}"
+    if ok:
+        print(Color.green(f"\nOK ({len(ok)}):"))
+        for name in ok:
+            print(row_format.format('[OK]', name))
+
+    if only_remote:
+        print(Color.warn(f"\nMissing on local ({len(only_remote)}):"))
+        for name in only_remote:
+            f = remote_by_name[name]
+            print(row_format.format('[MISSING]', f"[remote id={f['id']}] {name}"))
+
+    if only_local:
+        print(Color.warn(f"\nExtra on local ({len(only_local)}):"))
+        for name in only_local:
+            f = local_by_name[name]
+            print(row_format.format('[EXTRA]', f"[local id={f['id']}] {name}"))
+
+    if changed:
+        print(Color.red(f"\nContent differences ({len(changed)}):"))
+        for name, local_f, remote_f, diffs in changed:
+            id_note = ''
+            if local_f['id'] != remote_f['id']:
+                id_note = f" (local id={local_f['id']}, remote id={remote_f['id']})"
+            print(row_format.format(
+                '[DIFF]',
+                f"{name}{id_note} — {len(diffs)} difference(s)",
+            ))
+
+    if not ok and not only_local and not only_remote and not changed:
+        print(Color.green("\nNo forms found on either server."))
+    elif not only_local and not only_remote and not changed:
+        print(Color.green("\nAll forms match."))
+
+    for form_name in detail_forms:
+        _print_form_compare_detail(
+            form_name, local_by_name, remote_by_name, only_local, only_remote)
+
+
+def _copy_form_to_remote(dc, local_f, remote_by_name, form_name):
+    """Create or update a single form on the connected remote server."""
+    payload = {
+        'name': local_f['name'],
+        'definition': local_f['definition'],
+    }
+    if form_name in remote_by_name:
+        remote_f = remote_by_name[form_name]
+        payload['id'] = remote_f['id']
+        print(f">>> Updating form ID={remote_f['id']}\t{form_name}")
+        r = dc.request('update_form', jsonData={'attrs': payload})
+    else:
+        print(f">>> Creating new form\t{form_name}")
+        r = dc.request('create_form', jsonData={'attrs': payload})
+
+    result = r.json()
+    if isinstance(result, dict) and 'error' in result:
+        print(Color.red(result['error']))
+        return False
+
+    remote_id = result.get('id') if isinstance(result, dict) else None
+    if remote_id:
+        print(Color.green(f"  Copied (remote id={remote_id})."))
+    else:
+        print(Color.green("  Copied."))
+    return True
+
+
+def process_forms_copy(copy_args):
+    """Copy form(s) from the local server to another EMhub instance."""
+    if len(copy_args) < 2:
+        print(Color.red("Usage: emh-client form --copy EMHUB_URL FORM_NAME [FORM_NAME ...]"))
+        sys.exit(1)
+
+    remote_url = copy_args[0]
+    form_names = copy_args[1:]
+
+    local_url = config.EMHUB_SERVER_URL
+    print("Copying form(s):")
+    print(f"  From:  {local_url}")
+    print(f"  To:    {remote_url}")
+    print(f"  Forms: {', '.join(form_names)}")
+
+    local_by_name = {f['name']: f for f in _fetch_forms()}
+    remote_by_name = {f['name']: f for f in _fetch_forms(remote_url)}
+
+    errors = 0
+    dc = DataClient(server_url=remote_url)
+    dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+    try:
+        for form_name in form_names:
+            if form_name not in local_by_name:
+                print(Color.red(f"Form not found on local server: {form_name!r}"))
+                errors += 1
+                continue
+
+            if not _copy_form_to_remote(
+                    dc, local_by_name[form_name], remote_by_name, form_name):
+                errors += 1
+    finally:
+        dc.logout()
+
+    if errors:
+        print(Color.red(f"\n{errors} form(s) failed to copy."))
+        sys.exit(1)
+
+    print(Color.green(f"\nAll {len(form_names)} form(s) copied successfully."))
+
+
 def process_forms(args):
+    if args.compare:
+        process_forms_compare(args.compare)
+        return
+
+    if args.copy:
+        process_forms_copy(args.copy)
+        return
+
     with open_client() as dc:
         forms = dc.request('get_forms', jsonData=None).json()
         form_ids = set(f['id'] for f in forms)
@@ -799,6 +1047,16 @@ def main():
                    help="Store forms definition in a json file. ")
     g.add_argument('--update', metavar='FORMS_JSON_FILE',
                    help="Update forms with data from the json file. ")
+    g.add_argument('--compare', nargs='+',
+                   metavar=('EMHUB_URL', 'FORM_NAME'),
+                   help="Compare forms with another EMhub server. "
+                        "Optionally pass one or more form names to show "
+                        "definition differences after the summary.")
+    g.add_argument('--copy', nargs='+',
+                   metavar=('EMHUB_URL', 'FORM_NAME'),
+                   help="Copy form(s) from the local server to another "
+                        "EMhub instance (create or update by name). "
+                        "At least one form name is required.")
     form_p.add_argument('--list', '-l', nargs='?', const='all', default='')
     form_p.add_argument('--no-ids', '-n', action='store_true', default=False,
                         help="Do not include IDs in the saved JSON file.")

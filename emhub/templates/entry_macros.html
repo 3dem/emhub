@@ -470,20 +470,33 @@
 {%- endmacro %}
 
 
+{% macro inventory_availability_badge(availability) -%}
+    {% if availability == 'low' %}
+        <span class="badge-pill badge-danger align-self-start">low</span>
+    {% elif availability == 'medium' %}
+        <span class="badge-pill badge-warning align-self-start">medium</span>
+    {% elif availability == 'in-stock' %}
+        <span class="badge-pill badge-success align-self-start">in-stock</span>
+    {% else %}
+        <span class="text-muted">—</span>
+    {% endif %}
+{%- endmacro %}
+
 {% macro inventory_quantity_status(quantity, data) -%}
+    {# Deprecated: prefer inventory_availability_badge(item.availability) #}
     {% set low_val = data.get('low') %}
     {% set medium_val = data.get('medium') %}
-    {% if low_val is not none and low_val != '' and medium_val is not none and medium_val != '' %}
-        {% set low = low_val|int %}
-        {% set medium = medium_val|int %}
-        {% if quantity < low %}
-            <span class="badge-pill badge-danger align-self-start">low</span>
-        {% elif quantity < medium %}
-            <span class="badge-pill badge-warning align-self-start">medium</span>
+    {% set has_low = low_val is not none and low_val != '' %}
+    {% set has_medium = medium_val is not none and medium_val != '' %}
+    {% if has_low or has_medium %}
+        {% if has_low and quantity < (low_val|int) %}
+            {{ inventory_availability_badge('low') }}
+        {% elif has_medium and quantity < (medium_val|int) %}
+            {{ inventory_availability_badge('medium') }}
         {% else %}
-            <span class="badge-pill badge-success align-self-start">in-stock</span>
+            {{ inventory_availability_badge('in-stock') }}
         {% endif %}
     {% else %}
-        <span class="badge-pill badge-light align-self-start">in-stock</span>
+        {{ inventory_availability_badge(none) }}
     {% endif %}
 {%- endmacro %}

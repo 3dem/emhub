@@ -76,7 +76,7 @@ async function loadJobDetails(jobId, jobType) {
 
   var output = jobId == null ? [] : ['json'];
 
-  if (jobType in all_forms)
+  if (jobId == null && jobType in all_forms)
     result.form = all_forms[jobType]
   else
     output.push('form')
@@ -95,7 +95,9 @@ async function loadJobDetails(jobId, jobType) {
     var run_data = data['run'];
     if ('form' in run_data) {
       result.form = run_data['form'];
-      all_forms[jobType] = result.form;
+      if (jobId == null && run_data['form'].source !== 'jobstar') {
+        all_forms[jobType] = result.form;
+      }
     }
 
     if ('json' in run_data) {
@@ -182,6 +184,44 @@ async function requestAction(url, args) {
     errors: [],
     workflow: project_details.protocols,
     duplicated: duplicated,
+  };
+}
+
+async function loadTableViewData(starPath, pointerClass) {
+  var tableViewData = null;
+  await handleRequestData(
+    Api.urls.get_table_view_data,
+    {
+      root: project_details.path,
+      starPath: starPath,
+      pointerClass: pointerClass,
+      tableKey: 'global',
+    },
+    function (data) {
+      tableViewData = data.tableViewData;
+    },
+  );
+  return tableViewData || { columns: [], rows: [] };
+}
+
+async function buildTableViewerAnalyzeDecision(ctx, pointerClass) {
+  var outputPath = ctx.value || ctx.outputRaw?.value || '';
+  var tableViewData = await loadTableViewData(outputPath, pointerClass);
+  return {
+    handled: true,
+    viewer: 'table-viewer-pane',
+    title: ctx.outputName,
+    emptyPaneMessage: 'Select a row and click an action to view metadata or plots.',
+    tableViewContext: {
+      projectId: ctx.projectId,
+      protocolId: ctx.protocolId,
+      outputName: ctx.outputName,
+      outputPath: outputPath,
+      pointerClass: pointerClass,
+      tableKey: 'global',
+      protocolLabel: ctx.protocolLabel,
+    },
+    tableViewData: tableViewData,
   };
 }
 
@@ -297,7 +337,14 @@ var svc = {
   },
 
   resolveAnalyzeViewer: async function (ctx) {
-    visualizeOutput({file_path: ctx.value});
+    var pointerClass = String(ctx.pointerClass || ctx.outputRaw?.pointerClass || '').replace(/\s+/g, '');
+    var outputPath = ctx.value || ctx.outputRaw?.value || '';
+
+    if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles') {
+      return buildTableViewerAnalyzeDecision(ctx, pointerClass);
+    }
+
+    visualizeOutput({ file_path: outputPath || ctx.value });
 
     return {
       handled: true,
@@ -423,6 +470,97 @@ var svc = {
       export: true,
       upload: false,
       nextSteps: false,
+    };
+  },
+
+  async renameProtocol(projectId, protocolId, payload) {
+    var runName = String(payload?.runName ?? '').trim();
+    var comment = String(payload?.comment ?? '').trim();
+    var protocol = null;
+
+    await handleRequestData(
+      Api.urls.save_job_annotation,
+      {
+        run_id: protocolId,
+        runName: runName,
+        comment: comment,
+      },
+      function (data) {
+        protocol = data.protocol;
+      },
+    );
+
+    if (project_details.protocols[protocolId]) {
+      project_details.protocols[protocolId].runName = protocol?.runName ?? runName;
+      project_details.protocols[protocolId].comment = protocol?.comment ?? comment;
+    }
+
+    return protocol || {
+      id: protocolId,
+      runName: runName,
+      comment: comment,
+    };
+  },
+
+  /**
+   * Return right-pane content when a row action is triggered.
+   * request: { ...context, rowId, actionId, row }
+   */
+  async resolveTableViewPane(request) {
+    var columnId = request.columnId || request.column_id || '';
+    var pathCellFields = {
+      starFile: 'starFilePath',
+      alignedStack: 'alignedStackPath',
+      tomogram: 'tomogramPath',
+    };
+    var pathRel = '';
+
+    if (columnId && request.row && request.row.cells) {
+      var pathKey = pathCellFields[columnId] || columnId;
+      pathRel = request.row.cells[pathKey] || '';
+      if (!pathRel && pathCellFields[columnId] == null) {
+        pathRel = request.row.cells[columnId] || '';
+      }
+    }
+    if (!pathRel) {
+      pathRel = request.row?.cells?.starFilePath
+        || request.row?.cells?.starFile
+        || request.row?.cells?.rlnTomoTiltSeriesStarFile
+        || request.row?.cells?.alignedStackPath
+        || request.row?.cells?.alignedStack
+        || request.row?.cells?.rlnTiltSeriesAligned
+        || request.row?.cells?.tomogramPath
+        || request.row?.cells?.tomogram
+        || request.row?.cells?.rlnTomoReconstructedTomogram
+        || '';
+    }
+
+    if (!pathRel) {
+      return { kind: 'empty', message: 'No path available for this row action.' };
+    }
+
+    var paneContent = null;
+    await handleRequestData(
+      Api.urls.resolve_table_view_pane,
+      {
+        root: project_details.path,
+        starPath: pathRel,
+        outputPath: request.outputPath,
+        pointerClass: request.pointerClass,
+        actionId: request.actionId,
+        columnId: columnId || undefined,
+        rowId: request.rowId,
+        row: request.row,
+        rowLabel: request.row?.cells?.tomoName || request.rowId,
+      },
+      function (data) {
+        paneContent = data.paneContent;
+      },
+    );
+
+    return paneContent || {
+      kind: 'empty',
+      message: 'Could not load viewer content.',
     };
   },
 };

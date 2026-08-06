@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '1.0.4rc2'
+__version__ = '2.0.0-rc260805'
 
 
 def create_app(test_config=None):
@@ -192,6 +192,8 @@ def create_app(test_config=None):
                 kwargs['content_id'] = default_content()
             app.user.image = app.dc.user_profile_image(app.user)
             kwargs['view_usage_report'] = dm.check_user_access('usage_report')
+            kwargs['view_pucks'] = dm.check_user_access('pucks')
+            kwargs['view_inventories'] = dm.check_user_access('inventories')
         else:
             if content_id not in NO_LOGIN_CONTENT:
                 kwargs = {'content_id': 'user_login',

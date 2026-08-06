@@ -53,6 +53,7 @@ from emtools.image import Thumbnail
 from emtools.utils import Pretty, Color, Path
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
+from .api_viewers import *
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -689,7 +690,15 @@ def get_session_run():
 
         if 'form' in outputs:
             values = run.values if run else None
-            results['form'] = pp['project'].get_form_definition(jobtype, jobValues=values)
+            # Pass runId so get_form_definition can read job.star when there
+            # is no JSON form and jobValues was not provided (params are
+            # per-run, keyed by folder id, not by job type alone).
+            run_id = run.id if run else attrs.get('run_id')
+            results['form'] = pp['project'].get_form_definition(
+                jobtype,
+                jobValues=values,
+                runId=run_id,
+            )
 
         return results
 
@@ -785,6 +794,182 @@ def get_file_preview():
 
     return _handle_item(_handle, 'preview')
 
+
+@api_bp.route('/get_table_view_data', methods=['POST'])
+@flask_login.login_required
+def get_table_view_data():
+    def _handle(**attrs):
+        root = attrs['root']
+        star_path = attrs.get('starPath') or attrs.get('star_path') or attrs.get('outputPath')
+        pointer_class = (attrs.get('pointerClass') or attrs.get('pointer_class') or '').replace(' ', '')
+
+        if not star_path:
+            raise Exception('Missing starPath / outputPath')
+
+        full_path = os.path.join(root, star_path)
+        if not os.path.exists(full_path):
+            raise Exception(f'STAR file not found: {star_path}')
+
+        type_key = resolve_table_view_type(pointer_class, star_path)
+        if type_key == 'tomocoordinates':
+            return build_tomocoordinates_table(star_path, root=root)
+        if type_key:
+            return build_global_tilt_series_table(full_path, type_key, root=root)
+
+        raise Exception(f'Unsupported table view type: {pointer_class or star_path}')
+
+    return _handle_item(_handle, 'tableViewData')
+
+
+@api_bp.route('/resolve_table_view_pane', methods=['POST'])
+@flask_login.login_required
+def resolve_table_view_pane():
+    def _handle(**attrs):
+        root = attrs['root']
+        action_id = attrs.get('actionId') or attrs.get('action_id')
+        pointer_class = attrs.get('pointerClass') or attrs.get('pointer_class')
+        column_id = attrs.get('columnId') or attrs.get('column_id')
+        row = attrs.get('row') or {}
+        row_cells = row.get('cells') or {}
+
+        type_hint_path = resolve_table_view_type_hint(attrs, row_cells)
+        type_key = resolve_table_view_type(pointer_class, type_hint_path)
+        if not type_key:
+            raise Exception(f'Unsupported table view type: {pointer_class or type_hint_path}')
+
+        row_label = (
+            attrs.get('rowLabel')
+            or attrs.get('rowId')
+            or row_cells.get('tomoName')
+            or os.path.basename(type_hint_path or '')
+        )
+
+        if action_id == 'aligned-slices':
+            stack_rel = resolve_row_aligned_stack_path(row_cells, column_id)
+            if not stack_rel:
+                raise Exception('Missing aligned tilt series stack path')
+            if not action_allowed_for_series(type_key, action_id, None):
+                raise Exception(
+                    f'Action {action_id!r} is not supported for {type_key}'
+                )
+            return build_aligned_stack_slider_pane_content(
+                root,
+                stack_rel,
+                title=stack_rel,
+            )
+
+        if action_id == 'volume-slices':
+            tomo_rel = resolve_row_tomogram_path(row_cells, column_id)
+            if not tomo_rel:
+                raise Exception('Missing tomogram path')
+            if not action_allowed_for_series(type_key, action_id, None):
+                raise Exception(
+                    f'Action {action_id!r} is not supported for {type_key}'
+                )
+            coordinates = None
+            if type_key == 'tomocoordinates':
+                from emhub.data.coords3d import load_tomogram_card_coordinates
+
+                output_path = (
+                    attrs.get('outputPath')
+                    or attrs.get('path')
+                    or attrs.get('starPath')
+                )
+                if not output_path:
+                    raise Exception('Missing optimisation_set.star output path')
+                tomo_name = row_cells.get('tomoName') or row_label
+                coordinates = load_tomogram_card_coordinates(
+                    root,
+                    output_path,
+                    tomo_name,
+                )
+            return build_tomogram_volume_slider_pane_content(
+                root,
+                tomo_rel,
+                title=tomo_rel,
+                coordinates=coordinates,
+            )
+
+        star_rel = resolve_row_star_path(attrs, row_cells, column_id)
+        if not star_rel:
+            raise Exception('Missing star file path')
+
+        return build_series_star_pane_content(
+            action_id,
+            root,
+            star_rel,
+            row_label,
+            type_key,
+        )
+
+    return _handle_item(_handle, 'paneContent')
+
+
+def _coords3d_output_path(attrs, protocol_id=None):
+    output_path = (
+        attrs.get('outputPath')
+        or attrs.get('output_path')
+        or attrs.get('outputName')
+        or attrs.get('output_name')
+    )
+    if output_path:
+        return output_path
+    protocol_id = protocol_id or attrs.get('protocolId') or attrs.get('protocol_id')
+    if protocol_id:
+        return os.path.join(protocol_id, 'optimisation_set.star')
+    raise Exception('Missing outputPath / outputName')
+
+
+@api_bp.route('/list_coords3d_tomograms', methods=['POST'])
+@flask_login.login_required
+def list_coords3d_tomograms():
+    def _handle(**attrs):
+        from emhub.data.coords3d import load_coords3d_tomograms
+
+        root = attrs['root']
+        output_path = _coords3d_output_path(attrs)
+        return load_coords3d_tomograms(root, output_path)
+
+    return _handle_item(_handle, 'tomograms')
+
+
+@api_bp.route('/fetch_coords3d_for_tomogram', methods=['POST'])
+@flask_login.login_required
+def fetch_coords3d_for_tomogram():
+    def _handle(**attrs):
+        from emhub.data.coords3d import load_coords3d_for_tomogram
+
+        root = attrs['root']
+        output_path = _coords3d_output_path(attrs)
+        tomo_id = attrs.get('tomoId') or attrs.get('tomo_id')
+        if not tomo_id:
+            raise Exception('Missing tomoId')
+        return load_coords3d_for_tomogram(root, output_path, tomo_id)
+
+    return _handle_item(_handle, 'coords3d')
+
+
+@api_bp.route('/fetch_coords3d_tomogram_slice', methods=['POST'])
+@flask_login.login_required
+def fetch_coords3d_tomogram_slice():
+    def _handle(**attrs):
+        from emhub.data.coords3d import load_coords3d_tomogram_slice
+
+        root = attrs['root']
+        output_path = _coords3d_output_path(attrs)
+        tomo_id = attrs.get('tomoId') or attrs.get('tomo_id')
+        if not tomo_id:
+            raise Exception('Missing tomoId')
+        slice_index = attrs.get('index')
+        if slice_index is None:
+            raise Exception('Missing slice index')
+        axis = attrs.get('axis', 'z')
+        return load_coords3d_tomogram_slice(
+            root, output_path, tomo_id, slice_index, axis=axis)
+
+    return _handle_item(_handle, 'slice')
+
+
 @api_bp.route('/get_file_chunks', methods=['POST'])
 @flask_login.login_required
 def get_file_chunks():
@@ -822,6 +1007,33 @@ def handle_workflow(handle_func=None, reload=False):
 @flask_login.login_required
 def get_session_workflow():
     return handle_workflow()
+
+
+@api_bp.route('/save_job_annotation', methods=['POST'])
+@flask_login.login_required
+def save_job_annotation():
+    """Save run name and comment for a processing job."""
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        run_id = (
+            attrs.get('run_id')
+            or attrs.get('protocolId')
+            or attrs.get('protocol_id')
+        )
+        if not run_id:
+            raise Exception('Missing run_id / protocolId')
+
+        run_name = attrs.get('runName') or attrs.get('run_name') or ''
+        comment = attrs.get('comment') or ''
+        pm.saveJobAnnotation(run_id, run_name, comment)
+        annotation = pm.getJobAnnotation(run_id)
+        return {
+            'id': run_id,
+            'runName': annotation['runName'],
+            'comment': annotation['comment'],
+        }
+
+    return _handle_item(_handle, 'protocol')
 
 
 @api_bp.route('/save_job', methods=['POST'])
@@ -1362,6 +1574,8 @@ def send_email():
 @api_bp.route('/get_pucks', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_pucks():
+    if not app.dm.check_user_access('pucks'):
+        return send_error('Invalid access')
     return filter_request(app.dm.get_pucks)
 
 
@@ -1572,6 +1786,8 @@ def clean_files(paths):
 
 def handle_puck(puck_func):
     def handle(**attrs):
+        if not app.dm.check_user_access('pucks'):
+            raise Exception('Invalid access')
         return puck_func(**attrs).json()
 
     return _handle_item(handle, 'puck')
