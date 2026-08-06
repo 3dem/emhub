@@ -1574,6 +1574,8 @@ def send_email():
 @api_bp.route('/get_pucks', methods=['GET', 'POST'])
 @flask_login.login_required
 def get_pucks():
+    if not app.dm.check_user_access('pucks'):
+        return send_error('Invalid access')
     return filter_request(app.dm.get_pucks)
 
 
@@ -1784,6 +1786,8 @@ def clean_files(paths):
 
 def handle_puck(puck_func):
     def handle(**attrs):
+        if not app.dm.check_user_access('pucks'):
+            raise Exception('Invalid access')
         return puck_func(**attrs).json()
 
     return _handle_item(handle, 'puck')

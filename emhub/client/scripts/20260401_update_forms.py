@@ -51,7 +51,7 @@ RESOURCES_CONFIG = """
 
 CONFIG_PERMISSIONS = """{
 "create_booking": {
-    "microscope": ["manager", "user"], "prep": ["user"], "talos": ["user"], "byslot": ["user"], "aquilos": ["user"]}, "delete_booking": {"microscope": ["manager", "admin"], "prep": ["user"], "talos": ["user"], "arctica": ["manager", "admin", "user"], "aquilos": ["user"]}, "create_session": ["manager", "admin"], "content": {"usage_report": ["manager", "head"], "raw": ["admin"]}, "projects": {"can_create": "all", "view_options": [{"key": "mine", "label": "My Projects"}, {"key": "lab", "label": "Lab's Projects"}, {"key": "all", "label": "All Projects"}]}
+    "microscope": ["manager", "user"], "prep": ["user"], "talos": ["user"], "byslot": ["user"], "aquilos": ["user"]}, "delete_booking": {"microscope": ["manager", "admin"], "prep": ["user"], "talos": ["user"], "arctica": ["manager", "admin", "user"], "aquilos": ["user"]}, "create_session": ["manager", "admin"], "content": {"usage_report": ["manager", "head"], "raw": ["admin"], "pucks": [], "inventories": []}, "projects": {"can_create": "all", "view_options": [{"key": "mine", "label": "My Projects"}, {"key": "lab", "label": "Lab's Projects"}, {"key": "all", "label": "All Projects"}]}
 }
 """
 

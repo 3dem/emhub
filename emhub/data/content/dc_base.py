@@ -865,16 +865,24 @@ class DataContent:
     def _inventory_item_availability(quantity, data):
         low_val = data.get('low')
         medium_val = data.get('medium')
-        if low_val in (None, '') or medium_val in (None, ''):
+
+        low = medium = None
+        if low_val not in (None, ''):
+            try:
+                low = int(low_val)
+            except (TypeError, ValueError):
+                pass
+        if medium_val not in (None, ''):
+            try:
+                medium = int(medium_val)
+            except (TypeError, ValueError):
+                pass
+
+        if low is None and medium is None:
             return None
-        try:
-            low = int(low_val)
-            medium = int(medium_val)
-        except (TypeError, ValueError):
-            return None
-        if quantity < low:
+        if low is not None and quantity < low:
             return 'low'
-        if quantity < medium:
+        if medium is not None and quantity < medium:
             return 'medium'
         return 'in-stock'
 
@@ -965,7 +973,11 @@ class DataContent:
 
     def get_inventory_items_with_operations(self, project):
         inventory_items = self.get_inventory_items(project)
-        return self._apply_inventory_operations(project, inventory_items)
+        inventory_items = self._apply_inventory_operations(project, inventory_items)
+        for item in inventory_items:
+            item['availability'] = self._inventory_item_availability(
+                item['quantity'], item['data'])
+        return inventory_items
 
     def get_inventory_summary(self, project):
         inventory_items = self.get_inventory_items_with_operations(project)
@@ -992,25 +1004,74 @@ class DataContent:
         ]
         return {'inventories': inventories}
 
-    def get_inventory(self, **kwargs):
-        """Return inventory items for a given inventory project."""
-        project_id = kwargs.get('inventory') or kwargs.get('project_id')
-        if not project_id:
-            raise Exception("Please specify an inventory (inventory id).")
+    @staticmethod
+    def parse_inventory_ids(inventory_param, all_projects):
+        """Parse ``inventory`` kwarg: all inventories, or comma-separated ids."""
+        if inventory_param in (None, '', '0'):
+            return [p.id for p in all_projects]
 
-        project = self.get_inventory_project(project_id)
-        inventory_items = self.get_inventory_items_with_operations(project)
+        ids = []
+        seen = set()
+        for part in str(inventory_param).split(','):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                inv_id = int(part)
+            except (TypeError, ValueError):
+                raise Exception(f"Invalid inventory id: {part!r}")
+            if inv_id in seen:
+                continue
+            seen.add(inv_id)
+            ids.append(inv_id)
+
+        if not ids:
+            raise Exception("Please specify an inventory (inventory id).")
+        return ids
+
+    def get_inventory(self, **kwargs):
+        """Return items for one or more inventory projects.
+
+        The ``inventory`` (or ``project_id``) argument may be a single id or a
+        comma-separated list of ids. Use ``0`` or omit it to select all
+        inventories.
+        """
+        inventory_param = kwargs.get('inventory') or kwargs.get('project_id')
+        all_projects = self.get_inventory_projects()
+        all_inventories = [self.get_inventory_summary(p) for p in all_projects]
+        valid_ids = {p.id for p in all_projects}
+
+        selected_ids = self.parse_inventory_ids(inventory_param, all_projects)
+        for inv_id in selected_ids:
+            if inv_id not in valid_ids:
+                raise Exception(f"There is no inventory with id: {inv_id}")
+
+        sections = []
+        for inv_id in selected_ids:
+            project = self.get_inventory_project(inv_id)
+            sections.append({
+                'inventory': {
+                    'id': project.id,
+                    'title': project.title,
+                },
+                'project_id': project.id,
+                'inventory_items': self.get_inventory_items_with_operations(project),
+            })
+
+        if not sections:
+            raise Exception("No inventories found.")
 
         dm = self.app.dm
         currency = dm.get_config('resources').get('currency', '')
 
+        first = sections[0]
         return {
-            'inventory_items': inventory_items,
-            'project_id': project.id,
-            'inventory': {
-                'id': project.id,
-                'title': project.title,
-            },
+            'inventory_sections': sections,
+            'all_inventories': all_inventories,
+            'selected_inventory_ids': selected_ids,
+            'inventory_items': first['inventory_items'],
+            'project_id': first['project_id'],
+            'inventory': first['inventory'],
             'currency': currency,
         }
 
@@ -1095,8 +1156,7 @@ def register_content(dc):
 
     @dc.content
     def pucks(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
+        dc.check_user_access('pucks')
 
         dm = app.dm  # shortcut
         dewar = cane = puck = None
@@ -1133,13 +1193,16 @@ def register_content(dc):
         return pucks(**kwargs)
 
     @dc.content
+    def pucks_all_table(**kwargs):
+        return pucks(**kwargs)
+
+    @dc.content
     def puck_details(**kwargs):
         return pucks(**kwargs)
 
     @dc.content
     def cane_form(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
+        dc.check_user_access('pucks')
 
         dm = app.dm
         dewar_id = int(kwargs.get('dewar_id', 0) or 0)
@@ -1175,9 +1238,11 @@ def register_content(dc):
             location_value = storage.cane_location_value(dewar_id, cane_id)
             location_options = storage.cane_location_options(dewar_id, cane_id)
 
+        dewar = storage.get_dewar(dewar_id)
         result = {
             'cane': cane,
             'dewar_id': dewar_id,
+            'dewar_label': storage.dewar_display_label(dewar),
             'cane_id': cane['id'],
             'is_new': is_new,
             'form_id': config_form.id,
@@ -1192,9 +1257,8 @@ def register_content(dc):
     @dc.content
     def puck_form(**kwargs):
         from types import SimpleNamespace
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('pucks')
+
         dm = app.dm
         puck_id = int(kwargs.get('puck_id', 0) or 0)
 
@@ -1214,12 +1278,14 @@ def register_content(dc):
             if storage.puck_at(dewar_id, cane_id, position):
                 raise Exception("Position %s is already occupied" % position)
 
+            dewar = storage.get_dewar(dewar_id)
+            dewar_label = storage.dewar_display_label(dewar)
             cane = storage.get_cane(dewar_id, cane_id)
             cane_label = cane.get('label') or ('cane %s' % cane_id)
             location_value = storage.location_value(dewar_id, cane_id, position)
             location_options = [{
                 'value': location_value,
-                'label': 'Dewar %s / %s / %s' % (dewar_id, cane_label, position),
+                'label': '%s / %s / %s' % (dewar_label, cane_label, position),
             }]
             puck = SimpleNamespace(
                 id=None,
@@ -1250,9 +1316,8 @@ def register_content(dc):
 
     @dc.content
     def puck_gridbox_form(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('pucks')
+
         dm = app.dm
         puck_id = int(kwargs.get('puck_id', 0) or 0)
         position = int(kwargs.get('position', 0) or 0)
@@ -1281,6 +1346,8 @@ def register_content(dc):
 
     @dc.content
     def grids_cane(**kwargs):
+        dc.check_user_access('pucks')
+
         dm = app.dm  # shortcut
 
         range = kwargs.get('pucks_range', '1-9999')  # by default all
@@ -1453,30 +1520,26 @@ def register_content(dc):
 
     @dc.content
     def inventories(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         return dc.get_inventories(**kwargs)
 
     @dc.content
     def inventory(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         return dc.get_inventory(**kwargs)
 
     @dc.content
     def inventory_item_history(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         return dc.get_inventory_item_history(kwargs['item_id'])
 
     @dc.content
     def inventory_items(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         project_id = (kwargs.get('inventory') or kwargs.get('project_id')
                       or kwargs.get('entry_project_id'))
         if not project_id:
@@ -1488,9 +1551,8 @@ def register_content(dc):
 
     @dc.content
     def inventory_form(**kwargs):
-        if not app.user.is_manager:
-            raise Exception("You are not authorized to access this page")
-            
+        dc.check_user_access('inventories')
+
         dm = dc.app.dm
         user = dc.app.user
         inventory_id = int(kwargs.get('inventory_id', 0))
@@ -1514,6 +1576,8 @@ def register_content(dc):
 
     @dc.content
     def validate_inventory_add(entry):
+        dc.check_user_access('inventories')
+
         data = entry.extra.get('data', {})
         item_id = data.get('item')
         if item_id in (None, ''):
@@ -1535,7 +1599,14 @@ def register_content(dc):
             raise Exception("Quantity must be greater than zero")
 
     @dc.content
+    def validate_inventory_remove(entry):
+        return validate_inventory_add(entry)
+            
+
+    @dc.content
     def validate_inventory_item(entry):
+        dc.check_user_access('inventories')
+
         if not entry.title or not entry.title.strip():
             raise Exception("Title can not be empty")
 
@@ -1557,3 +1628,12 @@ def register_content(dc):
         _validate_int_field('quantity', 'Quantity', required=True)
         _validate_int_field('low', 'Low', positive=True)
         _validate_int_field('medium', 'Medium', positive=True)
+
+        low_raw = data.get('low')
+        medium_raw = data.get('medium')
+        if (low_raw not in (None, '') and medium_raw not in (None, '')):
+            try:
+                if int(low_raw) >= int(medium_raw):
+                    raise Exception("Low value must be less than Medium value")
+            except (TypeError, ValueError):
+                pass

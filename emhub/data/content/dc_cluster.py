@@ -36,22 +36,33 @@ from emtools.utils import Pretty, Path, Timer
 from emhub.utils import datetime_from_isoformat
 
 
-def _iter_cluster_jobs(jsonfile, jobsJson):
+def _load_cluster_queues(jsonfile):
+    """Load cluster JSON (old single-dict or new list-of-queues format)."""
     with open(jsonfile) as f:
-        clusterJson = json.load(f)
+        data = json.load(f)
 
-    for job in clusterJson['jobs']:
-        execHost = job['compute_nodes_list']
-        cores = job['cpu_used']
-        gpus = job['gpu_used']
-        host = execHost
-        if host not in jobsJson:
+    if isinstance(data, list):
+        return {entry['queue']: entry for entry in data}
+    return {None: data}
+
+
+def _iter_cluster_jobs(queues_data, jobsJson, queue_names=None):
+    """Iterate jobs from selected queues, filtering by configured hosts."""
+    if queue_names is None:
+        queue_names = list(queues_data.keys())
+
+    for queue_name in queue_names:
+        queue_data = queues_data.get(queue_name)
+        if not queue_data:
             continue
 
-        user = job['account_name']
-        jobid = job['jobID']
+        for job in queue_data.get('jobs', []):
+            host = job['compute_nodes_list']
+            if host not in jobsJson:
+                continue
 
-        yield jobid, user, cores, gpus, host
+            yield (job['jobID'], job['account_name'],
+                   job['cpu_used'], job['gpu_used'], host)
 
 
 def _iter_cluster_jobs_old(jsonfile, jobsJson):
@@ -79,6 +90,88 @@ def _iter_cluster_jobs_old(jsonfile, jobsJson):
         jobid = job['JOBID']
 
         yield jobid, user, cores, gpus, host
+
+
+SPARC_SUFFIX = '_sparc'
+
+
+def _build_cluster_lab_maps(dm):
+    """Build lookups to resolve cluster account names to EMhub PI labs."""
+    by_username = {u.username: u for u in dm.get_users()}
+
+    group_to_lab = {}
+    for email, group in dm.get_config('sessions').get('groups', {}).items():
+        user = dm.get_user_by(email=email)
+        if user is None:
+            continue
+        pi = user.get_pi()
+        group_to_lab[group] = pi.name if pi else user.name
+
+    account_to_lab = {}
+    for account, email in dm.get_config('computing').get('accounts', {}).items():
+        user = dm.get_user_by(email=email)
+        if user is None:
+            continue
+        pi = user.get_pi()
+        account_to_lab[account] = pi.name if pi else user.name
+
+    return by_username, group_to_lab, account_to_lab
+
+
+def _lab_label_for_account(account, by_username, group_to_lab, account_to_lab):
+    user = by_username.get(account)
+    if user is not None:
+        pi = user.get_pi()
+        return pi.name if pi else user.name
+
+    group_name = account
+    if account.endswith(SPARC_SUFFIX):
+        group_name = account[:-len(SPARC_SUFFIX)]
+
+    if group_name in group_to_lab:
+        return group_to_lab[group_name]
+
+    if account in account_to_lab:
+        return account_to_lab[account]
+
+    if group_name in account_to_lab:
+        return account_to_lab[group_name]
+
+    return account
+
+
+def _aggregate_labs_usage(usersData, dm):
+    by_username, group_to_lab, account_to_lab = _build_cluster_lab_maps(dm)
+    labsData = defaultdict(lambda: {'jobs': 0, 'cores': 0, 'gpus': 0})
+
+    for account, stats in usersData.items():
+        label = _lab_label_for_account(
+            account, by_username, group_to_lab, account_to_lab)
+        lab = labsData[label]
+        lab['jobs'] += stats['jobs']
+        lab['cores'] += stats['cores']
+        lab['gpus'] += stats['gpus']
+
+    labs = []
+    for name, stats in labsData.items():
+        stats['name'] = name
+        labs.append(stats)
+
+    labs.sort(key=lambda l: l['cores'], reverse=True)
+    return labs
+
+
+def _compute_overall_stats(jobsJson, usersData):
+    usages = [h['usage'] for h in jobsJson.values()]
+    avg_usage = sum(usages) / len(usages) if usages else 0
+
+    return {
+        'users': len(usersData),
+        'jobs': sum(h['jobs'] for h in jobsJson.values()),
+        'cpus': sum(h['used_cores'] for h in jobsJson.values()),
+        'gpus': sum(h['used_gpus'] for h in jobsJson.values()),
+        'usage': f"{avg_usage:0.2f}",
+    }
 
 
 def register_content(dc):
@@ -126,7 +219,11 @@ def register_content(dc):
             iter_cluster_jobs = _iter_cluster_jobs_old(jsonfile, jobsJson)
         else:
             jsonfile = queuesConf['json']
-            iter_cluster_jobs = _iter_cluster_jobs(jsonfile, jobsJson)
+            queues_data = _load_cluster_queues(jsonfile)
+            queue_names = {layout['queue'] for layout in queuesLayout
+                           if layout.get('queue')} or None
+            iter_cluster_jobs = _iter_cluster_jobs(
+                queues_data, jobsJson, queue_names)
 
         for jobid, user, cores, gpus, host in iter_cluster_jobs:
             hostJson = jobsJson[host]
@@ -168,7 +265,7 @@ def register_content(dc):
                 hostJson = jobsJson[node]
                 usage += hostJson['usage']
 
-            layout['usage'] = f"{usage / len(layout['nodes']):0.1f}"
+            layout['usage'] = f"{usage / len(layout['nodes']):0.2f}"
 
         users = []
         for k, u in usersData.items():
@@ -176,6 +273,8 @@ def register_content(dc):
             users.append(u)
 
         users.sort(key=lambda u: u['cores'], reverse=True)
+        labs = _aggregate_labs_usage(usersData, dm)
+        overall = _compute_overall_stats(jobsJson, usersData)
 
         return {
             'queues': queuesLayout,
@@ -183,6 +282,8 @@ def register_content(dc):
             'updated': Pretty.modified(jsonfile),
             'tab': kwargs.get('tab', 'nodes'),
             'users': users,
+            'labs': labs,
+            'overall': overall,
             'mode': kwargs.get('mode', 'compact'),
             'cluster_name': clusterName
         }

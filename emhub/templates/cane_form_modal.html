@@ -3,9 +3,9 @@
         <div class="modal-body">
             <h3 class="row mb-3" id="cane-modal-title" style="margin-left: 5px;">
                 {% if is_new %}
-                    New Cane — Dewar {{ dewar_id }}
+                    New Cane — {{ dewar_label }}
                 {% else %}
-                    Edit Cane — Dewar {{ dewar_id }}, Cane {{ cane_id }}
+                    Edit Cane — {{ dewar_label }}, Cane {{ cane_id }}
                 {% endif %}
             </h3>
 
