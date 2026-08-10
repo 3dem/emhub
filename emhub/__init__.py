@@ -40,7 +40,6 @@ def create_app(test_config=None):
     import jinja2
     import importlib.util
 
-    from . import utils
     from .blueprints import api_bp, images_bp, pages_bp
     from .utils import (datetime_to_isoformat,
                         pretty_date, pretty_datetime, pretty_quarter,
@@ -51,6 +50,7 @@ def create_app(test_config=None):
 
     # create and configure the app
     emhub_instance_path = os.environ.get('EMHUB_INSTANCE', None)
+    emhub_url_external = bool(int(os.environ.get('EMHUB_URL_EXTERNAL', 1)))
 
     app = flask.Flask(__name__,
                       instance_path=emhub_instance_path,
@@ -205,7 +205,7 @@ def create_app(test_config=None):
         return flask.render_template("main.html", **kwargs)
 
     def _redirect(endpoint, **kwargs):
-        return flask.redirect(flask.url_for(endpoint, _external=True, **kwargs))
+        return flask.redirect(flask.url_for(endpoint, _external=emhub_url_external, **kwargs))
 
     @app.route('/', methods=['GET', 'POST'])
     @app.route('/index', methods=['GET', 'POST'])
@@ -418,7 +418,7 @@ def create_app(test_config=None):
         return Pretty.elapsed(ts, now=app.dm.now())
 
     def url_for_content(contentId, **kwargs):
-        return flask.url_for('main', _external=True, content_id=contentId, **kwargs)
+        return flask.url_for('main', _external=emhub_url_external, content_id=contentId, **kwargs)
 
     def booking_cost(b):
         """ Calculate the cost of a booking.
@@ -527,6 +527,43 @@ def create_app(test_config=None):
     if extra_setup and 'setup_app' in dir(extra_setup):
         print(f"Extending app setup from: {extra_setup.__file__}")
         extra_setup.setup_app(app)
+
+    emhub_logged_user = os.environ.get('EMHUB_LOGGED_USER', '').strip()
+
+    def _resolve_logged_user(login_name):
+        """Return a user matching login_name by username or email."""
+        if not login_name:
+            return None
+
+        case_sensitive = app.config.get('CASE_SENSITIVE_USERNAMES', True)
+        lookup_name = login_name if case_sensitive else login_name.lower()
+
+        user = app.dm.get_user_by(username=lookup_name)
+        if user is None:
+            email_lookup = login_name.strip()
+            if not case_sensitive:
+                email_lookup = email_lookup.lower()
+            user = app.dm.get_user_by(email=email_lookup)
+        return user
+
+    if emhub_logged_user:
+        _logged_user_missing_warned = False
+
+        @app.before_request
+        def _login_user_from_env():
+            nonlocal _logged_user_missing_warned
+            user = _resolve_logged_user(emhub_logged_user)
+            if user is None:
+                if not _logged_user_missing_warned:
+                    app.logger.warning(
+                        "EMHUB_LOGGED_USER=%r does not match any user "
+                        "by username or email", emhub_logged_user)
+                    _logged_user_missing_warned = True
+                return
+
+            current = flask_login.current_user
+            if not current.is_authenticated or current.id != user.id:
+                flask_login.login_user(user)
 
     @login_manager.user_loader
     def load_user(user_id):
