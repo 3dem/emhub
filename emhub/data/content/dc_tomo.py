@@ -31,13 +31,15 @@ import json
 from uuid import uuid4
 import shutil
 import random
+from datetime import datetime, timedelta
 from collections import defaultdict
 
 from emtools.utils import Path, FolderManager, Process, Pretty
 from emtools.image import Thumbnail
-from emtools.metadata import StarFile, WarpXml
+from emtools.metadata import StarFile, RelionStar, WarpXml
 
 from emwrap.base import ProcessingConfig
+from emhub.data.processing import resolve_processing_path
 
 
 DEFAULT_SESSION = {
@@ -48,6 +50,58 @@ DEFAULT_SESSION = {
 }
 
 
+def _get_tomo_project_last_modified(processing_path):
+    """Return latest mtime from project.json or default_pipeline.star."""
+    processing_path = resolve_processing_path(processing_path)
+    if not processing_path:
+        return None
+    mtimes = []
+    for fname in ('project.json', 'default_pipeline.star'):
+        fpath = os.path.join(processing_path, fname)
+        if os.path.exists(fpath):
+            mtimes.append(os.path.getmtime(fpath))
+    return max(mtimes) if mtimes else None
+
+
+def _sort_tomo_entries_by_modified(entries):
+    for entry in entries:
+        data = entry.get('extra', {}).get('data', {})
+        entry['last_modified'] = _get_tomo_project_last_modified(
+            data.get('processing_path', ''))
+    entries.sort(key=lambda e: e.get('last_modified') or 0, reverse=True)
+    return entries
+
+
+def _group_tomo_projects_by_week(entries):
+    now = datetime.now()
+    this_week_start = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    last_week_start = this_week_start - timedelta(days=7)
+
+    this_week = []
+    last_week = []
+    others = []
+
+    for entry in entries:
+        ts = entry.get('last_modified')
+        if ts is None:
+            others.append(entry)
+            continue
+        mtime = datetime.fromtimestamp(ts)
+        if mtime >= this_week_start:
+            this_week.append(entry)
+        elif mtime >= last_week_start:
+            last_week.append(entry)
+        else:
+            others.append(entry)
+
+    return [
+        ('This Week', this_week),
+        ('Last Week', last_week),
+        ('Others', others),
+    ]
+
+
 def register_content(dc):
 
     def _get_workflow_widget_data(workflow_id):
@@ -55,17 +109,10 @@ def register_content(dc):
 
         data = WorkflowEditor(workflow_id).get_widget_data()
 
-        def _fixIcon(item):
-            if item.get('tag') == 'protocol':
-                if 'icon' not in item:
-                    item['icon'] = {'name': 'production.png'}
-            elif 'childs' in item:
-                for child in item['childs']:
-                    _fixIcon(child)
+        from emhub.data.widget_menu import get_widget_menu, fix_widget_menu_icons
 
-        pmenu = dc.app.dm.get_config('processing_menus')['menu_widget']
-        for section in pmenu.get('protocols', {}).values():
-            _fixIcon(section)
+        pmenu = get_widget_menu()
+        fix_widget_menu_icons(pmenu)
 
         data['menu'] = pmenu
         return data
@@ -131,7 +178,7 @@ def register_content(dc):
 
             if tp := dc.app.dm.get_entry_by(id=tsId):
                 data = tp.extra['data']
-                path = data['processing_path']
+                path = resolve_processing_path(data['processing_path'])
                 tomo_session = {
                     'path': path,
                     'title': data.get('title', os.path.basename(path)),
@@ -247,7 +294,9 @@ def register_content(dc):
             except Exception as e:
                 particles_star = ''
                 data['errors'].append(str(e))
-        elif os.path.basename(tomograms_star) == 'optimisation_set.star':
+        elif RelionStar.isTomoOptimisationSet(
+                tomograms_star if os.path.isabs(tomograms_star)
+                else os.path.join(session_path, tomograms_star)):
             try:
                 _apply_coords_paths(tomograms_star)
             except Exception as e:
@@ -303,7 +352,7 @@ def register_content(dc):
         ppath = None
 
         dpath = data.get('data_path', '')
-        ppath = data.get('processing_path', '')
+        ppath = resolve_processing_path(data.get('processing_path', ''))
 
         if not ppath:
             raise Exception(f"Processing path can not be empty.")
@@ -400,7 +449,18 @@ def register_content(dc):
         kwargs['entry_type'] = 'tomo_processing'
         kwargs['project_type'] = 'processing_tomo'
         data = dc.get_data('pseudo_projects', **kwargs)
-        data['tomo_projects'] = data['pseudo_projects']
+
+        my_entries = []
+        for project_entries in data['pseudo_projects'].values():
+            my_entries.extend(project_entries)
+
+        _sort_tomo_entries_by_modified(my_entries)
+        data['my_project_sections'] = _group_tomo_projects_by_week(my_entries)
+
+        shared_projects = data['shared_projects']
+        _sort_tomo_entries_by_modified(shared_projects)
+        data['shared_projects'] = shared_projects
+
         return data
 
     @dc.content

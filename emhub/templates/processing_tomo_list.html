@@ -43,25 +43,21 @@
             <a href="javascript:createTomoProject({{ default_project_id }})" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create New Project</a>
         </div>
 
-    {% for project_id, project_entries in tomo_projects.items() %}
-  
-        <div class="card col-12">
-            <div class="card-header"><h3>My Projects</h3></div>
-            <div class="card-body">
-                
+    <div class="card col-12">
+        <div class="card-header"><h3>My Projects</h3></div>
+        <div class="card-body">
+            {% for label, project_entries in my_project_sections %}
+                {% if project_entries %}
+                <h5 class="{% if not loop.first %}mt-4 {% endif %}mb-2">{{ label }}</h5>
                 <div class="row">
-
                     {% for tp in project_entries %}
-                            
                         {{ project_card(tp) }}
-
                     {% endfor %}
-
                 </div>
-            </div>
+                {% endif %}
+            {% endfor %}
         </div>
-
-    {% endfor %}
+    </div>
     <!-- end table row -->
 
     <div class="card col-12">

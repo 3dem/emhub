@@ -257,31 +257,10 @@ def register_content(dc):
             'protocols': protocols
         }
 
-        def _fixIcon(item):
-            if item.get('tag') == 'protocol':
-                if 'icon' not in item:
-                    item['icon'] = {'name': 'production.png'}
-            elif 'childs' in item:
-                for child in item['childs']:
-                    _fixIcon(child)
+        from emhub.data.widget_menu import get_widget_menu, fix_widget_menu_icons
 
-        pmenu = dc.app.dm.get_config('processing_menus')['menu_widget']
-        # Use EMwrap workflow template files as the loadable workflow menu
-        pmenu = {
-            **pmenu,
-            'workflows': [
-                {
-                    'id': wf['id'],
-                    'name': wf['title'],
-                    'description': wf.get('description', ''),
-                    'tag': 'workflow',
-                }
-                for wf in ProcessingConfig.list_workflows()
-            ],
-        }
-        # Add the icon for all protocols
-        for sectionName, section in pmenu['protocols'].items():
-            _fixIcon(section)
+        pmenu = get_widget_menu()
+        fix_widget_menu_icons(pmenu)
 
         data.update({
             'project_id': project_id,
