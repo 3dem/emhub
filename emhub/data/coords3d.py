@@ -4,6 +4,8 @@ import os
 
 from emtools.metadata import StarFile, RelionStar
 
+from emhub.data.processing import resolve_project_root
+
 SCORE_COLUMNS = (
     'rlnLCCmax',
     'rlnAutopickFigureOfMerit',
@@ -18,8 +20,10 @@ def _normalize_tomo_name(name):
 
 def _resolve_star_path(root, star_path):
     if os.path.isabs(star_path):
+        if star_path.startswith('~'):
+            return os.path.abspath(os.path.expanduser(star_path))
         return star_path
-    return os.path.join(root, star_path)
+    return os.path.join(resolve_project_root(root), star_path)
 
 
 def _resolve_linked_path(base_star_path, linked_path, root=None):
@@ -34,25 +38,14 @@ def _resolve_linked_path(base_star_path, linked_path, root=None):
         ),
     ]
     if root:
-        candidates.append(os.path.normpath(os.path.join(root, linked_path)))
+        candidates.append(
+            os.path.normpath(os.path.join(resolve_project_root(root), linked_path)))
 
     for candidate in candidates:
         if os.path.exists(candidate):
             return candidate
 
     return candidates[-1] if root else candidates[0]
-
-
-def _read_first_table(star_path):
-    with StarFile(star_path) as sf:
-        table_names = sf.getTableNames()
-        if not table_names:
-            raise Exception(f'STAR file has no tables: {star_path}')
-        table_name = table_names[0]
-        table = sf.getTable(table_name)
-        if not table:
-            raise Exception(f'Could not read table {table_name!r} from {star_path}')
-        return table, table_name
 
 
 def resolve_coords_set(root, output_path):
@@ -64,21 +57,8 @@ def resolve_coords_set(root, output_path):
     particles_star = coords_star
     tomograms_star = None
 
-    if coords_star.endswith('optimisation_set.star'):
-        with StarFile(coords_star) as sf:
-            table_names = sf.getTableNames()
-            if not table_names:
-                raise Exception(f'STAR file has no tables: {coords_star}')
-            table_name = (
-                'optimisation_set' if 'optimisation_set' in table_names
-                else table_names[0]
-            )
-            opt_table = sf.getTable(table_name)
-            if not opt_table:
-                raise Exception(
-                    f'Could not read table {table_name!r} from {coords_star}'
-                )
-        opt_row = opt_table[0]._asdict()
+    if RelionStar.isTomoOptimisationSet(coords_star):
+        opt_row = RelionStar.readTomoOptimisationSet(coords_star)[0]._asdict()
         particles_rel = opt_row.get('rlnTomoParticlesFile')
         tomograms_rel = opt_row.get('rlnTomoTomogramsFile')
         if not particles_rel:
@@ -88,9 +68,10 @@ def resolve_coords_set(root, output_path):
         particles_star = _resolve_linked_path(coords_star, particles_rel, root)
         if tomograms_rel:
             tomograms_star = _resolve_linked_path(coords_star, tomograms_rel, root)
-    elif not coords_star.endswith('particles.star'):
+    elif not RelionStar.isTomoParticles(coords_star):
         raise Exception(
-            'Coordinates input must be optimisation_set.star or particles.star'
+            f'{output_path} is not a compliant tomography optimisation_set or '
+            'particles STAR file'
         )
 
     if not os.path.exists(particles_star):
@@ -168,10 +149,11 @@ def _particle_pixel_coords(row, tomo_row):
 
 
 def _load_particles_table(particles_star):
-    table = StarFile.getTableFromFile('particles', particles_star)
-    if not table:
-        raise Exception(f"Could not read 'particles' table from {particles_star}")
-    return table
+    if not RelionStar.isTomoParticles(particles_star):
+        raise Exception(
+            f"{particles_star} is not a compliant tomography particles STAR file"
+        )
+    return RelionStar.readTomoParticles(particles_star)
 
 
 def _iter_particles_for_tomo(particles_table, tomo_name):

@@ -39,7 +39,7 @@ from emhub.utils import datetime_from_isoformat, datetime_to_isoformat
 from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
-from .processing import get_processing_project
+from .processing import get_processing_project, resolve_processing_path
 
 
 class DataManager(DbManager):
@@ -800,6 +800,8 @@ class DataManager(DbManager):
         else:
             raise Exception("Expecting either 'session_id', 'entry_id' or 'path'"
                             "to load a project.")
+
+        processing_path = resolve_processing_path(processing_path)
 
         # This is just for debugging when the path are mounted with a different root
         # e.g. /jude/facility/ -> /Volumes/cryo_facility/

@@ -21,7 +21,22 @@ from .processing_relion import RelionSessionData, RelionRun
 from .processing_scipion import ScipionSessionData
 
 
+def resolve_processing_path(project_path):
+    """Expand a leading ~ for filesystem access."""
+    if project_path and project_path.startswith('~'):
+        return os.path.expanduser(project_path)
+    return project_path
+
+
+def resolve_project_root(project_path):
+    """Expand ~ and return absolute path for filesystem access."""
+    if not project_path:
+        return project_path
+    return os.path.abspath(os.path.expanduser(project_path))
+
+
 def get_processing_type(project_path):
+    project_path = resolve_processing_path(project_path)
     if not os.path.exists(project_path):
         raise Exception(f"ERROR: can't load processing path: {project_path}")
 
@@ -40,6 +55,7 @@ def get_processing_type(project_path):
 
 def get_processing_project(project_path):
     """ Create a Processing Project instance from this path. """
+    project_path = resolve_processing_path(project_path)
     typeMap = {
         'scipion': ScipionSessionData,
         'relion': RelionSessionData

@@ -53,6 +53,7 @@ from emtools.image import Thumbnail
 from emtools.utils import Pretty, Color, Path
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
+from emhub.data.processing import resolve_project_root
 from .api_viewers import *
 
 
@@ -719,7 +720,7 @@ def get_project_manager(**attrs):
 @flask_login.login_required
 def list_project_dir():
     def _handle(**attrs):
-        root = attrs['root']
+        root = resolve_project_root(attrs['root'])
         path = attrs['path']
         full_path = os.path.join(root, path)    
         items = []
@@ -749,7 +750,7 @@ def list_project_dir():
 @flask_login.login_required
 def get_file_preview():
     def _handle(**attrs):
-        root = attrs['root']
+        root = resolve_project_root(attrs['root'])
         path = attrs['path']
         full_path = os.path.join(root, path)
         s = os.stat(full_path)
@@ -799,7 +800,7 @@ def get_file_preview():
 @flask_login.login_required
 def get_table_view_data():
     def _handle(**attrs):
-        root = attrs['root']
+        root = resolve_project_root(attrs['root'])
         star_path = attrs.get('starPath') or attrs.get('star_path') or attrs.get('outputPath')
         pointer_class = (attrs.get('pointerClass') or attrs.get('pointer_class') or '').replace(' ', '')
 
@@ -825,7 +826,7 @@ def get_table_view_data():
 @flask_login.login_required
 def resolve_table_view_pane():
     def _handle(**attrs):
-        root = attrs['root']
+        root = resolve_project_root(attrs['root'])
         action_id = attrs.get('actionId') or attrs.get('action_id')
         pointer_class = attrs.get('pointerClass') or attrs.get('pointer_class')
         column_id = attrs.get('columnId') or attrs.get('column_id')
@@ -926,7 +927,7 @@ def list_coords3d_tomograms():
     def _handle(**attrs):
         from emhub.data.coords3d import load_coords3d_tomograms
 
-        root = attrs['root']
+        root = resolve_project_root(attrs['root'])
         output_path = _coords3d_output_path(attrs)
         return load_coords3d_tomograms(root, output_path)
 
@@ -939,7 +940,7 @@ def fetch_coords3d_for_tomogram():
     def _handle(**attrs):
         from emhub.data.coords3d import load_coords3d_for_tomogram
 
-        root = attrs['root']
+        root = resolve_project_root(attrs['root'])
         output_path = _coords3d_output_path(attrs)
         tomo_id = attrs.get('tomoId') or attrs.get('tomo_id')
         if not tomo_id:
@@ -955,7 +956,7 @@ def fetch_coords3d_tomogram_slice():
     def _handle(**attrs):
         from emhub.data.coords3d import load_coords3d_tomogram_slice
 
-        root = attrs['root']
+        root = resolve_project_root(attrs['root'])
         output_path = _coords3d_output_path(attrs)
         tomo_id = attrs.get('tomoId') or attrs.get('tomo_id')
         if not tomo_id:

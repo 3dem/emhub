@@ -29,8 +29,10 @@
 
 import os
 
-from emtools.metadata import StarFile
+from emtools.metadata import StarFile, RelionStar
 from emtools.utils import Path
+
+from emhub.data.processing import resolve_project_root
 
 
 # --- Shared table column / field / action definitions ---
@@ -237,9 +239,10 @@ def resolve_table_view_type(pointer_class, star_path):
     type_key = _normalize_table_view_type(pointer_class)
     if type_key:
         return type_key
+    if star_path and os.path.isfile(star_path):
+        if RelionStar.isTomoOptimisationSet(star_path):
+            return 'tomocoordinates'
     basename = os.path.basename(star_path or '').lower()
-    if basename == 'optimisation_set.star':
-        return 'tomocoordinates'
     if basename == 'tomograms.star':
         return 'tomograms'
     if 'aln' in basename or 'aligned' in basename:
@@ -337,7 +340,9 @@ def _table_view_row_actions(spec, type_key, row_cells, root=None):
     star_rel = row_cells.get('starFilePath') or row_cells.get('starFile')
     if root and star_rel and type_key in _TILT_SERIES_TYPES_WITH_OPTIONAL:
         actions.extend(
-            _optional_actions_for_series(type_key, os.path.join(root, star_rel))
+            _optional_actions_for_series(
+                type_key,
+                os.path.join(resolve_project_root(root), star_rel))
         )
     return actions
 
@@ -628,8 +633,10 @@ def _resolve_data_path(root, rel_path):
     if not rel_path:
         return None
     if os.path.isabs(rel_path):
+        if rel_path.startswith('~'):
+            return os.path.abspath(os.path.expanduser(rel_path))
         return rel_path
-    return os.path.join(root, rel_path)
+    return os.path.join(resolve_project_root(root), rel_path)
 
 
 def _resolve_tomogram_path(root, row_cells):
@@ -857,7 +864,7 @@ def resolve_row_tomogram_path(row_cells, column_id=None):
 
 def build_series_star_pane_content(action_id, root, star_rel, row_label, type_key):
     """Build pane content for actions that read a per-series tilt-series STAR file."""
-    full_path = os.path.join(root, star_rel)
+    full_path = os.path.join(resolve_project_root(root), star_rel)
     if not os.path.exists(full_path):
         raise Exception(f'STAR file not found: {star_rel}')
 
