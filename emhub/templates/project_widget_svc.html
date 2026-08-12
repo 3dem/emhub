@@ -112,7 +112,7 @@ async function loadJobDetails(jobId, jobType) {
       packageLogo: "",
       projectId: 44,
       inputs: [],
-      outputs: [],
+      outputs: jobNode && Array.isArray(jobNode.outputs) ? jobNode.outputs : [],
       projectName: "",
       protocolClassName: jobType,
       protocolId: jobId,
@@ -561,6 +561,36 @@ var svc = {
     return paneContent || {
       kind: 'empty',
       message: 'Could not load viewer content.',
+    };
+  },
+
+  /**
+   * Create a subset from selected table-view items.
+   * request: { ...context, subsetItems: string[] }
+   */
+  async createTableViewSubset(request) {
+    var subsetResult = null;
+    var sourcePath = request.outputPath || request.starPath || '';
+    await handleRequestData(
+      Api.urls.create_tomo_subset,
+      {
+        root: project_details.path,
+        starPath: sourcePath,
+        outputPath: sourcePath,
+        pointerClass: request.pointerClass,
+        tableKey: request.tableKey || 'global',
+        outputName: request.outputName,
+        protocolId: request.protocolId,
+        subsetItems: request.subsetItems || [],
+      },
+      function (data) {
+        subsetResult = data.subsetResult;
+      },
+    );
+
+    return subsetResult || {
+      success: false,
+      message: 'Could not create subset.',
     };
   },
 };

@@ -822,6 +822,29 @@ def get_table_view_data():
     return _handle_item(_handle, 'tableViewData')
 
 
+@api_bp.route('/create_tomo_subset', methods=['POST'])
+@flask_login.login_required
+def create_tomo_subset():
+    def _handle(**attrs):
+        root = resolve_project_root(attrs['root'])
+        star_path = attrs.get('starPath') or attrs.get('star_path') or attrs.get('outputPath')
+        pointer_class = attrs.get('pointerClass') or attrs.get('pointer_class') or ''
+        subset_items = attrs.get('subsetItems') or attrs.get('subset_items') or []
+        if not star_path:
+            raise Exception('Missing starPath / outputPath for the table source file')
+        if not isinstance(subset_items, list):
+            raise Exception('subsetItems must be a list')
+        return ApiViewerHelper.create_tomo_subset(
+            root,
+            pointer_class,
+            star_path,
+            subset_items,
+            attrs=attrs,
+        )
+
+    return _handle_item(_handle, 'subsetResult')
+
+
 @api_bp.route('/resolve_table_view_pane', methods=['POST'])
 @flask_login.login_required
 def resolve_table_view_pane():

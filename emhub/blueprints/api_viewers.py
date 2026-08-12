@@ -32,7 +32,7 @@ import os
 from emtools.metadata import StarFile, RelionStar
 from emtools.utils import Path
 
-from emhub.data.processing import resolve_project_root
+from emhub.data.processing import get_processing_project, resolve_project_root
 
 
 # --- Shared table column / field / action definitions ---
@@ -902,3 +902,47 @@ def build_series_star_pane_content(action_id, root, star_rel, row_label, type_ke
         )
 
     raise Exception(f'Unsupported table view action: {action_id}')
+
+
+class ApiViewerHelper:
+    @staticmethod
+    def create_tomo_subset(root, pointer_class, star_path, subset_items, attrs=None):
+        """Create and launch an emw-subset-ts job for the selected tomograms."""
+        items = [str(item).strip() for item in (subset_items or []) if str(item).strip()]
+        if not items:
+            raise Exception('subsetItems must contain at least one tomogram name')
+
+        root_abs = resolve_project_root(root)
+        input_star = _resolve_data_path(root, star_path)
+        if not input_star or not os.path.isfile(input_star):
+            raise Exception(f'Input STAR file not found: {star_path}')
+
+        try:
+            input_set = os.path.relpath(input_star, root_abs)
+        except ValueError:
+            input_set = input_star
+        input_set = Path.rmslash(input_set)
+
+        processing = get_processing_project(root_abs)
+        if processing is None:
+            raise Exception(f'Not a valid processing project: {root}')
+
+        pm = getattr(processing, 'project', None)
+        if pm is None:
+            from emwrap.base import ProjectManager
+            pm = ProjectManager(root_abs)
+
+        params = {
+            'input_set': input_set,
+            'subset_tomo_names': ' '.join(items),
+        }
+        job = pm.runJob('emw-subset-ts', params)
+        count = len(items)
+
+        return {
+            'success': True,
+            'count': count,
+            'jobId': job.id,
+            'sourceFile': input_set,
+            'message': f'Launched {job.id} job to create a subset of {count} items',
+        }
