@@ -65,6 +65,38 @@ async function updateProjectEntryExtraTags() {
   return { success: true };
 }
 
+function buildProtocolInfo(jobId, jobType, jobNode) {
+  return {
+    name: jobType,
+    expertLevel: true,
+    favicon: null,
+    label: "abc",
+    packageLogo: "",
+    projectId: 44,
+    inputs: [],
+    outputs: jobNode && Array.isArray(jobNode.outputs) ? jobNode.outputs : [],
+    projectName: "",
+    protocolClassName: jobType,
+    protocolId: jobId,
+    protocolName: jobType,
+    scheduleLog: null,
+    status: jobNode ? jobNode.status : 'new',
+    stderrLog: null,
+    stdoutLog: null,
+    color: "#D2F5CB",
+    executeMode: {
+      launch: {
+        label: 'Launch',
+        help: 'Launch the job with the selected parameters.'
+      },
+      restart: {
+        label: 'Restart',
+        help: 'Clear the entire output folder and restart the job.'
+      }
+    }
+  };
+}
+
 async function loadJobDetails(jobId, jobType) {
   var jobNode = jobId ? project_details.protocols[jobId] : null;
 
@@ -81,8 +113,10 @@ async function loadJobDetails(jobId, jobType) {
   else
     output.push('form')
 
-  if (output.length == 0)
+  if (output.length == 0) {
+    result.info = buildProtocolInfo(jobId, jobType, jobNode);
     return result;
+  }
 
   var args = {
     run_id: jobId,
@@ -104,35 +138,7 @@ async function loadJobDetails(jobId, jobType) {
       result.values = run_data['json']['values'];
     }
 
-    result.info = {
-      name: jobType,
-      expertLevel: true,
-      favicon: null,
-      label: "abc",
-      packageLogo: "",
-      projectId: 44,
-      inputs: [],
-      outputs: jobNode && Array.isArray(jobNode.outputs) ? jobNode.outputs : [],
-      projectName: "",
-      protocolClassName: jobType,
-      protocolId: jobId,
-      protocolName: jobType,
-      scheduleLog: null,
-      status: jobNode ? jobNode.status : 'new',
-      stderrLog: null,
-      stdoutLog: null,
-      color: "#D2F5CB",
-      executeMode: {
-        launch: {
-          label: 'Launch',
-          help: 'Launch the job with the selected parameters.'
-        },
-        restart: {
-          label: 'Restart',
-          help: 'Clear the entire output folder and restart the job.'
-        }
-      }
-    }
+    result.info = buildProtocolInfo(jobId, jobType, jobNode);
 
     return result;
 
@@ -157,6 +163,51 @@ async function handleRequestData(url, args, func) {
       showError("Received unknown error");
     }
   }
+}
+
+function removeProtocolsFromProjectDetails(protocolIds) {
+  if (!project_details.protocols)
+    return;
+
+  var deleted = {};
+  for (var i = 0; i < protocolIds.length; i++)
+    deleted[String(protocolIds[i])] = true;
+
+  for (var id in deleted)
+    delete project_details.protocols[id];
+
+  var projectNode = project_details.protocols.PROJECT;
+  if (projectNode && Array.isArray(projectNode.children)) {
+    projectNode.children = projectNode.children.filter(function (childId) {
+      return !deleted[String(childId)];
+    });
+  }
+
+  for (var protocolId in project_details.protocols) {
+    if (protocolId === 'PROJECT')
+      continue;
+
+    var protocol = project_details.protocols[protocolId];
+    if (Array.isArray(protocol.parents)) {
+      protocol.parents = protocol.parents.filter(function (parentId) {
+        return !deleted[String(parentId)];
+      });
+    }
+    if (Array.isArray(protocol.children)) {
+      protocol.children = protocol.children.filter(function (childId) {
+        return !deleted[String(childId)];
+      });
+    }
+  }
+}
+
+function cloneProjectDetails() {
+  return {
+    ...project_details,
+    protocols: project_details.protocols
+      ? { ...project_details.protocols }
+      : project_details.protocols,
+  };
 }
 
 async function requestAction(url, args) {
@@ -257,7 +308,7 @@ var svc = {
       await requestAction(Api.urls.get_session_workflow, { project_id: id });
     }
 
-    return project_details;
+    return cloneProjectDetails();
   },
 
   async fetchProtocolDetails(projectId, protocolId) {
@@ -296,7 +347,10 @@ var svc = {
       delete protocol_tags[protocolId];
     }
     updateProjectEntryExtraTags();
-    return requestAction(Api.urls.delete_jobs, {run_ids: protocolIds})
+    var result = await requestAction(Api.urls.delete_jobs, {run_ids: protocolIds});
+    removeProtocolsFromProjectDetails(protocolIds);
+    result.workflow = project_details.protocols;
+    return result;
   },
 
   async duplicateProtocol(projectId, items) {
