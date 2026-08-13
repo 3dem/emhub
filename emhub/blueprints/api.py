@@ -49,12 +49,49 @@ from flask import current_app as app
 import flask_login
 import jwt
 
-from emtools.image import Thumbnail
+from emtools.image import Image, Thumbnail
 from emtools.utils import Pretty, Color, Path
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data.processing import resolve_project_root
 from .api_viewers import *
+
+
+def _em_image_listing_fields(file_path):
+    """Return optional EM image metadata fields for directory listings."""
+    if not Path.isEmImage(file_path):
+        return {}
+    try:
+        meta = Image.get_metadata(file_path)
+        return meta or {}
+    except Exception as e:
+        app.logger.debug("Could not read EM image metadata for %s: %s",
+                         file_path, e)
+        return {}
+
+
+def _em_image_preview_meta(file_path):
+    """Return concise preview metadata for EM image files."""
+    if not Path.isEmImage(file_path):
+        return {}, None
+    try:
+        meta = Image.get_metadata(file_path)
+    except Exception as e:
+        app.logger.debug("Could not read EM image metadata for %s: %s",
+                         file_path, e)
+        return {}, None
+    if not meta:
+        return {}, None
+
+    preview_meta = {}
+    if meta.get('dataType'):
+        preview_meta['dataType'] = meta['dataType']
+    if meta.get('info'):
+        preview_meta['info'] = meta['info']
+
+    preview_kind = ('volume' if meta.get('dataType') == '3D volume'
+                    else 'image')
+    return preview_meta, preview_kind
 
 
 api_bp = flask.Blueprint('api', __name__)
@@ -716,6 +753,23 @@ def get_project_manager(**attrs):
     return pp, pm
 
 
+def _resolve_job_type_or_id(pp, attrs):
+    """Resolve an existing run id or a new job type from save/launch attrs."""
+    run = pp.get('run')
+    jobtype = (
+        (run.jobtype if run else None)
+        or attrs.get('job_type')
+        or attrs.get('protocolClassName')
+    )
+    job_type_or_id = (run.id if run else None) or jobtype
+    if not job_type_or_id:
+        raise Exception(
+            "Missing job type or run id. Provide job_type (or protocolClassName) "
+            "for a new job, or run_id for an existing one."
+        )
+    return job_type_or_id
+
+
 @api_bp.route('/list_project_dir', methods=['POST'])
 @flask_login.login_required
 def list_project_dir():
@@ -740,6 +794,7 @@ def list_project_dir():
                     item['size'] = os.path.getsize(fn_path)
                     if Path.isText(fn):
                         item['mime'] = "text"
+                    item.update(_em_image_listing_fields(fn_path))
             items.append(item)
         return items
 
@@ -776,9 +831,11 @@ def get_file_preview():
                         'kind': "text"
                     })
             elif Path.isImage(path) or Path.isEmImage(path):
+                preview_meta, preview_kind = _em_image_preview_meta(full_path)
+                info['meta'].update(preview_meta)
                 info.update({
                     "mime": "image/png",
-                    "kind": "image",
+                    "kind": preview_kind or "image",
                     "source": {
                         "sourceType": "base64",
                         "dataBase64": Thumbnail.Preview(full_path)
@@ -1069,10 +1126,7 @@ def save_job():
     or an entry_id
     """
     def _save_job(pp, pm, **attrs):
-        run = pp['run']
-        jobtype = run.jobtype if run else attrs['job_type']
-        jobTypeOrId = run.id if run else jobtype
-        pm.saveJob(jobTypeOrId, attrs['params'])
+        pm.saveJob(_resolve_job_type_or_id(pp, attrs), attrs['params'])
 
     return handle_workflow(_save_job)
 
@@ -1150,10 +1204,11 @@ def launch_job():
     or an entry_id
     """
     def _launch_job(pp, pm, **attrs):
-        run = pp['run']
-        jobtype = run.jobtype if run else attrs['job_type']
-        jobTypeOrId = run.id if run else jobtype
-        pm.runJob(jobTypeOrId, attrs['params'], clean=attrs['clean'])
+        pm.runJob(
+            _resolve_job_type_or_id(pp, attrs),
+            attrs['params'],
+            clean=attrs['clean'],
+        )
 
     return handle_workflow(_launch_job)
 
