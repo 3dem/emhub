@@ -51,6 +51,7 @@ import jwt
 
 from emtools.image import Image, Thumbnail
 from emtools.utils import Pretty, Color, Path
+from emwrap.base.job_form import JobValidationError
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data.processing import resolve_project_root
@@ -1213,6 +1214,30 @@ def launch_job():
     return handle_workflow(_launch_job)
 
 
+@api_bp.route('/schedule_job', methods=['POST'])
+@flask_login.login_required
+def schedule_job():
+    """Schedule a saved job and start a per-job watcher process."""
+    def _schedule_job(pp, pm, **attrs):
+        run = pp.get('run')
+        params = attrs.get('params')
+        interval = int(attrs.get('interval', 5))
+
+        if run:
+            if params:
+                pm.saveJob(run.id, params)
+            pm.scheduleJob(run.id, interval_minutes=interval)
+        elif attrs.get('job_type') or attrs.get('protocolClassName'):
+            job = pm.saveJob(_resolve_job_type_or_id(pp, attrs), params)
+            pm.scheduleJob(job.id, interval_minutes=interval)
+        else:
+            raise Exception(
+                "Missing run_id for scheduling. Save the job first, or provide "
+                "job_type/protocolClassName to create and schedule it.")
+
+    return handle_workflow(_schedule_job)
+
+
 @api_bp.route('/delete_jobs', methods=['POST'])
 @flask_login.login_required
 def delete_jobs():
@@ -1725,6 +1750,8 @@ def _handle_item(handle_func, result_key):
             raise Exception("Expecting JSON or Form request.")
         result = handle_func(**attrs)
         return send_json_data({result_key: result})
+    except JobValidationError as e:
+        return send_json_data({'errors': list(e.errors), 'status': 1})
     except Exception as e:
         fullError = f"ERROR from Server: {str(e)}. Traceback: {traceback.format_exc()}"
         print(fullError)

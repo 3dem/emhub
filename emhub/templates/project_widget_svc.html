@@ -92,6 +92,10 @@ function buildProtocolInfo(jobId, jobType, jobNode) {
       restart: {
         label: 'Restart',
         help: 'Clear the entire output folder and restart the job.'
+      },
+      schedule: {
+        label: 'Schedule',
+        help: 'Save the job and wait for input dependencies to finish before launching.'
       }
     }
   };
@@ -150,6 +154,9 @@ async function loadJobDetails(jobId, jobType) {
 async function handleRequestData(url, args, func) {
   try {
     var data = await request(url, args);
+    if ('errors' in data && Array.isArray(data.errors) && data.errors.length > 0)
+      return { validationErrors: data.errors };
+
     if ('error' in data)
       throw new Error(data.error);
 
@@ -163,6 +170,7 @@ async function handleRequestData(url, args, func) {
       showError("Received unknown error");
     }
   }
+  return null;
 }
 
 function removeProtocolsFromProjectDetails(protocolIds) {
@@ -213,7 +221,7 @@ function cloneProjectDetails() {
 async function requestAction(url, args) {
   args.widget = true;
   var duplicated = [];
-  await handleRequestData(url, args, function (data) {
+  var validationResult = await handleRequestData(url, args, function (data) {
     var payload = data.workflow;
     var protocols = payload.protocols || payload;
 
@@ -230,6 +238,16 @@ async function requestAction(url, args) {
     project_details.protocols = protocols;
     cache.refresh();
   });
+
+  if (validationResult && validationResult.validationErrors) {
+    return {
+      status: 1,
+      errors: validationResult.validationErrors,
+      workflow: project_details.protocols,
+      duplicated: duplicated,
+    };
+  }
+
   return {
     status: 0,
     errors: [],
@@ -320,6 +338,9 @@ var svc = {
     if (mode === 'stop')
       return this.stopProtocol(projectId, [protocolId]);
 
+    if (mode === 'schedule')
+      return this.scheduleProtocol(projectId, protocolId, protocolClassName, params);
+
     var args = {
       run_id: protocolId,
       job_type: protocolClassName,
@@ -327,6 +348,15 @@ var svc = {
       params: params
     };
     return requestAction(Api.urls.launch_job, args);
+  },
+
+  scheduleProtocol(projectId, protocolId, protocolClassName, params) {
+    var args = {
+      run_id: protocolId,
+      job_type: protocolClassName,
+      params: params
+    };
+    return requestAction(Api.urls.schedule_job, args);
   },
 
   async saveProtocol(projectId, protocolId, protocolClassName, params) {

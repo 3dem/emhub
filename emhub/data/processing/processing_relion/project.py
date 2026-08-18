@@ -27,6 +27,7 @@ from emtools.metadata import StarFile, EPU, SqliteFile, RelionStar
 from emtools.image import Thumbnail
 
 from emwrap.base import ProcessingConfig, ProjectManager
+from emwrap.base.job_form import JobForm
 
 from ..base import SessionRun, SessionData, hours
 from .runs import RelionRun
@@ -37,6 +38,7 @@ STATUS_MAP = {
     'Succeeded': 'finished',
     'Running': 'running',
     'Launched': 'launched',
+    'Scheduled': 'scheduled',
     'Aborted': 'aborted',
     'Failed': 'failed',
     'Saved': 'saved',
@@ -366,7 +368,7 @@ class RelionSessionData(SessionData):
 
         if jobForm:
             formDef['help'] = jobForm.get('help', '')
-            for paramDef in ProcessingConfig.iter_form_params(jobForm):
+            for paramDef in JobForm.iter_params(jobForm):
                 _register(paramDef)
             for sectionDef in jobForm['sections']:
                 formDef['sections'].append(sectionDef)
