@@ -94,7 +94,10 @@ def _build_package_sections(grouped, packages):
 
 def get_widget_menu_protocols():
     """Build the protocols menu for the project widget from EMWRAP_CONFIG."""
-    jobs = ProcessingConfig.get_jobs()
+    jobs = [
+        jobtype for jobtype in ProcessingConfig.get_jobs()
+        if ProcessingConfig.is_job_visible(jobtype)
+    ]
     packages = ProcessingConfig.get_packages()
 
     if not packages:

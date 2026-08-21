@@ -49,6 +49,7 @@ from flask import current_app as app
 import flask_login
 import jwt
 
+from emtools.datatypes import VOLUME
 from emtools.image import Image, Thumbnail
 from emtools.utils import Pretty, Color, Path
 from emwrap.base.job_form import JobValidationError
@@ -90,7 +91,7 @@ def _em_image_preview_meta(file_path):
     if meta.get('info'):
         preview_meta['info'] = meta['info']
 
-    preview_kind = ('volume' if meta.get('dataType') == '3D volume'
+    preview_kind = ('volume' if meta.get('dataType') == VOLUME
                     else 'image')
     return preview_meta, preview_kind
 
