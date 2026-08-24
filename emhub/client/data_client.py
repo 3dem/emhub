@@ -224,7 +224,7 @@ class DataClient:
 
         return json if resultKey is None else json[resultKey]
 
-    def request(self, method, jsonData=None, bp='api'):
+    def request(self, method, jsonData=None, bp='api', timeout=None):
         """ Make a request to the server sending this ``jsonData``.
 
         Args:
@@ -232,6 +232,7 @@ class DataClient:
             jsonData (dict): Data to be sent to the remote endpoint.
             bp (str): Blueprint in the server where to send the request.
                 By default it will use the 'api' blueprint.
+            timeout: Requests timeout for this call. Defaults to ``self.timeout``.
         Returns:
             The request object result from the request.
         """
@@ -241,7 +242,7 @@ class DataClient:
         self.r = requests.post('%s/%s/%s'
                                % (self._server_url, bp, method),
                                json=jsonData or {},  cookies=self.cookies,
-                               timeout=self.timeout)
+                               timeout=self.timeout if timeout is None else timeout)
         self.r.raise_for_status()
         return self.r
 

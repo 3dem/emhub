@@ -217,6 +217,7 @@ class Worker:
         self.name = kwargs.get('name', System.hostname())
         self.logFile = kwargs.get('logFile', 'worker.log')
         self.logsFolder = os.path.expanduser('~/.emhub/sessions/logs')
+        self.newTasksTimeout = kwargs.get('newTasksTimeout', 180)
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
         self.tasks = {}
@@ -230,10 +231,11 @@ class Worker:
     def error(self, msg):
         self.logger.error(f"{self._logPrefix} {msg}")
 
-    def request(self, method, data, key=None):
+    def request(self, method, data, key=None, timeout=None):
         data['token'] = self.token
         r = self.dc.request(method,
-                            jsonData={'attrs': data})
+                            jsonData={'attrs': data},
+                            timeout=timeout)
         result = r.json()
         if 'error' in result:
             self.error(f"Error from server: {result['error']}")
@@ -305,8 +307,9 @@ class Worker:
 
     def get_tasks(self, key):
         self.info(f"Retrieving {key} tasks...")
+        timeout = self.newTasksTimeout if key == 'new' else None
         return self.request(f'get_{key}_tasks',
-                            {'worker': self.name}, 'tasks')
+                            {'worker': self.name}, 'tasks', timeout=timeout)
 
     def process_tasks(self, key):
         if tasks := self.get_tasks(key):
