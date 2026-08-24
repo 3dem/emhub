@@ -182,6 +182,7 @@ class SessionTaskHandler(TaskHandler):
         raw = extra['raw']
         ### framesRoot = self.sconfig['raw']['root_frames']
         acq = dict(self.sconfig['acquisition'][self.microscope])
+        # TODO: Do I also need to modify this?
         framesRoot = acq['frames']
         sessionName = self.get_session_name()
         framesPath = Path.rmslash(raw.get('frames',
@@ -740,6 +741,7 @@ class FramesTaskHandler(TaskHandler):
         args = {'maxlen': 2}
         updated = False
 
+        # TODO: Do I also need to modify this?
         try:
             for e in os.listdir(self.root_frames):
                 entryPath = os.path.join(self.root_frames, e)

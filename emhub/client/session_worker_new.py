@@ -210,6 +210,7 @@ class SessionTaskHandler(TaskHandler):
         logger = self.worker.logger
         raw = extra['raw']
         ### framesRoot = self.sconfig['raw']['root_frames']
+        # TODO: Also modify this part
         acq = dict(self.sconfig['acquisition'][self.microscope])
         framesRoot = acq['frames']
         sessionName = self.get_session_name()
@@ -831,6 +832,7 @@ class FramesTaskHandler(TaskHandler):
 
         self.info("Checking for changes.")
 
+        # TODO: Main part to modify
         t = Timer()
         for e in os.listdir(self.root_frames):
             entryPath = os.path.join(self.root_frames, e)
