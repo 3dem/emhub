@@ -27,7 +27,7 @@ import mrcfile
 from emtools.utils import Path, Timer, Pretty, FolderManager
 from emtools.metadata import StarFile, EPU, SqliteFile, Table, RelionStar
 from emtools.image import Thumbnail
-from emwrap.base import ProcessingConfig, ProjectManager
+from emwrap.base import ProcessingConfig, ProjectManager, JobForm, ProcessingPipeline
 
 from ..base import SessionRun, SessionData, hours
 
@@ -46,6 +46,9 @@ class RelionRun(SessionRun):
 
         if self.exists('job.star'):
             self.values = RelionStar.read_jobstar(self.join('job.star'))
+            job_form = ProcessingConfig.get_job_form(self.jobtype)
+            if job_form:
+                self.values = JobForm.decode_json_params(job_form, self.values)
 
             # with open(self.join('job.json')) as f:
             #     self.values = json.load(f)
@@ -100,12 +103,10 @@ class RelionRun(SessionRun):
             ios['inputs'] = [i.id for i in self.job.inputs]
             ios['outputs'] = [o.id for o in self.job.outputs]
 
-            if os.path.exists(infoJson):
-                with open(infoJson) as f:
-                    info = json.load(f)
-                    for k in ['inputs', 'outputs']:
-                        if k in info:
-                            ios[k] = [e for e in info[k].values()]
+            info = ProcessingPipeline.readJobInfo(infoJson, default={})
+            for k in ['inputs', 'outputs']:
+                if k in info:
+                    ios[k] = [e for e in info[k].values()]
             # elif os.path.exists(jobPipeline):
             #     with StarFile(jobPipeline) as sf:
             #         tables = sf.getTableNames()

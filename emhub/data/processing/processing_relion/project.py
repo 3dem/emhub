@@ -166,12 +166,7 @@ class RelionSessionData(SessionData):
         return '/'.join(self.session['micrographs'].split('/')[:-1])
 
     def _job_info(self, job):
-        info = {}
-        infoFile = self.join(job.id, 'info.json')
-        if os.path.exists(infoFile):
-            with open(infoFile) as f:
-                info = json.load(f)
-        return info
+        return self.project.readJobInfo(job, default={})
 
     def _job_elapsed(self, jobInfo):
         elapsed = ''
@@ -365,6 +360,9 @@ class RelionSessionData(SessionData):
                 jobValues = RelionStar.read_jobstar(jobStar)
 
         jobForm = ProcessingConfig.get_job_form(jobType)
+
+        if jobForm and jobValues:
+            jobValues = JobForm.decode_json_params(jobForm, jobValues)
 
         if jobForm:
             formDef['help'] = jobForm.get('help', '')
