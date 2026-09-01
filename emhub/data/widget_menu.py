@@ -132,7 +132,7 @@ def get_widget_menu():
                 'description': wf.get('description', ''),
                 'tag': 'workflow',
             }
-            for wf in ProcessingConfig.list_workflows()
+            for wf in ProcessingConfig.get_workflows()
         ],
     }
 

@@ -123,7 +123,7 @@ def register_content(dc):
         workflows_exists = bool(workflows_dir) and os.path.exists(workflows_dir)
 
         data = {
-            'workflows': ProcessingConfig.list_workflows(),
+            'workflows': ProcessingConfig.get_workflows(),
             'workflows_dir': workflows_dir or 'NO WORKFLOWS DIR SET',
             'workflows_dir_exists': workflows_exists,
         }

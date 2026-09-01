@@ -265,7 +265,7 @@ class WorkflowEditor:
             forms[jobtype] = get_job_form_definition(jobtype)
 
         templates = {}
-        for wf in ProcessingConfig.list_workflows():
+        for wf in ProcessingConfig.get_workflows():
             template_id = wf['id']
             if template_id == workflow_id:
                 continue
