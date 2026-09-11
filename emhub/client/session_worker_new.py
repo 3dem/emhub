@@ -286,10 +286,8 @@ class SessionTaskHandler(TaskHandler):
                             if move:
                                 args.append("--remove-source-files")
                             n, size = Path.rsync(framesPath, rawPath, *args, size=True)
-                            if n > 0:
-                                return n, size
-                            else:
-                                tries -= 1
+                            # TODO: Change this back (had to change it for local)
+                            return n, size
 
                         if missing := [f for f in file_list if not os.path.exists(f)]:
                             raise Exception(f"Missing files: {len(missing)}")
