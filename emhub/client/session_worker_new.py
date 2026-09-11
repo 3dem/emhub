@@ -279,9 +279,8 @@ class SessionTaskHandler(TaskHandler):
                             with open(tmpfile.name, 'w') as f:
                                 for fn in existing:
                                     f.write(f"{fn.replace(framesPath, '')}\n")
+                            # TODO: Add these options back (added for mac?)
                             args = [
-                                "--no-compress",
-                                "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
                                 f"--files-from={tmpfile.name}"
                             ]
                             if move:
@@ -936,7 +935,7 @@ class SessionWorker(Worker):
         self.jsonData['active'] = {}
 
     def _jsonLoad(self):
-        self.last_id = 1900
+        self.last_id = 335 # TODO: Change this back to 1900 (why is it hardcoded?)
 
         if os.path.exists(self.jsonFile):
             with open(self.jsonFile) as f:
@@ -1054,7 +1053,8 @@ class SessionWorker(Worker):
                         self.info(f"Skipping already DONE task: {tw.id}")
                         continue
 
-                    mp = multiprocessing.Process(target=tw.run,
+                    # TODO: Get rid of the "fork" bit (added for mac?)
+                    mp = multiprocessing.get_context('fork').Process(target=tw.run,
                                                  daemon=True, name=tw.id)
                     self.tasks[tw.id] = {
                         'task': task,
@@ -1095,10 +1095,11 @@ class SessionTransferWorker(SessionWorker):
     def handle_active_sessions(self, sessions):
         # Add transfer tasks
         self.add_tasks_workers(session_task(s, 'transfer') for s in sessions)
+        # TODO: Uncomment these
         # Wait a bit to allow creation of gscem folder
-        time.sleep(60)
+        # time.sleep(60)
         # Add deliver tasks
-        self.add_tasks_workers(session_task(s, 'deliver') for s in sessions)
+        # self.add_tasks_workers(session_task(s, 'deliver') for s in sessions)
 
 
 class SessionOtfWorker(SessionWorker):
