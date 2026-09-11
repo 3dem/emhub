@@ -11,7 +11,6 @@
 {% if current_user.is_admin %}
 
 
-
 {% for mic, info in folderGroups.items() %}
     <div class="col-auto mb-4" style="min-width: 600px">
 
@@ -19,7 +18,7 @@
         <div class="card-header">
            <div class="row">
                <h3 class="col-3">Frames: {{ mic }}</h3>
-               <h3 class="col-4">{{ info['frames'] }}</h3>
+               <h3 class="col-4">{{ info['frames']|join(', ') }}</h3>
                {% if info['usage'] %}
                    {% set u = info['usage']['used'] %}
                    {% set t = info['usage']['total'] %}
@@ -36,6 +35,7 @@
                     <tr class="border-0">
                         <th class="border-0">modified (ts)</th>
                         <th class="border-0">name</th>
+                        <th class="border-0">root</th>
                         <th class="border-0">movies</th>
                         <th class="border-0">size</th>
                     </tr>
@@ -45,6 +45,7 @@
                             <tr>
                                 <td>{{ entry['modified']|pretty_date }} ({{ entry['modified']|pretty_elapsed }})</td>
                                 <td>{{ entry['name'] }}</td>
+                                <td>{{ entry['root'] }}</td>
                                 <td>{{ entry.get('movies', '') }}</td>
                                 <td>{{ entry['size']|pretty_size }}</td>
                             </tr>

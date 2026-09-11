@@ -211,10 +211,19 @@ class SessionTaskHandler(TaskHandler):
         raw = extra['raw']
         ### framesRoot = self.sconfig['raw']['root_frames']
         acq = dict(self.sconfig['acquisition'][self.microscope])
-        framesRoot = acq['frames']
+        framesRoots = acq['frames']
         sessionName = self.get_session_name()
-        framesPath = Path.rmslash(raw.get('frames',
-                                          os.path.join(framesRoot, sessionName)))
+        # TODO: This just puts everything in one target folder (is that OK?)
+        framesPath = raw.get('frames', None)
+        if not framesPath:
+            for framesRoot in framesRoots:
+                candidate = os.path.join(framesRoot, sessionName)
+                if os.path.exists(candidate):
+                    framesPath = candidate
+                    break
+            else:
+                framesPath = os.path.join(framesRoots[0], sessionName)
+        framesPath = Path.rmslash(framesPath)
         baseName = self.users['owner']['email'].split('@')[0]
         if '.' in baseName:
             parts = baseName.split('.')
@@ -270,18 +279,15 @@ class SessionTaskHandler(TaskHandler):
                             with open(tmpfile.name, 'w') as f:
                                 for fn in existing:
                                     f.write(f"{fn.replace(framesPath, '')}\n")
+                            # TODO: Add these options back (added for mac?)
                             args = [
-                                "--no-compress",
-                                "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
                                 f"--files-from={tmpfile.name}"
                             ]
                             if move:
                                 args.append("--remove-source-files")
                             n, size = Path.rsync(framesPath, rawPath, *args, size=True)
-                            if n > 0:
-                                return n, size
-                            else:
-                                tries -= 1
+                            # TODO: Change this back (had to change it for local)
+                            return n, size
 
                         if missing := [f for f in file_list if not os.path.exists(f)]:
                             raise Exception(f"Missing files: {len(missing)}")
@@ -811,9 +817,9 @@ class FramesTaskHandler(TaskHandler):
     """ Monitor frames folder located at
     config:sessions['raw']['root_frames']. """
 
-    def __init__(self, microscope, root_frames, *args, **kwargs):
+    def __init__(self, microscope, root_frames_arr, *args, **kwargs):
         self.microscope = microscope
-        self.root_frames = root_frames
+        self.root_frames_arr = root_frames_arr
         TaskHandler.__init__(self, *args, **kwargs)
         self.emhub_log = f'frames:{microscope}'
         self.entries = {}
@@ -832,25 +838,33 @@ class FramesTaskHandler(TaskHandler):
         self.info("Checking for changes.")
 
         t = Timer()
-        for e in os.listdir(self.root_frames):
-            entryPath = os.path.join(self.root_frames, e)
-            s = os.stat(entryPath)
-            if os.path.isdir(entryPath):
-                if e not in self.entries:
-                    self.entries[e] = {'mf': MovieFiles(), 'ts': 0}
-                dirEntry = self.entries[e]
-                if dirEntry['ts'] < s.st_mtime:
-                    dirEntry['mf'].scan(entryPath)
-                    dirEntry['ts'] = s.st_mtime
-                    updated = True
-            elif os.path.isfile(entryPath):
-                if e not in self.entries or self.entries[e]['ts'] < s.st_mtime:
-                    self.entries[e] = {
-                        'type': 'file',
-                        'size': s.st_size,
-                        'ts': s.st_mtime
-                    }
-                    updated = True
+        for root_frames in self.root_frames_arr:
+            self.info(f"Checking for changes in {root_frames}.")
+            for e in os.listdir(root_frames):
+                entryPath = os.path.join(root_frames, e)
+                s = os.stat(entryPath)
+                if os.path.isdir(entryPath):
+                    if entryPath not in self.entries:
+                        self.entries[entryPath] = {
+                            'mf': MovieFiles(),
+                            'root': root_frames,
+                            'ts': 0
+                        }
+                    dirEntry = self.entries[entryPath]
+                    if dirEntry['ts'] < s.st_mtime:
+                        dirEntry['mf'].scan(entryPath)
+                        dirEntry['ts'] = s.st_mtime
+                        updated = True
+                elif os.path.isfile(entryPath):
+                    if (entryPath not in self.entries or
+                            self.entries[entryPath]['ts'] < s.st_mtime):
+                        self.entries[entryPath] = {
+                            'type': 'file',
+                            'root': root_frames,
+                            'size': s.st_size,
+                            'ts': s.st_mtime
+                        }
+                        updated = True
 
         if updated:
             entries = []
@@ -864,12 +878,16 @@ class FramesTaskHandler(TaskHandler):
                     }
                 else:
                     newEntry = entry
-                newEntry['name'] = e
+                newEntry['path'] = e
+                newEntry['name'] = os.path.basename(e)
+                newEntry['root'] = entry['root']
                 entries.append(newEntry)
 
             args['entries'] = json.dumps(entries)
-            u = shutil.disk_usage(self.root_frames)
-            args['usage'] = json.dumps({'total': u.total, 'used': u.used})
+            usage_arr = [shutil.disk_usage(root_frames) for root_frames in self.root_frames_arr]
+            total = sum(u.total for u in usage_arr)
+            used = sum(u.used for u in usage_arr)
+            args['usage'] = json.dumps({'total': total, 'used': used})
 
         args['elapsed'] = str(t.getElapsedTime())
 
@@ -915,7 +933,7 @@ class SessionWorker(Worker):
         self.jsonData['active'] = {}
 
     def _jsonLoad(self):
-        self.last_id = 1900
+        self.last_id = 335 # TODO: Change this back to 1900 (why is it hardcoded?)
 
         if os.path.exists(self.jsonFile):
             with open(self.jsonFile) as f:
@@ -1033,7 +1051,8 @@ class SessionWorker(Worker):
                         self.info(f"Skipping already DONE task: {tw.id}")
                         continue
 
-                    mp = multiprocessing.Process(target=tw.run,
+                    # TODO: Get rid of the "fork" bit (added for mac?)
+                    mp = multiprocessing.get_context('fork').Process(target=tw.run,
                                                  daemon=True, name=tw.id)
                     self.tasks[tw.id] = {
                         'task': task,
@@ -1074,10 +1093,11 @@ class SessionTransferWorker(SessionWorker):
     def handle_active_sessions(self, sessions):
         # Add transfer tasks
         self.add_tasks_workers(session_task(s, 'transfer') for s in sessions)
+        # TODO: Uncomment these
         # Wait a bit to allow creation of gscem folder
-        time.sleep(60)
+        # time.sleep(60)
         # Add deliver tasks
-        self.add_tasks_workers(session_task(s, 'deliver') for s in sessions)
+        # self.add_tasks_workers(session_task(s, 'deliver') for s in sessions)
 
 
 class SessionOtfWorker(SessionWorker):
