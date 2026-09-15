@@ -650,7 +650,15 @@ def _resolve_tomogram_path(root, row_cells):
     return None, None
 
 
-def _volume_axis_slices(volume_data, axis, slice_number, slice_dim, prefix=None):
+def _volume_axis_slices(
+    volume_data,
+    axis,
+    slice_number,
+    slice_dim,
+    prefix=None,
+    *,
+    all_slices=False,
+):
     import mrcfile
     import numpy as np
     from emtools.image import Thumbnail
@@ -676,12 +684,19 @@ def _volume_axis_slices(volume_data, axis, slice_number, slice_dim, prefix=None)
             getter = lambda i: mrc.data[i, :, :]
             prefix = prefix or 'Z slice: '
 
-        count = min(slice_number, dim)
-        if count <= 1:
-            indices = [dim // 2]
+        if all_slices:
+            indices = list(range(dim))
+        elif dim <= 1:
+            indices = [0]
         else:
-            margin = np.round(dim / 4)
-            indices = np.round(np.linspace(margin, dim - margin, count)).astype(int)
+            count = min(slice_number, dim)
+            if count <= 1:
+                indices = [dim // 2]
+            else:
+                margin = np.round(dim / 4)
+                indices = np.round(
+                    np.linspace(margin, dim - margin, count),
+                ).astype(int)
 
         slices = {str(int(i)): vol_thumb.from_array(getter(i)) for i in indices}
         return slices, prefix, [xdim, ydim, zdim]
@@ -692,6 +707,9 @@ def build_volume_image_slider_pane_content(
     title=None,
     axes=('z',),
     axis_prefix=None,
+    *,
+    all_slices=False,
+    slice_label_offset=0,
 ):
     """Build image-slider pane content from a volume or tilt-series stack file."""
     axis_payload = {}
@@ -704,6 +722,7 @@ def build_volume_image_slider_pane_content(
             slice_number=32,
             slice_dim=512,
             prefix=prefix,
+            all_slices=all_slices,
         )
         axis_payload[axis] = {
             'slices': slices,
@@ -713,20 +732,26 @@ def build_volume_image_slider_pane_content(
     basename = os.path.basename(volume_path)
     if len(axis_payload) == 1:
         only_axis = next(iter(axis_payload.values()))
-        return {
+        payload = {
             'kind': 'imageSlider',
             'title': title or f'Slices — {basename}',
             'slices': only_axis['slices'],
             'sliderPrefix': only_axis['sliderPrefix'],
             'dimensions': dimensions,
         }
+        if slice_label_offset:
+            payload['sliceLabelOffset'] = slice_label_offset
+        return payload
 
-    return {
+    payload = {
         'kind': 'imageSlider',
         'title': title or f'Slices — {basename}',
         'axes': axis_payload,
         'dimensions': dimensions,
     }
+    if slice_label_offset:
+        payload['sliceLabelOffset'] = slice_label_offset
+    return payload
 
 
 def build_image_slider_pane_content(full_path, root, title=None, axes=('z',)):
@@ -757,6 +782,8 @@ def build_aligned_stack_slider_pane_content(root, stack_rel, title=None):
         title=title or stack_rel,
         axes=('z',),
         axis_prefix='Tilt: ',
+        all_slices=True,
+        slice_label_offset=1,
     )
 
 
