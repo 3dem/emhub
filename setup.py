@@ -161,10 +161,12 @@ setup(
     #
     # Similar to `install_requires` above, these must be valid existing
     # applications.
-    #extras_require={  # Optional
-    #    'dev': ['check-manifest'],
-    #    'test': ['coverage'],
-    #},
+    extras_require={  # Optional
+        # Needed to run the EMhub MCP server (emh-mcp / python -m emhub.mcp).
+        # Kept optional since most installs (the Flask server itself,
+        # client scripts, workers, ...) don't need it.
+        'mcp': ['mcp>=1.2.0'],
+    },
 
     # If there are data files included in your packages that need to be
     # installed, specify them here.
@@ -182,6 +184,7 @@ setup(
            'emh-data = emhub.data.__main__:main',
            'emh-client = emhub.client.__main__:main',
            'emh-relion = emhub.data.processing.processing_relion.__main__:main',
+           'emh-mcp = emhub.mcp.__main__:main',
        ],
     },
 
