@@ -636,6 +636,7 @@ var svc = {
         rowId: request.rowId,
         row: request.row,
         rowLabel: request.row?.cells?.tomoName || request.rowId,
+        applyAlignment: request.applyAlignment,
       },
       function (data) {
         paneContent = data.paneContent;

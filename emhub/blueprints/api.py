@@ -941,6 +941,27 @@ def resolve_table_view_pane():
                 title=stack_rel,
             )
 
+        if action_id == 'tilt-images':
+            star_rel = resolve_row_star_path(attrs, row_cells, column_id)
+            if not star_rel:
+                raise Exception('Missing star file path')
+            series_full_path = os.path.join(root, star_rel)
+            if not action_allowed_for_series(type_key, action_id, series_full_path):
+                raise Exception(
+                    f'Action {action_id!r} is not supported for {type_key}'
+                )
+            apply_alignment = attrs.get('applyAlignment')
+            if apply_alignment is None:
+                apply_alignment = attrs.get('apply_alignment', True)
+            return build_tilt_images_pane_content(
+                root,
+                star_rel,
+                row_label,
+                ts_pixel_size=row_cells.get('tsPixelSize'),
+                raw_pixel_size=row_cells.get('pixelSize'),
+                apply_alignment=bool(apply_alignment),
+            )
+
         if action_id == 'volume-slices':
             tomo_rel = resolve_row_tomogram_path(row_cells, column_id)
             if not tomo_rel:
@@ -1084,6 +1105,17 @@ def handle_workflow(handle_func=None, reload=False):
         return pp['project'].get_workflow(
             update=reload, widget=attrs.get('widget', False))
     return _handle_item(_handle, 'workflow')
+
+
+@api_bp.route('/get_workflows', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_workflows():
+    """ List the processing workflow templates available on this server
+    (id, title, description, file), so clients can pick one to load via
+    'load_workflow' (or run in one step via the MCP 'run_workflow' tool).
+    """
+    from emwrap.base import ProcessingConfig
+    return send_json_data(ProcessingConfig.get_workflows())
 
 
 @api_bp.route('/get_session_workflow', methods=['POST'])

@@ -28,6 +28,7 @@
 """Helpers for table-viewer panes and Plotly plot content in the REST API."""
 
 import os
+import numpy as np
 
 from emtools.metadata import StarFile, RelionStar
 from emtools.utils import Path
@@ -77,6 +78,14 @@ _TILT_SERIES_STAR_OPTIONAL_ACTIONS = [
             'rlnTomoReconstructedTomogram',
             'rlnTomoReconstructedTomogramDenoised',
         ],
+    },
+    {
+        'id': 'tilt-images',
+        'label': 'tilt images',
+        # Raw (unaligned) per-tilt images, aligned on the fly from the
+        # per-image rlnTomoZRot/XShiftAngst/YShiftAngst columns when
+        # present (see build_tilt_images_pane_content).
+        'requires_columns': ['rlnMicrographName'],
     },
 ]
 
@@ -887,6 +896,226 @@ def resolve_row_tomogram_path(row_cells, column_id=None):
     if path:
         return path
     return row_cells.get('rlnTomoReconstructedTomogramDenoised')
+
+
+_TILT_IMAGE_ALIGNMENT_COLUMNS = ('rlnTomoZRot', 'rlnTomoXShiftAngst', 'rlnTomoYShiftAngst')
+
+
+def _parse_micrograph_ref(value):
+    """Parse a RELION 'index@path' (or plain path) image reference.
+
+    Returns (path, index), where index is a 1-based int identifying a
+    slice within a combined stack file, or None when `value` is a plain
+    path to a standalone (non-stack) image.
+    """
+    value = (value or '').strip()
+    if not value:
+        return None, None
+    if '@' in value:
+        idx_str, path = value.split('@', 1)
+        try:
+            return path, int(idx_str)
+        except ValueError:
+            return path, None
+    return value, None
+
+
+def _tilt_series_image_rows(full_path):
+    """Return per-tilt-image rows (as dicts) from a series STAR file,
+    sorted by nominal stage tilt angle when that column is present."""
+    with StarFile(full_path) as sf:
+        table_name = _resolve_series_star_table_name(sf)
+        if not table_name:
+            raise Exception('STAR file has no tables')
+        rows = [row._asdict() for row in sf.iterTable(table_name, guessType=False)]
+
+    def _angle(cells):
+        try:
+            return float(cells.get(TILT_ANGLE_X_COL))
+        except (TypeError, ValueError):
+            return float('inf')
+
+    if any(cells.get(TILT_ANGLE_X_COL) not in (None, '') for cells in rows):
+        rows.sort(key=_angle)
+
+    return rows
+
+
+def _row_has_alignment(cells):
+    return all(cells.get(col) not in (None, '') for col in _TILT_IMAGE_ALIGNMENT_COLUMNS)
+
+
+def _to_float_or_none(value):
+    try:
+        return float(value) if value not in (None, '') else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _prebin_array(array, target_max):
+    """Cheaply shrink `array` toward `target_max` pixels per side by
+    integer-factor block-averaging.
+
+    Running a full Fourier crop (Image.rescale_array) directly on a raw,
+    multi-megapixel tilt image is what made the first version of the
+    on-the-fly aligner unusably slow: a single FFT of a ~24-megapixel
+    image, plus the alignment warp on that same full-resolution array,
+    took multiple seconds -- times every tilt image in the series. This
+    pre-bin does the bulk of the size reduction with a cheap O(N) mean
+    (no FFT), so the precise Fourier crop that follows only ever runs on
+    an already-small array. Returns `array` unchanged if it is already
+    within a factor of 2 of `target_max`.
+    """
+    h, w = array.shape
+    if target_max <= 0:
+        return array
+    factor = max(1, min(h // target_max, w // target_max))
+    if factor <= 1:
+        return array
+    new_h, new_w = h // factor, w // factor
+    trimmed = array[:new_h * factor, :new_w * factor].astype(np.float32)
+    return trimmed.reshape(new_h, factor, new_w, factor).mean(axis=(1, 3))
+
+
+def build_tilt_images_pane_content(
+    root, star_rel, row_label, *,
+    ts_pixel_size=None, raw_pixel_size=None,
+    apply_alignment=True, max_size=512,
+):
+    """Build image-slider pane content from the raw (unaligned) tilt images
+    referenced by a per-series tilt-series STAR file.
+
+    When `apply_alignment` is true and the per-image alignment columns
+    (rlnTomoZRot, rlnTomoXShiftAngst, rlnTomoYShiftAngst) are present, each
+    tilt image is resampled on the fly with Image.apply_transform -- no
+    new aligned stack is written to disk. This mirrors how AreTomo2/3,
+    IMOD/etomo and the Warp ts-align wrapper expose alignment as per-image
+    parameters (see the RELION-5 tomography data model, Burt et al. 2024)
+    rather than a resampled stack file.
+
+    Each image is downscaled to `max_size` (via a cheap block-average
+    pre-bin followed by a precise Image.rescale_array Fourier crop)
+    *before* the alignment warp is applied, so both the Fourier crop and
+    the warp run on a small array rather than the full raw tilt image --
+    on a typical ~24-megapixel tilt image this is roughly 15x faster than
+    aligning first and downscaling after. The alignment shift, stored in
+    the STAR file as a physical distance (Angstrom), is converted to
+    pixels using `raw_pixel_size` (rlnMicrographOriginalPixelSize, the
+    pixel size of the referenced image files -- falling back to
+    `ts_pixel_size`/rlnTomoTiltSeriesPixelSize when that is unavailable)
+    scaled up by however much the image has been downsized, since that
+    conversion only depends on the physical pixel size of whatever
+    resolution is actually being warped, not on the pixel size the
+    alignment software itself used internally.
+    """
+    import mrcfile
+    import numpy as np
+    from emtools.image import Image, Thumbnail
+
+    full_path = os.path.join(resolve_project_root(root), star_rel)
+    if not os.path.exists(full_path):
+        raise Exception(f'STAR file not found: {star_rel}')
+
+    rows = _tilt_series_image_rows(full_path)
+    if not rows:
+        raise Exception('STAR file has no tilt images')
+
+    raw_ps = _to_float_or_none(raw_pixel_size)
+    ts_ps = _to_float_or_none(ts_pixel_size)
+    alignment_available = apply_alignment and any(_row_has_alignment(c) for c in rows)
+
+    project_root = resolve_project_root(root)
+    open_stacks = {}
+
+    # Individual (non-stack) per-tilt files -- as produced by the Warp
+    # ts-align wrapper / etomo pipeline -- are each referenced by exactly
+    # one row. Caching every opened file until the whole series has been
+    # processed would hold the entire series in memory at once (tens of
+    # tilt images x tens of MB each); instead, track how many rows still
+    # need each path so its file can be closed as soon as it's no longer
+    # needed.
+    remaining_uses = {}
+    for cells in rows:
+        _path, _ = _parse_micrograph_ref(cells.get('rlnMicrographName'))
+        if _path:
+            remaining_uses[_path] = remaining_uses.get(_path, 0) + 1
+
+    def _get_stack(path):
+        if path not in open_stacks:
+            full = path if os.path.isabs(path) else os.path.join(project_root, path)
+            if not os.path.exists(full):
+                raise Exception(f'Tilt image file not found: {path}')
+            open_stacks[path] = mrcfile.open(full, permissive=True)
+        return open_stacks[path]
+
+    thumb = Thumbnail(max_size=(max_size, max_size), output_format='base64',
+                       contrast_factor=0.15, std_threshold=1)
+
+    slices = {}
+    dims = None
+
+    try:
+        for slider_index, cells in enumerate(rows, start=1):
+            path, stack_index = _parse_micrograph_ref(cells.get('rlnMicrographName'))
+            if not path:
+                continue
+
+            mrc = _get_stack(path)
+            data = mrc.data
+            if stack_index is not None:
+                array = np.array(data[stack_index - 1, :, :])
+            elif data.ndim == 3:
+                array = np.array(data[0, :, :])
+            else:
+                array = np.array(data)
+
+            orig_h, orig_w = array.shape
+            if dims is None:
+                dims = [orig_w, orig_h, len(rows)]
+
+            # Downscale first (cheap pre-bin + precise Fourier crop) so the
+            # alignment warp below runs on a small array.
+            if max(orig_h, orig_w) > max_size:
+                array = _prebin_array(array, max_size)
+                if max(array.shape) > max_size:
+                    array = Image.rescale_array(array, max_size / max(array.shape))
+
+            if alignment_available and _row_has_alignment(cells):
+                pixel_size = raw_ps or ts_ps
+                if not pixel_size:
+                    raise Exception(
+                        'Missing tilt-series pixel size; cannot apply alignment')
+                # The image may now be smaller than the file on disk; the
+                # Angstrom shift must be converted using the pixel size of
+                # the array actually being warped.
+                working_pixel_size = pixel_size * (orig_w / array.shape[1])
+                xf_row = RelionStar.alignment_to_xf(cells, working_pixel_size)
+                array = Image.apply_transform(array, xf_row)
+
+            slices[str(slider_index)] = thumb.from_array(array)
+
+            # This was the last row referencing `path` -- release the file
+            # now rather than holding it (and every other file read so
+            # far) open until the whole series has been processed.
+            remaining_uses[path] -= 1
+            if remaining_uses[path] <= 0:
+                open_stacks.pop(path).close()
+    finally:
+        for mrc in open_stacks.values():
+            mrc.close()
+
+    if dims is None:
+        raise Exception('Could not read any tilt images from this series')
+
+    return {
+        'kind': 'imageSlider',
+        'title': f'Tilt images — {row_label}',
+        'slices': slices,
+        'sliderPrefix': 'Tilt: ',
+        'dimensions': dims,
+        'alignmentAvailable': bool(alignment_available),
+        'alignmentApplied': bool(apply_alignment and alignment_available),
+    }
 
 
 def build_series_star_pane_content(action_id, root, star_rel, row_label, type_key):
