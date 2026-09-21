@@ -213,7 +213,6 @@ class SessionTaskHandler(TaskHandler):
         acq = dict(self.sconfig['acquisition'][self.microscope])
         framesRoots = acq['frames']
         sessionName = self.get_session_name()
-        # TODO: This just puts everything in one target folder (is that OK?)
         framesPath = raw.get('frames', None)
         if not framesPath:
             for framesRoot in framesRoots:

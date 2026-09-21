@@ -396,6 +396,7 @@ class SessionsServer(JsonTCPServer):
         # folder (FramesTaskHandler) and, for each active session, spawns a
         # transfer task (SessionTaskHandler.transfer) that rsyncs new movies
         # from the frames folder into the session's raw/offload folder.
+        # TODO: Did I even need to add this bit? And why is it multithreaded?
         self._transfer_worker = SessionTransferWorker()
         threading.Thread(target=self._transfer_worker.run,
                          daemon=True, name='transfer-worker').start()
