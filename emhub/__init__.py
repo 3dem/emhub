@@ -104,10 +104,9 @@ def create_app(test_config=None):
     # From this point on, any config items specified override conflicting
     # settings from the config file.
 
-    portalAPI = app.config.get('SLL_PORTAL_API', None)
-    if portalAPI is not None:
-        from .data.imports.scilifelab import PortalManager
-        app.sll_pm = PortalManager(portalAPI, cache=False)
+    # Instance-specific app setup (e.g. SLL's PortalManager) is wired up
+    # later via the 'app_setup' extension hook, once app.dm exists - see
+    # extra_setup below.
 
     # ensure the instance folder exists
     os.makedirs(app.config['USER_IMAGES'], exist_ok=True)
