@@ -102,6 +102,68 @@ def _group_tomo_projects_by_week(entries):
     ]
 
 
+
+# ---------------------- Benchmarks (DB-backed) ---------------------------
+# A benchmark is stored as a Project with status BENCHMARK_STATUS.
+#   project.extra['steps'] = [{'id': 's1', 'name': 'Motion correction'}, ...]
+# Each run (processing project) is an Entry of type BENCHMARK_RUN_TYPE:
+#   entry.title = run label
+#   entry.extra['data'] = {'processing_path': ..., 'tomo_entry_id': ...,
+#                          'steps': {step_id: [job_id, ...]}}
+BENCHMARK_STATUS = 'special:benchmark'
+BENCHMARK_RUN_TYPE = 'benchmark_run'
+
+
+def _job_run_seconds(runInfo):
+    """ Return elapsed seconds (and running flag) from a job's info.json run. """
+    if not runInfo:
+        return 0, False
+    if elapsed := runInfo.get('elapsed'):
+        try:
+            return Pretty.parse_timedelta(elapsed.split('.')[0]).total_seconds(), False
+        except Exception:
+            pass
+    start, end = runInfo.get('start'), runInfo.get('end')
+    try:
+        if start:
+            startDt = Pretty.parse_datetime(start.split('.')[0])
+            endDt = Pretty.parse_datetime(end.split('.')[0]) if end else datetime.now()
+            return max((endDt - startDt).total_seconds(), 0), not end
+    except Exception:
+        pass
+    return 0, False
+
+
+def load_benchmark_run_jobs(processing_path):
+    """ Load the jobs of a processing project with the timing of
+    their last run (from each job's info.json). """
+    from emwrap.base import ProjectManager
+
+    path = resolve_processing_path(processing_path)
+    if not path or not os.path.exists(path):
+        raise Exception(f"Processing path '{processing_path}' does not exist")
+
+    pm = ProjectManager(path, verbose=0)
+    jobs = []
+    for job in pm.get_workflow().jobs():
+        info = pm.readJobInfo(job, default={}) or {}
+        runs = info.get('runs') or []
+        last = runs[-1] if runs else {}
+        seconds, running = _job_run_seconds(last)
+        alias = job['alias']
+        jobs.append({
+            'id': job.id,
+            'type': job['jobtype'],
+            'alias': alias if alias and alias != 'None' else '',
+            'status': job['status'],
+            'start': last.get('start') or '',
+            'end': last.get('end') or '',
+            'seconds': seconds,
+            'running': running,
+        })
+    return jobs
+
+
 def register_content(dc):
 
     def _get_workflow_widget_data(workflow_id):
@@ -500,6 +562,101 @@ def register_content(dc):
         data['menu'] = dc.app.dm.get_config('processing_menus')['menu_flowchart']['protocols']
         return data
 
+    # ---------------------- Benchmarks (DB-backed) ---------------------------
+    def _benchmark_runs(project):
+        return sorted((e for e in project.entries if e.type == BENCHMARK_RUN_TYPE),
+                      key=lambda e: e.id)
+
+    @dc.content
+    def benchmarks(**kwargs):
+        """ List of benchmarks (Projects with status BENCHMARK_STATUS). """
+        dm = dc.app.dm
+        user = dc.app.user
+        result = []
+        for p in dm.get_projects(condition=f'status="{BENCHMARK_STATUS}"'):
+            result.append({
+                'id': p.id,
+                'title': p.title,
+                'description': p.description or '',
+                'user': p.user.name if p.user else '',
+                'date': p.date,
+                'steps': [s['name'] for s in p.extra.get('steps', [])],
+                'runs': [e.title for e in _benchmark_runs(p)],
+                'can_edit': user.can_edit_project(p),
+            })
+        result.sort(key=lambda b: b['id'], reverse=True)
+        return {
+            'benchmarks': result,
+            'can_create': dm.user_can_create_projects(user),
+        }
+
+    @dc.content
+    def benchmark(**kwargs):
+        """ Benchmark page: timings of each step (one or more jobs)
+        for each run (processing project) of the benchmark. """
+        dm = dc.app.dm
+        user = dc.app.user
+        project = dm.get_project_by(id=int(kwargs['benchmark_id']))
+        if project is None or project.status != BENCHMARK_STATUS:
+            raise Exception(f"Invalid benchmark id: {kwargs['benchmark_id']}")
+
+        steps = [{'id': s['id'], 'name': s['name']}
+                 for s in project.extra.get('steps', [])]
+        runs = []
+        for e in _benchmark_runs(project):
+            data = e.extra.get('data', {})
+            run = {
+                'id': e.id,
+                'label': e.title,
+                'processing_path': data.get('processing_path', ''),
+                'tomo_entry_id': data.get('tomo_entry_id', None),
+                'steps': data.get('steps', {}),
+                'jobs': [],
+                'error': '',
+                'step_times': [],
+                'total': 0
+            }
+            try:
+                run['jobs'] = load_benchmark_run_jobs(run['processing_path'])
+            except Exception as ex:
+                run['error'] = str(ex)
+
+            jobsDict = {j['id']: j for j in run['jobs']}
+            for s in steps:
+                sjobs = [jobsDict.get(jid, {'id': jid, 'type': '', 'alias': '',
+                                            'seconds': 0, 'missing': True})
+                         for jid in run['steps'].get(s['id'], [])]
+                seconds = sum(j['seconds'] for j in sjobs)
+                run['step_times'].append({'seconds': seconds, 'jobs': sjobs})
+                run['total'] += seconds
+            runs.append(run)
+
+        # Tomography processing projects that can be added as runs
+        tomo_entries = []
+        for e in dm.get_entries(condition=f"type='tomo_processing'"):
+            p = e.project
+            if user.is_manager or (p and user.can_edit_project(p)):
+                ppath = e.extra.get('data', {}).get('processing_path', '')
+                tomo_entries.append({
+                    'id': e.id,
+                    'title': e.title or os.path.basename(Path.rmslash(ppath)),
+                    'processing_path': ppath
+                })
+
+        return {
+            'benchmark': {
+                'id': project.id,
+                'title': project.title,
+                'description': project.description or '',
+                'extra': project.extra,
+            },
+            'steps': steps,
+            'runs': runs,
+            'tomo_entries': tomo_entries,
+            'can_edit': user.can_edit_project(project),
+            'run_entry_type': BENCHMARK_RUN_TYPE,
+        }
+
     # FIXME: More benchmark_ functions to a separate place
     def get_benchmarks():
         return dc.app.dm.get_config('benchmarks')['benchmarks']
@@ -587,7 +744,3 @@ def register_content(dc):
                 'categories': categories
             }
         }
-
-
-
-

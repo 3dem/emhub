@@ -1,0 +1,112 @@
+{% import "entry_macros.html" as macros %}
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = "Benchmarks" %}
+    {% set navigation = [('Processing', url_for_content('processing_tomo_list')), (title, '')] %}
+    {% include 'include_header.html' %}
+
+    {{ macros.hidden_hour_id() }}
+
+    <div class="row">
+        {% if can_create %}
+        <div class="col-12 mb-3 ml-0 pl-0">
+            <a href="javascript:showBenchmarkForm()" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create New Benchmark</a>
+        </div>
+        {% endif %}
+
+        <div class="card col-12">
+            <div class="card-body">
+                <div class="row">
+                {% for b in benchmarks %}
+                    {% set card_color='#ebf7f9' %}
+                    {% set url = url_for_content('benchmark', benchmark_id=b['id']) %}
+                    <div class="card w-auto mr-3" style="background-color: {{ card_color }}; min-width: 400px; max-width: 600px">
+                        <div class="card-header d-flex" style="background-color: {{ card_color }};">
+                            <a class="mb-0" href="{{ url }}"><h5>{{ b['title'] }}</h5></a>
+                            <div class="ml-auto row">
+                                <a href="{{ url }}" class="mr-2"><i class="fas fa-external-link-alt"></i></a>
+                                {% if b['can_edit'] %}
+                                    <a href="javascript:deleteBenchmark({{ b['id'] }}, {{ b['title']|tojson|forceescape }})" class="mr-2"><i class="fas fa-trash"></i></a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-body" onclick="window.location='{{ url }}'" style="cursor: pointer">
+                            {% if b['description'] %}<p>{{ b['description'] }}</p>{% endif %}
+                            <p class="mb-1"><small class="text-muted">{{ b['user'] }} &middot; {{ b['date']|pretty_date if b['date'] else '' }}</small></p>
+                            <p class="mb-1"><b>Runs ({{ b['runs']|length }}):</b> {{ b['runs']|join(', ') or '—' }}</p>
+                            <p class="mb-0"><b>Steps ({{ b['steps']|length }}):</b> {{ b['steps']|join(', ') or '—' }}</p>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="ml-3 text-muted">There are no benchmarks yet.</p>
+                {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Benchmark Modal -->
+<div class="modal" id="benchmark-new-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header"><h4 class="modal-title">New Benchmark</h4></div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="benchmark-new-title">Title</label>
+                    <input type="text" class="form-control" id="benchmark-new-title">
+                </div>
+                <div class="form-group">
+                    <label for="benchmark-new-description">Description</label>
+                    <textarea class="form-control" id="benchmark-new-description" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createBenchmark()">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    var benchmark_url = "{{ url_for_content('benchmark') }}";
+
+    function showBenchmarkForm() {
+        $('#benchmark-new-title').val('');
+        $('#benchmark-new-description').val('');
+        $('#benchmark-new-modal').modal('show');
+    }
+
+    function createBenchmark() {
+        var title = $('#benchmark-new-title').val().trim();
+        if (!title) {
+            showError("Title can not be empty.");
+            return;
+        }
+        var attrs = {
+            status: 'special:benchmark',
+            title: title,
+            description: $('#benchmark-new-description').val(),
+            extra: {user_can_edit: true, steps: []},
+            validate: false
+        };
+        send_ajax_json(Api.urls.project.create, attrs, function (response) {
+            if ('project' in response) {
+                $('#benchmark-new-modal').modal('hide');
+                window.location = benchmark_url + '&benchmark_id=' + response.project.id;
+            }
+            else
+                showError(response.error || 'Unexpected response from server.');
+        });
+    }
+
+    function deleteBenchmark(benchmark_id, title) {
+        var msg = `Do you want to DELETE Benchmark '${title}'?<br><br>` +
+            "Only the benchmark definition is removed, processing projects are not modified.";
+        confirm("Delete Benchmark", msg, "Cancel", "Delete", function () {
+            send_ajax_json(Api.urls.project.delete, {id: benchmark_id}, projectAjaxDone);
+        });
+    }
+</script>
