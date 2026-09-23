@@ -1655,7 +1655,9 @@ def fix_dates(attrs, *date_keys):
 
 def load_validate_func(attrs):
     t = attrs['type']
-    formDef = app.dm.get_form_by_name(f"entry_form:{t}").definition if t != 'note' else {}
+    form = app.dm.get_form_by_name(f"entry_form:{t}") if t != 'note' else None
+    # Some entry types (e.g. benchmark_run) do not have an associated form
+    formDef = form.definition if form else {}
     config = formDef.get('config', {})
     if func_name := config.get('validate_func', None):
         attrs['validate_func'] = app.dc.get_content_func(func_name)
