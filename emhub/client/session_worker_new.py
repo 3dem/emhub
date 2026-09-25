@@ -280,8 +280,7 @@ class SessionTaskHandler(TaskHandler):
                                     f.write(f"{fn.replace(framesPath, '')}\n")
                             args = [
                                 "--no-compress",
-                                # TODO: is this line really needed? It breaks in dev envs (obviously)
-                                # "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
+                                "--temp-dir=/gscem/testgrp/TRANSFER_TMP/", # NOTE: this breaks local runs (obviously)
                                 f"--files-from={tmpfile.name}"
                             ]
                             if move:
@@ -1095,11 +1094,10 @@ class SessionTransferWorker(SessionWorker):
     def handle_active_sessions(self, sessions):
         # Add transfer tasks
         self.add_tasks_workers(session_task(s, 'transfer') for s in sessions)
-        # TODO: Uncomment these
         # Wait a bit to allow creation of gscem folder
-        # time.sleep(60)
+        time.sleep(60)
         # Add deliver tasks
-        # self.add_tasks_workers(session_task(s, 'deliver') for s in sessions)
+        self.add_tasks_workers(session_task(s, 'deliver') for s in sessions)
 
 
 class SessionOtfWorker(SessionWorker):

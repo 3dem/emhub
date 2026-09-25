@@ -37,7 +37,6 @@ from emtools.utils import Pretty, Process, JsonTCPServer, Path, Color, Timer
 from emtools.metadata import EPU
 
 from emhub.client import open_client, config
-from emhub.client.session_worker_new import SessionTransferWorker
 
 
 
@@ -386,20 +385,12 @@ class SessionsServer(JsonTCPServer):
         # more thread for each request
         self._scheduler = BackgroundScheduler()
         # Schedule _poll_loop function to run now
-        # TODO: Uncomment to re-enable non-monitoring/transfer stuff
-        # self._scheduler.add_job(self._poll_loop, 'date')
+        self._scheduler.add_job(self._poll_loop, 'date')
         #self._scheduler.add_job(self._sessions_update_info, 'interval', minutes=1)
         # self._scheduler.add_job(self._sessions_sync_files, 'interval', seconds=10)
         self._scheduler.start()
 
-        # Start the transfer worker: it monitors each microscope's frames
-        # folder (FramesTaskHandler) and, for each active session, spawns a
-        # transfer task (SessionTaskHandler.transfer) that rsyncs new movies
-        # from the frames folder into the session's raw/offload folder.
-        # TODO: Did I even need to add this bit? And why is it multithreaded?
-        self._transfer_worker = SessionTransferWorker()
-        threading.Thread(target=self._transfer_worker.run,
-                         daemon=True, name='transfer-worker').start()
+        # NOTE: What actually runs the SessionTransferWorker?
 
         JsonTCPServer.serve_forever(self, *args, **kwargs)
 
