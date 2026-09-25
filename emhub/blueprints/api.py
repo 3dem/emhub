@@ -1039,6 +1039,63 @@ def save_job_annotation():
     return _handle_item(_handle, 'protocol')
 
 
+@api_bp.route('/get_project_labels', methods=['POST'])
+@flask_login.login_required
+def get_project_labels():
+    """ Return project labels and their assignment to jobs. """
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        return {
+            'labels': pm.getLabels(),
+            'jobs': pm.getJobLabels()
+        }
+
+    return _handle_item(_handle, 'labels')
+
+
+@api_bp.route('/save_project_label', methods=['POST'])
+@flask_login.login_required
+def save_project_label():
+    """ Create (no id) or update a project label. """
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        label = attrs.get('label')
+        if not isinstance(label, dict):
+            raise Exception('Missing label')
+        return pm.saveLabel(label)
+
+    return _handle_item(_handle, 'label')
+
+
+@api_bp.route('/delete_project_label', methods=['POST'])
+@flask_login.login_required
+def delete_project_label():
+    """ Delete a project label and unassign it from all jobs. """
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        label_id = attrs.get('label_id')
+        if not label_id:
+            raise Exception('Missing label_id')
+        return {'id': label_id, 'deleted': pm.deleteLabel(label_id)}
+
+    return _handle_item(_handle, 'label')
+
+
+@api_bp.route('/set_job_labels', methods=['POST'])
+@flask_login.login_required
+def set_job_labels():
+    """ Set the labels assigned to a job. """
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        run_id = attrs.get('run_id')
+        if not run_id:
+            raise Exception('Missing run_id')
+        label_ids = pm.setJobLabels(run_id, attrs.get('label_ids') or [])
+        return {'id': run_id, 'tagIds': label_ids}
+
+    return _handle_item(_handle, 'labels')
+
+
 @api_bp.route('/save_job', methods=['POST'])
 @flask_login.login_required
 def save_job():

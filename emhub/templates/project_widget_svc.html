@@ -35,34 +35,41 @@ function request(url, args) {
   });
 }
 
-let project_tags = project_entry_extra.tags.project;
-let protocol_tags = project_entry_extra.tags.protocols;
+// Project labels (tags) are stored in the project folder (.emhub/labels.json)
+let project_tags = project_details.tags || [];
 
-function findTagIndex(tagId) {
-  for (var i = 0; i < project_tags.length; i++)
-    if (project_tags[i].id === tagId)
-      return i;
-  return null;
+// Request for label operations: show the error and throw it, so the widget
+// does not update its state when the operation failed on the server
+async function labelsRequest(url, args) {
+  var data = null;
+  try {
+    data = await request(url, args);
+  } catch (error) {
+    var msg = error.responseText || error.message || "Received unknown error";
+    showError(msg);
+    throw new Error(msg);
+  }
+  if ('error' in data) {
+    showError(data.error);
+    throw new Error(data.error);
+  }
+  return data;
 }
 
-async function updateProjectTag(tagId, payload) {
-  var tagIndex = findTagIndex(tagId);
-  if (tagIndex === null)
-    project_tags.push(payload);
-  else
-    project_tags[tagIndex] = payload;
-  updateProjectEntryExtraTags();
-  return payload;
+function upsertProjectTag(tag) {
+  for (var i = 0; i < project_tags.length; i++) {
+    if (project_tags[i].id === tag.id) {
+      project_tags[i] = tag;
+      return tag;
+    }
+  }
+  project_tags.push(tag);
+  return tag;
 }
 
-async function updateProjectEntryExtraTags() {
-  await handleRequestData(
-    Api.urls.entry.update_extra,
-    {id: project_id, extra: {tags: project_entry_extra.tags}},
-    function (data){
-      // Don't do anything with the data
-    });
-  return { success: true };
+async function saveProjectTag(payload) {
+  var data = await labelsRequest(Api.urls.save_project_label, { label: payload });
+  return upsertProjectTag(data.label);
 }
 
 function buildProtocolInfo(jobId, jobType, jobNode) {
@@ -228,10 +235,12 @@ async function requestAction(url, args) {
     if (payload.duplicated)
       duplicated = payload.duplicated;
 
+    // Tags come from the server (.emhub/labels.json); keep the previous
+    // ones only if the server response does not include them
     for (const protocolId in protocols) {
       var newProtocol = protocols[protocolId];
       var protocol = getObjectValue(project_details.protocols, protocolId, null);
-      if (protocol) {
+      if (protocol && newProtocol.tags === undefined) {
         newProtocol.tags = getObjectValue(protocol, 'tags', []);
       }
     }
@@ -373,10 +382,7 @@ var svc = {
   },
 
   async deleteProtocol(projectId, protocolIds) {
-    for (const protocolId of protocolIds) {
-      delete protocol_tags[protocolId];
-    }
-    updateProjectEntryExtraTags();
+    // Job labels are removed on the server when deleting the jobs
     var result = await requestAction(Api.urls.delete_jobs, {run_ids: protocolIds});
     removeProtocolsFromProjectDetails(protocolIds);
     result.workflow = project_details.protocols;
@@ -507,33 +513,48 @@ var svc = {
   },
 
   async listProjectTags(projectId) {
+    var data = await labelsRequest(Api.urls.get_project_labels, {});
+    project_tags = data.labels.labels || [];
+    var jobs = data.labels.jobs || {};
+    for (const protocolId in project_details.protocols) {
+      if (protocolId !== 'PROJECT')
+        project_details.protocols[protocolId].tags = jobs[protocolId] || [];
+    }
     return project_tags;
   },
 
   async createProjectTag(projectId, payload) {
-    payload.id = randomUUID();
-    return updateProjectTag(null, payload);
+    var label = { ...payload };
+    delete label.id;  // id is generated on the server
+    return saveProjectTag(label);
   },
 
   async updateProjectTag(projectId, tagId, payload) {
-    payload.id = tagId;
-    return updateProjectTag(tagId, payload);
+    return saveProjectTag({ ...payload, id: tagId });
   },
 
   async deleteProjectTag(projectId, tagId) {
-    var tagIndex = findTagIndex(tagId);
-    if (tagIndex === null)
+    var data = await labelsRequest(Api.urls.delete_project_label, { label_id: tagId });
+    if (!data.label.deleted)
       return { success: false, error: "Tag not found" };
-    project_tags.splice(tagIndex, 1);
-    updateProjectEntryExtraTags();
+    project_tags = project_tags.filter(function (tag) { return tag.id !== tagId; });
+    for (const protocolId in project_details.protocols) {
+      var protocol = project_details.protocols[protocolId];
+      if (Array.isArray(protocol.tags))
+        protocol.tags = protocol.tags.filter(function (id) { return id !== tagId; });
+    }
     return { success: true };
   },
 
   async setProtocolTagIds(projectId, protocolId, tagIds) {
-    protocol_tags[protocolId] = tagIds;
-    project_details.protocols[protocolId].tags = tagIds;
-    updateProjectEntryExtraTags();
-    return { tagIds: tagIds }
+    var data = await labelsRequest(Api.urls.set_job_labels, {
+      run_id: protocolId,
+      label_ids: tagIds
+    });
+    var newTagIds = data.labels.tagIds;
+    if (project_details.protocols[protocolId])
+      project_details.protocols[protocolId].tags = newTagIds;
+    return { tagIds: newTagIds };
   },
 
   async getContextMenuVisibilityPolicy(projectId) {

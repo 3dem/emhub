@@ -300,10 +300,12 @@ class RelionSessionData(SessionData):
 
             protocols[job.id] = prot
 
+        jobLabels = self.project.getJobLabels()
         for protocol_id, protocol in protocols.items():
             if protocol_id == 'PROJECT':
                 continue
             protocol.update(self.project.getJobAnnotation(protocol_id))
+            protocol['tags'] = jobLabels.get(protocol_id, [])
 
         return protocols
 
