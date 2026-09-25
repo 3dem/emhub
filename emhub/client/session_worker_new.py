@@ -278,15 +278,19 @@ class SessionTaskHandler(TaskHandler):
                             with open(tmpfile.name, 'w') as f:
                                 for fn in existing:
                                     f.write(f"{fn.replace(framesPath, '')}\n")
-                            # TODO: Add these options back (added for mac?)
                             args = [
+                                "--no-compress",
+                                # TODO: is this line really needed? It breaks in dev envs (obviously)
+                                # "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
                                 f"--files-from={tmpfile.name}"
                             ]
                             if move:
                                 args.append("--remove-source-files")
                             n, size = Path.rsync(framesPath, rawPath, *args, size=True)
-                            # TODO: Change this back (had to change it for local)
-                            return n, size
+                            if n > 0:
+                                return n, size
+                            else:
+                                tries -= 1
 
                         if missing := [f for f in file_list if not os.path.exists(f)]:
                             raise Exception(f"Missing files: {len(missing)}")
@@ -932,7 +936,7 @@ class SessionWorker(Worker):
         self.jsonData['active'] = {}
 
     def _jsonLoad(self):
-        self.last_id = 335 # TODO: Change this back to 1900 (why is it hardcoded?)
+        self.last_id = 332 # TODO: Why is this hardcoded? (it was 1900)
 
         if os.path.exists(self.jsonFile):
             with open(self.jsonFile) as f:
@@ -1050,8 +1054,7 @@ class SessionWorker(Worker):
                         self.info(f"Skipping already DONE task: {tw.id}")
                         continue
 
-                    # TODO: Get rid of the "fork" bit (added for mac?)
-                    mp = multiprocessing.get_context('fork').Process(target=tw.run,
+                    mp = multiprocessing.Process(target=tw.run,
                                                  daemon=True, name=tw.id)
                     self.tasks[tw.id] = {
                         'task': task,
