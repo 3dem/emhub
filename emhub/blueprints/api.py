@@ -316,92 +316,12 @@ def delete_application():
     return handle_application(app.dm.delete_application)
 
 
-@api_bp.route('/import_application', methods=['POST'])
-@flask_login.login_required
-def import_application():
-    try:
-        if not request.is_json:
-            raise Exception("Expecting JSON request.")
-
-        orderCode = request.json['code'].upper()
-
-        dm = app.dm
-
-        application = dm.get_application_by(code=orderCode)
-
-        if application is not None:
-            raise Exception('Application %s already exist' % orderCode)
-
-        orderJson = app.sll_pm.fetchOrderDetailsJson(orderCode)
-
-        if orderJson is None:
-            raise Exception('Invalid application ID %s' % orderCode)
-
-        piEmail = orderJson['owner']['email'].lower()
-        # orderId = orderJson['identifier']
-
-        pi = dm.get_user_by(email=piEmail)
-
-        if pi is None:
-            raise Exception("Order owner email (%s) not found as PI" % piEmail)
-
-        if orderJson['status'] not in ['accepted', 'processing']:
-            raise Exception("Only applications with status 'accepted' or "
-                            "'processing' can be imported. ")
-
-        fields = orderJson['fields']
-        description = fields.get('project_des', None)
-        invoiceRef = fields.get('project_invoice_addess', None)
-
-        created = datetime_from_isoformat(orderJson['created'])
-        pi_list = fields.get('pi_list', [])
-
-        form = orderJson['form']
-        iuid = form['iuid']
-
-        # Check if the given form (here templates) already exist
-        # or we need to create a new one
-        orderTemplate = None
-        templates = dm.get_templates()
-        for t in templates:
-            if t.extra.get('portal_iuid', None) == iuid:
-                orderTemplate = t
-                break
-
-        if orderTemplate is None:
-            orderTemplate = dm.create_template(
-                title=form['title'],
-                status='active',
-                extra={'portal_iuid': iuid}
-            )
-            dm.commit()
-
-        application = dm.create_application(
-            code=orderCode,
-            title=orderJson['title'],
-            created=created,  # datetime_from_isoformat(o['created']),
-            status='active',
-            description=description,
-            creator_id=pi.id,
-            template_id=orderTemplate.id,
-            invoice_reference=invoiceRef or 'MISSING_INVOICE_REF',
-        )
-
-        for piTuple in pi_list:
-            piEmail = piTuple[1].lower()
-            pi = dm.get_user_by(email=piEmail)
-            if pi is not None:
-                application.users.append(pi)
-
-        dm.commit()
-
-        return send_json_data({'application': application.json()})
-
-    except Exception as e:
-        print(e)
-        traceback.print_exc()
-
-        return send_error('ERROR from Server: %s' % e)
+# NOTE: '/import_application' used to live here. It imported an
+# Application from the SciLifeLab Order Portal via app.sll_pm and was
+# entirely SLL-specific (and unguarded - it would AttributeError on any
+# instance without SLL_PORTAL_API configured). Moved to
+# emhub-sll-cryoem/api.py's extend_api() on 2026-09-22, alongside
+# PortalManager itself. See that repo's README.rst, section 6.
 
 
 # ---------------------------- RESOURCES ---------------------------------------
@@ -1151,6 +1071,63 @@ def save_job_annotation():
     return _handle_item(_handle, 'protocol')
 
 
+@api_bp.route('/get_project_labels', methods=['POST'])
+@flask_login.login_required
+def get_project_labels():
+    """ Return project labels and their assignment to jobs. """
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        return {
+            'labels': pm.getLabels(),
+            'jobs': pm.getJobLabels()
+        }
+
+    return _handle_item(_handle, 'labels')
+
+
+@api_bp.route('/save_project_label', methods=['POST'])
+@flask_login.login_required
+def save_project_label():
+    """ Create (no id) or update a project label. """
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        label = attrs.get('label')
+        if not isinstance(label, dict):
+            raise Exception('Missing label')
+        return pm.saveLabel(label)
+
+    return _handle_item(_handle, 'label')
+
+
+@api_bp.route('/delete_project_label', methods=['POST'])
+@flask_login.login_required
+def delete_project_label():
+    """ Delete a project label and unassign it from all jobs. """
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        label_id = attrs.get('label_id')
+        if not label_id:
+            raise Exception('Missing label_id')
+        return {'id': label_id, 'deleted': pm.deleteLabel(label_id)}
+
+    return _handle_item(_handle, 'label')
+
+
+@api_bp.route('/set_job_labels', methods=['POST'])
+@flask_login.login_required
+def set_job_labels():
+    """ Set the labels assigned to a job. """
+    def _handle(**attrs):
+        _, pm = get_project_manager(**attrs)
+        run_id = attrs.get('run_id')
+        if not run_id:
+            raise Exception('Missing run_id')
+        label_ids = pm.setJobLabels(run_id, attrs.get('label_ids') or [])
+        return {'id': run_id, 'tagIds': label_ids}
+
+    return _handle_item(_handle, 'labels')
+
+
 @api_bp.route('/save_job', methods=['POST'])
 @flask_login.login_required
 def save_job():
@@ -1767,7 +1744,9 @@ def fix_dates(attrs, *date_keys):
 
 def load_validate_func(attrs):
     t = attrs['type']
-    formDef = app.dm.get_form_by_name(f"entry_form:{t}").definition if t != 'note' else {}
+    form = app.dm.get_form_by_name(f"entry_form:{t}") if t != 'note' else None
+    # Some entry types (e.g. benchmark_run) do not have an associated form
+    formDef = form.definition if form else {}
     config = formDef.get('config', {})
     if func_name := config.get('validate_func', None):
         attrs['validate_func'] = app.dc.get_content_func(func_name)

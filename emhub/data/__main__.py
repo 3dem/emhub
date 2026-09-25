@@ -46,6 +46,10 @@ def setup_processing(dm, instance_folder, workspaces):
                                 <a class="nav-link" href="{{ url_for_content('processing_tomo_list') }}">
                                     <i class="fas fa-tachometer-alt"></i>Tomography</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for_content('benchmarks') }}">
+                                    <i class="fas fa-stopwatch"></i>Benchmarks</a>
+                            </li>
                         </ul>
                 </div>
             </nav>

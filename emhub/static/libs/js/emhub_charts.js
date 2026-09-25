@@ -566,17 +566,23 @@ function create_hc_scatter(containerId, data, config) {
 }
 
 function create_hc_columns(containerId, config){
-    return Highcharts.chart(containerId, {
+    /* Optional config keys: drilldown (Highcharts drilldown options,
+     * then points are expected to have a 'name' and xAxis is 'category'),
+     * valueSuffix, valueDecimals */
+    var xAxis = {crosshair: true};
+    if (config.drilldown)
+        xAxis.type = 'category';
+    else
+        xAxis.categories = config.categories;
+
+    var chartConfig = {
         chart: {
             type: 'column'
         },
         title: {
             text: config.title
         },
-        xAxis: {
-            categories: config.categories,
-            crosshair: true
-        },
+        xAxis: xAxis,
         yAxis: {
             min: 0,
             title: {
@@ -584,7 +590,8 @@ function create_hc_columns(containerId, config){
             }
         },
         tooltip: {
-            valueSuffix: ' (minutes)'
+            valueSuffix: config.valueSuffix || ' (minutes)',
+            valueDecimals: config.valueDecimals
         },
         plotOptions: {
             column: {
@@ -593,7 +600,12 @@ function create_hc_columns(containerId, config){
             }
         },
         series: config.series
-    });
+    };
+
+    if (config.drilldown)
+        chartConfig.drilldown = config.drilldown;
+
+    return Highcharts.chart(containerId, chartConfig);
 } // function create_hc_columns
 
 function create_hc_vcolumns(containerId, config){

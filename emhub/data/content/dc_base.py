@@ -412,39 +412,11 @@ class DataContent:
 
         return condition
 
-    def _get_users_from_portal(self, status=None):
-        """ Retrieve users from Portal with a given status.
-        If status is None, all will be retrieved.
-        """
-        dm = self.app.dm
-        users = []
-
-        for pu in self.app.sll_pm.fetchAccountsJson():
-            user = dm.get_user_by(email=pu['email'])
-
-            if user is None:
-                invoiceRef = pu['invoice_ref']
-
-                if pu['status'] == 'enabled':
-                    pu['pi_user'] = None
-
-                    if not pu['pi']:
-                        pi = dm.get_user_by(email=invoiceRef)
-                        if pi is None:
-                            pu['status'] = 'error: Missing PI'
-                        else:
-                            pu['status'] = 'ready: user'
-                            pu['pi_user'] = pi
-                    else:
-                        if invoiceRef.strip():
-                            pu['status'] = 'ready: pi'
-                        else:
-                            pu['status'] = 'error: Missing Invoice Reference'
-
-                    if status is None or pu['status'].startswith(status):
-                        users.append(pu)
-
-        return users
+    # NOTE: '_get_users_from_portal' used to live here. It fetched users
+    # from the SciLifeLab Order Portal via self.app.sll_pm and was entirely
+    # SLL-specific. Moved to emhub-sll-cryoem/data_content.py on
+    # 2026-09-22, alongside PortalManager and the rest of the Portal
+    # integration. See that repo's README.rst, section 6.
 
     def get_pi_labs(self, all=False):
         # Send a list of labs( used for possible owners of bookings or collaborators)

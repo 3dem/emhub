@@ -236,16 +236,15 @@ def register_content(dc):
         project_path = entry.extra['data'].get('processing_path', '')
         data = dc.get_data('processing_content', **kwargs)
         pp = data['processing_project']
-        from emwrap.base import ProcessingConfig
+        pm = pp.project
+        # Labels (tags) are stored in the project folder (.emhub/labels.json).
+        # Migrate old labels stored in the entry's extra (DB) if needed.
+        # The DB copy is kept for now, but no longer used.
+        tags = entry.extra.get('tags')
+        if tags and not pm.hasLabels():
+            pm.importLabels(tags.get('project', []), tags.get('protocols', {}))
+
         protocols = pp.get_workflow(widget=True)
-        if 'tags' not in entry.extra:
-            entry.extra['tags'] = {
-                'project': [],
-                'protocols': {}
-            }
-        protocol_tags = entry.extra['tags']['protocols']
-        for p in protocols.values():
-            p['tags'] = protocol_tags.get(p['id'], [])
 
         project_details = {
             'id': project_id,
@@ -254,7 +253,8 @@ def register_content(dc):
             "createdAt": "2025-09-13 15:29:00.670242+02:00",
             "status": "active",
             "path": project_path,
-            'protocols': protocols
+            'protocols': protocols,
+            'tags': pm.getLabels()
         }
 
         from emhub.data.widget_menu import get_widget_menu, fix_widget_menu_icons

@@ -1,0 +1,476 @@
+{% import "entry_macros.html" as macros %}
+
+{% macro fmt_time(seconds) -%}
+    {%- set s = seconds|int -%}
+    {{- '%d:%02d:%02d'|format(s // 3600, (s % 3600) // 60, s % 60) -}}
+{%- endmacro %}
+
+<div class="container-fluid dashboard-content">
+    <!-- Header -->
+    {% set title = benchmark['title'] %}
+    {% set about = benchmark['description'] %}
+    {% set navigation = [('Benchmarks', url_for_content('benchmarks')), (title, '')] %}
+    {% include 'include_header.html' %}
+
+    {{ macros.hidden_hour_id() }}
+
+    <div class="row">
+        {% if can_edit %}
+        <div class="col-12 mb-3 ml-0 pl-0">
+            <a href="javascript:showBenchmarkEdit('runs')" class="btn btn-primary"><i class="fas fa-edit"></i> Edit Benchmark</a>
+        </div>
+        {% endif %}
+
+        {% if not runs or not steps %}
+            <div class="card col-12">
+                <div class="card-body text-muted">
+                    This benchmark has {{ runs|length }} run(s) and {{ steps|length }} step(s).
+                    Use <b>Edit Benchmark</b> to add processing projects (runs) and define
+                    the steps (one or more jobs) to compare.
+                </div>
+            </div>
+        {% endif %}
+
+        {% if runs and steps %}
+        <!-- Plot -->
+        <div class="card col-12">
+            <div class="card-body">
+                <div id="benchmark-plot"></div>
+                <small class="text-muted">Bars of steps with more than one job are clickable to see the time of each job.</small>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if runs %}
+        <!-- Table -->
+        <div class="card col-12">
+            <div class="card-body table-responsive">
+                <table class="table table-sm table-bordered" id="benchmark-table">
+                    <thead>
+                        <tr>
+                            <th>Step</th>
+                            {% for run in runs %}
+                                <th>
+                                    {% if run['tomo_entry_id'] %}
+                                        <a href="{{ url_for_content('tomo_session', tomo_session_id=run['tomo_entry_id'], mode='widget') }}">{{ run['label'] }}</a>
+                                    {% else %}
+                                        {{ run['label'] }}
+                                    {% endif %}
+                                    <br><small class="text-muted" style="word-break: break-all">{{ run['processing_path'] }}</small>
+                                    {% if run['error'] %}<br><small class="text-danger">{{ run['error'] }}</small>{% endif %}
+                                </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for step in steps %}
+                        {% set step_index = loop.index0 %}
+                        <tr>
+                            <td><b>{{ step['name'] }}</b></td>
+                            {% for run in runs %}
+                                {% set st = run['step_times'][step_index] %}
+                                <td>
+                                    {% if st['jobs'] %}
+                                        <b>{{ fmt_time(st['seconds']) }}</b>
+                                        {% if st['jobs']|length > 1 %}
+                                            <a href="#collapse-r{{ loop.index0 }}-s{{ step_index }}" data-toggle="collapse" class="ml-1"><small>{{ st['jobs']|length }} jobs</small></a>
+                                            <div class="collapse" id="collapse-r{{ loop.index0 }}-s{{ step_index }}">
+                                        {% else %}
+                                            <div>
+                                        {% endif %}
+                                            {% for job in st['jobs'] %}
+                                                <small class="d-block {{ 'text-danger' if job['missing'] else 'text-muted' }}" title="{{ job['type'] }}">
+                                                    {{ job['id'] }}{% if job['alias'] %} ({{ job['alias'] }}){% endif %}
+                                                    {% if job['missing'] %} - missing{% elif st['jobs']|length > 1 %} - {{ fmt_time(job['seconds']) }}{% endif %}
+                                                    {% if job['running'] %}<i class="fas fa-spinner" title="Running"></i>{% endif %}
+                                                </small>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                    {% if steps %}
+                    <tfoot>
+                        <tr>
+                            <th>Total</th>
+                            {% set ref_total = runs[0]['total'] %}
+                            {% for run in runs %}
+                                <th>
+                                    {{ fmt_time(run['total']) }}
+                                    {% if not loop.first and run['total'] and ref_total %}
+                                        <small class="text-muted ml-1" title="Speed-up relative to '{{ runs[0]['label'] }}'">(x{{ '%.2f'|format(ref_total / run['total']) }})</small>
+                                    {% endif %}
+                                </th>
+                            {% endfor %}
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if can_edit %}
+<!-- ============================================================== -->
+<!-- Edit Benchmark Modal -->
+<!-- ============================================================== -->
+<div class="modal" id="benchmark-edit-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document" style="max-width: 95%">
+        <div class="modal-content">
+            <div class="modal-header"><h4 class="modal-title">Edit Benchmark</h4></div>
+            <div class="modal-body">
+                <div class="pills-outline">
+                    <ul class="nav nav-pills mb-2" role="tablist">
+                        <li class="nav-item"><a class="nav-link" id="bedit-general-tab" data-toggle="tab" href="#bedit-general" role="tab">General</a></li>
+                        <li class="nav-item"><a class="nav-link" id="bedit-runs-tab" data-toggle="tab" href="#bedit-runs" role="tab">Runs</a></li>
+                        <li class="nav-item"><a class="nav-link" id="bedit-steps-tab" data-toggle="tab" href="#bedit-steps" role="tab">Steps</a></li>
+                    </ul>
+                    <div class="tab-content">
+                        <!-- General -->
+                        <div class="tab-pane fade" id="bedit-general" role="tabpanel">
+                            <div class="form-group">
+                                <label for="bedit-title">Title</label>
+                                <input type="text" class="form-control" id="bedit-title" value="{{ benchmark['title'] }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="bedit-description">Description</label>
+                                <textarea class="form-control" id="bedit-description" rows="3">{{ benchmark['description'] }}</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Runs -->
+                        <div class="tab-pane fade" id="bedit-runs" role="tabpanel">
+                            <table class="table table-sm">
+                                <thead><tr><th style="width: 25%">Label</th><th>Processing path</th><th>Jobs</th><th></th></tr></thead>
+                                <tbody>
+                                {% for run in runs %}
+                                    <tr>
+                                        <td><input type="text" class="form-control form-control-sm bedit-run-label" data-run-id="{{ run['id'] }}" value="{{ run['label'] }}"></td>
+                                        <td><small style="word-break: break-all">{{ run['processing_path'] }}</small></td>
+                                        <td>{% if run['error'] %}<small class="text-danger">{{ run['error'] }}</small>{% else %}{{ run['jobs']|length }}{% endif %}</td>
+                                        <td><a href="javascript:deleteBenchmarkRun({{ run['id'] }})" title="Remove run from benchmark"><i class="fas fa-trash"></i></a></td>
+                                    </tr>
+                                {% else %}
+                                    <tr><td colspan="4" class="text-muted">No runs yet.</td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+
+                            <h5 class="mt-4">Add run</h5>
+                            <div class="form-row">
+                                <div class="col-md-4">
+                                    <label for="bedit-new-entry">Tomography project</label>
+                                    <select class="form-control selectpicker" id="bedit-new-entry" data-live-search="true" onchange="onNewRunEntryChanged()">
+                                        <option value="">-- Other path --</option>
+                                        {% for te in tomo_entries %}
+                                            <option value="{{ te['id'] }}" data-subtext="{{ te['processing_path'] }}">{{ te['title'] }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="bedit-new-path">Processing path</label>
+                                    <input type="text" class="form-control" id="bedit-new-path" placeholder="/path/to/processing/project">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="bedit-new-label">Label</label>
+                                    <input type="text" class="form-control" id="bedit-new-label">
+                                </div>
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-outline-primary" onclick="addBenchmarkRun()"><i class="fas fa-plus"></i> Add</button>
+                                </div>
+                            </div>
+                            <small class="text-muted">Adding or removing runs is applied immediately. New runs get the same step jobs as the first run (edit them in the Steps tab).</small>
+                        </div>
+
+                        <!-- Steps -->
+                        <div class="tab-pane fade" id="bedit-steps" role="tabpanel">
+                            <div class="table-responsive" id="bedit-steps-container"></div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addBenchmarkStep()"><i class="fas fa-plus"></i> Add step</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveBenchmark()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+    var benchmark = {{ benchmark|tojson }};
+    var steps = {{ steps|tojson }};
+    var runs = {{ runs|tojson }};
+    var tomo_entries = {{ tomo_entries|tojson }};
+    var run_entry_type = {{ run_entry_type|tojson }};
+    var editSteps = [];
+
+    function fmtTime(seconds) {
+        var s = Math.round(seconds);
+        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+        s = s % 60;
+        return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function escapeHtml(text) {
+        return $('<div>').text(text == null ? '' : String(text)).html();
+    }
+
+    function jobLabel(job) {
+        return job.id + (job.alias ? ` (${job.alias})` : '');
+    }
+
+    function minutes(seconds) {
+        return Math.round(seconds / 60 * 100) / 100;
+    }
+
+    // ------------------------- Plot -------------------------------
+    function plotBenchmark() {
+        if (!runs.length || !steps.length)
+            return;
+
+        var drillSeries = [];
+        var series = runs.map(function (run, ri) {
+            return {
+                name: run.label,
+                data: steps.map(function (step, si) {
+                    var st = run.step_times[si];
+                    var point = {name: step.name, y: minutes(st.seconds)};
+                    if (st.jobs.length > 1) {
+                        point.drilldown = `r${ri}s${si}`;
+                        drillSeries.push({
+                            id: point.drilldown,
+                            name: `${run.label} / ${step.name}`,
+                            data: st.jobs.map(j => [jobLabel(j), minutes(j.seconds)])
+                        });
+                    }
+                    return point;
+                })
+            };
+        });
+
+        create_hc_columns('benchmark-plot', {
+            title: "Running time of each step",
+            labelY: "Time (minutes)",
+            valueSuffix: ' min',
+            valueDecimals: 2,
+            series: series,
+            drilldown: {series: drillSeries}
+        });
+    }
+
+    // ------------------------- Edit dialog -------------------------------
+    function newStepId() {
+        return 's' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+    }
+
+    function showBenchmarkEdit(tab) {
+        editSteps = steps.map(function (step) {
+            var jobs = {};
+            runs.forEach(r => jobs[r.id] = (r.steps[step.id] || []).slice());
+            return {id: step.id, name: step.name, jobs: jobs};
+        });
+        renderStepsTable();
+        $(`#bedit-${tab || 'runs'}-tab`).tab('show');
+        $('#benchmark-edit-modal').modal('show');
+    }
+
+    function renderStepsTable() {
+        var html = '<table class="table table-sm" id="bedit-steps-table"><thead><tr><th>#</th><th style="min-width: 200px">Step name</th>';
+        runs.forEach(function (run, ri) {
+            html += `<th style="min-width: 250px">${escapeHtml(run.label)}`;
+            if (ri > 0)
+                html += ` <a href="javascript:copyStepsFromFirstRun(${ri})" title="Use the same job ids as in the first run"><i class="fas fa-copy"></i></a>`;
+            html += '</th>';
+        });
+        html += '<th></th></tr></thead><tbody>';
+
+        editSteps.forEach(function (step, si) {
+            html += `<tr><td>${si + 1}</td>`;
+            html += `<td><input type="text" class="form-control form-control-sm" value="${escapeHtml(step.name)}" onchange="editSteps[${si}].name = this.value"></td>`;
+            runs.forEach(function (run) {
+                var selected = step.jobs[run.id] || [];
+                var known = new Set(run.jobs.map(j => j.id));
+                html += `<td><select class="form-control form-control-sm bedit-step-jobs" multiple data-live-search="true" data-width="100%" data-selected-text-format="count > 2" title="No jobs" data-step-index="${si}" data-run-id="${run.id}">`;
+                run.jobs.forEach(function (job) {
+                    var sel = selected.includes(job.id) ? 'selected' : '';
+                    html += `<option value="${escapeHtml(job.id)}" data-subtext="${escapeHtml(job.alias || job.type)} ${fmtTime(job.seconds)}" ${sel}>${escapeHtml(job.id)}</option>`;
+                });
+                selected.filter(jid => !known.has(jid)).forEach(function (jid) {
+                    html += `<option value="${escapeHtml(jid)}" data-subtext="missing" selected>${escapeHtml(jid)}</option>`;
+                });
+                html += '</select></td>';
+            });
+            html += `<td class="text-nowrap">
+                        <a href="javascript:moveBenchmarkStep(${si}, -1)" title="Move up"><i class="fas fa-arrow-up"></i></a>
+                        <a href="javascript:moveBenchmarkStep(${si}, 1)" class="ml-2" title="Move down"><i class="fas fa-arrow-down"></i></a>
+                        <a href="javascript:removeBenchmarkStep(${si})" class="ml-2" title="Remove step"><i class="fas fa-trash"></i></a>
+                     </td></tr>`;
+        });
+        if (!editSteps.length)
+            html += `<tr><td colspan="${runs.length + 3}" class="text-muted">No steps yet.</td></tr>`;
+        html += '</tbody></table>';
+
+        $('#bedit-steps-container').html(html);
+        $('#bedit-steps-table select').selectpicker();
+        $('#bedit-steps-table select').on('changed.bs.select', function () {
+            editSteps[$(this).data('step-index')].jobs[$(this).data('run-id')] = $(this).val() || [];
+        });
+    }
+
+    function addBenchmarkStep() {
+        var jobs = {};
+        runs.forEach(r => jobs[r.id] = []);
+        editSteps.push({id: newStepId(), name: `Step ${editSteps.length + 1}`, jobs: jobs});
+        renderStepsTable();
+    }
+
+    function removeBenchmarkStep(si) {
+        editSteps.splice(si, 1);
+        renderStepsTable();
+    }
+
+    function moveBenchmarkStep(si, delta) {
+        var ti = si + delta;
+        if (ti < 0 || ti >= editSteps.length)
+            return;
+        var tmp = editSteps[si];
+        editSteps[si] = editSteps[ti];
+        editSteps[ti] = tmp;
+        renderStepsTable();
+    }
+
+    function copyStepsFromFirstRun(ri) {
+        var first = runs[0], run = runs[ri];
+        var known = new Set(run.jobs.map(j => j.id));
+        editSteps.forEach(function (step) {
+            step.jobs[run.id] = (step.jobs[first.id] || []).filter(jid => known.has(jid));
+        });
+        renderStepsTable();
+    }
+
+    function apiCall(url, attrs, key) {
+        return new Promise(function (resolve, reject) {
+            send_ajax_json(url, attrs, function (response) {
+                if (key in response)
+                    resolve(response[key]);
+                else
+                    reject(response.error || 'Unexpected response from server.');
+            }, function (jqXHR, textStatus) {
+                reject("Ajax Request FAILED: " + textStatus);
+            });
+        });
+    }
+
+    function runData(run, stepsMapping) {
+        return {
+            processing_path: run.processing_path,
+            tomo_entry_id: run.tomo_entry_id,
+            steps: stepsMapping
+        };
+    }
+
+    async function saveBenchmark() {
+        var title = $('#bedit-title').val().trim();
+        if (!title) {
+            showError("Title can not be empty.");
+            return;
+        }
+        if (editSteps.some(s => !s.name.trim())) {
+            showError("Step names can not be empty.");
+            return;
+        }
+
+        var extra = Object.assign({}, benchmark.extra, {
+            steps: editSteps.map(s => ({id: s.id, name: s.name.trim()}))
+        });
+
+        try {
+            await apiCall(Api.urls.project.update, {
+                id: benchmark.id, title: title,
+                description: $('#bedit-description').val(), extra: extra
+            }, 'project');
+
+            for (const run of runs) {
+                var mapping = {};
+                editSteps.forEach(function (s) {
+                    if ((s.jobs[run.id] || []).length)
+                        mapping[s.id] = s.jobs[run.id];
+                });
+                var label = $(`.bedit-run-label[data-run-id="${run.id}"]`).val().trim() || run.label;
+                await apiCall(Api.urls.entry.update, {
+                    id: run.id, title: label, validate: false,
+                    extra: {data: runData(run, mapping)}
+                }, 'entry');
+            }
+            location.reload();
+        } catch (error) {
+            showError(String(error));
+        }
+    }
+
+    function onNewRunEntryChanged() {
+        var entryId = $('#bedit-new-entry').val();
+        var te = tomo_entries.find(e => String(e.id) === entryId);
+        $('#bedit-new-path').val(te ? te.processing_path : '').prop('readonly', !!te);
+        if (te && !$('#bedit-new-label').val().trim())
+            $('#bedit-new-label').val(te.title);
+    }
+
+    function addBenchmarkRun() {
+        var entryId = $('#bedit-new-entry').val();
+        var path = $('#bedit-new-path').val().trim();
+        var label = $('#bedit-new-label').val().trim();
+        if (!path) {
+            showError("Select a tomography project or provide a processing path.");
+            return;
+        }
+        if (!label)
+            label = getBasename(path.replace(/\/+$/, ''));
+
+        // Start with the same step jobs as the first run
+        var steps_mapping = runs.length ? Object.assign({}, runs[0].steps) : {};
+
+        var attrs = {
+            project_id: benchmark.id,
+            type: run_entry_type,
+            title: label,
+            description: '',
+            extra: {data: {
+                processing_path: path,
+                tomo_entry_id: entryId ? parseInt(entryId) : null,
+                steps: steps_mapping
+            }}
+        };
+        apiCall(Api.urls.entry.create, attrs, 'entry')
+            .then(() => location.reload())
+            .catch(error => showError(String(error)));
+    }
+
+    function deleteBenchmarkRun(run_id) {
+        var run = runs.find(r => r.id === run_id);
+        confirm("Remove Run", `Do you want to remove run '${escapeHtml(run.label)}' from this benchmark?<br><br>` +
+            "The processing project will not be modified.", "Cancel", "Remove", function () {
+            apiCall(Api.urls.entry.delete, {id: run_id}, 'entry')
+                .then(() => location.reload())
+                .catch(error => showError(String(error)));
+        });
+    }
+
+    (function(window, document, $, undefined) {
+        "use strict";
+        $(function() {
+            $('#bedit-new-entry').selectpicker();
+            plotBenchmark();
+        });
+    })(window, document, window.jQuery);
+</script>
