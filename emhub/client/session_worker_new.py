@@ -280,7 +280,8 @@ class SessionTaskHandler(TaskHandler):
                                     f.write(f"{fn.replace(framesPath, '')}\n")
                             args = [
                                 "--no-compress",
-                                "--temp-dir=/gscem/testgrp/TRANSFER_TMP/", # NOTE: this breaks local runs (obviously)
+                                # NOTE: this breaks local runs and should probably be parameterized
+                                "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
                                 f"--files-from={tmpfile.name}"
                             ]
                             if move:
