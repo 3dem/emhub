@@ -390,7 +390,7 @@ class SessionsServer(JsonTCPServer):
         # self._scheduler.add_job(self._sessions_sync_files, 'interval', seconds=10)
         self._scheduler.start()
 
-        # NOTE: What actually runs the SessionTransferWorker?
+        # NOTE: If it doesn't happen here, where do we actually start up the SessionTransferWorker?
 
         JsonTCPServer.serve_forever(self, *args, **kwargs)
 
