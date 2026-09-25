@@ -51,12 +51,13 @@ DEFAULT_SESSION = {
 
 
 def _get_tomo_project_last_modified(processing_path):
-    """Return latest mtime from project.json or default_pipeline.star."""
+    """Return latest mtime from .emhub/project.json or default_pipeline.star."""
+    from emwrap.base.project_data import PROJECT_JSON
     processing_path = resolve_processing_path(processing_path)
     if not processing_path:
         return None
     mtimes = []
-    for fname in ('project.json', 'default_pipeline.star'):
+    for fname in (PROJECT_JSON, 'default_pipeline.star'):
         fpath = os.path.join(processing_path, fname)
         if os.path.exists(fpath):
             mtimes.append(os.path.getmtime(fpath))
