@@ -30,11 +30,13 @@ DOSE_PER_TILT = 3.1
 PIXEL_SIZE = 1.3
 TS_PIXEL_SIZE = 2.6
 
+# Folder names as emwrap actually creates them on a live project: one
+# folder per job type rather than everything under External/.
 JOBS = [
-    ('External/job001', 'emw-import-ts', 'Succeeded'),
-    ('External/job002', 'emw-warp-mctf', 'Succeeded'),
-    ('External/job003', 'emw-warp-tsalign', 'Succeeded'),
-    ('External/job004', 'emw-warp-ctfrec', 'Succeeded'),
+    ('EMwrap/job001', 'emw-import-ts', 'Succeeded'),
+    ('WarpMctf/job003', 'emw-warp-mctf', 'Succeeded'),
+    ('WarpTsAlign/job004', 'emw-warp-tsalign', 'Succeeded'),
+    ('WarpCtfRec/job005', 'emw-warp-ctfrec', 'Succeeded'),
 ]
 
 GLOBAL_COLS = [
@@ -67,7 +69,7 @@ def _dose_symmetric_order(n):
     return order
 
 
-def _tilt_rows(ts_index, cols, rng):
+def _tilt_rows(ts_index, cols, rng, placeholders=False):
     """ Per-tilt values, with a session-wide drift so the dashboard has
     something to show: a step at tilt series 40 and a slow degradation
     after 60. """
@@ -135,11 +137,23 @@ def _tilt_rows(ts_index, cols, rng):
                     + jitter * (rng.random() - 0.5), 3),
             })
 
+        if placeholders:
+            for c in ('rlnAccumMotionTotal', 'rlnAccumMotionEarly',
+                      'rlnAccumMotionLate', 'rlnCtfMaxResolution',
+                      'rlnCtfFigureOfMerit', 'rlnCtfIceRingDensity'):
+                if c in values:
+                    values[c] = 0
+
         rows.append([values.get(c, 0) for c in cols])
     return rows
 
 
-def write_project(path, n_ts=40, seed=42):
+def write_project(path, n_ts=40, seed=42, placeholders=False):
+    """ placeholders=True reproduces what emwrap devel currently writes:
+    accumulated motion hardcoded to 0 and the CTF quality columns left at
+    the defaultdict zero, with only the defocus values real.  Use it to
+    check the dashboard reports those as not available rather than as a
+    perfect score. """
     rng = random.Random(seed)
     os.makedirs(path, exist_ok=True)
 
@@ -175,7 +189,7 @@ def write_project(path, n_ts=40, seed=42):
                 PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE)
 
             tilt_table = Table(cols)
-            for row in _tilt_rows(i, cols, rng):
+            for row in _tilt_rows(i, cols, rng, placeholders=placeholders):
                 tilt_table.addRowValues(*row)
             with StarFile(os.path.join(path, ts_star), 'w') as sf:
                 sf.writeTable(name, tilt_table)
@@ -258,8 +272,13 @@ def main():
     p.add_argument('path', help='Where to write the fake project')
     p.add_argument('--tilt-series', type=int, default=40, dest='n_ts')
     p.add_argument('--seed', type=int, default=42)
+    p.add_argument('--emwrap-placeholders', action='store_true',
+                   dest='placeholders',
+                   help='write motion and CTF quality as the placeholder '
+                        'zeros emwrap currently produces')
     args = p.parse_args()
-    write_project(args.path, n_ts=args.n_ts, seed=args.seed)
+    write_project(args.path, n_ts=args.n_ts, seed=args.seed,
+                  placeholders=args.placeholders)
     print(f'Wrote fake OTF project with {args.n_ts} tilt series to {args.path}')
 
 

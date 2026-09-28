@@ -66,8 +66,14 @@
         {% endfor %}
 
         {% if not strips %}
-            <p class="text-muted"><small>No per-tilt metrics yet: the motion
-            correction and CTF job has not written this tilt series.</small></p>
+            <p class="text-muted"><small>No per-tilt metrics to plot for this
+            tilt series.</small></p>
+        {% endif %}
+
+        {% if notReported %}
+            <p class="text-muted mt-2 mb-0"><small>Not reported by this
+            pipeline:
+            {% for n in notReported %}{{ n|lower }}{% if not loop.last %}, {% endif %}{% endfor %}.</small></p>
         {% endif %}
 
         <!-- Images and volumes are served by the existing table viewers

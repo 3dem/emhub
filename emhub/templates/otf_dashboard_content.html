@@ -31,6 +31,18 @@
     </div>
 </div>
 
+{% if notReported %}
+<div class="alert alert-info py-2 mb-3">
+    <small>
+        This pipeline does not report
+        {% for n in notReported %}{{ n|lower }}{% if not loop.last %}, {% endif %}{% endfor %}.
+        emwrap writes those columns as zeros, so they are shown as
+        <em>n/a</em> rather than as a perfect score, and they are not used
+        to flag a tilt series.
+    </small>
+</div>
+{% endif %}
+
 <div class="row">
     <!-- Counters -->
     <div class="col-xl-5 col-lg-12 mb-3">
@@ -93,6 +105,10 @@
         {% for tr in trends.plots %}
             <div class="otf-trend" id="otf-trend-{{ tr.key }}"></div>
         {% endfor %}
+        {% if not trends.plots %}
+            <p class="text-muted mb-0"><small>No session trends yet: none of
+            the quality metrics have values from this pipeline.</small></p>
+        {% endif %}
     </div>
 </div>
 
@@ -138,7 +154,7 @@
                     <th class="otf-num">CTF fit (Å)</th>
                     <th class="otf-num">Tilt axis (°)</th>
                     <th class="otf-num">Shift rough. (Å)</th>
-                    <th>Per-tilt CTF fit</th>
+                    <th>Per-tilt {{ fingerprintLabel or 'metric' }}</th>
                     <th>Stage</th>
                 </tr>
             </thead>
@@ -178,10 +194,13 @@
                             {% if r.motion.mean is not none %}
                                 {{ '%.1f'|format(r.motion.mean) }}
                                 <span class="otf-sd">max {{ '%.1f'|format(r.motion.max) }}</span>
+                            {% elif r.motion.notReported %}<span class="otf-sd">n/a</span>
                             {% else %}&ndash;{% endif %}
                         </td>
                         <td class="otf-num">
-                            {% if r.motionEarly.mean is not none %}{{ '%.2f'|format(r.motionEarly.mean) }}{% else %}&ndash;{% endif %}
+                            {% if r.motionEarly.mean is not none %}{{ '%.2f'|format(r.motionEarly.mean) }}
+                            {% elif r.motionEarly.notReported %}<span class="otf-sd">n/a</span>
+                            {% else %}&ndash;{% endif %}
                         </td>
                         <td class="otf-num">
                             {% if r.defocus.median is not none %}
@@ -193,6 +212,7 @@
                             {% if r.ctfRes.mean is not none %}
                                 {{ '%.2f'|format(r.ctfRes.mean) }}
                                 <span class="otf-sd">&plusmn;{{ '%.2f'|format(r.ctfRes.std) }}{% if r.nTiltsOverCtfLimit %} &middot; {{ r.nTiltsOverCtfLimit }} over{% endif %}</span>
+                            {% elif r.ctfRes.notReported %}<span class="otf-sd">n/a</span>
                             {% else %}&ndash;{% endif %}
                         </td>
                         <td class="otf-num">

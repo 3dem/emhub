@@ -23,7 +23,8 @@ import time
 from emhub.data.processing import resolve_processing_path
 from emhub.data.processing.otf_cryoet import (
     OtfSession, STAGES, STATUS_OK, STATUS_SUSPECT, STATUS_BAD,
-    STATUS_RUNNING, STATUS_FAILED, COL_TILT_ANGLE, COL_PRE_EXPOSURE)
+    STATUS_RUNNING, STATUS_FAILED, COL_TILT_ANGLE, COL_PRE_EXPOSURE,
+    PLACEHOLDER_ZERO_COLS)
 
 
 ENTRY_TYPE = 'tomo_processing'
@@ -81,8 +82,33 @@ def _rolling_median(values, window=7):
     return out
 
 
-def _fingerprint_svg(ts, limit=8.0):
-    """ Per-tilt CTF fit as a small inline strip, one step per tilt.
+# What the row fingerprint is drawn from, in order of preference.  CTF fit
+# resolution is the most informative, but emwrap does not always report it,
+# and a blank column is worse than a less pointed one.  Each entry is
+# (column, low, high, label) where low/high bound the drawn range.
+FINGERPRINT_SOURCES = [
+    ('rlnCtfMaxResolution', 3.0, 11.0, 'CTF fit'),
+    ('rlnDefocusU', 15000.0, 60000.0, 'defocus'),
+    ('rlnAccumMotionTotal', 0.0, 40.0, 'motion'),
+]
+
+
+def _fingerprint_source(ts):
+    """ Pick the first fingerprint column that this series actually has,
+    skipping the ones written as placeholder zeros. """
+    for col, low, high, label in FINGERPRINT_SOURCES:
+        values = [t.get(col) for t in ts.tilts]
+        values = [v for v in values if v is not None]
+        if not values:
+            continue
+        if col in PLACEHOLDER_ZERO_COLS and not any(values):
+            continue
+        return col, low, high, label
+    return None
+
+
+def _fingerprint_svg(ts):
+    """ A per-tilt metric as a small inline strip, one step per tilt.
 
     Drawn server side rather than with a chart library: there is one of
     these per table row and a long session has hundreds of rows.  The
@@ -91,25 +117,31 @@ def _fingerprint_svg(ts, limit=8.0):
     one rect per tilt it was by far the largest thing in the refreshed
     html; this form is about a fifth of the size.
     """
-    tilts = sorted(ts.tilts, key=lambda t: t.get(COL_TILT_ANGLE) or 0)
-    if not tilts:
+    source = _fingerprint_source(ts)
+    if source is None:
         return ''
-    n = len(tilts)
+    col, low, high, label = source
 
-    def _y(res):
-        return round(100 - min(1.0, max(0.02, (res - 3.0) / limit)) * 100)
+    tilts = sorted(ts.tilts, key=lambda t: t.get(COL_TILT_ANGLE) or 0)
+    n = len(tilts)
+    if not n:
+        return ''
+    span = high - low
+
+    def _y(value):
+        return round(100 - min(1.0, max(0.02, (value - low) / span)) * 100)
 
     pts, marks = [], []
     for i, t in enumerate(tilts):
-        res = t.get('rlnCtfMaxResolution')
-        if res is None:
+        value = t.get(col)
+        if value is None:
             continue
-        y = _y(res)
+        y = _y(value)
         pts.append(f'{i},{y} {i + 1},{y}')
 
         if t.get('excluded'):
             color = STATUS_STYLE[STATUS_BAD]['color']
-        elif res > 6.0:
+        elif col == 'rlnCtfMaxResolution' and value > 6.0:
             color = STATUS_STYLE[STATUS_SUSPECT]['color']
         else:
             continue
@@ -120,7 +152,8 @@ def _fingerprint_svg(ts, limit=8.0):
         return ''
 
     return (f'<svg width="150" height="22" viewBox="0 0 {n} 100" '
-            f'preserveAspectRatio="none" class="otf-fingerprint">'
+            f'preserveAspectRatio="none" class="otf-fingerprint" '
+            f'title="per-tilt {label}">'
             f'<polygon points="0,100 {" ".join(pts)} {n},100" '
             f'fill="{STATUS_STYLE[STATUS_OK]["color"]}" fill-opacity="0.55"/>'
             f'{"".join(marks)}'
@@ -213,6 +246,11 @@ def register_content(dc):
                 if isinstance(raw, dict):
                     raw = raw.get(stat)
                 values.append(raw * scale if isinstance(raw, float) else None)
+            # A metric the pipeline does not report would draw an empty
+            # axis, which reads as "measured and flat" rather than "not
+            # measured".  Leave it out and say so in the notice instead.
+            if not any(v is not None for v in values):
+                continue
             series.append({
                 'key': key,
                 'label': label,
@@ -235,6 +273,7 @@ def register_content(dc):
                 'statusColor': style['color'],
                 'statusOrder': style['order'],
                 'reasons': t.reasons,
+                'notReported': t.notReported,
                 'failedAt': t.failedAt,
                 'stage': t.stage,
                 'stageLabel': STAGES[t.stage]['label'] if t.stage else '',
@@ -248,6 +287,7 @@ def register_content(dc):
                 'tiltAxis': t.tiltAxis,
                 'shiftRoughness': t.shiftRoughness,
                 'fingerprint': _fingerprint_svg(t),
+                'fingerprintLabel': (_fingerprint_source(t) or (None,) * 4)[3],
             })
 
         if sort == 'recent':
@@ -324,6 +364,7 @@ def register_content(dc):
                 'title': info['title'],
                 'entry_id': info['entry_id'],
                 'summary': None, 'stages': [], 'rows': [], 'nRowsTotal': 0,
+                'notReported': [],
                 'trends': {'x': [], 'colors': [], 'names': [], 'plots': []},
                 'state': {'key': 'unknown', 'label': 'Unavailable',
                           'sinceStr': '--'},
@@ -377,12 +418,16 @@ def register_content(dc):
             'owner': owner.name if owner else '',
             'staff': ', '.join(u.name for u in collaborators),
             'summary': summary,
+            'notReported': summary['notReported'],
             'state': _session_state(summary),
             'counters': counters,
             'stages': stages,
             'trends': _trend_series(ts_list),
             'rows': rows,
             'nRowsTotal': n_rows_total,
+            'fingerprintLabel': next(
+                (r['fingerprintLabel'] for r in rows
+                 if r.get('fingerprintLabel')), None),
             'filter': kwargs.get('filter', 'all'),
             'sort': kwargs.get('sort', 'worst'),
             'updated': time.strftime('%H:%M:%S'),
@@ -416,6 +461,8 @@ def register_content(dc):
             values = [t.get(col) for t in tilts]
             if not any(v is not None for v in values):
                 continue   # stage has not run yet, so leave the strip out
+            if col in PLACEHOLDER_ZERO_COLS and not any(values):
+                continue   # written as placeholder zeros, so not measured
             strips.append({'key': col, 'label': label, 'unit': unit,
                            'values': values})
 
@@ -430,6 +477,7 @@ def register_content(dc):
             'statusLabel': style['label'],
             'statusColor': style['color'],
             'reasons': ts.reasons,
+            'notReported': ts.notReported,
             'failedAt': ts.failedAt,
             'stage': ts.stage,
             'nTilts': ts.nTilts,

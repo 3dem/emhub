@@ -19,6 +19,7 @@ a script or the test suite.  Run it standalone for a quick check:
 """
 
 import os
+import sys
 import json
 import math
 import argparse
@@ -91,6 +92,18 @@ COL_TOMOGRAM = 'rlnTomoReconstructedTomogram'
 COL_TOMOGRAM_DENOISED = 'rlnTomoReconstructedTomogramDenoised'
 COL_TOMO_BINNING = 'rlnTomoTomogramBinning'
 
+# Columns that emwrap writes as a literal 0 when the value was never
+# measured.  As of emwrap devel, updateMctfTsDict hardcodes the accumulated
+# motion columns (there is a FIXME to parse them from the Warp movie xml) and
+# lets the CTF quality columns fall through a defaultdict(lambda: 0), so only
+# the defocus values come from the xml.  A whole series of exact zeros for a
+# quantity that cannot physically be zero means "not reported", and must not
+# be shown as a perfect score or used to flag the series.
+PLACEHOLDER_ZERO_COLS = {
+    'rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate',
+    'rlnCtfMaxResolution', 'rlnCtfFigureOfMerit', 'rlnCtfIceRingDensity',
+}
+
 # Default triage thresholds.  Facilities are expected to override these from
 # the dashboard configuration; they are not meant to be universal.
 DEFAULT_THRESHOLDS = {
@@ -100,10 +113,12 @@ DEFAULT_THRESHOLDS = {
     'ctfMaxResolutionTiltLimit': 6.0,
     'tiltsUsedFraction': {'suspect': 0.90, 'bad': 0.80},
     'tiltAxisStd': {'suspect': 1.0, 'bad': 2.5},        # degrees
-    # Uncalibrated: shift roughness has no established scale, so these two
-    # numbers are placeholders taken from synthetic data.  Calibrate them on
-    # a session known to be good before relying on the alignment flags.
-    'shiftRoughness': {'suspect': 15.0, 'bad': 35.0},   # Angstrom
+    # Shift roughness is reported but deliberately not used to flag a
+    # series.  On a real AreTomo session it came out between 67 and 113 A on
+    # every tilt series, which flagged all of them; the smooth synthetic
+    # trajectory it was tuned against was not representative.  Set this to a
+    # dict of limits once calibrated against a session known to be good.
+    'shiftRoughness': {},
 }
 
 STATUS_OK = 'ok'
@@ -154,6 +169,18 @@ def _stats(values):
                 'median': None, 'min': None, 'max': None}
     return {'n': len(v), 'mean': _mean(v), 'std': _std(v),
             'median': _median(v), 'min': min(v), 'max': max(v)}
+
+
+def _stats_measured(values, column=None):
+    """ As _stats, but a column known to be written as a placeholder zero
+    reports as having no data when every value is exactly zero. """
+    st = _stats(values)
+    if (column in PLACEHOLDER_ZERO_COLS and st['n']
+            and st['min'] == 0.0 and st['max'] == 0.0):
+        return {'n': 0, 'mean': None, 'std': None, 'median': None,
+                'min': None, 'max': None, 'notReported': True}
+    st['notReported'] = False
+    return st
 
 
 def _float(cells, key):
@@ -250,6 +277,7 @@ class TiltSeriesMetrics:
         self.tomoName = tomo_name
         self.tilts = []              # list of dicts, one per tilt image
         self.stage = None            # last stage this TS reached
+        self.stagesSeen = set()      # stages whose output lists this series
         self.failedAt = None         # stage whose job could not process it
         self.status = None
         self.reasons = []            # why it is suspect/bad
@@ -280,13 +308,27 @@ class TiltSeriesMetrics:
         th = dict(DEFAULT_THRESHOLDS)
         th.update(thresholds or {})
 
-        self.motion = _stats(self.values('rlnAccumMotionTotal'))
-        self.motionEarly = _stats(self.values('rlnAccumMotionEarly'))
+        self.motion = _stats_measured(
+            self.values('rlnAccumMotionTotal'), 'rlnAccumMotionTotal')
+        self.motionEarly = _stats_measured(
+            self.values('rlnAccumMotionEarly'), 'rlnAccumMotionEarly')
         self.defocus = _stats(self.values('rlnDefocusU'))
         self.astigmatism = _stats(self.values('rlnCtfAstigmatism'))
-        self.ctfRes = _stats(self.values('rlnCtfMaxResolution'))
-        self.ctfFom = _stats(self.values('rlnCtfFigureOfMerit'))
-        self.iceThickness = _stats(self.values('rlnCtfIceRingDensity'))
+        self.ctfRes = _stats_measured(
+            self.values('rlnCtfMaxResolution'), 'rlnCtfMaxResolution')
+        self.ctfFom = _stats_measured(
+            self.values('rlnCtfFigureOfMerit'), 'rlnCtfFigureOfMerit')
+        self.iceThickness = _stats_measured(
+            self.values('rlnCtfIceRingDensity'), 'rlnCtfIceRingDensity')
+
+        self.notReported = sorted(
+            name for name, st in (
+                ('Accumulated motion', self.motion),
+                ('Early motion', self.motionEarly),
+                ('CTF fit resolution', self.ctfRes),
+                ('CTF figure of merit', self.ctfFom),
+                ('Ice ring density', self.iceThickness))
+            if st.get('notReported'))
 
         self._alignment_metrics()
 
@@ -296,8 +338,10 @@ class TiltSeriesMetrics:
         self.defocusTrend = self._defocus_trend()
 
         limit = th['ctfMaxResolutionTiltLimit']
-        self.nTiltsOverCtfLimit = sum(
-            1 for v in _clean(self.values('rlnCtfMaxResolution')) if v > limit)
+        self.nTiltsOverCtfLimit = (
+            None if self.ctfRes.get('notReported') else
+            sum(1 for v in _clean(self.values('rlnCtfMaxResolution'))
+                if v > limit))
 
         self._classify(th)
         return self
@@ -430,6 +474,8 @@ class TiltSeriesMetrics:
             'failedAt': self.failedAt,
             'status': self.status,
             'reasons': self.reasons,
+            'notReported': getattr(self, 'notReported', []),
+            'stagesSeen': sorted(self.stagesSeen),
             'nTilts': self.nTilts,
             'nUsed': self.nUsed,
             'pixelSize': self.pixelSize,
@@ -616,6 +662,7 @@ class OtfSession:
                     ts = series[name] = TiltSeriesMetrics(name)
 
                 ts.stage = key
+                ts.stagesSeen.add(key)
                 ts.tiltSeriesStar = cells.get(COL_TS_STAR) or ts.tiltSeriesStar
                 ts.pixelSize = _float(cells, COL_PIXEL_SIZE) or ts.pixelSize
                 ts.tsPixelSize = _float(cells, COL_TS_PIXEL_SIZE) or ts.tsPixelSize
@@ -670,17 +717,16 @@ class OtfSession:
             job = stages.get(key)
             done = 0
             if job is not None:
+                # Counted from the stage output listing the series, not from
+                # whether a metric came back with values: emwrap writes some
+                # metrics as placeholder zeros, and a stage that ran is done
+                # whether or not it measured anything.
+                done = sum(1 for t in ts_list if key in t.stagesSeen)
                 if key == 'tomogram':
                     done = sum(1 for t in ts_list if t.tomogram)
                 elif key == 'align':
-                    done = sum(1 for t in ts_list if t.alignedStack)
-                elif key == 'ctf':
                     done = sum(1 for t in ts_list
-                               if t.ctfRes.get('n'))
-                elif key == 'motioncorr':
-                    done = sum(1 for t in ts_list if t.motion.get('n'))
-                else:
-                    done = n_imported
+                               if t.alignedStack and t.alignedStack != 'None')
             stage_counts.append({
                 'key': key,
                 'failed': sum(1 for t in ts_list if t.failedAt == key),
@@ -696,9 +742,13 @@ class OtfSession:
         for t in ts_list:
             by_status[t.status] = by_status.get(t.status, 0) + 1
 
+        not_reported = sorted(set(
+            name for t in ts_list for name in getattr(t, 'notReported', [])))
+
         return {
             'path': self.path,
             'nImported': n_imported,
+            'notReported': not_reported,
             'nProcessed': sum(1 for t in ts_list if t.tomogram),
             'byStatus': by_status,
             'nNeedALook': sum(by_status.get(s, 0)
@@ -774,20 +824,38 @@ def main():
         hdr = ('angle', 'dose', 'motion', 'defU', 'ctfRes')
         print('  ' + ''.join(f'{h:>10}' for h in hdr))
         for t in sorted(ts.tilts, key=lambda x: x.get(COL_TILT_ANGLE, 0)):
-            vals = (t.get(COL_TILT_ANGLE), t.get(COL_PRE_EXPOSURE),
-                    t.get('rlnAccumMotionTotal'), t.get('rlnDefocusU'),
-                    t.get('rlnCtfMaxResolution'))
-            print('  ' + ''.join(
-                f'{v:>10.2f}' if isinstance(v, float) else f'{"-":>10}'
-                for v in vals))
+            vals = (
+                (t.get(COL_TILT_ANGLE), False),
+                (t.get(COL_PRE_EXPOSURE), False),
+                (t.get('rlnAccumMotionTotal'), ts.motion.get('notReported')),
+                (t.get('rlnDefocusU'), False),
+                (t.get('rlnCtfMaxResolution'), ts.ctfRes.get('notReported')),
+            )
+            cells = []
+            for v, unreported in vals:
+                if unreported:
+                    cells.append(f'{"n/a":>10}')
+                elif isinstance(v, float):
+                    cells.append(f'{v:>10.2f}')
+                else:
+                    cells.append(f'{"-":>10}')
+            print('  ' + ''.join(cells))
         return
+
+    if s['notReported']:
+        print('\nNot reported by this pipeline (written as placeholder '
+              'zeros, shown as n/a):')
+        for name in s['notReported']:
+            print(f'  {name}')
 
     print(f'\nTilt series ({len(ts_list)}):')
     print(f'  {"name":<24}{"status":<10}{"used":>8}{"motion":>10}'
           f'{"defocus":>10}{"ctfRes":>9}{"stage":>12}')
     for t in ts_list:
         def f(v, fmt='{:.2f}'):
-            return fmt.format(v) if isinstance(v, float) else '-'
+            if isinstance(v, float):
+                return fmt.format(v)
+            return 'n/a' if v is None else '-'
         print(f'  {t.tomoName:<24}{str(t.status):<10}'
               f'{t.nUsed:>4}/{t.nTilts:<3}'
               f'{f(t.motion["mean"]):>10}'
@@ -799,4 +867,11 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except BrokenPipeError:
+        # Piping into head closes stdout early; that is not an error.
+        try:
+            sys.stdout.close()
+        finally:
+            os._exit(0)
