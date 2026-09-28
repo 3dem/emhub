@@ -1,0 +1,103 @@
+{# On-the-fly CryoET dashboard: one session, refreshed while it runs. #}
+
+<div class="container-fluid dashboard-content">
+
+    {% set title = "On-the-fly CryoET" %}
+    {% set navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), (title, '')] %}
+    {% include 'include_header.html' %}
+
+    <div id="otf-dashboard-content">
+        {% include 'otf_dashboard_content.html' %}
+    </div>
+
+</div>
+
+<style>
+/* Kept local to the dashboard: these are data marks, not app chrome. */
+.otf-counter-value { font-size: 2rem; font-weight: 500; line-height: 1.05; }
+.otf-counter-label { font-size: .8rem; color: #6c757d; }
+.otf-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.otf-dot-square { border-radius: 0; }
+.otf-stage-bar { height: 12px; background: #eef1f3; border: 1px solid #dde2e6;
+                 position: relative; overflow: hidden; }
+.otf-stage-fill { position: absolute; top: 0; bottom: 0; left: 0; }
+.otf-fingerprint { vertical-align: middle; }
+.otf-num { font-variant-numeric: tabular-nums; text-align: right; }
+.otf-sd { color: #9aa4ab; font-size: .75rem; }
+.otf-row-link { cursor: pointer; }
+.otf-trend { height: 110px; }
+.otf-state-acquiring { color: #2e9e8f; }
+.otf-state-idle { color: #6c757d; }
+.otf-state-stalled { color: #c9603f; font-weight: 500; }
+.otf-state-unknown { color: #9aa4ab; }
+@keyframes otf-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .3 } }
+.otf-state-acquiring .otf-dot { animation: otf-pulse 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+    .otf-state-acquiring .otf-dot { animation: none; }
+}
+</style>
+
+<script>
+(function(window, document, $, undefined) {
+"use strict";
+
+    var OTF_ENTRY_ID = {{ entry_id }};
+    var OTF_REFRESH_MS = {{ refresh_seconds }} * 1000;
+    var otfTimer = null;
+
+    /* Refresh only the inner content, so scroll position and the open
+       detail panel survive. Plotly is re-drawn by the inner template. */
+    function otfRefresh() {
+        var content = get_ajax_content('otf_dashboard_content',
+                                       {entry_id: OTF_ENTRY_ID,
+                                        sort: window.otfSort || 'worst',
+                                        filter: window.otfFilter || 'all'});
+        load_html_from_ajax('otf-dashboard-content', content);
+    }
+
+    function otfStart() {
+        if (otfTimer === null)
+            otfTimer = window.setInterval(otfRefresh, OTF_REFRESH_MS);
+    }
+
+    function otfStop() {
+        if (otfTimer !== null) {
+            window.clearInterval(otfTimer);
+            otfTimer = null;
+        }
+    }
+
+    /* A dashboard left open on a screen in the microscope room should not
+       keep polling when the tab is hidden, and should catch up at once when
+       it comes back. */
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            otfStop();
+        } else {
+            otfRefresh();
+            otfStart();
+        }
+    });
+
+    window.otfRefresh = otfRefresh;
+    window.otfSetSort = function(sort) {
+        window.otfSort = sort;
+        otfRefresh();
+    };
+    window.otfSetFilter = function(filter) {
+        window.otfFilter = filter;
+        otfRefresh();
+    };
+    window.otfShowTiltSeries = function(tomoName) {
+        var content = get_ajax_content('otf_tiltseries',
+                                       {entry_id: OTF_ENTRY_ID,
+                                        tomo_name: tomoName});
+        show_modal_from_ajax('otf-tiltseries-modal', content);
+    };
+
+    otfStart();
+
+})(window, document, window.jQuery);
+</script>
+
+<div class="modal fade" id="otf-tiltseries-modal" tabindex="-1" role="dialog" aria-hidden="true"></div>
