@@ -118,12 +118,21 @@ def _tilt_rows(ts_index, cols, rng):
             })
 
         if 'rlnTomoXTilt' in cols:
+            # Stage drift is smooth: a slow trajectory across tilt angle plus
+            # a small amount of jitter, which grows with the session drift.
+            # Independent random shifts would make every series look badly
+            # aligned, which is not what a real stage does.
+            jitter = 1.5 + 12.0 * drift
             values.update({
                 'rlnTomoXTilt': 0.0,
                 'rlnTomoYTilt': round(angle, 3),
                 'rlnTomoZRot': round(85.2 + 1.9 * drift * (rng.random() - 0.3), 3),
-                'rlnTomoXShiftAngst': round(60 * (rng.random() - 0.5), 3),
-                'rlnTomoYShiftAngst': round(60 * (rng.random() - 0.5), 3),
+                'rlnTomoXShiftAngst': round(
+                    38 * __import__('math').sin(angle / 42.0)
+                    + jitter * (rng.random() - 0.5), 3),
+                'rlnTomoYShiftAngst': round(
+                    -24 * __import__('math').cos(angle / 55.0)
+                    + jitter * (rng.random() - 0.5), 3),
             })
 
         rows.append([values.get(c, 0) for c in cols])
@@ -135,17 +144,28 @@ def write_project(path, n_ts=40, seed=42):
     os.makedirs(path, exist_ok=True)
 
     stage_defs = [
-        (JOBS[0], 'tilt_series_movies.star', TILT_COLS_IMPORT, 'TiltSeriesMovieGroupMetadata'),
-        (JOBS[1], 'tilt_series_ctf.star', TILT_COLS_MCTF, 'TiltSeriesGroupMetadata'),
-        (JOBS[2], 'aligned_tilt_series.star', TILT_COLS_ALIGN, 'TiltSeriesGroupMetadata'),
-        (JOBS[3], 'tomograms.star', TILT_COLS_ALIGN, 'TomogramGroupMetadata'),
+        # Filenames and node type labels as emwrap actually writes them.
+        (JOBS[0], 'tilt_series.star', TILT_COLS_IMPORT,
+         'TomogramGroupMetadata.star.emwrap.TiltSeries'),
+        (JOBS[1], 'tilt_series.star', TILT_COLS_MCTF,
+         'TomogramGroupMetadata.star.emwrap.TiltSeriesAligned'),
+        (JOBS[2], 'aligned_tilt_series.star', TILT_COLS_ALIGN,
+         'TomogramGroupMetadata.star.emwrap.tsalign'),
+        (JOBS[3], 'tomograms.star', TILT_COLS_ALIGN,
+         'TomogramGroupMetadata.star.relion.tomo.Tomograms'),
     ]
 
     names = [f'TS_{i+1:04d}' for i in range(n_ts)]
+    # One tilt series that alignment cannot process, and one still running.
+    failed_at_align = names[n_ts // 2] if n_ts > 4 else None
 
     for (job_id, jobtype, _), star_name, cols, _node in stage_defs:
         job_dir = os.path.join(path, job_id)
         os.makedirs(os.path.join(job_dir, 'tilt_series'), exist_ok=True)
+
+        stage_names = names
+        if failed_at_align and jobtype in ('emw-warp-tsalign', 'emw-warp-ctfrec'):
+            stage_names = [n for n in names if n != failed_at_align]
 
         global_table = Table(GLOBAL_COLS)
         for i, name in enumerate(names):
@@ -165,7 +185,7 @@ def write_project(path, n_ts=40, seed=42):
             gt = Table(GLOBAL_COLS + ['rlnTiltSeriesAligned',
                                       'rlnTomoReconstructedTomogram',
                                       'rlnTomoTomogramBinning'])
-            for i, name in enumerate(names):
+            for i, name in enumerate(stage_names):
                 gt.addRowValues(
                     name, f'{job_id}/tilt_series/{name}.star', 300.0, 2.7, 0.07,
                     PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE,
@@ -174,7 +194,7 @@ def write_project(path, n_ts=40, seed=42):
             global_table = gt
         elif jobtype == 'emw-warp-tsalign':
             gt = Table(GLOBAL_COLS + ['rlnTiltSeriesAligned'])
-            for i, name in enumerate(names):
+            for i, name in enumerate(stage_names):
                 gt.addRowValues(
                     name, f'{job_id}/tilt_series/{name}.star', 300.0, 2.7, 0.07,
                     PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE,
@@ -183,6 +203,16 @@ def write_project(path, n_ts=40, seed=42):
 
         with StarFile(os.path.join(job_dir, star_name), 'w') as sf:
             sf.writeTable('global', global_table)
+
+        # Series this stage could not process, as emwrap records them.
+        if failed_at_align and jobtype == 'emw-warp-tsalign':
+            ft = Table(GLOBAL_COLS + ['rlnTiltSeriesAligned'])
+            ft.addRowValues(
+                failed_at_align,
+                f'{job_id}/tilt_series/{failed_at_align}.star', 300.0, 2.7,
+                0.07, PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE, 'None')
+            with StarFile(os.path.join(job_dir, 'failed_tilt_series.star'), 'w') as sf:
+                sf.writeTable('global', ft)
 
     _write_pipeline(path, stage_defs)
     return path
@@ -198,10 +228,15 @@ def _write_pipeline(path, stage_defs):
     for (job_id, jobtype, status), _star, _cols, _node in stage_defs:
         tables['processes'].addRowValues(job_id + '/', 'None', jobtype, status)
 
-    for (job_id, _jt, _st), star_name, _cols, node_type in stage_defs:
+    for (job_id, jobtype, _st), star_name, _cols, node_type in stage_defs:
         node = f'{job_id}/{star_name}'
         tables['nodes'].addRowValues(node, node_type, 0)
         tables['output_edges'].addRowValues(job_id + '/', node)
+        if jobtype == 'emw-warp-tsalign':
+            failed_node = f'{job_id}/failed_tilt_series.star'
+            tables['nodes'].addRowValues(
+                failed_node, node_type + '-failed', 0)
+            tables['output_edges'].addRowValues(job_id + '/', failed_node)
 
     prev_node = None
     for (job_id, _jt, _st), star_name, _cols, _node in stage_defs:

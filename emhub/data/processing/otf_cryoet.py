@@ -52,6 +52,23 @@ STAGES = OrderedDict([
 # point at it.  Keep the distinction in the UI: the metrics differ.
 SHARED_STAGE_JOBS = {'motioncorr', 'ctf'}
 
+# The global star file each emwrap job writes.  The pipeline output nodes are
+# the primary source; this is the fallback for a job that has produced its
+# star file but has not registered the node yet, which happens while the job
+# is still running -- exactly the case the dashboard cares about.
+JOB_OUTPUT_STAR = {
+    'emw-import-ts': 'tilt_series.star',
+    'emw-warp-mctf': 'tilt_series.star',
+    'emw-warp-tsalign': 'aligned_tilt_series.star',
+    'emw-warp-aretomo': 'aligned_tilt_series.star',
+    'emw-warp-ctfrec': 'tomograms.star',
+}
+
+# Every emwrap tilt series job writes the series it could not process to a
+# separate star file, so a per tilt series failure is recorded explicitly
+# rather than inferred from missing output.
+FAILED_STAR = 'failed_tilt_series.star'
+
 # RELION 5 per-tilt columns we read.  Everything is optional: a job that did
 # not run yet simply leaves the column out, and the metric comes back as None.
 COL_TILT_ANGLE = 'rlnTomoNominalStageTiltAngle'
@@ -82,6 +99,11 @@ DEFAULT_THRESHOLDS = {
     'ctfMaxResolutionTiltCount': {'suspect': 6, 'bad': 12},  # n tilts over the limit
     'ctfMaxResolutionTiltLimit': 6.0,
     'tiltsUsedFraction': {'suspect': 0.90, 'bad': 0.80},
+    'tiltAxisStd': {'suspect': 1.0, 'bad': 2.5},        # degrees
+    # Uncalibrated: shift roughness has no established scale, so these two
+    # numbers are placeholders taken from synthetic data.  Calibrate them on
+    # a session known to be good before relying on the alignment flags.
+    'shiftRoughness': {'suspect': 15.0, 'bad': 35.0},   # Angstrom
 }
 
 STATUS_OK = 'ok'
@@ -168,15 +190,35 @@ class OtfJob:
     def running(self):
         return (self.status or '').lower() in ('running', 'scheduled')
 
-    def output_star(self, *type_hints):
-        """ Return the first output node that is a star file, preferring the
-        ones whose node type contains any of the given hints. """
-        stars = [(n, t) for n, t in self.outputs if n.endswith('.star')]
-        for hint in type_hints:
-            for name, ntype in stars:
-                if hint.lower() in (ntype or '').lower():
-                    return name
-        return stars[0][0] if stars else None
+    def output_star(self):
+        """ Return the job's main global star file, project relative.
+
+        Failed-series nodes are skipped: they are a separate output and are
+        handled by failed_star().  If the node is not registered yet, fall
+        back to the filename the job type is known to write.
+        """
+        for name, ntype in self.outputs:
+            if not name.endswith('.star'):
+                continue
+            if 'failed' in name.lower() or 'failed' in (ntype or '').lower():
+                continue
+            return name
+
+        if known := JOB_OUTPUT_STAR.get(self.jobtype):
+            rel = os.path.join(self.id, known)
+            if os.path.exists(self.project.join(rel)):
+                return rel
+        return None
+
+    def failed_star(self):
+        """ Return the job's failed tilt series star file, if it has one. """
+        for name, ntype in self.outputs:
+            if name.endswith('.star') and (
+                    'failed' in name.lower() or 'failed' in (ntype or '').lower()):
+                return name
+        # emw-warp-mctf writes the file but does not register it as a node.
+        rel = os.path.join(self.id, FAILED_STAR)
+        return rel if os.path.exists(self.project.join(rel)) else None
 
     def run_info(self):
         """ emwrap writes an info.json per job with run timings. """
@@ -208,6 +250,7 @@ class TiltSeriesMetrics:
         self.tomoName = tomo_name
         self.tilts = []              # list of dicts, one per tilt image
         self.stage = None            # last stage this TS reached
+        self.failedAt = None         # stage whose job could not process it
         self.status = None
         self.reasons = []            # why it is suspect/bad
         # Paths, filled in as the stages produce them
@@ -244,7 +287,8 @@ class TiltSeriesMetrics:
         self.ctfRes = _stats(self.values('rlnCtfMaxResolution'))
         self.ctfFom = _stats(self.values('rlnCtfFigureOfMerit'))
         self.iceThickness = _stats(self.values('rlnCtfIceRingDensity'))
-        self.tiltAxis = _stats(self.values('rlnTomoZRot'))
+
+        self._alignment_metrics()
 
         # Defocus handedness / eucentricity: fit defocus against tilt angle
         # and keep the residual.  The trend itself is expected physics, the
@@ -257,6 +301,61 @@ class TiltSeriesMetrics:
 
         self._classify(th)
         return self
+
+    def _alignment_metrics(self):
+        """ Alignment quality from the Relion 5 columns that emwrap actually
+        writes.
+
+        emw-warp-tsalign stores only rlnTomoXTilt / YTilt / ZRot and the two
+        shifts; there is no residual column, and the AreTomo .aln scores are
+        not carried into the Relion metadata.  So quality has to be derived:
+
+        tiltAxis   spread of the refined tilt axis (rlnTomoZRot) across the
+                   tilts.  AreTomo refines one value per tilt and they should
+                   agree; scatter means the alignment is not converging.
+        shift      magnitude of the in plane shift, mean and max.  Large
+                   values are normal on a drifting stage, so this is context
+                   rather than a verdict.
+        shiftRough rms of the second difference of the shift trajectory
+                   ordered by tilt angle.  Stage drift is smooth, so a rough
+                   trajectory means individual tilts were mis-registered.
+                   This is the closest honest stand-in for a residual.
+        tiltDev    rms deviation of the refined tilt (rlnTomoYTilt) from the
+                   nominal stage tilt angle.
+        """
+        self.tiltAxis = _stats(self.values('rlnTomoZRot'))
+
+        tilts = [t for t in self.tilts if not t.get('excluded')]
+        tilts = [t for t in tilts if t.get(COL_TILT_ANGLE) is not None]
+        tilts.sort(key=lambda t: t[COL_TILT_ANGLE])
+
+        shifts, devs, traj = [], [], []
+        for t in tilts:
+            sx, sy = t.get('rlnTomoXShiftAngst'), t.get('rlnTomoYShiftAngst')
+            if sx is not None and sy is not None:
+                shifts.append(math.hypot(sx, sy))
+                traj.append((sx, sy))
+            nominal, refined = t.get(COL_TILT_ANGLE), t.get('rlnTomoYTilt')
+            if nominal is not None and refined is not None:
+                devs.append(abs(abs(refined) - abs(nominal)))
+
+        self.shift = _stats(shifts)
+        self.tiltDeviation = _stats(devs)
+        self.shiftRoughness = self._trajectory_roughness(traj)
+
+    @staticmethod
+    def _trajectory_roughness(traj):
+        """ rms of the second difference of a 2D trajectory, in the same
+        units as the input.  None if there are too few points. """
+        if len(traj) < 3:
+            return None
+        total = 0.0
+        for i in range(1, len(traj) - 1):
+            (x0, y0), (x1, y1), (x2, y2) = traj[i - 1], traj[i], traj[i + 1]
+            dx = x2 - 2 * x1 + x0
+            dy = y2 - 2 * y1 + y0
+            total += dx * dx + dy * dy
+        return math.sqrt(total / (len(traj) - 2))
 
     def _defocus_trend(self):
         """ Least squares fit of defocus vs tilt angle.  Returns slope
@@ -312,6 +411,10 @@ class TiltSeriesMetrics:
               'mean CTF fit {value:.2f} Å over {limit:.1f}')
         check(self.nTiltsOverCtfLimit, th['ctfMaxResolutionTiltCount'],
               '{value:.0f} tilts with CTF fit worse than the limit')
+        check(self.tiltAxis['std'], th['tiltAxisStd'],
+              'refined tilt axis varies by {value:.2f}° across the tilts')
+        check(self.shiftRoughness, th['shiftRoughness'],
+              'alignment shifts not smooth across tilt angle ({value:.0f} Å)')
         if self.nTilts:
             check(self.nUsed / self.nTilts, th['tiltsUsedFraction'],
                   'only {value:.0%} of tilts used', higher_is_worse=False)
@@ -324,6 +427,7 @@ class TiltSeriesMetrics:
         d = {
             'tomoName': self.tomoName,
             'stage': self.stage,
+            'failedAt': self.failedAt,
             'status': self.status,
             'reasons': self.reasons,
             'nTilts': self.nTilts,
@@ -335,9 +439,11 @@ class TiltSeriesMetrics:
             'tomogram': self.tomogram,
         }
         for name in ('motion', 'motionEarly', 'defocus', 'astigmatism',
-                     'ctfRes', 'ctfFom', 'iceThickness', 'tiltAxis'):
+                     'ctfRes', 'ctfFom', 'iceThickness', 'tiltAxis',
+                     'shift', 'tiltDeviation'):
             d[name] = getattr(self, name, None)
         d['defocusTrend'] = getattr(self, 'defocusTrend', None)
+        d['shiftRoughness'] = getattr(self, 'shiftRoughness', None)
         d['nTiltsOverCtfLimit'] = getattr(self, 'nTiltsOverCtfLimit', None)
         if with_tilts:
             d['tilts'] = self.tilts
@@ -407,7 +513,7 @@ class OtfSession:
         return self._stages
 
     # -- reading the star files -------------------------------------------
-    def _read_global(self, job, *type_hints):
+    def _read_global(self, job):
         """ Read a job's global tilt series star file.
 
         Returns {tomoName: cells} keyed by rlnTomoName, or {} if the job has
@@ -415,7 +521,10 @@ class OtfSession:
         """
         if job is None:
             return {}
-        star_rel = job.output_star(*type_hints)
+        return self._read_global_star(job.output_star())
+
+    def _read_global_star(self, star_rel):
+        """ Read a global tilt series star file, keyed by rlnTomoName. """
         if not star_rel:
             return {}
         star_path = self.join(star_rel)
@@ -435,6 +544,12 @@ class OtfSession:
                 if name:
                     rows[name] = cells
         return rows
+
+    def _read_failed(self, job):
+        """ Read a job's failed_tilt_series.star, keyed by rlnTomoName. """
+        if job is None:
+            return {}
+        return self._read_global_star(job.failed_star())
 
     def _read_tilts(self, star_rel):
         """ Read a per-tilt-series star file into a list of per-tilt dicts. """
@@ -493,9 +608,7 @@ class OtfSession:
             job = stages.get(key)
             if job is None:
                 continue
-            hints = {'tomogram': ('tomogram',),
-                     'align': ('tiltseries', 'aligned')}.get(key, ('tiltseries',))
-            globals_ = self._read_global(job, *hints)
+            globals_ = self._read_global(job)
 
             for name, cells in globals_.items():
                 ts = series.get(name)
@@ -518,12 +631,24 @@ class OtfSession:
                 if tilts:
                     ts.tilts = tilts
 
-            # A job that failed or is still running marks the tilt series it
-            # was working on, so the UI can tell "poor data" from "no data".
+            # Tilt series this stage could not process.  emwrap lists them
+            # explicitly, so a failure is recorded rather than inferred, and
+            # "the job broke on this one" stays distinct from "the data is
+            # poor".
+            for name, cells in self._read_failed(job).items():
+                ts = series.get(name) or series.setdefault(
+                    name, TiltSeriesMetrics(name))
+                ts.status = STATUS_FAILED
+                ts.failedAt = key
+                ts.stage = ts.stage or key
+
+            # A whole job that died or is still going marks every series it
+            # was working on, unless that series already failed on its own.
             if job.failed or job.running:
                 job_status = STATUS_FAILED if job.failed else STATUS_RUNNING
                 for name in globals_:
-                    series[name].status = job_status
+                    if series[name].status != STATUS_FAILED:
+                        series[name].status = job_status
 
         for ts in series.values():
             ts.summarize(self.thresholds)
@@ -537,7 +662,7 @@ class OtfSession:
         stages = self.stages(reload=reload)
         ts_list = self.tilt_series(reload=reload)
 
-        imported = self._read_global(stages.get('import'), 'tiltseries')
+        imported = self._read_global(stages.get('import'))
         n_imported = len(imported) or len(ts_list)
 
         stage_counts = []
@@ -558,6 +683,7 @@ class OtfSession:
                     done = n_imported
             stage_counts.append({
                 'key': key,
+                'failed': sum(1 for t in ts_list if t.failedAt == key),
                 'label': spec['label'],
                 'jobId': job.id if job else None,
                 'jobType': job.jobtype if job else None,
