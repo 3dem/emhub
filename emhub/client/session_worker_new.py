@@ -212,6 +212,8 @@ class SessionTaskHandler(TaskHandler):
         ### framesRoot = self.sconfig['raw']['root_frames']
         acq = dict(self.sconfig['acquisition'][self.microscope])
         framesRoots = acq['frames']
+        if not isinstance(framesRoots, list):
+            framesRoots = [framesRoots]
         sessionName = self.get_session_name()
         framesPath = raw.get('frames', None)
         if not framesPath:
@@ -220,7 +222,7 @@ class SessionTaskHandler(TaskHandler):
                 if os.path.exists(candidate):
                     framesPath = candidate
                     break
-            else:
+            if not framesPath:
                 framesPath = os.path.join(framesRoots[0], sessionName)
         framesPath = Path.rmslash(framesPath)
         baseName = self.users['owner']['email'].split('@')[0]
