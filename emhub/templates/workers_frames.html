@@ -18,7 +18,7 @@
         <div class="card-header">
            <div class="row">
                <h3 class="col-3">Frames: {{ mic }}</h3>
-               <h3 class="col-4">{{ info['frames']|join(', ') }}</h3>
+               <h3 class="col-4">{{ info['frames'] if info['frames'] is string else info['frames']|join(', ') }}</h3>
                {% if info['usage'] %}
                    {% set u = info['usage']['used'] %}
                    {% set t = info['usage']['total'] %}
