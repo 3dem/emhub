@@ -820,9 +820,12 @@ class FramesTaskHandler(TaskHandler):
     """ Monitor frames folder located at
     config:sessions['raw']['root_frames']. """
 
-    def __init__(self, microscope, root_frames_arr, *args, **kwargs):
+    def __init__(self, microscope, root_frames_input, *args, **kwargs):
         self.microscope = microscope
-        self.root_frames_arr = root_frames_arr
+        if isinstance(root_frames_input, list):
+            self.root_frames_arr = root_frames_input
+        else:
+            self.root_frames_arr = [root_frames_input]
         TaskHandler.__init__(self, *args, **kwargs)
         self.emhub_log = f'frames:{microscope}'
         self.entries = {}
