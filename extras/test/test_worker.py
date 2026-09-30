@@ -34,7 +34,6 @@ from emtools.metadata import EPU, MovieFiles, StarFile
 from emhub.client import config
 from emhub.client.worker import (TaskHandler, DefaultTaskHandler, CmdTaskHandler,
                                  Worker)
-from emhub.client.session_worker import SessionTaskHandler, SessionWorker
 
 
 class TestSessionTaskHandler(TaskHandler):

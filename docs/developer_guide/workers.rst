@@ -673,5 +673,5 @@ or processing data in real time during a specific session. It receives new tasks
 from the EMhub server, retrieves information about the assigned session, and updates 
 the session details as the tasks are processed.
 
-Check the `Sessions Worker <https://github.com/3dem/emhub/blob/devel/emhub/client/session_worker.py>`_ code in Github.
+Check the `Sessions Worker <https://github.com/3dem/emhub/blob/devel/emhub/client/session_worker.py>`_ code in Github for simple monitor and transfer examples.
 

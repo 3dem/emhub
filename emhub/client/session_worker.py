@@ -14,822 +14,318 @@
 # * GNU General Public License for more details.
 # *
 # **************************************************************************
+"""
+Simple, instance-independent examples of workers for EMhub sessions.
 
-import json
-import os
-import sys
-import time
-import shutil
-import logging
+Three levels of functionality, each one building on the previous:
+
+1. **Monitor** (``SessionMonitorWorker``): for each active session, scan the
+   folder provided in the *Create Session* dialog (``extra['raw']['path']``)
+   and report the files statistics (``emtools.metadata.MovieFiles``) back to
+   EMhub. The stats are stored in the session ``extra`` (shown in the session
+   page) and appended to the session log (``log:session:<id>``).
+
+2. **Monitor + root folders** (``--root NAME=PATH``): in addition, monitor the
+   root folder(s) of each instrument and report their entries (sub-folders with
+   size and number of movies) as possible new sessions. They are reported to
+   the ``frames:<instrument>`` log, the one used by EMhub for this purpose.
+
+3. **Transfer** (``SessionTransferWorker``): same as 1), but the session folder
+   is first copied (rsync) to another location. The session then points to
+   the copy (``raw.path``) and keeps the original location in ``raw.frames``.
+
+Usage examples::
+
+    emh-session-worker monitor
+    emh-session-worker monitor --root Krios01=/data/krios01 --root Krios01=/data2/krios01
+    emh-session-worker transfer --dest /data/offload
+
+The EMhub connection is taken from the EMHUB_SERVER_URL, EMHUB_USER and
+EMHUB_PASSWORD environment variables, and the host where the worker is
+running needs to be registered in the ``config:hosts`` form.
+
+Instance specific workers (e.g. with OTF processing or several transfer
+stages) can be built by subclassing ``SessionHandler`` and ``SessionMonitorWorker``.
+"""
+
 import argparse
-import threading
-from datetime import datetime, timedelta
-from glob import glob
-from collections import OrderedDict
-import configparser
-from pprint import pprint
-import traceback
-import tempfile
+import os
+import shutil
+import json
+import time
 
-from emtools.utils import Pretty, Process, Path, Color, System, Timer
-from emtools.metadata import EPU, MovieFiles, StarFile
+from emtools.utils import Pretty, Path, Timer
+from emtools.metadata import MovieFiles
 
 from emhub.client import config
-from emhub.client.worker import (TaskHandler, DefaultTaskHandler, CmdTaskHandler,
-                                 Worker)
+from emhub.client.worker import TaskHandler, Worker
 
 
-class SessionTaskHandler(TaskHandler):
-    def __init__(self, *args, **kwargs):
-        TaskHandler.__init__(self, *args, **kwargs)
-        self.mf = None
-        self.epu_session = None  # for EPU parsing during OTF
-        self.update_session = False
-
-        targs = self.task['args']
-        self.session_id = int(targs['session_id'])
-        self.action = targs.get('action', 'Empty-Action')
-
-        self.session = self.get_session()
-        self.info("Getting config from EMhub.")
-        attrs = {"attrs": {"id": self.session_id}}
-
-        session_users = self.request_data('get_session_users', attrs)
-        self.users = session_users.get('session_users', None)
-
-        self.sconfig = self.request_config('sessions')
-        self.resources = self.request_dict('get_resources',
-                                           {"attrs": ["id", "name"]})
-        self.microscope = self.resources[self.session['resource_id']]['name']
-
-        self.sleep = targs.get('sleep', 60)
-
-        self.info(f">>> Handling task for session {self.session_id}")
-        self.info(f"\t action: {self.action}")
-        self.info(f"\t   args: {targs}")
-
-    def process(self):
-        if self.users is None:
-            raise Exception("Could not retrieve users information for this session")
-
-        func = getattr(self, self.action, None)
-        if func is None:
-            return self.unknown_action()
-
-        func()
-        if self.update_session:
-            # Update session information
-            self.session = self.get_session()
+class SessionHandler(TaskHandler):
+    """ Base handler for one session. It retrieves the session from EMhub
+    at every iteration and stops when the session is no longer active.
+    Subclasses should implement `process_session`.
+    """
+    def __init__(self, worker, task):
+        self.session_id = int(task['args']['session_id'])
+        TaskHandler.__init__(self, worker, task)
+        self.emhub_log = f'log:session:{self.session_id}'
+        self.sleep = task['args'].get('sleep', 60)
+        self.daemon = True
 
     def getLogPrefix(self):
-        prefix = self.task['args']['action'].upper()
-        return f"{prefix}-{self.task['args']['session_id']}"
+        return f"{self.task['args']['action'].upper()}-{self.session_id}"
+
+    def _stop_thread(self, error=None):
+        TaskHandler._stop_thread(self, error)
+        self.worker.remove_handler(self.task)
+
+    def get_session(self):
+        session = self._request(lambda: self.dc.get_session(self.session_id),
+                                f"retrieving session {self.session_id}")
+        if session is None:
+            raise Exception(f"Could not retrieve session {self.session_id}")
+        return session
 
     def update_session_extra(self, extra):
-        def _update_extra():
+        """ Update (only) the given keys of the session's extra. """
+        def _update():
             extra['updated'] = Pretty.now()
             self.worker.request('update_session_extra',
-                         {'id': self.session['id'], 'extra': extra})
+                                {'id': self.session_id, 'extra': extra})
             return True
 
-        return self._request(_update_extra, 'updating session extra')
-
-    def delete_task(self):
-        def _delete():
-            self.worker.request('delete')
-
-    def get_session(self, tries=10):
-        """ Retrieve session info to update local data. """
-        def _get_session():
-            self.info(f"Retrieving session {self.session_id} from EMhub "
-                             f"({config.EMHUB_SERVER_URL})")
-            return self.dc.get_session(self.session_id)
-
-        errorMsg = f"retrieving session {self.session_id} info."
-        session = self._request(_get_session, errorMsg)
-
-        if session:
-            return session
-
-        error = f"Could not retrieve session {self.session_id} after {tries} attempts."
-        self.error(error)
-        raise Exception(error)
-
-    def unknown_action(self):
-        self.update_task({
-            'error': f'Unknown action {self.action}',
-            'done': 1
-        })
-        self.stop()
-
-    def monitor(self):
-        extra = self.session['extra']
-        raw = extra['raw']
-        # If repeat != 0, then repeat the scanning this number of times
-        repeat = self.task['args'].get('repeat', 1)
-
-        print(Color.bold(f"session_id = {self.session['id']}, monitoring files..."))
-        print(f"    path: {raw['path']}")
-
-        if self.count == 1:
-            self.mf = MovieFiles()
-
-        self.mf.scan(raw['path'])
-        update_args = self.mf.info()
-        raw.update(update_args)
-        self.update_session_extra({'raw': raw})
-
-        if repeat and self.count == repeat:
-            self.stop()
-            update_args['done'] = 1
-
-            if 'check_frames' in self.task['args']:
-                frames = raw.get('frames', '')
-                uargs = {'frames': frames}
-                if os.path.exists(frames):
-                    mff = MovieFiles()
-                    mff.scan(frames)
-                    mffInfo = mff.info()
-                    uargs.update({
-                        'movies': mffInfo['movies'],
-                        'size': mffInfo['sizeH'],
-                        'lastFile': Pretty.elapsed(mffInfo['last_file'])
-                    })
-                self.update_task(uargs)
-
-        # Remove dict from the task update
-        del update_args['files']
-        self.update_task(update_args)
-
-    def get_session_name(self):
-        """ Strip down : for uniqueness. """
-        n = self.session['name']
-        return n if ':' not in n else n.split(':')[1]
-
-    def get_session_fullname(self):
-        """ Unique folder based on session name, date and instrument. """
-        date_ts = self.session['start']
-        date = date_ts.split('T')[0].replace('-', '')
-        return f"{date}_{self.microscope}_{self.get_session_name()}"
-
-    def transfer(self):
-        """ Move files from the Raw folder to the Offload folder.
-        Files will be moved when there has been a time without modification
-        (file's timeout).
-        """
-        extra = self.session['extra']
-        logger = self.worker.logger
-        raw = extra['raw']
-        ### framesRoot = self.sconfig['raw']['root_frames']
-        acq = dict(self.sconfig['acquisition'][self.microscope])
-        framesRoot = acq['frames']
-        sessionName = self.get_session_name()
-        framesPath = Path.rmslash(raw.get('frames',
-                                          os.path.join(framesRoot, sessionName)))
-        baseName = self.users['owner']['email'].split('@')[0]
-        if '.' in baseName:
-            parts = baseName.split('.')
-            userFolder = parts[0][0] + parts[1]
-        else:
-            userFolder = baseName
-        rawRoot = self.sconfig['raw']['root']
-        fullName = self.get_session_fullname()
-        # Offload server path where to transfer the files
-        rawPath = os.path.join(rawRoot, self.users['group'], self.microscope,
-                                      str(datetime.now().year), 'raw', 'EPU',
-                                      userFolder, fullName)
-        framesPath = Path.addslash(framesPath)
-        rawPath = Path.addslash(rawPath)
-
-        #  First time the process function is called for this execution
-        if self.count == 1:
-            self.info(f"Monitoring FRAMES FOLDER: {framesPath}")
-            self.info(f"Offloading to RAW FOLDER: {rawPath}")
-
-            raw['frames'] = framesPath
-            raw['path'] = rawPath
-            self.mf = MovieFiles(root=rawPath)
-            self.seen = {}
-
-            if os.path.exists(rawPath):
-                self.info("Restarting transfer task, loading transferred files.")
-                self.mf.scan(rawPath)
-                raw.update(self.mf.info())
-            else:
-                self.info("Starting transfer task")
-                self.pl.mkdir(rawPath)
-
-            self.update_session_extra({'raw': raw})
-
-        mf = self.mf  # shortcut
-        seen = self.seen
-        self.n_files = 0
-        self.n_movies = 0
-        self._to_move = []
-        self._to_copy = []
-
-        def _rsync(file_list, move=False):
-            tries = 5
-            sleep = 60
-            while tries:
-                try:
-                    # Create a named temporary file
-                    with tempfile.NamedTemporaryFile() as tmpfile:
-                        logPrefix = self.getLogPrefix()
-                        prefix = logPrefix + ('move' if move else 'copy')
-                        debugDstFile = f"/home/appdpcryoEM/{prefix}-{os.path.basename(tmpfile.name)}"
-                        if existing := [f for f in file_list if os.path.exists(f)]:
-                            with open(tmpfile.name, 'w') as f:
-                                for fn in existing:
-                                    f.write(f"{fn.replace(framesPath, '')}\n")
-                            self.pl.cp(tmpfile.name, debugDstFile)
-                        args = [
-                            "-c", 
-                            "--temp-dir=/gscem/testgrp/TRANSFER_TMP/",
-                            f"--files-from={tmpfile.name}"
-                        ]
-                        if missing := [f for f in file_list if not os.path.exists(f)]:
-                            with open(debugDstFile + '_missing.txt', 'w') as f:
-                                for fn in missing:
-                                    f.write(f"{fn.replace(framesPath, '')}\n")
-                        if move:
-                            args.append("--remove-source-files")
-                        if n := Path.rsync(framesPath, rawPath, *args):
-                            return n
-                except Exception as e:
-                    tries -= 1
-                    msg = f"RSYNC error: {str(e)}, sleeping"
-                    self.info(msg)
-                    time.sleep(sleep)
-                    sleep *= 2
-
-            raise Exception('RSYNC could not be completed after 5 tries.')
-
-        def _update():
-            self.info(f"Found {self.n_files} new files, "
-                      f"{self.n_movies} new movies, seen: {len(self.seen)}")
-            if self.n_files > 0:
-                t = Timer()
-                copied = _rsync(self._to_copy)
-                if self.n_movies:
-                    moved = _rsync(self._to_move, move=True)
-                else:
-                    moved = 0
-                elapsed = t.getElapsedTime()
-                raw.update(mf.info())
-                self.update_session_extra({'raw': raw})
-                # Remove dict from the task update
-                self.update_task({'new_files': self.n_files,
-                                  'new_movies': self.n_movies,
-                                  'total_files': mf.total_files,
-                                  'total_movies': mf.total_movies,
-                                  'moved_files': moved,
-                                  'copied_files': copied,
-                                  'transfer_time': str(elapsed)
-                                  })
-            self.n_files = 0
-            self.n_movies = 0
-            self._to_move = []
-            self._to_copy = []
-
-
-        def _gsThumb(f):
-            return f.startswith('GridSquare') and f.endswith('.jpg')
-
-        td = timedelta(minutes=1)
-        transferred = False
-
-        now = datetime.now()
-        self.info(f"Scanning framesPath: {framesPath}")
-
-        for root, dirs, files in os.walk(framesPath):
-            rootRaw = root.replace(framesPath, rawPath)
-            for d in dirs:
-                self.pl.mkdir(os.path.join(rootRaw, d))
-            for f in files:
-                srcFile = os.path.join(root, f)
-                dstFile = os.path.join(rootRaw, f)
-
-                # Do not waste time on already processed files
-                if dstFile in mf:
-                    continue
-
-                now = datetime.now()
-                # Sometimes there are temporary files that does not
-                # exist and the os.stat fails, we will ignore these entries
-                try:
-                    s = os.stat(srcFile)
-                except:
-                    continue
-
-                unmodified = False
-
-                # JMRT 20240130: We are having issues with the modified date in
-                # the Krios G4 DMP server, where files are in the future.
-                # Then changed how to detect if a file is modified or not
-                if seenFile := seen.get(dstFile, None):
-                    if s.st_mtime != seenFile['mt']:
-                        seen[dstFile] = {'mt': s.st_mtime, 't': now}
-                    elif now - seenFile['t'] >= td:
-                        unmodified = True
-                else:
-                    seen[dstFile] = {'mt': s.st_mtime, 't': now}
-
-                # Old way to check modification
-                # dt = datetime.fromtimestamp(s.st_mtime)
-                # unmodified = now - dt >= td
-                if unmodified:
-                    mf.register(dstFile, stat=s)
-                    del seen[dstFile]
-                    transferred = True
-                    self.n_files += 1
-                    # Register creation time of movie files
-                    if EPU.is_movie_fn(f):
-                        self.n_movies += 1
-                        # Only move now the movies files, not other metadata files
-                        self._to_move.append(srcFile)
-                        # self.pl.system(f'rsync -ac --temp-dir=/gscem/testgrp/TRANSFER_TMP/ --remove-source-files "{srcFile}" "{dstFile}"', retry=30)
-                    else:  # Copy metadata files
-                        self._to_copy.append(srcFile)
-                        #self.pl.cp(srcFile, dstFile, retry=30)
-
-                if self.n_files >= 32:  # make frequent updates to keep otf updated
-                    _update()
-
-        # Only sleep when no data was found
-        self.sleep = 0 if transferred else 60
-        _update()
-        self.info(f"Sleeping {self.sleep} seconds.")
-
-        info = mf.info()
-        self.framesInfo = None
-
-        def _elapsed(key, info, days):
-            if ts := info.get(f'{key}_creation', None):
-                td = now - datetime.fromtimestamp(ts)
-                f = info.get(key, 'No-file')
-                self.info(f'{key}: {f}, '
-                          f'{Pretty.timestamp(ts)} -> '
-                          f'{Pretty.elapsed(ts)}')
-                if td > timedelta(days=days):
-                    return True
-            return False
-
-        def _stop():
-            """ Check various conditions that will make the TRANSFER task
-            to stop. For example, last raw file older than 3 days. """
-            if self.n_files or len(self.seen):  # Do not check stop while finding new files
-                return False
-
-            frames = False
-            if os.path.exists(framesPath):
-                mf = MovieFiles()
-                mf.scan(framesPath)
-                self.framesInfo = mf.info()
-                frames = _elapsed('last_file', self.framesInfo, 3)
-
-            return (frames or
-                    _elapsed('first_file', info, 5) or
-                    _elapsed('last_file', info, 3))
-
-        if _stop():
-            update_args = info
-            update_args['done'] = 1
-            # Remove dict from the task update
-            if 'files' in info:
-                del update_args['files']
-
-            if self.framesInfo:
-                if int(self.framesInfo['movies']) == 0:
-                    self.info(f'FIXME: Stopping transfer, cleaning frames folder: '
-                              f'{framesPath}.')
-                    #self.pl.rm(framesPath)
-            self.update_task(update_args)
-            self.stop()
-
-    def __delattr__(self, __name):
-        super().__delattr__(__name)
-
-    def deliver(self):
-        """ Deliver session files from GSCEM to Jude. """
-        extra = self.session['extra']
-        sconfig_raw = self.sconfig['raw']
-        gscemPath = extra['raw'].get('path', None)
-        group = self.users['group']
-        gscemRoot = Path.addslash(os.path.join(sconfig_raw['root'], group))
-
-        if self.count == 1:
-            # How much time to wait before stopping this delivery task
-            # from the time no more files are delivered, by default 15 days
-            self.deliver_wait = timedelta(seconds=self.task['args'].get('wait', 15 * 86400))
-
-            if last := extra.get('last_delivered', None):
-                self.last_delivered = Pretty.parse_datetime(last)
-            else:
-                self.last_delivered = datetime.now()
-
-        # TODO: Increment the sleeping time when there are not new files
-        self.sleep = 300
-
-        if not gscemPath:
-            self.info(f"Monitoring GSCEM FOLDER: {gscemPath} "
-                      f"does not exists, waiting...")
-            return
-
-        dataPath = gscemPath.replace(gscemRoot, '')
-        judeRootDefault = sconfig_raw['jude_group_folder'].format(group=group)
-        judeRoot = sconfig_raw['jude_group_mapping'].get(group, judeRootDefault)
-        judePath = os.path.join(judeRoot, dataPath)
-
-        if not os.path.exists(judePath):
-            self.pl.mkdir(judePath)
-
-        self.info(f"Syncing files from {gscemPath} to {judePath}")
-        t = Timer()
-        sleep_minutes = self.sleep // 60
-        msg = ''
-
-        try:
-            n = Path.rsync(gscemPath, judePath)
-        except Exception as e:
-            n = -1
-            msg = f"Error during the rsync: {str(e)}"
-            self.info(msg)
-            sleep_minutes = 5  # try soon
-
-        if n > 0:
-            self.info(f"Synced {n} files from {gscemPath} to {judePath}")
-            sleep_minutes = 1
-            self.last_delivered = datetime.now()
-            self.update_session_extra({
-                'jude': {
-                    'last_delivered': Pretty.datetime(self.last_delivered)
-                }})
-            msg = f"Transfer time: {str(t.getElapsedTime())}"
-        else:
-            sleep_minutes = min(60, sleep_minutes * 2)
-            msg = f"No files delivered since: {Pretty.datetime(self.last_delivered)}"
-            self.info(msg)
-            if datetime.now() - self.last_delivered > self.deliver_wait:
-                self.info("Delivery wait ended, stopping task.")
-                self.stop()
-
-        self.sleep = sleep_minutes * 60  # Bring sleep time back to 5 minutes
-
-        self.update_task({
-            'transferred_files': n,
-            'msg': msg,
-            'sleeping': sleep_minutes
-         })
-
-    def stop_all_otf(self, done=False):
-        return
-        self.info("Stopping all OTF tasks.")
-        stopped = self.worker.notify_launch_otf(self.task)
-        self.info(f"Stopped: {stopped}")
-        event = {'stopped_tasks': json.dumps(stopped)}
-        if done:
-            event['done'] = 1
-            self.stop()
-        self.update_task(event)
-
-    def get_path_from(self, pathDict, referencePath, root, suffix=''):
-        path = pathDict.get('path', None)
-        if not path:
-            folder = os.path.basename(Path.rmslash(referencePath)) + suffix
-            path = os.path.join(root, folder)
-        return path
-
-    def otf(self):
-        extra = self.session['extra']
-        raw = extra['raw']
-        self.update_session = True  # update session to check for new images
-
-        # Debugging option to only create the OTF folder and exit
-        if otf_folder := self.task['args'].get('create_otf_folder'):
-            self.create_otf_folder(otf_folder, update_session=False)
-            self.update_task({
-                'done': 1
-            })
-            self.stop()
-            return
-
-        # Stop all OTF tasks running in this worker
-        if 'stop' in self.task['args']:
-            self.stop_all_otf(done=True)
-
-        clear = 'clear' in self.task['args'] and self.count == 1
-
-        if clear:
-            self.stop_all_otf(done=False)
-
-        try:
-            n = raw.get('movies', 0)
-            raw_path = raw.get('path', '')
-            raw_exists = os.path.exists(raw_path)
-            # logger = self.logger
-            otf = extra['otf']
-            otf_path = self.get_path_from(otf, raw_path, self.sconfig['otf']['root'],
-                                          suffix='_OTF_emwrap')
-            otf_exists = os.path.exists(otf_path)
-
-            otfStr = otf_path if len(otf_path) > 4 else 'NOT READY'
-            self.info(f"OTF path: {otfStr}, do clear: {clear}, movies: {n}")
-
-            if not otf_exists or clear:
-                # OTF is not running, let's check if we need to launch it
-                if raw_exists and n > 8:
-                    self.info(f"Launching OTF after {n} images found.")
-                    self.worker.notify_launch_otf(self.task)
-                    self.create_otf_folder(otf_path)
-                    otf_exists = True
-                    self.launch_otf()
-                    self.update_task({'otf_path': otf['path'],
-                                      'otf_status': otf['status'],
-                                      'count': self.count})
-                    self.update_session = False  # after launching no need to update
-            else:
-                self.update_task({'count': self.count})
-
-            if otf_exists and raw_exists:
-                # epuFolder = os.path.join(otf_path, 'EPU')
-                # epuStar = os.path.join(epuFolder, 'movies.star')
-
-                # if self.epu_session is None:
-                #     self.epu_session = EPU.Session(raw_path,
-                #                                    outputStar=epuStar,
-                #                                    backupFolder=epuFolder,
-                #                                    pl=self.pl)
-                # self.epu_session.scan()
-                # if not os.path.exists(epuStar):
-                #     self.info(f"File {epuStar} does not exist yet.")
-                # else:
-                #     with StarFile(epuStar) as sf:
-                #         self.info(f"Scanned EPU folder, movies: {sf.getTableSize('Movies')}")
-                if self.update_session:
-                    self.info(f"No longer need to update session.")
-                    self.update_session = False  # after launching no need to update
-
-        except Exception as e:
-            self.worker.logger.exception(e)
-            self.update_task({
-                'error': f'Exception {str(e)}',
-                'done': 1
-            })
-            self.stop()
-
-    def create_otf_folder(self, otf_path, update_session=True):
-        extra = self.session['extra']
-        raw_path = extra['raw']['path']
-        otf = extra['otf']
-        otf.update({'path': otf_path, 'status': 'created'})
-        workflow = otf.get('workflow', 'none').lower()
-
-        self.pl.rm(otf_path)
-
-        def _path(*paths):
-            return os.path.join(otf_path, *paths)
-
-        if workflow != 'none':
-            self.pl.mkdir(os.path.join(otf_path, 'EPU'))
-            os.symlink(raw_path, _path('data'))
-
-        gain_path = os.path.dirname(self.sconfig['data']['gain'])
-        acq = dict(self.sconfig['acquisition'][self.microscope])
-
-        # Copy the gain reference file to the OTF folder and set it for processing
-        # We will try to get the gain from the following places:
-        # 1. From the Raw data folder (now it is copied there with EPU-Falcon4i)
-        # 2. From our storage of gains
-        # We will copy to the raw folder if it is not there
-        # We will copy to the storage if it is not there
-        gain_pattern = acq.pop('gain_pattern').format(microscope=self.microscope)
-
-        def _last_gain(path, pattern):
-            if gains := glob(os.path.join(path, pattern)):
-                gains.sort(key=lambda g: os.path.getmtime(g))
-                return os.path.realpath(gains[-1])
-            return None
-
-        # Check first if there is a gain in the raw folder
-        raw_gain = _last_gain(raw_path, gain_pattern)
-        real_gain = raw_gain or _last_gain(gain_path, gain_pattern)
-        base_gain = os.path.basename(real_gain)
-        self.pl.cp(real_gain, _path(base_gain))
-
-        if not raw_gain:
-            self.pl.cp(real_gain, os.path.join(raw_path, base_gain))
-        else:
-            # Lets backup the gain if does not exists
-            back_gain = os.path.join(gain_path, base_gain)
-            if not os.path.exists(back_gain):
-                self.pl.cp(real_gain, back_gain)
-
-        if workflow == 'none':
-            return
-
-        # Create a general ini file with config/information of the session
-        config = configparser.ConfigParser()
-
-        operator = self.users['operator'].get('name', 'No-operator')
-        config['GENERAL'] = {
-            'group': self.users['group'],
-            'user': self.users['owner']['name'],
-            'operator': operator,
-            'microscope': self.microscope,
-            'raw_data': raw_path
-        }
-        acq['gain'] = base_gain
-        acq.update(self.session['acquisition'])
-        images_pattern = acq.get('images_pattern',
-                                 "Images-Disc*/GridSquare_*/Data/Foil*fractions.*")
-        config['ACQUISITION'] = acq
-
-        config['PREPROCESSING'] = {
-            'images': 'data/' + images_pattern,
-            'software': 'None',  # or Relion or Scipion
-        }
-
-        with open(_path('README.txt'), 'w') as configfile:
-            config.write(configfile)
-
-        if workflow == 'relion':
-            opts = self.sconfig['otf']['relion']['options']
-            with open(_path('relion_it_options.py'), 'w') as f:
-                optStr = ",\n".join(f"'{k}' : '{v.format(**acq)}'" for k, v in opts.items())
-                f.write("{\n%s\n}\n" % optStr)
-
-        elif workflow == 'scipion':
-            opts = self.sconfig['otf']['scipion']['options']
-            cryolo_model = otf.get('cryolo_model', None)
-
-            if cryolo_model:
-                model = os.path.basename(cryolo_model)
-                os.symlink(cryolo_model, _path(model))
-                opts['picking'] = {'cryolo_model': model}
-
-            with open(_path('scipion_otf_options.json'), 'w') as f:
-                opts['acquisition'] = acq
-                json.dump(opts, f, indent=4)
-
-        elif workflow == 'emwrap':
-            from emwrap.mix.otf import OTF
-            OTF(otf_path).create(self.session, self.sconfig, self.resources.values())
-
-        # Update OTF status
-        if update_session:
-            self.info("Updating session, otf: %s" % str(otf))
-            self.update_session_extra({'otf': otf})
-
-    def launch_otf(self):
-        """ Launch OTF for a session. """
-        self.info(f"Running OTF")
-        otf = self.session['extra']['otf']
-        otf_path = otf['path']
-        workflow = otf.get('workflow', 'none').lower()
-        if workflow == 'none':
-            msg = 'OTF workflow is None, so no doing anything.'
-            self.pl.logger.info(msg)
-            self.update_task({'msg': msg, 'done': 1})
-            self.stop()
-        else:
-            workflow_conf = self.sconfig['otf'].get(workflow, None)
-            if not workflow_conf:
-                raise Exception(f"Missing workflow '{workflow}' from "
-                                f"sessions::config OTF section. ")
-
-            command = workflow_conf['command']
-            cmd = command.format(otf_path=otf_path, session_id=self.session['id'])
-            self.pl.system(cmd + ' &')
-
-    def stop_otf(self):
-        """ Stop the thread that is doing OTF and all subprocess.
-        Also update the internal dictionary of threads-sessions-tasks
-        """
-        self.stop()
-        otf = self.session['extra']['otf']
-        otf_path = otf.get('path', '')
-        try:
-            if otf_path:
-                processes = Process.ps('scipion', workingDir=otf['path'], children=True)
-                for folder, procs in processes.items():
-                    self.info(f"Killing processes for Session {self.session['id']}")
-                    for p in procs:
-                        p.kill()
-            otf['status'] = 'stopped'
-            self.update_session_extra({'otf': otf})
-        except Exception as e:
-            self.error(Color.red("Error: %s" % str(e)))
-        self.update_task({'msg': 'Forced to stop ', 'done': 1})
-
-
-class FramesTaskHandler(TaskHandler):
-    """ Monitor frames folder located at
-    config:sessions['raw']['root_frames']. """
-    def __init__(self, *args, **kwargs):
-        TaskHandler.__init__(self, *args, **kwargs)
-        # Load config
-        self.sconfig = self.request_config('sessions')
-        self.root_frames = self.sconfig['raw']['root_frames']
-        self.root_frames = self.task['args']['root']
+        return self._request(_update, 'updating session extra')
 
     def process(self):
-        if self.count == 1:
-            self.entries = {}
+        session = self.get_session()
+        status = session['status']
+        if status != 'active':
+            self.update_log({'msg': f"Session is {status}, stopping.", 'done': 1})
+            self.stop()
+        else:
+            self.process_session(session)
 
-        args = {'maxlen': 2}
-        updated = False
-
-        try:
-            for e in os.listdir(self.root_frames):
-                entryPath = os.path.join(self.root_frames, e)
-                s = os.stat(entryPath)
-                if os.path.isdir(entryPath):
-                    if e not in self.entries:
-                        self.entries[e] = {'mf': MovieFiles(), 'ts': 0}
-                    dirEntry = self.entries[e]
-                    if dirEntry['ts'] < s.st_mtime:
-                        dirEntry['mf'].scan(entryPath)
-                        dirEntry['ts'] = s.st_mtime
-                        updated = True
-                elif os.path.isfile(entryPath):
-                    if e not in self.entries or self.entries[e]['ts'] < s.st_mtime:
-                        self.entries[e] = {
-                            'type': 'file',
-                            'size': s.st_size,
-                            'ts': s.st_mtime
-                        }
-                        updated = True
-
-            if updated:
-                entries = []
-                for e, entry in self.entries.items():
-                    if 'mf' in entry:  # is a directory
-                        newEntry = {
-                            'type': 'dir',
-                            'size': entry['mf'].total_size,
-                            'movies': entry['mf'].total_movies,
-                            'ts': entry['ts']
-                        }
-                    else:
-                        newEntry = entry
-                    newEntry['name'] = e
-                    entries.append(newEntry)
-
-                args['entries'] = json.dumps(entries)
-                u = shutil.disk_usage(self.root_frames)
-                args['usage'] = json.dumps({'total': u.total, 'used': u.used})
-
-        except Exception as e:
-            updated = True  # Update error
-            args['error'] = f"Error: {e}"
-            args.update({'error': str(e),
-                         'stack': traceback.format_exc()})
-
-        if updated:
-            self.info("Sending frames folder info")
-            self.update_task(args)
-
-        time.sleep(30)
+    def process_session(self, session):
+        raise NotImplementedError
 
 
-class SessionWorker(Worker):
-    def handle_tasks(self, tasks):
-        handlers = {
-            'command': CmdTaskHandler,
-            'session': SessionTaskHandler,
-            'frames': FramesTaskHandler
+class FolderMonitorHandler(SessionHandler):
+    """ Monitor the session raw folder and report files stats to EMhub. """
+    def __init__(self, *args, **kwargs):
+        SessionHandler.__init__(self, *args, **kwargs)
+        self.mf = None  # MovieFiles, scanned incrementally
+        self._mfRoot = None
+
+    def get_path(self, session, raw):
+        """ Return the path to monitor, or None if it is not ready yet.
+        Subclasses can override to do something before (e.g transfer). """
+        return raw.get('path', None)
+
+    def process_session(self, session):
+        raw = session['extra'].setdefault('raw', {})
+        path = self.get_path(session, raw)
+
+        if not path or not os.path.exists(path):
+            self.info(f"Raw folder '{path}' does not exist, waiting...")
+            return
+
+        if self._mfRoot != path:  # first time or if the path was changed
+            self.mf = MovieFiles()
+            self._mfRoot = path
+
+        self.mf.scan(path)
+        info = self.mf.info()
+        if not info:
+            self.info(f"No files found in {path}")
+            return
+
+        raw.update(info)  # includes 'files': counts and size by extension
+        self.update_session_extra({'raw': raw})
+
+        del info['files']  # log events only accept flat values
+        self.update_log(info)
+        self.info(f"Files: {info['files_total']}, movies: {info['movies']}, "
+                  f"size: {info['sizeH']}")
+
+
+class TransferHandler(FolderMonitorHandler):
+    """ Copy the session folder to another location (using rsync) and
+    monitor the copy. The worker `dest` attribute is the root destination
+    folder, and the session folder will be copied to `dest/<session name>`.
+
+    Files that are still being written are copied too, but since rsync is
+    repeated on each iteration, they will be updated later.
+    """
+    def get_path(self, session, raw):
+        # If the source is already in 'frames', the raw path is the transfer
+        source = raw.get('frames') or raw.get('path')
+        if not source or not os.path.exists(source):
+            return None
+
+        name = session['name'].split(':')[-1]
+        dest = os.path.join(self.worker.dest, name)
+        os.makedirs(dest, exist_ok=True)
+
+        t = Timer()
+        n, size = Path.rsync(source, dest, '--no-compress', size=True)
+        elapsed = t.getElapsedTime()
+        self.info(f"Transferred {n} files from {source} to {dest}")
+        self.update_log({
+            'source': source,
+            'dest': dest,
+            'transferred_files': n,
+            'transferred_size': f"{size} ({Pretty.size(size)})",
+            'transfer_time': str(elapsed)
+        })
+
+        raw.update({'frames': source, 'path': dest})
+        return dest
+
+
+class RootFolderHandler(TaskHandler):
+    """ Monitor the root folder(s) of one instrument and report their entries
+    as possible new sessions. Each sub-folder is reported with its size and
+    number of movies, to the same log used for the instrument frames folder.
+    """
+    def __init__(self, worker, instrument, roots, sleep=60):
+        self.instrument = instrument
+        self.roots = roots if isinstance(roots, list) else [roots]
+        TaskHandler.__init__(self, worker,
+                             {'id': f'root-{instrument}', 'args': {}})
+        self.emhub_log = f'frames:{instrument}'
+        self.sleep = sleep
+        self.daemon = True
+        self.folders = {}  # path -> MovieFiles, scanned incrementally
+
+    def getLogPrefix(self):
+        return f"ROOT-{self.instrument}"
+
+    def process(self):
+        t = Timer()
+        entries = []
+
+        for root in self.roots:
+            for name in sorted(os.listdir(root)):
+                path = os.path.join(root, name)
+                try:
+                    s = os.stat(path)
+                except OSError:  # temporary files can disappear
+                    continue
+
+                if os.path.isdir(path):
+                    mf = self.folders.setdefault(path, MovieFiles())
+                    mf.scan(path)
+                    entry = {'type': 'dir', 'size': mf.total_size,
+                             'movies': mf.total_movies,
+                             'ts': mf.counters[0].last_ts or s.st_mtime}
+                else:
+                    entry = {'type': 'file', 'size': s.st_size, 'ts': s.st_mtime}
+                entry.update({'name': name, 'path': path, 'root': root})
+                entries.append(entry)
+
+        usage = [shutil.disk_usage(root) for root in self.roots]
+        self.update_log({
+            'maxlen': 3,  # only the last events are relevant
+            'entries': json.dumps(entries),
+            'usage': json.dumps({'total': sum(u.total for u in usage),
+                                 'used': sum(u.used for u in usage)}),
+            'elapsed': str(t.getElapsedTime())
+        })
+        self.info(f"Reported {len(entries)} entries from {', '.join(self.roots)}")
+
+
+class SessionMonitorWorker(Worker):
+    """ Worker that monitors the raw folder of each active session (mode 1)
+    and, optionally, the root folders of the instruments (mode 2).
+
+    Args:
+        roots: dict {instrument name: list of root folders}
+        sleep: seconds between updates
+    """
+    handler_class = FolderMonitorHandler
+
+    def __init__(self, roots=None, sleep=60, **kwargs):
+        Worker.__init__(self, **kwargs)
+        self.roots = roots or {}
+        self.handler_sleep = sleep
+
+    def create_handler(self, session):
+        task = {
+            'id': f"{self.handler_class.__name__}-{session['id']}",
+            'args': {'action': 'monitor', 'session_id': session['id'],
+                     'sleep': self.handler_sleep}
         }
+        return self.handler_class(self, task)
 
-        for t in tasks:
-            HandlerClass = handlers.get(t['name'], DefaultTaskHandler)
-            handler = HandlerClass(self, t)
-            handler.start()
+    def run(self):
+        self.setup()
 
-    def notify_launch_otf(self, task):
-        """
-        This method should be called from tasks handlers to notify
-        that a OTF is going ot be launched. Then, we must stop any other
-        OTF tasks running in this host. (only one OTF running per host)
-        """
-        task_id = task['id']
-        self.info(f"Task handler {task_id} notified launching OTF")
-        stopped = []
-        return stopped
+        for instrument, roots in self.roots.items():
+            self.info(f"Monitoring root folders of {instrument}: {roots}")
+            RootFolderHandler(self, instrument, roots, self.handler_sleep).start()
 
-        current_threads = [v for v in self.tasks.values()]
-        for v in current_threads:
-            t = v.task
-            if t['id'] != task_id and t['name'] == 'session' and t['args']['action'] == 'otf':
-                v.stop_otf()
-                stopped.append(t['id'])
-        return stopped
+        last_id = 0
+        while True:
+            try:
+                # This request blocks for a while if there are no new sessions
+                sessions = self.request_data('poll_active_sessions',
+                                             {'attrs': {'last_id': last_id,
+                                                        'sleep': 10}})
+                for s in sessions or []:
+                    self.info(f"New active session: {s['id']}")
+                    self.create_handler(s).start()
+                    last_id = max(last_id, s['id'])
+            except Exception as e:
+                self.error(f"Error polling sessions: {e}")
+                time.sleep(30)
+
+
+class SessionTransferWorker(SessionMonitorWorker):
+    """ Worker that copies each active session folder to `dest` (mode 3). """
+    handler_class = TransferHandler
+
+    def __init__(self, dest, **kwargs):
+        SessionMonitorWorker.__init__(self, **kwargs)
+        self.dest = dest
+
+
+def main():
+    p = argparse.ArgumentParser(prog='emh-session-worker')
+    p.add_argument('--url', '-u', default='')
+    subparsers = p.add_subparsers(dest='mode', required=True)
+
+    def _add_common(sp):
+        sp.add_argument('--root', action='append', default=[],
+                        metavar='NAME=PATH',
+                        help="Instrument root folder to be monitored (can be "
+                             "repeated, also for the same instrument)")
+        sp.add_argument('--sleep', type=int, default=60,
+                        help="Seconds between updates")
+
+    _add_common(subparsers.add_parser('monitor'))
+    transfer_p = subparsers.add_parser('transfer')
+    transfer_p.add_argument('--dest', required=True,
+                            help="Folder where sessions will be copied")
+    _add_common(transfer_p)
+
+    args = p.parse_args()
+
+    if args.url:
+        config.EMHUB_SERVER_URL = args.url
+        os.environ['EMHUB_SERVER_URL'] = args.url
+
+    roots = {}  # an instrument can have several roots (--root repeated)
+    for r in args.root:
+        name, path = r.split('=', 1)
+        roots.setdefault(name, []).append(path)
+    kwargs = {'roots': roots, 'sleep': args.sleep, 'debug': True}
+
+    if args.mode == 'monitor':
+        SessionMonitorWorker(**kwargs).run()
+    else:
+        SessionTransferWorker(dest=args.dest, **kwargs).run()
 
 
 if __name__ == '__main__':
-    args = {}
-    if len(sys.argv) > 1:
-        args['logFile'] = sys.argv[1]
-
-    worker = SessionWorker(debug=True, **args)
-    worker.run()
+    main()
