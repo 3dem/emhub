@@ -11,7 +11,7 @@
     {% else %}
 
     <div class="modal-header align-items-baseline">
-        <h5 class="modal-title mr-3"><code>{{ tomoName }}</code></h5>
+        <h5 class="modal-title mr-3"><span class="otf-name">{{ tomoName }}</span></h5>
         <span class="mr-3">
             <span class="otf-dot {% if status == 'failed' %}otf-dot-square{% endif %} mr-1"
                   style="background: {{ statusColor }}"></span>
@@ -51,18 +51,18 @@
                 one metric only is easy to tell from a tilt that is bad in
                 all of them
             </small>
-            <div class="btn-group btn-group-sm ml-auto" role="group">
+            <div class="btn-group btn-group-sm otf-toggle ml-auto" role="group">
                 <button type="button"
-                        class="btn btn-outline-secondary {% if order == 'angle' %}active{% endif %}"
-                        onclick="otfTiltOrder('{{ tomoName }}', 'angle')">By tilt angle</button>
+                        class="btn btn-outline-light {% if order == 'angle' %}active{% endif %}"
+                        onclick="otfShowTiltSeries('{{ tomoName }}', 'angle')">By tilt angle</button>
                 <button type="button"
-                        class="btn btn-outline-secondary {% if order == 'acq' %}active{% endif %}"
-                        onclick="otfTiltOrder('{{ tomoName }}', 'acq')">By acquisition order</button>
+                        class="btn btn-outline-light {% if order == 'acq' %}active{% endif %}"
+                        onclick="otfShowTiltSeries('{{ tomoName }}', 'acq')">By acquisition order</button>
             </div>
         </div>
 
         {% for s in strips %}
-            <div id="otf-strip-{{ s.key }}" style="height: 84px"></div>
+            <div id="otf-strip-{{ s.key }}" style="height: {{ 104 if loop.last else 84 }}px"></div>
         {% endfor %}
 
         {% if not strips %}
@@ -70,33 +70,60 @@
             tilt series.</small></p>
         {% endif %}
 
+        {% if thumbs %}
+            <div class="d-flex align-items-baseline mt-3 mb-1">
+                <h6 class="mb-0">Tilt images</h6>
+                <small class="text-muted ml-3">in the same order as the plots;
+                    click a plot point or an image to select that tilt in both
+                    and open it with its CTF fit</small>
+            </div>
+            <div class="otf-filmstrip" id="otf-filmstrip">
+                {% for th in thumbs %}
+                    <figure class="otf-thumb" data-index="{{ loop.index0 }}" data-ctf="{{ th.ctf }}"
+                            {% if th.ps %}data-ps="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.ps.path, v=th.ps.version) }}"{% endif %}
+                            {% if th.profile %}data-profile="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.profile.path, v=th.profile.version) }}"{% endif %}>
+                        {% if th.image %}
+                            <img loading="lazy" alt="{{ th.label }}"
+                                 style="border-color: {{ th.border }}"
+                                 src="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.image.path, v=th.image.version) }}">
+                        {% else %}
+                            <div class="otf-thumb-missing">no image</div>
+                        {% endif %}
+                        <figcaption>{{ th.label }}</figcaption>
+                    </figure>
+                {% endfor %}
+            </div>
+        {% endif %}
+
         {% if notReported %}
             <p class="text-muted mt-2 mb-0"><small>Not reported by this
             pipeline:
-            {% for n in notReported %}{{ n|lower }}{% if not loop.last %}, {% endif %}{% endfor %}.</small></p>
+            {% for n in notReported %}{{ n }}{% if not loop.last %}, {% endif %}{% endfor %}.</small></p>
         {% endif %}
 
         <!-- Images and volumes are served by the existing table viewers
              rather than re-implemented here. -->
-        <div class="mt-3 pt-2 border-top">
+        <div class="mt-3 pt-2 border-top otf-toggle">
             <h6>Images</h6>
+            {# Single-quoted attributes: tojson escapes ' but not ". #}
             {% if tiltSeriesStar %}
-                <a class="btn btn-sm btn-outline-secondary mr-2"
-                   href="javascript:otfViewStar('{{ tiltSeriesStar }}')">
-                   <i class="fas fa-table"></i> Metadata</a>
+                <button type="button" class="btn btn-sm btn-outline-light mr-2"
+                   onclick='otfViewStar({{ tomoName|tojson }}, {{ tiltSeriesStar|tojson }})'>
+                   <i class="fas fa-table"></i> Metadata</button>
             {% endif %}
             {% if alignedStack and alignedStack != 'None' %}
-                <a class="btn btn-sm btn-outline-secondary mr-2"
-                   href="javascript:otfViewStack('{{ alignedStack }}')">
-                   <i class="fas fa-layer-group"></i> Aligned stack slices</a>
+                <button type="button" class="btn btn-sm btn-outline-light mr-2"
+                   onclick='otfViewStack({{ tomoName|tojson }}, {{ alignedStack|tojson }})'>
+                   <i class="fas fa-layer-group"></i> Aligned stack slices</button>
             {% endif %}
             {% if tomogram %}
-                <a class="btn btn-sm btn-outline-secondary mr-2"
-                   href="javascript:otfViewTomogram('{{ tomogram }}')">
-                   <i class="fas fa-cube"></i> Tomogram slices</a>
+                <button type="button" class="btn btn-sm btn-outline-light mr-2"
+                   onclick='otfViewTomogram({{ tomoName|tojson }}, {{ tomogram|tojson }})'>
+                   <i class="fas fa-cube"></i> Tomogram slices</button>
             {% else %}
                 <small class="text-muted">No tomogram reconstructed yet.</small>
             {% endif %}
+            <div id="otf-viewer-pane"></div>
         </div>
 
     </div>
@@ -108,46 +135,195 @@
         var strips = {{ strips|tojson }};
         var x = {{ x|tojson }};
         var xLabel = {{ xLabel|tojson }};
-        var excluded = {{ tilts|map(attribute='excluded')|list|tojson }};
+        var movieIndex = {{ movieIndex|tojson }};
+        var notes = {{ tiltNotes|tojson }};
+        var angles = {{ angles|tojson }};
+        var doses = {{ doses|tojson }};
+
+        // Identify each tilt the same way in every strip's hover
+        var tiltText = x.map(function(_, j) {
+            var parts = [];
+            if (movieIndex[j] !== null) parts.push('Movie index ' + movieIndex[j]);
+            if (angles[j] !== null) parts.push('tilt ' + angles[j].toFixed(1).replace(/^-0\.0$/, '0.0') + '°');
+            if (doses[j] !== null) parts.push('dose ' + doses[j].toFixed(1) + ' e/Å²');
+            return parts.join(' · ') + (notes[j] ? '<br><b>' + notes[j] + '</b>' : '');
+        });
+
+        /* A per-tilt target (the CTF one follows the tilt angle) is a tick
+           at each tilt, so it stays readable in acquisition order too. */
+        function guide(y, color, name) {
+            if (Array.isArray(y))
+                return {type: 'scatter', mode: 'markers', x: x, y: y,
+                        marker: {symbol: 'line-ew-open', size: 12, color: color,
+                                 line: {width: 1.5, color: color}},
+                        name: name, hoverinfo: 'skip'};
+            return {type: 'scatter', mode: 'lines', x: x,
+                    y: x.map(function() { return y; }),
+                    line: {color: color, width: 1, dash: 'dash'},
+                    name: name, hoverinfo: 'skip'};
+        }
+
+        // A guide far above the data would squash it; draw only nearby ones
+        function near(y, values) {
+            var vmax = Math.max.apply(null, values.filter(function(v) { return v !== null; }));
+            var g = Array.isArray(y) ? Math.min.apply(null, y) : y;
+            return y !== null && isFinite(vmax) && g <= vmax * 1.25;
+        }
+
+        // The selected tilt, drawn as a blue line in every strip
+        var selected = null;
+        function selectedShapes() {
+            return selected === null ? [] : [{
+                type: 'line', xref: 'x', yref: 'paper', x0: x[selected], x1: x[selected],
+                y0: 0, y1: 1, line: {color: '#0d6efd', width: 2}
+            }];
+        }
 
         strips.forEach(function(s, i) {
             var div = document.getElementById('otf-strip-' + s.key);
             if (!div) return;
 
-            var colors = excluded.map(function(ex) {
-                return ex ? '#c9603f' : '#2e9e8f';
+            var last = (i === strips.length - 1);
+            otfPlot(div, function() {
+                var traces = [{
+                    type: 'scatter', mode: 'lines+markers',
+                    x: x, y: s.values, text: tiltText,
+                    marker: {color: s.colors, size: 6},
+                    line: {color: otfCss('--otf-connector'), width: 1},
+                    hovertemplate: '%{text}<br>' + s.label + ': %{y:.3f} ' + s.unit + '<extra></extra>'
+                }];
+                // Dashed guides: target (yellow) and reject limit (red)
+                if (near(s.target, s.values)) traces.push(guide(s.target, '#e0a800', 'target'));
+                if (near(s.reject, s.values)) traces.push(guide(s.reject, '#ef172c', 'reject'));
+
+                /* Label above the strip: a rotated y title does not fit 84px. */
+                Plotly.react(div, traces, otfThemeLayout({
+                    margin: {l: 48, r: 12, t: 16, b: (last ? 30 : 10)},
+                    height: last ? 104 : 84,
+                    showlegend: false,
+                    hovermode: 'closest',
+                    xaxis: {
+                        title: (last ? {text: xLabel, font: {size: 10}} : null),
+                        showticklabels: last,
+                        zeroline: false
+                    },
+                    yaxis: {zeroline: false},
+                    annotations: [{
+                        text: s.label + (s.unit ? ' (' + s.unit + ')' : ''),
+                        xref: 'paper', yref: 'paper', x: 0, y: 1,
+                        xanchor: 'left', yanchor: 'bottom', showarrow: false,
+                        font: {size: 11, color: otfCss('--otf-ink')}
+                    }],
+                    shapes: selectedShapes()
+                }), {displayModeBar: false, responsive: true});
             });
 
-            Plotly.react(div, [{
-                type: 'bar',
-                x: x,
-                y: s.values,
-                marker: {color: colors, opacity: 0.8},
-                hovertemplate: '%{x}<br>' + s.label + ': %{y:.3f} ' + s.unit + '<extra></extra>'
-            }], {
-                margin: {l: 74, r: 12, t: 4, b: (i === strips.length - 1 ? 30 : 12)},
-                height: 84,
-                bargap: 0.15,
-                showlegend: false,
-                xaxis: {
-                    title: (i === strips.length - 1
-                            ? {text: xLabel, font: {size: 10}} : null),
-                    showticklabels: (i === strips.length - 1),
-                    zeroline: false
-                },
-                yaxis: {title: {text: s.label + (s.unit ? ' (' + s.unit + ')' : ''),
-                                font: {size: 9}},
-                        zeroline: false}
-            }, {displayModeBar: false, responsive: true});
+            div.on('plotly_hover', function(ev) {
+                var p = ev.points[0];
+                if (p && p.curveNumber === 0) otfHighlightThumb(p.pointIndex);
+            });
+            div.on('plotly_unhover', function() {
+                $strip.find('.otf-thumb-active').removeClass('otf-thumb-active');
+            });
+            div.on('plotly_click', function(ev) {
+                var p = ev.points[0];
+                if (p && p.curveNumber === 0) {
+                    otfHighlightThumb(p.pointIndex);
+                    otfOpenTilt(p.pointIndex);
+                }
+            });
         });
 
-        window.otfTiltOrder = function(tomoName, order) {
-            var content = get_ajax_content('otf_tiltseries',
-                                           {entry_id: {{ entry_id }},
-                                            tomo_name: tomoName,
-                                            order: order});
-            show_modal_from_ajax('otf-tiltseries-modal', content);
-        };
+        var $strip = $('#otf-filmstrip');
+
+        function otfHighlightThumb(index) {
+            var $fig = $strip.find('.otf-thumb').removeClass('otf-thumb-active')
+                             .filter('[data-index="' + index + '"]').addClass('otf-thumb-active');
+            if (!$fig.length) return;
+            // Scroll the strip only, never the modal
+            var strip = $strip[0], fig = $fig[0];
+            strip.scrollLeft = fig.offsetLeft - strip.offsetLeft
+                               - (strip.clientWidth - fig.clientWidth) / 2;
+        }
+
+        // A selected tilt: blue in the strip and a blue line in every plot
+        function otfMarkTilt(index) {
+            selected = index;
+            strips.forEach(function(s) {
+                var div = document.getElementById('otf-strip-' + s.key);
+                if (div) Plotly.relayout(div, {shapes: selectedShapes()});
+            });
+            // One selection at a time: it replaces any hover highlight too
+            $strip.find('.otf-thumb').removeClass('otf-thumb-selected otf-thumb-active')
+                  .filter('[data-index="' + index + '"]').addClass('otf-thumb-selected');
+        }
+
+        /* Measured vs simulated rotational average: at this dose the more
+           reliable check of the fit.  x is spatial frequency, labelled as
+           resolution. */
+        function otfPlotProfile(div, p) {
+            var res = [30, 20, 15, 12, 10, 8, 7, 6, 5];
+            var traces = [
+                {x: p.k, y: p.simulated, name: 'simulated from the fit', mode: 'lines',
+                 line: {color: '#8b99a4', width: 1.5}, hoverinfo: 'skip'},
+                {x: p.k, y: p.measured, name: 'measured', mode: 'lines',
+                 line: {color: '#0d6efd', width: 1.5}, hoverinfo: 'skip'}
+            ];
+            var shapes = [];
+            if (p.fitResolution) {
+                shapes.push({type: 'line', xref: 'x', yref: 'paper', y0: 0, y1: 1,
+                             x0: 1 / p.fitResolution, x1: 1 / p.fitResolution,
+                             line: {color: '#e0a800', width: 1.5, dash: 'dash'}});
+            }
+            otfPlot(div, function() {
+                Plotly.react(div, traces, otfThemeLayout({
+                    height: 190, margin: {l: 30, r: 10, t: 24, b: 34},
+                    showlegend: true, legend: {orientation: 'h', x: 0, y: 1.2, font: {size: 10}},
+                    xaxis: {tickvals: res.map(function(r) { return 1 / r; }),
+                            ticktext: res.map(function(r) { return r + ' Å'; }),
+                            range: [p.k[0], p.k[p.k.length - 1]], zeroline: false, tickfont: {size: 9}},
+                    yaxis: {showticklabels: false, zeroline: false},
+                    shapes: shapes
+                }), {displayModeBar: false, responsive: true});
+            });
+        }
+
+        // Open a tilt: its image, the CTF fit image and the fit profile
+        function otfOpenTilt(j) {
+            otfMarkTilt(j);
+            var $fig = $strip.find('.otf-thumb[data-index="' + j + '"]');
+            var $pane = otfClear($('#otf-viewer-pane'));
+            $('<h6 class="mt-3"></h6>').text(tiltText[j].split('<br>')[0]).appendTo($pane);
+            var $row = $('<div class="otf-tilt-view"></div>').appendTo($pane);
+            var src = $fig.find('img').attr('src');
+            if (src) {
+                $('<figure></figure>').append($('<img class="otf-thumb-large">').attr('src', src))
+                    .append($('<figcaption>Tilt image</figcaption>')).appendTo($row);
+            }
+            if ($fig.data('ps')) {
+                var $ctf = $('<figure class="otf-ctf-fig"></figure>').appendTo($row);
+                $('<img class="otf-ps-large">').attr('src', $fig.data('ps')).appendTo($ctf);
+                var $cap = $('<figcaption></figcaption>').text(
+                    'CTF fit: measured, as stored by Warp (top) | simulated from the fit ' +
+                    '(bottom); rings running straight across the line mean the fit ' +
+                    'matches. On a low dose tilt the measured rings are faint; the ' +
+                    'profile below averages each ring and is the more reliable check' +
+                    ($fig.data('ctf') ? '. ' + $fig.data('ctf') : '')).appendTo($ctf);
+                if ($fig.data('profile')) {
+                    var div = $('<div class="otf-ctf-profile"></div>').appendTo($ctf)[0];
+                    $.getJSON($fig.data('profile')).done(function(p) {
+                        otfPlotProfile(div, p);
+                        $cap.append(document.createTextNode(
+                            ' · measured vs simulated correlation r = ' + p.correlation.toFixed(2)));
+                    });
+                }
+            }
+            $pane[0].scrollIntoView({behavior: 'smooth', block: 'nearest'});
+        }
+
+        $strip.on('click', 'img', function() {
+            otfOpenTilt($(this).closest('.otf-thumb').data('index'));
+        });
 
     })(window, document, window.jQuery);
     </script>

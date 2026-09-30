@@ -1,5 +1,53 @@
 {# On-the-fly CryoET dashboard: one session, refreshed while it runs. #}
 
+{# The wrapper holds the page and the modal, so one class switches both
+   to dark mode. #}
+<div class="otf-page" id="otf-page">
+<script>
+/* Dark mode.  The otf-dark class switches the CSS variables below.  Plotly
+   does not read CSS, so each plot is drawn by a function that reads the
+   theme, kept on its div, and the toggle calls them again.  Defined before
+   the content, whose plots are drawn as it loads. */
+(function(window, document, $) {
+    var page = document.getElementById('otf-page');
+    page.classList.toggle('otf-dark', window.localStorage.getItem('otfTheme') === 'dark');
+
+    function otfCss(name) {
+        return window.getComputedStyle(page).getPropertyValue(name).trim();
+    }
+    // Server colours may be theme variables, 'var(--otf-ink)'; Plotly needs the value
+    function otfColor(c) {
+        var m = /^var\((--[\w-]+)\)$/.exec(c || '');
+        return m ? otfCss(m[1]) : c;
+    }
+    // Transparent backgrounds let the card show through
+    function otfThemeLayout(layout) {
+        var grid = otfCss('--otf-grid');
+        return $.extend(true, {
+            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            font: {color: otfCss('--otf-plot-text')},
+            xaxis: {gridcolor: grid}, yaxis: {gridcolor: grid}
+        }, layout);
+    }
+    function otfPlot(div, draw) {
+        div.otfDraw = draw;
+        draw();
+    }
+
+    window.otfCss = otfCss;
+    window.otfColor = otfColor;
+    window.otfThemeLayout = otfThemeLayout;
+    window.otfPlot = otfPlot;
+    window.otfToggleTheme = function() {
+        var dark = page.classList.toggle('otf-dark');
+        window.localStorage.setItem('otfTheme', dark ? 'dark' : 'light');
+        $(page).find('.js-plotly-plot').each(function() {
+            if (this.otfDraw) this.otfDraw();
+        });
+    };
+})(window, document, window.jQuery);
+</script>
+
 <div class="container-fluid dashboard-content">
 
     {% set title = "On-the-fly CryoET" %}
@@ -13,28 +61,108 @@
 </div>
 
 <style>
+/* Every colour that changes with the theme is a variable here; the light
+   values are the dashboard's own, the dark ones apply with .otf-dark. */
+.otf-page {
+    --otf-bg: transparent; --otf-surface: #fff; --otf-surface-alt: #eef1f3;
+    --otf-border: #dde2e6; --otf-ink: #2e2f39; --otf-muted: #64748b;
+    --otf-secondary: #6c757d; --otf-faint: #9aa4ab;
+    --otf-btn-border: #cfd6e4; --otf-hover: #eef3fb;
+    --otf-good-text: #1f8f3d; --otf-warn-text: #c69500;
+    --otf-plot-text: #444; --otf-grid: #eee; --otf-connector: #c9dcfb;
+}
+.otf-page.otf-dark {
+    --otf-bg: #16181d; --otf-surface: #1f2229; --otf-surface-alt: #2a2e37;
+    --otf-border: #353a45; --otf-ink: #e4e7ec; --otf-muted: #9aa5b4;
+    --otf-secondary: #9aa5b4; --otf-faint: #7d8794;
+    --otf-btn-border: #414856; --otf-hover: #2a3242;
+    --otf-good-text: #2ec551; --otf-warn-text: #ffc108;
+    --otf-plot-text: #aeb6c2; --otf-grid: #2c313a; --otf-connector: #34568c;
+}
+
 /* Kept local to the dashboard: these are data marks, not app chrome. */
 .otf-counter-value { font-size: 2rem; font-weight: 500; line-height: 1.05; }
-.otf-counter-label { font-size: .8rem; color: #6c757d; }
+.otf-counter-label { font-size: .8rem; color: var(--otf-secondary); }
 .otf-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
 .otf-dot-square { border-radius: 0; }
-.otf-stage-bar { height: 12px; background: #eef1f3; border: 1px solid #dde2e6;
-                 position: relative; overflow: hidden; }
+.otf-stage-bar { height: 12px; background: var(--otf-surface-alt);
+                 border: 1px solid var(--otf-border); position: relative; overflow: hidden; }
 .otf-stage-fill { position: absolute; top: 0; bottom: 0; left: 0; }
 .otf-fingerprint { vertical-align: middle; }
 .otf-num { font-variant-numeric: tabular-nums; text-align: right; }
-.otf-sd { color: #9aa4ab; font-size: .75rem; }
+.otf-sd { color: var(--otf-faint); font-size: .75rem; }
 .otf-row-link { cursor: pointer; }
 .otf-trend { height: 110px; }
-.otf-state-acquiring { color: #2e9e8f; }
-.otf-state-idle { color: #6c757d; }
-.otf-state-stalled { color: #c9603f; font-weight: 500; }
-.otf-state-unknown { color: #9aa4ab; }
+.otf-state-acquiring { color: var(--otf-good-text); }
+.otf-state-idle { color: var(--otf-secondary); }
+.otf-state-ended { color: var(--otf-secondary); }
+.otf-state-stalled { color: #ef172c; font-weight: 500; }
+.otf-state-unknown { color: var(--otf-faint); }
+/* The theme's muted text and light buttons are lavender; blue-grey here */
+.otf-page .text-muted { color: var(--otf-muted) !important; }
+.otf-counter-icon { font-size: 1.1rem; margin-right: .45rem; vertical-align: middle; }
+/* Toggles: the selected option must be obvious, the others quiet */
+/* !important: bootstrap's .btn-outline-light.active is more specific */
+.otf-toggle .btn, .otf-theme-toggle { color: var(--otf-ink); background: var(--otf-surface);
+                                      border-color: var(--otf-btn-border); }
+.otf-toggle .btn:hover, .otf-theme-toggle:hover { background: var(--otf-hover); color: var(--otf-ink); }
+.otf-toggle .btn.active, .otf-toggle .btn.active:hover {
+    color: #fff !important; background: #0d6efd !important;
+    border-color: #0d6efd !important; }
+/* The theme button shows what it switches to */
+.otf-dark .otf-theme-to-dark, .otf-page:not(.otf-dark) .otf-theme-to-light { display: none; }
+.otf-why { color: var(--otf-muted); font-size: .8rem; }
+.otf-table td, .otf-table th { white-space: nowrap; }
+.otf-filmstrip { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
+.otf-thumb { flex: 0 0 auto; margin: 0; text-align: center; }
+.otf-thumb img, .otf-thumb-missing { height: 84px; border: 2px solid transparent;
+                                     cursor: zoom-in; display: block; }
+.otf-thumb-missing { width: 118px; background: var(--otf-surface-alt); color: var(--otf-faint);
+                     font-size: .7rem; line-height: 80px; cursor: default; }
+.otf-thumb figcaption { font-size: .7rem; color: var(--otf-muted); }
+/* Hover is a light dashed hint; only the selection is solid blue */
+.otf-thumb-active img { outline: 2px dashed #7fb0fe; outline-offset: -2px; }
+.otf-thumb-selected img { outline: 3px solid #0d6efd; outline-offset: -3px;
+                          box-shadow: 0 0 0 2px #0d6efd; }
+.otf-thumb-selected figcaption { color: #0d6efd; font-weight: 600; }
+.otf-tilt-view { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.otf-tilt-view figure { margin: 0; }
+.otf-tilt-view figcaption { font-size: .75rem; color: var(--otf-muted); max-width: 384px; }
+.otf-thumb-large { max-width: 100%; max-height: 420px; display: block; }
+.otf-ps-large { width: 384px; max-width: 100%; display: block; image-rendering: auto; }
+.otf-ctf-fig { width: 384px; }
+.otf-ctf-profile { width: 384px; height: 190px; }
+.otf-tooltip .tooltip-inner { max-width: 380px; text-align: left; }
+.otf-name { font-family: SFMono-Regular, Menlo, Consolas, monospace; color: var(--otf-ink); }
+.otf-legend .otf-dot { margin-left: .6rem; }
+.otf-legend-line { display: inline-block; width: 18px; height: 0; margin: 0 .3rem 0 .9rem;
+                   border-top: 2px solid var(--otf-ink); vertical-align: middle; }
 @keyframes otf-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .3 } }
 .otf-state-acquiring .otf-dot { animation: otf-pulse 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
     .otf-state-acquiring .otf-dot { animation: none; }
 }
+
+/* Dark mode for the theme's own components, within the dashboard only */
+/* Out over the padding of emhub's container, content staying in place */
+.otf-dark { background: var(--otf-bg); color: var(--otf-ink); min-height: 100vh;
+            margin: 0 -15px; padding: 0 15px; }
+.otf-dark h1, .otf-dark h2, .otf-dark h3, .otf-dark h4, .otf-dark h5, .otf-dark h6,
+.otf-dark .breadcrumb-item.active { color: var(--otf-ink); }
+.otf-dark .card, .otf-dark .modal-content { background: var(--otf-surface);
+                                            color: var(--otf-ink); box-shadow: none; }
+.otf-dark .card-header, .otf-dark .modal-header { background: var(--otf-surface); }
+.otf-dark .card-header, .otf-dark .modal-header, .otf-dark .modal-content,
+.otf-dark .table td, .otf-dark .table th, .otf-dark .border-top {
+    border-color: var(--otf-border) !important; }
+.otf-dark .table { color: var(--otf-ink); }
+.otf-dark .table thead th { color: var(--otf-muted); }
+.otf-dark .table-hover tbody tr:hover { background: var(--otf-hover); color: var(--otf-ink); }
+.otf-dark .close { color: var(--otf-ink); text-shadow: none; }
+.otf-dark pre { background: var(--otf-surface-alt); color: var(--otf-ink); }
+.otf-dark .alert-info { background: #13324a; border-color: #1d4a6b; color: #b9dcf5; }
+.otf-dark .alert-warning { background: #3a2f0b; border-color: #5c4a10; color: #f5dd8c; }
+.otf-dark .alert-danger { background: #3d1418; border-color: #6b1f26; color: #f5b5bb; }
 </style>
 
 <script>
@@ -42,8 +170,29 @@
 "use strict";
 
     var OTF_ENTRY_ID = {{ entry_id }};
+    var OTF_ROOT = {{ processing_path|tojson }};
     var OTF_REFRESH_MS = {{ refresh_seconds }} * 1000;
+    var OTF_MODAL = '#otf-tiltseries-modal';
     var otfTimer = null;
+
+    /* Plotly keeps a window resize listener per plot, so replacing the html
+       alone leaks every plot on each refresh; purge them first.  An open
+       tooltip lives in <body> and would outlive its target. */
+    function otfClear($el) {
+        $el.find('.js-plotly-plot').each(function() { Plotly.purge(this); });
+        $el.find('[data-toggle="tooltip"]').tooltip('dispose');
+        return $el.empty();
+    }
+    window.otfClear = otfClear;
+
+    function otfReplace(selector, ajaxContent, showModal) {
+        ajaxContent.done(function(html) {
+            var $el = otfClear($(selector));
+            $el.html(html);
+            if (showModal) $el.modal('show');
+        });
+        ajaxContent.fail(ajax_request_failed);
+    }
 
     /* Refresh only the inner content, so scroll position and the open
        detail panel survive. Plotly is re-drawn by the inner template. */
@@ -52,7 +201,7 @@
                                        {entry_id: OTF_ENTRY_ID,
                                         sort: window.otfSort || 'worst',
                                         filter: window.otfFilter || 'all'});
-        load_html_from_ajax('otf-dashboard-content', content);
+        otfReplace('#otf-dashboard-content', content, false);
     }
 
     function otfStart() {
@@ -88,11 +237,69 @@
         window.otfFilter = filter;
         otfRefresh();
     };
-    window.otfShowTiltSeries = function(tomoName) {
+    window.otfShowTiltSeries = function(tomoName, order) {
         var content = get_ajax_content('otf_tiltseries',
                                        {entry_id: OTF_ENTRY_ID,
-                                        tomo_name: tomoName});
-        show_modal_from_ajax('otf-tiltseries-modal', content);
+                                        tomo_name: tomoName,
+                                        order: order || 'angle'});
+        otfReplace(OTF_MODAL, content, true);
+    };
+
+    /* The strips are drawn while the modal is still hidden, so Plotly sizes
+       them to its 700px default; fit them once the modal is laid out. */
+    $(OTF_MODAL).on('shown.bs.modal', function() {
+        $(this).find('.js-plotly-plot').each(function() {
+            Plotly.Plots.resize(this);
+        });
+    });
+
+    /* Images come from the same pane endpoint the project table view uses,
+       rendered with the shared slider card. */
+    function otfViewPane(attrs) {
+        var $pane = otfClear($('#otf-viewer-pane'));
+        $pane.html('<small class="text-muted">Loading…</small>');
+        attrs.root = OTF_ROOT;
+        attrs.pointerClass = 'tomograms';
+        send_ajax_json(Api.urls.resolve_table_view_pane, attrs, function(data) {
+            var pane = data.paneContent;
+            if (!pane) {
+                $pane.html('');
+                showError(data.error || 'Could not load viewer content.');
+                return;
+            }
+            $pane.html('<h6 class="mt-3"></h6><div id="otf-viewer-body"></div>');
+            $pane.find('h6').text(pane.title || '');
+            if (pane.kind === 'imageSlider' && pane.axes) {
+                var slices = {};
+                Object.keys(pane.axes).forEach(function(axis) {
+                    slices[axis] = pane.axes[axis].slices;
+                });
+                new VolumeSliderCard('otf-viewer-body', slices,
+                                     {slice_dim: 512, coordinates: []});
+            } else if (pane.kind === 'imageSlider') {
+                new ImageSliderCard('otf-viewer-body', pane.slices,
+                                    {slider_prefix: pane.sliderPrefix || ''});
+            } else if (pane.kind === 'text') {
+                $('#otf-viewer-body').append(
+                    $('<pre class="small" style="max-height: 420px; overflow: auto"></pre>')
+                        .text(pane.text));
+            } else {
+                $('#otf-viewer-body').append(
+                    $('<small class="text-muted"></small>').text(pane.message || ''));
+            }
+        });
+    }
+
+    window.otfViewStar = function(tomoName, starPath) {
+        otfViewPane({actionId: 'metadata', starPath: starPath, rowLabel: tomoName});
+    };
+    window.otfViewStack = function(tomoName, stackPath) {
+        otfViewPane({actionId: 'aligned-slices', rowLabel: tomoName,
+                     row: {cells: {rlnTiltSeriesAligned: stackPath}}});
+    };
+    window.otfViewTomogram = function(tomoName, tomoPath) {
+        otfViewPane({actionId: 'volume-slices', rowLabel: tomoName,
+                     row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}});
     };
 
     otfStart();
@@ -101,3 +308,5 @@
 </script>
 
 <div class="modal fade" id="otf-tiltseries-modal" tabindex="-1" role="dialog" aria-hidden="true"></div>
+
+</div>

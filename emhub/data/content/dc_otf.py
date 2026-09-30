@@ -22,9 +22,9 @@ import time
 
 from emhub.data.processing import resolve_processing_path
 from emhub.data.processing.otf_cryoet import (
-    OtfSession, STAGES, STATUS_OK, STATUS_SUSPECT, STATUS_BAD,
+    OtfSession, TiltSeriesMetrics, STAGES, STATUS_OK, STATUS_SUSPECT, STATUS_BAD,
     STATUS_RUNNING, STATUS_FAILED, COL_TILT_ANGLE, COL_PRE_EXPOSURE,
-    PLACEHOLDER_ZERO_COLS)
+    COL_MOVIE_INDEX, PLACEHOLDER_ZERO_COLS)
 
 
 ENTRY_TYPE = 'tomo_processing'
@@ -35,33 +35,56 @@ ENTRY_TYPE = 'tomo_processing'
 # "something broke and nobody noticed".
 STALL_SECONDS = 15 * 60
 
+# Colors from the emhub theme (style.css): success, warning, danger, dark.
+# A failed job is dark rather than red so it does not read as poor data;
+# its dot is also square.  'var(--otf-...)' colours are the dashboard's
+# theme variables (otf_dashboard.html), so they follow its dark mode.
+DATA_COLOR = '#0d6efd'   # blue, for data marks (the theme primary reads purple)
+INK_COLOR = 'var(--otf-ink)'   # #2e2f39 in light mode
 STATUS_STYLE = {
-    STATUS_OK:      {'label': 'Good', 'color': '#2e9e8f', 'order': 3},
-    STATUS_SUSPECT: {'label': 'Suspect', 'color': '#d9a13b', 'order': 1},
-    STATUS_BAD:     {'label': 'Poor', 'color': '#c9603f', 'order': 0},
-    STATUS_FAILED:  {'label': 'Job failed', 'color': '#a33d22', 'order': 0},
-    STATUS_RUNNING: {'label': 'Running', 'color': '#8b99a4', 'order': 2},
-    None:           {'label': 'No data', 'color': '#c2c9ce', 'order': 4},
+    STATUS_OK:      {'label': 'Good', 'color': '#2ec551', 'order': 3},
+    STATUS_SUSPECT: {'label': 'Suspect', 'color': '#ffc108', 'order': 1},
+    STATUS_BAD:     {'label': 'Poor', 'color': '#ef172c', 'order': 0},
+    STATUS_FAILED:  {'label': 'Job failed', 'color': INK_COLOR, 'order': 0},
+    STATUS_RUNNING: {'label': 'Running', 'color': '#adb5bd', 'order': 2},
+    None:           {'label': 'No data', 'color': '#d3d3d3', 'order': 4},
 }
 
 # The four session trends, stacked on a shared x axis.  Each one is
 # (key on the TiltSeriesMetrics, stat to take, label, unit, scale).
 TRENDS = [
-    ('motion', 'mean', 'Accumulated motion', 'Å', 1.0),
-    ('defocus', 'median', 'Defocus', 'µm', 1e-4),
-    ('ctfRes', 'mean', 'CTF fit resolution', 'Å', 1.0),
-    ('shiftRoughness', None, 'Alignment shift roughness', 'Å', 1.0),
+    ('motion', 'mean', 'Accumulated motion', 'Å', 1.0,
+     'Mean over the tilts of the beam-induced motion in each tilt movie.'),
+    ('defocus', 'median', 'Defocus', 'µm', 1e-4,
+     'Median defocus over the tilts.'),
+    ('ctfRes', 'mean', 'CTF fit resolution', 'Å', 1.0,
+     'Mean over the tilts of the resolution the CTF fit reaches; lower is better.'),
+    ('shiftRoughness', None, 'Alignment shift roughness', 'Å', 1.0,
+     'How irregular the alignment shifts are from one tilt to the next, '
+     'ordered by tilt angle. Stage drift is smooth, so a high value suggests '
+     'tilts that were mis-registered. Not used for triage until calibrated.'),
 ]
 
-# Per-tilt strips in the detail view, all sharing the tilt axis.
+# Per-tilt strips in the detail view, all sharing the tilt axis:
+# (column, label, unit, scale).  All drawn as points: defocus and tilt axis
+# have no natural zero, and mixing bars and points in one stack reads as
+# different kinds of data.
 TILT_STRIPS = [
-    ('rlnAccumMotionTotal', 'Accumulated motion', 'Å'),
-    ('rlnAccumMotionEarly', 'Early motion', 'Å'),
-    ('rlnDefocusU', 'Defocus', 'Å'),
-    ('rlnCtfMaxResolution', 'CTF fit resolution', 'Å'),
-    ('rlnCtfFigureOfMerit', 'CTF figure of merit', ''),
-    ('rlnTomoZRot', 'Refined tilt axis', '°'),
+    ('rlnAccumMotionTotal', 'Accumulated motion', 'Å', 1.0),
+    ('rlnAccumMotionEarly', 'Early motion', 'Å', 1.0),
+    ('rlnDefocusU', 'Defocus', 'µm', 1e-4),
+    ('rlnCtfMaxResolution', 'CTF fit resolution', 'Å', 1.0),
+    ('rlnCtfFigureOfMerit', 'CTF figure of merit', '', 1.0),
+    ('rlnTomoZRot', 'Refined tilt axis', '°', 1.0),
 ]
+
+
+def _early_is_total(values_early, values_total):
+    """ True when early motion carries no information of its own: with a
+    per-tilt dose under RELION's 4 e/Å² split every frame counts as early. """
+    pairs = [(e, t) for e, t in zip(values_early, values_total)
+             if e is not None and t is not None]
+    return bool(pairs) and all(abs(e - t) < 1e-6 for e, t in pairs)
 
 
 def _rolling_median(values, window=7):
@@ -91,6 +114,35 @@ FINGERPRINT_SOURCES = [
     ('rlnDefocusU', 15000.0, 60000.0, 'defocus'),
     ('rlnAccumMotionTotal', 0.0, 40.0, 'motion'),
 ]
+# Keys set by TiltSeriesMetrics._judge_tilts in t['reject'] / t['offTarget']
+TILT_FLAG_LABELS = {
+    'motion': 'motion', 'early': 'early motion', 'ctf': 'CTF fit',
+    'fom': 'CTF figure of merit', 'astigmatism': 'astigmatism',
+    'defocus': 'defocus',
+}
+# The per-tilt flags each detail strip shows.  Each strip is colored by its
+# own metric only, so a tilt bad in one metric reads differently from a
+# tilt bad in all of them.
+STRIP_FLAG_KEYS = {
+    'rlnAccumMotionTotal': ('motion',), 'rlnAccumMotionEarly': ('early',),
+    'rlnDefocusU': ('defocus', 'astigmatism'),
+    'rlnCtfMaxResolution': ('ctf',), 'rlnCtfFigureOfMerit': ('fom',),
+}
+
+
+def _strip_color(tilt, keys):
+    if tilt.get('excluded'):
+        return STATUS_STYLE[None]['color']
+    if any(k in tilt.get('reject', []) for k in keys):
+        return STATUS_STYLE[STATUS_BAD]['color']
+    if any(k in tilt.get('offTarget', []) for k in keys):
+        return STATUS_STYLE[STATUS_SUSPECT]['color']
+    return DATA_COLOR
+
+
+# Which per-tilt target (see TiltSeriesMetrics._judge_tilts) each column has
+FINGERPRINT_TARGET_KEY = {'rlnCtfMaxResolution': 'ctf',
+                          'rlnAccumMotionTotal': 'motion'}
 
 
 def _fingerprint_source(ts):
@@ -139,9 +191,9 @@ def _fingerprint_svg(ts):
         y = _y(value)
         pts.append(f'{i},{y} {i + 1},{y}')
 
-        if t.get('excluded'):
+        if t.get('excluded') or t.get('reject'):
             color = STATUS_STYLE[STATUS_BAD]['color']
-        elif col == 'rlnCtfMaxResolution' and value > 6.0:
+        elif FINGERPRINT_TARGET_KEY.get(col) in t.get('offTarget', []):
             color = STATUS_STYLE[STATUS_SUSPECT]['color']
         else:
             continue
@@ -155,7 +207,7 @@ def _fingerprint_svg(ts):
             f'preserveAspectRatio="none" class="otf-fingerprint" '
             f'title="per-tilt {label}">'
             f'<polygon points="0,100 {" ".join(pts)} {n},100" '
-            f'fill="{STATUS_STYLE[STATUS_OK]["color"]}" fill-opacity="0.55"/>'
+            f'fill="{DATA_COLOR}" fill-opacity="0.45"/>'
             f'{"".join(marks)}'
             # Mark the zero tilt, so the shape of the series is readable.
             f'<line x1="{n / 2:.1f}" y1="0" x2="{n / 2:.1f}" y2="100" '
@@ -221,16 +273,30 @@ def register_content(dc):
         last = summary.get('lastImport')
         if last is None:
             return {'key': 'unknown', 'label': 'No imports yet',
-                    'since': None, 'sinceStr': '--'}
+                    'since': None, 'sinceStr': '--',
+                    'help': 'The import job has not written any output yet.'}
         since = max(0.0, time.time() - last)
-        if since < 3 * 60:
+        import_status = next((st['jobStatus'] for st in summary['stages']
+                              if st['key'] == 'import'), None) or ''
+        if import_status.lower() not in ('running', 'scheduled'):
+            key, label = 'ended', 'Not acquiring'
+            help_text = (f'The import job is not running (status: '
+                         f'{import_status or "unknown"}), so no new tilt '
+                         f'series will arrive.')
+        elif since < 3 * 60:
             key, label = 'acquiring', 'Acquiring'
+            help_text = 'A new movie arrived in the last 3 minutes.'
         elif since < STALL_SECONDS:
             key, label = 'idle', 'Idle'
+            help_text = ('No new movie for a few minutes: usually the '
+                         'microscope moving to the next tilt series.')
         else:
             key, label = 'stalled', 'Stalled'
+            help_text = (f'The import job is running but no new movie has '
+                         f'arrived for over {STALL_SECONDS // 60} minutes. '
+                         f'Check the microscope and the import job.')
         return {'key': key, 'label': label, 'since': since,
-                'sinceStr': _elapsed_str(since)}
+                'sinceStr': _elapsed_str(since), 'help': help_text}
 
     def _trend_series(ts_list):
         """ Build the shared-x data for the four stacked trend plots. """
@@ -239,7 +305,7 @@ def register_content(dc):
         colors = [STATUS_STYLE[t.status]['color'] for t in ts_list]
 
         series = []
-        for key, stat, label, unit, scale in TRENDS:
+        for key, stat, label, unit, scale, help_text in TRENDS:
             values = []
             for t in ts_list:
                 raw = getattr(t, key, None)
@@ -255,6 +321,7 @@ def register_content(dc):
                 'key': key,
                 'label': label,
                 'unit': unit,
+                'help': help_text,
                 'y': values,
                 'median': _rolling_median(values),
             })
@@ -283,7 +350,8 @@ def register_content(dc):
                 'motionEarly': t.motionEarly,
                 'defocus': t.defocus,
                 'ctfRes': t.ctfRes,
-                'nTiltsOverCtfLimit': t.nTiltsOverCtfLimit,
+                'nCtfOffTarget': t.nCtfOffTarget,
+                'nRejected': t.nRejected,
                 'tiltAxis': t.tiltAxis,
                 'shiftRoughness': t.shiftRoughness,
                 'fingerprint': _fingerprint_svg(t),
@@ -335,9 +403,8 @@ def register_content(dc):
         project = dm.get_project_by(id=entry.project_id)
         if project is None:
             return None, []
-        owner = project.user
-        collaborators = [u for u in getattr(project, 'collaborators', [])]
-        return owner, collaborators
+        users = (dm.get_user_by(id=int(uid)) for uid in project.collaborators_ids)
+        return project.user, [u for u in users if u is not None]
 
     # ---------------------------------------------------------------- page
     @dc.content
@@ -379,16 +446,21 @@ def register_content(dc):
         owner, collaborators = _staff(
             dc.app.dm.get_entry_by(id=info['entry_id']))
 
+        # Icon color and, for text, a darker shade where the icon color is
+        # too light to read on white (the same color in dark mode).
+        color = {k: v['color'] for k, v in STATUS_STYLE.items()}
         counters = [
-            {'label': 'imported', 'value': summary['nImported']},
-            {'label': 'reconstructed', 'value': summary['nProcessed']},
-            {'label': 'running',
-             'value': by_status.get(STATUS_RUNNING, 0)},
+            {'label': 'imported', 'value': summary['nImported'],
+             'icon': 'fa-file-import', 'color': INK_COLOR},
+            {'label': 'reconstructed', 'value': summary['nProcessed'],
+             'icon': 'fa-cube', 'color': DATA_COLOR},
+            {'label': 'running', 'value': by_status.get(STATUS_RUNNING, 0),
+             'icon': 'fa-cog', 'color': color[STATUS_OK], 'text': 'var(--otf-good-text)'},
             {'label': 'need a look', 'value': summary['nNeedALook'],
-             'color': STATUS_STYLE[STATUS_SUSPECT]['color']},
-            {'label': 'job failures',
-             'value': by_status.get(STATUS_FAILED, 0),
-             'color': STATUS_STYLE[STATUS_FAILED]['color']},
+             'icon': 'fa-exclamation-triangle', 'color': color[STATUS_SUSPECT],
+             'text': 'var(--otf-warn-text)'},
+            {'label': 'job failures', 'value': by_status.get(STATUS_FAILED, 0),
+             'icon': 'fa-times-circle', 'color': color[STATUS_BAD]},
         ]
 
         # Stage bars, with the lag against the previous stage.  The lag is
@@ -406,6 +478,11 @@ def register_content(dc):
             ))
             prev_done = st['done']
 
+        show_early = any(
+            t.motionEarly['mean'] is not None and not _early_is_total(
+                t.values('rlnAccumMotionEarly'), t.values('rlnAccumMotionTotal'))
+            for t in ts_list)
+
         rows, n_rows_total = _table_rows(
             ts_list, sort=kwargs.get('sort', 'worst'),
             limit=int(kwargs.get('limit', 150)))
@@ -419,12 +496,14 @@ def register_content(dc):
             'staff': ', '.join(u.name for u in collaborators),
             'summary': summary,
             'notReported': summary['notReported'],
+            'warnings': summary['warnings'],
             'state': _session_state(summary),
             'counters': counters,
             'stages': stages,
             'trends': _trend_series(ts_list),
             'rows': rows,
             'nRowsTotal': n_rows_total,
+            'showEarly': show_early,
             'fingerprintLabel': next(
                 (r['fingerprintLabel'] for r in rows
                  if r.get('fingerprintLabel')), None),
@@ -432,6 +511,10 @@ def register_content(dc):
             'sort': kwargs.get('sort', 'worst'),
             'updated': time.strftime('%H:%M:%S'),
             'status_style': STATUS_STYLE,
+            'legend': [STATUS_STYLE[s] for s in (STATUS_OK, STATUS_SUSPECT,
+                                                 STATUS_BAD, STATUS_FAILED,
+                                                 STATUS_RUNNING)],
+            'dataColor': DATA_COLOR,
         }
 
     # ---------------------------------------------------------- detail view
@@ -456,15 +539,72 @@ def register_content(dc):
             key=lambda t: (t.get('acqOrder', 0) if order == 'acq'
                            else (t.get(COL_TILT_ANGLE) or 0)))
 
+        th = session.thresholds
+        ctf_th = th['ctfMaxResolution']
+        # Dashed guides per strip: the target and the reject limit.  The CTF
+        # target follows the tilt angle, so it is a line rather than a level.
+        guides = {
+            'rlnAccumMotionTotal': (th['motionTotal']['target'],
+                                    th['motionTotal']['reject']),
+            'rlnAccumMotionEarly': (th['motionEarly']['flag'], None),
+            'rlnCtfMaxResolution': (
+                [TiltSeriesMetrics.ctf_target(t.get(COL_TILT_ANGLE), ctf_th)
+                 for t in tilts], ctf_th['reject']),
+        }
+
         strips = []
-        for col, label, unit in TILT_STRIPS:
+        for col, label, unit, scale in TILT_STRIPS:
             values = [t.get(col) for t in tilts]
             if not any(v is not None for v in values):
                 continue   # stage has not run yet, so leave the strip out
             if col in PLACEHOLDER_ZERO_COLS and not any(values):
                 continue   # written as placeholder zeros, so not measured
+            if col == 'rlnAccumMotionEarly' and _early_is_total(
+                    values, [t.get('rlnAccumMotionTotal') for t in tilts]):
+                continue
+            target, reject = guides.get(col, (None, None))
             strips.append({'key': col, 'label': label, 'unit': unit,
-                           'values': values})
+                           'values': [None if v is None else v * scale
+                                      for v in values],
+                           'colors': [_strip_color(t, STRIP_FLAG_KEYS.get(col, ()))
+                                      for t in tilts],
+                           'target': target, 'reject': reject})
+
+        # One note and one filmstrip entry per tilt, in plot order; a tilt
+        # without a jpeg keeps its slot so the strip stays aligned with the
+        # plots.
+        notes, thumbs = [], []
+        for t in tilts:
+            if t.get('excluded'):
+                note, border = 'excluded', STATUS_STYLE[STATUS_BAD]['color']
+            elif t.get('reject'):
+                note = 'unusable: ' + ', '.join(TILT_FLAG_LABELS[k] for k in t['reject'])
+                border = STATUS_STYLE[STATUS_BAD]['color']
+            elif t.get('offTarget'):
+                note = 'off target: ' + ', '.join(TILT_FLAG_LABELS[k] for k in t['offTarget'])
+                border = STATUS_STYLE[STATUS_SUSPECT]['color']
+            else:
+                note, border = '', 'transparent'
+            notes.append(note)
+
+            angle = t.get(COL_TILT_ANGLE)
+            ctf_parts = []
+            if (d := t.get('rlnDefocusU')) is not None:
+                ctf_parts.append(f'defocus {d / 1e4:.2f} µm')
+            if (a := t.get('rlnCtfAstigmatism')) is not None:
+                ctf_parts.append(f'astigmatism {a / 1e4:.3f} µm')
+            if (r := t.get('rlnCtfMaxResolution')) is not None and r > 0:
+                ctf_parts.append(f'fit to {r:.1f} Å')
+            thumbs.append({
+                'ctf': ' · '.join(ctf_parts),
+                'image': session.tilt_thumbnail(t),
+                'ps': session.tilt_thumbnail(t, 'ps'),
+                'profile': session.tilt_thumbnail(t, 'ctf'),
+                'border': border,
+                'label': '' if angle is None else f'{round(angle)}°',
+            })
+        if not any(thumb['image'] for thumb in thumbs):
+            thumbs = []
 
         style = STATUS_STYLE[ts.status]
         return {
@@ -496,4 +636,9 @@ def register_content(dc):
             'x': [(t.get('acqOrder', 0) + 1) if order == 'acq'
                   else t.get(COL_TILT_ANGLE) for t in tilts],
             'doses': [t.get(COL_PRE_EXPOSURE) for t in tilts],
+            'angles': [t.get(COL_TILT_ANGLE) for t in tilts],
+            'movieIndex': [None if t.get(COL_MOVIE_INDEX) is None
+                           else int(t[COL_MOVIE_INDEX]) for t in tilts],
+            'tiltNotes': notes,
+            'thumbs': thumbs,
         }

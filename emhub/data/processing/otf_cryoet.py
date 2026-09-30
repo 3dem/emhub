@@ -24,7 +24,7 @@ import json
 import math
 import argparse
 from glob import glob
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 
 from emtools.metadata import StarFile, RelionStar
 
@@ -70,11 +70,16 @@ JOB_OUTPUT_STAR = {
 # rather than inferred from missing output.
 FAILED_STAR = 'failed_tilt_series.star'
 
+# Folder of per tilt jpegs emwrap writes next to the tilt averages
+THUMBNAILS_DIR = 'thumbnails'
+
 # RELION 5 per-tilt columns we read.  Everything is optional: a job that did
 # not run yet simply leaves the column out, and the metric comes back as None.
 COL_TILT_ANGLE = 'rlnTomoNominalStageTiltAngle'
 COL_PRE_EXPOSURE = 'rlnMicrographPreExposure'
 COL_MICROGRAPH = 'rlnMicrographName'
+COL_MOVIE_INDEX = 'rlnTomoTiltMovieIndex'
+COL_POWER_SPECTRUM = 'rlnCtfPowerSpectrum'
 
 MOTION_COLS = ['rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate']
 CTF_COLS = ['rlnDefocusU', 'rlnDefocusV', 'rlnCtfAstigmatism',
@@ -104,20 +109,35 @@ PLACEHOLDER_ZERO_COLS = {
     'rlnCtfMaxResolution', 'rlnCtfFigureOfMerit', 'rlnCtfIceRingDensity',
 }
 
-# Default triage thresholds.  Facilities are expected to override these from
-# the dashboard configuration; they are not meant to be universal.
+# Default triage thresholds, following the facility's RELION 5 CryoET QC
+# reference.  Overridable per entry; they are not meant to be universal.
+#
+# Tilts are judged first: a tilt past a 'reject' limit counts as unusable,
+# one past a 'target' is usable but not optimal.  A tilt series is then
+# judged on how many usable tilts it keeps.  Only data quality is judged
+# here; job failures are handled separately.
 DEFAULT_THRESHOLDS = {
-    'motionTotalMax': {'suspect': 26.0, 'bad': 40.0},
-    'ctfMaxResolutionMean': {'suspect': 5.3, 'bad': 6.4},
-    'ctfMaxResolutionTiltCount': {'suspect': 6, 'bad': 12},  # n tilts over the limit
-    'ctfMaxResolutionTiltLimit': 6.0,
-    'tiltsUsedFraction': {'suspect': 0.90, 'bad': 0.80},
-    'tiltAxisStd': {'suspect': 1.0, 'bad': 2.5},        # degrees
-    # Shift roughness is reported but deliberately not used to flag a
-    # series.  On a real AreTomo session it came out between 67 and 113 A on
-    # every tilt series, which flagged all of them; the smooth synthetic
-    # trajectory it was tuned against was not representative.  Set this to a
-    # dict of limits once calibrated against a session known to be good.
+    # Per tilt
+    'motionTotal': {'target': 15.0, 'reject': 25.0},     # Å
+    'motionEarly': {'flag': 10.0},                        # Å
+    # The CTF fit target loosens with tilt, since the path length through
+    # the sample grows as 1/cos(tilt): lowTarget up to lowTilt, highTarget
+    # from highTilt, linear in between.
+    'ctfMaxResolution': {'lowTilt': 20.0, 'lowTarget': 4.5,
+                         'highTilt': 45.0, 'highTarget': 8.0,
+                         'reject': 10.0},                 # degrees, Å
+    'ctfFigureOfMerit': {'reject': 0.03},
+    'astigmatism': {'reject': 4000.0},                   # Å (0.40 µm)
+    # RELION stores underfocus as positive defocus, so negative is overfocus
+    'defocus': {'reject': 60000.0},                      # Å (6 µm)
+    # Per tilt series
+    'usableFraction': {'bad': 0.70},       # usable tilts / collected tilts
+    'droppedFraction': {'suspect': 0.15},  # excluded + rejected / collected
+    'earlyMotionFraction': {'suspect': 0.30},  # tilts over motionEarly flag
+    # Per session: spread of the tilt axis between tilt series
+    'tiltAxisSessionStd': 1.5,             # degrees
+    # Reported but not used to flag a series: on a real session it came out
+    # at 67-113 Å on every tilt series.  Set limits once calibrated.
     'shiftRoughness': {},
 }
 
@@ -323,11 +343,11 @@ class TiltSeriesMetrics:
 
         self.notReported = sorted(
             name for name, st in (
-                ('Accumulated motion', self.motion),
-                ('Early motion', self.motionEarly),
+                ('accumulated motion', self.motion),
+                ('early motion', self.motionEarly),
                 ('CTF fit resolution', self.ctfRes),
                 ('CTF figure of merit', self.ctfFom),
-                ('Ice ring density', self.iceThickness))
+                ('ice ring density', self.iceThickness))
             if st.get('notReported'))
 
         self._alignment_metrics()
@@ -337,14 +357,74 @@ class TiltSeriesMetrics:
         # scatter around it is what indicates a problem.
         self.defocusTrend = self._defocus_trend()
 
-        limit = th['ctfMaxResolutionTiltLimit']
-        self.nTiltsOverCtfLimit = (
-            None if self.ctfRes.get('notReported') else
-            sum(1 for v in _clean(self.values('rlnCtfMaxResolution'))
-                if v > limit))
-
+        self._judge_tilts(th)
         self._classify(th)
         return self
+
+    @staticmethod
+    def ctf_target(angle, spec):
+        """ CTF fit resolution target (Å) for a tilt at this stage angle. """
+        a = abs(angle or 0.0)
+        low, high = spec['lowTilt'], spec['highTilt']
+        if a <= low:
+            return spec['lowTarget']
+        if a >= high:
+            return spec['highTarget']
+        f = (a - low) / (high - low)
+        return spec['lowTarget'] + f * (spec['highTarget'] - spec['lowTarget'])
+
+    def _judge_tilts(self, th):
+        """ Mark each used tilt with the limits it breaks.
+
+        t['reject'] lists why a tilt would be unusable, t['offTarget'] why it
+        is usable but not optimal.  A metric written as placeholder zeros is
+        never judged: a zero figure of merit that was never measured must not
+        reject every tilt.
+        """
+        measured = {
+            'motion': not self.motion.get('notReported'),
+            'early': not self.motionEarly.get('notReported'),
+            'ctf': not self.ctfRes.get('notReported'),
+            'fom': not self.ctfFom.get('notReported'),
+        }
+        motion, early = th['motionTotal'], th['motionEarly']
+        ctf = th['ctfMaxResolution']
+
+        for t in self.tilts:
+            reject, off = [], []
+            if not t.get('excluded'):
+                m = t.get('rlnAccumMotionTotal')
+                if measured['motion'] and m is not None:
+                    if m > motion['reject']:
+                        reject.append('motion')
+                    elif m > motion['target']:
+                        off.append('motion')
+                e = t.get('rlnAccumMotionEarly')
+                if measured['early'] and e is not None and e > early['flag']:
+                    off.append('early')
+                r = t.get('rlnCtfMaxResolution')
+                if measured['ctf'] and r is not None:
+                    if r > ctf['reject']:
+                        reject.append('ctf')
+                    elif r > self.ctf_target(t.get(COL_TILT_ANGLE), ctf):
+                        off.append('ctf')
+                f = t.get('rlnCtfFigureOfMerit')
+                if measured['fom'] and f is not None and f < th['ctfFigureOfMerit']['reject']:
+                    reject.append('fom')
+                a = t.get('rlnCtfAstigmatism')
+                if a is not None and abs(a) > th['astigmatism']['reject']:
+                    reject.append('astigmatism')
+                d = t.get('rlnDefocusU')
+                if d is not None and (d < 0 or d > th['defocus']['reject']):
+                    reject.append('defocus')
+            t['reject'], t['offTarget'] = reject, off
+
+        self.rejectCounts = Counter(k for t in self.tilts for k in t['reject'])
+        self.offTargetCounts = Counter(k for t in self.tilts for k in t['offTarget'])
+
+        self.nRejected = sum(1 for t in self.tilts if t['reject'])
+        self.nUsable = self.nUsed - self.nRejected
+        self.nCtfOffTarget = self.offTargetCounts['ctf'] if measured['ctf'] else None
 
     def _alignment_metrics(self):
         """ Alignment quality from the Relion 5 columns that emwrap actually
@@ -442,26 +522,48 @@ class TiltSeriesMetrics:
                     continue
                 hit = value > lim if higher_is_worse else value < lim
                 if hit:
-                    reasons.append(msg.format(value=value, limit=lim))
+                    level_word = 'poor' if name == STATUS_BAD else 'suspect'
+                    reasons.append(msg.format(value=value, limit=lim,
+                                              level=level_word))
                     if name == STATUS_BAD:
                         level = STATUS_BAD
                     elif level != STATUS_BAD:
                         level = STATUS_SUSPECT
                     break
 
-        check(self.motion['max'], th['motionTotalMax'],
-              'max accumulated motion {value:.1f} Å over {limit:.0f}')
-        check(self.ctfRes['mean'], th['ctfMaxResolutionMean'],
-              'mean CTF fit {value:.2f} Å over {limit:.1f}')
-        check(self.nTiltsOverCtfLimit, th['ctfMaxResolutionTiltCount'],
-              '{value:.0f} tilts with CTF fit worse than the limit')
-        check(self.tiltAxis['std'], th['tiltAxisStd'],
-              'refined tilt axis varies by {value:.2f}° across the tilts')
-        check(self.shiftRoughness, th['shiftRoughness'],
-              'alignment shifts not smooth across tilt angle ({value:.0f} Å)')
         if self.nTilts:
-            check(self.nUsed / self.nTilts, th['tiltsUsedFraction'],
-                  'only {value:.0%} of tilts used', higher_is_worse=False)
+            n = self.nTilts
+            labels = {
+                'motion': f'motion above {th["motionTotal"]["reject"]:.0f} Å',
+                'ctf': f'CTF fit worse than {th["ctfMaxResolution"]["reject"]:.0f} Å',
+                'fom': f'CTF figure of merit below {th["ctfFigureOfMerit"]["reject"]}',
+                'astigmatism': f'astigmatism above {th["astigmatism"]["reject"] / 1e4:.2f} µm',
+                'defocus': f'defocus overfocused or above {th["defocus"]["reject"] / 1e4:.0f} µm',
+            }
+            # Plain strings from here are formatted by check(), not here
+            why = ', '.join(f'{c} with {labels[k]}'
+                            for k, c in self.rejectCounts.most_common())
+            why = f' ({why})' if why else ''
+            n_dropped = n - self.nUsable
+            check(self.nUsable / n, th['usableFraction'],
+                  f'Only {self.nUsable} of {n} tilts are usable{why}: '
+                  '{value:.0%}, below the {level} limit of {limit:.0%}',
+                  higher_is_worse=False)
+            if level != STATUS_BAD:
+                check(n_dropped / n, th['droppedFraction'],
+                      f'{n_dropped} of {n} tilts are dropped or unusable{why}: '
+                      '{value:.0%}, above the {level} limit of {limit:.0%}')
+            if self.nUsed and 'early' in self.offTargetCounts:
+                check(self.offTargetCounts['early'] / self.nUsed,
+                      th['earlyMotionFraction'],
+                      f'{self.offTargetCounts["early"]} of {self.nUsed} tilts '
+                      f'have early motion above {th["motionEarly"]["flag"]:.0f} Å: '
+                      '{value:.0%}, above the {level} limit of {limit:.0%}; '
+                      'consider re-running motion correction with a different '
+                      'frame grouping')
+        check(self.shiftRoughness, th['shiftRoughness'],
+              'Alignment shifts are irregular across tilt angle '
+              '({value:.0f} Å, {level} limit {limit:.0f} Å)')
 
         self.status = level
         self.reasons = reasons
@@ -490,7 +592,9 @@ class TiltSeriesMetrics:
             d[name] = getattr(self, name, None)
         d['defocusTrend'] = getattr(self, 'defocusTrend', None)
         d['shiftRoughness'] = getattr(self, 'shiftRoughness', None)
-        d['nTiltsOverCtfLimit'] = getattr(self, 'nTiltsOverCtfLimit', None)
+        for name in ('nCtfOffTarget', 'nRejected', 'nUsable',
+                     'rejectCounts', 'offTargetCounts'):
+            d[name] = getattr(self, name, None)
         if with_tilts:
             d['tilts'] = self.tilts
         return d
@@ -516,6 +620,32 @@ class OtfSession:
 
     def join(self, *p):
         return os.path.join(self.path, *p)
+
+    # kind -> (column of the source MRC, file emwrap writes for it)
+    THUMBNAIL_KINDS = {
+        'image': (COL_MICROGRAPH, '{name}.jpg'),
+        'ps': (COL_POWER_SPECTRUM, '{name}_ps.jpg'),
+        'ctf': (COL_POWER_SPECTRUM, '{name}_ctf.json'),
+    }
+
+    def tilt_thumbnail(self, tilt, kind='image'):
+        """ A file emwrap writes for a tilt, as {'path', 'version'}, or None
+        if it has not been written.  emwrap puts them in a 'thumbnails'
+        folder beside the folder of the source MRC: the tilt image, the CTF
+        fit image and the CTF fit radial profile.  path is project relative;
+        version is the modification time, for the URL, so the browser does
+        not keep showing a cached copy after emwrap rewrites the file. """
+        col, pattern = self.THUMBNAIL_KINDS[kind]
+        src = tilt.get(col)
+        if not src:
+            return None
+        name = pattern.format(name=os.path.splitext(os.path.basename(src))[0])
+        rel = os.path.join(os.path.dirname(os.path.dirname(src)), THUMBNAILS_DIR, name)
+        try:
+            mtime = os.stat(self.join(rel)).st_mtime
+        except OSError:
+            return None
+        return {'path': rel, 'version': int(mtime)}
 
     @property
     def pipelineStar(self):
@@ -605,7 +735,7 @@ class OtfSession:
         if not os.path.exists(star_path):
             return []
 
-        wanted = ([COL_TILT_ANGLE, COL_PRE_EXPOSURE, COL_MICROGRAPH]
+        wanted = ([COL_TILT_ANGLE, COL_PRE_EXPOSURE, COL_MICROGRAPH, COL_MOVIE_INDEX]
                   + MOTION_COLS + CTF_COLS + ALIGN_COLS)
         tilts = []
         with StarFile(star_path) as sf:
@@ -617,8 +747,9 @@ class OtfSession:
             for i, row in enumerate(sf.iterTable(table, guessType=False)):
                 cells = row._asdict()
                 t = {'index': i, 'excluded': False}
-                if mic := cells.get(COL_MICROGRAPH):
-                    t[COL_MICROGRAPH] = mic
+                for col in (COL_MICROGRAPH, COL_POWER_SPECTRUM):
+                    if path := cells.get(col):
+                        t[col] = path
                 for col in wanted:
                     if col == COL_MICROGRAPH:
                         continue
@@ -649,6 +780,7 @@ class OtfSession:
 
         stages = self.stages(reload=reload)
         series = OrderedDict()
+        prev_key = None
 
         for key in STAGES:
             job = stages.get(key)
@@ -689,13 +821,19 @@ class OtfSession:
                 ts.failedAt = key
                 ts.stage = ts.stage or key
 
-            # A whole job that died or is still going marks every series it
-            # was working on, unless that series already failed on its own.
-            if job.failed or job.running:
-                job_status = STATUS_FAILED if job.failed else STATUS_RUNNING
-                for name in globals_:
-                    if series[name].status != STATUS_FAILED:
-                        series[name].status = job_status
+            # A job that died or is still going only concerns the series
+            # waiting for it: those it already wrote out are done.  On the fly
+            # jobs run for the whole session, so marking its output as
+            # running would hide every series until acquisition ends.
+            if (job.failed or job.running) and prev_key is not None:
+                for ts in series.values():
+                    if ts.stage == prev_key and ts.status is None:
+                        if job.failed:
+                            ts.status, ts.failedAt = STATUS_FAILED, key
+                        else:
+                            ts.status = STATUS_RUNNING
+                            ts.stage = key
+            prev_key = key
 
         for ts in series.values():
             ts.summarize(self.thresholds)
@@ -745,7 +883,22 @@ class OtfSession:
         not_reported = sorted(set(
             name for t in ts_list for name in getattr(t, 'notReported', [])))
 
+        # The tilt axis should agree between tilt series; a spread points at
+        # stage wear or holder calibration rather than at one sample.
+        warnings = []
+        axes = _clean([t.tiltAxis['mean'] for t in ts_list
+                       if t.status not in (STATUS_FAILED, STATUS_RUNNING)])
+        axis_std = _std(axes) if len(axes) > 1 else None
+        axis_limit = self.thresholds['tiltAxisSessionStd']
+        if axis_std is not None and axis_std > axis_limit:
+            warnings.append(
+                f'The refined tilt axis varies by {axis_std:.2f}° between tilt '
+                f'series, above the limit of {axis_limit:.1f}°: check the stage '
+                f'and the holder calibration.')
+
         return {
+            'warnings': warnings,
+            'tiltAxisSessionStd': axis_std,
             'path': self.path,
             'nImported': n_imported,
             'notReported': not_reported,

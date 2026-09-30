@@ -21,6 +21,9 @@
 
         <div class="card-body">
             <p>Path: <small>{{ data['processing_path'] }}</small></p>
+            <a href="{{ url_for_content('otf_dashboard', entry_id=tp['id']) }}"
+               class="btn btn-sm btn-outline-primary">
+               <i class="fas fa-chart-line mr-1"></i> On-the-fly dashboard</a>
 
         </div>
 

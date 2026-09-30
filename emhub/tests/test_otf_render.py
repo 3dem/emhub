@@ -34,10 +34,12 @@ def build_stub_dc(project_path):
         def __init__(self, name):
             self.name = name
 
+    users = {2: User('L. Ferrand'), 3: User('D. Hsu')}
+
     class Project:
         id = 6
         user = User('M. Okonjo')
-        collaborators = [User('L. Ferrand'), User('D. Hsu')]
+        collaborators_ids = ['2', '3']
 
     class Entry:
         id = 6
@@ -58,6 +60,9 @@ def build_stub_dc(project_path):
 
         def get_project_by(self, **kw):
             return Project()
+
+        def get_user_by(self, **kw):
+            return users.get(kw.get('id'))
 
     class App:
         dm = DataManager()
