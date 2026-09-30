@@ -187,10 +187,14 @@ class RootFolderHandler(TaskHandler):
     """ Monitor the root folder(s) of one instrument and report their entries
     as possible new sessions. Each sub-folder is reported with its size and
     number of movies, to the same log used for the instrument frames folder.
+    Entries that are (or contain) a monitored root, of this instrument or
+    others (`exclude`), are not reported, to avoid listing nested roots.
     """
-    def __init__(self, worker, instrument, roots, sleep=60):
+    def __init__(self, worker, instrument, roots, sleep=60, exclude=None):
         self.instrument = instrument
         self.roots = roots if isinstance(roots, list) else [roots]
+        self.roots_real = {os.path.realpath(r)
+                           for r in self.roots + list(exclude or [])}
         TaskHandler.__init__(self, worker,
                              {'id': f'root-{instrument}', 'args': {}})
         self.emhub_log = f'frames:{instrument}'
@@ -201,6 +205,11 @@ class RootFolderHandler(TaskHandler):
     def getLogPrefix(self):
         return f"ROOT-{self.instrument}"
 
+    def _is_root_or_parent(self, path):
+        """ Return True if path is a monitored root or contains one. """
+        rp = os.path.realpath(path)
+        return any(r == rp or r.startswith(rp + os.sep) for r in self.roots_real)
+
     def process(self):
         t = Timer()
         entries = []
@@ -208,6 +217,8 @@ class RootFolderHandler(TaskHandler):
         for root in self.roots:
             for name in sorted(os.listdir(root)):
                 path = os.path.join(root, name)
+                if self._is_root_or_parent(path):
+                    continue  # nested root, reported on its own
                 try:
                     s = os.stat(path)
                 except OSError:  # temporary files can disappear
@@ -224,7 +235,9 @@ class RootFolderHandler(TaskHandler):
                 entry.update({'name': name, 'path': path, 'root': root})
                 entries.append(entry)
 
-        usage = [shutil.disk_usage(root) for root in self.roots]
+        # Count usage once per filesystem, roots can share the same one
+        devices = {os.stat(r).st_dev: r for r in self.roots}
+        usage = [shutil.disk_usage(r) for r in devices.values()]
         self.update_log({
             'maxlen': 3,  # only the last events are relevant
             'entries': json.dumps(entries),
@@ -263,7 +276,10 @@ class SessionMonitorWorker(Worker):
 
         for instrument, roots in self.roots.items():
             self.info(f"Monitoring root folders of {instrument}: {roots}")
-            RootFolderHandler(self, instrument, roots, self.handler_sleep).start()
+            others = [r for i, rs in self.roots.items() if i != instrument
+                      for r in rs]
+            RootFolderHandler(self, instrument, roots, self.handler_sleep,
+                              exclude=others).start()
 
         last_id = 0
         while True:
