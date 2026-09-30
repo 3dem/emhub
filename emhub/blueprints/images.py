@@ -32,10 +32,12 @@ import base64
 from PIL import Image, ImageEnhance, ImageOps, ImageFilter
 
 import flask
+import flask_login
 from flask import request
 from flask import current_app as app
 
 from emhub.utils import send_json_data
+from emhub.data.processing import resolve_processing_path
 from emtools.image import Thumbnail
 
 
@@ -99,6 +101,33 @@ def entry():
         return flask.send_from_directory(path, name, as_attachment=attachment)
     except FileNotFoundError:
         flask.abort(404)
+
+
+@images_bp.route("/otf_thumbnail", methods=['GET'])
+@flask_login.login_required
+def otf_thumbnail():
+    """ Serve a tilt jpeg, or CTF fit profile json, that emwrap wrote under a
+    'thumbnails' folder of a tomo_processing project.  The path comes from
+    the browser, so only those files are served, and send_from_directory
+    refuses anything outside the project root.  The browser caches them
+    across refreshes; the dashboard adds the file's modification time to
+    the URL (v=), so a file emwrap rewrites gets a new URL. """
+    entry = app.dm.get_entry_by(id=int(request.args.get('entry', 0)))
+    rel = request.args.get('path', '')
+    parts = rel.split('/')
+    if (entry is None or entry.type != 'tomo_processing'
+            or not rel.endswith(('.jpg', '_ctf.json')) or len(parts) < 2
+            or parts[-2] != 'thumbnails'):
+        flask.abort(404)
+    root = resolve_processing_path(
+        entry.extra.get('data', {}).get('processing_path', ''))
+    if not root:
+        flask.abort(404)
+    response = flask.send_from_directory(root, rel, max_age=3600)
+    # Behind a login: the browser may cache it, shared proxies may not
+    response.cache_control.public = False
+    response.cache_control.private = True
+    return response
 
 
 @images_bp.route("/get_mic_data", methods=['POST'])
