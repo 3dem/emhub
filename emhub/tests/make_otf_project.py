@@ -38,6 +38,8 @@ JOBS = [
     ('WarpTsAlign/job004', 'emw-warp-tsalign', 'Succeeded'),
     ('WarpCtfRec/job005', 'emw-warp-ctfrec', 'Succeeded'),
 ]
+# With --acquiring, how many of the newest tilt series each stage is behind.
+STAGE_LAGS = [0, 1, 3, 6]
 
 GLOBAL_COLS = [
     'rlnTomoName', 'rlnTomoTiltSeriesStarFile', 'rlnVoltage',
@@ -97,11 +99,16 @@ def _tilt_rows(ts_index, cols, rng, placeholders=False):
         if 'rlnAccumMotionTotal' in cols:
             total = (4.2 + 2.9 * acq / 40 + 1.5 * drift + 0.9 * step) \
                     * (0.85 + 0.3 * rng.random()) * ct ** 0.35
+            # Every 25th series loses the stage halfway through, so enough
+            # tilts cross the motion reject limit to make the series poor.
+            if ts_index % 25 == 24 and acq >= N_TILTS // 2:
+                total *= 6.0
             early = (1.1 + 0.6 * drift) * (0.7 + 0.6 * rng.random())
             defU = 26000 + 3400 * (ts_index % 7) / 7 + angle * 118 \
                    + 900 * (rng.random() - 0.5)
             astig = 420 + 1500 * drift * rng.random()
-            res = (3.6 + 1.25 * (ct - 1) + 1.5 * drift + 0.35 * step) \
+            # Late in the session the high tilts degrade past the reject limit
+            res = (3.6 + 1.25 * (ct - 1) + 9.0 * drift * (ct - 1) + 0.35 * step) \
                   * (0.92 + 0.18 * rng.random())
             values.update({
                 'rlnMicrographName': f'{JOBS[1][0]}/tilt_images/TS_{ts_index+1:04d}_{j:03d}.mrc',
@@ -148,45 +155,51 @@ def _tilt_rows(ts_index, cols, rng, placeholders=False):
     return rows
 
 
-def write_project(path, n_ts=40, seed=42, placeholders=False):
+def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False):
     """ placeholders=True reproduces what emwrap devel currently writes:
     accumulated motion hardcoded to 0 and the CTF quality columns left at
     the defaultdict zero, with only the defocus values real.  Use it to
     check the dashboard reports those as not available rather than as a
-    perfect score. """
+    perfect score.
+
+    acquiring=True writes a session in progress: every job is Running and
+    each later stage lags the one before it, as with emwrap on the fly. """
     rng = random.Random(seed)
     os.makedirs(path, exist_ok=True)
 
+    jobs = [(j, t, 'Running' if acquiring else s) for j, t, s in JOBS]
+    lags = STAGE_LAGS if acquiring else [0] * len(jobs)
     stage_defs = [
         # Filenames and node type labels as emwrap actually writes them.
-        (JOBS[0], 'tilt_series.star', TILT_COLS_IMPORT,
+        (jobs[0], 'tilt_series.star', TILT_COLS_IMPORT,
          'TomogramGroupMetadata.star.emwrap.TiltSeries'),
-        (JOBS[1], 'tilt_series.star', TILT_COLS_MCTF,
+        (jobs[1], 'tilt_series.star', TILT_COLS_MCTF,
          'TomogramGroupMetadata.star.emwrap.TiltSeriesAligned'),
-        (JOBS[2], 'aligned_tilt_series.star', TILT_COLS_ALIGN,
+        (jobs[2], 'aligned_tilt_series.star', TILT_COLS_ALIGN,
          'TomogramGroupMetadata.star.emwrap.tsalign'),
-        (JOBS[3], 'tomograms.star', TILT_COLS_ALIGN,
+        (jobs[3], 'tomograms.star', TILT_COLS_ALIGN,
          'TomogramGroupMetadata.star.relion.tomo.Tomograms'),
     ]
 
     names = [f'TS_{i+1:04d}' for i in range(n_ts)]
-    # One tilt series that alignment cannot process, and one still running.
+    # One tilt series that alignment cannot process.
     failed_at_align = names[n_ts // 2] if n_ts > 4 else None
 
-    for (job_id, jobtype, _), star_name, cols, _node in stage_defs:
+    for ((job_id, jobtype, _), star_name, cols, _node), lag in zip(stage_defs, lags):
         job_dir = os.path.join(path, job_id)
         os.makedirs(os.path.join(job_dir, 'tilt_series'), exist_ok=True)
 
-        stage_names = names
+        stage_names = names[:max(0, n_ts - lag)]
         if failed_at_align and jobtype in ('emw-warp-tsalign', 'emw-warp-ctfrec'):
-            stage_names = [n for n in names if n != failed_at_align]
+            stage_names = [n for n in stage_names if n != failed_at_align]
 
         global_table = Table(GLOBAL_COLS)
         for i, name in enumerate(names):
             ts_star = f'{job_id}/tilt_series/{name}.star'
-            global_table.addRowValues(
-                name, ts_star, 300.0, 2.7, 0.07,
-                PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE)
+            if name in stage_names:
+                global_table.addRowValues(
+                    name, ts_star, 300.0, 2.7, 0.07,
+                    PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE)
 
             tilt_table = Table(cols)
             for row in _tilt_rows(i, cols, rng, placeholders=placeholders):
@@ -276,9 +289,12 @@ def main():
                    dest='placeholders',
                    help='write motion and CTF quality as the placeholder '
                         'zeros emwrap currently produces')
+    p.add_argument('--acquiring', action='store_true',
+                   help='write a session in progress: all jobs Running, '
+                        'later stages lagging behind')
     args = p.parse_args()
     write_project(args.path, n_ts=args.n_ts, seed=args.seed,
-                  placeholders=args.placeholders)
+                  placeholders=args.placeholders, acquiring=args.acquiring)
     print(f'Wrote fake OTF project with {args.n_ts} tilt series to {args.path}')
 
 
