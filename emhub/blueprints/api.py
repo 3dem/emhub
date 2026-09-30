@@ -220,6 +220,11 @@ def update_user_form():
                 'independent_resources': [_val(v) for v in independent_resources.split(',') if _val(v)]
             }
 
+        # Only admins can change the local authentication flag. An unchecked
+        # checkbox is not sent, so the hidden field tells us it was rendered
+        if 'user-auth-local-field' in f and app.user.is_admin:
+            attrs.setdefault('extra', {})['auth_local'] = 'user-auth-local' in f
+
         password = f['user-password'].strip()
         if password:
             attrs['password'] = password
