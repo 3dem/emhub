@@ -105,6 +105,11 @@
 /* Tilt series window: wider than modal-xl, for the strips and the
    selected tilt side by side */
 .modal-dialog.otf-modal-wide { max-width: min(1640px, 96vw); }
+/* Tilt series viewers, side by side; metadata on its own row */
+#otf-viewer-pane { display: flex; flex-wrap: wrap; gap: 0 32px; align-items: flex-start; }
+.otf-viewer-panel { min-width: 0; }
+.otf-viewer-panel h6 { overflow-wrap: anywhere; }
+.otf-viewer-panel[data-viewer="metadata"] { flex: 1 1 100%; }
 /* Tomogram orthogonal sections; the lines mark the other two slices */
 .otf-volume-info { font-size: .8rem; color: var(--otf-muted); margin: 0 0 8px; }
 .otf-ortho { display: grid; grid-template-columns: max-content max-content; gap: 6px 14px;
@@ -315,20 +320,16 @@
        section above it (same X) and the X section beside it (same Y, made
        upright by the server), with lines on each marking where the other
        two are. */
-    function otfOrthoViewer(pane, voxel) {
+    function otfOrthoViewer($body, pane, voxel) {
         var d = pane.dimensions, X = d[0], Y = d[1], Z = d[2];
         var s = 520 / Math.max(X, Y);      // screen px per voxel
-        var $body = $('#otf-viewer-body');
-        var shown = ['x', 'y', 'z'].map(function(a, i) {
-            return Object.keys(pane.axes[a].slices).length + ' of ' + d[i] + ' ' + a.toUpperCase();
-        });
-        var info = 'Volume dimensions (X × Y × Z): ' + d.join(' × ') + ' voxels';
-        if (voxel) {
-            info += ' at ' + voxel.toFixed(2) + ' Å = ' +
-                    d.map(function(v) { return Math.round(v * voxel / 10); }).join(' × ') + ' nm';
-        }
+        var n = ['x', 'y', 'z'].map(function(a) { return Object.keys(pane.axes[a].slices).length; });
+        var shown = (n[0] === n[1] && n[1] === n[2]) ? n[0] + ' slices per axis'
+                                                     : n.join(', ') + ' slices (X, Y, Z)';
         $('<p class="otf-volume-info"></p>').text(
-            info + '. Showing ' + shown.join(', ') + ' slices, evenly spaced over the whole volume.'
+            'Volume dimensions (X × Y × Z): ' + d.join(' × ') + ' voxels' +
+            (voxel ? ' at ' + voxel.toFixed(2) + ' Å' : '') +
+            '. Showing ' + shown + ', evenly spaced over the whole volume.'
         ).appendTo($body);
         $body.append('<div class="otf-ortho"><div id="otf-vol-y"></div><div></div>' +
                      '<div id="otf-vol-z"></div><div id="otf-vol-x"></div></div>');
@@ -358,56 +359,73 @@
         mark();
     }
 
-    function otfViewPane(attrs, voxel) {
-        var $pane = otfClear($('#otf-viewer-pane'));
-        $pane.html('<small class="text-muted">Loading…</small>');
+    /* Each viewer opens in its own panel and its button opens and closes
+       it, so the aligned stack and the tomogram reconstructed from it can
+       be looked at side by side; metadata, a wide table, takes the row
+       above them. */
+    var OTF_VIEWERS = ['metadata', 'stack', 'tomogram'];
+    function otfViewPane(kind, attrs, voxel) {
+        var $pane = $('#otf-viewer-pane');
+        var $button = $(OTF_MODAL + ' [data-viewer="' + kind + '"]');
+        var $open = $pane.children('[data-viewer="' + kind + '"]');
+        if ($open.length) {
+            $open.remove();
+            $button.removeClass('active');
+            return;
+        }
+        var bodyId = 'otf-viewer-body-' + kind;
+        var $panel = $('<div class="otf-viewer-panel"></div>')
+            .attr('data-viewer', kind).css('order', OTF_VIEWERS.indexOf(kind))
+            .append('<h6 class="mt-3"></h6>')
+            .append($('<div></div>').attr('id', bodyId)
+                    .html('<small class="text-muted">Loading…</small>'))
+            .appendTo($pane);
+        $button.addClass('active');
         attrs.root = OTF_ROOT;
         attrs.pointerClass = 'tomograms';
         send_ajax_json(Api.urls.resolve_table_view_pane, attrs, function(data) {
             var pane = data.paneContent;
+            if (!$.contains(document, $panel[0])) return;     // closed while loading
             if (!pane) {
-                $pane.html('');
+                $panel.remove();
+                $button.removeClass('active');
                 showError(data.error || 'Could not load viewer content.');
                 return;
             }
-            $pane.html('<h6 class="mt-3"></h6><div id="otf-viewer-body"></div>');
-            $pane.find('h6').text(pane.title || '');
+            $panel.find('h6').text(pane.title || '');
+            var $body = $('#' + bodyId).empty();
             if (pane.kind === 'imageSlider' && pane.axes && pane.dimensions &&
                     pane.axes.x && pane.axes.y && pane.axes.z) {
-                otfOrthoViewer(pane, voxel);
+                otfOrthoViewer($body, pane, voxel);
             } else if (pane.kind === 'imageSlider' && pane.axes) {
                 var slices = {};
                 Object.keys(pane.axes).forEach(function(axis) {
                     slices[axis] = pane.axes[axis].slices;
                 });
-                new VolumeSliderCard('otf-viewer-body', slices,
-                                     {slice_dim: 512, coordinates: []});
+                new VolumeSliderCard(bodyId, slices, {slice_dim: 512, coordinates: []});
             } else if (pane.kind === 'imageSlider') {
-                new ImageSliderCard('otf-viewer-body', pane.slices,
+                new ImageSliderCard(bodyId, pane.slices,
                                     {slider_prefix: pane.sliderPrefix || ''});
             } else if (pane.kind === 'text') {
-                $('#otf-viewer-body').append(
-                    $('<pre class="small" style="max-height: 420px; overflow: auto"></pre>')
-                        .text(pane.text));
+                $body.append($('<pre class="small" style="max-height: 420px; overflow: auto"></pre>')
+                             .text(pane.text));
             } else {
-                $('#otf-viewer-body').append(
-                    $('<small class="text-muted"></small>').text(pane.message || ''));
+                $body.append($('<small class="text-muted"></small>').text(pane.message || ''));
             }
         });
     }
 
     window.otfViewStar = function(tomoName, starPath) {
-        otfViewPane({actionId: 'metadata', starPath: starPath, rowLabel: tomoName});
+        otfViewPane('metadata', {actionId: 'metadata', starPath: starPath, rowLabel: tomoName});
     };
     window.otfViewStack = function(tomoName, stackPath) {
-        otfViewPane({actionId: 'aligned-slices', rowLabel: tomoName,
-                     row: {cells: {rlnTiltSeriesAligned: stackPath}}});
+        otfViewPane('stack', {actionId: 'aligned-slices', rowLabel: tomoName,
+                              row: {cells: {rlnTiltSeriesAligned: stackPath}}});
     };
     window.otfViewTomogram = function(tomoName, tomoPath, voxel) {
-        otfViewPane({actionId: 'volume-slices', rowLabel: tomoName, ortho: true,
-                     row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}}, voxel);
+        otfViewPane('tomogram', {actionId: 'volume-slices', rowLabel: tomoName, ortho: true,
+                                 row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}}, voxel);
     };
-
     otfStart();
 
 })(window, document, window.jQuery);

@@ -122,17 +122,17 @@
             <h6>Tilt series viewers</h6>
             {# Single-quoted attributes: tojson escapes ' but not ". #}
             {% if tiltSeriesStar %}
-                <button type="button" class="btn btn-sm btn-outline-light mr-2"
+                <button type="button" class="btn btn-sm btn-outline-light mr-2" data-viewer="metadata"
                    onclick='otfViewStar({{ tomoName|tojson }}, {{ tiltSeriesStar|tojson }})'>
                    <i class="fas fa-table"></i> Metadata</button>
             {% endif %}
             {% if alignedStack and alignedStack != 'None' %}
-                <button type="button" class="btn btn-sm btn-outline-light mr-2"
+                <button type="button" class="btn btn-sm btn-outline-light mr-2" data-viewer="stack"
                    onclick='otfViewStack({{ tomoName|tojson }}, {{ alignedStack|tojson }})'>
                    <i class="fas fa-layer-group"></i> Aligned stack slices</button>
             {% endif %}
             {% if tomogram %}
-                <button type="button" class="btn btn-sm btn-outline-light mr-2"
+                <button type="button" class="btn btn-sm btn-outline-light mr-2" data-viewer="tomogram"
                    onclick='otfViewTomogram({{ tomoName|tojson }}, {{ tomogram|tojson }}, {{ tomoPixelSize|tojson }})'>
                    <i class="fas fa-cube"></i> Tomogram slices</button>
             {% else %}
