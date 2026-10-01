@@ -647,6 +647,47 @@ class OtfSession:
             return None
         return {'path': rel, 'version': int(mtime)}
 
+    def aligned_stack_tilts(self, ts):
+        """ The tilt of each section of the tilt series' aligned stack, in
+        stack order, or None if that cannot be told.
+
+        The stack's angles are in the IMOD .tlt file beside it, and AreTomo
+        may write them with the opposite sign to RELION's nominal stage
+        angles.  The sign is the one under which every section matches a
+        tilt to within rounding; when both signs fit equally (a perfectly
+        symmetric scheme) the order is ambiguous and None is returned.
+        """
+        stack = ts.alignedStack
+        tilts = [t for t in ts.tilts if t.get(COL_TILT_ANGLE) is not None]
+        if not stack or stack == 'None' or not tilts:
+            return None
+        tlt = os.path.splitext(self.join(stack))[0] + '.tlt'
+        try:
+            with open(tlt) as f:
+                angles = [float(v) for v in f.read().split()]
+        except (OSError, ValueError):
+            return None
+        if not angles or len(angles) > len(tilts):
+            return None
+
+        def match(sign):
+            # Each section's nearest tilt, and the worst mismatch
+            picks = [min(tilts, key=lambda t: abs(t[COL_TILT_ANGLE] - sign * a))
+                     for a in angles]
+            worst = max(abs(t[COL_TILT_ANGLE] - sign * a) for t, a in zip(picks, angles))
+            return worst, picks
+
+        (err_same, same), (err_flip, flip) = match(1), match(-1)
+        best_err, best = min((err_same, same), (err_flip, flip), key=lambda m: m[0])
+        other_err = max(err_same, err_flip)
+        # Rounding is within 0.01 degree; a sign is only trusted if the other
+        # one fits clearly worse, and every section must be a different tilt
+        if best_err > 0.02 or other_err < 2 * best_err + 0.01:
+            return None
+        if len({id(t) for t in best}) != len(best):
+            return None
+        return best
+
     @property
     def pipelineStar(self):
         return self.join('default_pipeline.star')

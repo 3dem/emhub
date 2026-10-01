@@ -129,7 +129,7 @@
             {% endif %}
             {% if alignedStack and alignedStack != 'None' %}
                 <button type="button" class="btn btn-sm btn-outline-light mr-2" data-viewer="stack"
-                   onclick='otfViewStack({{ tomoName|tojson }}, {{ alignedStack|tojson }})'>
+                   onclick='otfViewStack({{ tomoName|tojson }}, {{ alignedStack|tojson }}, {{ stackLabels|tojson }})'>
                    <i class="fas fa-layer-group"></i> Aligned stack slices</button>
             {% endif %}
             {% if tomogram %}

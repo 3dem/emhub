@@ -361,7 +361,8 @@
        be looked at side by side; metadata, a wide table, takes the row
        above them. */
     var OTF_VIEWERS = ['metadata', 'stack', 'tomogram'];
-    function otfViewPane(kind, attrs, voxel) {
+    function otfViewPane(kind, attrs, opts) {
+        opts = opts || {};
         var $pane = $('#otf-viewer-pane');
         var $button = $(OTF_MODAL + ' [data-viewer="' + kind + '"]');
         var $open = $pane.children('[data-viewer="' + kind + '"]');
@@ -393,10 +394,17 @@
             var $body = $('#' + bodyId).empty();
             if (pane.kind === 'imageSlider' && pane.axes && pane.dimensions &&
                     pane.axes.x && pane.axes.y && pane.axes.z) {
-                otfOrthoViewer($body, pane, voxel);
+                otfOrthoViewer($body, pane, opts.voxel);
             } else if (pane.kind === 'imageSlider') {
-                new ImageSliderCard(bodyId, pane.slices,
-                                    {slider_prefix: pane.sliderPrefix || ''});
+                // Sections named by their tilt when the dashboard matched them
+                var slices = pane.slices, prefix = pane.sliderPrefix || '';
+                var keys = Object.keys(slices);
+                if (opts.labels && opts.labels.length === keys.length) {
+                    slices = {};
+                    keys.forEach(function(k, i) { slices[opts.labels[i]] = pane.slices[k]; });
+                    prefix = '';
+                }
+                new ImageSliderCard(bodyId, slices, {slider_prefix: prefix});
             } else if (pane.kind === 'text') {
                 $body.append($('<pre class="small" style="max-height: 420px; overflow: auto"></pre>')
                              .text(pane.text));
@@ -409,13 +417,13 @@
     window.otfViewStar = function(tomoName, starPath) {
         otfViewPane('metadata', {actionId: 'metadata', starPath: starPath, rowLabel: tomoName});
     };
-    window.otfViewStack = function(tomoName, stackPath) {
+    window.otfViewStack = function(tomoName, stackPath, labels) {
         otfViewPane('stack', {actionId: 'aligned-slices', rowLabel: tomoName,
-                              row: {cells: {rlnTiltSeriesAligned: stackPath}}});
+                              row: {cells: {rlnTiltSeriesAligned: stackPath}}}, {labels: labels});
     };
     window.otfViewTomogram = function(tomoName, tomoPath, voxel) {
         otfViewPane('tomogram', {actionId: 'volume-slices', rowLabel: tomoName, ortho: true,
-                                 row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}}, voxel);
+                                 row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}}, {voxel: voxel});
     };
     otfStart();
 
