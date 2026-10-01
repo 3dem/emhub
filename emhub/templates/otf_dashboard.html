@@ -43,7 +43,7 @@
 .otf-num { font-variant-numeric: tabular-nums; text-align: right; }
 .otf-sd { color: var(--otf-faint); font-size: .75rem; }
 .otf-row-link { cursor: pointer; }
-.otf-trend { height: 110px; }
+
 .otf-state-acquiring { color: var(--otf-good-text); }
 .otf-state-idle { color: var(--otf-secondary); }
 .otf-state-ended { color: var(--otf-secondary); }
@@ -165,11 +165,16 @@
     // Transparent backgrounds let the card show through
     function otfThemeLayout(layout) {
         var grid = otfCss('--otf-grid');
-        return $.extend(true, {
+        var theme = {
             paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
             font: {color: otfCss('--otf-plot-text')},
             xaxis: {gridcolor: grid}, yaxis: {gridcolor: grid}
-        }, layout);
+        };
+        // Every axis of a figure with several panels (yaxis2, ...)
+        Object.keys(layout).forEach(function(k) {
+            if (/^[xy]axis\d+$/.test(k)) theme[k] = {gridcolor: grid};
+        });
+        return $.extend(true, theme, layout);
     }
     function otfPlot(div, draw) {
         div.otfDraw = draw;

@@ -351,6 +351,7 @@ def register_content(dc):
         names = [t.tomoName for t in ts_list]
         colors = [STATUS_STYLE[t.status]['color'] for t in ts_list]
         symbols = [PLOT_SYMBOL[STATUS_STYLE[t.status]['shape']] for t in ts_list]
+        statuses = [STATUS_STYLE[t.status]['label'] for t in ts_list]
 
         series = []
         for key, stat, label, unit, scale, help_text in TRENDS:
@@ -376,7 +377,7 @@ def register_content(dc):
         # x, markers and names are identical for all four plots, so they are
         # sent once rather than four times.
         return {'x': x, 'colors': colors, 'symbols': symbols, 'names': names,
-                'plots': series}
+                'statuses': statuses, 'plots': series}
 
     def _table_rows(ts_list, sort='worst', limit=150):
         rows = []

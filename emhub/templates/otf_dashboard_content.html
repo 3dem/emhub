@@ -108,9 +108,7 @@
         </small>
     </div>
     <div class="card-body pt-2">
-        {% for tr in trends.plots %}
-            <div class="otf-trend" id="otf-trend-{{ tr.key }}"></div>
-        {% endfor %}
+        {% if trends.plots %}<div id="otf-trends"></div>{% endif %}
         {% if not trends.plots %}
             <p class="text-muted mb-0"><small>No session trends yet: none of
             the quality metrics have values from this pipeline.</small></p>
@@ -284,56 +282,74 @@
         return lines.join('<br>');
     }
 
-    /* Shared x axis, fixed layout, no autoscale surprises: a chart that
-       rescales every refresh is unreadable from across the room. */
-    trends.plots.forEach(function(tr) {
-        var div = document.getElementById('otf-trend-' + tr.key);
-        if (!div) return;
-
+    /* One figure, one panel per metric, all on the same x axis: tick labels
+       only under the bottom panel, and a single hover line through all of
+       them, with every value of that tilt series in the label, so a step
+       common to all the metrics is easy to see.  Fixed layout, no autoscale
+       surprises: a chart that rescales every refresh is unreadable from
+       across the room. */
+    var PANEL = 70, GAP = 30, TOP = 22, BOTTOM = 26;
+    var div = document.getElementById('otf-trends');
+    var n = trends.plots.length;
+    if (div && n) {
+        var area = n * PANEL + (n - 1) * GAP;
+        // Plotly keeps a hover label to its own panel, so each point carries
+        // the whole tilt series
+        var hover = x.map(function(_, j) {
+            return '<b>' + names[j] + '</b> · ' + trends.statuses[j] +
+                trends.plots.map(function(tr) {
+                    var v = tr.y[j];
+                    return '<br>' + tr.label + ': ' +
+                           (v === null ? 'n/a' : v.toFixed(2) + ' ' + tr.unit);
+                }).join('');
+        });
         otfPlot(div, function() {
             var ink = otfCss('--otf-ink');
-            var traces = [{
-                type: 'scatter',
-                mode: 'markers',
-                x: x,
-                y: tr.y,
-                text: names,
-                hovertemplate: '%{text}<br>' + tr.label + ': %{y:.2f} ' + tr.unit + '<extra></extra>',
-                marker: {size: 7, color: colors.map(otfColor), symbol: symbols}
-            }, {
-                type: 'scatter',
-                mode: 'lines',
-                x: x,
-                y: tr.median,
-                hoverinfo: 'skip',
-                line: {width: 1.6, color: ink}
-            }];
-
-            /* The label sits above the plot rather than as a rotated y title,
-               which a 110px plot truncates. */
-            Plotly.react(div, traces, otfThemeLayout({
-                margin: {l: 48, r: 12, t: 18, b: 22},
-                height: 110,
+            var traces = [], annotations = [];
+            var layout = {
+                margin: {l: 48, r: 12, t: TOP, b: BOTTOM},
+                height: area + TOP + BOTTOM,
                 showlegend: false,
+                hovermode: 'closest',
                 xaxis: {showticklabels: true, title: null, zeroline: false,
-                        tick0: 1, dtick: dtick},
-                yaxis: {zeroline: false},
-                annotations: [{
+                        tick0: 1, dtick: dtick, anchor: 'y' + n,
+                        showspikes: true, spikemode: 'across', spikesnap: 'data',
+                        spikecolor: otfCss('--otf-faint'), spikethickness: 1,
+                        spikedash: 'solid'},
+                annotations: annotations
+            };
+            trends.plots.forEach(function(tr, i) {
+                var axis = i ? 'y' + (i + 1) : 'y';
+                // Panels top to bottom, each with a title above it
+                var top = area - i * (PANEL + GAP);
+                layout[i ? 'yaxis' + (i + 1) : 'yaxis'] = {
+                    domain: [(top - PANEL) / area, top / area], zeroline: false};
+                traces.push({
+                    type: 'scatter', mode: 'markers', x: x, y: tr.y, yaxis: axis,
+                    text: names, hovertext: hover,
+                    hovertemplate: '%{hovertext}<extra></extra>',
+                    marker: {size: 7, color: colors.map(otfColor), symbol: symbols}
+                }, {
+                    type: 'scatter', mode: 'lines', x: x, y: tr.median, yaxis: axis,
+                    hoverinfo: 'skip', line: {width: 1.6, color: ink}
+                });
+                annotations.push({
                     text: tr.label + (tr.unit ? ' (' + tr.unit + ')' : ''),
-                    xref: 'paper', yref: 'paper', x: 0, y: 1,
+                    xref: 'paper', yref: axis + ' domain', x: 0, y: 1,
                     xanchor: 'left', yanchor: 'bottom', showarrow: false,
                     font: {size: 12, color: ink},
                     hovertext: otfWrap(tr.help, 60), captureevents: true
-                }],
-                hovermode: 'closest'
-            }), {displayModeBar: false, responsive: true});
+                });
+            });
+            Plotly.react(div, traces, otfThemeLayout(layout),
+                         {displayModeBar: false, responsive: true});
         });
 
         div.on('plotly_click', function(ev) {
-            var p = ev.points[0];
-            if (p && p.text) window.otfShowTiltSeries(p.text);
+            var p = ev.points.filter(function(q) { return q.text; })[0];
+            if (p) window.otfShowTiltSeries(p.text);
         });
-    });
+    }
 
 })(window, document, window.jQuery);
 </script>
