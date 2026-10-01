@@ -76,13 +76,15 @@
 .otf-thumb-selected img { outline: 3px solid #0d6efd; outline-offset: -3px;
                           box-shadow: 0 0 0 2px #0d6efd; }
 .otf-thumb-selected figcaption { color: #0d6efd; font-weight: 600; }
-.otf-tilt-view { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+/* Tilt series window: wider than modal-xl, for the strips and the
+   selected tilt side by side */
+.modal-dialog.otf-modal-wide { max-width: min(1640px, 96vw); }
+.otf-tilt-view { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
 .otf-tilt-view figure { margin: 0; }
-.otf-tilt-view figcaption { font-size: .75rem; color: var(--otf-muted); max-width: 384px; }
-.otf-thumb-large { max-width: 100%; max-height: 420px; display: block; }
-.otf-ps-large { width: 384px; max-width: 100%; display: block; image-rendering: auto; }
-.otf-ctf-fig { width: 384px; }
-.otf-ctf-profile { width: 384px; height: 190px; }
+.otf-tilt-view figcaption { font-size: .75rem; color: var(--otf-muted); }
+.otf-thumb-large, .otf-ps-large { width: 100%; display: block; }
+.otf-ctf-caption { font-size: .75rem; color: var(--otf-muted); margin: 6px 0 0; }
+.otf-ctf-profile { width: 100%; height: 190px; }
 .otf-tooltip .tooltip-inner { max-width: 380px; text-align: left; }
 .otf-name { font-family: SFMono-Regular, Menlo, Consolas, monospace; color: var(--otf-ink); }
 .otf-legend .otf-dot { margin-left: .6rem; }
