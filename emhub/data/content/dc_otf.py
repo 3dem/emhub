@@ -174,6 +174,24 @@ FINGERPRINT_TARGET_KEY = {'rlnCtfMaxResolution': 'ctf',
                           'rlnAccumMotionTotal': 'motion'}
 
 
+def _stage_dots(ts):
+    """ One dot per pipeline stage for the table: done, processing,
+    failed or waiting, and a tooltip saying which is which. """
+    dots, tip = [], []
+    for key, spec in STAGES.items():
+        if ts.status == STATUS_FAILED and ts.failedAt == key:
+            state = 'failed'
+        elif ts.status == STATUS_RUNNING and ts.stage == key:
+            state = 'processing'
+        elif key in ts.stagesSeen:
+            state = 'done'
+        else:
+            state = 'waiting'
+        dots.append(state)
+        tip.append(f'{spec["label"]}: {state}')
+    return dots, '; '.join(tip)
+
+
 def _fingerprint_source(ts):
     """ Pick the first fingerprint column that this series actually has,
     skipping the ones written as placeholder zeros. """
@@ -364,6 +382,7 @@ def register_content(dc):
         rows = []
         for t in ts_list:
             style = STATUS_STYLE[t.status]
+            dots, tip = _stage_dots(t)
             rows.append({
                 'tomoName': t.tomoName,
                 'status': t.status,
@@ -376,6 +395,8 @@ def register_content(dc):
                 'failedAt': t.failedAt,
                 'stage': t.stage,
                 'stageLabel': STAGES[t.stage]['label'] if t.stage else '',
+                'stageDots': dots,
+                'stageTip': tip,
                 'nTilts': t.nTilts,
                 'nUsed': t.nUsed,
                 'motion': t.motion,

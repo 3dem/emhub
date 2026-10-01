@@ -77,6 +77,19 @@
 .otf-dark .otf-theme-to-dark, .otf-page:not(.otf-dark) .otf-theme-to-light { display: none; }
 .otf-why { color: var(--otf-muted); font-size: .8rem; }
 .otf-table td, .otf-table th { white-space: nowrap; }
+.otf-table-scroll { max-height: 75vh; overflow: auto; }
+/* The header row stays in view while the rows scroll under it.  A shadow
+   rather than the border, which a sticky cell does not keep. */
+.otf-table thead th { position: sticky; top: 0; z-index: 2; background: var(--otf-surface);
+                      border-bottom: 0; box-shadow: inset 0 -2px 0 var(--otf-border); }
+/* Stage dots: done, processing, failed, waiting; the shapes and colours of
+   the statuses */
+.otf-stage-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+                 margin-right: 3px; vertical-align: middle; }
+.otf-stage-done { background: #0d6efd; }
+.otf-stage-processing { box-shadow: inset 0 0 0 2px #adb5bd; }
+.otf-stage-failed { background: #ef172c; border-radius: 0; }
+.otf-stage-waiting { box-shadow: inset 0 0 0 1.5px var(--otf-btn-border); }
 .otf-filmstrip { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
 .otf-thumb { flex: 0 0 auto; margin: 0; text-align: center; }
 .otf-thumb img, .otf-thumb-missing { height: 84px; border: 2px solid transparent;
@@ -212,8 +225,11 @@
 
     function otfReplace(selector, ajaxContent, showModal) {
         ajaxContent.done(function(html) {
+            // A refresh must not throw the reader back to the top of the table
+            var scroll = $(selector).find('#otf-table-scroll').scrollTop();
             var $el = otfClear($(selector));
             $el.html(html);
+            if (scroll) $el.find('#otf-table-scroll').scrollTop(scroll);
             if (showModal) $el.modal('show');
         });
         ajaxContent.fail(ajax_request_failed);

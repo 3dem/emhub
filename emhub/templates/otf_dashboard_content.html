@@ -147,7 +147,9 @@
         </div>
     </div>
 
-    <div class="table-responsive">
+    {# Scrolls on its own with the column names held at the top; the page
+       keeps this scroll position across refreshes. #}
+    <div class="otf-table-scroll" id="otf-table-scroll">
         <table class="table table-sm table-hover mb-0 otf-table">
             <thead>
                 <tr>
@@ -161,7 +163,7 @@
                     <th class="otf-num">Tilt axis (°)</th>
                     <th class="otf-num">Shift roughness (Å)</th>
                     <th>Per-tilt QC{% if fingerprintLabel %} ({{ fingerprintLabel }}){% endif %}</th>
-                    <th>Last stage</th>
+                    <th>Stages</th>
                 </tr>
             </thead>
             <tbody>
@@ -241,7 +243,9 @@
                     {% endif %}
 
                     <td>{{ r.fingerprint|safe }}</td>
-                    <td><small class="text-muted">{{ r.stageLabel }}</small></td>
+                    <td class="otf-stages" data-toggle="tooltip" title="{{ r.stageTip }}">
+                        {%- for d in r.stageDots %}<span class="otf-stage-dot otf-stage-{{ d }}"></span>{% endfor -%}
+                    </td>
                 </tr>
                 {% endif %}
             {% endfor %}
