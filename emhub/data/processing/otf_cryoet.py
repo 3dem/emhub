@@ -522,7 +522,7 @@ class TiltSeriesMetrics:
                     continue
                 hit = value > lim if higher_is_worse else value < lim
                 if hit:
-                    level_word = 'poor' if name == STATUS_BAD else 'suspect'
+                    level_word = 'poor' if name == STATUS_BAD else 'review'
                     reasons.append(msg.format(value=value, limit=lim,
                                               level=level_word))
                     if name == STATUS_BAD:
@@ -962,7 +962,7 @@ def main():
 
     s = session.summary()
     print(f'\nImported: {s["nImported"]}   reconstructed: {s["nProcessed"]}'
-          f'   need a look: {s["nNeedALook"]}')
+          f'   needs review: {s["nNeedALook"]}')
     print('\nStage progress:')
     for st in s['stages']:
         print(f'  {st["label"]:<30} {st["done"]:>5} / {st["total"]}')
@@ -996,7 +996,7 @@ def main():
         return
 
     if s['notReported']:
-        print('\nNot reported by this pipeline (written as placeholder '
+        print('\nNot measured by this pipeline (written as placeholder '
               'zeros, shown as n/a):')
         for name in s['notReported']:
             print(f'  {name}')

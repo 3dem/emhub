@@ -11,7 +11,7 @@
     --otf-border: #dde2e6; --otf-ink: #2e2f39; --otf-muted: #64748b;
     --otf-secondary: #6c757d; --otf-faint: #9aa4ab;
     --otf-btn-border: #cfd6e4; --otf-hover: #eef3fb;
-    --otf-good-text: #1f8f3d; --otf-warn-text: #c69500;
+    --otf-good-text: #1f8f3d; --otf-warn-text: #b45309;
     --otf-plot-text: #444; --otf-grid: #eee; --otf-connector: #c9dcfb;
 }
 .otf-page.otf-dark {
@@ -19,7 +19,7 @@
     --otf-border: #353a45; --otf-ink: #e4e7ec; --otf-muted: #9aa5b4;
     --otf-secondary: #9aa5b4; --otf-faint: #7d8794;
     --otf-btn-border: #414856; --otf-hover: #2a3242;
-    --otf-good-text: #2ec551; --otf-warn-text: #ffc108;
+    --otf-good-text: #2ec551; --otf-warn-text: #fbbf24;
     --otf-plot-text: #aeb6c2; --otf-grid: #2c313a; --otf-connector: #34568c;
 }
 
@@ -27,7 +27,15 @@
 .otf-counter-value { font-size: 2rem; font-weight: 500; line-height: 1.05; }
 .otf-counter-label { font-size: .8rem; color: var(--otf-secondary); }
 .otf-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
-.otf-dot-square { border-radius: 0; }
+/* Status shapes, the same as the plot markers: colour is never the only cue.
+   The dot's colour is set inline as both background and color. */
+.otf-shape-square { border-radius: 0; }
+.otf-shape-triangle { border-radius: 0; width: 10px; height: 9px;
+                      clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.otf-shape-diamond { border-radius: 0; width: 10px; height: 10px;
+                     clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.otf-shape-ring { background: transparent !important; box-shadow: inset 0 0 0 2px currentColor; }
+.otf-warn { color: var(--otf-warn-text); }
 .otf-stage-bar { height: 12px; background: var(--otf-surface-alt);
                  border: 1px solid var(--otf-border); position: relative; overflow: hidden; }
 .otf-stage-fill { position: absolute; top: 0; bottom: 0; left: 0; }

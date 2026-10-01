@@ -35,20 +35,33 @@ ENTRY_TYPE = 'tomo_processing'
 # "something broke and nobody noticed".
 STALL_SECONDS = 15 * 60
 
-# Colors from the emhub theme (style.css): success, warning, danger, dark.
-# A failed job is dark rather than red so it does not read as poor data;
-# its dot is also square.  'var(--otf-...)' colours are the dashboard's
-# theme variables (otf_dashboard.html), so they follow its dark mode.
+# One colour language across the dashboard: blue is data and interaction,
+# green good, amber needs review, red critical (poor data, unusable tilts,
+# processing failures), grey waiting or unavailable.  Colour is never the
+# only cue: each status also has a shape, as dots and plot markers.
+# 'var(--otf-...)' colours are the dashboard's theme variables
+# (otf_dashboard.html), so they follow its dark mode.
 DATA_COLOR = '#0d6efd'   # blue, for data marks (the theme primary reads purple)
 INK_COLOR = 'var(--otf-ink)'   # #2e2f39 in light mode
+GOOD_COLOR, REVIEW_COLOR, BAD_COLOR = '#2ec551', '#f59e0b', '#ef172c'
+WAITING_COLOR = '#adb5bd'
 STATUS_STYLE = {
-    STATUS_OK:      {'label': 'Good', 'color': '#2ec551', 'order': 3},
-    STATUS_SUSPECT: {'label': 'Suspect', 'color': '#ffc108', 'order': 1},
-    STATUS_BAD:     {'label': 'Poor', 'color': '#ef172c', 'order': 0},
-    STATUS_FAILED:  {'label': 'Job failed', 'color': INK_COLOR, 'order': 0},
-    STATUS_RUNNING: {'label': 'Running', 'color': '#adb5bd', 'order': 2},
-    None:           {'label': 'No data', 'color': '#d3d3d3', 'order': 4},
+    STATUS_OK:      {'label': 'Good', 'color': GOOD_COLOR,
+                     'shape': 'circle', 'order': 3},
+    STATUS_SUSPECT: {'label': 'Needs review', 'color': REVIEW_COLOR,
+                     'shape': 'triangle', 'order': 1},
+    STATUS_BAD:     {'label': 'Poor', 'color': BAD_COLOR,
+                     'shape': 'diamond', 'order': 0},
+    STATUS_FAILED:  {'label': 'Processing failed', 'color': BAD_COLOR,
+                     'shape': 'square', 'order': 0},
+    STATUS_RUNNING: {'label': 'Processing', 'color': WAITING_COLOR,
+                     'shape': 'ring', 'order': 2},
+    None:           {'label': 'No data', 'color': '#d3d3d3',
+                     'shape': 'circle', 'order': 4},
 }
+# The Plotly marker for each shape; the page draws the same shapes in CSS
+PLOT_SYMBOL = {'circle': 'circle', 'triangle': 'triangle-up',
+               'diamond': 'diamond', 'square': 'square', 'ring': 'circle-open'}
 
 # The four session trends, stacked on a shared x axis.  Each one is
 # (key on the TiltSeriesMetrics, stat to take, label, unit, scale).
@@ -130,14 +143,24 @@ STRIP_FLAG_KEYS = {
 }
 
 
-def _strip_color(tilt, keys):
+# Tilt QC of one tilt in one metric: within target, off target, unusable,
+# as (colour, Plotly marker), the shapes matching the tilt series statuses
+TILT_QC_STYLE = {
+    'excluded': (STATUS_STYLE[None]['color'], 'circle'),
+    'unusable': (BAD_COLOR, PLOT_SYMBOL['diamond']),
+    'offTarget': (REVIEW_COLOR, PLOT_SYMBOL['triangle']),
+    'within': (DATA_COLOR, 'circle'),
+}
+
+
+def _strip_style(tilt, keys):
     if tilt.get('excluded'):
-        return STATUS_STYLE[None]['color']
+        return TILT_QC_STYLE['excluded']
     if any(k in tilt.get('reject', []) for k in keys):
-        return STATUS_STYLE[STATUS_BAD]['color']
+        return TILT_QC_STYLE['unusable']
     if any(k in tilt.get('offTarget', []) for k in keys):
-        return STATUS_STYLE[STATUS_SUSPECT]['color']
-    return DATA_COLOR
+        return TILT_QC_STYLE['offTarget']
+    return TILT_QC_STYLE['within']
 
 
 # Which per-tilt target (see TiltSeriesMetrics._judge_tilts) each column has
@@ -303,6 +326,7 @@ def register_content(dc):
         x = list(range(1, len(ts_list) + 1))
         names = [t.tomoName for t in ts_list]
         colors = [STATUS_STYLE[t.status]['color'] for t in ts_list]
+        symbols = [PLOT_SYMBOL[STATUS_STYLE[t.status]['shape']] for t in ts_list]
 
         series = []
         for key, stat, label, unit, scale, help_text in TRENDS:
@@ -325,9 +349,10 @@ def register_content(dc):
                 'y': values,
                 'median': _rolling_median(values),
             })
-        # x, colours and names are identical for all four plots, so they are
+        # x, markers and names are identical for all four plots, so they are
         # sent once rather than four times.
-        return {'x': x, 'colors': colors, 'names': names, 'plots': series}
+        return {'x': x, 'colors': colors, 'symbols': symbols, 'names': names,
+                'plots': series}
 
     def _table_rows(ts_list, sort='worst', limit=150):
         rows = []
@@ -338,6 +363,7 @@ def register_content(dc):
                 'status': t.status,
                 'statusLabel': style['label'],
                 'statusColor': style['color'],
+                'statusShape': style['shape'],
                 'statusOrder': style['order'],
                 'reasons': t.reasons,
                 'notReported': t.notReported,
@@ -454,13 +480,14 @@ def register_content(dc):
              'icon': 'fa-file-import', 'color': INK_COLOR},
             {'label': 'reconstructed', 'value': summary['nProcessed'],
              'icon': 'fa-cube', 'color': DATA_COLOR},
-            {'label': 'running', 'value': by_status.get(STATUS_RUNNING, 0),
-             'icon': 'fa-cog', 'color': color[STATUS_OK], 'text': 'var(--otf-good-text)'},
-            {'label': 'need a look', 'value': summary['nNeedALook'],
+            {'label': 'processing', 'value': by_status.get(STATUS_RUNNING, 0),
+             'icon': 'fa-cog', 'color': color[STATUS_RUNNING],
+             'text': 'var(--otf-secondary)'},
+            {'label': 'needs review', 'value': summary['nNeedALook'],
              'icon': 'fa-exclamation-triangle', 'color': color[STATUS_SUSPECT],
              'text': 'var(--otf-warn-text)'},
-            {'label': 'job failures', 'value': by_status.get(STATUS_FAILED, 0),
-             'icon': 'fa-times-circle', 'color': color[STATUS_BAD]},
+            {'label': 'processing failures', 'value': by_status.get(STATUS_FAILED, 0),
+             'icon': 'fa-times-circle', 'color': color[STATUS_FAILED]},
         ]
 
         # Stage bars, with the lag against the previous stage.  The lag is
@@ -563,11 +590,12 @@ def register_content(dc):
                     values, [t.get('rlnAccumMotionTotal') for t in tilts]):
                 continue
             target, reject = guides.get(col, (None, None))
+            styles = [_strip_style(t, STRIP_FLAG_KEYS.get(col, ())) for t in tilts]
             strips.append({'key': col, 'label': label, 'unit': unit,
                            'values': [None if v is None else v * scale
                                       for v in values],
-                           'colors': [_strip_color(t, STRIP_FLAG_KEYS.get(col, ()))
-                                      for t in tilts],
+                           'colors': [c for c, _ in styles],
+                           'symbols': [m for _, m in styles],
                            'target': target, 'reject': reject})
 
         # One note and one filmstrip entry per tilt, in plot order; a tilt
@@ -616,6 +644,10 @@ def register_content(dc):
             'status': ts.status,
             'statusLabel': style['label'],
             'statusColor': style['color'],
+            'statusShape': style['shape'],
+            'dataColor': DATA_COLOR,
+            'reviewColor': REVIEW_COLOR,
+            'badColor': BAD_COLOR,
             'reasons': ts.reasons,
             'notReported': ts.notReported,
             'failedAt': ts.failedAt,

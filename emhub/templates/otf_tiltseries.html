@@ -13,8 +13,8 @@
     <div class="modal-header align-items-baseline">
         <h5 class="modal-title mr-3"><span class="otf-name">{{ tomoName }}</span></h5>
         <span class="mr-3">
-            <span class="otf-dot {% if status == 'failed' %}otf-dot-square{% endif %} mr-1"
-                  style="background: {{ statusColor }}"></span>
+            <span class="otf-dot otf-shape-{{ statusShape }} mr-1"
+                  style="background: {{ statusColor }}; color: {{ statusColor }}"></span>
             <small>{{ statusLabel }}</small>
         </span>
         <small class="text-muted">
@@ -30,7 +30,7 @@
     <div class="modal-body">
 
         {% if reasons %}
-            <div class="alert alert-warning py-2">
+            <div class="alert {{ 'alert-danger' if status == 'bad' else 'alert-warning' }} py-2">
                 <small>
                 {% for r in reasons %}{{ r }}{% if not loop.last %} &middot; {% endif %}{% endfor %}
                 </small>
@@ -45,11 +45,15 @@
         {% endif %}
 
         <div class="d-flex align-items-baseline mb-2">
-            <h6 class="mb-0">Per-tilt fingerprint</h6>
+            <h6 class="mb-0">Per-tilt QC</h6>
             <small class="text-muted ml-3">
                 every strip shares the same x axis, so a tilt that is bad in
                 one metric only is easy to tell from a tilt that is bad in
-                all of them
+                all of them<br>
+                <span class="otf-dot mr-1" style="background: {{ dataColor }}"></span>within target
+                <span class="otf-dot otf-shape-triangle ml-2 mr-1" style="background: {{ reviewColor }}"></span>off target
+                <span class="otf-dot otf-shape-diamond ml-2 mr-1" style="background: {{ badColor }}"></span>unusable;
+                dashed lines: target (amber) and reject limit (red)
             </small>
             <div class="btn-group btn-group-sm otf-toggle ml-auto" role="group">
                 <button type="button"
@@ -96,7 +100,7 @@
         {% endif %}
 
         {% if notReported %}
-            <p class="text-muted mt-2 mb-0"><small>Not reported by this
+            <p class="text-muted mt-2 mb-0"><small>Not measured by this
             pipeline:
             {% for n in notReported %}{{ n }}{% if not loop.last %}, {% endif %}{% endfor %}.</small></p>
         {% endif %}
@@ -139,6 +143,7 @@
         var notes = {{ tiltNotes|tojson }};
         var angles = {{ angles|tojson }};
         var doses = {{ doses|tojson }};
+        var reviewColor = {{ reviewColor|tojson }}, badColor = {{ badColor|tojson }};
 
         // Identify each tilt the same way in every strip's hover
         var tiltText = x.map(function(_, j) {
@@ -188,13 +193,13 @@
                 var traces = [{
                     type: 'scatter', mode: 'lines+markers',
                     x: x, y: s.values, text: tiltText,
-                    marker: {color: s.colors, size: 6},
+                    marker: {color: s.colors, symbol: s.symbols, size: 7},
                     line: {color: otfCss('--otf-connector'), width: 1},
                     hovertemplate: '%{text}<br>' + s.label + ': %{y:.3f} ' + s.unit + '<extra></extra>'
                 }];
-                // Dashed guides: target (yellow) and reject limit (red)
-                if (near(s.target, s.values)) traces.push(guide(s.target, '#e0a800', 'target'));
-                if (near(s.reject, s.values)) traces.push(guide(s.reject, '#ef172c', 'reject'));
+                // Dashed guides: target (amber) and reject limit (red)
+                if (near(s.target, s.values)) traces.push(guide(s.target, reviewColor, 'target'));
+                if (near(s.reject, s.values)) traces.push(guide(s.reject, badColor, 'reject'));
 
                 /* Label above the strip: a rotated y title does not fit 84px. */
                 Plotly.react(div, traces, otfThemeLayout({
@@ -273,7 +278,7 @@
             if (p.fitResolution) {
                 shapes.push({type: 'line', xref: 'x', yref: 'paper', y0: 0, y1: 1,
                              x0: 1 / p.fitResolution, x1: 1 / p.fitResolution,
-                             line: {color: '#e0a800', width: 1.5, dash: 'dash'}});
+                             line: {color: reviewColor, width: 1.5, dash: 'dash'}});
             }
             otfPlot(div, function() {
                 Plotly.react(div, traces, otfThemeLayout({
