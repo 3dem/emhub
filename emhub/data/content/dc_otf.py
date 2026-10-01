@@ -47,6 +47,10 @@ DATA_COLOR = '#0d6efd'   # blue, for data marks (the theme primary reads purple)
 INK_COLOR = 'var(--otf-ink)'   # #2e2f39 in light mode
 GOOD_COLOR, REVIEW_COLOR, BAD_COLOR = '#2ec551', '#f59e0b', '#ef172c'
 WAITING_COLOR = '#adb5bd'
+# The same colours as CSS variables (--otf-data, ...), set once on the page,
+# for the CSS and scripts that cannot take them from the data
+PALETTE = {'data': DATA_COLOR, 'good': GOOD_COLOR, 'review': REVIEW_COLOR,
+           'bad': BAD_COLOR, 'waiting': WAITING_COLOR}
 STATUS_STYLE = {
     STATUS_OK:      {'label': 'Good', 'color': GOOD_COLOR,
                      'shape': 'circle', 'order': 3},
@@ -154,10 +158,10 @@ STRIP_FLAG_KEYS = {
 # Tilt QC of one tilt in one metric: within target, off target, unusable,
 # as (colour, Plotly marker), the shapes matching the tilt series statuses
 TILT_QC_STYLE = {
-    'excluded': (STATUS_STYLE[None]['color'], 'circle'),
+    'excluded': (STATUS_STYLE[None]['color'], PLOT_SYMBOL['circle']),
     'unusable': (BAD_COLOR, PLOT_SYMBOL['diamond']),
     'offTarget': (REVIEW_COLOR, PLOT_SYMBOL['triangle']),
-    'within': (DATA_COLOR, 'circle'),
+    'within': (DATA_COLOR, PLOT_SYMBOL['circle']),
 }
 
 
@@ -473,6 +477,7 @@ def register_content(dc):
             'processing_path': info['processing_path'],
             'error': info['error'],
             'refresh_seconds': int(kwargs.get('refresh_seconds', 30)),
+            'palette': PALETTE,
         }
         data.update(otf_dashboard_content(**kwargs))
         return data
@@ -532,6 +537,7 @@ def register_content(dc):
                 short=STAGE_SHORT.get(st['key'], st['label']),
                 lag=lag,
                 percent=(100.0 * st['done'] / st['total']) if st['total'] else 0,
+                running=(st['jobStatus'] or '').lower() == 'running',
                 bottleneck=bool(lag and lag > 8),
             ))
             prev_done = st['done']
@@ -568,11 +574,9 @@ def register_content(dc):
             'filter': kwargs.get('filter', 'all'),
             'sort': kwargs.get('sort', 'worst'),
             'updated': time.strftime('%H:%M:%S'),
-            'status_style': STATUS_STYLE,
             'legend': [STATUS_STYLE[s] for s in (STATUS_OK, STATUS_SUSPECT,
                                                  STATUS_BAD, STATUS_FAILED,
                                                  STATUS_RUNNING)],
-            'dataColor': DATA_COLOR,
         }
 
     # ---------------------------------------------------------- detail view
@@ -676,7 +680,6 @@ def register_content(dc):
             except OSError:
                 pass
 
-
         style = STATUS_STYLE[ts.status]
         return {
             'error': None,
@@ -688,9 +691,6 @@ def register_content(dc):
             'statusLabel': style['label'],
             'statusColor': style['color'],
             'statusShape': style['shape'],
-            'dataColor': DATA_COLOR,
-            'reviewColor': REVIEW_COLOR,
-            'badColor': BAD_COLOR,
             'reasons': ts.reasons,
             'notReported': ts.notReported,
             'failedAt': ts.failedAt,

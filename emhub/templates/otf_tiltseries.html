@@ -63,9 +63,9 @@
         <small class="text-muted d-block mb-2">
             every strip shares the same x axis, so a tilt that is bad in one
             metric only is easy to tell from a tilt that is bad in all of them<br>
-            <span class="otf-dot mr-1" style="background: {{ dataColor }}"></span>within target
-            <span class="otf-dot otf-shape-triangle ml-2 mr-1" style="background: {{ reviewColor }}"></span>off target
-            <span class="otf-dot otf-shape-diamond ml-2 mr-1" style="background: {{ badColor }}"></span>unusable;
+            <span class="otf-dot mr-1" style="background: var(--otf-data)"></span>within target
+            <span class="otf-dot otf-shape-triangle ml-2 mr-1" style="background: var(--otf-review)"></span>off target
+            <span class="otf-dot otf-shape-diamond ml-2 mr-1" style="background: var(--otf-bad)"></span>unusable;
             dashed lines: target (amber) and reject limit (red)
         </small>
 
@@ -80,7 +80,7 @@
         </div>
         {% if thumbs %}
             <div class="col-lg-5">
-                <div id="otf-tilt-pane" class="otf-tilt-pane"></div>
+                <div id="otf-tilt-pane"></div>
             </div>
         {% endif %}
         </div>
@@ -155,7 +155,8 @@
         var notes = {{ tiltNotes|tojson }};
         var angles = {{ angles|tojson }};
         var doses = {{ doses|tojson }};
-        var reviewColor = {{ reviewColor|tojson }}, badColor = {{ badColor|tojson }};
+        var dataColor = otfCss('--otf-data'), reviewColor = otfCss('--otf-review'),
+            badColor = otfCss('--otf-bad');
         var tomoName = {{ tomoName|tojson }};
 
         // Identify each tilt the same way in every strip's hover
@@ -193,7 +194,7 @@
         function selectedShapes() {
             return selected === null ? [] : [{
                 type: 'line', xref: 'x', yref: 'paper', x0: x[selected], x1: x[selected],
-                y0: 0, y1: 1, line: {color: '#0d6efd', width: 2}
+                y0: 0, y1: 1, line: {color: dataColor, width: 2}
             }];
         }
 
@@ -290,7 +291,7 @@
                 {x: p.k, y: p.simulated, name: 'simulated from the fit', mode: 'lines',
                  line: {color: '#8b99a4', width: 1.5}, hoverinfo: 'skip'},
                 {x: p.k, y: p.measured, name: 'measured', mode: 'lines',
-                 line: {color: '#0d6efd', width: 1.5}, hoverinfo: 'skip'}
+                 line: {color: dataColor, width: 1.5}, hoverinfo: 'skip'}
             ];
             var shapes = [];
             if (p.fitResolution) {
@@ -351,9 +352,10 @@
             otfOpenTilt($(this).closest('.otf-thumb').data('index'), true);
         });
 
-        /* Open a tilt straight away, so the pane is never empty: the one
-           selected before switching the order, else the first unusable
-           tilt, else the one nearest 0 degrees. */
+        /* Open a tilt straight away, so the pane is never empty: the one last
+           selected in this tilt series (kept when switching the order or
+           reopening it), else the first unusable tilt, else the one nearest
+           0 degrees. */
         function otfFirstTilt() {
             var prev = window.otfSelectedTilt, j, best = -1;
             if (prev && prev.tomo === tomoName && prev.movie !== null) {

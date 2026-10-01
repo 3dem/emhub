@@ -30,7 +30,7 @@
         <div class="ml-auto d-flex align-items-baseline">
             <span class="otf-state-{{ state.key }} mr-4" data-toggle="tooltip" title="{{ state.help }}">
                 <span class="otf-dot mr-1"
-                      style="background: {% if state.key == 'acquiring' %}#2ec551{% elif state.key == 'stalled' %}#ef172c{% else %}#adb5bd{% endif %}"></span>
+                      style="background: var({% if state.key == 'acquiring' %}--otf-good{% elif state.key == 'stalled' %}--otf-bad{% else %}--otf-waiting{% endif %})"></span>
                 {{ state.label }}
             </span>
             <small class="text-muted mr-4">last movie {{ state.sinceStr }} ago</small>
@@ -76,7 +76,7 @@
                     <div class="otf-stage-bar">
                         <div class="otf-stage-fill"
                              style="width: {{ '%.1f'|format(st.percent) }}%;
-                                    background: {% if st.jobStatus and st.jobStatus.lower() == 'running' %}#adb5bd{% else %}{{ dataColor }}{% endif %};
+                                    background: var({{ '--otf-waiting' if st.running else '--otf-data' }});
                                     opacity: .75"></div>
                     </div>
                     {% if st.failed %}<small class="text-danger otf-flow-failed">{{ st.failed }} failed</small>{% endif %}
@@ -108,8 +108,9 @@
         </small>
     </div>
     <div class="card-body pt-2">
-        {% if trends.plots %}<div id="otf-trends"></div>{% endif %}
-        {% if not trends.plots %}
+        {% if trends.plots %}
+            <div id="otf-trends"></div>
+        {% else %}
             <p class="text-muted mb-0"><small>No session trends yet: none of
             the quality metrics have values from this pipeline.</small></p>
         {% endif %}
@@ -328,7 +329,7 @@
                     type: 'scatter', mode: 'markers', x: x, y: tr.y, yaxis: axis,
                     text: names, hovertext: hover,
                     hovertemplate: '%{hovertext}<extra></extra>',
-                    marker: {size: 7, color: colors.map(otfColor), symbol: symbols}
+                    marker: {size: 7, color: colors, symbol: symbols}
                 }, {
                     type: 'scatter', mode: 'lines', x: x, y: tr.median, yaxis: axis,
                     hoverinfo: 'skip', line: {width: 1.6, color: ink}

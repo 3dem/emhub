@@ -5,8 +5,12 @@
 {# Styles first: the theme script and the plots read their variables. #}
 <style>
 /* Every colour that changes with the theme is a variable here; the light
-   values are the dashboard's own, the dark ones apply with .otf-dark. */
+   values are the dashboard's own, the dark ones apply with .otf-dark.  The
+   status colours, the same in both, come from dc_otf.PALETTE. */
 .otf-page {
+    --otf-data: {{ palette.data }}; --otf-good: {{ palette.good }};
+    --otf-review: {{ palette.review }}; --otf-bad: {{ palette.bad }};
+    --otf-waiting: {{ palette.waiting }};
     --otf-bg: transparent; --otf-surface: #fff; --otf-surface-alt: #eef1f3;
     --otf-border: #dde2e6; --otf-ink: #2e2f39; --otf-muted: #64748b;
     --otf-secondary: #6c757d; --otf-faint: #9aa4ab;
@@ -43,11 +47,10 @@
 .otf-num { font-variant-numeric: tabular-nums; text-align: right; }
 .otf-sd { color: var(--otf-faint); font-size: .75rem; }
 .otf-row-link { cursor: pointer; }
-
 .otf-state-acquiring { color: var(--otf-good-text); }
 .otf-state-idle { color: var(--otf-secondary); }
 .otf-state-ended { color: var(--otf-secondary); }
-.otf-state-stalled { color: #ef172c; font-weight: 500; }
+.otf-state-stalled { color: var(--otf-bad); font-weight: 500; }
 .otf-state-unknown { color: var(--otf-faint); }
 /* The theme's muted text and light buttons are lavender; blue-grey here */
 .otf-page .text-muted { color: var(--otf-muted) !important; }
@@ -71,8 +74,8 @@
                                       border-color: var(--otf-btn-border); }
 .otf-toggle .btn:hover, .otf-theme-toggle:hover { background: var(--otf-hover); color: var(--otf-ink); }
 .otf-toggle .btn.active, .otf-toggle .btn.active:hover {
-    color: #fff !important; background: #0d6efd !important;
-    border-color: #0d6efd !important; }
+    color: #fff !important; background: var(--otf-data) !important;
+    border-color: var(--otf-data) !important; }
 /* The theme button shows what it switches to */
 .otf-dark .otf-theme-to-dark, .otf-page:not(.otf-dark) .otf-theme-to-light { display: none; }
 .otf-why { color: var(--otf-muted); font-size: .8rem; }
@@ -86,9 +89,9 @@
    the statuses */
 .otf-stage-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
                  margin-right: 3px; vertical-align: middle; }
-.otf-stage-done { background: #0d6efd; }
-.otf-stage-processing { box-shadow: inset 0 0 0 2px #adb5bd; }
-.otf-stage-failed { background: #ef172c; border-radius: 0; }
+.otf-stage-done { background: var(--otf-data); }
+.otf-stage-processing { box-shadow: inset 0 0 0 2px var(--otf-waiting); }
+.otf-stage-failed { background: var(--otf-bad); border-radius: 0; }
 .otf-stage-waiting { box-shadow: inset 0 0 0 1.5px var(--otf-btn-border); }
 .otf-filmstrip { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
 .otf-thumb { flex: 0 0 auto; margin: 0; text-align: center; }
@@ -101,9 +104,9 @@
 .otf-thumb figcaption { font-size: .7rem; color: var(--otf-muted); }
 /* Hover is a light dashed hint; only the selection is solid blue */
 .otf-thumb-active img { outline: 2px dashed #7fb0fe; outline-offset: -2px; }
-.otf-thumb-selected img { outline: 3px solid #0d6efd; outline-offset: -3px;
-                          box-shadow: 0 0 0 2px #0d6efd; }
-.otf-thumb-selected figcaption { color: #0d6efd; font-weight: 600; }
+.otf-thumb-selected img { outline: 3px solid var(--otf-data); outline-offset: -3px;
+                          box-shadow: 0 0 0 2px var(--otf-data); }
+.otf-thumb-selected figcaption { color: var(--otf-data); font-weight: 600; }
 /* Tilt series window: wider than modal-xl, for the strips and the
    selected tilt side by side */
 .modal-dialog.otf-modal-wide { max-width: min(1640px, 96vw); }
@@ -117,9 +120,8 @@
 .otf-ortho { display: grid; grid-template-columns: max-content max-content; gap: 6px 14px;
              align-items: start; }
 .otf-ortho figure { position: relative; width: max-content; }
-.otf-ortho canvas { image-rendering: auto; }
 #otf-vol-x > div { min-width: 150px; }
-.otf-xh { position: absolute; pointer-events: none; background: rgba(13, 110, 253, .75); }
+.otf-xh { position: absolute; pointer-events: none; background: var(--otf-data); opacity: .75; }
 .otf-xh-v { top: 0; bottom: 0; width: 1px; }
 .otf-xh-h { left: 0; right: 0; height: 1px; }
 .otf-tilt-view { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
@@ -171,13 +173,9 @@
     var page = document.getElementById('otf-page');
     page.classList.toggle('otf-dark', window.localStorage.getItem('otfTheme') === 'dark');
 
+    // The value of a theme variable, for Plotly, which does not read CSS
     function otfCss(name) {
         return window.getComputedStyle(page).getPropertyValue(name).trim();
-    }
-    // Server colours may be theme variables, 'var(--otf-ink)'; Plotly needs the value
-    function otfColor(c) {
-        var m = /^var\((--[\w-]+)\)$/.exec(c || '');
-        return m ? otfCss(m[1]) : c;
     }
     // Transparent backgrounds let the card show through
     function otfThemeLayout(layout) {
@@ -199,7 +197,6 @@
     }
 
     window.otfCss = otfCss;
-    window.otfColor = otfColor;
     window.otfThemeLayout = otfThemeLayout;
     window.otfPlot = otfPlot;
     window.otfToggleTheme = function() {
@@ -223,7 +220,6 @@
     </div>
 
 </div>
-
 
 <script>
 (function(window, document, $, undefined) {
@@ -316,8 +312,6 @@
         });
     });
 
-    /* Images come from the same pane endpoint the project table view uses,
-       rendered with the shared slider card. */
     /* A tomogram as orthogonal sections at one scale: the Z section, the Y
        section above it (same X) and the X section beside it (same Y, made
        upright by the server), with lines on each marking where the other
@@ -361,8 +355,9 @@
         mark();
     }
 
-    /* Each viewer opens in its own panel and its button opens and closes
-       it, so the aligned stack and the tomogram reconstructed from it can
+    /* The viewers' content comes from the same pane endpoint as the project
+       table view.  Each viewer opens in its own panel and its button opens
+       and closes it, so the aligned stack and the tomogram reconstructed from it can
        be looked at side by side; metadata, a wide table, takes the row
        above them. */
     var OTF_VIEWERS = ['metadata', 'stack', 'tomogram'];
@@ -399,12 +394,6 @@
             if (pane.kind === 'imageSlider' && pane.axes && pane.dimensions &&
                     pane.axes.x && pane.axes.y && pane.axes.z) {
                 otfOrthoViewer($body, pane, voxel);
-            } else if (pane.kind === 'imageSlider' && pane.axes) {
-                var slices = {};
-                Object.keys(pane.axes).forEach(function(axis) {
-                    slices[axis] = pane.axes[axis].slices;
-                });
-                new VolumeSliderCard(bodyId, slices, {slice_dim: 512, coordinates: []});
             } else if (pane.kind === 'imageSlider') {
                 new ImageSliderCard(bodyId, pane.slices,
                                     {slider_prefix: pane.sliderPrefix || ''});
