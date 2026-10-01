@@ -52,6 +52,19 @@
 /* The theme's muted text and light buttons are lavender; blue-grey here */
 .otf-page .text-muted { color: var(--otf-muted) !important; }
 .otf-counter-icon { font-size: 1.1rem; margin-right: .45rem; vertical-align: middle; }
+/* Summary card: counters, a divider, then the pipeline as a flow */
+.otf-summary { row-gap: .8rem; }
+.otf-counters { gap: 1.6rem; padding-right: 1.6rem; margin-right: 1.6rem;
+                border-right: 1px solid var(--otf-border); }
+.otf-flow { align-items: flex-start; min-width: 520px; }
+.otf-flow-step { flex: 1 1 0; min-width: 0; }
+.otf-flow-label { font-size: .78rem; color: var(--otf-secondary); white-space: nowrap;
+                  overflow: hidden; text-overflow: ellipsis; }
+.otf-flow-count { font-size: 1.05rem; white-space: nowrap; margin: 1px 0 4px;
+                  font-variant-numeric: tabular-nums; }
+.otf-flow-arrow { color: var(--otf-faint); font-size: .7rem; margin: 1.3rem .6rem 0; }
+.otf-flow .otf-stage-bar { height: 6px; }
+.otf-flow-failed { display: block; line-height: 1; margin-top: 3px; }
 /* Toggles: the selected option must be obvious, the others quiet */
 /* !important: bootstrap's .btn-outline-light.active is more specific */
 .otf-toggle .btn, .otf-theme-toggle { color: var(--otf-ink); background: var(--otf-surface);

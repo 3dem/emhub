@@ -63,6 +63,12 @@ STATUS_STYLE = {
 PLOT_SYMBOL = {'circle': 'circle', 'triangle': 'triangle-up',
                'diamond': 'diamond', 'square': 'square', 'ring': 'circle-open'}
 
+# Short stage names for the pipeline flow at the top of the page; the full
+# label is in its tooltip
+STAGE_SHORT = {'import': 'Import', 'motioncorr': 'Motion correction',
+               'ctf': 'CTF estimation', 'align': 'Alignment',
+               'tomogram': 'Tomogram'}
+
 # The four session trends, stacked on a shared x axis.  Each one is
 # (key on the TiltSeriesMetrics, stat to take, label, unit, scale).
 TRENDS = [
@@ -499,6 +505,7 @@ def register_content(dc):
             lag = None if prev_done is None else max(0, prev_done - st['done'])
             stages.append(dict(
                 st,
+                short=STAGE_SHORT.get(st['key'], st['label']),
                 lag=lag,
                 percent=(100.0 * st['done'] / st['total']) if st['total'] else 0,
                 bottleneck=bool(lag and lag > 8),

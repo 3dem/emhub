@@ -18,6 +18,14 @@
             {% if staff %}, {{ staff }}{% endif %}
         </span>
         <small class="text-muted mr-4">{{ processing_path }}</small>
+        {% if notReported %}
+            {# A fixed property of the pipeline, so a hint rather than a banner #}
+            <small class="otf-why mr-4" data-toggle="tooltip"
+                   title="This pipeline does not measure {{ notReported|join(', ') }}. emwrap writes those columns as zeros, so they are shown as n/a rather than as a perfect score, and they are not used to flag a tilt series.">
+                <i class="fas fa-info-circle"></i>
+                {{ notReported|length }} metric{{ 's' if notReported|length > 1 }} not measured
+            </small>
+        {% endif %}
 
         <div class="ml-auto d-flex align-items-baseline">
             <span class="otf-state-{{ state.key }} mr-4" data-toggle="tooltip" title="{{ state.help }}">
@@ -36,66 +44,44 @@
     </div>
 </div>
 
-{% if notReported %}
-<div class="alert alert-info py-2 mb-3">
-    <small>
-        This pipeline does not measure
-        {% for n in notReported %}{{ n }}{% if not loop.last %}, {% endif %}{% endfor %}.
-        emwrap writes those columns as zeros, so they are shown as
-        <em>n/a</em> rather than as a perfect score, and they are not used
-        to flag a tilt series.
-    </small>
-</div>
-{% endif %}
-
 {% for w in warnings %}
 <div class="alert alert-warning py-2 mb-3"><small>{{ w }}</small></div>
 {% endfor %}
 
-<div class="row">
-    <!-- Counters -->
-    <div class="col-xl-6 col-lg-12 mb-3">
-        <div class="card h-100">
-            <div class="card-body d-flex flex-wrap justify-content-between">
-                {% for c in counters %}
-                    <div class="pr-3">
-                        <div class="otf-counter-value" style="color: {{ c.text or c.color }}">
-                            <i class="fas {{ c.icon }} otf-counter-icon" style="color: {{ c.color }}"></i>{{ c.value }}
-                        </div>
-                        <div class="otf-counter-label">{{ c.label }}</div>
+<!-- Counters, then the pipeline as a flow: each stage's count and how far
+     it is behind the stage before it, so the bottleneck shows at a glance.
+     One compact card, so the trends start on the first screen. -->
+<div class="card mb-3">
+    <div class="card-body py-3 d-flex flex-wrap align-items-center otf-summary">
+        <div class="d-flex otf-counters">
+            {% for c in counters %}
+                <div>
+                    <div class="otf-counter-value" style="color: {{ c.text or c.color }}">
+                        <i class="fas {{ c.icon }} otf-counter-icon" style="color: {{ c.color }}"></i>{{ c.value }}
                     </div>
-                {% endfor %}
-            </div>
+                    <div class="otf-counter-label">{{ c.label }}</div>
+                </div>
+            {% endfor %}
         </div>
-    </div>
-
-    <!-- Stage progress: the bottleneck should be visible without reading -->
-    <div class="col-xl-6 col-lg-12 mb-3">
-        <div class="card h-100">
-            <div class="card-body">
-                {% for st in stages %}
-                    <div class="row align-items-center no-gutters mb-2">
-                        <div class="col-4 pr-2">
-                            <small {% if st.bottleneck %}class="otf-warn"{% endif %}>
-                                {{ st.label }}
-                            </small>
-                        </div>
-                        <div class="col-5 pr-2">
-                            <div class="otf-stage-bar">
-                                <div class="otf-stage-fill"
-                                     style="width: {{ '%.1f'|format(st.percent) }}%;
-                                            background: {% if st.jobStatus and st.jobStatus.lower() == 'running' %}#adb5bd{% else %}{{ dataColor }}{% endif %};
-                                            opacity: .75"></div>
-                            </div>
-                        </div>
-                        <div class="col-3 otf-num text-nowrap">
-                            <small>{{ st.done }} / {{ st.total }}</small>
-                            {% if st.lag %}<small class="otf-warn"> &darr;{{ st.lag }}</small>{% endif %}
-                            {% if st.failed %}<small class="text-danger"> {{ st.failed }} failed</small>{% endif %}
-                        </div>
+        <div class="d-flex flex-grow-1 otf-flow">
+            {% for st in stages %}
+                {% if not loop.first %}<i class="fas fa-chevron-right otf-flow-arrow"></i>{% endif %}
+                <div class="otf-flow-step" data-toggle="tooltip"
+                     title="{{ st.label }}: {{ st.done }} of {{ st.total }} tilt series{% if st.lag %}, {{ st.lag }} behind the previous stage{% endif %}{% if st.bottleneck %} (the bottleneck){% endif %}{% if st.failed %}; {{ st.failed }} could not be processed{% endif %}">
+                    <div class="otf-flow-label {% if st.bottleneck %}otf-warn{% endif %}">{{ st.short }}</div>
+                    <div class="otf-flow-count">
+                        {{ st.done }}<small class="text-muted"> / {{ st.total }}</small>
+                        {% if st.lag %}<small class="otf-warn"> &darr;{{ st.lag }}</small>{% endif %}
                     </div>
-                {% endfor %}
-            </div>
+                    <div class="otf-stage-bar">
+                        <div class="otf-stage-fill"
+                             style="width: {{ '%.1f'|format(st.percent) }}%;
+                                    background: {% if st.jobStatus and st.jobStatus.lower() == 'running' %}#adb5bd{% else %}{{ dataColor }}{% endif %};
+                                    opacity: .75"></div>
+                    </div>
+                    {% if st.failed %}<small class="text-danger otf-flow-failed">{{ st.failed }} failed</small>{% endif %}
+                </div>
+            {% endfor %}
         </div>
     </div>
 </div>
