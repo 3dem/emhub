@@ -2,64 +2,7 @@
 
 {# The wrapper holds the page and the modal, so one class switches both
    to dark mode. #}
-<div class="otf-page" id="otf-page">
-<script>
-/* Dark mode.  The otf-dark class switches the CSS variables below.  Plotly
-   does not read CSS, so each plot is drawn by a function that reads the
-   theme, kept on its div, and the toggle calls them again.  Defined before
-   the content, whose plots are drawn as it loads. */
-(function(window, document, $) {
-    var page = document.getElementById('otf-page');
-    page.classList.toggle('otf-dark', window.localStorage.getItem('otfTheme') === 'dark');
-
-    function otfCss(name) {
-        return window.getComputedStyle(page).getPropertyValue(name).trim();
-    }
-    // Server colours may be theme variables, 'var(--otf-ink)'; Plotly needs the value
-    function otfColor(c) {
-        var m = /^var\((--[\w-]+)\)$/.exec(c || '');
-        return m ? otfCss(m[1]) : c;
-    }
-    // Transparent backgrounds let the card show through
-    function otfThemeLayout(layout) {
-        var grid = otfCss('--otf-grid');
-        return $.extend(true, {
-            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-            font: {color: otfCss('--otf-plot-text')},
-            xaxis: {gridcolor: grid}, yaxis: {gridcolor: grid}
-        }, layout);
-    }
-    function otfPlot(div, draw) {
-        div.otfDraw = draw;
-        draw();
-    }
-
-    window.otfCss = otfCss;
-    window.otfColor = otfColor;
-    window.otfThemeLayout = otfThemeLayout;
-    window.otfPlot = otfPlot;
-    window.otfToggleTheme = function() {
-        var dark = page.classList.toggle('otf-dark');
-        window.localStorage.setItem('otfTheme', dark ? 'dark' : 'light');
-        $(page).find('.js-plotly-plot').each(function() {
-            if (this.otfDraw) this.otfDraw();
-        });
-    };
-})(window, document, window.jQuery);
-</script>
-
-<div class="container-fluid dashboard-content">
-
-    {% set title = "On-the-fly CryoET" %}
-    {% set navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), (title, '')] %}
-    {% include 'include_header.html' %}
-
-    <div id="otf-dashboard-content">
-        {% include 'otf_dashboard_content.html' %}
-    </div>
-
-</div>
-
+{# Styles first: the theme script and the plots read their variables. #}
 <style>
 /* Every colour that changes with the theme is a variable here; the light
    values are the dashboard's own, the dark ones apply with .otf-dark. */
@@ -164,6 +107,65 @@
 .otf-dark .alert-warning { background: #3a2f0b; border-color: #5c4a10; color: #f5dd8c; }
 .otf-dark .alert-danger { background: #3d1418; border-color: #6b1f26; color: #f5b5bb; }
 </style>
+
+<div class="otf-page" id="otf-page">
+<script>
+/* Dark mode.  The otf-dark class switches the CSS variables below.  Plotly
+   does not read CSS, so each plot is drawn by a function that reads the
+   theme, kept on its div, and the toggle calls them again.  Defined before
+   the content, whose plots are drawn as it loads. */
+(function(window, document, $) {
+    var page = document.getElementById('otf-page');
+    page.classList.toggle('otf-dark', window.localStorage.getItem('otfTheme') === 'dark');
+
+    function otfCss(name) {
+        return window.getComputedStyle(page).getPropertyValue(name).trim();
+    }
+    // Server colours may be theme variables, 'var(--otf-ink)'; Plotly needs the value
+    function otfColor(c) {
+        var m = /^var\((--[\w-]+)\)$/.exec(c || '');
+        return m ? otfCss(m[1]) : c;
+    }
+    // Transparent backgrounds let the card show through
+    function otfThemeLayout(layout) {
+        var grid = otfCss('--otf-grid');
+        return $.extend(true, {
+            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            font: {color: otfCss('--otf-plot-text')},
+            xaxis: {gridcolor: grid}, yaxis: {gridcolor: grid}
+        }, layout);
+    }
+    function otfPlot(div, draw) {
+        div.otfDraw = draw;
+        draw();
+    }
+
+    window.otfCss = otfCss;
+    window.otfColor = otfColor;
+    window.otfThemeLayout = otfThemeLayout;
+    window.otfPlot = otfPlot;
+    window.otfToggleTheme = function() {
+        var dark = page.classList.toggle('otf-dark');
+        window.localStorage.setItem('otfTheme', dark ? 'dark' : 'light');
+        $(page).find('.js-plotly-plot').each(function() {
+            if (this.otfDraw) this.otfDraw();
+        });
+    };
+})(window, document, window.jQuery);
+</script>
+
+<div class="container-fluid dashboard-content">
+
+    {% set title = "On-the-fly CryoET" %}
+    {% set navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), (title, '')] %}
+    {% include 'include_header.html' %}
+
+    <div id="otf-dashboard-content">
+        {% include 'otf_dashboard_content.html' %}
+    </div>
+
+</div>
+
 
 <script>
 (function(window, document, $, undefined) {
