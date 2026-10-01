@@ -20,6 +20,8 @@ by emwrap while the microscope is still collecting.
 import os
 import time
 
+from PIL import Image
+
 from emhub.data.processing import resolve_processing_path
 from emhub.data.processing.otf_cryoet import (
     OtfSession, TiltSeriesMetrics, STAGES, STATUS_OK, STATUS_SUSPECT, STATUS_BAD,
@@ -660,8 +662,20 @@ def register_content(dc):
                 'border': border,
                 'label': '' if angle is None else f'{round(angle)}°',
             })
-        if not any(thumb['image'] for thumb in thumbs):
+        images = [thumb['image'] for thumb in thumbs if thumb['image']]
+        if not images:
             thumbs = []
+        # The images of a tilt series share one size; telling the browser
+        # lets it lay out the filmstrip before they load, so scrolling to the
+        # selected tilt lands on it
+        thumb_size = None
+        if images:
+            try:
+                with Image.open(session.join(images[0]['path'])) as im:
+                    thumb_size = im.size
+            except OSError:
+                pass
+
 
         style = STATUS_STYLE[ts.status]
         return {
@@ -705,4 +719,5 @@ def register_content(dc):
                            else int(t[COL_MOVIE_INDEX]) for t in tilts],
             'tiltNotes': notes,
             'thumbs': thumbs,
+            'thumbSize': thumb_size,
         }

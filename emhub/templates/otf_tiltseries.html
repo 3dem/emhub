@@ -99,6 +99,7 @@
                             {% if th.profile %}data-profile="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.profile.path, v=th.profile.version) }}"{% endif %}>
                         {% if th.image %}
                             <img loading="lazy" alt="{{ th.label }}"
+                                 {% if thumbSize %}width="{{ thumbSize[0] }}" height="{{ thumbSize[1] }}"{% endif %}
                                  style="border-color: {{ th.border }}"
                                  src="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.image.path, v=th.image.version) }}">
                         {% else %}
