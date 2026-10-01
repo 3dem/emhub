@@ -133,7 +133,7 @@
             {% endif %}
             {% if tomogram %}
                 <button type="button" class="btn btn-sm btn-outline-light mr-2"
-                   onclick='otfViewTomogram({{ tomoName|tojson }}, {{ tomogram|tojson }})'>
+                   onclick='otfViewTomogram({{ tomoName|tojson }}, {{ tomogram|tojson }}, {{ tomoPixelSize|tojson }})'>
                    <i class="fas fa-cube"></i> Tomogram slices</button>
             {% else %}
                 <small class="text-muted">No tomogram reconstructed yet.</small>

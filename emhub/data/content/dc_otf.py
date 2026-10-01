@@ -685,6 +685,9 @@ def register_content(dc):
             'nUsed': ts.nUsed,
             'pixelSize': ts.pixelSize,
             'tsPixelSize': ts.tsPixelSize,
+            # The tomogram's voxel, from RELION's binning of the original pixel
+            'tomoPixelSize': (ts.pixelSize * ts.tomoBinning
+                              if ts.pixelSize and ts.tomoBinning else None),
             'tiltSeriesStar': ts.tiltSeriesStar,
             'alignedStack': ts.alignedStack,
             'tomogram': ts.tomogram,

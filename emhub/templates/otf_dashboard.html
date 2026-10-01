@@ -105,6 +105,16 @@
 /* Tilt series window: wider than modal-xl, for the strips and the
    selected tilt side by side */
 .modal-dialog.otf-modal-wide { max-width: min(1640px, 96vw); }
+/* Tomogram orthogonal sections; the lines mark the other two slices */
+.otf-volume-info { font-size: .8rem; color: var(--otf-muted); margin: 0 0 8px; }
+.otf-ortho { display: grid; grid-template-columns: max-content max-content; gap: 6px 14px;
+             align-items: start; }
+.otf-ortho figure { position: relative; width: max-content; }
+.otf-ortho canvas { image-rendering: auto; }
+#otf-vol-x > div { min-width: 150px; }
+.otf-xh { position: absolute; pointer-events: none; background: rgba(13, 110, 253, .75); }
+.otf-xh-v { top: 0; bottom: 0; width: 1px; }
+.otf-xh-h { left: 0; right: 0; height: 1px; }
 .otf-tilt-view { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
 .otf-tilt-view figure { margin: 0; }
 .otf-tilt-view figcaption { font-size: .75rem; color: var(--otf-muted); }
@@ -301,7 +311,54 @@
 
     /* Images come from the same pane endpoint the project table view uses,
        rendered with the shared slider card. */
-    function otfViewPane(attrs) {
+    /* A tomogram as orthogonal sections at one scale: the Z section, the Y
+       section above it (same X) and the X section beside it (same Y, made
+       upright by the server), with lines on each marking where the other
+       two are. */
+    function otfOrthoViewer(pane, voxel) {
+        var d = pane.dimensions, X = d[0], Y = d[1], Z = d[2];
+        var s = 520 / Math.max(X, Y);      // screen px per voxel
+        var $body = $('#otf-viewer-body');
+        var shown = ['x', 'y', 'z'].map(function(a, i) {
+            return Object.keys(pane.axes[a].slices).length + ' of ' + d[i] + ' ' + a.toUpperCase();
+        });
+        var info = 'Volume dimensions (X × Y × Z): ' + d.join(' × ') + ' voxels';
+        if (voxel) {
+            info += ' at ' + voxel.toFixed(2) + ' Å = ' +
+                    d.map(function(v) { return Math.round(v * voxel / 10); }).join(' × ') + ' nm';
+        }
+        $('<p class="otf-volume-info"></p>').text(
+            info + '. Showing ' + shown.join(', ') + ' slices, evenly spaced over the whole volume.'
+        ).appendTo($body);
+        $body.append('<div class="otf-ortho"><div id="otf-vol-y"></div><div></div>' +
+                     '<div id="otf-vol-z"></div><div id="otf-vol-x"></div></div>');
+        var size = {x: [Z, Y], y: [X, Z], z: [X, Y]};     // width, height in voxels
+        var cards = {};
+        [['y', 'Y slice: ', true], ['z', 'Z slice: ', false], ['x', 'X slice: ', false]].forEach(function(c) {
+            var axis = c[0];
+            cards[axis] = new ImageSliderCard('otf-vol-' + axis, pane.axes[axis].slices,
+                                              {slider_prefix: c[1], slider_ontop: c[2], coordinates: []});
+            $('#' + cards[axis].id('canvas')).css({width: size[axis][0] * s, height: size[axis][1] * s})
+                .after('<div class="otf-xh otf-xh-v"></div><div class="otf-xh otf-xh-h"></div>');
+        });
+        function at(axis) {
+            var card = cards[axis];
+            return (Number(card.indexes[$('#' + card.id('slider_input')).val()]) + 0.5) * s;
+        }
+        // Each view: which slice its vertical and horizontal lines follow
+        var lines = {z: ['x', 'y'], y: ['x', 'z'], x: ['z', 'y']};
+        function mark() {
+            Object.keys(lines).forEach(function(axis) {
+                var $fig = $('#otf-vol-' + axis + ' figure');
+                $fig.find('.otf-xh-v').css('left', at(lines[axis][0]));
+                $fig.find('.otf-xh-h').css('top', at(lines[axis][1]));
+            });
+        }
+        $body.find('input[type=range]').on('input', mark);
+        mark();
+    }
+
+    function otfViewPane(attrs, voxel) {
         var $pane = otfClear($('#otf-viewer-pane'));
         $pane.html('<small class="text-muted">Loading…</small>');
         attrs.root = OTF_ROOT;
@@ -315,7 +372,10 @@
             }
             $pane.html('<h6 class="mt-3"></h6><div id="otf-viewer-body"></div>');
             $pane.find('h6').text(pane.title || '');
-            if (pane.kind === 'imageSlider' && pane.axes) {
+            if (pane.kind === 'imageSlider' && pane.axes && pane.dimensions &&
+                    pane.axes.x && pane.axes.y && pane.axes.z) {
+                otfOrthoViewer(pane, voxel);
+            } else if (pane.kind === 'imageSlider' && pane.axes) {
                 var slices = {};
                 Object.keys(pane.axes).forEach(function(axis) {
                     slices[axis] = pane.axes[axis].slices;
@@ -343,9 +403,9 @@
         otfViewPane({actionId: 'aligned-slices', rowLabel: tomoName,
                      row: {cells: {rlnTiltSeriesAligned: stackPath}}});
     };
-    window.otfViewTomogram = function(tomoName, tomoPath) {
-        otfViewPane({actionId: 'volume-slices', rowLabel: tomoName,
-                     row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}});
+    window.otfViewTomogram = function(tomoName, tomoPath, voxel) {
+        otfViewPane({actionId: 'volume-slices', rowLabel: tomoName, ortho: true,
+                     row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}}, voxel);
     };
 
     otfStart();
