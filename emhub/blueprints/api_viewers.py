@@ -658,7 +658,16 @@ def _volume_axis_slices(
     prefix=None,
     *,
     all_slices=False,
+    full_range=False,
+    upright=False,
 ):
+    """ Thumbnails of slices along one axis, keyed by slice index.
+
+    By default slice_number slices are taken from the middle half of the
+    axis.  full_range spreads them over the whole axis instead, first and
+    last slice included.  upright turns X slices from (Z, Y) to (Y, Z), so
+    they line up with the rows of a Z slice in an orthogonal view.
+    """
     import mrcfile
     import numpy as np
     from emtools.image import Thumbnail
@@ -673,7 +682,8 @@ def _volume_axis_slices(
 
         if axis == 'x':
             dim = xdim
-            getter = lambda i: mrc.data[:, :, i]
+            getter = ((lambda i: mrc.data[:, :, i].T) if upright
+                      else (lambda i: mrc.data[:, :, i]))
             prefix = prefix or 'X slice: '
         elif axis == 'y':
             dim = ydim
@@ -688,6 +698,9 @@ def _volume_axis_slices(
             indices = list(range(dim))
         elif dim <= 1:
             indices = [0]
+        elif full_range:
+            indices = np.unique(np.round(
+                np.linspace(0, dim - 1, min(slice_number, dim))).astype(int))
         else:
             count = min(slice_number, dim)
             if count <= 1:
@@ -710,6 +723,8 @@ def build_volume_image_slider_pane_content(
     *,
     all_slices=False,
     slice_label_offset=0,
+    full_range=False,
+    upright=False,
 ):
     """Build image-slider pane content from a volume or tilt-series stack file."""
     axis_payload = {}
@@ -723,6 +738,8 @@ def build_volume_image_slider_pane_content(
             slice_dim=512,
             prefix=prefix,
             all_slices=all_slices,
+            full_range=full_range,
+            upright=upright,
         )
         axis_payload[axis] = {
             'slices': slices,
@@ -793,8 +810,13 @@ def build_tomogram_volume_slider_pane_content(
     title=None,
     *,
     coordinates=None,
+    ortho=False,
 ):
-    """Build three-axis volume sliders for a reconstructed tomogram."""
+    """Build three-axis volume sliders for a reconstructed tomogram.
+
+    ortho is for an orthogonal view: slices over the whole volume rather
+    than its middle half, and X slices upright.
+    """
     tomo_path = _resolve_data_path(root, tomo_rel)
     if not tomo_path or not os.path.exists(tomo_path):
         raise Exception(f'Tomogram not found: {tomo_rel}')
@@ -803,6 +825,8 @@ def build_tomogram_volume_slider_pane_content(
         tomo_path,
         title=title or tomo_rel,
         axes=('x', 'y', 'z'),
+        full_range=ortho,
+        upright=ortho,
     )
     content['layout'] = 'volume'
     if coordinates:

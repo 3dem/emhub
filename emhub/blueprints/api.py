@@ -891,6 +891,7 @@ def resolve_table_view_pane():
                 tomo_rel,
                 title=tomo_rel,
                 coordinates=coordinates,
+                ortho=bool(attrs.get('ortho')),
             )
 
         star_rel = resolve_row_star_path(attrs, row_cells, column_id)
