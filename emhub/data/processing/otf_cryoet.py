@@ -625,7 +625,6 @@ class OtfSession:
     THUMBNAIL_KINDS = {
         'image': (COL_MICROGRAPH, '{name}.jpg'),
         'medium': (COL_MICROGRAPH, '{name}_medium.jpg'),
-        'large': (COL_MICROGRAPH, '{name}_large.jpg'),
         'ps': (COL_POWER_SPECTRUM, '{name}_ps.jpg'),
         'ctf': (COL_POWER_SPECTRUM, '{name}_ctf.json'),
     }
@@ -633,8 +632,8 @@ class OtfSession:
     def tilt_thumbnail(self, tilt, kind='image'):
         """ A file emwrap writes for a tilt, as {'path', 'version'}, or None
         if it has not been written.  emwrap puts them in a 'thumbnails'
-        folder beside the folder of the source MRC: the tilt image (and two
-        larger ones), the CTF fit image and the CTF fit radial profile.  path is project relative;
+        folder beside the folder of the source MRC: the tilt image (and a
+        larger one), the CTF fit image and the CTF fit radial profile.  path is project relative;
         version is the modification time, for the URL, so the browser does
         not keep showing a cached copy after emwrap rewrites the file. """
         col, pattern = self.THUMBNAIL_KINDS[kind]

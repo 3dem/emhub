@@ -145,8 +145,8 @@
                 background: rgba(10, 12, 16, .88); cursor: zoom-out; }
 .otf-lightbox.show { display: flex; }
 .otf-lightbox figure { margin: 0; text-align: center; }
-.otf-lightbox img { max-width: 94vw; max-height: 88vh; display: block; margin: 0 auto;
-                    box-shadow: 0 4px 30px rgba(0, 0, 0, .5); }
+/* Filling the screen, proportions kept */
+.otf-lightbox img { width: 94vw; height: 88vh; object-fit: contain; display: block; margin: 0 auto; }
 .otf-lightbox figcaption { color: #e4e7ec; font-size: .85rem; margin-top: 10px; }
 .otf-ctf-caption { font-size: .75rem; color: var(--otf-muted); margin: 6px 0 0; }
 .otf-ctf-profile { width: 100%; height: 190px; }
@@ -422,18 +422,12 @@
     }
 
     /* A larger view of an image over everything, closed by a click or Esc.
-       It opens at once with the image already loaded and swaps in the
-       larger one when that arrives. */
+       It shows the image already loaded, so it opens at once. */
     var $lightbox = $('#otf-lightbox');
-    window.otfLightbox = function(large, small, caption) {
-        var $img = $lightbox.find('img').attr('src', small || large).data('want', large);
+    window.otfLightbox = function(src, caption) {
+        $lightbox.find('img').attr('src', src);
         $lightbox.find('figcaption').text(caption || '');
         $lightbox.addClass('show');
-        if (large && large !== small) {
-            var im = new Image();
-            im.onload = function() { if ($img.data('want') === large) $img.attr('src', large); };
-            im.src = large;
-        }
     };
     $lightbox.on('click', function() { $lightbox.removeClass('show'); });
     // Esc closes the larger view first, not the tilt series window under it

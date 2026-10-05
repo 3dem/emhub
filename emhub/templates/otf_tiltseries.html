@@ -111,7 +111,6 @@
                 {% for th in thumbs %}
                     <figure class="otf-thumb" data-index="{{ loop.index0 }}" data-ctf="{{ th.ctf }}"
                             {% if th.medium %}data-medium="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.medium.path, v=th.medium.version) }}"{% endif %}
-                            {% if th.large %}data-large="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.large.path, v=th.large.version) }}"{% endif %}
                             {% if th.ps %}data-ps="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.ps.path, v=th.ps.version) }}"{% endif %}
                             {% if th.profile %}data-profile="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.profile.path, v=th.profile.version) }}"{% endif %}>
                         {% if th.image %}
@@ -346,8 +345,7 @@
             pane.profile = $('<div class="otf-ctf-profile"></div>').appendTo($pane);
             pane.image.find('img').addClass('otf-zoomable').on('click', function() {
                 var $fig = $strip.find('.otf-thumb[data-index="' + shown + '"]');
-                otfLightbox($fig.data('large'), $fig.data('medium') || $fig.find('img').attr('src'),
-                            tomoName + ' · ' + tiltText[shown].split('<br>')[0]);
+                otfLightbox($(this).attr('src'), tomoName + ' · ' + tiltText[shown].split('<br>')[0]);
             });
             return pane;
         }
