@@ -671,6 +671,8 @@ def register_content(dc):
             thumbs.append({
                 'ctf': ' · '.join(ctf_parts),
                 'image': session.tilt_thumbnail(t),
+                'medium': session.tilt_thumbnail(t, 'medium'),
+                'large': session.tilt_thumbnail(t, 'large'),
                 'ps': session.tilt_thumbnail(t, 'ps'),
                 'profile': session.tilt_thumbnail(t, 'ctf'),
                 'border': border,

@@ -124,10 +124,22 @@
 .otf-xh { position: absolute; pointer-events: none; background: var(--otf-data); opacity: .75; }
 .otf-xh-v { top: 0; bottom: 0; width: 1px; }
 .otf-xh-h { left: 0; right: 0; height: 1px; }
-.otf-tilt-view { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
-.otf-tilt-view figure { margin: 0; }
+/* Each figure's flex-grow is its image's width/height, so both images
+   are the same height */
+.otf-tilt-view { display: flex; gap: 10px; align-items: flex-start; }
+.otf-tilt-view figure { margin: 0; min-width: 0; }
 .otf-tilt-view figcaption { font-size: .75rem; color: var(--otf-muted); }
-.otf-thumb-large, .otf-ps-large { width: 100%; display: block; }
+.otf-tilt-view img { width: 100%; display: block; }
+.otf-zoomable { cursor: zoom-in; }
+/* Larger view of a tilt, over the tilt series window */
+.otf-lightbox { position: fixed; inset: 0; z-index: 1080; display: none;
+                align-items: center; justify-content: center;
+                background: rgba(10, 12, 16, .88); cursor: zoom-out; }
+.otf-lightbox.show { display: flex; }
+.otf-lightbox figure { margin: 0; text-align: center; }
+.otf-lightbox img { max-width: 94vw; max-height: 88vh; display: block; margin: 0 auto;
+                    box-shadow: 0 4px 30px rgba(0, 0, 0, .5); }
+.otf-lightbox figcaption { color: #e4e7ec; font-size: .85rem; margin-top: 10px; }
 .otf-ctf-caption { font-size: .75rem; color: var(--otf-muted); margin: 6px 0 0; }
 .otf-ctf-profile { width: 100%; height: 190px; }
 .otf-tooltip .tooltip-inner { max-width: 380px; text-align: left; }
@@ -414,6 +426,30 @@
         });
     }
 
+    /* A larger view of an image over everything, closed by a click or Esc.
+       It opens at once with the image already loaded and swaps in the
+       larger one when that arrives. */
+    var $lightbox = $('#otf-lightbox');
+    window.otfLightbox = function(large, small, caption) {
+        var $img = $lightbox.find('img').attr('src', small || large).data('want', large);
+        $lightbox.find('figcaption').text(caption || '');
+        $lightbox.addClass('show');
+        if (large && large !== small) {
+            var im = new Image();
+            im.onload = function() { if ($img.data('want') === large) $img.attr('src', large); };
+            im.src = large;
+        }
+    };
+    $lightbox.on('click', function() { $lightbox.removeClass('show'); });
+    // Esc closes the larger view first, not the tilt series window under it
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && $lightbox.hasClass('show')) {
+            $lightbox.removeClass('show');
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, true);
+
     window.otfViewStar = function(tomoName, starPath) {
         otfViewPane('metadata', {actionId: 'metadata', starPath: starPath, rowLabel: tomoName});
     };
@@ -431,5 +467,9 @@
 </script>
 
 <div class="modal fade" id="otf-tiltseries-modal" tabindex="-1" role="dialog" aria-hidden="true"></div>
+
+<div class="otf-lightbox" id="otf-lightbox" role="dialog" aria-label="Larger view">
+    <figure><img alt=""><figcaption></figcaption></figure>
+</div>
 
 </div>

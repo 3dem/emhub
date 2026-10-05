@@ -95,6 +95,8 @@
             <div class="otf-filmstrip" id="otf-filmstrip">
                 {% for th in thumbs %}
                     <figure class="otf-thumb" data-index="{{ loop.index0 }}" data-ctf="{{ th.ctf }}"
+                            {% if th.medium %}data-medium="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.medium.path, v=th.medium.version) }}"{% endif %}
+                            {% if th.large %}data-large="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.large.path, v=th.large.version) }}"{% endif %}
                             {% if th.ps %}data-ps="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.ps.path, v=th.ps.version) }}"{% endif %}
                             {% if th.profile %}data-profile="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.profile.path, v=th.profile.version) }}"{% endif %}>
                         {% if th.image %}
@@ -312,40 +314,76 @@
             });
         }
 
-        // Open a tilt beside the strips: its image and CTF fit view side by
-        // side, then the caption and the fit profile
+        /* The tilt pane, beside the strips: the tilt image and the CTF fit
+           view side by side, then the caption and the fit profile.  Built
+           once and updated in place on every selection, so it does not
+           blink: an image is replaced only once the new one has loaded, and
+           the profile is redrawn in its plot.  Each figure grows by its
+           image's width/height, so the two images share one height. */
+        var CTF_CAPTION = 'CTF fit: measured, as stored by Warp (top) | simulated from the fit ' +
+            '(bottom); rings running straight across the line mean the fit ' +
+            'matches. On a low dose tilt the measured rings are faint; the ' +
+            'profile below averages each ring and is the more reliable check';
+        var tiltAspect = {{ (thumbSize[0] / thumbSize[1]) if thumbSize else 1 }};
+        var pane = null, shown = -1;
+
+        function otfFigure($row, caption, aspect) {
+            var $fig = $('<figure></figure>').css('flex', aspect + ' 1 0').appendTo($row);
+            $('<img>').css('aspect-ratio', String(aspect)).appendTo($fig);
+            $('<figcaption></figcaption>').text(caption).appendTo($fig);
+            return $fig;
+        }
+
+        function otfTiltPane() {
+            if (pane) return pane;
+            var $pane = $('#otf-tilt-pane');
+            pane = {title: $('<h6></h6>').appendTo($pane)};
+            var $row = $('<div class="otf-tilt-view"></div>').appendTo($pane);
+            pane.image = otfFigure($row, 'Tilt image · click for a larger view', tiltAspect);
+            pane.ps = otfFigure($row, 'CTF fit', 1);
+            pane.caption = $('<p class="otf-ctf-caption"></p>').appendTo($pane);
+            pane.profile = $('<div class="otf-ctf-profile"></div>').appendTo($pane);
+            pane.image.find('img').addClass('otf-zoomable').on('click', function() {
+                var $fig = $strip.find('.otf-thumb[data-index="' + shown + '"]');
+                otfLightbox($fig.data('large'), $fig.data('medium') || $fig.find('img').attr('src'),
+                            tomoName + ' · ' + tiltText[shown].split('<br>')[0]);
+            });
+            return pane;
+        }
+
+        // Show src in a figure once it has loaded; hide the figure without one
+        function otfShowImage($fig, src) {
+            $fig.toggle(!!src);
+            if (!src) return;
+            var $img = $fig.find('img').data('want', src), im = new Image();
+            im.onload = function() { if ($img.data('want') === src) $img.attr('src', src); };
+            im.src = src;
+        }
+
         function otfOpenTilt(j, scroll) {
             otfMarkTilt(j);
             window.otfSelectedTilt = {tomo: tomoName, movie: movieIndex[j]};
-            var $fig = $strip.find('.otf-thumb[data-index="' + j + '"]');
-            var $pane = otfClear($('#otf-tilt-pane'));
-            $('<h6></h6>').text(tiltText[j].split('<br>')[0]).appendTo($pane);
-            var $row = $('<div class="otf-tilt-view"></div>').appendTo($pane);
-            var src = $fig.find('img').attr('src');
-            if (src) {
-                $('<figure></figure>').append($('<img class="otf-thumb-large">').attr('src', src))
-                    .append($('<figcaption>Tilt image</figcaption>')).appendTo($row);
-            }
-            if ($fig.data('ps')) {
-                $('<figure></figure>').append($('<img class="otf-ps-large">').attr('src', $fig.data('ps')))
-                    .append($('<figcaption>CTF fit</figcaption>')).appendTo($row);
-                var $cap = $('<p class="otf-ctf-caption"></p>').text(
-                    'CTF fit: measured, as stored by Warp (top) | simulated from the fit ' +
-                    '(bottom); rings running straight across the line mean the fit ' +
-                    'matches. On a low dose tilt the measured rings are faint; the ' +
-                    'profile below averages each ring and is the more reliable check' +
-                    ($fig.data('ctf') ? '. ' + $fig.data('ctf') : '')).appendTo($pane);
-                if ($fig.data('profile')) {
-                    var div = $('<div class="otf-ctf-profile"></div>').appendTo($pane)[0];
-                    $.getJSON($fig.data('profile')).done(function(p) {
-                        otfPlotProfile(div, p);
-                        $cap.append(document.createTextNode(
-                            ' · measured vs simulated correlation r = ' + p.correlation.toFixed(2)));
-                    });
-                }
+            shown = j;
+            var p = otfTiltPane(), $fig = $strip.find('.otf-thumb[data-index="' + j + '"]');
+            p.title.text(tiltText[j].split('<br>')[0]);
+            // The 1024 px jpeg when emwrap wrote one: the pane is wider than 512 px
+            otfShowImage(p.image, $fig.data('medium') || $fig.find('img').attr('src'));
+            otfShowImage(p.ps, $fig.data('ps'));
+            var text = CTF_CAPTION + ($fig.data('ctf') ? '. ' + $fig.data('ctf') : '');
+            p.caption.toggle(!!$fig.data('ps'));
+            p.profile.toggle(!!($fig.data('ps') && $fig.data('profile')));
+            if ($fig.data('ps') && $fig.data('profile')) {
+                $.getJSON($fig.data('profile')).done(function(prof) {
+                    if (shown !== j) return;        // another tilt was picked meanwhile
+                    otfPlotProfile(p.profile[0], prof);
+                    p.caption.text(text + ' · measured vs simulated correlation r = ' +
+                                   prof.correlation.toFixed(2));
+                });
+            } else {
+                p.caption.text(text);
             }
             // Only matters on narrow screens, where the pane is below the strips
-            if (scroll) $pane[0].scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            if (scroll) $('#otf-tilt-pane')[0].scrollIntoView({behavior: 'smooth', block: 'nearest'});
         }
 
         $strip.on('click', 'img', function() {
