@@ -44,13 +44,28 @@
             </div>
         {% endif %}
 
+        {# Three tabs, so nothing needs scrolling to: the per-tilt QC, the
+           aligned stack beside the tomogram, and the metadata.  The other
+           two load the first time they are opened. #}
+        {% set hasStack = alignedStack and alignedStack != 'None' %}
+        <ul class="nav nav-tabs otf-tabs" role="tablist">
+            <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#otf-tab-qc"
+                                    role="tab">Per-tilt QC</a></li>
+            <li class="nav-item"><a class="nav-link {% if not (hasStack or tomogram) %}disabled{% endif %}"
+                                    data-toggle="tab" href="#otf-tab-viewers" role="tab">Alignment &amp; tomogram</a></li>
+            <li class="nav-item"><a class="nav-link {% if not tiltSeriesStar %}disabled{% endif %}"
+                                    data-toggle="tab" href="#otf-tab-metadata" role="tab">Metadata</a></li>
+        </ul>
+        <div class="tab-content">
+        <div class="tab-pane fade show active" id="otf-tab-qc" role="tabpanel">
+
         {# The selected tilt sits beside the strips, so clicking a point shows
            it without scrolling away from the plots.  Stacked on narrow
            screens. #}
         <div class="row">
         <div class="{{ 'col-lg-7' if thumbs else 'col-12' }}">
+        {# The tab is the heading; the order applies to the strips and filmstrip #}
         <div class="d-flex align-items-center">
-            <h6 class="mb-0 text-nowrap">Per-tilt QC</h6>
             <div class="btn-group btn-group-sm otf-toggle ml-auto text-nowrap" role="group">
                 <button type="button"
                         class="btn btn-outline-light {% if order == 'angle' %}active{% endif %}"
@@ -119,29 +134,15 @@
             {% for n in notReported %}{{ n }}{% if not loop.last %}, {% endif %}{% endfor %}.</small></p>
         {% endif %}
 
-        <!-- Images and volumes are served by the existing table viewers
-             rather than re-implemented here. -->
-        <div class="mt-3 pt-2 border-top otf-toggle">
-            <h6>Tilt series viewers</h6>
-            {# Single-quoted attributes: tojson escapes ' but not ". #}
-            {% if tiltSeriesStar %}
-                <button type="button" class="btn btn-sm btn-outline-light mr-2" data-viewer="metadata"
-                   onclick='otfViewStar({{ tomoName|tojson }}, {{ tiltSeriesStar|tojson }})'>
-                   <i class="fas fa-table"></i> Metadata</button>
-            {% endif %}
-            {% if alignedStack and alignedStack != 'None' %}
-                <button type="button" class="btn btn-sm btn-outline-light mr-2" data-viewer="stack"
-                   onclick='otfViewStack({{ tomoName|tojson }}, {{ alignedStack|tojson }}, {{ stackLabels|tojson }})'>
-                   <i class="fas fa-layer-group"></i> Aligned stack slices</button>
-            {% endif %}
-            {% if tomogram %}
-                <button type="button" class="btn btn-sm btn-outline-light mr-2" data-viewer="tomogram"
-                   onclick='otfViewTomogram({{ tomoName|tojson }}, {{ tomogram|tojson }}, {{ tomoPixelSize|tojson }})'>
-                   <i class="fas fa-cube"></i> Tomogram slices</button>
-            {% else %}
-                <small class="text-muted">No tomogram reconstructed yet.</small>
-            {% endif %}
-            <div id="otf-viewer-pane"></div>
+        </div>
+
+        <div class="tab-pane fade" id="otf-tab-viewers" role="tabpanel">
+            <small class="text-muted d-block">The aligned tilt series stack and
+            the tomogram reconstructed from it, side by side{% if not tomogram %};
+            no tomogram reconstructed yet{% endif %}.</small>
+            <div class="otf-viewers" id="otf-viewers"></div>
+        </div>
+        <div class="tab-pane fade" id="otf-tab-metadata" role="tabpanel"></div>
         </div>
 
     </div>
@@ -415,6 +416,47 @@
             var $modal = $('#otf-tiltseries-modal');
             if ($modal.hasClass('show')) otfScrollToThumb(first);
             else $modal.one('shown.bs.modal', function() { otfScrollToThumb(first); });
+        }
+
+        /* The other tabs load the first time they are opened: the aligned
+           stack and the tomogram are a few MB each. */
+        var opened = {};
+        $('#otf-tiltseries-modal .otf-tabs a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+            var tab = $(e.target).attr('href');
+            if (opened[tab]) return;
+            opened[tab] = true;
+            if (tab === '#otf-tab-metadata') {
+                otfViewStar(tab, tomoName, {{ tiltSeriesStar|tojson }});
+            } else if (tab === '#otf-tab-viewers') {
+                var panels = {}, waiting = 0;
+                var ready = function(kind) {
+                    return function($panel) {
+                        panels[kind] = $panel;
+                        if (--waiting === 0) otfAlignViewers(panels);
+                    };
+                };
+                {% if hasStack %}waiting++;{% endif %}
+                {% if tomogram %}waiting++;{% endif %}
+                {% if hasStack %}
+                otfViewStack('#otf-viewers', tomoName, {{ alignedStack|tojson }},
+                             {{ stackLabels|tojson }}, ready('stack'));
+                {% endif %}
+                {% if tomogram %}
+                otfViewTomogram('#otf-viewers', tomoName, {{ tomogram|tojson }},
+                                {{ tomoPixelSize|tojson }}, ready('tomogram'));
+                {% endif %}
+            }
+        });
+
+        // The stack image starts level with the tomogram's Z section
+        function otfAlignViewers(panels) {
+            if (!panels.stack || !panels.tomogram) return;
+            var $s = panels.stack.find('canvas'), $z = panels.tomogram.find('#otf-vol-z canvas');
+            if (!$s.length || !$z.length) return;
+            var top = function(el) { return el.getBoundingClientRect().top; };
+            if (Math.abs(top(panels.stack[0]) - top(panels.tomogram[0])) > 2) return;  // wrapped
+            var dy = top($z[0]) - top($s[0]);
+            if (dy > 0) panels.stack.css('padding-top', dy);
         }
 
     })(window, document, window.jQuery);

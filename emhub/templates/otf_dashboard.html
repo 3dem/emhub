@@ -111,10 +111,18 @@
    selected tilt side by side */
 .modal-dialog.otf-modal-wide { max-width: min(1640px, 96vw); }
 /* Tilt series viewers, side by side; metadata on its own row */
-#otf-viewer-pane { display: flex; flex-wrap: wrap; gap: 0 32px; align-items: flex-start; }
+/* Tilt series window tabs */
+.otf-tabs { margin-bottom: 12px; }
+.otf-tabs .nav-link { color: var(--otf-muted); padding: .4rem .9rem; }
+.otf-tabs .nav-link.active { color: var(--otf-ink); font-weight: 500; }
+.otf-dark .otf-tabs { border-color: var(--otf-border); }
+.otf-dark .otf-tabs .nav-link.active { background: var(--otf-surface); border-color: var(--otf-border)
+                                       var(--otf-border) var(--otf-surface); }
+.otf-dark .otf-tabs .nav-link:not(.active):hover { border-color: transparent; color: var(--otf-ink); }
+/* The aligned stack and the tomogram side by side */
+.otf-viewers { display: flex; flex-wrap: wrap; gap: 0 32px; align-items: flex-start; }
 .otf-viewer-panel { min-width: 0; }
 .otf-viewer-panel h6 { overflow-wrap: anywhere; }
-.otf-viewer-panel[data-viewer="metadata"] { flex: 1 1 100%; }
 /* Tomogram orthogonal sections; the lines mark the other two slices */
 .otf-volume-info { font-size: .8rem; color: var(--otf-muted); margin: 0 0 8px; }
 .otf-ortho { display: grid; grid-template-columns: max-content max-content; gap: 6px 14px;
@@ -367,38 +375,24 @@
         mark();
     }
 
-    /* The viewers' content comes from the same pane endpoint as the project
-       table view.  Each viewer opens in its own panel and its button opens
-       and closes it, so the aligned stack and the tomogram reconstructed from it can
-       be looked at side by side; metadata, a wide table, takes the row
-       above them. */
-    var OTF_VIEWERS = ['metadata', 'stack', 'tomogram'];
-    function otfViewPane(kind, attrs, opts) {
+    /* Load a viewer into its own panel inside the given container.  The
+       content comes from the same pane endpoint as the project table view.
+       done($panel) is called once it is drawn. */
+    function otfViewer(into, kind, attrs, opts, done) {
         opts = opts || {};
-        var $pane = $('#otf-viewer-pane');
-        var $button = $(OTF_MODAL + ' [data-viewer="' + kind + '"]');
-        var $open = $pane.children('[data-viewer="' + kind + '"]');
-        if ($open.length) {
-            $open.remove();
-            $button.removeClass('active');
-            return;
-        }
         var bodyId = 'otf-viewer-body-' + kind;
-        var $panel = $('<div class="otf-viewer-panel"></div>')
-            .attr('data-viewer', kind).css('order', OTF_VIEWERS.indexOf(kind))
+        var $panel = $('<div class="otf-viewer-panel"></div>').attr('data-viewer', kind)
             .append('<h6 class="mt-3"></h6>')
             .append($('<div></div>').attr('id', bodyId)
                     .html('<small class="text-muted">Loading…</small>'))
-            .appendTo($pane);
-        $button.addClass('active');
+            .appendTo($(into));
         attrs.root = OTF_ROOT;
         attrs.pointerClass = 'tomograms';
         send_ajax_json(Api.urls.resolve_table_view_pane, attrs, function(data) {
             var pane = data.paneContent;
-            if (!$.contains(document, $panel[0])) return;     // closed while loading
+            if (!$.contains(document, $panel[0])) return;     // window replaced meanwhile
             if (!pane) {
                 $panel.remove();
-                $button.removeClass('active');
                 showError(data.error || 'Could not load viewer content.');
                 return;
             }
@@ -418,11 +412,12 @@
                 }
                 new ImageSliderCard(bodyId, slices, {slider_prefix: prefix});
             } else if (pane.kind === 'text') {
-                $body.append($('<pre class="small" style="max-height: 420px; overflow: auto"></pre>')
+                $body.append($('<pre class="small" style="max-height: 60vh; overflow: auto"></pre>')
                              .text(pane.text));
             } else {
                 $body.append($('<small class="text-muted"></small>').text(pane.message || ''));
             }
+            if (done) done($panel);
         });
     }
 
@@ -450,16 +445,19 @@
         }
     }, true);
 
-    window.otfViewStar = function(tomoName, starPath) {
-        otfViewPane('metadata', {actionId: 'metadata', starPath: starPath, rowLabel: tomoName});
+    window.otfViewStar = function(into, tomoName, starPath, done) {
+        otfViewer(into, 'metadata', {actionId: 'metadata', starPath: starPath, rowLabel: tomoName},
+                  {}, done);
     };
-    window.otfViewStack = function(tomoName, stackPath, labels) {
-        otfViewPane('stack', {actionId: 'aligned-slices', rowLabel: tomoName,
-                              row: {cells: {rlnTiltSeriesAligned: stackPath}}}, {labels: labels});
+    window.otfViewStack = function(into, tomoName, stackPath, labels, done) {
+        otfViewer(into, 'stack', {actionId: 'aligned-slices', rowLabel: tomoName,
+                                  row: {cells: {rlnTiltSeriesAligned: stackPath}}},
+                  {labels: labels}, done);
     };
-    window.otfViewTomogram = function(tomoName, tomoPath, voxel) {
-        otfViewPane('tomogram', {actionId: 'volume-slices', rowLabel: tomoName, ortho: true,
-                                 row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}}, {voxel: voxel});
+    window.otfViewTomogram = function(into, tomoName, tomoPath, voxel, done) {
+        otfViewer(into, 'tomogram', {actionId: 'volume-slices', rowLabel: tomoName, ortho: true,
+                                     row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}},
+                  {voxel: voxel}, done);
     };
     otfStart();
 
