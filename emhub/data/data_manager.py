@@ -1180,6 +1180,32 @@ class DataManager(DbManager):
     def get_puck_by(self, **kwargs):
         return self.__item_by(self.Puck, **kwargs)
 
+    def check_puck_update(self, attrs):
+        """ Validate that the current user can apply the update 'attrs'
+        to the puck. Managers can update anything, while labs can only
+        update gridboxes occupancy ('occupancy' level) and also the
+        label ('edit' level).
+        """
+        puck = self.get_puck_by(id=attrs['id'])
+        if puck is None:
+            raise Exception("Puck %s not found" % attrs['id'])
+
+        if puck.can_manage(self._user):
+            return
+
+        allowed = set()
+        if puck.can_edit_occupancy(self._user):
+            allowed.add('extra')
+        if puck.can_edit_label(self._user):
+            allowed.add('label')
+
+        denied = set(attrs) - allowed - {'id'}
+        denied |= {'extra.%s' % k for k in attrs.get('extra', {})
+                   if k != 'gridboxes'}
+        if denied:
+            raise Exception("Invalid access: not allowed to update "
+                            "puck's %s" % ', '.join(sorted(denied)))
+
     # --------------- Internal implementation methods -------------------------
     def get_universities_dict(self):
         formDef = self.get_form_by_name('universities').definition
@@ -1269,14 +1295,16 @@ class DataManager(DbManager):
         return any(p.code in json_codes for p in applications)
 
     # ------------------- PERMISSIONS helper functions -----------------------------
-    def check_user_access(self, permissionKey):
+    def check_user_access(self, permissionKey, defaultRoles=None):
         """ Return True if the current logged user has any of the roles
         defined in the config for 'permissionKey'.
+        If no roles are defined, 'defaultRoles' will be used (if provided).
         """
         if self._user.is_manager:
             return True
         perms = self.get_config('permissions').get('content', {})
-        return self._user.has_any_role(perms.get(permissionKey, []))
+        roles = perms.get(permissionKey) or defaultRoles or []
+        return self._user.has_any_role(roles)
 
     def check_resource_access(self, resource, permissionKey, debug=False):
         """ Check if the user has permission to access bookings for this

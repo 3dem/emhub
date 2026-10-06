@@ -376,8 +376,8 @@ class DataContent:
 
         return {'users': users}
 
-    def check_user_access(self, permissionKey):
-        if not self.app.dm.check_user_access(permissionKey):
+    def check_user_access(self, permissionKey, defaultRoles=None):
+        if not self.app.dm.check_user_access(permissionKey, defaultRoles):
             raise Exception('Invalid access')
 
     def _get_facility_staff(self, unit):
@@ -1126,6 +1126,19 @@ class DataContent:
 
 def register_content(dc):
 
+    def _check_pucks_manager():
+        if not app.user.is_manager:
+            raise Exception('Invalid access: only managers can do this')
+
+    def _get_puck(puck_id):
+        """ Return the puck if the current user can see it. """
+        puck = app.dm.get_puck_by(id=puck_id)
+        if puck is None:
+            raise Exception("Puck %s not found" % puck_id)
+        if not puck.can_view(app.user):
+            raise Exception("Invalid access to puck %s" % puck_id)
+        return puck
+
     @dc.content
     def pucks(**kwargs):
         dc.check_user_access('pucks')
@@ -1138,7 +1151,9 @@ def register_content(dc):
         min_id, max_id = pucks_range.split('-')
         condStr = 'id>=%s and id<=%s' % (min_id, max_id)
         pucks = dm.get_pucks(condition=condStr, orderBy='id')
-        storage = dm.PuckStorage(pucks)
+        # All pucks are loaded to show the occupancy, but non-managers
+        # can only see details of the pucks assigned to their lab
+        storage = dm.PuckStorage(pucks, user=app.user)
 
         # This function is used when selecting a dewar or a cane or a puck
         if dewar_id := int(kwargs.get('dewar', 0) or 0):
@@ -1147,6 +1162,8 @@ def register_content(dc):
                 cane = storage.get_cane(dewar_id, cane_id)
         if puck_id := int(kwargs.get('puck', 0) or 0):
             puck = storage.get_puck(puck_id)
+            if not storage.can_view(puck):
+                raise Exception("Invalid access to puck %s" % puck_id)
 
         return {
             'storage': storage,
@@ -1175,6 +1192,7 @@ def register_content(dc):
     @dc.content
     def cane_form(**kwargs):
         dc.check_user_access('pucks')
+        _check_pucks_manager()
 
         dm = app.dm
         dewar_id = int(kwargs.get('dewar_id', 0) or 0)
@@ -1245,6 +1263,7 @@ def register_content(dc):
             dewar_id = int(kwargs.get('dewar', 0) or 0)
             cane_id = int(kwargs.get('cane', 0) or 0)
             position = int(kwargs.get('position', 0) or 0)
+            _check_pucks_manager()
             if not dewar_id or not cane_id or not position:
                 raise Exception("dewar, cane and position are required for a new puck")
             if storage.puck_at(dewar_id, cane_id, position):
@@ -1269,13 +1288,22 @@ def register_content(dc):
             )
             puck_extra = {}
         else:
-            puck = dm.get_puck_by(id=puck_id)
-            if puck is None:
-                raise Exception("Puck %s not found" % puck_id)
+            puck = _get_puck(puck_id)
+            if not puck.can_edit_label(app.user):
+                raise Exception("Invalid access: can not edit puck %s" % puck_id)
             location_value = storage.location_value(
                 puck.dewar, puck.cane, puck.position)
             location_options = storage.location_options(puck_id=puck.id)
-            puck_extra = puck.extra or {}
+            puck_extra = dict(puck.extra or {})
+
+        can_manage = app.user.is_manager
+        access = {}
+        pis = []
+        if can_manage:
+            # Lab access is edited in its own widget, not in the extra JSON
+            access = {int(k): v for k, v in puck_extra.pop('access', {}).items()}
+            pis = [u for u in dm.get_users(orderBy='name') if u.is_pi
+                   and (u.is_active or u.id in access)]
 
         return {
             'puck': puck,
@@ -1284,6 +1312,10 @@ def register_content(dc):
             'location_value': location_value,
             'location_options': location_options,
             'puck_extra': puck_extra,
+            'can_manage': can_manage,
+            'access': access,
+            'access_levels': dm.Puck.ACCESS_LEVELS,
+            'pis': pis,
         }
 
     @dc.content
@@ -1293,10 +1325,7 @@ def register_content(dc):
         dm = app.dm
         puck_id = int(kwargs.get('puck_id', 0) or 0)
         position = int(kwargs.get('position', 0) or 0)
-        puck = dm.get_puck_by(id=puck_id)
-
-        if puck is None:
-            raise Exception("Puck %s not found" % puck_id)
+        puck = _get_puck(puck_id)
 
         form = dm.get_form_by_name('form:puck_gridbox')
         if form is None:
@@ -1313,12 +1342,14 @@ def register_content(dc):
             'position': position,
             'has_gridbox': gridbox is not None,
             'gridboxes_snapshot': gridboxes_snapshot,
+            'can_edit': puck.can_edit_occupancy(app.user),
         })
         return data
 
     @dc.content
     def grids_cane(**kwargs):
         dc.check_user_access('pucks')
+        _check_pucks_manager()
 
         dm = app.dm  # shortcut
 
