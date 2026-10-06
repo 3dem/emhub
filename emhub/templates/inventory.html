@@ -1,6 +1,12 @@
 {% import "entry_macros.html" as macros %}
 
-{% set col_count = 7 if current_user.is_manager else 6 %}
+{% set ns = namespace(ninfo=1) %}
+{% for section in inventory_sections %}
+    {% if section.info_columns|length > ns.ninfo %}{% set ns.ninfo = section.info_columns|length %}{% endif %}
+{% endfor %}
+{% set ninfo = ns.ninfo %}
+{% set col_count = ninfo + (6 if current_user.is_manager else 5) %}
+{% set single = inventory_sections|length == 1 %}
 {% if inventory_sections|length == 1 %}
     {% set title = inventory_sections[0].inventory.title %}
 {% else %}
@@ -35,8 +41,12 @@
                                         data-selected-text-format="count > 2"
                                         title="Select inventories..."
                                         data-actions-box="true">
-                                    {% for inv in all_inventories %}
-                                        <option value="{{ inv.id }}">{{ inv.title }}</option>
+                                    {% for section in inventory_groups if section.inventories %}
+                                        <optgroup label="{{ section.group.label }}">
+                                        {% for inv in section.inventories %}
+                                            <option value="{{ inv.id }}">{{ inv.title }}</option>
+                                        {% endfor %}
+                                        </optgroup>
                                     {% endfor %}
                                 </select>
                                 <a href="javascript:updateInventoryView()" class="btn btn-primary ml-3">Update</a>
@@ -53,7 +63,10 @@
                         <table class="table" id="inventory-table">
                             <thead class="bg-light">
                                 <tr class="border-0">
-                                    <th class="border-0">Item</th>
+                                    {% for i in range(ninfo) %}
+                                        {% set cols = inventory_sections[0].info_columns if single else [] %}
+                                        <th class="border-0">{% if i < cols|length %}{{ cols[i].label }}{% elif i == 0 %}Item{% endif %}</th>
+                                    {% endfor %}
                                     <th class="border-0">Quantity</th>
                                     <th class="border-0">Status</th>
                                     <th class="border-0">Last Updated</th>
@@ -69,7 +82,7 @@
                                 <tr class="inventory-section-header bg-light">
                                     <td colspan="{{ col_count }}" class="font-weight-bold">
                                         <div class="d-flex align-items-center justify-content-between py-1">
-                                            <span>{{ section.inventory.title }}</span>
+                                            <span>{% if not single and section.inventory.group_label %}<span class="text-muted">{{ section.inventory.group_label }} /</span> {% endif %}{{ section.inventory.title }}</span>
                                             {% if current_user.is_manager %}
                                                 <a href="javascript:showEntryForm(null, {{ section.project_id }}, 'inventory_item')"
                                                    class="btn btn-sm btn-primary">
@@ -78,16 +91,30 @@
                                         </div>
                                     </td>
                                 </tr>
+                                {% if not single and section.info_columns %}
+                                <tr class="text-muted small">
+                                    {% for i in range(ninfo) %}
+                                        <td>{% if i < section.info_columns|length %}{{ section.info_columns[i].label }}{% endif %}</td>
+                                    {% endfor %}
+                                    <td colspan="{{ col_count - ninfo }}"></td>
+                                </tr>
+                                {% endif %}
                                 {% for item in section.inventory_items %}
                                 <tr>
+                                    {% for i in range(ninfo) %}
                                     <td>
-                                        {% if item.icon_url %}
+                                        {% if i == 0 and item.icon_url %}
                                             <div class="m-r-10 d-inline-block align-middle">
                                                 <img src="{{ item.icon_url }}" alt="" class="rounded" width="64" height="64">
                                             </div>
                                         {% endif %}
-                                        {{ item.title }}
+                                        {% if section.info_columns %}
+                                            {% if i < item.info|length %}{{ item.info[i] }}{% endif %}
+                                        {% elif i == 0 %}
+                                            {{ item.title }}
+                                        {% endif %}
                                     </td>
+                                    {% endfor %}
                                     <td>{{ item.quantity }}</td>
                                     <td>{{ macros.inventory_availability_badge(item.availability) }}</td>
                                     <td>{{ item.date|pretty_date }}</td>
@@ -101,6 +128,9 @@
                                     {% if current_user.is_manager %}
                                         <td>
                                             <button class="btn btn-sm btn-outline-light"
+                                                    onclick="javascript:showInventoryItem({{ item.id }})">
+                                                <i class="fas fa-search"></i></button>
+                                            <button class="btn btn-sm btn-outline-light"
                                                     onclick="javascript:showEntryForm({{ item.id }}, {{ section.project_id }})">
                                                 <i class="far fa-edit"></i></button>
                                             <button class="btn btn-sm btn-outline-light"
@@ -112,7 +142,7 @@
                                             </button>
                                             <button type="button"
                                                 class="btn btn-sm btn-outline-danger" onclick="javascript:showEntryForm(null, {{ section.project_id }}, 'inventory_remove', null, 0, {item: {{ item.id }}})">
-                                                <i class="fas fa-minus-circle"></i> Remove
+                                                <i class="fas fa-minus-circle"></i> Take out
                                             </button>
                                         </td>
                                     {% endif %}
@@ -132,6 +162,15 @@
     </div>
 </div>
 
+
+<div class="modal fade" id="inventory-item-modal" tabindex="-1" role="dialog" aria-hidden="true"></div>
+
+<script>
+    function showInventoryItem(item_id) {
+        show_modal_from_ajax('inventory-item-modal',
+            get_ajax_content('inventory_item_view', {item_id: item_id}));
+    }
+</script>
 
 <script>
     (function(window, document, $, undefined) {

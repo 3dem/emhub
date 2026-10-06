@@ -858,10 +858,85 @@ class DataContent:
             return 'medium'
         return 'in-stock'
 
+    @staticmethod
+    def get_inventory_info_columns(project):
+        """Return the info columns defined for an inventory (list of
+        {'id': ..., 'label': ...}). All items share the same columns and
+        they are displayed in the inventory table."""
+        cols = (project.extra or {}).get('info_columns') or []
+        return [c for c in cols if c.get('id')]
+
+    @staticmethod
+    def get_inventory_extra_columns(project):
+        """Return the extra columns defined for an inventory. They are not
+        displayed in the table, only in the item form and details."""
+        cols = (project.extra or {}).get('extra_columns') or []
+        return [c for c in cols if c.get('id')]
+
+    def inventory_item_form_definition(self, project, definition, values):
+        """Return a copy of the inventory_item form definition organized in
+        sections: built-in, info columns and extra columns."""
+        definition = copy.deepcopy(definition)
+
+        def params(columns):
+            return [{'id': c['id'], 'label': c['label'],
+                     'value': values.get(c['id'], '')} for c in columns]
+
+        builtin = definition.pop('params')
+        sections = [{'label': 'Built-in', 'params': builtin}]
+        info = params(self.get_inventory_info_columns(project))
+        extra = params(self.get_inventory_extra_columns(project))
+        if info:
+            sections.append({'label': 'Info', 'params': info})
+        if extra:
+            sections.append({'label': 'Extra', 'params': extra})
+        definition['sections'] = sections
+        return definition
+
+    def get_inventory_item_details(self, item_id):
+        """Return all the information of an item as sections of
+        (label, value) pairs for display."""
+        dm = self.app.dm
+        entry = dm.get_entry_by(id=int(item_id))
+        if entry is None or entry.type != 'inventory_item':
+            raise Exception(f"Invalid inventory item id: {item_id}")
+        project = entry.project
+        if project.status != self.INVENTORY_STATUS:
+            raise Exception(f"Entry {item_id} does not belong to an inventory project")
+
+        item = next(i for i in self.get_inventory_items_with_operations(project)
+                    if i['id'] == entry.id)
+        data = item['data']
+        currency = dm.get_config('resources').get('currency', '')
+        cost = f"{item['total_cost']} {currency}".strip()
+
+        builtin = [
+            ('Title', item['title']),
+            ('Description', item['description']),
+            ('Quantity', item['quantity']),
+            ('Low value', data.get('low', '')),
+            ('Medium value', data.get('medium', '')),
+            ('Status', item['availability'] or ''),
+            ('Total cost', cost),
+            ('Last updated', item['date']),
+        ]
+
+        def pairs(columns):
+            return [(c['label'], data.get(c['id'], '')) for c in columns]
+
+        sections = [('Built-in', builtin)]
+        for label, cols in [
+                ('Info', self.get_inventory_info_columns(project)),
+                ('Extra', self.get_inventory_extra_columns(project))]:
+            if cols:
+                sections.append((label, pairs(cols)))
+
+        return {'item': item, 'inventory': project, 'sections': sections}
+
     def get_inventory_items(self, project):
         items = []
         entry_type = 'inventory_item'
-    
+        info_columns = self.get_inventory_info_columns(project)
         # Skip entries that are being created
         entries = [e for e in project.entries if e.id]
 
@@ -883,6 +958,7 @@ class DataContent:
                 'date': e.date,
                 'description': e.description,
                 'data': data,
+                'info': [data.get(c['id'], '') for c in info_columns],
                 'icon_url': icon_url,
             })
 
@@ -965,16 +1041,65 @@ class DataContent:
             'id': project.id,
             'title': project.title,
             'description': project.description or '',
+            'info_columns': self.get_inventory_info_columns(project),
             'total_items': len(inventory_items),
             'low_count': low_count,
             'medium_count': medium_count,
         }
 
+    NO_GROUP = {'id': 'none', 'label': 'No group'}
+
+    def get_inventory_groups(self):
+        """Return the inventory groups defined in config:inventories."""
+        return self.app.dm.get_config('inventories').get('groups', [])
+
+    @staticmethod
+    def get_inventory_project_group(project):
+        """Return the group id of an inventory ('' if none)."""
+        extra = project.extra or {}
+        if 'group' in extra:
+            return extra['group'] or ''
+        groups = extra.get('groups')  # older multi-group value
+        return groups[0] if groups else ''
+
+    def get_inventories_by_group(self):
+        """Return a list of {'group': ..., 'inventories': [...]} with the
+        inventory summaries of each group (config order). Inventories without
+        a valid group go into a final 'No group' section, if any."""
+        groups = self.get_inventory_groups()
+        group_ids = {g['id'] for g in groups}
+
+        by_group = defaultdict(list)
+        for p in self.get_inventory_projects():
+            group = self.get_inventory_project_group(p)
+            if group not in group_ids:
+                group = self.NO_GROUP['id']
+            by_group[group].append(self.get_inventory_summary(p))
+
+        all_groups = list(groups)
+        if by_group[self.NO_GROUP['id']]:
+            all_groups.append(self.NO_GROUP)
+
+        return [{'group': g, 'inventories': by_group[g['id']]}
+                for g in all_groups]
+
     def get_inventories(self, **kwargs):
-        inventories = [
-            self.get_inventory_summary(p) for p in self.get_inventory_projects()
-        ]
-        return {'inventories': inventories}
+        """Return the inventories organized by group (one tab per group).
+        The ``group`` argument is the group whose tab is displayed by default."""
+        sections = self.get_inventories_by_group()
+        all_groups = [s['group'] for s in sections]
+
+        # Group whose tab is active by default (first one if not given)
+        all_ids = [g['id'] for g in all_groups]
+        active_group = kwargs.get('group', '')
+        if active_group not in all_ids:
+            active_group = all_ids[0] if all_ids else ''
+
+        return {
+            'groups': all_groups,
+            'active_group': active_group,
+            'sections': sections,
+        }
 
     @staticmethod
     def parse_inventory_ids(inventory_param, all_projects):
@@ -1010,7 +1135,6 @@ class DataContent:
         """
         inventory_param = kwargs.get('inventory') or kwargs.get('project_id')
         all_projects = self.get_inventory_projects()
-        all_inventories = [self.get_inventory_summary(p) for p in all_projects]
         valid_ids = {p.id for p in all_projects}
 
         selected_ids = self.parse_inventory_ids(inventory_param, all_projects)
@@ -1018,14 +1142,18 @@ class DataContent:
             if inv_id not in valid_ids:
                 raise Exception(f"There is no inventory with id: {inv_id}")
 
+        group_labels = {g['id']: g['label'] for g in self.get_inventory_groups()}
         sections = []
         for inv_id in selected_ids:
             project = self.get_inventory_project(inv_id)
+            group = self.get_inventory_project_group(project)
             sections.append({
                 'inventory': {
                     'id': project.id,
                     'title': project.title,
+                    'group_label': group_labels.get(group, ''),
                 },
+                'info_columns': self.get_inventory_info_columns(project),
                 'project_id': project.id,
                 'inventory_items': self.get_inventory_items_with_operations(project),
             })
@@ -1039,7 +1167,7 @@ class DataContent:
         first = sections[0]
         return {
             'inventory_sections': sections,
-            'all_inventories': all_inventories,
+            'inventory_groups': self.get_inventories_by_group(),
             'selected_inventory_ids': selected_ids,
             'inventory_items': first['inventory_items'],
             'project_id': first['project_id'],
@@ -1534,6 +1662,12 @@ def register_content(dc):
         return dc.get_inventory(**kwargs)
 
     @dc.content
+    def inventory_item_view(**kwargs):
+        dc.check_user_access('inventories')
+
+        return dc.get_inventory_item_details(kwargs['item_id'])
+
+    @dc.content
     def inventory_item_history(**kwargs):
         dc.check_user_access('inventories')
 
@@ -1575,7 +1709,11 @@ def register_content(dc):
             )
             inventory.creation_user = inventory.user = user
 
-        return {'inventory': inventory}
+        return {'inventory': inventory,
+                'info_columns': dc.get_inventory_info_columns(inventory),
+                'extra_columns': dc.get_inventory_extra_columns(inventory),
+                'groups': dc.get_inventory_groups(),
+                'inventory_group': dc.get_inventory_project_group(inventory)}
 
     @dc.content
     def validate_inventory_add(entry):
