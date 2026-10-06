@@ -376,8 +376,8 @@ class DataContent:
 
         return {'users': users}
 
-    def check_user_access(self, permissionKey):
-        if not self.app.dm.check_user_access(permissionKey):
+    def check_user_access(self, permissionKey, defaultRoles=None):
+        if not self.app.dm.check_user_access(permissionKey, defaultRoles):
             raise Exception('Invalid access')
 
     def _get_facility_staff(self, unit):

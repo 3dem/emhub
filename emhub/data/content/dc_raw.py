@@ -39,7 +39,8 @@ def register_content(dc):
 
     @dc.content
     def raw_forms_list(**kwargs):
-        dc.check_user_access('forms')
+        # Only managers by default if 'forms' permission is not defined
+        dc.check_user_access('forms', ['manager'])
 
         def _is_config(f):
             """ Return true if this form seems like a config form.
