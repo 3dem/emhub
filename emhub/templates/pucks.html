@@ -35,7 +35,7 @@
                     </button>
                 </div>
                 <div id="accordion2">
-                    {% for dewar in storage.dewars() %}
+                    {% for dewar in storage.visible_dewars() %}
                         {% set d = dewar['id'] %}
                         {% set dewar_label = dewar.get('label') or ('Dewar ' ~ d) %}
                         {% set expanded = "true" if loop.first else "false" %}
@@ -55,12 +55,14 @@
                                     {% set c = cane_entry['id'] %}
                                     {% set cane_label = cane_entry.get('label') or ('cane ' ~ c) %}
                                     <div class="row col-12 mb-2">   
-                                        <div>
+                                        {% if is_manager %}
+                                        <div class="mr-3">
                                             <a href="javascript:editCane({{ d }}, {{ c }})">
                                                 <i class="far fa-edit"></i>
                                             </a>
                                         </div>
-                                        <div class="ml-3">
+                                        {% endif %}
+                                        <div>
                                             <a href="javascript:loadPucksCane({{ d }}, {{ c }}, 0)"
                                                id="cane-btn-{{ d }}-{{ c }}"
                                                class="btn btn-sm cane-select-btn mr-1{% if selected_dewar_id == d and selected_cane_id == c %} cane-selected{% endif %}"
@@ -81,6 +83,7 @@
                                         </div>
                                     </div>
                                 {% endfor %}
+                                    {% if is_manager %}
                                     <div class="row col-12 mt-2">
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-primary"
@@ -88,8 +91,13 @@
                                             <i class="fas fa-plus-circle"></i> Add Cane
                                         </button>
                                     </div>
+                                    {% endif %}
                                 </div>
                             </div>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            No pucks have been assigned to your lab.
                         </div>
                     {% endfor %}
                 </div>
@@ -230,7 +238,7 @@
         });
     }
 
-    var puckEditDialog = {puckId: null, dewarId: null, caneId: null, isNew: false};
+    var puckEditDialog = {puckId: null, dewarId: null, caneId: null, isNew: false, canManage: false};
     var caneEditDialog = {dewarId: null, caneId: null, formId: null, pucks: [], isNew: false};
     var puckCanvasView = null;
     var currentPuckId = null;
@@ -666,7 +674,10 @@
                 puckEditDialog.dewarId = parseInt(fieldsRoot.dataset.puckDewar, 10);
                 puckEditDialog.caneId = parseInt(fieldsRoot.dataset.puckCane, 10);
                 puckEditDialog.isNew = fieldsRoot.dataset.puckIsNew === 'true';
+                puckEditDialog.canManage = fieldsRoot.dataset.puckCanManage === 'true';
             }
+            // Labs with 'edit' access can only change the label
+            $('#puck-extra-row').toggle(puckEditDialog.canManage);
             if (puckExtraEditor) {
                 puckExtraEditor.setValue(JSON.stringify(extra, null, 4));
                 puckExtraEditor.clearSelection();
@@ -679,7 +690,7 @@
                 $('#puck-btn-delete').hide();
             } else {
                 $('#puck-modal-title').text('Edit Puck — ' + $('#puck-label-input').val());
-                $('#puck-btn-delete').show();
+                $('#puck-btn-delete').toggle(puckEditDialog.canManage);
             }
             $('#puck-btn-save').off('click').on('click', savePuck);
             $('#puck-btn-delete').off('click').on('click', deletePuck);
@@ -703,10 +714,52 @@
         };
     }
 
+    function addPuckAccessRow() {
+        var tpl = document.getElementById('puck-access-row-template');
+        var $row = $(tpl.content.cloneNode(true)).find('tr');
+        $('#puck-access-table tbody').append($row);
+        $row.find('select').selectpicker({liveSearch: true, width: '100%'});
+    }
+
+    function removePuckAccessRow(link) {
+        $(link).closest('tr').remove();
+    }
+
+    /* Return {pi_id: level} from the access table or null if invalid. */
+    function getPuckAccess() {
+        var access = {};
+        var valid = true;
+        $('#puck-access-table tr.puck-access-row').each(function () {
+            var piId = $(this).find('select.puck-access-pi').val();
+            if (!piId) {
+                showError('Please select a PI for each lab access row.');
+                valid = false;
+                return false;
+            }
+            if (piId in access) {
+                showError('The same PI was selected more than once.');
+                valid = false;
+                return false;
+            }
+            access[piId] = $(this).find('select.puck-access-level').val();
+        });
+        return valid ? access : null;
+    }
+
     function savePuck() {
         var label = $('#puck-label-input').val().trim();
         if (!label) {
             showError('Label is required.');
+            return;
+        }
+
+        if (!puckEditDialog.canManage) {
+            sendPuckUpdate(Api.urls.puck.update, {id: puckEditDialog.puckId, label: label});
+            return;
+        }
+
+        var access = getPuckAccess();
+        if (access === null) {
             return;
         }
 
@@ -717,6 +770,7 @@
             showError('Extra must be valid JSON: ' + e.message);
             return;
         }
+        extra.access = access;
 
         var loc;
         try {
@@ -743,7 +797,10 @@
         } else {
             attrs.id = puckEditDialog.puckId;
         }
+        sendPuckUpdate(url, attrs);
+    }
 
+    function sendPuckUpdate(url, attrs) {
         send_ajax_json(url, attrs, function (jsonResponse) {
             if ('error' in jsonResponse) {
                 showError(jsonResponse.error);

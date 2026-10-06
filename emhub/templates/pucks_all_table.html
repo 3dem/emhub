@@ -21,13 +21,13 @@
                     </tr>
                     </thead>
                     <tbody>
-                    {% for dewar in storage.dewars() %}
+                    {% for dewar in storage.visible_dewars() %}
                         {% set d = dewar['id'] %}
                         {% set dewar_label = dewar.get('label') or ('Dewar ' ~ d) %}
                         {% for cane_entry in dewar['canes'] %}
                             {% set c = cane_entry['id'] %}
                             {% set cane_label = cane_entry.get('label') or ('cane ' ~ c) %}
-                            {% for p in storage.pucks(d, c) %}
+                            {% for p in storage.visible_pucks(d, c) %}
                                 {% set gridboxes = p.gridboxes() %}
                                 {% if gridboxes %}
                                     {% for slot, _ in gridboxes|dictsort %}

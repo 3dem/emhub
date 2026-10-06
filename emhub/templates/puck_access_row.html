@@ -1,0 +1,30 @@
+{# pi_id, level: current values (pi_id may be none for a new row) #}
+<tr class="puck-access-row">
+    <td class="w-75">
+        <select class="puck-access-pi form-control" data-live-search="true" title="Select PI">
+            {% for pi in pis %}
+                <option value="{{ pi.id }}" {% if pi.id == pi_id %}selected{% endif %}>
+                    {{ pi.name }}{% if not pi.is_active %} (inactive){% endif %}
+                </option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        {% set level_help = {
+            'read': 'only see content',
+            'occupancy': 'also change gridboxes',
+            'edit': 'also change label'
+        } %}
+        <select class="puck-access-level form-control">
+            {% for lvl in access_levels %}
+                <option value="{{ lvl }}" data-subtext="{{ level_help.get(lvl, '') }}"
+                        {% if lvl == level %}selected{% endif %}>{{ lvl }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td class="align-middle">
+        <a href="javascript:void(0)" onclick="removePuckAccessRow(this)" title="Remove access">
+            <i class="far fa-trash-alt text-danger"></i>
+        </a>
+    </td>
+</tr>

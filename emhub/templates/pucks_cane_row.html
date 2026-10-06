@@ -3,14 +3,16 @@
     class="pucks-cane-sync-row puck-row{% if not slot.puck %} puck-row-empty{% endif %}">
     <td class="text-center">{{ slot.position }}</td>
     <td class="puck-slot-cell">
-        {% if slot.puck %}
+        {% if slot.puck and storage.can_view(slot.puck) %}
             {% set cane_puck = slot.puck %}
             {% set usage = cane_puck.gridboxes_usage() %}
             <div class="row no-gutters align-items-center">
                 <div class="col-1 pr-1">
+                    {% if cane_puck.can_edit_label(current_user) %}
                     <a href="javascript:editPuck({{ cane_puck.id }})">
                         <i class="far fa-edit"></i>
                     </a>
+                    {% endif %}
                 </div>
                 <div class="col-11">
                     <button type="button"
@@ -22,7 +24,18 @@
                     </button>
                 </div>
             </div>
-        {% else %}
+        {% elif slot.puck %}
+            {# Puck not assigned to the user's lab: only show occupancy #}
+            <div class="row no-gutters align-items-center">
+                <div class="col-1 pr-1"></div>
+                <div class="col-11">
+                    <button type="button" class="btn btn-sm btn-block btn-light puck-select-btn text-muted"
+                            title="Puck not assigned to your lab" disabled>
+                        <i class="fas fa-lock"></i> Other lab
+                    </button>
+                </div>
+            </div>
+        {% elif current_user.is_manager %}
             <div class="row no-gutters align-items-center">
                 <div class="col-1 pr-1"></div>
                 <div class="col-11">
