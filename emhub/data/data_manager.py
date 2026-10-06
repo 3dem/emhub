@@ -1180,6 +1180,32 @@ class DataManager(DbManager):
     def get_puck_by(self, **kwargs):
         return self.__item_by(self.Puck, **kwargs)
 
+    def check_puck_update(self, attrs):
+        """ Validate that the current user can apply the update 'attrs'
+        to the puck. Managers can update anything, while labs can only
+        update gridboxes occupancy ('occupancy' level) and also the
+        label ('edit' level).
+        """
+        puck = self.get_puck_by(id=attrs['id'])
+        if puck is None:
+            raise Exception("Puck %s not found" % attrs['id'])
+
+        if puck.can_manage(self._user):
+            return
+
+        allowed = set()
+        if puck.can_edit_occupancy(self._user):
+            allowed.add('extra')
+        if puck.can_edit_label(self._user):
+            allowed.add('label')
+
+        denied = set(attrs) - allowed - {'id'}
+        denied |= {'extra.%s' % k for k in attrs.get('extra', {})
+                   if k != 'gridboxes'}
+        if denied:
+            raise Exception("Invalid access: not allowed to update "
+                            "puck's %s" % ', '.join(sorted(denied)))
+
     # --------------- Internal implementation methods -------------------------
     def get_universities_dict(self):
         formDef = self.get_form_by_name('universities').definition
