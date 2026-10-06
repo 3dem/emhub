@@ -1658,13 +1658,20 @@ def send_email():
 def get_pucks():
     if not app.dm.check_user_access('pucks'):
         return send_error('Invalid access')
-    return filter_request(app.dm.get_pucks)
+
+    def _get_pucks(**kwargs):
+        # Non-managers only get the pucks assigned to their lab
+        asJson = kwargs.pop('asJson', False)
+        pucks = [p for p in app.dm.get_pucks(**kwargs) if p.can_view(app.user)]
+        return [p.json() for p in pucks] if asJson else pucks
+
+    return filter_request(_get_pucks)
 
 
 @api_bp.route('/create_puck', methods=['POST'])
 @flask_login.login_required
 def create_puck():
-    return handle_puck(app.dm.create_puck)
+    return handle_puck(app.dm.create_puck, managerOnly=True)
 
 
 @api_bp.route('/update_puck', methods=['POST'])
@@ -1676,7 +1683,7 @@ def update_puck():
 @api_bp.route('/delete_puck', methods=['POST'])
 @flask_login.login_required
 def delete_puck():
-    return handle_puck(app.dm.delete_puck)
+    return handle_puck(app.dm.delete_puck, managerOnly=True)
 
 
 # -------------------- UTILS functions ----------------------------------------
@@ -1838,6 +1845,17 @@ def handle_transaction(transaction_func):
 
 def handle_form(form_func):
     def handle(**attrs):
+        # Only managers or users with any of the roles in the 'forms'
+        # content permission can modify forms (only managers if not set)
+        if not app.dm.check_user_access('forms', ['manager']):
+            raise Exception('Invalid access')
+        # The 'config:permissions' form can only be modified by admins
+        names = [attrs.get('name', '')]
+        if 'id' in attrs:
+            form = app.dm.get_form_by(id=attrs['id'])
+            names.append(form.name if form else '')
+        if 'config:permissions' in names and not app.user.is_admin:
+            raise Exception('Invalid access: only admins can do this')
         return form_func(**attrs).json()
 
     return _handle_item(handle, 'form')
@@ -1870,10 +1888,15 @@ def clean_files(paths):
             os.remove(p)
 
 
-def handle_puck(puck_func):
+def handle_puck(puck_func, managerOnly=False):
     def handle(**attrs):
         if not app.dm.check_user_access('pucks'):
             raise Exception('Invalid access')
+        if managerOnly:
+            if not app.user.is_manager:
+                raise Exception('Invalid access: only managers can do this')
+        else:
+            app.dm.check_puck_update(attrs)
         return puck_func(**attrs).json()
 
     return _handle_item(handle, 'puck')
