@@ -57,22 +57,49 @@
 
     <div class="row">
         <div class="col-12">
-            {% if current_user.is_manager %}
-            <div class="mb-4">
-                <a class="btn btn-primary" href="javascript:showInventoryForm(0)" role="button">
-                    <i class="fas fa-plus-circle"></i> Create Inventory</a>
-            </div>
+            <div class="d-flex align-items-center mb-3">
+            {% if sections %}
+            <ul class="nav nav-pills" id="inventory-groups-tab" role="tablist">
+                {% for section in sections %}
+                    {% set gid = 'inv-group-' ~ section.group.id %}
+                    <li class="nav-item">
+                        {% set is_active = section.group.id == active_group %}
+                        <a class="nav-link {{ 'active' if is_active else '' }}" id="{{ gid }}-tab" data-toggle="pill"
+                           href="#{{ gid }}" role="tab" aria-controls="{{ gid }}" data-group="{{ section.group.id }}"
+                           aria-selected="{{ 'true' if is_active else 'false' }}">
+                            {{ section.group.label }}
+                            <span class="badge badge-light ml-1">{{ section.inventories|length }}</span></a>
+                    </li>
+                {% endfor %}
+            </ul>
             {% endif %}
+            {% if current_user.is_manager %}
+                <a class="btn btn-primary ml-auto" href="javascript:showInventoryForm(0)" role="button">
+                    <i class="fas fa-plus-circle"></i> Create Inventory</a>
+            {% endif %}
+            </div>
 
-            <div class="row">
-                {% for inv in inventories %}
-                    {{ inventory_card(inv) }}
-                {% else %}
-                    <div class="col-12">
-                        <p class="text-muted">No inventories yet.{% if current_user.is_manager %} Create one to get started.{% endif %}</p>
+            {% if sections %}
+            <div class="tab-content p-0 bg-transparent border-0 shadow-none" id="inventory-groups-content">
+                {% for section in sections %}
+                    {% set gid = 'inv-group-' ~ section.group.id %}
+                    <div class="tab-pane fade {{ 'show active' if section.group.id == active_group else '' }}" id="{{ gid }}"
+                         role="tabpanel" aria-labelledby="{{ gid }}-tab">
+                        <div class="row">
+                            {% for inv in section.inventories %}
+                                {{ inventory_card(inv) }}
+                            {% else %}
+                                <div class="col-12">
+                                    <p class="text-muted">No inventories in this group.</p>
+                                </div>
+                            {% endfor %}
+                        </div>
                     </div>
                 {% endfor %}
             </div>
+            {% else %}
+                <p class="text-muted">No inventories yet.{% if current_user.is_manager %} Create one to get started.{% endif %}</p>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -84,6 +111,29 @@
 function showInventoryForm(inventory_id) {
     show_modal_from_ajax('inventory-modal',
         get_ajax_content('inventory_form', {inventory_id: inventory_id}));
+}
+
+// Build columns from a comma-separated input, keeping ids of existing columns
+function parseColumns(inputId, prefix) {
+    var input = $('#' + inputId);
+    var prev = JSON.parse(input.attr('data-columns') || '[]');
+    var prevIds = {}, used = {};
+    prev.forEach(function(c) { prevIds[c.label] = c.id; used[c.id] = true; });
+    var cols = [], seen = {};
+    input.val().split(',').forEach(function(label) {
+        label = label.trim();
+        if (!label || seen[label]) return;
+        seen[label] = true;
+        var id = prevIds[label];
+        if (!id) {
+            var n = 1;
+            while (used[prefix + n]) n++;
+            id = prefix + n;
+            used[id] = true;
+        }
+        cols.push({id: id, label: label});
+    });
+    return cols;
 }
 
 function onInventoryOkButtonClick() {
@@ -104,6 +154,9 @@ function onInventoryOkButtonClick() {
         title: title,
         description: $('#inventory-description').val(),
         validate: false,
+        extra: {info_columns: parseColumns('inventory-info-columns', 'info'),
+                extra_columns: parseColumns('inventory-extra-columns', 'extra'),
+                group: $('#inventory-group').val() || ''},
     };
     if (inventoryId) {
         inventory.id = inventoryId;
@@ -124,11 +177,14 @@ function inventoryProjectAjaxDone(jsonResponse) {
         showError(error);
     } else {
         $('#inventory-modal').modal('hide');
-        load_main_content('inventories');
+        updateInventoriesView();
     }
 }
 
-(function(window, document, $, undefined) {
-    "use strict";
-})(window, document, window.jQuery);
+// Reload keeping the active tab
+function updateInventoriesView() {
+    load_main_content('inventories', {
+        group: $('#inventory-groups-tab .nav-link.active').data('group') || ''
+    });
+}
 </script>

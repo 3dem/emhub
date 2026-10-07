@@ -29,9 +29,11 @@
 Register content functions related to Sessions
 """
 import os
+import re
 import json
-
 import datetime as dt
+
+import jinja2
 from emtools.utils import Pretty
 
 
@@ -39,7 +41,8 @@ def register_content(dc):
 
     @dc.content
     def raw_forms_list(**kwargs):
-        dc.check_user_access('forms')
+        # Only managers by default if 'forms' permission is not defined
+        dc.check_user_access('forms', ['manager'])
 
         def _is_config(f):
             """ Return true if this form seems like a config form.
@@ -148,13 +151,32 @@ def register_content(dc):
 
     @dc.content
     def pages(**kwargs):
-        page_id = kwargs['page_id']
-        page_path = os.path.join(dc.app.config['PAGES'], '%s.md' % page_id)
+        page_id = kwargs.get('page_id', '')
+
+        if not re.fullmatch(r'[\w-]+', page_id):
+            raise Exception(f"Invalid page id: '{page_id}'")
+
+        if not dc.app.dm.check_page_access(page_id):
+            raise Exception('Invalid access')
+
+        try:
+            template = dc.app.jinja_env.get_template(f'pages/{page_id}.md')
+        except jinja2.TemplateNotFound:
+            raise Exception(f"Page '{page_id}' not found")
+
+        # Use the .md file modification time as the last update
+        mtime = os.path.getmtime(template.filename)
 
         return {
             'page_id': page_id,
-            'page': 'pages/%s.md' % page_id
+            'page': 'pages/%s.md' % page_id,
+            'page_updated': dt.datetime.fromtimestamp(mtime)
         }
+
+    @dc.content
+    def page_body(**kwargs):
+        """ Only the page content, without header (e.g. for a modal). """
+        return pages(**kwargs)
 
     @dc.content
     def workers(**kwargs):

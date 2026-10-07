@@ -197,10 +197,16 @@ def register_content(dc):
                     project)
             entry_label = entry_label or form.definition['title']
 
+        definition = None if form is None else form.definition
+        if (definition is not None and entry.type == 'inventory_item'
+                and project.status == dc.INVENTORY_STATUS):
+            definition = dc.inventory_item_form_definition(
+                project, definition, entry.extra.get('data', {}))
+
         data.update({
             'entry': entry,
             'entry_type_label': entry_label,
-            'definition': None if form is None else form.definition,
+            'definition': definition,
             'form_config': form_config,
             'read_only': read_only
         })

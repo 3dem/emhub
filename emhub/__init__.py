@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '2.0.0-rc260930'
+__version__ = '2.0.0-rc261007'
 
 
 def create_app(test_config=None):
@@ -117,8 +117,15 @@ def create_app(test_config=None):
 
     # Define some content_id list that does not requires login
     NO_LOGIN_CONTENT = ['users_list',
-                        'user_reset_password',
-                        'pages']
+                        'user_reset_password']
+
+    def no_login_content(content_id, params):
+        """ Return True if the content can be shown without login.
+        Pages are only shown if they are public (see config:permissions).
+        """
+        if content_id in ['pages', 'page_body']:
+            return app.dm.check_page_access(params.get('page_id', ''))
+        return content_id in NO_LOGIN_CONTENT
 
     # Allow to define customized templates in the instance folder
     # templates should be in: 'extra/templates'
@@ -194,7 +201,7 @@ def create_app(test_config=None):
             kwargs['view_pucks'] = dm.check_user_access('pucks')
             kwargs['view_inventories'] = dm.check_user_access('inventories')
         else:
-            if content_id not in NO_LOGIN_CONTENT:
+            if not no_login_content(content_id, params):
                 kwargs = {'content_id': 'user_login',
                           'next_content': content_id,
                           'params': {}}
@@ -345,7 +352,7 @@ def create_app(test_config=None):
 
         content_id = content_kwargs['content_id']
 
-        if content_id in NO_LOGIN_CONTENT or app.user.is_authenticated:
+        if app.user.is_authenticated or no_login_content(content_id, content_kwargs):
             try:
                 if content_id.startswith('raw_'):
                     app.dc.check_user_access('raw')
@@ -514,7 +521,7 @@ def create_app(test_config=None):
     app.dm = DataManager(app.instance_path, user=app.user, redis=app.r)
 
     from flaskext.markdown import Markdown
-    Markdown(app)
+    Markdown(app, extensions=['tables', 'fenced_code'])
 
     app.jinja_env.filters['pretty_datetime'] = app.dm.local_datetime
 
