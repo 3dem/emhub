@@ -1306,6 +1306,33 @@ class DataManager(DbManager):
         roles = perms.get(permissionKey) or defaultRoles or []
         return self._user.has_any_role(roles)
 
+    def check_page_access(self, page_id):
+        """ Return True if the current user (logged or not) can see the page.
+        Access is defined in the 'pages' section of config:permissions,
+        mapping page_id (or '*' for any other page) to one of:
+            'public': everyone, even without login
+            'user': any logged user
+            [roles]: logged users with any of these roles (managers always)
+        If there is no 'pages' section, all pages are public.
+        """
+        perms = self.get_config('permissions').get('pages', None)
+        if perms is None:
+            return True
+
+        access = perms.get(page_id, perms.get('*', 'user'))
+        if access == 'public':
+            return True
+
+        user = self._user
+        if user is None or not user.is_authenticated:
+            return False
+
+        if access == 'user' or user.is_manager:
+            return True
+
+        roles = [access] if isinstance(access, str) else access
+        return any(r in user.roles for r in roles)
+
     def check_resource_access(self, resource, permissionKey, debug=False):
         """ Check if the user has permission to access bookings for this
         resource based on the resource tags and user's roles. """

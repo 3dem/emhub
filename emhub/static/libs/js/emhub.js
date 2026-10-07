@@ -676,6 +676,69 @@ function load_overview(title, ajax_content, afterLoad){
      load_html_from_ajax('overview-content', ajax_content, afterLoad);
 }
 
+/**
+ * Show a markdown page (templates/pages/<page_id>.md) in a wide modal dialog.
+ * @param page_id: id of the page to show
+ * @param title: modal title, if empty the first heading of the page is used
+ */
+function showPageModal(page_id, title) {
+    var modal = $('#page-modal');
+    modal.html(
+        '<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl" role="document" style="max-width: 80%">' +
+        '  <div class="modal-content">' +
+        '    <div class="modal-header">' +
+        '      <h3 class="modal-title mb-0" id="page-modal-title"></h3>' +
+        '      <button type="button" class="close" data-dismiss="modal" aria-label="Close">' +
+        '        <span aria-hidden="true">&times;</span>' +
+        '      </button>' +
+        '    </div>' +
+        '    <div class="modal-body" id="page-modal-content"></div>' +
+        '  </div>' +
+        '</div>');
+    $('#page-modal-title').text(title || '');
+    setLoading('page-modal-content');
+    modal.modal('show');
+
+    var ajaxContent = get_ajax_content('page_body', {page_id: page_id});
+    ajaxContent.done(function(html) {
+        // Errors come as a full modal dialog, replace ours with it
+        if (html.indexOf('error-modal-title') >= 0) {
+            modal.html(html);
+            return;
+        }
+        var content = $('#page-modal-content');
+        content.html(html);
+        // Use the first heading as title, if not provided
+        if (!title) {
+            var h1 = content.find('h1').first();
+            $('#page-modal-title').text(h1.text() || page_id);
+            h1.remove();
+        }
+    });
+    ajaxContent.fail(ajax_request_failed);
+}
+
+/**
+ * Open links with a data-page-modal attribute in the page modal, e.g:
+ *   <a href="..." data-page-modal="booking_rules">Booking Rules</a>
+ * An optional data-page-title attribute sets the modal title.
+ */
+$(document).on('click', '[data-page-modal]', function(e) {
+    if (e.ctrlKey || e.metaKey || e.shiftKey)
+        return;  // let the browser open the href (e.g. in a new tab)
+    e.preventDefault();
+    var page_id = this.dataset.pageModal;
+    var title = this.dataset.pageTitle;
+    // If the link is inside another modal (e.g. a News dialog), close it first
+    var parent = $(this).closest('.modal');
+    if (parent.length && parent.attr('id') !== 'page-modal') {
+        parent.one('hidden.bs.modal', function() { showPageModal(page_id, title); });
+        parent.modal('hide');
+    }
+    else
+        showPageModal(page_id, title);
+});
+
 function loadTextFileOverview(args){
     var title = getObjectValue(args, "title", args.file_path)
     load_overview(title, get_ajax_content('processing_textfile_overview', args));
