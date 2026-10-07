@@ -43,7 +43,7 @@ def index():
     else:
         kwargs = flask.request.form.to_dict()
 
-    page_id = kwargs['page_id']
+    page_id = kwargs.get('page_id', '')
 
     params = {
         'page_id': page_id,

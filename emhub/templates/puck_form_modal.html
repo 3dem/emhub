@@ -2,7 +2,8 @@
      data-puck-extra='{{ puck_extra|tojson }}'
      data-puck-dewar="{{ puck.dewar }}"
      data-puck-cane="{{ puck.cane }}"
-     data-puck-is-new="{{ 'true' if is_new else 'false' }}">
+     data-puck-is-new="{{ 'true' if is_new else 'false' }}"
+     data-puck-can-manage="{{ 'true' if can_manage else 'false' }}">
     <div class="form-group row">
         <label class="col-12 col-sm-3 col-form-label text-sm-right" for="puck-label-input">Label</label>
         <div class="col-12 col-sm-8 col-lg-9">
@@ -15,7 +16,8 @@
         <label class="col-12 col-sm-3 col-form-label text-sm-right" for="puck-color-input">Color</label>
         <div class="col-12 col-sm-8 col-lg-9">
             <input type="text" class="form-control" id="puck-color-input"
-                   value="{{ puck.color or '#d3d3d3' }}" data-control="hue">
+                   value="{{ puck.color or '#d3d3d3' }}" data-control="hue"
+                   {% if not can_manage %}disabled{% endif %}>
         </div>
     </div>
 
@@ -23,7 +25,8 @@
         <label class="col-12 col-sm-3 col-form-label text-sm-right" for="puck-location-select">Position</label>
         <div class="col-12 col-sm-8 col-lg-9">
             <select id="puck-location-select" class="selectpicker form-control"
-                    data-live-search="true" data-width="100%" title="Select location">
+                    data-live-search="true" data-width="100%" title="Select location"
+                    {% if not can_manage %}disabled{% endif %}>
                 {% for opt in location_options %}
                     <option value="{{ opt.value }}"
                             {% if opt.value == location_value %}selected{% endif %}>
@@ -33,6 +36,31 @@
             </select>
         </div>
     </div>
+
+    {% if can_manage %}
+    <!-- Labs (PIs) with access to this puck and their permission level -->
+    <div class="form-group row">
+        <label class="col-12 col-sm-3 col-form-label text-sm-right">Labs access</label>
+        <div class="col-12 col-sm-8 col-lg-9">
+            <table id="puck-access-table" class="table table-sm mb-1">
+                <tbody>
+                {% for pi_id, level in access.items() %}
+                    {% include 'puck_access_row.html' %}
+                {% endfor %}
+                </tbody>
+            </table>
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    onclick="addPuckAccessRow()">
+                <i class="fas fa-plus-circle"></i> Add Lab
+            </button>
+            <template id="puck-access-row-template">
+                {% set pi_id = none %}
+                {% set level = access_levels[0] %}
+                {% include 'puck_access_row.html' %}
+            </template>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <script>
@@ -69,5 +97,7 @@
             $loc.selectpicker('destroy');
         }
         $loc.selectpicker({liveSearch: true, width: '100%'});
+
+        $('#puck-access-table select').selectpicker({liveSearch: true, width: '100%'});
     })();
 </script>

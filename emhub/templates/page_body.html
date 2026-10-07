@@ -1,0 +1,15 @@
+<div class="page-content">
+
+{% if page_updated %}
+<div class="text-muted text-right small">
+    <i class="far fa-clock"></i> Last Updated: {{ page_updated|pretty_datetime }}
+</div>
+{% endif %}
+
+{% filter markdown %}
+
+{% include page %}
+
+{% endfilter %}
+
+</div>

@@ -1,9 +1,11 @@
+{# can_view: if false, only show the occupancy without details #}
 {% for i in range(1, puck.max_gridboxes() + 1) %}
     {% set gridbox = puck.get_gridbox(i) %}
     {% set tip = '' %}
-    {% if gridbox %}
+    {% if gridbox and can_view %}
         {% set tip = gridbox.get('gridbox_label') or gridbox.get('label') or '' %}
     {% endif %}
+    {% if can_view %}
     <button type="button"
             class="btn puck-gridbox-btn"
             data-toggle="tooltip"
@@ -13,4 +15,12 @@
             onclick="editPuckGridbox({{ puck.id }}, {{ i }}, {{ 'true' if gridbox else 'false' }}, 'all')">
         {{ i }}
     </button>
+    {% else %}
+    <button type="button"
+            class="btn puck-gridbox-btn"
+            style="background-color: {{ puck.gridbox_fill_color(i) }}; opacity: 0.5; cursor: default;"
+            disabled>
+        {{ i }}
+    </button>
+    {% endif %}
 {% endfor %}

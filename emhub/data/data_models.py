@@ -1416,6 +1416,42 @@ def create_data_models(dm):
             gridboxes.pop(str(key), None)
             self.__setExtra('gridboxes', gridboxes)
 
+        # Access levels that can be granted to labs (PIs), from lower to higher
+        ACCESS_READ = 'read'            # only see the puck's content
+        ACCESS_OCCUPANCY = 'occupancy'  # also change gridboxes occupancy
+        ACCESS_EDIT = 'edit'            # also change the puck's label
+        ACCESS_FULL = 'full'            # managers (not assignable)
+        ACCESS_LEVELS = [ACCESS_READ, ACCESS_OCCUPANCY, ACCESS_EDIT]
+
+        def access(self):
+            """ Return a dict {pi_id: level} of labs with access to this puck. """
+            return {int(k): v for k, v in self.__getExtra('access', {}).items()
+                    if v in self.ACCESS_LEVELS}
+
+        def get_access_level(self, user):
+            """ Return the access level of the given user to this puck,
+            or None if the user has no access. Managers have full access.
+            """
+            if user.is_manager:
+                return self.ACCESS_FULL
+            pi = user.get_pi()
+            return None if pi is None else self.access().get(pi.id, None)
+
+        def _has_level(self, user, levels):
+            return self.get_access_level(user) in levels + [self.ACCESS_FULL]
+
+        def can_view(self, user):
+            return self.get_access_level(user) is not None
+
+        def can_edit_occupancy(self, user):
+            return self._has_level(user, [self.ACCESS_OCCUPANCY, self.ACCESS_EDIT])
+
+        def can_edit_label(self, user):
+            return self._has_level(user, [self.ACCESS_EDIT])
+
+        def can_manage(self, user):
+            return self._has_level(user, [])
+
         def gridboxes_usage(self):
             return {
                 'used': len(self.gridboxes()),
@@ -1445,8 +1481,10 @@ def create_data_models(dm):
     class PuckStorage:
         """ Simple class to organize pucks access. """
 
-        def __init__(self, pucks):
+        def __init__(self, pucks, user=None):
             self._config = dm.get_config('dewars', {})
+            # If user is provided, it will be used to filter visible pucks
+            self._user = user
 
             self._locDict = OrderedDict()
             self._idDict = OrderedDict()
@@ -1503,6 +1541,30 @@ def create_data_models(dm):
             for p in sorted(self._idDict.values(), key=lambda p: p.id):
                 if self.__matchLoc(p, loc):
                     yield p
+
+        def can_view(self, puck):
+            """ Return True if the storage user can see the puck's details. """
+            return self._user is None or puck.can_view(self._user)
+
+        def visible_pucks(self, dewar=None, cane=None, position=None):
+            """ Same as pucks() but only those visible for the storage user. """
+            return (p for p in self.pucks(dewar, cane, position)
+                    if self.can_view(p))
+
+        def visible_dewars(self):
+            """ Return dewars (with only the canes) that contain pucks visible
+            for the storage user. Without user, all dewars are returned.
+            """
+            if self._user is None or self._user.is_manager:
+                return self.dewars()
+
+            dewars = []
+            for dewar in self.dewars():
+                canes = [c for c in dewar['canes']
+                         if any(self.visible_pucks(dewar['id'], c['id']))]
+                if canes:
+                    dewars.append(dict(dewar, canes=canes))
+            return dewars
 
         def puck_at(self, dewar, cane, position):
             """Return the puck at a cane position, or None if empty."""

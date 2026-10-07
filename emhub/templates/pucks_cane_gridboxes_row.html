@@ -4,6 +4,7 @@
     <td class="p-1 puck-gridboxes-cell">
         {% if slot.puck %}
             {% set puck = slot.puck %}
+            {% set can_view = storage.can_view(puck) %}
             {% include "puck_gridboxes_cell.html" %}
         {% else %}
             <span class="puck-gridboxes-empty" aria-hidden="true"></span>
