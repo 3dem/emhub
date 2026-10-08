@@ -48,7 +48,8 @@ GLOBAL_COLS = [
     'rlnOpticsGroupName', 'rlnTomoTiltSeriesPixelSize',
 ]
 
-TILT_COLS_IMPORT = list(RelionStar.TOMO_FRAME_SERIES_COLUMNS)
+# Movie index first, as emwrap writes it; subset jobs exclude tilts by it
+TILT_COLS_IMPORT = ['rlnTomoTiltMovieIndex'] + list(RelionStar.TOMO_FRAME_SERIES_COLUMNS)
 TILT_COLS_MCTF = TILT_COLS_IMPORT + [
     'rlnMicrographName', 'rlnMicrographMetadata',
     'rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate',
@@ -88,6 +89,7 @@ def _tilt_rows(ts_index, cols, rng, placeholders=False):
         dose = DOSE_PER_TILT * (acq + 1)
 
         values = {
+            'rlnTomoTiltMovieIndex': j + 1,
             'rlnMicrographMovieName': f'frames/TS_{ts_index+1:04d}_{j:03d}.eer',
             'rlnTomoTiltMovieFrameCount': 8,
             'rlnTomoNominalStageTiltAngle': round(angle, 2),

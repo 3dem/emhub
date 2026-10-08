@@ -853,6 +853,34 @@ def otf_save_selection():
     return _handle_item(_handle, 'selection')
 
 
+@api_bp.route('/otf_create_subset', methods=['POST'])
+@flask_login.login_required
+def otf_create_subset():
+    """ Save the on-the-fly dashboard's selection and launch an
+    emw-subset-ts job from the motion correction output with it: the
+    selected tilt series, without their excluded tilts.  The export is
+    recorded in the selection file. """
+    def _handle(**attrs):
+        session = _otf_session_for_edit(attrs['entry_id'])
+        user = app.user.name
+        deselected = attrs.get('deselected', [])
+        excluded = attrs.get('excludedTilts', {})
+        session.save_selection(deselected, excluded, user=user)
+        plan = session.subset_plan()
+        if not plan['selected']:
+            raise Exception('None of the selected tilt series is in the motion '
+                            'correction output yet')
+        result = ApiViewerHelper.create_tomo_subset(
+            session.path, 'TiltSeries', plan['inputSet'], list(plan['selected']),
+            attrs={'excludeTilts': plan['selected']})
+        export = dict(plan, created=time.strftime('%Y-%m-%dT%H:%M:%S'), by=user,
+                      jobId=result['jobId'])
+        session.save_selection(deselected, excluded, user=user, export=export)
+        return dict(result, skipped=plan['skipped'])
+
+    return _handle_item(_handle, 'subsetResult')
+
+
 @api_bp.route('/resolve_table_view_pane', methods=['POST'])
 @flask_login.login_required
 def resolve_table_view_pane():

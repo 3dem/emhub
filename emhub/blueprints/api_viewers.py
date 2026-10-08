@@ -958,7 +958,11 @@ def build_series_star_pane_content(action_id, root, star_rel, row_label, type_ke
 class ApiViewerHelper:
     @staticmethod
     def create_tomo_subset(root, pointer_class, star_path, subset_items, attrs=None):
-        """Create and launch an emw-subset-ts job for the selected tomograms."""
+        """Create and launch an emw-subset-ts job for the selected tomograms.
+
+        attrs['excludeTilts'], optional, is {tomoName: [movie indices]}: tilts
+        to leave out of those tomograms' tilt-series STAR files.
+        """
         items = [str(item).strip() for item in (subset_items or []) if str(item).strip()]
         if not items:
             raise Exception('subsetItems must contain at least one tomogram name')
@@ -985,15 +989,25 @@ class ApiViewerHelper:
 
         params = {
             'input_set': input_set,
+            'mode': '0',    # explicit tomogram names list
             'subset_tomo_names': ' '.join(items),
         }
+        exclude = (attrs or {}).get('excludeTilts') or {}
+        rows = [{'tomoName': name,
+                 'excludedTilts': ' '.join(str(int(i)) for i in sorted(ids))}
+                for name, ids in exclude.items() if ids and name in items]
+        if rows:
+            params['exclude_tilts'] = rows
         job = pm.runJob('emw-subset-ts', params)
         count = len(items)
+        n_tilts = sum(len(r['excludedTilts'].split()) for r in rows)
 
         return {
             'success': True,
             'count': count,
+            'excludedTilts': n_tilts,
             'jobId': job.id,
             'sourceFile': input_set,
-            'message': f'Launched {job.id} job to create a subset of {count} items',
+            'message': (f'Launched {job.id} job to create a subset of {count} items'
+                        + (f', excluding {n_tilts} tilts' if n_tilts else '')),
         }

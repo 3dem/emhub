@@ -261,6 +261,7 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
             .toggleClass('text-danger', state === 'error');
     }
     window.otfShowSaveState = function() { otfShowSaveState(otfSaveState); };
+    window.otfSetSaveState = otfShowSaveState;
     window.otfSelectionChanged = function() {
         if (window.otfRenderSelection) window.otfRenderSelection();
         otfShowSaveState('saving');
@@ -285,6 +286,9 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
     {% set title = "On-the-fly CryoET" %}
     {% set navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), (title, '')] %}
     {% include 'include_header.html' %}
+
+    {# Messages that must outlive the 30 s refresh of the content below #}
+    <div id="otf-messages"></div>
 
     <div id="otf-dashboard-content">
         {% include 'otf_dashboard_content.html' %}
@@ -471,6 +475,42 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
             if (done) done($panel);
         });
     }
+
+    /* Create subset: save the selection and launch an EMwrap subset job
+       with it from the motion correction output (the server works out the
+       tilt series in that output).  The result stays above the content. */
+    window.otfCreateSubset = function() {
+        var sel = otfSelection();
+        if (!sel) return;
+        var question = $('<div></div>')
+            .append($('<p></p>').text('Launch an EMwrap subset job from the motion correction ' +
+                                      'output with this selection:'))
+            .append($('<p class="font-weight-bold"></p>').text($('#otf-select-summary').text()))
+            .append($('<p class="mb-0"></p>').text('Tilt series not motion corrected yet are left ' +
+                                                   'out. The selection and this export are recorded ' +
+                                                   'in .emhub/otf_selection.json.'));
+        // emhub's confirmation window, as elsewhere in emhub
+        confirm('Create subset', question.html(), 'Cancel', 'Create subset', function() {
+            var $button = $('.otf-create-subset').prop('disabled', true);
+            send_ajax_json(Api.urls.otf_create_subset,
+                           {entry_id: OTF_ENTRY_ID, deselected: Array.from(sel.deselected),
+                            excludedTilts: sel.excludedTilts},
+                           function(data) {
+                               $('.otf-create-subset').prop('disabled', false);
+                               var r = data.subsetResult;
+                               if (!r) { showError(data.error || 'Could not create the subset.'); return; }
+                               otfSetSaveState('saved');
+                               var text = r.message + ' from ' + r.sourceFile + '.' +
+                                   (r.skipped && r.skipped.length ? ' Not motion corrected yet, left out: ' +
+                                    r.skipped.join(', ') + '.' : '');
+                               $('<div class="alert alert-success alert-dismissible py-2 mb-3"></div>')
+                                   .append($('<small></small>').text(text))
+                                   .append('<button type="button" class="close py-1" data-dismiss="alert">&times;</button>')
+                                   .prependTo('#otf-messages');
+                           },
+                           function() { $button.prop('disabled', false); ajax_request_failed.apply(this, arguments); });
+        });
+    };
 
     /* A larger view of an image over everything, closed by a click or Esc.
        It shows the image already loaded, so it opens at once. */

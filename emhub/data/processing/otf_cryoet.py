@@ -738,6 +738,26 @@ class OtfSession:
         os.replace(path + '.tmp', path)
         return data
 
+    def subset_plan(self):
+        """ What a subset job made from the stored selection contains.
+
+        It starts from the motion correction output: excluding tilts only
+        makes sense before alignment.  'selected' is {name: [excluded movie
+        indices]} for the selected tilt series in that output, 'skipped'
+        the selected ones not motion corrected yet, left out.
+        """
+        sel = self.selection()
+        job = self.stages().get('motioncorr')
+        star = job.output_star() if job else None
+        if not star:
+            raise Exception('There is no motion correction output to make a subset from yet')
+        names = list(self._read_global_star(star))
+        deselected = set(sel['deselected'])
+        selected = {n: sel['excludedTilts'].get(n, []) for n in names if n not in deselected}
+        skipped = sorted({t.tomoName for t in self.tilt_series()} - set(names) - deselected)
+        return {'inputSet': star, 'selected': selected,
+                'deselected': sorted(deselected), 'skipped': skipped}
+
     @property
     def pipelineStar(self):
         return self.join('default_pipeline.star')
