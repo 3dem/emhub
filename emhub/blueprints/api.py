@@ -57,6 +57,8 @@ from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data.processing import resolve_project_root
 from .api_viewers import *
+from .api_viewers_spa import (resolve_spa_table_view_type, build_spa_table,
+                              build_spa_pane_content)
 
 
 def _em_image_listing_fields(file_path):
@@ -795,6 +797,10 @@ def get_table_view_data():
         if not os.path.exists(full_path):
             raise Exception(f'STAR file not found: {star_path}')
 
+        # SPA outputs (Movies, Micrographs)
+        if spa_key := resolve_spa_table_view_type(pointer_class, full_path):
+            return build_spa_table(full_path, spa_key)
+
         type_key = resolve_table_view_type(pointer_class, star_path)
         if type_key == 'tomocoordinates':
             return build_tomocoordinates_table(star_path, root=root)
@@ -839,6 +845,14 @@ def resolve_table_view_pane():
         column_id = attrs.get('columnId') or attrs.get('column_id')
         row = attrs.get('row') or {}
         row_cells = row.get('cells') or {}
+
+        # SPA outputs (Movies, Micrographs)
+        output_path = attrs.get('outputPath') or attrs.get('starPath') or attrs.get('path')
+        output_full = os.path.join(root, output_path) if output_path else None
+        if spa_key := resolve_spa_table_view_type(pointer_class, output_full):
+            return build_spa_pane_content(action_id, root, spa_key, row_cells,
+                                          output_path=output_path,
+                                          row_label=attrs.get('rowLabel'))
 
         type_hint_path = resolve_table_view_type_hint(attrs, row_cells)
         type_key = resolve_table_view_type(pointer_class, type_hint_path)

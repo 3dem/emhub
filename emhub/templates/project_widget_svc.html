@@ -430,7 +430,9 @@ var svc = {
     var pointerClass = String(ctx.pointerClass || ctx.outputRaw?.pointerClass || '').replace(/\s+/g, '');
     var outputPath = ctx.value || ctx.outputRaw?.value || '';
 
-    if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles') {
+    if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles' ||
+        pointerClass === 'Movies' || pointerClass === 'Micrographs' || pointerClass === 'MultiClasses2D' ||
+        pointerClass === 'Particles') {
       return buildTableViewerAnalyzeDecision(ctx, pointerClass);
     }
 
