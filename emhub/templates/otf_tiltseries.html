@@ -106,14 +106,31 @@
                 <h6 class="mb-0">Tilt images</h6>
                 <small class="text-muted ml-3">in the same order as the plots;
                     click a plot point or an image to select that tilt in both
-                    and open it with its CTF fit</small>
+                    and open it with its CTF fit; untick a tilt to leave it out
+                    of the subset</small>
+                <span class="ml-auto text-nowrap otf-select-bar">
+                    Keep
+                    <select id="otf-tilt-preset" class="custom-select custom-select-sm w-auto"
+                            {% if not canEdit %}disabled{% endif %}>
+                        <option value="all">All tilts</option>
+                        <option value="usable">Within target + off target</option>
+                        <option value="within">Within target only</option>
+                        <option value="custom" hidden>Custom</option>
+                    </select>
+                    <span id="otf-tilt-count" class="otf-count"></span>
+                </span>
             </div>
             <div class="otf-filmstrip" id="otf-filmstrip">
                 {% for th in thumbs %}
                     <figure class="otf-thumb {% if th.dropped %}otf-thumb-dropped{% endif %}" data-index="{{ loop.index0 }}" data-ctf="{{ th.ctf }}"
+                            data-movie="{{ th.movie if th.movie is not none else '' }}" data-qc="{{ th.qc }}"
+                            data-selectable="{{ 1 if th.selectable else 0 }}"
                             {% if th.medium %}data-medium="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.medium.path, v=th.medium.version) }}"{% endif %}
                             {% if th.ps %}data-ps="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.ps.path, v=th.ps.version) }}"{% endif %}
                             {% if th.profile %}data-profile="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.profile.path, v=th.profile.version) }}"{% endif %}>
+                        <input type="checkbox" class="otf-tilt-sel"
+                               {% if not (th.selectable and canEdit) %}disabled{% endif %}
+                               title="{{ 'Keep this tilt in the selection' if th.selectable else 'Dropped at motion correction: not in its output, so not in a subset' }}">
                         {% if th.image %}
                             <img loading="lazy" alt="{{ th.label }}"
                                  {% if thumbSize %}width="{{ thumbSize[0] }}" height="{{ thumbSize[1] }}"{% endif %}
@@ -457,6 +474,63 @@
             var dy = top($z[0]) - top($s[0]);
             if (dy > 0) panels.stack.css('padding-top', dy);
         }
+
+        /* Tilt selection: a box on each image, and presets by tilt QC.
+           Unticked tilts are stored by movie index under this tilt series;
+           the subset job leaves them out of the motion correction output. */
+        var PRESETS = {all: null, usable: ['within', 'offTarget'], within: ['within']};
+        function excludedSet() {
+            var s = otfSelection();
+            return new Set((s && s.excludedTilts[tomoName]) || []);
+        }
+        function selectableThumbs() {
+            return $strip.find('.otf-thumb[data-selectable="1"]').toArray();
+        }
+        function keptBy(preset, qc) {
+            return PRESETS[preset] === null || PRESETS[preset].indexOf(qc) >= 0;
+        }
+        function otfRenderTilts() {
+            var ex = excludedSet(), kept = 0, thumbs = selectableThumbs();
+            $strip.find('.otf-thumb').each(function() {
+                var on = this.dataset.selectable === '1' && !ex.has(Number(this.dataset.movie));
+                $(this).find('.otf-tilt-sel').prop('checked', on);
+                $(this).toggleClass('otf-thumb-off', !on);
+                if (on) kept++;
+            });
+            $('#otf-tilt-count').text(kept + ' of ' + thumbs.length + ' kept');
+            // The first preset the ticks match, else custom
+            var match = Object.keys(PRESETS).filter(function(p) {
+                return thumbs.every(function(f) {
+                    return !ex.has(Number(f.dataset.movie)) === keptBy(p, f.dataset.qc);
+                });
+            })[0];
+            $('#otf-tilt-preset').val(match || 'custom');
+        }
+        function otfSetExcluded(ex) {
+            var s = otfSelection();
+            if (!s) return;
+            var ids = Array.from(ex).sort(function(a, b) { return a - b; });
+            if (ids.length) s.excludedTilts[tomoName] = ids;
+            else delete s.excludedTilts[tomoName];
+            otfRenderTilts();
+            otfSelectionChanged();
+        }
+        $strip.on('click', '.otf-tilt-sel', function(e) {
+            e.stopPropagation();
+            var ex = excludedSet(), movie = Number($(this).closest('.otf-thumb')[0].dataset.movie);
+            if (this.checked) ex.delete(movie); else ex.add(movie);
+            otfSetExcluded(ex);
+        });
+        $('#otf-tilt-preset').on('change', function() {
+            var preset = this.value, ex = excludedSet();
+            if (preset === 'custom') return;
+            selectableThumbs().forEach(function(f) {
+                var movie = Number(f.dataset.movie);
+                if (keptBy(preset, f.dataset.qc)) ex.delete(movie); else ex.add(movie);
+            });
+            otfSetExcluded(ex);
+        });
+        otfRenderTilts();
 
     })(window, document, window.jQuery);
     </script>

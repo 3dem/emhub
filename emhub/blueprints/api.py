@@ -55,7 +55,7 @@ from emtools.utils import Pretty, Color, Path
 from emwrap.base.job_form import JobValidationError
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
-from emhub.data.processing import resolve_project_root
+from emhub.data.processing import resolve_project_root, resolve_processing_path
 from .api_viewers import *
 
 
@@ -822,6 +822,35 @@ def create_tomo_subset():
         )
 
     return _handle_item(_handle, 'subsetResult')
+
+
+def _otf_session_for_edit(entry_id):
+    """ The on-the-fly session of a tomo_processing entry, if the current
+    user may change its project: its owner, collaborators or a manager. """
+    from emhub.data.processing.otf_cryoet import OtfSession
+    entry = app.dm.get_entry_by(id=int(entry_id))
+    if entry is None or entry.type != 'tomo_processing':
+        raise Exception(f'No tomo processing entry with id {entry_id}')
+    project = app.dm.get_project_by(id=entry.project_id)
+    if project is None or not app.user.can_edit_project(project):
+        raise Exception('Only the project owner, its collaborators and managers '
+                        'can change this selection')
+    return OtfSession(resolve_processing_path(
+        entry.extra.get('data', {}).get('processing_path', '')))
+
+
+@api_bp.route('/otf_save_selection', methods=['POST'])
+@flask_login.login_required
+def otf_save_selection():
+    """ Store the on-the-fly dashboard's selection: deselected tilt series
+    and excluded tilts (movie indices) per tilt series. """
+    def _handle(**attrs):
+        session = _otf_session_for_edit(attrs['entry_id'])
+        return session.save_selection(attrs.get('deselected', []),
+                                      attrs.get('excludedTilts', {}),
+                                      user=app.user.name)
+
+    return _handle_item(_handle, 'selection')
 
 
 @api_bp.route('/resolve_table_view_pane', methods=['POST'])

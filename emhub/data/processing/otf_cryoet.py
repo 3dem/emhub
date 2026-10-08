@@ -22,6 +22,7 @@ import os
 import sys
 import json
 import math
+import time
 import argparse
 from glob import glob
 from collections import OrderedDict, Counter
@@ -72,6 +73,12 @@ FAILED_STAR = 'failed_tilt_series.star'
 
 # Folder of per tilt jpegs emwrap writes next to the tilt averages
 THUMBNAILS_DIR = 'thumbnails'
+
+# The user's curation of a session, in the project folder next to emhub's
+# other project files.  It lists what was taken out (deselected tilt series,
+# excluded tilts per series by movie index), so anything not listed, such as
+# a tilt series acquired later, is selected.
+SELECTION_FILE = os.path.join('.emhub', 'otf_selection.json')
 
 # RELION 5 per-tilt columns we read.  Everything is optional: a job that did
 # not run yet simply leaves the column out, and the metric comes back as None.
@@ -691,6 +698,45 @@ class OtfSession:
         if len({id(t) for t in best}) != len(best):
             return None
         return best
+
+    # -- the user's selection ---------------------------------------------
+    def selection(self):
+        """ The session's selection (see SELECTION_FILE): 'deselected'
+        tilt series names, 'excludedTilts' {name: [movie indices]}, who
+        changed it last and when, and the 'exports' made from it. """
+        try:
+            with open(self.join(SELECTION_FILE)) as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            data = {}
+        return {
+            'deselected': sorted(set(data.get('deselected', []))),
+            'excludedTilts': {name: sorted({int(i) for i in ids})
+                              for name, ids in data.get('excludedTilts', {}).items() if ids},
+            'updated': data.get('updated'),
+            'updatedBy': data.get('updatedBy'),
+            'exports': data.get('exports', []),
+        }
+
+    def save_selection(self, deselected, excluded_tilts, user=None, export=None):
+        """ Store the selection, keeping the earlier exports and adding
+        export if given.  Written then renamed, so a reader never gets a
+        partial file.  Returns what was stored. """
+        data = self.selection()
+        data.update(
+            deselected=sorted(set(deselected)),
+            excludedTilts={name: sorted({int(i) for i in ids})
+                           for name, ids in (excluded_tilts or {}).items() if ids},
+            updated=time.strftime('%Y-%m-%dT%H:%M:%S'),
+            updatedBy=user)
+        if export:
+            data['exports'].append(export)
+        path = self.join(SELECTION_FILE)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path + '.tmp', 'w') as f:
+            json.dump(data, f, indent=2)
+        os.replace(path + '.tmp', path)
+        return data
 
     @property
     def pipelineStar(self):

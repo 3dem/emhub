@@ -146,12 +146,33 @@
         </div>
     </div>
 
+    {# Selection: tick or untick rows one by one, or every tilt series of a
+       status at once (a dash when only some are ticked).  Saved to the
+       project as it changes; everything not unticked is selected. #}
+    <div class="card-body py-2 border-bottom otf-select-bar" id="otf-select-bar">
+        <span>Select</span>
+        <label><input type="checkbox" data-select="all" {% if not canEdit %}disabled{% endif %}>
+            All <span class="otf-count" data-count="all"></span></label>
+        {% for s in selectBy %}
+            <label><input type="checkbox" data-select="{{ s.key }}" {% if not canEdit %}disabled{% endif %}>
+                <span class="otf-dot otf-shape-{{ s.shape }}" style="background: {{ s.color }}; color: {{ s.color }}"></span>
+                {{ s.label }} <span class="otf-count" data-count="{{ s.key }}"></span></label>
+        {% endfor %}
+        <span class="otf-select-summary">
+            <span id="otf-select-summary"></span>
+            <small class="otf-save-state ml-2"></small>
+            {% if not canEdit %}<small class="text-muted ml-2">read only: only the project owner,
+                its collaborators and managers can change the selection</small>{% endif %}
+        </span>
+    </div>
+
     {# Scrolls on its own with the column names held at the top; the page
        keeps this scroll position across refreshes. #}
     <div class="otf-table-scroll" id="otf-table-scroll">
         <table class="table table-sm table-hover mb-0 otf-table">
             <thead>
                 <tr>
+                    <th class="otf-sel-cell"></th>
                     <th>Tilt series</th>
                     <th>Status</th>
                     <th class="otf-num" data-toggle="tooltip"
@@ -170,7 +191,11 @@
             {% set nMetricCols = 7 if showEarly else 6 %}
             {% for r in rows %}
                 {% if filter != 'attn' or r.status in ('suspect', 'bad', 'failed') %}
-                <tr class="otf-row-link" onclick="otfShowTiltSeries('{{ r.tomoName }}')">
+                <tr class="otf-row-link" data-name="{{ r.tomoName }}" onclick="otfShowTiltSeries('{{ r.tomoName }}')">
+
+                    <td class="otf-sel-cell" onclick="event.stopPropagation()">
+                        <input type="checkbox" class="otf-sel" data-name="{{ r.tomoName }}"
+                               {% if not canEdit %}disabled{% endif %}></td>
 
                     <td><span class="otf-name">{{ r.tomoName }}</span></td>
 
@@ -264,6 +289,50 @@
         template: '<div class="tooltip otf-tooltip" role="tooltip">' +
                   '<div class="arrow"></div><div class="tooltip-inner"></div></div>'
     });
+
+    /* Selection.  The state is the page's (otfSelection), seeded from the
+       project the first time; here it is drawn onto the rows, the status
+       boxes and the summary, and changed by them. */
+    var sel = otfSelection({{ selection|tojson }});
+    var allSeries = {{ allSeries|tojson }};
+    function namesOf(key) {
+        return allSeries.filter(function(t) { return key === 'all' || t.status === key; })
+                        .map(function(t) { return t.name; });
+    }
+    function otfRenderSelection() {
+        if (!sel) return;
+        $('#otf-dashboard-content input.otf-sel').each(function() {
+            var on = !sel.deselected.has(this.dataset.name);
+            this.checked = on;
+            $(this).closest('tr').toggleClass('otf-deselected', !on);
+        });
+        $('#otf-select-bar input[data-select]').each(function() {
+            var names = namesOf(this.dataset.select);
+            var n = names.filter(function(n) { return !sel.deselected.has(n); }).length;
+            this.checked = names.length > 0 && n === names.length;
+            this.indeterminate = n > 0 && n < names.length;
+            $('#otf-select-bar [data-count="' + this.dataset.select + '"]').text('(' + n + '/' + names.length + ')');
+        });
+        var selected = namesOf('all').filter(function(n) { return !sel.deselected.has(n); });
+        var tilts = selected.reduce(function(sum, n) { return sum + (sel.excludedTilts[n] || []).length; }, 0);
+        $('#otf-select-summary').text(selected.length + ' of ' + allSeries.length + ' tilt series selected' +
+                                      (tilts ? ' · ' + tilts + ' tilt' + (tilts > 1 ? 's' : '') + ' excluded' : ''));
+        otfShowSaveState();
+    }
+    window.otfRenderSelection = otfRenderSelection;
+    $('#otf-dashboard-content').on('change', 'input.otf-sel', function() {
+        if (this.checked) sel.deselected.delete(this.dataset.name);
+        else sel.deselected.add(this.dataset.name);
+        otfSelectionChanged();
+    });
+    // A status box selects all of that status, or unselects them if all were
+    $('#otf-select-bar').on('click', 'input[data-select]', function(e) {
+        var names = namesOf(this.dataset.select);
+        var all = names.every(function(n) { return !sel.deselected.has(n); });
+        names.forEach(function(n) { if (all) sel.deselected.add(n); else sel.deselected.delete(n); });
+        otfSelectionChanged();
+    });
+    otfRenderSelection();
 
     var trends = {{ trends|tojson }};
     var x = trends.x, colors = trends.colors, symbols = trends.symbols, names = trends.names;

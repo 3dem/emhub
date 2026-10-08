@@ -504,6 +504,23 @@ def register_content(dc):
         users = (dm.get_user_by(id=int(uid)) for uid in project.collaborators_ids)
         return project.user, [u for u in users if u is not None]
 
+    def _can_edit(entry_id):
+        """ Whether the current user may change the session's selection:
+        the project's owner, its collaborators or a manager. """
+        dm, user = dc.app.dm, dc.app.user
+        entry = dm.get_entry_by(id=entry_id)
+        project = entry and dm.get_project_by(id=entry.project_id)
+        if project is None:
+            return False
+        if hasattr(user, 'can_edit_project'):
+            return bool(user.can_edit_project(project))
+        return bool(getattr(user, 'is_manager', False))
+
+    def _selection_state(session):
+        """ The stored selection, without its export history. """
+        sel = session.selection()
+        return {k: sel[k] for k in ('deselected', 'excludedTilts', 'updated', 'updatedBy')}
+
     # ---------------------------------------------------------------- page
     @dc.content
     def otf_dashboard(**kwargs):
@@ -535,6 +552,7 @@ def register_content(dc):
                 'state': {'key': 'unknown', 'label': 'Unavailable',
                           'sinceStr': '--'},
                 'counters': [], 'updated': time.strftime('%H:%M:%S'),
+                'selection': None, 'canEdit': False, 'allSeries': [],
             }
 
         session = info['session']
@@ -615,6 +633,13 @@ def register_content(dc):
             'legend': [STATUS_STYLE[s] for s in (STATUS_OK, STATUS_SUSPECT,
                                                  STATUS_BAD, STATUS_FAILED,
                                                  STATUS_RUNNING)],
+            # Selection: the stored state, every tilt series with its status
+            # (the table may show only some), and the statuses to select by
+            'selection': _selection_state(session),
+            'canEdit': _can_edit(info['entry_id']),
+            'allSeries': [{'name': t.tomoName, 'status': t.status} for t in ts_list],
+            'selectBy': [dict(STATUS_STYLE[s], key=s) for s in (STATUS_OK, STATUS_SUSPECT,
+                                                               STATUS_BAD, STATUS_FAILED)],
         }
 
     # ---------------------------------------------------------- detail view
@@ -677,15 +702,15 @@ def register_content(dc):
         notes, thumbs = [], []
         for t in tilts:
             if t.get('excluded'):
-                note, border = _dropped_label(t), WAITING_COLOR
+                note, border, qc = _dropped_label(t), WAITING_COLOR, 'dropped'
             elif t.get('reject'):
                 note = 'unusable: ' + ', '.join(TILT_FLAG_LABELS[k] for k in t['reject'])
-                border = STATUS_STYLE[STATUS_BAD]['color']
+                border, qc = STATUS_STYLE[STATUS_BAD]['color'], 'unusable'
             elif t.get('offTarget'):
                 note = 'off target: ' + ', '.join(TILT_FLAG_LABELS[k] for k in t['offTarget'])
-                border = STATUS_STYLE[STATUS_SUSPECT]['color']
+                border, qc = STATUS_STYLE[STATUS_SUSPECT]['color'], 'offTarget'
             else:
-                note, border = '', 'transparent'
+                note, border, qc = '', 'transparent', 'within'
             notes.append(note)
 
             angle = t.get(COL_TILT_ANGLE)
@@ -704,6 +729,13 @@ def register_content(dc):
                 'profile': session.tilt_thumbnail(t, 'ctf'),
                 'border': border,
                 'dropped': bool(t.get('excluded')),
+                # For selecting tilts: the subset job excludes them by movie
+                # index from the motion correction output, so a tilt dropped
+                # there is not in it and cannot be selected
+                'qc': qc,
+                'movie': None if t.get(COL_MOVIE_INDEX) is None else int(t[COL_MOVIE_INDEX]),
+                'selectable': (t.get(COL_MOVIE_INDEX) is not None and
+                               t.get('droppedAt') not in ('motioncorr', 'ctf')),
                 'label': '' if angle is None else f'{round(angle)}°',
             })
         images = [thumb['image'] for thumb in thumbs if thumb['image']]
@@ -767,4 +799,5 @@ def register_content(dc):
             'thumbs': thumbs,
             'thumbSize': thumb_size,
             'hasDropped': any(t.get('excluded') for t in tilts),
+            'canEdit': _can_edit(info['entry_id']),
         }

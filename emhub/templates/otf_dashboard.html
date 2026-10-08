@@ -102,6 +102,19 @@
 .otf-thumb-missing { width: 118px; background: var(--otf-surface-alt); color: var(--otf-faint);
                      font-size: .7rem; line-height: 80px; cursor: default; }
 .otf-thumb figcaption { font-size: .7rem; color: var(--otf-muted); }
+/* Selection: a checkbox per row and per tilt image, and the boxes that
+   select by status */
+.otf-select-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem 1.1rem;
+                  font-size: .82rem; color: var(--otf-secondary); }
+.otf-select-bar label { margin: 0; cursor: pointer; white-space: nowrap; }
+.otf-select-bar input, .otf-table .otf-sel { cursor: pointer; vertical-align: middle; }
+.otf-select-bar .otf-count { color: var(--otf-faint); }
+.otf-select-summary { margin-left: auto; white-space: nowrap; }
+.otf-table td.otf-sel-cell, .otf-table th.otf-sel-cell { width: 28px; padding-right: 0; }
+tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
+.otf-thumb { position: relative; }
+.otf-tilt-sel { position: absolute; top: 5px; left: 5px; z-index: 1; cursor: pointer; }
+.otf-thumb-off img { opacity: .3; }
 /* A tilt processing dropped: still shown, dimmed */
 .otf-thumb-dropped img { opacity: .45; border-style: dashed !important; }
 /* Hover is a light dashed hint; only the selection is solid blue */
@@ -228,6 +241,42 @@
             if (this.otfDraw) this.otfDraw();
         });
     };
+
+    /* The selection: tilt series and tilts taken out of the session.  It
+       lives here, outside the refreshed content (and before it, which
+       uses it as it loads), so a refresh cannot undo a
+       click; the content seeds it once from what is stored in the project,
+       and every change is saved there shortly after. */
+    var otfSel = null, otfSaveTimer = null, otfSaveState = '';
+    window.otfSelection = function(stored) {
+        if (otfSel === null && stored) {
+            otfSel = {deselected: new Set(stored.deselected || []),
+                      excludedTilts: $.extend({}, stored.excludedTilts || {})};
+        }
+        return otfSel;
+    };
+    function otfShowSaveState(state) {
+        otfSaveState = state;
+        $('.otf-save-state').text({saving: 'saving…', saved: 'saved', error: 'not saved'}[state] || '')
+            .toggleClass('text-danger', state === 'error');
+    }
+    window.otfShowSaveState = function() { otfShowSaveState(otfSaveState); };
+    window.otfSelectionChanged = function() {
+        if (window.otfRenderSelection) window.otfRenderSelection();
+        otfShowSaveState('saving');
+        window.clearTimeout(otfSaveTimer);
+        otfSaveTimer = window.setTimeout(function() {
+            send_ajax_json(Api.urls.otf_save_selection,
+                           {entry_id: {{ entry_id }}, deselected: Array.from(otfSel.deselected),
+                            excludedTilts: otfSel.excludedTilts},
+                           function(data) {
+                               if (data.error) { otfShowSaveState('error'); showError(data.error); }
+                               else otfShowSaveState('saved');
+                           },
+                           function() { otfShowSaveState('error'); });
+        }, 600);
+    };
+
 })(window, document, window.jQuery);
 </script>
 
