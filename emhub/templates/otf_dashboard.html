@@ -81,6 +81,9 @@
 .otf-why { color: var(--otf-muted); font-size: .8rem; }
 .otf-table td, .otf-table th { white-space: nowrap; }
 .otf-table-scroll { max-height: 75vh; overflow: auto; }
+.otf-sortable { cursor: pointer; user-select: none; }
+.otf-sortable:hover { color: var(--otf-data); }
+.otf-sort-ind { font-size: .65rem; margin-left: .25rem; color: var(--otf-data); }
 /* The header row stays in view while the rows scroll under it.  A shadow
    rather than the border, which a sticky cell does not keep. */
 .otf-table thead th { position: sticky; top: 0; z-index: 2; background: var(--otf-surface);

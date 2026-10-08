@@ -178,18 +178,25 @@
             <thead>
                 <tr>
                     <th class="otf-sel-cell"></th>
-                    <th>Tilt series</th>
-                    <th>Status</th>
-                    <th class="otf-num" data-toggle="tooltip"
-                        title="Tilts the latest stage uses / tilts imported; processing can drop tilts (deselected or disabled in Warp)">Tilts used</th>
-                    <th class="otf-num">Accum. motion (Å)</th>
-                    {% if showEarly %}<th class="otf-num">Early motion (Å)</th>{% endif %}
-                    <th class="otf-num">Defocus (µm)</th>
-                    <th class="otf-num">CTF fit resolution (Å)</th>
-                    <th class="otf-num">Tilt axis (°)</th>
-                    <th class="otf-num">Shift roughness (Å)</th>
+                    {# Click a column name to sort by it, again to reverse #}
+                    {% macro sortable(key, label, cls='') -%}
+                        <th class="otf-sortable {{ cls }}" data-sort="{{ key }}">{{ label }}<span class="otf-sort-ind">
+                            {%- if sort == key %}&#9650;{% elif sort == '-' ~ key %}&#9660;{% endif -%}
+                        </span></th>
+                    {%- endmacro %}
+                    {{ sortable('name', 'Tilt series') }}
+                    {{ sortable('status', 'Status') }}
+                    <th class="otf-num otf-sortable" data-sort="tilts" data-toggle="tooltip"
+                        title="Tilts the latest stage uses / tilts imported; processing can drop tilts (deselected or disabled in Warp)">Tilts used<span class="otf-sort-ind">
+                            {%- if sort == 'tilts' %}&#9650;{% elif sort == '-tilts' %}&#9660;{% endif -%}</span></th>
+                    {{ sortable('motion', 'Accum. motion (Å)', 'otf-num') }}
+                    {% if showEarly %}{{ sortable('early', 'Early motion (Å)', 'otf-num') }}{% endif %}
+                    {{ sortable('defocus', 'Defocus (µm)', 'otf-num') }}
+                    {{ sortable('ctf', 'CTF fit resolution (Å)', 'otf-num') }}
+                    {{ sortable('axis', 'Tilt axis (°)', 'otf-num') }}
+                    {{ sortable('roughness', 'Shift roughness (Å)', 'otf-num') }}
                     <th>Per-tilt QC{% if fingerprintLabel %} ({{ fingerprintLabel }}){% endif %}</th>
-                    <th>Stages</th>
+                    {{ sortable('stage', 'Stages') }}
                 </tr>
             </thead>
             <tbody>
@@ -338,6 +345,12 @@
         otfSelectionChanged();
     });
     otfRenderSelection();
+
+    // Sort by a column: ascending first, then descending
+    $('#otf-dashboard-content .otf-table th[data-sort]').on('click', function() {
+        var key = this.dataset.sort;
+        otfSetSort({{ sort|tojson }} === key ? '-' + key : key);
+    });
 
     var trends = {{ trends|tojson }};
     var x = trends.x, colors = trends.colors, symbols = trends.symbols, names = trends.names;

@@ -18,6 +18,7 @@ by emwrap while the microscope is still collecting.
 """
 
 import os
+import re
 import time
 
 from PIL import Image
@@ -213,6 +214,26 @@ def _tilts_tip(ts):
         tip += (f'; {len(names)} dropped at {STAGE_SHORT.get(stage, stage)}: '
                 + ', '.join(names))
     return tip
+
+
+def _natural_key(name):
+    """ Sort key that puts TS_2 before TS_10. """
+    return [int(p) if p.isdigit() else p.lower() for p in re.split(r'(\d+)', name)]
+
+
+# Table columns that can be sorted by: key -> value of a table row
+SORT_KEYS = {
+    'name': lambda r: _natural_key(r['tomoName']),
+    'status': lambda r: r['statusOrder'],
+    'tilts': lambda r: r['nUsed'],
+    'motion': lambda r: r['motion'].get('mean'),
+    'early': lambda r: r['motionEarly'].get('mean'),
+    'defocus': lambda r: r['defocus'].get('median'),
+    'ctf': lambda r: r['ctfRes'].get('mean'),
+    'axis': lambda r: r['tiltAxis'].get('mean'),
+    'roughness': lambda r: r['shiftRoughness'],
+    'stage': lambda r: list(STAGES).index(r['stage']) if r['stage'] in STAGES else None,
+}
 
 
 def _stage_dots(ts):
@@ -456,8 +477,16 @@ def register_content(dc):
                 'fingerprintLabel': (_fingerprint_source(t) or (None,) * 4)[3],
             })
 
+        column = sort.lstrip('-')
         if sort == 'recent':
             rows.reverse()
+        elif column in SORT_KEYS:
+            # A column, '-' for descending; rows without a value go last
+            # either way
+            key = SORT_KEYS[column]
+            known = [r for r in rows if key(r) is not None]
+            rows = (sorted(known, key=key, reverse=sort.startswith('-'))
+                    + [r for r in rows if key(r) is None])
         else:  # worst first, then by how bad the CTF fit is
             rows.sort(key=lambda r: (
                 r['statusOrder'],
