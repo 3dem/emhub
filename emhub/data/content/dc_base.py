@@ -1275,9 +1275,14 @@ def register_content(dc):
         dewar = cane = puck = None
         
         # JMRT: 2026-05-27: range is used to limit the number of pucks to load
-        pucks_range = kwargs.get('pucks_range', '1-9999')  
-        min_id, max_id = pucks_range.split('-')
-        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        pucks_range = kwargs.get('pucks_range', '1-9999')
+        # pucks_range comes from the URL and goes into the SQL below.
+        # Parse it to int so nothing else can be injected.
+        try:
+            min_id, max_id = (int(x) for x in pucks_range.split('-'))
+        except (ValueError, AttributeError):
+            min_id, max_id = 1, 9999
+        condStr = 'id>=%d and id<=%d' % (min_id, max_id)
         pucks = dm.get_pucks(condition=condStr, orderBy='id')
         # All pucks are loaded to show the occupancy, but non-managers
         # can only see details of the pucks assigned to their lab
