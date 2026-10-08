@@ -1689,11 +1689,10 @@ def delete_puck():
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
-    condition = request.json.get('condition', None)
-    orderBy = request.json.get('orderBy', None)
-
-    items = func(condition=condition, orderBy=orderBy,
-                 asJson=True)
+    # Do not take condition/orderBy from the request. They went straight
+    # into sqlalchemy.text(), so any logged-in user could inject SQL.
+    # attrs below only picks which fields are returned, that is safe.
+    items = func(asJson=True)
 
     if 'attrs' in request.json:
         attrs = request.json['attrs']
