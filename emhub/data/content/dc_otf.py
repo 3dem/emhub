@@ -190,6 +190,31 @@ def _tilt_label(tilt):
     return ' · '.join(parts)
 
 
+def _dropped_label(tilt):
+    """ Where processing dropped a tilt, e.g. 'dropped at alignment'. """
+    stage = STAGE_SHORT.get(tilt.get('droppedAt'), 'a later stage')
+    return f'dropped at {stage[0].lower()}{stage[1:]}'
+
+
+def _tilts_tip(ts):
+    """ Tooltip for the tilts used: tilts listed at each stage and the
+    movies processing dropped (deselected or disabled in Warp, say). """
+    if not ts.tiltCounts:
+        return ''
+    tip = ' → '.join(f'{STAGE_SHORT.get(k, k)} {n}' for k, n in ts.tiltCounts.items())
+    dropped = {}
+    for t in ts.tilts:
+        if t.get('excluded'):
+            movie = t.get(COL_MOVIE_INDEX)
+            name = (f'movie {int(movie)}' if movie is not None
+                    else os.path.basename(t.get('rlnMicrographMovieName', '')))
+            dropped.setdefault(t.get('droppedAt'), []).append(name)
+    for stage, names in dropped.items():
+        tip += (f'; {len(names)} dropped at {STAGE_SHORT.get(stage, stage)}: '
+                + ', '.join(names))
+    return tip
+
+
 def _stage_dots(ts):
     """ One dot per pipeline stage for the table: done, processing,
     failed or waiting, and a tooltip saying which is which. """
@@ -254,7 +279,9 @@ def _fingerprint_svg(ts):
         y = _y(value)
         pts.append(f'{i},{y} {i + 1},{y}')
 
-        if t.get('excluded') or t.get('reject'):
+        if t.get('excluded'):
+            color = WAITING_COLOR     # dropped during processing
+        elif t.get('reject'):
             color = STATUS_STYLE[STATUS_BAD]['color']
         elif FINGERPRINT_TARGET_KEY.get(col) in t.get('offTarget', []):
             color = STATUS_STYLE[STATUS_SUSPECT]['color']
@@ -416,6 +443,7 @@ def register_content(dc):
                 'stageTip': tip,
                 'nTilts': t.nTilts,
                 'nUsed': t.nUsed,
+                'tiltsTip': _tilts_tip(t),
                 'motion': t.motion,
                 'motionEarly': t.motionEarly,
                 'defocus': t.defocus,
@@ -649,7 +677,7 @@ def register_content(dc):
         notes, thumbs = [], []
         for t in tilts:
             if t.get('excluded'):
-                note, border = 'excluded', STATUS_STYLE[STATUS_BAD]['color']
+                note, border = _dropped_label(t), WAITING_COLOR
             elif t.get('reject'):
                 note = 'unusable: ' + ', '.join(TILT_FLAG_LABELS[k] for k in t['reject'])
                 border = STATUS_STYLE[STATUS_BAD]['color']
@@ -675,6 +703,7 @@ def register_content(dc):
                 'ps': session.tilt_thumbnail(t, 'ps'),
                 'profile': session.tilt_thumbnail(t, 'ctf'),
                 'border': border,
+                'dropped': bool(t.get('excluded')),
                 'label': '' if angle is None else f'{round(angle)}°',
             })
         images = [thumb['image'] for thumb in thumbs if thumb['image']]
@@ -737,4 +766,5 @@ def register_content(dc):
             'tiltNotes': notes,
             'thumbs': thumbs,
             'thumbSize': thumb_size,
+            'hasDropped': any(t.get('excluded') for t in tilts),
         }

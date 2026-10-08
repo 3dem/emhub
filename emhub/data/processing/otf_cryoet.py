@@ -79,6 +79,7 @@ COL_TILT_ANGLE = 'rlnTomoNominalStageTiltAngle'
 COL_PRE_EXPOSURE = 'rlnMicrographPreExposure'
 COL_MICROGRAPH = 'rlnMicrographName'
 COL_MOVIE_INDEX = 'rlnTomoTiltMovieIndex'
+COL_MOVIE_NAME = 'rlnMicrographMovieName'
 COL_POWER_SPECTRUM = 'rlnCtfPowerSpectrum'
 
 MOTION_COLS = ['rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate']
@@ -299,6 +300,7 @@ class TiltSeriesMetrics:
         self.stage = None            # last stage this TS reached
         self.stagesSeen = set()      # stages whose output lists this series
         self.failedAt = None         # stage whose job could not process it
+        self.tiltCounts = OrderedDict()   # stage -> tilts its output lists
         self.status = None
         self.reasons = []            # why it is suspect/bad
         # Paths, filled in as the stages produce them
@@ -580,6 +582,7 @@ class TiltSeriesMetrics:
             'stagesSeen': sorted(self.stagesSeen),
             'nTilts': self.nTilts,
             'nUsed': self.nUsed,
+            'tiltCounts': self.tiltCounts,
             'pixelSize': self.pixelSize,
             'tsPixelSize': self.tsPixelSize,
             'tiltSeriesStar': self.tiltSeriesStar,
@@ -789,7 +792,7 @@ class OtfSession:
             for i, row in enumerate(sf.iterTable(table, guessType=False)):
                 cells = row._asdict()
                 t = {'index': i, 'excluded': False}
-                for col in (COL_MICROGRAPH, COL_POWER_SPECTRUM):
+                for col in (COL_MICROGRAPH, COL_POWER_SPECTRUM, COL_MOVIE_NAME):
                     if path := cells.get(col):
                         t[col] = path
                 for col in wanted:
@@ -799,15 +802,50 @@ class OtfSession:
                     if val is not None:
                         t[col] = val
                 tilts.append(t)
+        return tilts
 
-        # Acquisition order from pre-exposure when available; dose-symmetric
-        # schemes are not sorted by tilt angle.
+    @staticmethod
+    def _tilt_key(tilt):
+        """ What identifies a tilt across stages: its movie index, which
+        is also what a subset job excludes tilts by. """
+        if (movie := tilt.get(COL_MOVIE_INDEX)) is not None:
+            return movie
+        return os.path.basename(tilt.get(COL_MOVIE_NAME, ''))
+
+    def _merge_tilts(self, ts, tilts, stage):
+        """ Fold one stage's tilts into ts.tilts.  A RELION 5 tilt series
+        star accumulates columns from stage to stage, so later values win.
+        A tilt the stage no longer lists was dropped by it (deselected or
+        disabled in Warp, for instance): it is kept, marked excluded with
+        the stage that dropped it and the values of the last stage that had
+        it, so the dashboard can show what was lost and where. """
+        ts.tiltCounts[stage] = len(tilts)
+        if not ts.tilts:
+            ts.tilts = tilts
+            return
+        # In this stage's order, as before, with the dropped tilts after
+        known = {self._tilt_key(t): t for t in ts.tilts}
+        merged = []
+        for t in tilts:
+            if (old := known.pop(self._tilt_key(t), None)) is not None:
+                old.update(t)
+                old.pop('droppedAt', None)
+                t = old
+            merged.append(t)
+        for t in known.values():
+            if not t.get('excluded'):
+                t['excluded'], t['droppedAt'] = True, stage
+        ts.tilts = merged + list(known.values())
+
+    @staticmethod
+    def _set_acq_order(tilts):
+        """ Acquisition order from pre-exposure when available; dose
+        symmetric schemes are not sorted by tilt angle. """
         if any(COL_PRE_EXPOSURE in t for t in tilts):
             order = sorted(range(len(tilts)),
                            key=lambda i: tilts[i].get(COL_PRE_EXPOSURE, 0))
             for rank, i in enumerate(order):
                 tilts[i]['acqOrder'] = rank
-        return tilts
 
     # -- tilt series -------------------------------------------------------
     def tilt_series(self, reload=False, with_tilts=False):
@@ -815,7 +853,8 @@ class OtfSession:
 
         Later stages overwrite the per-tilt values of earlier ones, because a
         RELION 5 tilt series star file accumulates columns as it goes through
-        the pipeline.
+        the pipeline; tilts a later stage dropped are kept, marked excluded
+        (see _merge_tilts).
         """
         if self._ts is not None and not reload:
             return self._ts
@@ -850,7 +889,7 @@ class OtfSession:
 
                 tilts = self._read_tilts(ts.tiltSeriesStar)
                 if tilts:
-                    ts.tilts = tilts
+                    self._merge_tilts(ts, tilts, key)
 
             # Tilt series this stage could not process.  emwrap lists them
             # explicitly, so a failure is recorded rather than inferred, and
@@ -878,6 +917,7 @@ class OtfSession:
             prev_key = key
 
         for ts in series.values():
+            self._set_acq_order(ts.tilts)
             ts.summarize(self.thresholds)
 
         self._ts = list(series.values())

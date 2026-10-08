@@ -155,7 +155,8 @@ def _tilt_rows(ts_index, cols, rng, placeholders=False):
     return rows
 
 
-def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False):
+def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
+                  dropped=False):
     """ placeholders=True reproduces what emwrap devel currently writes:
     accumulated motion hardcoded to 0 and the CTF quality columns left at
     the defaultdict zero, with only the defocus values real.  Use it to
@@ -163,7 +164,11 @@ def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False):
     perfect score.
 
     acquiring=True writes a session in progress: every job is Running and
-    each later stage lags the one before it, as with emwrap on the fly. """
+    each later stage lags the one before it, as with emwrap on the fly.
+
+    dropped=True drops tilts the way Warp does: in every 10th tilt series
+    (from the 4th) motion correction leaves out one deselected tilt, and in
+    every 10th (from the 8th) alignment leaves out two disabled ones. """
     rng = random.Random(seed)
     os.makedirs(path, exist_ok=True)
 
@@ -185,7 +190,11 @@ def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False):
     # One tilt series that alignment cannot process.
     failed_at_align = names[n_ts // 2] if n_ts > 4 else None
 
-    for ((job_id, jobtype, _), star_name, cols, _node), lag in zip(stage_defs, lags):
+    # With dropped=True: {series index % 10: (first stage index, movie numbers)}
+    drops = {3: (1, {6}), 7: (2, {9, 10})} if dropped else {}
+
+    for stage, (((job_id, jobtype, _), star_name, cols, _node), lag) in enumerate(
+            zip(stage_defs, lags)):
         job_dir = os.path.join(path, job_id)
         os.makedirs(os.path.join(job_dir, 'tilt_series'), exist_ok=True)
 
@@ -202,7 +211,11 @@ def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False):
                     PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE)
 
             tilt_table = Table(cols)
+            first, movies = drops.get(i % 10, (len(stage_defs), set()))
             for row in _tilt_rows(i, cols, rng, placeholders=placeholders):
+                movie = row[cols.index('rlnMicrographMovieName')]
+                if stage >= first and int(movie.rsplit('_', 1)[1].split('.')[0]) in movies:
+                    continue
                 tilt_table.addRowValues(*row)
             with StarFile(os.path.join(path, ts_star), 'w') as sf:
                 sf.writeTable(name, tilt_table)
@@ -289,12 +302,16 @@ def main():
                    dest='placeholders',
                    help='write motion and CTF quality as the placeholder '
                         'zeros emwrap currently produces')
+    p.add_argument('--dropped', action='store_true',
+                   help='drop tilts at motion correction and alignment, as '
+                        'Warp does with deselected and disabled tilts')
     p.add_argument('--acquiring', action='store_true',
                    help='write a session in progress: all jobs Running, '
                         'later stages lagging behind')
     args = p.parse_args()
     write_project(args.path, n_ts=args.n_ts, seed=args.seed,
-                  placeholders=args.placeholders, acquiring=args.acquiring)
+                  placeholders=args.placeholders, acquiring=args.acquiring,
+                  dropped=args.dropped)
     print(f'Wrote fake OTF project with {args.n_ts} tilt series to {args.path}')
 
 

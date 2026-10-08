@@ -154,7 +154,8 @@
                 <tr>
                     <th>Tilt series</th>
                     <th>Status</th>
-                    <th class="otf-num">Tilts used</th>
+                    <th class="otf-num" data-toggle="tooltip"
+                        title="Tilts the latest stage uses / tilts imported; processing can drop tilts (deselected or disabled in Warp)">Tilts used</th>
                     <th class="otf-num">Accum. motion (Å)</th>
                     {% if showEarly %}<th class="otf-num">Early motion (Å)</th>{% endif %}
                     <th class="otf-num">Defocus (µm)</th>
@@ -200,8 +201,9 @@
                             <small>{{ r.stageLabel }} in progress</small>
                         </td>
                     {% else %}
-                        <td class="otf-num">
+                        <td class="otf-num" data-toggle="tooltip" title="{{ r.tiltsTip }}">
                             {{ r.nUsed }} / {{ r.nTilts }}
+                            {% if r.nUsed < r.nTilts %}<span class="otf-sd">&middot; {{ r.nTilts - r.nUsed }} dropped</span>{% endif %}
                         </td>
                         <td class="otf-num">
                             {% if r.motion.mean is not none %}
