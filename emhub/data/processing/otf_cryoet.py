@@ -23,11 +23,18 @@ import sys
 import json
 import math
 import time
+import logging
 import argparse
+import tempfile
 from glob import glob
 from collections import OrderedDict, Counter
 
 from emtools.metadata import StarFile, RelionStar
+
+logger = logging.getLogger(__name__)
+# Read once, at import: setting it back is not thread safe later
+_UMASK = os.umask(0)
+os.umask(_UMASK)
 
 
 # --------------------------------------------------------------------------
@@ -52,12 +59,11 @@ STAGES = OrderedDict([
 
 # emw-warp-mctf does motion correction and CTF in one job, so both stages
 # point at it.  Keep the distinction in the UI: the metrics differ.
-SHARED_STAGE_JOBS = {'motioncorr', 'ctf'}
 
-# The global star file each emwrap job writes.  The pipeline output nodes are
-# the primary source; this is the fallback for a job that has produced its
-# star file but has not registered the node yet, which happens while the job
-# is still running -- exactly the case the dashboard cares about.
+# The global star file each emwrap job writes.  It is preferred among the
+# job's pipeline output nodes, and used even before the node is registered,
+# which happens while the job is still running -- exactly the case the
+# dashboard cares about.
 JOB_OUTPUT_STAR = {
     'emw-import-ts': 'tilt_series.star',
     'emw-warp-mctf': 'tilt_series.star',
@@ -106,12 +112,11 @@ COL_TOMOGRAM_DENOISED = 'rlnTomoReconstructedTomogramDenoised'
 COL_TOMO_BINNING = 'rlnTomoTomogramBinning'
 
 # Columns that emwrap writes as a literal 0 when the value was never
-# measured.  As of emwrap devel, updateMctfTsDict hardcodes the accumulated
-# motion columns (there is a FIXME to parse them from the Warp movie xml) and
-# lets the CTF quality columns fall through a defaultdict(lambda: 0), so only
-# the defocus values come from the xml.  A whole series of exact zeros for a
-# quantity that cannot physically be zero means "not reported", and must not
-# be shown as a perfect score or used to flag the series.
+# measured: updateMctfTsDict lets what a Warp movie xml lacks fall through a
+# defaultdict(lambda: 0), and older emwrap versions wrote the motion columns
+# that way too.  None of these can physically be zero, so a zero is "not
+# reported": a tilt with one is not judged on it, and a series of zeros
+# shows no value rather than a perfect score.
 PLACEHOLDER_ZERO_COLS = {
     'rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate',
     'rlnCtfMaxResolution', 'rlnCtfFigureOfMerit', 'rlnCtfIceRingDensity',
@@ -154,6 +159,8 @@ STATUS_SUSPECT = 'suspect'
 STATUS_BAD = 'bad'
 STATUS_RUNNING = 'running'
 STATUS_FAILED = 'failed'
+# What the dashboard counts and filters as needing a look
+STATUSES_NEED_REVIEW = (STATUS_SUSPECT, STATUS_BAD, STATUS_FAILED)
 
 
 # --------------------------------------------------------------------------
@@ -184,11 +191,6 @@ def _median(values):
     return v[n // 2] if n % 2 else 0.5 * (v[n // 2 - 1] + v[n // 2])
 
 
-def _max(values):
-    v = _clean(values)
-    return max(v) if v else None
-
-
 def _stats(values):
     """ mean/std/median/min/max in one dict, or None values if no data. """
     v = _clean(values)
@@ -199,15 +201,17 @@ def _stats(values):
             'median': _median(v), 'min': min(v), 'max': max(v)}
 
 
+def _measured(value, column):
+    """ The value, or None for a placeholder zero (PLACEHOLDER_ZERO_COLS). """
+    return None if value == 0.0 and column in PLACEHOLDER_ZERO_COLS else value
+
+
 def _stats_measured(values, column=None):
-    """ As _stats, but a column known to be written as a placeholder zero
-    reports as having no data when every value is exactly zero. """
-    st = _stats(values)
-    if (column in PLACEHOLDER_ZERO_COLS and st['n']
-            and st['min'] == 0.0 and st['max'] == 0.0):
-        return {'n': 0, 'mean': None, 'std': None, 'median': None,
-                'min': None, 'max': None, 'notReported': True}
-    st['notReported'] = False
+    """ As _stats, leaving out placeholder zeros; a column of nothing but
+    placeholder zeros reports as not reported. """
+    values = _clean(values)
+    st = _stats([_measured(v, column) for v in values])
+    st['notReported'] = bool(values) and not st['n']
     return st
 
 
@@ -216,6 +220,51 @@ def _float(cells, key):
         return float(cells[key])
     except (KeyError, TypeError, ValueError):
         return None
+
+
+# --------------------------------------------------------------------------
+# Star files, parsed once
+# --------------------------------------------------------------------------
+# The dashboard refreshes every 30 s and a session has a star file per tilt
+# series and stage, most of which no longer change.  They are parsed once
+# and kept, shared between requests, while their modification time and size
+# stay the same, so a refresh mostly costs a stat per file and does not
+# contend with acquisition for I/O.
+_STAR_CACHE = {}
+_STAR_CACHE_MAX = 50000     # files; cleared when full
+# emwrap rewrites star files in place: one modified this recently may still
+# be being written, so it is read but not kept.
+_STAR_SETTLE_SECONDS = 5
+
+
+def _read_cached(path, read):
+    """ read(path), or what it returned before for this unchanged file.
+
+    A file that cannot be parsed, being written as it is read for
+    instance, gives the last good version of it if there is one, else
+    None, so a refresh does not fail or lose a stage for a moment.
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    stamp = (st.st_mtime_ns, st.st_size)
+    cached = _STAR_CACHE.get(path)
+    if cached and cached[0] == stamp:
+        return cached[1]
+    settled = time.time() - st.st_mtime > _STAR_SETTLE_SECONDS
+    try:
+        value = read(path)
+    except Exception as e:
+        logger.warning('Could not read %s: %s', path, e)
+        return cached[1] if cached else None
+    if not value and cached and not settled:
+        return cached[1]        # emptied to be written again, most likely
+    if settled:
+        if len(_STAR_CACHE) >= _STAR_CACHE_MAX:
+            _STAR_CACHE.clear()
+        _STAR_CACHE[path] = (stamp, value)
+    return value
 
 
 # --------------------------------------------------------------------------
@@ -256,14 +305,15 @@ class OtfJob:
         node is not registered yet.
         """
         known = JOB_OUTPUT_STAR.get(self.jobtype)
+        rel = os.path.join(self.id, known) if known else None
         stars = [name for name, ntype in self.outputs
                  if name.endswith('.star') and 'failed' not in name.lower()
                  and 'failed' not in (ntype or '').lower()]
-        if known and (rel := os.path.join(self.id, known)) in stars:
+        if rel in stars:
             return rel
         if stars:
             return stars[0]
-        if known and os.path.exists(self.project.join(rel)):
+        if rel and os.path.exists(self.project.join(rel)):
             return rel
         return None
 
@@ -276,17 +326,6 @@ class OtfJob:
         # emw-warp-mctf writes the file but does not register it as a node.
         rel = os.path.join(self.id, FAILED_STAR)
         return rel if os.path.exists(self.project.join(rel)) else None
-
-    def run_info(self):
-        """ emwrap writes an info.json per job with run timings. """
-        info_path = os.path.join(self.path, 'info.json')
-        if os.path.exists(info_path):
-            try:
-                with open(info_path) as f:
-                    return json.load(f)
-            except (ValueError, OSError):
-                pass
-        return {}
 
     def __repr__(self):
         return f'OtfJob({self.id}, {self.jobtype}, {self.status})'
@@ -336,8 +375,7 @@ class TiltSeriesMetrics:
     # -- summaries ---------------------------------------------------------
     def summarize(self, thresholds=None):
         """ Compute the summary metrics and the triage status. """
-        th = dict(DEFAULT_THRESHOLDS)
-        th.update(thresholds or {})
+        th = thresholds or DEFAULT_THRESHOLDS
 
         self.motion = _stats_measured(
             self.values('rlnAccumMotionTotal'), 'rlnAccumMotionTotal')
@@ -388,39 +426,33 @@ class TiltSeriesMetrics:
         """ Mark each used tilt with the limits it breaks.
 
         t['reject'] lists why a tilt would be unusable, t['offTarget'] why it
-        is usable but not optimal.  A metric written as placeholder zeros is
-        never judged: a zero figure of merit that was never measured must not
-        reject every tilt.
+        is usable but not optimal.  A placeholder zero is never judged: a
+        zero figure of merit that was never measured must not reject the
+        tilt.
         """
-        measured = {
-            'motion': not self.motion.get('notReported'),
-            'early': not self.motionEarly.get('notReported'),
-            'ctf': not self.ctfRes.get('notReported'),
-            'fom': not self.ctfFom.get('notReported'),
-        }
         motion, early = th['motionTotal'], th['motionEarly']
         ctf = th['ctfMaxResolution']
 
         for t in self.tilts:
             reject, off = [], []
             if not t.get('excluded'):
-                m = t.get('rlnAccumMotionTotal')
-                if measured['motion'] and m is not None:
+                m = _measured(t.get('rlnAccumMotionTotal'), 'rlnAccumMotionTotal')
+                if m is not None:
                     if m > motion['reject']:
                         reject.append('motion')
                     elif m > motion['target']:
                         off.append('motion')
-                e = t.get('rlnAccumMotionEarly')
-                if measured['early'] and e is not None and e > early['flag']:
+                e = _measured(t.get('rlnAccumMotionEarly'), 'rlnAccumMotionEarly')
+                if e is not None and e > early['flag']:
                     off.append('early')
-                r = t.get('rlnCtfMaxResolution')
-                if measured['ctf'] and r is not None:
+                r = _measured(t.get('rlnCtfMaxResolution'), 'rlnCtfMaxResolution')
+                if r is not None:
                     if r > ctf['reject']:
                         reject.append('ctf')
                     elif r > self.ctf_target(t.get(COL_TILT_ANGLE), ctf):
                         off.append('ctf')
-                f = t.get('rlnCtfFigureOfMerit')
-                if measured['fom'] and f is not None and f < th['ctfFigureOfMerit']['reject']:
+                f = _measured(t.get('rlnCtfFigureOfMerit'), 'rlnCtfFigureOfMerit')
+                if f is not None and f < th['ctfFigureOfMerit']['reject']:
                     reject.append('fom')
                 a = t.get('rlnCtfAstigmatism')
                 if a is not None and abs(a) > th['astigmatism']['reject']:
@@ -435,7 +467,8 @@ class TiltSeriesMetrics:
 
         self.nRejected = sum(1 for t in self.tilts if t['reject'])
         self.nUsable = self.nUsed - self.nRejected
-        self.nCtfOffTarget = self.offTargetCounts['ctf'] if measured['ctf'] else None
+        self.nCtfOffTarget = (None if self.ctfRes['notReported']
+                              else self.offTargetCounts['ctf'])
 
     def _alignment_metrics(self):
         """ Alignment quality from the Relion 5 columns that emwrap actually
@@ -620,8 +653,11 @@ class OtfSession:
 
     def __init__(self, path, thresholds=None):
         self.path = os.path.abspath(os.path.expanduser(path))
-        self.thresholds = dict(DEFAULT_THRESHOLDS)
-        self.thresholds.update(thresholds or {})
+        # An override of one limit keeps the other limits of that metric
+        self.thresholds = {
+            k: ({**v, **(thresholds or {}).get(k, {})} if isinstance(v, dict)
+                else (thresholds or {}).get(k, v))
+            for k, v in DEFAULT_THRESHOLDS.items()}
         self._jobs = None
         self._stages = None
         self._ts = None
@@ -725,6 +761,13 @@ class OtfSession:
         """ Store the selection, keeping the earlier exports and adding
         export if given.  Written then renamed, so a reader never gets a
         partial file.  Returns what was stored. """
+        # Posted by the browser: names and lists of movie indices only
+        if (not isinstance(deselected, list)
+                or not all(isinstance(n, str) for n in deselected)
+                or not isinstance(excluded_tilts or {}, dict)
+                or not all(isinstance(ids, list) for ids in (excluded_tilts or {}).values())):
+            raise ValueError('Invalid selection: expected a list of tilt series '
+                             'names and {name: [movie indices]}')
         data = self.selection()
         data.update(
             deselected=sorted(set(deselected)),
@@ -736,9 +779,12 @@ class OtfSession:
             data['exports'].append(export)
         path = self.join(SELECTION_FILE)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path + '.tmp', 'w') as f:
+        # A temporary file per save, so two saves at once cannot mix
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix='.tmp')
+        with os.fdopen(fd, 'w') as f:
             json.dump(data, f, indent=2)
-        os.replace(path + '.tmp', path)
+        os.chmod(tmp, 0o666 & ~_UMASK)     # mkstemp makes it private
+        os.replace(tmp, path)
         return data
 
     def subset_plan(self):
@@ -787,19 +833,11 @@ class OtfSession:
         have no job in this project yet.
         """
         if self._stages is None or reload:
-            by_type = {}
-            for job in self.jobs(reload=reload):
-                by_type.setdefault(job.jobtype, []).append(job)
-
-            stages = OrderedDict()
-            for key, spec in STAGES.items():
-                found = None
-                for jobtype in spec['jobtypes']:
-                    candidates = by_type.get(jobtype)
-                    if candidates:
-                        found = candidates[-1]   # most recent
-                        break
-                stages[key] = found
+            stages = OrderedDict((key, None) for key in STAGES)
+            for job in self.jobs(reload=reload):     # in pipeline order
+                for key, spec in STAGES.items():
+                    if job.jobtype in spec['jobtypes']:
+                        stages[key] = job
             self._stages = stages
         return self._stages
 
@@ -818,10 +856,10 @@ class OtfSession:
         """ Read a global tilt series star file, keyed by rlnTomoName. """
         if not star_rel:
             return {}
-        star_path = self.join(star_rel)
-        if not os.path.exists(star_path):
-            return {}
+        return _read_cached(self.join(star_rel), self._parse_global) or {}
 
+    @staticmethod
+    def _parse_global(star_path):
         rows = {}
         with StarFile(star_path) as sf:
             names = sf.getTableNames()
@@ -844,7 +882,7 @@ class OtfSession:
         names = set()
         for rel in job.inputs:
             names.update(self._read_global_star(rel))
-        return names
+        return names or None
 
     def _read_failed(self, job):
         """ Read a job's failed_tilt_series.star, keyed by rlnTomoName. """
@@ -856,10 +894,12 @@ class OtfSession:
         """ Read a per-tilt-series star file into a list of per-tilt dicts. """
         if not star_rel:
             return []
-        star_path = self.join(star_rel)
-        if not os.path.exists(star_path):
-            return []
+        tilts = _read_cached(self.join(star_rel), self._parse_tilts) or []
+        # Copies: merging the stages changes them
+        return [dict(t) for t in tilts]
 
+    @staticmethod
+    def _parse_tilts(star_path):
         wanted = ([COL_TILT_ANGLE, COL_PRE_EXPOSURE, COL_MICROGRAPH, COL_MOVIE_INDEX]
                   + MOTION_COLS + CTF_COLS + ALIGN_COLS)
         tilts = []
@@ -928,7 +968,7 @@ class OtfSession:
                 tilts[i]['acqOrder'] = rank
 
     # -- tilt series -------------------------------------------------------
-    def tilt_series(self, reload=False, with_tilts=False):
+    def tilt_series(self, reload=False):
         """ Build the metrics of every tilt series known to the project.
 
         Later stages overwrite the per-tilt values of earlier ones, because a
@@ -945,6 +985,7 @@ class OtfSession:
 
         stages = self.stages(reload=reload)
         series = OrderedDict()
+        tilt_stars = {}     # name -> [(stage, its tilt series star)]
         self._queued = None
         prev_key = None
 
@@ -971,16 +1012,16 @@ class OtfSession:
                         or cells.get(COL_TOMOGRAM_DENOISED))
                 if tomo:
                     ts.tomogram = tomo
-
-                tilts = self._read_tilts(ts.tiltSeriesStar)
-                if tilts:
-                    self._merge_tilts(ts, tilts, key)
+                tilt_stars.setdefault(name, []).append((key, ts.tiltSeriesStar))
 
             # Tilt series this stage could not process.  emwrap lists them
             # explicitly, so a failure is recorded rather than inferred, and
             # "the job broke on this one" stays distinct from "the data is
-            # poor".
+            # poor".  The file is not removed when a job continues in its
+            # folder, so a series in the output after all is not failed.
             for name, cells in self._read_failed(job).items():
+                if name in globals_:
+                    continue
                 ts = series.get(name) or series.setdefault(
                     name, TiltSeriesMetrics(name))
                 ts.status = STATUS_FAILED
@@ -992,7 +1033,8 @@ class OtfSession:
             # On the fly jobs run for the whole session, so marking its
             # output as running would hide every series until acquisition
             # ends.
-            inputs = self._read_inputs(job)
+            inputs = (self._read_inputs(job)
+                      if key == 'motioncorr' or job.failed or job.running else None)
             if key == 'motioncorr':
                 self._queued = inputs
             if (job.failed or job.running) and prev_key is not None:
@@ -1012,9 +1054,25 @@ class OtfSession:
                     if ts.stagesSeen - {'import'}
                     or ts.status in (STATUS_RUNNING, STATUS_FAILED)]
         for ts in self._ts:
+            self._read_ts_tilts(ts, tilt_stars.get(ts.tomoName, []))
             self._set_acq_order(ts.tilts)
             ts.summarize(self.thresholds)
         return self._ts
+
+    def _read_ts_tilts(self, ts, stars):
+        """ Merge the tilts of each stage, in order.  A stage that lists the
+        same file as the one before (motion correction and CTF are one job,
+        the tomogram stage points at the alignment files) adds nothing but
+        its count. """
+        last = None
+        for key, star in stars:
+            if last and star == last[1]:
+                ts.tiltCounts[key] = ts.tiltCounts[last[0]]
+                continue
+            tilts = self._read_tilts(star)
+            if tilts:
+                self._merge_tilts(ts, tilts, key)
+                last = (key, star)
 
     def queued(self):
         """ How many tilt series were sent to processing: the input of the
@@ -1043,7 +1101,6 @@ class OtfSession:
                 # whether a metric came back with values: emwrap writes some
                 # metrics as placeholder zeros, and a stage that ran is done
                 # whether or not it measured anything.
-                done = sum(1 for t in ts_list if key in t.stagesSeen)
                 if key == 'import':
                     done = n_imported   # including those not listed
                 elif key == 'tomogram':
@@ -1051,6 +1108,8 @@ class OtfSession:
                 elif key == 'align':
                     done = sum(1 for t in ts_list
                                if t.alignedStack and t.alignedStack != 'None')
+                else:
+                    done = sum(1 for t in ts_list if key in t.stagesSeen)
             stage_counts.append({
                 'key': key,
                 'failed': sum(1 for t in ts_list if t.failedAt == key),
@@ -1091,15 +1150,14 @@ class OtfSession:
             'notReported': not_reported,
             'nProcessed': sum(1 for t in ts_list if t.tomogram),
             'byStatus': by_status,
-            'nNeedALook': sum(by_status.get(s, 0)
-                              for s in (STATUS_SUSPECT, STATUS_BAD, STATUS_FAILED)),
+            'nNeedALook': sum(by_status.get(s, 0) for s in STATUSES_NEED_REVIEW),
             'stages': stage_counts,
             'lastImport': self._last_import_mtime(),
         }
 
     def _last_import_mtime(self):
-        """ mtime of the most recent raw movie or import output, used to tell
-        acquiring from idle from stalled. """
+        """ mtime of the most recent import output (its star files), used
+        to tell acquiring from idle from stalled. """
         job = self.stages().get('import')
         if job is None:
             return None
