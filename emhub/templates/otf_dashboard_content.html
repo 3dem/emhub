@@ -59,7 +59,7 @@
                     <div class="otf-counter-value" style="color: {{ c.text or c.color }}">
                         <i class="fas {{ c.icon }} otf-counter-icon" style="color: {{ c.color }}"></i>{{ c.value }}
                     </div>
-                    <div class="otf-counter-label">{{ c.label }}</div>
+                    <div class="otf-counter-label">{{ c.label }}{% if c.note %}<br>{{ c.note }}{% endif %}</div>
                 </div>
             {% endfor %}
         </div>

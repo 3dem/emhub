@@ -597,7 +597,10 @@ def register_content(dc):
         color = {k: v['color'] for k, v in STATUS_STYLE.items()}
         counters = [
             {'label': 'imported', 'value': summary['nImported'],
-             'icon': 'fa-file-import', 'color': INK_COLOR},
+             'icon': 'fa-file-import', 'color': INK_COLOR,
+             # Series left out of processing (a subset) are not listed
+             'note': (f"{summary['nQueued']} selected for processing"
+                      if summary['nQueued'] < summary['nImported'] else None)},
             {'label': 'reconstructed', 'value': summary['nProcessed'],
              'icon': 'fa-cube', 'color': DATA_COLOR},
             {'label': 'processing', 'value': by_status.get(STATUS_RUNNING, 0),
@@ -616,7 +619,8 @@ def register_content(dc):
         stages = []
         prev_done = None
         for st in summary['stages']:
-            lag = None if prev_done is None else max(0, prev_done - st['done'])
+            lag = (None if prev_done is None
+                   else max(0, min(prev_done, st['total']) - st['done']))
             stages.append(dict(
                 st,
                 short=STAGE_SHORT.get(st['key'], st['label']),

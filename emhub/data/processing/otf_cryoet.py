@@ -232,6 +232,7 @@ class OtfJob:
         self.status = status             # RELION status label
         self.alias = alias
         self.outputs = []                # [(nodeName, nodeType)]
+        self.inputs = []                 # star files it reads, project relative
 
     @property
     def path(self):
@@ -249,20 +250,21 @@ class OtfJob:
         """ Return the job's main global star file, project relative.
 
         Failed-series nodes are skipped: they are a separate output and are
-        handled by failed_star().  If the node is not registered yet, fall
-        back to the filename the job type is known to write.
+        handled by failed_star().  The filename the job type is known to
+        write wins over other nodes (emw-warp-tsalign also registers a
+        tilt_series.star it may never write), and is the fallback while the
+        node is not registered yet.
         """
-        for name, ntype in self.outputs:
-            if not name.endswith('.star'):
-                continue
-            if 'failed' in name.lower() or 'failed' in (ntype or '').lower():
-                continue
-            return name
-
-        if known := JOB_OUTPUT_STAR.get(self.jobtype):
-            rel = os.path.join(self.id, known)
-            if os.path.exists(self.project.join(rel)):
-                return rel
+        known = JOB_OUTPUT_STAR.get(self.jobtype)
+        stars = [name for name, ntype in self.outputs
+                 if name.endswith('.star') and 'failed' not in name.lower()
+                 and 'failed' not in (ntype or '').lower()]
+        if known and (rel := os.path.join(self.id, known)) in stars:
+            return rel
+        if stars:
+            return stars[0]
+        if known and os.path.exists(self.project.join(rel)):
+            return rel
         return None
 
     def failed_star(self):
@@ -623,6 +625,7 @@ class OtfSession:
         self._jobs = None
         self._stages = None
         self._ts = None
+        self._queued = None
 
         if not os.path.exists(self.pipelineStar):
             raise Exception(
@@ -772,6 +775,7 @@ class OtfSession:
                 j = OtfJob(self, job.id, job['jobtype'], job['status'],
                            alias=job.get('alias'))
                 j.outputs = [(o.id, o.get('datatype')) for o in job.outputs]
+                j.inputs = [i.id for i in job.inputs if i.id.endswith('.star')]
                 jobs.append(j)
             self._jobs = jobs
         return self._jobs
@@ -831,6 +835,16 @@ class OtfSession:
                 if name:
                     rows[name] = cells
         return rows
+
+    def _read_inputs(self, job):
+        """ Names of the tilt series a job was given, or None when the
+        pipeline does not record its input. """
+        if job is None or not job.inputs:
+            return None
+        names = set()
+        for rel in job.inputs:
+            names.update(self._read_global_star(rel))
+        return names
 
     def _read_failed(self, job):
         """ Read a job's failed_tilt_series.star, keyed by rlnTomoName. """
@@ -921,12 +935,17 @@ class OtfSession:
         RELION 5 tilt series star file accumulates columns as it goes through
         the pipeline; tilts a later stage dropped are kept, marked excluded
         (see _merge_tilts).
+
+        Only series sent to processing are returned: one that was imported
+        but left out of motion correction (by a subset job, for instance)
+        has nothing to show and is only counted, see queued().
         """
         if self._ts is not None and not reload:
             return self._ts
 
         stages = self.stages(reload=reload)
         series = OrderedDict()
+        self._queued = None
         prev_key = None
 
         for key in STAGES:
@@ -969,12 +988,17 @@ class OtfSession:
                 ts.stage = ts.stage or key
 
             # A job that died or is still going only concerns the series
-            # waiting for it: those it already wrote out are done.  On the fly
-            # jobs run for the whole session, so marking its output as
-            # running would hide every series until acquisition ends.
+            # waiting for it: those in its input it has not written out yet.
+            # On the fly jobs run for the whole session, so marking its
+            # output as running would hide every series until acquisition
+            # ends.
+            inputs = self._read_inputs(job)
+            if key == 'motioncorr':
+                self._queued = inputs
             if (job.failed or job.running) and prev_key is not None:
                 for ts in series.values():
-                    if ts.stage == prev_key and ts.status is None:
+                    if (ts.stage == prev_key and ts.status is None
+                            and (inputs is None or ts.tomoName in inputs)):
                         if job.failed:
                             ts.status, ts.failedAt = STATUS_FAILED, key
                         else:
@@ -982,12 +1006,23 @@ class OtfSession:
                             ts.stage = key
             prev_key = key
 
-        for ts in series.values():
+        # Imported only, and not waiting for a running job: there is no
+        # processed data to judge, so the series is not listed at all.
+        self._ts = [ts for ts in series.values()
+                    if ts.stagesSeen - {'import'}
+                    or ts.status in (STATUS_RUNNING, STATUS_FAILED)]
+        for ts in self._ts:
             self._set_acq_order(ts.tilts)
             ts.summarize(self.thresholds)
-
-        self._ts = list(series.values())
         return self._ts
+
+    def queued(self):
+        """ How many tilt series were sent to processing: the input of the
+        motion correction job, the whole import when no subset was made. """
+        self.tilt_series()
+        if self._queued is not None:
+            return len(self._queued)
+        return len(self._read_global(self.stages().get('import')))
 
     # -- session level -----------------------------------------------------
     def summary(self, reload=False):
@@ -997,6 +1032,7 @@ class OtfSession:
 
         imported = self._read_global(stages.get('import'))
         n_imported = len(imported) or len(ts_list)
+        n_queued = self.queued() or n_imported
 
         stage_counts = []
         for key, spec in STAGES.items():
@@ -1008,7 +1044,9 @@ class OtfSession:
                 # metrics as placeholder zeros, and a stage that ran is done
                 # whether or not it measured anything.
                 done = sum(1 for t in ts_list if key in t.stagesSeen)
-                if key == 'tomogram':
+                if key == 'import':
+                    done = n_imported   # including those not listed
+                elif key == 'tomogram':
                     done = sum(1 for t in ts_list if t.tomogram)
                 elif key == 'align':
                     done = sum(1 for t in ts_list
@@ -1021,7 +1059,7 @@ class OtfSession:
                 'jobType': job.jobtype if job else None,
                 'jobStatus': job.status if job else None,
                 'done': done,
-                'total': n_imported,
+                'total': n_imported if key == 'import' else n_queued,
             })
 
         by_status = {}
@@ -1049,6 +1087,7 @@ class OtfSession:
             'tiltAxisSessionStd': axis_std,
             'path': self.path,
             'nImported': n_imported,
+            'nQueued': n_queued,
             'notReported': not_reported,
             'nProcessed': sum(1 for t in ts_list if t.tomogram),
             'byStatus': by_status,
