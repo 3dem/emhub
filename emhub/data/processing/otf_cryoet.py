@@ -25,16 +25,13 @@ import math
 import time
 import logging
 import argparse
-import tempfile
+import uuid
 from glob import glob
 from collections import OrderedDict, Counter
 
 from emtools.metadata import StarFile, RelionStar
 
 logger = logging.getLogger(__name__)
-# Read once, at import: setting it back is not thread safe later
-_UMASK = os.umask(0)
-os.umask(_UMASK)
 
 
 # --------------------------------------------------------------------------
@@ -779,11 +776,12 @@ class OtfSession:
             data['exports'].append(export)
         path = self.join(SELECTION_FILE)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        # A temporary file per save, so two saves at once cannot mix
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix='.tmp')
-        with os.fdopen(fd, 'w') as f:
+        # A temporary file per save, so two saves at once cannot mix.  Made
+        # by open(), so it gets the folder's permissions (default ACLs) as
+        # the file always did; mkstemp would make it private.
+        tmp = f'{path}.{os.getpid()}.{uuid.uuid4().hex}.tmp'
+        with open(tmp, 'x') as f:
             json.dump(data, f, indent=2)
-        os.chmod(tmp, 0o666 & ~_UMASK)     # mkstemp makes it private
         os.replace(tmp, path)
         return data
 
