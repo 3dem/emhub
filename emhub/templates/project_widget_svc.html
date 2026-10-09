@@ -639,8 +639,14 @@ var svc = {
         || request.row?.cells?.tomogramPath
         || request.row?.cells?.tomogram
         || request.row?.cells?.rlnTomoReconstructedTomogram
+        // SPA rows (Micrographs, Movies), e.g. for row actions (CTF, motion...)
+        || request.row?.cells?.micrographPath
+        || request.row?.cells?.moviePath
         || '';
     }
+    // Row actions resolved on the server from the output (e.g. SPA metadata)
+    if (!pathRel)
+      pathRel = request.outputPath || '';
 
     if (!pathRel) {
       return { kind: 'empty', message: 'No path available for this row action.' };

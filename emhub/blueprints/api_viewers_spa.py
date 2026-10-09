@@ -244,8 +244,9 @@ def build_spa_pane_content(action_id, root, type_key, row_cells, output_path=Non
     if action_id not in actions:
         raise Exception(f'Action {action_id!r} is not supported for {type_key}')
 
-    label = (row_cells.get('batch') or row_label or row_cells.get('micrograph')
-             or row_cells.get('movie') or '')
+    # row_label is usually the row id (index), use the item name if possible
+    label = (row_cells.get('batch') or row_cells.get('micrograph')
+             or row_cells.get('movie') or row_label or '')
 
     if action_id == 'metadata':
         return build_row_metadata_pane_content(root, row_cells, output_path, label)
