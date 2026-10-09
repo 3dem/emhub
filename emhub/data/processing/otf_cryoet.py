@@ -91,6 +91,8 @@ COL_MICROGRAPH = 'rlnMicrographName'
 COL_MOVIE_INDEX = 'rlnTomoTiltMovieIndex'
 COL_MOVIE_NAME = 'rlnMicrographMovieName'
 COL_POWER_SPECTRUM = 'rlnCtfPowerSpectrum'
+# Not a RELION column: the CTF profile correlation from <movie>_ctf.json
+COL_CTF_CORRELATION = 'ctfCorrelation'
 
 MOTION_COLS = ['rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate']
 CTF_COLS = ['rlnDefocusU', 'rlnDefocusV', 'rlnCtfAstigmatism',
@@ -120,7 +122,11 @@ PLACEHOLDER_ZERO_COLS = {
 }
 
 # Default triage thresholds, following the facility's RELION 5 CryoET QC
-# reference.  Overridable per entry; they are not meant to be universal.
+# reference, revised against a hand curation of lamella data (ChlamyBrnA,
+# 38 tilt series): motion was not a reason to reject below ~50 Å, Warp's CTF
+# fit resolution saturated around 7 Å, and the CTF profile correlation told
+# failed fits apart.  Overridable per entry; they are not meant to be
+# universal.
 #
 # Tilts are judged first: a tilt past a 'reject' limit counts as unusable,
 # one past a 'target' is usable but not optimal.  A tilt series is then
@@ -128,20 +134,26 @@ PLACEHOLDER_ZERO_COLS = {
 # here; job failures are handled separately.
 DEFAULT_THRESHOLDS = {
     # Per tilt
-    'motionTotal': {'target': 15.0, 'reject': 25.0},     # Å
+    'motionTotal': {'target': 25.0, 'reject': 50.0},     # Å
+    # Not judged when early motion equals total motion on every tilt (a dose
+    # per tilt under RELION's 4 e/Å² split): it would only repeat motion
     'motionEarly': {'flag': 10.0},                        # Å
     # The CTF fit target loosens with tilt, since the path length through
     # the sample grows as 1/cos(tilt): lowTarget up to lowTilt, highTarget
     # from highTilt, linear in between.
-    'ctfMaxResolution': {'lowTilt': 20.0, 'lowTarget': 4.5,
-                         'highTilt': 45.0, 'highTarget': 8.0,
+    'ctfMaxResolution': {'lowTilt': 20.0, 'lowTarget': 7.5,
+                         'highTilt': 45.0, 'highTarget': 9.0,
                          'reject': 10.0},                 # degrees, Å
+    # Correlation of the measured and simulated CTF radial profiles, from
+    # the <movie>_ctf.json emwrap writes: below 0.15 the fit failed (the
+    # hand-rejected tilts had a median of 0.25, the kept ones 0.55)
+    'ctfCorrelation': {'target': 0.3, 'reject': 0.15},
     'ctfFigureOfMerit': {'reject': 0.03},
     'astigmatism': {'reject': 4000.0},                   # Å (0.40 µm)
     # RELION stores underfocus as positive defocus, so negative is overfocus
     'defocus': {'reject': 60000.0},                      # Å (6 µm)
     # Per tilt series
-    'usableFraction': {'bad': 0.70},       # usable tilts / collected tilts
+    'usableFraction': {'bad': 0.75},       # usable tilts / collected tilts
     'droppedFraction': {'suspect': 0.15},  # excluded + rejected / collected
     'earlyMotionFraction': {'suspect': 0.30},  # tilts over motionEarly flag
     # Per session: spread of the tilt axis between tilt series
@@ -212,6 +224,14 @@ def _stats_measured(values, column=None):
     return st
 
 
+def _early_is_total(values_early, values_total):
+    """ True when early motion carries no information of its own: with a
+    per-tilt dose under RELION's 4 e/Å² split every frame counts as early. """
+    pairs = [(e, t) for e, t in zip(values_early, values_total)
+             if e is not None and t is not None]
+    return bool(pairs) and all(abs(e - t) < 1e-6 for e, t in pairs)
+
+
 def _float(cells, key):
     try:
         return float(cells[key])
@@ -232,6 +252,15 @@ _STAR_CACHE_MAX = 50000     # files; cleared when full
 # emwrap rewrites star files in place: one modified this recently may still
 # be being written, so it is read but not kept.
 _STAR_SETTLE_SECONDS = 5
+
+
+# CTF profile correlations per tilt series, see _read_ctf_correlations
+_CORR_CACHE = {}
+
+
+def _read_json(path):
+    with open(path) as f:
+        return json.load(f)
 
 
 def _read_cached(path, read):
@@ -403,6 +432,8 @@ class TiltSeriesMetrics:
         # scatter around it is what indicates a problem.
         self.defocusTrend = self._defocus_trend()
 
+        self.earlyIsTotal = _early_is_total(self.values('rlnAccumMotionEarly'),
+                                            self.values('rlnAccumMotionTotal'))
         self._judge_tilts(th)
         self._classify(th)
         return self
@@ -428,7 +459,7 @@ class TiltSeriesMetrics:
         tilt.
         """
         motion, early = th['motionTotal'], th['motionEarly']
-        ctf = th['ctfMaxResolution']
+        ctf, corr = th['ctfMaxResolution'], th['ctfCorrelation']
 
         for t in self.tilts:
             reject, off = [], []
@@ -440,7 +471,7 @@ class TiltSeriesMetrics:
                     elif m > motion['target']:
                         off.append('motion')
                 e = _measured(t.get('rlnAccumMotionEarly'), 'rlnAccumMotionEarly')
-                if e is not None and e > early['flag']:
+                if e is not None and e > early['flag'] and not self.earlyIsTotal:
                     off.append('early')
                 r = _measured(t.get('rlnCtfMaxResolution'), 'rlnCtfMaxResolution')
                 if r is not None:
@@ -448,6 +479,12 @@ class TiltSeriesMetrics:
                         reject.append('ctf')
                     elif r > self.ctf_target(t.get(COL_TILT_ANGLE), ctf):
                         off.append('ctf')
+                c = t.get(COL_CTF_CORRELATION)
+                if c is not None:
+                    if c < corr['reject']:
+                        reject.append('ctfcorr')
+                    elif c < corr['target']:
+                        off.append('ctfcorr')
                 f = _measured(t.get('rlnCtfFigureOfMerit'), 'rlnCtfFigureOfMerit')
                 if f is not None and f < th['ctfFigureOfMerit']['reject']:
                     reject.append('fom')
@@ -464,8 +501,9 @@ class TiltSeriesMetrics:
 
         self.nRejected = sum(1 for t in self.tilts if t['reject'])
         self.nUsable = self.nUsed - self.nRejected
-        self.nCtfOffTarget = (None if self.ctfRes['notReported']
-                              else self.offTargetCounts['ctf'])
+        # Tilts whose CTF fit misses a target, in resolution or correlation
+        self.nCtfOffTarget = sum(1 for t in self.tilts
+                                 if {'ctf', 'ctfcorr'} & set(t['offTarget']))
 
     def _alignment_metrics(self):
         """ Alignment quality from the Relion 5 columns that emwrap actually
@@ -577,6 +615,7 @@ class TiltSeriesMetrics:
             labels = {
                 'motion': f'motion above {th["motionTotal"]["reject"]:.0f} Å',
                 'ctf': f'CTF fit worse than {th["ctfMaxResolution"]["reject"]:.0f} Å',
+                'ctfcorr': f'CTF profile correlation below {th["ctfCorrelation"]["reject"]}',
                 'fom': f'CTF figure of merit below {th["ctfFigureOfMerit"]["reject"]}',
                 'astigmatism': f'astigmatism above {th["astigmatism"]["reject"] / 1e4:.2f} µm',
                 'defocus': f'defocus overfocused or above {th["defocus"]["reject"] / 1e4:.0f} µm',
@@ -1071,6 +1110,36 @@ class OtfSession:
             if tilts:
                 self._merge_tilts(ts, tilts, key)
                 last = (key, star)
+        self._read_ctf_correlations(ts, [star for _, star in stars if star])
+
+    def _read_ctf_correlations(self, ts, stars):
+        """ The CTF profile correlation of each tilt, from the json emwrap
+        writes beside its CTF fit view.  emwrap writes those before the tilt
+        series star file, so they are kept until one of the series' star
+        files changes, rather than checking every json on each refresh. """
+        try:
+            stamps = tuple((p, os.stat(self.join(p)).st_mtime_ns) for p in dict.fromkeys(stars))
+        except OSError:
+            stamps = None
+        key = (self.path, ts.tomoName, stamps)
+        values = _CORR_CACHE.get(key) if stamps else None
+        if values is None:
+            values = {}
+            for t in ts.tilts:
+                prof = self.tilt_thumbnail(t, 'ctf')
+                if prof:
+                    data = _read_cached(self.join(prof['path']), _read_json) or {}
+                    if data.get('correlation') is not None:
+                        values[self._tilt_key(t)] = float(data['correlation'])
+            settled = stamps and all(time.time() - m / 1e9 > _STAR_SETTLE_SECONDS
+                                     for _, m in stamps)
+            if settled:
+                if len(_CORR_CACHE) >= _STAR_CACHE_MAX:
+                    _CORR_CACHE.clear()
+                _CORR_CACHE[key] = values
+        for t in ts.tilts:
+            if (c := values.get(self._tilt_key(t))) is not None:
+                t[COL_CTF_CORRELATION] = c
 
     def queued(self):
         """ How many tilt series were sent to processing: the input of the
@@ -1117,6 +1186,10 @@ class OtfSession:
                 'jobStatus': job.status if job else None,
                 'done': done,
                 'total': n_imported if key == 'import' else n_queued,
+                # How many the stage's job was given, when the pipeline says:
+                # fewer than the total when it runs on a subset
+                'received': (len(inputs) if key != 'import' and job is not None
+                             and (inputs := self._read_inputs(job)) is not None else None),
             })
 
         by_status = {}

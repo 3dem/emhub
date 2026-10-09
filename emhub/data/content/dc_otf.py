@@ -27,7 +27,7 @@ from emhub.data.processing import resolve_processing_path
 from emhub.data.processing.otf_cryoet import (
     OtfSession, TiltSeriesMetrics, STAGES, STATUS_OK, STATUS_SUSPECT, STATUS_BAD,
     STATUS_RUNNING, STATUS_FAILED, STATUSES_NEED_REVIEW, COL_TILT_ANGLE,
-    COL_PRE_EXPOSURE, COL_MOVIE_INDEX, _measured)
+    COL_PRE_EXPOSURE, COL_MOVIE_INDEX, COL_CTF_CORRELATION, _measured, _early_is_total)
 
 
 ENTRY_TYPE = 'tomo_processing'
@@ -100,17 +100,10 @@ TILT_STRIPS = [
     ('rlnAccumMotionEarly', 'Early motion', 'Å', 1.0),
     ('rlnDefocusU', 'Defocus', 'µm', 1e-4),
     ('rlnCtfMaxResolution', 'CTF fit resolution', 'Å', 1.0),
+    (COL_CTF_CORRELATION, 'CTF profile correlation', '', 1.0),
     ('rlnCtfFigureOfMerit', 'CTF figure of merit', '', 1.0),
     ('rlnTomoZRot', 'Refined tilt axis', '°', 1.0),
 ]
-
-
-def _early_is_total(values_early, values_total):
-    """ True when early motion carries no information of its own: with a
-    per-tilt dose under RELION's 4 e/Å² split every frame counts as early. """
-    pairs = [(e, t) for e, t in zip(values_early, values_total)
-             if e is not None and t is not None]
-    return bool(pairs) and all(abs(e - t) < 1e-6 for e, t in pairs)
 
 
 def _rolling_median(values, window=7):
@@ -143,6 +136,7 @@ FINGERPRINT_SOURCES = [
 # Keys set by TiltSeriesMetrics._judge_tilts in t['reject'] / t['offTarget']
 TILT_FLAG_LABELS = {
     'motion': 'motion', 'early': 'early motion', 'ctf': 'CTF fit',
+    'ctfcorr': 'CTF profile correlation',
     'fom': 'CTF figure of merit', 'astigmatism': 'astigmatism',
     'defocus': 'defocus',
 }
@@ -152,7 +146,8 @@ TILT_FLAG_LABELS = {
 STRIP_FLAG_KEYS = {
     'rlnAccumMotionTotal': ('motion',), 'rlnAccumMotionEarly': ('early',),
     'rlnDefocusU': ('defocus', 'astigmatism'),
-    'rlnCtfMaxResolution': ('ctf',), 'rlnCtfFigureOfMerit': ('fom',),
+    'rlnCtfMaxResolution': ('ctf',), COL_CTF_CORRELATION: ('ctfcorr',),
+    'rlnCtfFigureOfMerit': ('fom',),
 }
 
 
@@ -630,8 +625,10 @@ def register_content(dc):
         stages = []
         prev_done = None
         for st in summary['stages']:
-            lag = (None if prev_done is None
-                   else max(0, min(prev_done, st['total']) - st['done'] - st['failed']))
+            # Measured against what the stage's job received, when known: a
+            # job run on a subset is not behind on the rest
+            base = None if prev_done is None else min(prev_done, st['total'], st['received'] or st['total'])
+            lag = None if base is None else max(0, base - st['done'] - st['failed'])
             stages.append(dict(
                 st,
                 short=STAGE_SHORT.get(st['key'], st['label']),
@@ -724,6 +721,8 @@ def register_content(dc):
             'rlnCtfMaxResolution': (
                 [TiltSeriesMetrics.ctf_target(t.get(COL_TILT_ANGLE), ctf_th)
                  for t in tilts], ctf_th['reject']),
+            COL_CTF_CORRELATION: (th['ctfCorrelation']['target'],
+                                  th['ctfCorrelation']['reject']),
         }
 
         strips = []

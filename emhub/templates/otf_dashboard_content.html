@@ -67,7 +67,7 @@
             {% for st in stages %}
                 {% if not loop.first %}<i class="fas fa-chevron-right otf-flow-arrow"></i>{% endif %}
                 <div class="otf-flow-step" data-toggle="tooltip"
-                     title="{{ st.label }}: {{ st.done }} of {{ st.total }} tilt series{% if st.lag %}, {{ st.lag }} behind the previous stage{% endif %}{% if st.bottleneck %} (the bottleneck){% endif %}{% if st.failed %}; {{ st.failed }} could not be processed{% endif %}">
+                     title="{{ st.label }}: {{ st.done }} of {{ st.total }} tilt series{% if st.received is not none and st.received < st.total %} ({{ st.received }} given to its job){% endif %}{% if st.lag %}, {{ st.lag }} behind the previous stage{% endif %}{% if st.bottleneck %} (the bottleneck){% endif %}{% if st.failed %}; {{ st.failed }} could not be processed{% endif %}">
                     <div class="otf-flow-label {% if st.bottleneck %}otf-warn{% endif %}">{{ st.short }}</div>
                     <div class="otf-flow-count">
                         {{ st.done }}<small class="text-muted"> / {{ st.total }}</small>
