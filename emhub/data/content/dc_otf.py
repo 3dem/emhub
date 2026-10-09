@@ -221,6 +221,9 @@ def _natural_key(name):
     return [int(p) if p.isdigit() else p.lower() for p in re.split(r'(\d+)', name)]
 
 
+# Rows per page of the tilt series table
+TABLE_PAGE_SIZE = 150
+
 # Table columns that can be sorted by: key -> value of a table row
 SORT_KEYS = {
     'name': lambda r: _natural_key(r['tomoName']),
@@ -443,7 +446,18 @@ def register_content(dc):
         return {'x': x, 'colors': colors, 'symbols': symbols, 'names': names,
                 'statuses': statuses, 'plots': series}
 
-    def _table_rows(ts_list, sort='worst', limit=150):
+    def _table_rows(ts_list, sort='worst', filter='all', page=1, page_size=TABLE_PAGE_SIZE):
+        """ One page of the table, sorted and filtered over all the tilt
+        series first, so every row can be reached in order.  Rows are sent
+        a page at a time because each carries its fingerprint svg and the
+        content is re-sent on every refresh.  Returns the rows, how many
+        rows there are in all, the page (kept within range) and the number
+        of pages. """
+        if filter == 'attn':
+            ts_list = [t for t in ts_list
+                       if t.status in (STATUS_SUSPECT, STATUS_BAD, STATUS_FAILED)]
+        n_pages = max(1, -(-len(ts_list) // page_size))
+        page = min(max(1, page), n_pages)
         rows = []
         for t in ts_list:
             style = STATUS_STYLE[t.status]
@@ -491,7 +505,8 @@ def register_content(dc):
             rows.sort(key=lambda r: (
                 r['statusOrder'],
                 -(r['ctfRes'].get('mean') or 0)))
-        return rows[:limit], len(rows)
+        start = (page - 1) * page_size
+        return rows[start:start + page_size], len(rows), page, n_pages
 
     def _load(**kwargs):
         """ Open the session for this entry, or return the reason it failed.
@@ -636,9 +651,10 @@ def register_content(dc):
                 t.values('rlnAccumMotionEarly'), t.values('rlnAccumMotionTotal'))
             for t in ts_list)
 
-        rows, n_rows_total = _table_rows(
+        rows, n_rows_total, page, n_pages = _table_rows(
             ts_list, sort=kwargs.get('sort', 'worst'),
-            limit=int(kwargs.get('limit', 150)))
+            filter=kwargs.get('filter', 'all'),
+            page=int(kwargs.get('page', 1)))
 
         return {
             'error': None,
@@ -656,6 +672,9 @@ def register_content(dc):
             'trends': _trend_series(ts_list),
             'rows': rows,
             'nRowsTotal': n_rows_total,
+            'page': page,
+            'nPages': n_pages,
+            'firstRow': (page - 1) * TABLE_PAGE_SIZE + 1,
             'showEarly': show_early,
             'fingerprintLabel': next(
                 (r['fingerprintLabel'] for r in rows

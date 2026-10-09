@@ -121,11 +121,26 @@
 <div class="card mb-3">
     <div class="card-header d-flex align-items-baseline">
         <h5 class="mb-0">Tilt series</h5>
+        {# Sorted and filtered over all the tilt series, then sent a page
+           at a time #}
+        {% macro pager() -%}
+            {% if nPages > 1 %}
+            <span class="otf-pager">
+                <button type="button" class="btn btn-sm btn-outline-light"
+                        {% if page == 1 %}disabled{% endif %}
+                        onclick="otfSetPage({{ page - 1 }})" title="Previous page">&lsaquo;</button>
+                page {{ page }} of {{ nPages }}
+                <button type="button" class="btn btn-sm btn-outline-light"
+                        {% if page == nPages %}disabled{% endif %}
+                        onclick="otfSetPage({{ page + 1 }})" title="Next page">&rsaquo;</button>
+            </span>
+            {% endif %}
+        {%- endmacro %}
         <small class="text-muted ml-3">
-            {% if nRowsTotal > rows|length %}
-                worst {{ rows|length }} of {{ nRowsTotal }}
-            {% else %}{{ rows|length }} tilt series{% endif %}
+            {% if nPages > 1 %}{{ firstRow }}&ndash;{{ firstRow + rows|length - 1 }} of {% endif %}{{ nRowsTotal }}
+            tilt series{% if filter == 'attn' %} needing review{% endif %}
         </small>
+        {{ pager() }}
         <div class="ml-auto">
             <div class="btn-group btn-group-sm otf-toggle mr-2" role="group">
                 <button type="button"
@@ -202,7 +217,6 @@
             <tbody>
             {% set nMetricCols = 7 if showEarly else 6 %}
             {% for r in rows %}
-                {% if filter != 'attn' or r.status in ('suspect', 'bad', 'failed') %}
                 <tr class="otf-row-link" data-name="{{ r.tomoName }}" onclick="otfShowTiltSeries('{{ r.tomoName }}')">
 
                     <td class="otf-sel-cell" onclick="event.stopPropagation()">
@@ -285,11 +299,11 @@
                         {%- for d in r.stageDots %}<span class="otf-stage-dot otf-stage-{{ d }}"></span>{% endfor -%}
                     </td>
                 </tr>
-                {% endif %}
             {% endfor %}
             </tbody>
         </table>
     </div>
+    {% if nPages > 1 %}<div class="card-footer py-1 text-right">{{ pager() }}</div>{% endif %}
 </div>
 
 <script>

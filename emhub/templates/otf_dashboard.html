@@ -83,6 +83,8 @@
 .otf-table-scroll { max-height: 75vh; overflow: auto; }
 .otf-sortable { cursor: pointer; user-select: none; }
 .otf-sortable:hover { color: var(--otf-data); }
+.otf-pager { margin-left: .75rem; font-size: .8rem; color: var(--otf-secondary); white-space: nowrap; }
+.otf-pager .btn { padding: 0 .45rem; line-height: 1.3; }
 .otf-sort-ind { font-size: .65rem; margin-left: .25rem; color: var(--otf-data); }
 /* The header row stays in view while the rows scroll under it.  A shadow
    rather than the border, which a sticky cell does not keep. */
@@ -337,7 +339,8 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
         var content = get_ajax_content('otf_dashboard_content',
                                        {entry_id: OTF_ENTRY_ID,
                                         sort: window.otfSort || 'worst',
-                                        filter: window.otfFilter || 'all'});
+                                        filter: window.otfFilter || 'all',
+                                        page: window.otfPage || 1});
         otfReplace('#otf-dashboard-content', content, false);
     }
 
@@ -366,14 +369,21 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
     });
 
     window.otfRefresh = otfRefresh;
+    /* A new order or filter starts again from the first page */
     window.otfSetSort = function(sort) {
         window.otfSort = sort;
-        otfRefresh();
+        otfSetPage(1);
     };
     window.otfSetFilter = function(filter) {
         window.otfFilter = filter;
-        otfRefresh();
+        otfSetPage(1);
     };
+    function otfSetPage(page) {
+        window.otfPage = page;
+        $('#otf-table-scroll').scrollTop(0);
+        otfRefresh();
+    }
+    window.otfSetPage = otfSetPage;
     window.otfShowTiltSeries = function(tomoName, order) {
         var content = get_ajax_content('otf_tiltseries',
                                        {entry_id: OTF_ENTRY_ID,
