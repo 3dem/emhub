@@ -69,10 +69,10 @@
             <div class="btn-group btn-group-sm otf-toggle ml-auto text-nowrap" role="group">
                 <button type="button"
                         class="btn btn-outline-light {% if order == 'angle' %}active{% endif %}"
-                        onclick="otfShowTiltSeries('{{ tomoName }}', 'angle')">By tilt angle</button>
+                        onclick='otfShowTiltSeries({{ tomoName|tojson }}, "angle")'>By tilt angle</button>
                 <button type="button"
                         class="btn btn-outline-light {% if order == 'acq' %}active{% endif %}"
-                        onclick="otfShowTiltSeries('{{ tomoName }}', 'acq')">By acquisition order</button>
+                        onclick='otfShowTiltSeries({{ tomoName|tojson }}, "acq")'>By acquisition order</button>
             </div>
         </div>
         <small class="text-muted d-block mb-2">
@@ -109,7 +109,7 @@
                     and open it with its CTF fit; untick a tilt to leave it out
                     of the subset</small>
                 <span class="ml-auto text-nowrap otf-select-bar">
-                    Keep
+                    <label for="otf-tilt-preset" class="mb-0">Keep</label>
                     <select id="otf-tilt-preset" class="custom-select custom-select-sm w-auto"
                             {% if not canEdit %}disabled{% endif %}>
                         <option value="all">All tilts</option>
@@ -309,7 +309,7 @@
             var res = [30, 20, 15, 12, 10, 8, 7, 6, 5];
             var traces = [
                 {x: p.k, y: p.simulated, name: 'simulated from the fit', mode: 'lines',
-                 line: {color: '#8b99a4', width: 1.5}, hoverinfo: 'skip'},
+                 line: {color: otfCss('--otf-neutral'), width: 1.5}, hoverinfo: 'skip'},
                 {x: p.k, y: p.measured, name: 'measured', mode: 'lines',
                  line: {color: dataColor, width: 1.5}, hoverinfo: 'skip'}
             ];
@@ -362,7 +362,6 @@
             pane.caption = $('<p class="otf-ctf-caption"></p>').appendTo($pane);
             pane.profile = $('<div class="otf-ctf-profile"></div>').appendTo($pane);
             pane.image.find('img').addClass('otf-zoomable').on('click', function() {
-                var $fig = $strip.find('.otf-thumb[data-index="' + shown + '"]');
                 otfLightbox($(this).attr('src'), tomoName + ' · ' + tiltText[shown].split('<br>')[0]);
             });
             return pane;

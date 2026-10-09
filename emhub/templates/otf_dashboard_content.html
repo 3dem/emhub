@@ -128,11 +128,11 @@
             <span class="otf-pager">
                 <button type="button" class="btn btn-sm btn-outline-light"
                         {% if page == 1 %}disabled{% endif %}
-                        onclick="otfSetPage({{ page - 1 }})" title="Previous page">&lsaquo;</button>
+                        onclick="otfSetPage({{ page - 1 }})" title="Previous page" aria-label="Previous page">&lsaquo;</button>
                 page {{ page }} of {{ nPages }}
                 <button type="button" class="btn btn-sm btn-outline-light"
                         {% if page == nPages %}disabled{% endif %}
-                        onclick="otfSetPage({{ page + 1 }})" title="Next page">&rsaquo;</button>
+                        onclick="otfSetPage({{ page + 1 }})" title="Next page" aria-label="Next page">&rsaquo;</button>
             </span>
             {% endif %}
         {%- endmacro %}
@@ -194,16 +194,17 @@
                 <tr>
                     <th class="otf-sel-cell"></th>
                     {# Click a column name to sort by it, again to reverse #}
-                    {% macro sortable(key, label, cls='') -%}
-                        <th class="otf-sortable {{ cls }}" data-sort="{{ key }}">{{ label }}<span class="otf-sort-ind">
+                    {% macro sortable(key, label, cls='', tip='') -%}
+                        <th class="otf-sortable {{ cls }}" data-sort="{{ key }}" tabindex="0"
+                            aria-sort="{{ 'ascending' if sort == key else 'descending' if sort == '-' ~ key else 'none' }}"
+                            {%- if tip %} data-toggle="tooltip" title="{{ tip }}"{% endif %}>{{ label }}<span class="otf-sort-ind">
                             {%- if sort == key %}&#9650;{% elif sort == '-' ~ key %}&#9660;{% endif -%}
                         </span></th>
                     {%- endmacro %}
                     {{ sortable('name', 'Tilt series') }}
                     {{ sortable('status', 'Status') }}
-                    <th class="otf-num otf-sortable" data-sort="tilts" data-toggle="tooltip"
-                        title="Tilts the latest stage uses / tilts imported; processing can drop tilts (deselected or disabled in Warp)">Tilts used<span class="otf-sort-ind">
-                            {%- if sort == 'tilts' %}&#9650;{% elif sort == '-tilts' %}&#9660;{% endif -%}</span></th>
+                    {{ sortable('tilts', 'Tilts used', 'otf-num',
+                                'Tilts the latest stage uses / tilts imported; processing can drop tilts (deselected or disabled in Warp)') }}
                     {{ sortable('motion', 'Accum. motion (Å)', 'otf-num') }}
                     {% if showEarly %}{{ sortable('early', 'Early motion (Å)', 'otf-num') }}{% endif %}
                     {{ sortable('defocus', 'Defocus (µm)', 'otf-num') }}
@@ -216,11 +217,14 @@
             </thead>
             <tbody>
             {% set nMetricCols = 7 if showEarly else 6 %}
+            {# The row opens with the name from its attribute: a quote in a
+               name cannot break out of the code #}
             {% for r in rows %}
-                <tr class="otf-row-link" data-name="{{ r.tomoName }}" onclick="otfShowTiltSeries('{{ r.tomoName }}')">
+                <tr class="otf-row-link" data-name="{{ r.tomoName }}" onclick="otfShowTiltSeries(this.dataset.name)">
 
                     <td class="otf-sel-cell" onclick="event.stopPropagation()">
                         <input type="checkbox" class="otf-sel" data-name="{{ r.tomoName }}"
+                               aria-label="Select {{ r.tomoName }}"
                                {% if not canEdit %}disabled{% endif %}></td>
 
                     <td><span class="otf-name">{{ r.tomoName }}</span></td>
@@ -343,10 +347,11 @@
         var tilts = selected.reduce(function(sum, n) { return sum + (sel.excludedTilts[n] || []).length; }, 0);
         $('#otf-select-summary').text(selected.length + ' of ' + allSeries.length + ' tilt series selected' +
                                       (tilts ? ' · ' + tilts + ' tilt' + (tilts > 1 ? 's' : '') + ' excluded' : ''));
-        otfShowSaveState();
+        otfRedrawSaveState();
     }
     window.otfRenderSelection = otfRenderSelection;
-    $('#otf-dashboard-content').on('change', 'input.otf-sel', function() {
+    // On the table, which each refresh replaces: bound once per content
+    $('#otf-table-scroll').on('change', 'input.otf-sel', function() {
         if (this.checked) sel.deselected.delete(this.dataset.name);
         else sel.deselected.add(this.dataset.name);
         otfSelectionChanged();
@@ -359,11 +364,15 @@
         otfSelectionChanged();
     });
     otfRenderSelection();
+    // Still disabled while a subset job is being launched
+    if (window.otfIsSubsetBusy && otfIsSubsetBusy()) $('.otf-create-subset').prop('disabled', true);
 
     // Sort by a column: ascending first, then descending
     $('#otf-dashboard-content .otf-table th[data-sort]').on('click', function() {
         var key = this.dataset.sort;
         otfSetSort({{ sort|tojson }} === key ? '-' + key : key);
+    }).on('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).click(); }
     });
 
     var trends = {{ trends|tojson }};

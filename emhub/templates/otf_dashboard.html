@@ -17,6 +17,7 @@
     --otf-btn-border: #cfd6e4; --otf-hover: #eef3fb;
     --otf-good-text: #1f8f3d; --otf-warn-text: #b45309;
     --otf-plot-text: #444; --otf-grid: #eee; --otf-connector: #c9dcfb;
+    --otf-hint: #7fb0fe; --otf-neutral: #8b99a4;
 }
 .otf-page.otf-dark {
     --otf-bg: #16181d; --otf-surface: #1f2229; --otf-surface-alt: #2a2e37;
@@ -48,8 +49,7 @@
 .otf-sd { color: var(--otf-faint); font-size: .75rem; }
 .otf-row-link { cursor: pointer; }
 .otf-state-acquiring { color: var(--otf-good-text); }
-.otf-state-idle { color: var(--otf-secondary); }
-.otf-state-ended { color: var(--otf-secondary); }
+.otf-state-idle, .otf-state-ended { color: var(--otf-secondary); }
 .otf-state-stalled { color: var(--otf-bad); font-weight: 500; }
 .otf-state-unknown { color: var(--otf-faint); }
 /* The theme's muted text and light buttons are lavender; blue-grey here */
@@ -99,7 +99,7 @@
 .otf-stage-failed { background: var(--otf-bad); border-radius: 0; }
 .otf-stage-waiting { box-shadow: inset 0 0 0 1.5px var(--otf-btn-border); }
 .otf-filmstrip { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
-.otf-thumb { flex: 0 0 auto; margin: 0; text-align: center; }
+.otf-thumb { flex: 0 0 auto; margin: 0; text-align: center; position: relative; }
 /* width auto: the img width/height attributes only give its proportions */
 .otf-thumb img { width: auto; }
 .otf-thumb img, .otf-thumb-missing { height: 84px; border: 2px solid transparent;
@@ -117,20 +117,18 @@
 .otf-select-summary { margin-left: auto; white-space: nowrap; }
 .otf-table td.otf-sel-cell, .otf-table th.otf-sel-cell { width: 28px; padding-right: 0; }
 tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
-.otf-thumb { position: relative; }
 .otf-tilt-sel { position: absolute; top: 5px; left: 5px; z-index: 1; cursor: pointer; }
 .otf-thumb-off img { opacity: .3; }
 /* A tilt processing dropped: still shown, dimmed */
 .otf-thumb-dropped img { opacity: .45; border-style: dashed !important; }
 /* Hover is a light dashed hint; only the selection is solid blue */
-.otf-thumb-active img { outline: 2px dashed #7fb0fe; outline-offset: -2px; }
+.otf-thumb-active img { outline: 2px dashed var(--otf-hint); outline-offset: -2px; }
 .otf-thumb-selected img { outline: 3px solid var(--otf-data); outline-offset: -3px;
                           box-shadow: 0 0 0 2px var(--otf-data); }
 .otf-thumb-selected figcaption { color: var(--otf-data); font-weight: 600; }
 /* Tilt series window: wider than modal-xl, for the strips and the
    selected tilt side by side */
 .modal-dialog.otf-modal-wide { max-width: min(1640px, 96vw); }
-/* Tilt series viewers, side by side; metadata on its own row */
 /* Tilt series window tabs */
 .otf-tabs { margin-bottom: 12px; }
 .otf-tabs .nav-link { color: var(--otf-muted); padding: .4rem .9rem; }
@@ -260,26 +258,27 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
         }
         return otfSel;
     };
-    function otfShowSaveState(state) {
+    // Kept here and shown again by each refreshed content
+    function otfSetSaveState(state) {
         otfSaveState = state;
         $('.otf-save-state').text({saving: 'saving…', saved: 'saved', error: 'not saved'}[state] || '')
             .toggleClass('text-danger', state === 'error');
     }
-    window.otfShowSaveState = function() { otfShowSaveState(otfSaveState); };
-    window.otfSetSaveState = otfShowSaveState;
+    window.otfRedrawSaveState = function() { otfSetSaveState(otfSaveState); };
+    window.otfSetSaveState = otfSetSaveState;
     window.otfSelectionChanged = function() {
         if (window.otfRenderSelection) window.otfRenderSelection();
-        otfShowSaveState('saving');
+        otfSetSaveState('saving');
         window.clearTimeout(otfSaveTimer);
         otfSaveTimer = window.setTimeout(function() {
             send_ajax_json(Api.urls.otf_save_selection,
                            {entry_id: {{ entry_id }}, deselected: Array.from(otfSel.deselected),
                             excludedTilts: otfSel.excludedTilts},
                            function(data) {
-                               if (data.error) { otfShowSaveState('error'); showError(data.error); }
-                               else otfShowSaveState('saved');
+                               if (data.error) { otfSetSaveState('error'); showError(data.error); }
+                               else otfSetSaveState('saved');
                            },
-                           function() { otfShowSaveState('error'); });
+                           function() { otfSetSaveState('error'); });
         }, 600);
     };
 
@@ -288,9 +287,12 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
 
 <div class="container-fluid dashboard-content">
 
-    {% set title = "On-the-fly CryoET" %}
-    {% set navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), (title, '')] %}
+    {# Scoped: the content included below has its own title, the session's #}
+    {% with title = "On-the-fly CryoET" %}
+    {% with navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), (title, '')] %}
     {% include 'include_header.html' %}
+    {% endwith %}
+    {% endwith %}
 
     {# Messages that must outlive the 30 s refresh of the content below #}
     <div id="otf-messages"></div>
@@ -319,10 +321,14 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
         $el.find('[data-toggle="tooltip"]').tooltip('dispose');
         return $el.empty();
     }
-    window.otfClear = otfClear;
 
+    /* Requests are not cancelled, so a slow one (the timer's) can come back
+       after a newer one (a click); only the latest per target is shown. */
+    var otfLatest = {};
     function otfReplace(selector, ajaxContent, showModal) {
+        var seq = otfLatest[selector] = (otfLatest[selector] || 0) + 1;
         ajaxContent.done(function(html) {
+            if (seq !== otfLatest[selector]) return;
             // A refresh must not throw the reader back to the top of the table
             var scroll = $(selector).find('#otf-table-scroll').scrollTop();
             var $el = otfClear($(selector));
@@ -330,7 +336,9 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
             if (scroll) $el.find('#otf-table-scroll').scrollTop(scroll);
             if (showModal) $el.modal('show');
         });
-        ajaxContent.fail(ajax_request_failed);
+        ajaxContent.fail(function() {
+            if (seq === otfLatest[selector]) ajax_request_failed.apply(this, arguments);
+        });
     }
 
     /* Refresh only the inner content, so scroll position and the open
@@ -486,15 +494,19 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
                 $body.append($('<small class="text-muted"></small>').text(pane.message || ''));
             }
             if (done) done($panel);
+        }, function() {
+            $('#' + bodyId).html('<small class="text-muted">Could not load the viewer.</small>');
         });
     }
 
     /* Create subset: save the selection and launch an EMwrap subset job
        with it from the motion correction output (the server works out the
        tilt series in that output).  The result stays above the content. */
+    var otfSubsetBusy = false;    // the refreshed content asks, see otfIsSubsetBusy
+    window.otfIsSubsetBusy = function() { return otfSubsetBusy; };
     window.otfCreateSubset = function() {
         var sel = otfSelection();
-        if (!sel) return;
+        if (!sel || otfSubsetBusy) return;
         var question = $('<div></div>')
             .append($('<p></p>').text('Launch an EMwrap subset job from the motion correction ' +
                                       'output with this selection:'))
@@ -503,13 +515,17 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
                                                    'out. The selection and this export are recorded ' +
                                                    'in .emhub/otf_selection.json.'));
         // emhub's confirmation window, as elsewhere in emhub
+        function busy(on) {
+            otfSubsetBusy = on;
+            $('.otf-create-subset').prop('disabled', on);
+        }
         confirm('Create subset', question.html(), 'Cancel', 'Create subset', function() {
-            var $button = $('.otf-create-subset').prop('disabled', true);
+            busy(true);
             send_ajax_json(Api.urls.otf_create_subset,
                            {entry_id: OTF_ENTRY_ID, deselected: Array.from(sel.deselected),
                             excludedTilts: sel.excludedTilts},
                            function(data) {
-                               $('.otf-create-subset').prop('disabled', false);
+                               busy(false);
                                var r = data.subsetResult;
                                if (!r) { showError(data.error || 'Could not create the subset.'); return; }
                                otfSetSaveState('saved');
@@ -521,7 +537,7 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
                                    .append('<button type="button" class="close py-1" data-dismiss="alert">&times;</button>')
                                    .prependTo('#otf-messages');
                            },
-                           function() { $button.prop('disabled', false); ajax_request_failed.apply(this, arguments); });
+                           function() { busy(false); ajax_request_failed.apply(this, arguments); });
         });
     };
 
@@ -557,7 +573,7 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
                                      row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}},
                   {voxel: voxel}, done);
     };
-    otfStart();
+    if (!document.hidden) otfStart();
 
 })(window, document, window.jQuery);
 </script>
