@@ -624,12 +624,14 @@ def register_content(dc):
 
         # Stage bars, with the lag against the previous stage.  The lag is
         # what makes the bottleneck visible: import at 180 and alignment at
-        # 40 is obvious here and invisible in a table of counts.
+        # 40 is obvious here and invisible in a table of counts.  Tilt series
+        # the stage failed on are not behind: they will not come, and the
+        # next stage never receives them.
         stages = []
         prev_done = None
         for st in summary['stages']:
             lag = (None if prev_done is None
-                   else max(0, min(prev_done, st['total']) - st['done']))
+                   else max(0, min(prev_done, st['total']) - st['done'] - st['failed']))
             stages.append(dict(
                 st,
                 short=STAGE_SHORT.get(st['key'], st['label']),
