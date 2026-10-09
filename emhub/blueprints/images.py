@@ -112,7 +112,10 @@ def otf_thumbnail():
     refuses anything outside the project root.  The browser caches them
     across refreshes; the dashboard adds the file's modification time to
     the URL (v=), so a file emwrap rewrites gets a new URL. """
-    entry = app.dm.get_entry_by(id=int(request.args.get('entry', 0)))
+    try:
+        entry = app.dm.get_entry_by(id=int(request.args.get('entry', 0)))
+    except ValueError:
+        flask.abort(404)
     rel = request.args.get('path', '')
     parts = rel.split('/')
     if (entry is None or entry.type != 'tomo_processing'

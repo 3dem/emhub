@@ -66,7 +66,8 @@ def build_stub_dc(project_path):
 
     class App:
         dm = DataManager()
-        user = types.SimpleNamespace(is_manager=True, id=1)
+        user = types.SimpleNamespace(is_manager=True, id=1,
+                                     can_edit_project=lambda project: True)
 
     class DC:
         app = App()

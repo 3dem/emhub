@@ -26,8 +26,8 @@ from PIL import Image
 from emhub.data.processing import resolve_processing_path
 from emhub.data.processing.otf_cryoet import (
     OtfSession, TiltSeriesMetrics, STAGES, STATUS_OK, STATUS_SUSPECT, STATUS_BAD,
-    STATUS_RUNNING, STATUS_FAILED, COL_TILT_ANGLE, COL_PRE_EXPOSURE,
-    COL_MOVIE_INDEX, PLACEHOLDER_ZERO_COLS)
+    STATUS_RUNNING, STATUS_FAILED, STATUSES_NEED_REVIEW, COL_TILT_ANGLE,
+    COL_PRE_EXPOSURE, COL_MOVIE_INDEX, _measured)
 
 
 ENTRY_TYPE = 'tomo_processing'
@@ -77,7 +77,7 @@ STAGE_SHORT = {'import': 'Import', 'motioncorr': 'Motion correction',
                'tomogram': 'Tomogram'}
 
 # The four session trends, stacked on a shared x axis.  Each one is
-# (key on the TiltSeriesMetrics, stat to take, label, unit, scale).
+# (key on the TiltSeriesMetrics, stat to take, label, unit, scale, help).
 TRENDS = [
     ('motion', 'mean', 'Accumulated motion', 'Å', 1.0,
      'Mean over the tilts of the beam-induced motion in each tilt movie.'),
@@ -166,14 +166,28 @@ TILT_QC_STYLE = {
 }
 
 
-def _strip_style(tilt, keys):
+def _tilt_qc(tilt, keys=None):
+    """ excluded (dropped by processing), unusable, offTarget or within,
+    judged on the flags in keys only, or on all of them. """
+    def flagged(name):
+        flags = tilt.get(name, [])
+        return bool(flags) if keys is None else any(k in flags for k in keys)
     if tilt.get('excluded'):
-        return TILT_QC_STYLE['excluded']
-    if any(k in tilt.get('reject', []) for k in keys):
-        return TILT_QC_STYLE['unusable']
-    if any(k in tilt.get('offTarget', []) for k in keys):
-        return TILT_QC_STYLE['offTarget']
-    return TILT_QC_STYLE['within']
+        return 'excluded'
+    if flagged('reject'):
+        return 'unusable'
+    if flagged('offTarget'):
+        return 'offTarget'
+    return 'within'
+
+
+def _strip_style(tilt, keys):
+    return TILT_QC_STYLE[_tilt_qc(tilt, keys)]
+
+
+def _movie_index(tilt):
+    movie = tilt.get(COL_MOVIE_INDEX)
+    return None if movie is None else int(movie)
 
 
 # Which per-tilt target (see TiltSeriesMetrics._judge_tilts) each column has
@@ -184,8 +198,8 @@ FINGERPRINT_TARGET_KEY = {'rlnCtfMaxResolution': 'ctf',
 def _tilt_label(tilt):
     """ A tilt named as everywhere in the tilt series window. """
     parts = []
-    if (movie := tilt.get(COL_MOVIE_INDEX)) is not None:
-        parts.append(f'Movie index {int(movie)}')
+    if (movie := _movie_index(tilt)) is not None:
+        parts.append(f'Movie index {movie}')
     if (angle := tilt.get(COL_TILT_ANGLE)) is not None:
         parts.append(f'tilt {angle + 0.0:.1f}°'.replace('-0.0°', '0.0°'))
     return ' · '.join(parts)
@@ -206,8 +220,8 @@ def _tilts_tip(ts):
     dropped = {}
     for t in ts.tilts:
         if t.get('excluded'):
-            movie = t.get(COL_MOVIE_INDEX)
-            name = (f'movie {int(movie)}' if movie is not None
+            movie = _movie_index(t)
+            name = (f'movie {movie}' if movie is not None
                     else os.path.basename(t.get('rlnMicrographMovieName', '')))
             dropped.setdefault(t.get('droppedAt'), []).append(name)
     for stage, names in dropped.items():
@@ -261,13 +275,8 @@ def _fingerprint_source(ts):
     """ Pick the first fingerprint column that this series actually has,
     skipping the ones written as placeholder zeros. """
     for col, low, high, label in FINGERPRINT_SOURCES:
-        values = [t.get(col) for t in ts.tilts]
-        values = [v for v in values if v is not None]
-        if not values:
-            continue
-        if col in PLACEHOLDER_ZERO_COLS and not any(values):
-            continue
-        return col, low, high, label
+        if any(_measured(t.get(col), col) is not None for t in ts.tilts):
+            return col, low, high, label
     return None
 
 
@@ -297,7 +306,7 @@ def _fingerprint_svg(ts):
 
     pts, marks = [], []
     for i, t in enumerate(tilts):
-        value = t.get(col)
+        value = _measured(t.get(col), col)
         if value is None:
             continue
         y = _y(value)
@@ -345,9 +354,10 @@ def register_content(dc):
     def _resolve_entry(**kwargs):
         """ Find the tomo_processing entry for this dashboard.
 
-        Accepts entry_id / tomo_session_id / project_id, because the
-        dashboard is reachable both from the tomo project list (which passes
-        an entry id) and from a project page (which passes a project id).
+        Accepts entry_id / tomo_session_id / otf_entry_id / project_id,
+        because the dashboard is reachable both from the tomo project list
+        (which passes an entry id) and from a project page (which passes a
+        project id).
         """
         dm = dc.app.dm
 
@@ -454,15 +464,14 @@ def register_content(dc):
         rows there are in all, the page (kept within range) and the number
         of pages. """
         if filter == 'attn':
-            ts_list = [t for t in ts_list
-                       if t.status in (STATUS_SUSPECT, STATUS_BAD, STATUS_FAILED)]
+            ts_list = [t for t in ts_list if t.status in STATUSES_NEED_REVIEW]
         n_pages = max(1, -(-len(ts_list) // page_size))
         page = min(max(1, page), n_pages)
         rows = []
         for t in ts_list:
             style = STATUS_STYLE[t.status]
-            dots, tip = _stage_dots(t)
             rows.append({
+                'ts': t,
                 'tomoName': t.tomoName,
                 'status': t.status,
                 'statusLabel': style['label'],
@@ -470,15 +479,11 @@ def register_content(dc):
                 'statusShape': style['shape'],
                 'statusOrder': style['order'],
                 'reasons': t.reasons,
-                'notReported': t.notReported,
                 'failedAt': t.failedAt,
                 'stage': t.stage,
                 'stageLabel': STAGES[t.stage]['label'] if t.stage else '',
-                'stageDots': dots,
-                'stageTip': tip,
                 'nTilts': t.nTilts,
                 'nUsed': t.nUsed,
-                'tiltsTip': _tilts_tip(t),
                 'motion': t.motion,
                 'motionEarly': t.motionEarly,
                 'defocus': t.defocus,
@@ -487,8 +492,6 @@ def register_content(dc):
                 'nRejected': t.nRejected,
                 'tiltAxis': t.tiltAxis,
                 'shiftRoughness': t.shiftRoughness,
-                'fingerprint': _fingerprint_svg(t),
-                'fingerprintLabel': (_fingerprint_source(t) or (None,) * 4)[3],
             })
 
         column = sort.lstrip('-')
@@ -506,13 +509,22 @@ def register_content(dc):
                 r['statusOrder'],
                 -(r['ctfRes'].get('mean') or 0)))
         start = (page - 1) * page_size
-        return rows[start:start + page_size], len(rows), page, n_pages
+        rows_page = rows[start:start + page_size]
+        # What only a shown row needs, the svg above all
+        for r in rows_page:
+            t = r.pop('ts')
+            r['stageDots'], r['stageTip'] = _stage_dots(t)
+            r['tiltsTip'] = _tilts_tip(t)
+            r['fingerprint'] = _fingerprint_svg(t)
+        return rows_page, len(rows), page, n_pages
 
     def _load(**kwargs):
         """ Open the session for this entry, or return the reason it failed.
 
         A dashboard that 500s mid-session is worse than one that explains
-        itself, so a missing or half written project is reported as content.
+        itself, so a missing project, or one that is not a RELION project,
+        is reported as content.  The star files are read later, and
+        tolerate files being written as they are read (otf_cryoet).
         """
         entry = _resolve_entry(**kwargs)
         data = entry.extra.get('data', {})
@@ -520,9 +532,9 @@ def register_content(dc):
         path = resolve_processing_path(raw_path)
 
         info = {
-            'entry': entry.json() if hasattr(entry, 'json') else None,
+            'entry': entry,
+            'project': dc.app.dm.get_project_by(id=entry.project_id),
             'entry_id': entry.id,
-            'project_id': entry.project_id,
             'title': entry.title or os.path.basename(path or ''),
             'processing_path': raw_path,
             'error': None,
@@ -539,26 +551,24 @@ def register_content(dc):
             info['error'] = str(e)
         return info
 
-    def _staff(entry):
-        """ Owner and collaborators of the project holding this entry. """
-        dm = dc.app.dm
-        project = dm.get_project_by(id=entry.project_id)
+    def _staff(project):
+        """ Owner and collaborators of the project holding the entry. """
         if project is None:
             return None, []
-        users = (dm.get_user_by(id=int(uid)) for uid in project.collaborators_ids)
+        users = (dc.app.dm.get_user_by(id=int(uid)) for uid in project.collaborators_ids)
         return project.user, [u for u in users if u is not None]
 
-    def _can_edit(entry_id):
+    def _can_edit(project):
         """ Whether the current user may change the session's selection:
-        the project's owner, its collaborators or a manager. """
-        dm, user = dc.app.dm, dc.app.user
-        entry = dm.get_entry_by(id=entry_id)
-        project = entry and dm.get_project_by(id=entry.project_id)
-        if project is None:
-            return False
-        if hasattr(user, 'can_edit_project'):
-            return bool(user.can_edit_project(project))
-        return bool(getattr(user, 'is_manager', False))
+        the project's owner, its collaborators or a manager (the same check
+        as the api's otf_save_selection). """
+        return project is not None and bool(dc.app.user.can_edit_project(project))
+
+    def _int(kwargs, key, default):
+        try:
+            return int(kwargs.get(key, default))
+        except (TypeError, ValueError):
+            return default
 
     def _selection_state(session):
         """ The stored selection, without its export history. """
@@ -568,44 +578,28 @@ def register_content(dc):
     # ---------------------------------------------------------------- page
     @dc.content
     def otf_dashboard(**kwargs):
-        info = _load(**kwargs)
-        data = {
-            'entry_id': info['entry_id'],
-            'project_id': info['project_id'],
-            'title': info['title'],
-            'processing_path': info['processing_path'],
-            'error': info['error'],
-            'refresh_seconds': int(kwargs.get('refresh_seconds', 30)),
-            'palette': PALETTE,
-        }
-        data.update(otf_dashboard_content(**kwargs))
-        return data
+        # The page around the content; a refresh asks for the content only
+        return dict(otf_dashboard_content(**kwargs),
+                    refresh_seconds=max(10, _int(kwargs, 'refresh_seconds', 30)),
+                    palette=PALETTE)
 
     # ------------------------------------------------------ refreshed part
     @dc.content
     def otf_dashboard_content(**kwargs):
         info = _load(**kwargs)
         if info['error'] or info['session'] is None:
-            return {
-                'error': info['error'],
-                'title': info['title'],
-                'entry_id': info['entry_id'],
-                'summary': None, 'stages': [], 'rows': [], 'nRowsTotal': 0,
-                'notReported': [],
-                'trends': {'x': [], 'colors': [], 'names': [], 'plots': []},
-                'state': {'key': 'unknown', 'label': 'Unavailable',
-                          'sinceStr': '--'},
-                'counters': [], 'updated': time.strftime('%H:%M:%S'),
-                'selection': None, 'canEdit': False, 'allSeries': [],
-            }
+            # The content shows the error alone
+            return {'error': info['error'], 'title': info['title'],
+                    'entry_id': info['entry_id'],
+                    'processing_path': info['processing_path'],
+                    'updated': time.strftime('%H:%M:%S')}
 
         session = info['session']
         summary = session.summary()
         ts_list = session.tilt_series()
         by_status = summary['byStatus']
 
-        owner, collaborators = _staff(
-            dc.app.dm.get_entry_by(id=info['entry_id']))
+        owner, collaborators = _staff(info['project'])
 
         # Icon color and, for text, a darker shade where the icon color is
         # too light to read on white (the same color in dark mode).
@@ -654,7 +648,11 @@ def register_content(dc):
         rows, n_rows_total, page, n_pages = _table_rows(
             ts_list, sort=kwargs.get('sort', 'worst'),
             filter=kwargs.get('filter', 'all'),
-            page=int(kwargs.get('page', 1)))
+            page=_int(kwargs, 'page', 1))
+        # The column header names what the fingerprints show, the same on
+        # every page
+        fingerprint_label = next(
+            (src[3] for t in ts_list if (src := _fingerprint_source(t))), None)
 
         return {
             'error': None,
@@ -663,7 +661,6 @@ def register_content(dc):
             'processing_path': info['processing_path'],
             'owner': owner.name if owner else '',
             'staff': ', '.join(u.name for u in collaborators),
-            'summary': summary,
             'notReported': summary['notReported'],
             'warnings': summary['warnings'],
             'state': _session_state(summary),
@@ -676,9 +673,7 @@ def register_content(dc):
             'nPages': n_pages,
             'firstRow': (page - 1) * TABLE_PAGE_SIZE + 1,
             'showEarly': show_early,
-            'fingerprintLabel': next(
-                (r['fingerprintLabel'] for r in rows
-                 if r.get('fingerprintLabel')), None),
+            'fingerprintLabel': fingerprint_label,
             'filter': kwargs.get('filter', 'all'),
             'sort': kwargs.get('sort', 'worst'),
             'updated': time.strftime('%H:%M:%S'),
@@ -688,7 +683,7 @@ def register_content(dc):
             # Selection: the stored state, every tilt series with its status
             # (the table may show only some), and the statuses to select by
             'selection': _selection_state(session),
-            'canEdit': _can_edit(info['entry_id']),
+            'canEdit': _can_edit(info['project']),
             'allSeries': [{'name': t.tomoName, 'status': t.status} for t in ts_list],
             'selectBy': [dict(STATUS_STYLE[s], key=s) for s in (STATUS_OK, STATUS_SUSPECT,
                                                                STATUS_BAD, STATUS_FAILED)],
@@ -731,13 +726,13 @@ def register_content(dc):
 
         strips = []
         for col, label, unit, scale in TILT_STRIPS:
-            values = [t.get(col) for t in tilts]
+            # Placeholder zeros are gaps: not measured
+            values = [_measured(t.get(col), col) for t in tilts]
             if not any(v is not None for v in values):
-                continue   # stage has not run yet, so leave the strip out
-            if col in PLACEHOLDER_ZERO_COLS and not any(values):
-                continue   # written as placeholder zeros, so not measured
+                continue   # not measured, or the stage has not run yet
             if col == 'rlnAccumMotionEarly' and _early_is_total(
-                    values, [t.get('rlnAccumMotionTotal') for t in tilts]):
+                    values, [_measured(t.get('rlnAccumMotionTotal'), 'rlnAccumMotionTotal')
+                             for t in tilts]):
                 continue
             target, reject = guides.get(col, (None, None))
             styles = [_strip_style(t, STRIP_FLAG_KEYS.get(col, ())) for t in tilts]
@@ -753,16 +748,17 @@ def register_content(dc):
         # plots.
         notes, thumbs = [], []
         for t in tilts:
-            if t.get('excluded'):
+            qc = _tilt_qc(t)
+            if qc == 'excluded':
                 note, border, qc = _dropped_label(t), WAITING_COLOR, 'dropped'
-            elif t.get('reject'):
+            elif qc == 'unusable':
                 note = 'unusable: ' + ', '.join(TILT_FLAG_LABELS[k] for k in t['reject'])
-                border, qc = STATUS_STYLE[STATUS_BAD]['color'], 'unusable'
-            elif t.get('offTarget'):
+                border = STATUS_STYLE[STATUS_BAD]['color']
+            elif qc == 'offTarget':
                 note = 'off target: ' + ', '.join(TILT_FLAG_LABELS[k] for k in t['offTarget'])
-                border, qc = STATUS_STYLE[STATUS_SUSPECT]['color'], 'offTarget'
+                border = STATUS_STYLE[STATUS_SUSPECT]['color']
             else:
-                note, border, qc = '', 'transparent', 'within'
+                note, border = '', 'transparent'
             notes.append(note)
 
             angle = t.get(COL_TILT_ANGLE)
@@ -785,7 +781,7 @@ def register_content(dc):
                 # index from the motion correction output, so a tilt dropped
                 # there is not in it and cannot be selected
                 'qc': qc,
-                'movie': None if t.get(COL_MOVIE_INDEX) is None else int(t[COL_MOVIE_INDEX]),
+                'movie': _movie_index(t),
                 'selectable': (t.get(COL_MOVIE_INDEX) is not None and
                                t.get('droppedAt') not in ('motioncorr', 'ctf')),
                 'label': '' if angle is None else f'{round(angle)}°',
@@ -810,8 +806,6 @@ def register_content(dc):
         return {
             'error': None,
             'entry_id': info['entry_id'],
-            'project_id': info['project_id'],
-            'sessionTitle': info['title'],
             'tomoName': ts.tomoName,
             'status': ts.status,
             'statusLabel': style['label'],
@@ -820,7 +814,6 @@ def register_content(dc):
             'reasons': ts.reasons,
             'notReported': ts.notReported,
             'failedAt': ts.failedAt,
-            'stage': ts.stage,
             'nTilts': ts.nTilts,
             'nUsed': ts.nUsed,
             'pixelSize': ts.pixelSize,
@@ -835,9 +828,7 @@ def register_content(dc):
             'tiltSeriesStar': ts.tiltSeriesStar,
             'alignedStack': ts.alignedStack,
             'tomogram': ts.tomogram,
-            'metrics': ts.json(),
             'order': order,
-            'tilts': tilts,
             'strips': strips,
             'xLabel': ('Acquisition order' if order == 'acq'
                        else 'Nominal stage tilt angle (°)'),
@@ -845,11 +836,10 @@ def register_content(dc):
                   else t.get(COL_TILT_ANGLE) for t in tilts],
             'doses': [t.get(COL_PRE_EXPOSURE) for t in tilts],
             'angles': [t.get(COL_TILT_ANGLE) for t in tilts],
-            'movieIndex': [None if t.get(COL_MOVIE_INDEX) is None
-                           else int(t[COL_MOVIE_INDEX]) for t in tilts],
+            'movieIndex': [_movie_index(t) for t in tilts],
             'tiltNotes': notes,
             'thumbs': thumbs,
             'thumbSize': thumb_size,
             'hasDropped': any(t.get('excluded') for t in tilts),
-            'canEdit': _can_edit(info['entry_id']),
+            'canEdit': _can_edit(info['project']),
         }
