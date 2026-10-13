@@ -249,23 +249,11 @@ def register_content(dc):
     def test_widget(**kwargs):
         return {}
 
-    @dc.content
-    def project_widget(**kwargs):
-        project_id = int(kwargs['entry_id'])
-        entry = dc.app.dm.get_entry_by(id=project_id)
-        if entry is None:
-            raise Exception(f"Unexisting tomo project with id: {project_id}")
-        project_path = entry.extra['data'].get('processing_path', '')
-        data = dc.get_data('processing_content', **kwargs)
+    def _get_project_widget_data(data, project_id, project_path, entry_extra=None):
+        """ Add the data needed by the project widget (project_widget.html)
+        to the processing content data of a project. """
         pp = data['processing_project']
         pm = pp.project
-        # Labels (tags) are stored in the project folder (.emhub/labels.json).
-        # Migrate old labels stored in the entry's extra (DB) if needed.
-        # The DB copy is kept for now, but no longer used.
-        tags = entry.extra.get('tags')
-        if tags and not pm.hasLabels():
-            pm.importLabels(tags.get('project', []), tags.get('protocols', {}))
-
         protocols = pp.get_workflow(widget=True)
 
         project_details = {
@@ -288,13 +276,49 @@ def register_content(dc):
             'project_id': project_id,
             'project_details': project_details,
             'project_ids': [43, 871, 878],
-            'project_entry_extra': entry.extra,
+            'project_entry_extra': entry_extra or {},
             'menu': pmenu
         })
+        return data
+
+    @dc.content
+    def project_widget(**kwargs):
+        project_id = int(kwargs['entry_id'])
+        entry = dc.app.dm.get_entry_by(id=project_id)
+        if entry is None:
+            raise Exception(f"Unexisting tomo project with id: {project_id}")
+        project_path = entry.extra['data'].get('processing_path', '')
+        data = dc.get_data('processing_content', **kwargs)
+        pm = data['processing_project'].project
+        # Labels (tags) are stored in the project folder (.emhub/labels.json).
+        # Migrate old labels stored in the entry's extra (DB) if needed.
+        # The DB copy is kept for now, but no longer used.
+        tags = entry.extra.get('tags')
+        if tags and not pm.hasLabels():
+            pm.importLabels(tags.get('project', []), tags.get('protocols', {}))
+
         # with open(f'project_{project_id}.json', 'w') as f:
         #     json.dump(project_details, f, indent=4)
 
-        return data
+        return _get_project_widget_data(data, project_id, project_path, entry.extra)
+
+    @dc.content
+    def session_workflow(**kwargs):
+        """ Project widget for the OTF project of a session, from the session
+        data_path (extra['otf']['path']), without registering the project. """
+        session_id = int(kwargs['session_id'])
+        session = dc.app.dm.get_session_by(id=session_id)
+        if session is None:
+            raise Exception(f"Unexisting session with id: {session_id}")
+        from emhub.data.processing import get_processing_type, resolve_processing_path
+        path = resolve_processing_path(session.data_path or '')
+        if not path or get_processing_type(path) == 'unknown':
+            raise Exception(f"No processing project found in the session "
+                            f"OTF folder: '{session.data_path}'")
+        data = dc.get_data('processing_content', session_id=session_id)
+        project_path = data['processing_project'].path
+        data['session'] = session
+        return _get_project_widget_data(data, session_id, project_path)
 
     @dc.content
     def project_flowchart(**kwargs):
