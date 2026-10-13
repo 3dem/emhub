@@ -835,22 +835,43 @@ def _otf_session_for_edit(entry_id):
     if project is None or not app.user.can_edit_project(project):
         raise Exception('Only the project owner, its collaborators and managers '
                         'can change this selection')
-    return OtfSession(resolve_processing_path(
-        entry.extra.get('data', {}).get('processing_path', '')))
+    data = entry.extra.get('data', {})
+    # The entry's thresholds, as the dashboard uses: they decide what is
+    # proposed for exclusion
+    return OtfSession(resolve_processing_path(data.get('processing_path', '')),
+                      thresholds=data.get('otf_thresholds'))
 
 
 @api_bp.route('/otf_save_selection', methods=['POST'])
 @flask_login.login_required
 def otf_save_selection():
     """ Store the on-the-fly dashboard's selection: deselected tilt series
-    and excluded tilts (movie indices) per tilt series. """
+    and excluded tilts (movie indices) per tilt series, and the accepted
+    automatic proposals. """
     def _handle(**attrs):
         session = _otf_session_for_edit(attrs['entry_id'])
         return session.save_selection(attrs.get('deselected', []),
                                       attrs.get('excludedTilts', {}),
-                                      user=app.user.name)
+                                      user=app.user.name,
+                                      proposed_tilts=attrs.get('proposedTilts'),
+                                      reviewed=attrs.get('reviewed'))
 
     return _handle_item(_handle, 'selection')
+
+
+@api_bp.route('/otf_propose_exclusions', methods=['POST'])
+@flask_login.login_required
+def otf_propose_exclusions():
+    """ The tilts the curation rule proposes to leave out, given the
+    on-the-fly dashboard's current selection.  Nothing is stored: the page
+    adds them to its selection if the user accepts. """
+    def _handle(**attrs):
+        session = _otf_session_for_edit(attrs['entry_id'])
+        return session.propose_exclusions(attrs.get('deselected', []),
+                                          attrs.get('excludedTilts', {}),
+                                          attrs.get('proposedTilts', {}))
+
+    return _handle_item(_handle, 'proposal')
 
 
 @api_bp.route('/otf_create_subset', methods=['POST'])
@@ -865,7 +886,9 @@ def otf_create_subset():
         user = app.user.name
         deselected = attrs.get('deselected', [])
         excluded = attrs.get('excludedTilts', {})
-        session.save_selection(deselected, excluded, user=user)
+        proposed, reviewed = attrs.get('proposedTilts'), attrs.get('reviewed')
+        session.save_selection(deselected, excluded, user=user, proposed_tilts=proposed,
+                               reviewed=reviewed)
         plan = session.subset_plan()
         if not plan['selected']:
             raise Exception('None of the selected tilt series is in the motion '
@@ -875,7 +898,8 @@ def otf_create_subset():
             attrs={'excludeTilts': plan['selected']})
         export = dict(plan, created=time.strftime('%Y-%m-%dT%H:%M:%S'), by=user,
                       jobId=result['jobId'])
-        session.save_selection(deselected, excluded, user=user, export=export)
+        session.save_selection(deselected, excluded, user=user, export=export,
+                               proposed_tilts=proposed, reviewed=reviewed)
         return dict(result, skipped=plan['skipped'])
 
     return _handle_item(_handle, 'subsetResult')

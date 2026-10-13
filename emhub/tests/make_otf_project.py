@@ -18,6 +18,7 @@ one per-tilt-series star file per tilt series.
 """
 
 import os
+import json
 import random
 import argparse
 
@@ -157,8 +158,46 @@ def _tilt_rows(ts_index, cols, rng, placeholders=False):
     return rows
 
 
+def _write_image_qc(path, name, ts_index, tilt_table, seed):
+    """ <name>_imageqc.json as emwrap writes it (emtools tilt_qc), for
+    the motion corrected tilts of a series.  Values like a real lamella;
+    some series get one tilt of each kind the dashboard flags, near the
+    end of acquisition where they happen. """
+    rng = random.Random(seed * 1000 + ts_index)
+    rows = sorted(tilt_table, key=lambda r: r.rlnTomoTiltMovieIndex)
+    first = rows[0].rlnTomoTiltMovieIndex      # the first acquired: no match values
+    # The last ones acquired, where the planted problems go (padded for a
+    # very short series)
+    last = [r.rlnTomoTiltMovieIndex for r in rows[-4:]]
+    last = [last[0]] * (2 - len(last)) + last
+    out = []
+    for r in rows:
+        m = r.rlnTomoTiltMovieIndex
+        d = {'movie': m, 'angle': r.rlnTomoNominalStageTiltAngle,
+             'name': os.path.splitext(os.path.basename(r.rlnMicrographName))[0],
+             'texture': 9.0 + 2.0 * rng.random(), 'darkArea': 0.02 * rng.random()}
+        if m != first:
+            d.update(matchPeak=0.15 + 0.2 * rng.random(), matchNcc=0.4 + 0.3 * rng.random(),
+                     fieldShift=0.02 + 0.04 * rng.random())
+        if ts_index % 6 == 1 and m == last[-1]:
+            d['texture'] = 3.0                      # blank
+        if ts_index % 9 == 2 and m == last[-2]:
+            d['darkArea'] = 0.35                    # blacked out
+        if ts_index % 9 == 2 and m == last[-1]:
+            d.update(matchPeak=0.02, matchNcc=0.05)  # a different field
+        if ts_index % 9 == 5 and m in last[-2:]:
+            d['fieldShift'] = 0.42                  # walked off the target
+        out.append(d)
+    folder = os.path.join(path, os.path.dirname(os.path.dirname(rows[0].rlnMicrographName)),
+                          'thumbnails')
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, name + '_imageqc.json'), 'w') as f:
+        json.dump({'version': 1, 'tomoName': name, 'source': 'synthetic',
+                   'tilts': out}, f)
+
+
 def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
-                  dropped=False):
+                  dropped=False, image_qc=False):
     """ placeholders=True reproduces what emwrap devel currently writes:
     accumulated motion hardcoded to 0 and the CTF quality columns left at
     the defaultdict zero, with only the defocus values real.  Use it to
@@ -170,7 +209,11 @@ def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
 
     dropped=True drops tilts the way Warp does: in every 10th tilt series
     (from the 4th) motion correction leaves out one deselected tilt, and in
-    every 10th (from the 8th) alignment leaves out two disabled ones. """
+    every 10th (from the 8th) alignment leaves out two disabled ones.
+
+    image_qc=True writes the image content measures emwrap writes beside
+    the tilt jpegs, with some blank, blacked out, different field and
+    shifted tilts (see _write_image_qc). """
     rng = random.Random(seed)
     os.makedirs(path, exist_ok=True)
 
@@ -221,6 +264,8 @@ def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
                 tilt_table.addRowValues(*row)
             with StarFile(os.path.join(path, ts_star), 'w') as sf:
                 sf.writeTable(name, tilt_table)
+            if image_qc and jobtype == 'emw-warp-mctf' and len(tilt_table):
+                _write_image_qc(path, name, i, tilt_table, seed)
 
         # Tomogram job also carries the aligned stack and tomogram columns
         if jobtype == 'emw-warp-ctfrec':
@@ -310,10 +355,13 @@ def main():
     p.add_argument('--acquiring', action='store_true',
                    help='write a session in progress: all jobs Running, '
                         'later stages lagging behind')
+    p.add_argument('--image-qc', action='store_true', dest='image_qc',
+                   help='write the image content measures (blank, blacked '
+                        'out, different field tilts) beside the tilt jpegs')
     args = p.parse_args()
     write_project(args.path, n_ts=args.n_ts, seed=args.seed,
                   placeholders=args.placeholders, acquiring=args.acquiring,
-                  dropped=args.dropped)
+                  dropped=args.dropped, image_qc=args.image_qc)
     print(f'Wrote fake OTF project with {args.n_ts} tilt series to {args.path}')
 
 

@@ -119,6 +119,20 @@
 tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
 .otf-tilt-sel { position: absolute; top: 5px; left: 5px; z-index: 1; cursor: pointer; }
 .otf-thumb-off img { opacity: .3; }
+/* Tilts used: left after curation, green once the tilt series is reviewed,
+   grey while not; the collected count in bold */
+.otf-final-reviewed { color: var(--otf-good-text); font-weight: 600; }
+.otf-final-pending { color: var(--otf-faint); }
+.otf-tilts-collected { font-weight: 600; }
+/* The tilt series opened last, to find the place again on coming back */
+tr.otf-row-last td { background: var(--otf-hover); }
+tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
+.otf-reviewed-by { color: var(--otf-faint); }
+/* Unticked by an accepted proposal (and not ticked again since) */
+.otf-auto-tag { display: none; position: absolute; top: 4px; right: 5px; z-index: 1;
+                font-size: .62rem; line-height: 1.3; padding: 0 3px; border-radius: 3px;
+                background: var(--otf-surface); color: var(--otf-ink); cursor: help; }
+.otf-thumb-auto .otf-auto-tag { display: block; }
 /* A tilt processing dropped: still shown, dimmed */
 .otf-thumb-dropped img { opacity: .45; border-style: dashed !important; }
 /* Hover is a light dashed hint; only the selection is solid blue */
@@ -128,7 +142,7 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
 .otf-thumb-selected figcaption { color: var(--otf-data); font-weight: 600; }
 /* Tilt series window: wider than modal-xl, for the strips and the
    selected tilt side by side */
-.modal-dialog.otf-modal-wide { max-width: min(1640px, 96vw); }
+.modal-dialog.otf-modal-wide { max-width: min(1640px, 96vw); margin-top: .5rem; margin-bottom: .5rem; }
 /* Tilt series window tabs */
 .otf-tabs { margin-bottom: 12px; }
 .otf-tabs .nav-link { color: var(--otf-muted); padding: .4rem .9rem; }
@@ -167,7 +181,16 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
 .otf-lightbox img { width: 94vw; height: 88vh; object-fit: contain; display: block; margin: 0 auto; }
 .otf-lightbox figcaption { color: #e4e7ec; font-size: .85rem; margin-top: 10px; }
 .otf-ctf-caption { font-size: .75rem; color: var(--otf-muted); margin: 6px 0 0; }
-.otf-ctf-profile { width: 100%; height: 190px; }
+.otf-ctf-profile { width: 100%; height: 160px; }
+/* Height of the selected tilt's images, as a share of the screen */
+#otf-tilt-pane { --otf-pane-image: 32vh; }
+/* Short screens (laptops): a lower filmstrip and smaller tilt images, so the tilt series window fits */
+@media (max-height: 820px) {
+    .otf-thumb img, .otf-thumb-missing { height: 64px; }
+    .otf-thumb-missing { line-height: 60px; }
+    #otf-tilt-pane { --otf-pane-image: 24vh; }
+    .otf-ctf-profile { height: 120px; }
+}
 .otf-tooltip .tooltip-inner { max-width: 380px; text-align: left; }
 .otf-name { font-family: SFMono-Regular, Menlo, Consolas, monospace; color: var(--otf-ink); }
 .otf-legend .otf-dot { margin-left: .6rem; }
@@ -250,11 +273,25 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
        uses it as it loads), so a refresh cannot undo a
        click; the content seeds it once from what is stored in the project,
        and every change is saved there shortly after. */
+    /* Where the user was: the tilt series opened last, marked in the table
+       and the trends when coming back, and the tilt selected in each tilt
+       series, opened again with it.  Kept in this browser per entry, so a
+       reload keeps them too.  Here, as the content uses it as it loads. */
+    var OTF_NAV_KEY = 'otfNav:' + {{ entry_id }};
+    window.otfNav = (function() {
+        try { return $.extend({last: null, tilts: {}}, JSON.parse(localStorage.getItem(OTF_NAV_KEY))); }
+        catch (e) { return {last: null, tilts: {}}; }
+    })();
+    window.otfSaveNav = function() {
+        try { localStorage.setItem(OTF_NAV_KEY, JSON.stringify(otfNav)); } catch (e) {}
+    };
     var otfSel = null, otfSaveTimer = null, otfSaveState = '';
     window.otfSelection = function(stored) {
         if (otfSel === null && stored) {
             otfSel = {deselected: new Set(stored.deselected || []),
-                      excludedTilts: $.extend({}, stored.excludedTilts || {})};
+                      excludedTilts: $.extend({}, stored.excludedTilts || {}),
+                      proposedTilts: $.extend({}, stored.proposedTilts || {}),
+                      reviewed: $.extend({}, stored.reviewed || {})};
         }
         return otfSel;
     };
@@ -273,7 +310,8 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
         otfSaveTimer = window.setTimeout(function() {
             send_ajax_json(Api.urls.otf_save_selection,
                            {entry_id: {{ entry_id }}, deselected: Array.from(otfSel.deselected),
-                            excludedTilts: otfSel.excludedTilts},
+                            excludedTilts: otfSel.excludedTilts, proposedTilts: otfSel.proposedTilts,
+                            reviewed: Object.keys(otfSel.reviewed)},
                            function(data) {
                                if (data.error) { otfSetSaveState('error'); showError(data.error); }
                                else otfSetSaveState('saved');
@@ -393,6 +431,8 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
     }
     window.otfSetPage = otfSetPage;
     window.otfShowTiltSeries = function(tomoName, order) {
+        otfNav.last = tomoName;
+        otfSaveNav();
         var content = get_ajax_content('otf_tiltseries',
                                        {entry_id: OTF_ENTRY_ID,
                                         tomo_name: tomoName,
@@ -406,6 +446,23 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
         $(this).find('.js-plotly-plot').each(function() {
             Plotly.Plots.resize(this);
         });
+    });
+    // Back in the overview: bring the row of the tilt series into view
+    $(OTF_MODAL).on('hidden.bs.modal', function() {
+        if (window.otfMarkLastOpened) otfMarkLastOpened(true);
+    });
+
+    /* Keys in the tilt series window go to its filmstrip (otfTiltKey, set
+       by the window), also while the larger view of a tilt is open, unless
+       typing in a field */
+    document.addEventListener('keydown', function(e) {
+        if (!window.otfTiltKey || !$(OTF_MODAL).hasClass('show')) return;
+        // Not while typing or moving a slider
+        if (e.altKey || e.ctrlKey || e.metaKey ||
+            $(e.target).is('input:not([type=checkbox]), select, textarea, [contenteditable]')) return;
+        // A focused box or button already acts on Space and Enter itself
+        if ((e.key === ' ' || e.key === 'Enter') && $(e.target).is('input, button, a')) return;
+        if (otfTiltKey(e.key, $lightbox.hasClass('show'))) e.preventDefault();
     });
 
     /* A tomogram as orthogonal sections at one scale: the Z section, the Y
@@ -523,7 +580,8 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
             busy(true);
             send_ajax_json(Api.urls.otf_create_subset,
                            {entry_id: OTF_ENTRY_ID, deselected: Array.from(sel.deselected),
-                            excludedTilts: sel.excludedTilts},
+                            excludedTilts: sel.excludedTilts, proposedTilts: sel.proposedTilts,
+                            reviewed: Object.keys(sel.reviewed)},
                            function(data) {
                                busy(false);
                                var r = data.subsetResult;
@@ -541,6 +599,115 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
         });
     };
 
+    /* Propose exclusions: the server runs the curation rule over the
+       selected tilt series (the selection as it is here, saved or not) and
+       returns the tilts to leave out that are not out already, nor were
+       proposed before.  Accepted, they are unticked like any other and
+       remembered as proposed (proposedTilts), so one ticked again stays.
+       Tilt series are never deselected; those keeping too few tilts are
+       listed. */
+    var OTF_PROPOSAL_LABELS = {{ (proposalLabels or {})|tojson }};
+    function otfProposalCounts(series, skipCurated) {
+        var use = series.filter(function(s) { return !(skipCurated && s.curated); });
+        var flags = {}, n = 0;
+        use.forEach(function(s) {
+            n += s.add.length;
+            Object.keys(s.flags).forEach(function(f) { flags[f] = (flags[f] || 0) + s.flags[f]; });
+        });
+        // A tilt can have several flags: these count tilts per flag
+        var parts = Object.keys(flags).sort(function(a, b) { return flags[b] - flags[a]; })
+            .map(function(f) { return flags[f] + ' ' + (OTF_PROPOSAL_LABELS[f] || f); });
+        var text = !n ? 'No tilts outside the tilt series that already have unticked tilts' :
+            n + ' tilt' + (n === 1 ? '' : 's') + ' in ' + use.length + ' tilt series' +
+            (parts.length ? ': ' + parts.join(', ') : '');
+        return {series: use, text: text};
+    }
+    var otfProposal = null, otfProposeSkip = false, otfProposeBusy = false;
+    window.otfIsProposeBusy = function() { return otfProposeBusy; };
+    function otfProposeBusySet(on) {
+        otfProposeBusy = on;
+        $('.otf-propose').prop('disabled', on);
+    }
+    // Inside emhub's confirmation window, which is made anew each time
+    $(document).on('change', '.otf-propose-skip', function() {
+        otfProposeSkip = this.checked;
+        if (otfProposal)
+            $(this).closest('.modal-body').find('.otf-propose-count')
+                   .text(otfProposalCounts(otfProposal.series, this.checked).text);
+    });
+    // emhub's message and confirmation windows stay in the page once
+    // closed; take them out, so their ids stay unique
+    $(document).on('hidden.bs.modal', '#yesno-modal, #msg-modal', function() { $(this).remove(); });
+    window.otfProposeExclusions = function() {
+        var sel = otfSelection();
+        if (!sel || otfProposeBusy) return;
+        otfProposeBusySet(true);
+        send_ajax_json(Api.urls.otf_propose_exclusions,
+                       {entry_id: OTF_ENTRY_ID, deselected: Array.from(sel.deselected),
+                        excludedTilts: sel.excludedTilts, proposedTilts: sel.proposedTilts},
+                       function(data) {
+                           otfProposeBusySet(false);
+                           var p = otfProposal = data.proposal;
+                           if (!p) { showError(data.error || 'Could not make a proposal.'); return; }
+                           otfShowProposal(p);
+                       },
+                       function() {
+                           otfProposeBusySet(false);
+                           ajax_request_failed.apply(this, arguments);
+                       });
+    };
+    function otfShowProposal(p) {
+        var nCurated = p.series.filter(function(s) { return s.curated; }).length;
+        otfProposeSkip = nCurated > 0;
+        var body = $('<div></div>');
+        var limit = Math.round(100 * (p.usableLimit || 0));
+        var review = $('<div></div>');
+        if (p.review.length) {
+            review.append($('<p class="mb-1 mt-3"></p>').text(
+                p.review.length + ' tilt series would keep fewer than ' + limit + '% of their tilts. ' +
+                'They are not deselected; look at them and deselect them if they are not worth keeping:'));
+            var ul = $('<ul class="mb-0"></ul>').appendTo(review);
+            p.review.slice(0, 8).forEach(function(r) {
+                ul.append($('<li></li>').text(r.name + ': keeps ' + Math.round(100 * r.keeps) + '%'));
+            });
+            if (p.review.length > 8) ul.append($('<li></li>').text('and ' + (p.review.length - 8) + ' more'));
+        }
+        if (!p.series.length) {
+            body.append($('<p></p>').text('The curation rule finds no tilts to leave out beyond those ' +
+                                          'already unticked or proposed before.')).append(review);
+            showMessage('Propose exclusions', body.html());
+            return;
+        }
+        body.append($('<p class="mb-1"></p>').text('The curation rule proposes leaving out:'))
+            .append($('<p class="font-weight-bold otf-propose-count"></p>')
+                    .text(otfProposalCounts(p.series, nCurated > 0).text));
+        if (nCurated)
+            body.append($('<label class="d-block"></label>')
+                .append('<input type="checkbox" class="otf-propose-skip mr-2" checked>')
+                .append(document.createTextNode('Leave alone the ' + nCurated + ' tilt series that ' +
+                                                'already have unticked tilts (curated by hand or by the ' +
+                                                'curation skill)')));
+        body.append($('<p class="mb-0"></p>').text(
+                'They are unticked in the selection and marked "auto" in each tilt series window; ' +
+                'tick one again to keep it, and it is not proposed again. Unusable tilts are ' +
+                'proposed, and the tilts acquired after one that lost the field (blank, blacked ' +
+                'out, a different field or shifted) on the same side.'))
+            .append(review);
+        confirm('Propose exclusions', body.html(), 'Cancel', 'Untick them', function() {
+            var sel = otfSelection();
+            otfProposalCounts(p.series, otfProposeSkip).series.forEach(function(s) {
+                function merge(map) {
+                    var ids = new Set(map[s.name] || []);
+                    s.add.forEach(function(m) { ids.add(m); });
+                    map[s.name] = Array.from(ids).sort(function(a, b) { return a - b; });
+                }
+                merge(sel.excludedTilts);
+                merge(sel.proposedTilts);
+            });
+            otfSelectionChanged();
+        });
+    }
+
     /* A larger view of an image over everything, closed by a click or Esc.
        It shows the image already loaded, so it opens at once. */
     var $lightbox = $('#otf-lightbox');
@@ -550,6 +717,7 @@ tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
         $lightbox.addClass('show');
     };
     $lightbox.on('click', function() { $lightbox.removeClass('show'); });
+    window.otfCloseLightbox = function() { $lightbox.removeClass('show'); };
     // Esc closes the larger view first, not the tilt series window under it
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && $lightbox.hasClass('show')) {

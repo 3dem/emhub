@@ -149,8 +149,24 @@ def main():
     rows = data['rows']
     targets = [rows[0]['tomoName']]
     failed = [r['tomoName'] for r in rows if r['status'] == 'failed']
-    if failed:
+    if failed and failed[0] not in targets:
         targets.append(failed[0])
+
+    # Image content flags, from the _imageqc.json files, when there are any
+    image_flags = ('blank', 'blacked', 'field', 'shifted')
+    session = otf.OtfSession(project_path)
+    flagged = {ts.tomoName: [k for t in ts.tilts for k in t.get('reject', [])
+                             if k in image_flags]
+               for ts in session.tilt_series()}
+    counts = {k: sum(v.count(k) for v in flagged.values()) for k in image_flags}
+    print(f'\nimage content flags: '
+          f'{counts if any(counts.values()) else "none (no _imageqc.json)"}')
+    prop = session.propose_exclusions()
+    print(f'proposed exclusions: {sum(len(x["add"]) for x in prop["series"])} tilts in '
+          f'{len(prop["series"])} tilt series, {len(prop["review"])} to review')
+    with_flags = [n for n, v in flagged.items() if v]
+    if with_flags and with_flags[0] not in targets:
+        targets.append(with_flags[0])
 
     for tomo_name in targets:
         for order in ('angle', 'acq'):
@@ -162,6 +178,8 @@ def main():
             print(f'\notf_tiltseries {tomo_name} ({order}): '
                   f'{len(d["strips"])} strips, {d["nUsed"]}/{d["nTilts"]} used, '
                   f'status={d["statusLabel"]}')
+            for note in sorted({n for n in d.get('tiltNotes', []) if n}):
+                print(f'  tilt note: {note}')
             try:
                 html = render(env, 'otf_tiltseries.html', d)
                 print(f'  rendered: {len(html)} chars')

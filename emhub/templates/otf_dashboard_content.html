@@ -177,7 +177,11 @@
             <span id="otf-select-summary"></span>
             <small class="otf-save-state ml-2"></small>
             {% if canEdit %}
-                <button type="button" class="btn btn-sm btn-primary ml-3 otf-create-subset"
+                <button type="button" class="btn btn-sm btn-outline-primary ml-3 otf-propose"
+                        onclick="otfProposeExclusions()"
+                        title="Untick, after your confirmation, the tilts the curation rule would leave out: unusable tilts, and those acquired after a tilt that lost the field">
+                    <i class="fas fa-magic mr-1"></i>Propose exclusions</button>
+                <button type="button" class="btn btn-sm btn-primary ml-2 otf-create-subset"
                         onclick="otfCreateSubset()"
                         title="Launch an EMwrap subset job from the motion correction output with the selected tilt series, without their unticked tilts">
                     <i class="fas fa-layer-group mr-1"></i>Create subset</button>
@@ -204,7 +208,7 @@
                     {{ sortable('name', 'Tilt series') }}
                     {{ sortable('status', 'Status') }}
                     {{ sortable('tilts', 'Tilts used', 'otf-num',
-                                'Tilts the latest stage uses / tilts imported; processing can drop tilts (deselected or disabled in Warp)') }}
+                                'Left after curation / used by the latest stage / collected. The first is green once the tilt series is marked reviewed, grey while not (tilts unticked, by hand or by an accepted proposal), a dash when nothing was unticked and it is not reviewed. Processing can drop tilts (deselected or disabled in Warp).') }}
                     {{ sortable('motion', 'Accum. motion (Å)', 'otf-num') }}
                     {% if showEarly %}{{ sortable('early', 'Early motion (Å)', 'otf-num') }}{% endif %}
                     {{ sortable('defocus', 'Defocus (µm)', 'otf-num') }}
@@ -256,9 +260,11 @@
                             <small>{{ r.stageLabel }} in progress</small>
                         </td>
                     {% else %}
-                        <td class="otf-num" data-toggle="tooltip" title="{{ r.tiltsTip }}">
-                            {{ r.nUsed }} / {{ r.nTilts }}
-                            {% if r.nUsed < r.nTilts %}<span class="otf-sd">&middot; {{ r.nTilts - r.nUsed }} dropped</span>{% endif %}
+                        {# The first number is filled in from the selection, see otfRenderSelection #}
+                        <td class="otf-num otf-tilts" data-toggle="tooltip" title="{{ r.tiltsTip }}"
+                            data-name="{{ r.tomoName }}" data-used="{{ r.usedMovies|tojson }}">
+                            <span class="otf-final">&mdash;</span> / {{ r.nUsed }} /
+                            <span class="otf-tilts-collected">{{ r.nTilts }}</span>
                         </td>
                         <td class="otf-num">
                             {% if r.motion.mean is not none %}
@@ -336,6 +342,20 @@
             this.checked = on;
             $(this).closest('tr').toggleClass('otf-deselected', !on);
         });
+        // Tilts left after curation: green when reviewed, grey when tilts
+        // were unticked but the tilt series is not reviewed, else a dash
+        $('#otf-dashboard-content td.otf-tilts').each(function() {
+            // jQuery parses data-used once and keeps it with the element
+            var name = this.dataset.name, used = $(this).data('used');
+            var ex = new Set(sel.excludedTilts[name] || []);
+            var left = used.filter(function(m) { return !ex.has(m); }).length;
+            // Grey whenever tilts are unticked, those processing dropped too
+            var reviewed = !!sel.reviewed[name], cut = ex.size > 0;
+            $(this).find('.otf-final')
+                .text(reviewed || cut ? left : '\u2014')
+                .toggleClass('otf-final-reviewed', reviewed)
+                .toggleClass('otf-final-pending', !reviewed && cut);
+        });
         $('#otf-select-bar input[data-select]').each(function() {
             var names = namesOf(this.dataset.select);
             var n = names.filter(function(n) { return !sel.deselected.has(n); }).length;
@@ -345,8 +365,14 @@
         });
         var selected = namesOf('all').filter(function(n) { return !sel.deselected.has(n); });
         var tilts = selected.reduce(function(sum, n) { return sum + (sel.excludedTilts[n] || []).length; }, 0);
+        // Excluded and proposed: unticked by an accepted proposal, not ticked since
+        var auto = selected.reduce(function(sum, n) {
+            var p = new Set(sel.proposedTilts[n] || []);
+            return sum + (sel.excludedTilts[n] || []).filter(function(m) { return p.has(m); }).length;
+        }, 0);
         $('#otf-select-summary').text(selected.length + ' of ' + allSeries.length + ' tilt series selected' +
-                                      (tilts ? ' · ' + tilts + ' tilt' + (tilts > 1 ? 's' : '') + ' excluded' : ''));
+                                      (tilts ? ' · ' + tilts + ' tilt' + (tilts > 1 ? 's' : '') + ' excluded' +
+                                       (auto ? ' (' + auto + ' automatic)' : '') : ''));
         otfRedrawSaveState();
     }
     window.otfRenderSelection = otfRenderSelection;
@@ -364,8 +390,25 @@
         otfSelectionChanged();
     });
     otfRenderSelection();
-    // Still disabled while a subset job is being launched
+
+    /* The tilt series opened last: its row highlighted (and brought into
+       view on closing its window) and a line at it in the trends */
+    function otfLastShapes() {
+        var j = otfNav.last === null ? -1 : names.indexOf(otfNav.last);
+        return j < 0 ? [] : [{type: 'line', xref: 'x', yref: 'paper', x0: x[j], x1: x[j], y0: 0, y1: 1,
+                              layer: 'below', line: {color: otfCss('--otf-data'), width: 1.5, dash: 'dot'}}];
+    }
+    window.otfMarkLastOpened = function(scroll) {
+        var $rows = $('#otf-dashboard-content tr.otf-row-link').removeClass('otf-row-last');
+        var row = $rows.filter(function() { return this.dataset.name === otfNav.last; })
+                       .addClass('otf-row-last')[0];
+        if (row && scroll) row.scrollIntoView({block: 'nearest'});
+        var div = document.getElementById('otf-trends');
+        if (div && div.layout) Plotly.relayout(div, {shapes: otfLastShapes()});
+    };
+    // Still disabled while a subset job is being launched or a proposal made
     if (window.otfIsSubsetBusy && otfIsSubsetBusy()) $('.otf-create-subset').prop('disabled', true);
+    if (window.otfIsProposeBusy && otfIsProposeBusy()) $('.otf-propose').prop('disabled', true);
 
     // Sort by a column: ascending first, then descending
     $('#otf-dashboard-content .otf-table th[data-sort]').on('click', function() {
@@ -429,7 +472,8 @@
                         showspikes: true, spikemode: 'across', spikesnap: 'data',
                         spikecolor: otfCss('--otf-faint'), spikethickness: 1,
                         spikedash: 'solid'},
-                annotations: annotations
+                annotations: annotations,
+                shapes: otfLastShapes()
             };
             trends.plots.forEach(function(tr, i) {
                 var axis = i ? 'y' + (i + 1) : 'y';
@@ -464,6 +508,7 @@
         });
     }
 
+    otfMarkLastOpened(false);
 })(window, document, window.jQuery);
 </script>
 

@@ -27,7 +27,9 @@ from emhub.data.processing import resolve_processing_path
 from emhub.data.processing.otf_cryoet import (
     OtfSession, TiltSeriesMetrics, STAGES, STATUS_OK, STATUS_SUSPECT, STATUS_BAD,
     STATUS_RUNNING, STATUS_FAILED, STATUSES_NEED_REVIEW, COL_TILT_ANGLE,
-    COL_PRE_EXPOSURE, COL_MOVIE_INDEX, COL_CTF_CORRELATION, _measured, _early_is_total)
+    COL_PRE_EXPOSURE, COL_MOVIE_INDEX, COL_CTF_CORRELATION, COL_IMAGE_TEXTURE,
+    COL_DARK_AREA, COL_MATCH_PEAK, COL_FIELD_SHIFT, _measured, _early_is_total)
+from emtools.image.tilt_qc import REASON_LABELS
 
 
 ENTRY_TYPE = 'tomo_processing'
@@ -102,6 +104,11 @@ TILT_STRIPS = [
     ('rlnCtfMaxResolution', 'CTF fit resolution', 'Å', 1.0),
     (COL_CTF_CORRELATION, 'CTF profile correlation', '', 1.0),
     ('rlnCtfFigureOfMerit', 'CTF figure of merit', '', 1.0),
+    # Image content, relative to the series where noted (see otf_cryoet)
+    (COL_IMAGE_TEXTURE, 'Image texture', '% of series median', 100.0),
+    (COL_DARK_AREA, 'Black area above series median', '% of field', 100.0),
+    (COL_MATCH_PEAK, 'Match with the tilt before', 'phase correlation', 1.0),
+    (COL_FIELD_SHIFT, 'Field shift from first tilt', '% of field', 100.0),
     ('rlnTomoZRot', 'Refined tilt axis', '°', 1.0),
 ]
 
@@ -134,12 +141,7 @@ FINGERPRINT_SOURCES = [
     ('rlnAccumMotionTotal', 0.0, 40.0, 'motion'),
 ]
 # Keys set by TiltSeriesMetrics._judge_tilts in t['reject'] / t['offTarget']
-TILT_FLAG_LABELS = {
-    'motion': 'motion', 'early': 'early motion', 'ctf': 'CTF fit',
-    'ctfcorr': 'CTF profile correlation',
-    'fom': 'CTF figure of merit', 'astigmatism': 'astigmatism',
-    'defocus': 'defocus',
-}
+TILT_FLAG_LABELS = dict(REASON_LABELS, ctf='CTF fit', early='early motion')
 # The per-tilt flags each detail strip shows.  Each strip is colored by its
 # own metric only, so a tilt bad in one metric reads differently from a
 # tilt bad in all of them.
@@ -148,6 +150,10 @@ STRIP_FLAG_KEYS = {
     'rlnDefocusU': ('defocus', 'astigmatism'),
     'rlnCtfMaxResolution': ('ctf',), COL_CTF_CORRELATION: ('ctfcorr',),
     'rlnCtfFigureOfMerit': ('fom',),
+    COL_IMAGE_TEXTURE: ('blank',), COL_DARK_AREA: ('blacked',),
+    # A different field also needs a low normalised correlation, so a low
+    # peak alone stays blue
+    COL_MATCH_PEAK: ('field',), COL_FIELD_SHIFT: ('shifted',),
 }
 
 
@@ -510,6 +516,10 @@ def register_content(dc):
             t = r.pop('ts')
             r['stageDots'], r['stageTip'] = _stage_dots(t)
             r['tiltsTip'] = _tilts_tip(t)
+            # The page counts the tilts left after curation from these and
+            # its selection, which changes without a refresh
+            r['usedMovies'] = sorted(m for x in t.tilts if not x.get('excluded')
+                                     and (m := _movie_index(x)) is not None)
             r['fingerprint'] = _fingerprint_svg(t)
         return rows_page, len(rows), page, n_pages
 
@@ -568,7 +578,8 @@ def register_content(dc):
     def _selection_state(session):
         """ The stored selection, without its export history. """
         sel = session.selection()
-        return {k: sel[k] for k in ('deselected', 'excludedTilts', 'updated', 'updatedBy')}
+        return {k: sel[k] for k in ('deselected', 'excludedTilts', 'proposedTilts',
+                                    'reviewed', 'updated', 'updatedBy')}
 
     # ---------------------------------------------------------------- page
     @dc.content
@@ -576,7 +587,7 @@ def register_content(dc):
         # The page around the content; a refresh asks for the content only
         return dict(otf_dashboard_content(**kwargs),
                     refresh_seconds=max(10, _int(kwargs, 'refresh_seconds', 30)),
-                    palette=PALETTE)
+                    palette=PALETTE, proposalLabels=TILT_FLAG_LABELS)
 
     # ------------------------------------------------------ refreshed part
     @dc.content
@@ -712,6 +723,9 @@ def register_content(dc):
 
         th = session.thresholds
         ctf_th = th['ctfMaxResolution']
+
+        def pct(v):       # a limit turned off (None) draws no guide
+            return None if v is None else 100 * v
         # Dashed guides per strip: the target and the reject limit.  The CTF
         # target follows the tilt angle, so it is a line rather than a level.
         guides = {
@@ -720,9 +734,15 @@ def register_content(dc):
             'rlnAccumMotionEarly': (th['motionEarly']['flag'], None),
             'rlnCtfMaxResolution': (
                 [TiltSeriesMetrics.ctf_target(t.get(COL_TILT_ANGLE), ctf_th)
-                 for t in tilts], ctf_th['reject']),
+                 for t in tilts] if None not in (ctf_th.get('lowTarget'), ctf_th.get('highTarget'))
+                else None, ctf_th.get('reject')),
             COL_CTF_CORRELATION: (th['ctfCorrelation']['target'],
                                   th['ctfCorrelation']['reject']),
+            # In the strips' units (percent where the scale is 100)
+            COL_IMAGE_TEXTURE: (None, pct(th['imageTexture'].get('reject'))),
+            COL_DARK_AREA: (None, pct(th['darkArea'].get('reject'))),
+            COL_MATCH_PEAK: (None, th['neighbourMatch'].get('peak')),
+            COL_FIELD_SHIFT: (None, pct(th['fieldShift'].get('reject'))),
         }
 
         strips = []
@@ -748,6 +768,9 @@ def register_content(dc):
         # without a jpeg keeps its slot so the strip stays aligned with the
         # plots.
         notes, thumbs = [], []
+        # Why the curation rule proposes leaving a tilt out, for the 'auto'
+        # tag of the tilts an accepted proposal unticked
+        proposal = ts.proposed_exclusions()
         for t in tilts:
             qc = _tilt_qc(t)
             if qc == 'excluded':
@@ -783,6 +806,8 @@ def register_content(dc):
                 # there is not in it and cannot be selected
                 'qc': qc,
                 'movie': _movie_index(t),
+                'proposal': ', '.join(TILT_FLAG_LABELS.get(f, f)
+                                      for f in proposal.get(_movie_index(t), [])),
                 'selectable': (t.get(COL_MOVIE_INDEX) is not None and
                                t.get('droppedAt') not in ('motioncorr', 'ctf')),
                 'label': '' if angle is None else f'{round(angle)}°',

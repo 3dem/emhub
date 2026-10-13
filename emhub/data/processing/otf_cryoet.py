@@ -30,6 +30,9 @@ from glob import glob
 from collections import OrderedDict, Counter
 
 from emtools.metadata import StarFile, RelionStar
+# The curation rule (reject limits, flags, tilts after a lost field) lives
+# there only: shared with the emw-tilt-curation job and the curation skill
+from emtools.image import tilt_qc
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +96,15 @@ COL_MOVIE_NAME = 'rlnMicrographMovieName'
 COL_POWER_SPECTRUM = 'rlnCtfPowerSpectrum'
 # Not a RELION column: the CTF profile correlation from <movie>_ctf.json
 COL_CTF_CORRELATION = 'ctfCorrelation'
+# Not RELION columns either: the image content measures emwrap writes per
+# tilt series, <tomoName>_imageqc.json beside the jpegs (emtools tilt_qc),
+# kept raw in t['imageQc']; these are what the strips show.  Texture and
+# dark area are relative to the series (tilt_qc.relative_measures).
+COL_IMAGE_QC = 'imageQc'
+COL_IMAGE_TEXTURE = 'imageTexture'     # fraction of the series median
+COL_DARK_AREA = 'darkAreaExcess'       # fraction of the field black beyond the series median
+COL_MATCH_PEAK = 'matchPeak'           # phase correlation with the last good neighbour
+COL_FIELD_SHIFT = 'fieldShift'         # from the first tilt, fractions of the field of view
 
 MOTION_COLS = ['rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate']
 CTF_COLS = ['rlnDefocusU', 'rlnDefocusV', 'rlnCtfAstigmatism',
@@ -123,18 +135,20 @@ PLACEHOLDER_ZERO_COLS = {
 
 # Default triage thresholds, following the facility's RELION 5 CryoET QC
 # reference, revised against a hand curation of lamella data (ChlamyBrnA,
-# 38 tilt series): motion was not a reason to reject below ~50 Å, Warp's CTF
+# 38 tilt series): motion was not a reason to reject below ~75 Å, Warp's CTF
 # fit resolution saturated around 7 Å, and the CTF profile correlation told
 # failed fits apart.  Overridable per entry; they are not meant to be
 # universal.
 #
 # Tilts are judged first: a tilt past a 'reject' limit counts as unusable,
-# one past a 'target' is usable but not optimal.  A tilt series is then
+# one past a 'target' is usable but not optimal.  The reject limits are the
+# curation rule's (emtools tilt_qc.DEFAULT_LIMITS, see rule_limits); the
+# targets are the dashboard's own.  A tilt series is then
 # judged on how many usable tilts it keeps.  Only data quality is judged
 # here; job failures are handled separately.
 DEFAULT_THRESHOLDS = {
     # Per tilt
-    'motionTotal': {'target': 25.0, 'reject': 50.0},     # Å
+    'motionTotal': {'target': 25.0},                       # Å
     # Not judged when early motion equals total motion on every tilt (a dose
     # per tilt under RELION's 4 e/Å² split): it would only repeat motion
     'motionEarly': {'flag': 10.0},                        # Å
@@ -142,16 +156,11 @@ DEFAULT_THRESHOLDS = {
     # the sample grows as 1/cos(tilt): lowTarget up to lowTilt, highTarget
     # from highTilt, linear in between.
     'ctfMaxResolution': {'lowTilt': 20.0, 'lowTarget': 7.5,
-                         'highTilt': 45.0, 'highTarget': 9.0,
-                         'reject': 10.0},                 # degrees, Å
+                         'highTilt': 45.0, 'highTarget': 9.0},  # degrees, Å
     # Correlation of the measured and simulated CTF radial profiles, from
     # the <movie>_ctf.json emwrap writes: below 0.15 the fit failed (the
     # hand-rejected tilts had a median of 0.25, the kept ones 0.55)
-    'ctfCorrelation': {'target': 0.3, 'reject': 0.15},
-    'ctfFigureOfMerit': {'reject': 0.03},
-    'astigmatism': {'reject': 4000.0},                   # Å (0.40 µm)
-    # RELION stores underfocus as positive defocus, so negative is overfocus
-    'defocus': {'reject': 60000.0},                      # Å (6 µm)
+    'ctfCorrelation': {'target': 0.3},
     # Per tilt series
     'usableFraction': {'bad': 0.75},       # usable tilts / collected tilts
     'droppedFraction': {'suspect': 0.15},  # excluded + rejected / collected
@@ -163,6 +172,27 @@ DEFAULT_THRESHOLDS = {
     'shiftRoughness': {},
 }
 
+# Where each limit of the curation rule (emtools tilt_qc.DEFAULT_LIMITS)
+# sits in the thresholds: the defaults are filled in from the rule, and an
+# entry's otf_thresholds go back to it through rule_limits.  Image content:
+# blank, blacked out, a different field (both correlations low), shifted.
+RULE_KEYS = {
+    'motion': ('motionTotal', 'reject'),               # Å
+    'ctfResolution': ('ctfMaxResolution', 'reject'),   # Å
+    'ctfCorrelation': ('ctfCorrelation', 'reject'),
+    'figureOfMerit': ('ctfFigureOfMerit', 'reject'),
+    'astigmatism': ('astigmatism', 'reject'),          # Å
+    'defocus': ('defocus', 'reject'),                  # Å; overfocus (negative) too
+    'texture': ('imageTexture', 'reject'),             # of the series median
+    'darkArea': ('darkArea', 'reject'),                # of the field, beyond the series median
+    'matchPeak': ('neighbourMatch', 'peak'),
+    'matchNcc': ('neighbourMatch', 'ncc'),
+    'fieldShift': ('fieldShift', 'reject'),            # of the field of view
+    'beyond': ('fieldLoss', 'beyond'),                 # propose the tilts after a lost field
+}
+for _limit, (_key, _field) in RULE_KEYS.items():
+    DEFAULT_THRESHOLDS.setdefault(_key, {})[_field] = tilt_qc.DEFAULT_LIMITS[_limit]
+
 STATUS_OK = 'ok'
 STATUS_SUSPECT = 'suspect'
 STATUS_BAD = 'bad'
@@ -170,6 +200,13 @@ STATUS_RUNNING = 'running'
 STATUS_FAILED = 'failed'
 # What the dashboard counts and filters as needing a look
 STATUSES_NEED_REVIEW = (STATUS_SUSPECT, STATUS_BAD, STATUS_FAILED)
+
+
+
+def rule_limits(th):
+    """ The curation rule's limits (tilt_qc) from the dashboard's
+    thresholds (see RULE_KEYS); None turns a check off. """
+    return {limit: th.get(key, {}).get(field) for limit, (key, field) in RULE_KEYS.items()}
 
 
 # --------------------------------------------------------------------------
@@ -461,39 +498,34 @@ class TiltSeriesMetrics:
         motion, early = th['motionTotal'], th['motionEarly']
         ctf, corr = th['ctfMaxResolution'], th['ctfCorrelation']
 
-        for t in self.tilts:
-            reject, off = [], []
+        def over(v, limit):
+            return v is not None and limit is not None and v > limit
+
+        # Unusable: the curation rule's flags; off target: the targets here
+        rule = self._rule_tilts()
+        self._limits = rule_limits(th)
+        flags = tilt_qc.tilt_flags(rule, self._limits)
+        relative = tilt_qc.relative_measures(rule)
+        for t, reject, (texture, dark) in zip(self.tilts, flags, relative):
+            t[COL_IMAGE_TEXTURE], t[COL_DARK_AREA] = texture, dark
+            off = []
             if not t.get('excluded'):
+                # Each target can be turned off (None) by an entry
                 m = _measured(t.get('rlnAccumMotionTotal'), 'rlnAccumMotionTotal')
-                if m is not None:
-                    if m > motion['reject']:
-                        reject.append('motion')
-                    elif m > motion['target']:
-                        off.append('motion')
+                if over(m, motion.get('target')) and 'motion' not in reject:
+                    off.append('motion')
                 e = _measured(t.get('rlnAccumMotionEarly'), 'rlnAccumMotionEarly')
-                if e is not None and e > early['flag'] and not self.earlyIsTotal:
+                if over(e, early.get('flag')) and not self.earlyIsTotal:
                     off.append('early')
                 r = _measured(t.get('rlnCtfMaxResolution'), 'rlnCtfMaxResolution')
-                if r is not None:
-                    if r > ctf['reject']:
-                        reject.append('ctf')
-                    elif r > self.ctf_target(t.get(COL_TILT_ANGLE), ctf):
+                if r is not None and 'ctf' not in reject and None not in (
+                        ctf.get('lowTarget'), ctf.get('highTarget')):
+                    if r > self.ctf_target(t.get(COL_TILT_ANGLE), ctf):
                         off.append('ctf')
                 c = t.get(COL_CTF_CORRELATION)
-                if c is not None:
-                    if c < corr['reject']:
-                        reject.append('ctfcorr')
-                    elif c < corr['target']:
-                        off.append('ctfcorr')
-                f = _measured(t.get('rlnCtfFigureOfMerit'), 'rlnCtfFigureOfMerit')
-                if f is not None and f < th['ctfFigureOfMerit']['reject']:
-                    reject.append('fom')
-                a = t.get('rlnCtfAstigmatism')
-                if a is not None and abs(a) > th['astigmatism']['reject']:
-                    reject.append('astigmatism')
-                d = t.get('rlnDefocusU')
-                if d is not None and (d < 0 or d > th['defocus']['reject']):
-                    reject.append('defocus')
+                if (c is not None and corr.get('target') is not None
+                        and 'ctfcorr' not in reject and c < corr['target']):
+                    off.append('ctfcorr')
             t['reject'], t['offTarget'] = reject, off
 
         self.rejectCounts = Counter(k for t in self.tilts for k in t['reject'])
@@ -504,6 +536,36 @@ class TiltSeriesMetrics:
         # Tilts whose CTF fit misses a target, in resolution or correlation
         self.nCtfOffTarget = sum(1 for t in self.tilts
                                  if {'ctf', 'ctfcorr'} & set(t['offTarget']))
+
+    def _rule_tilts(self):
+        """ The tilts as the curation rule (emtools tilt_qc) takes them,
+        in order; placeholder zeros are not measured. """
+        def measured(col):
+            return lambda t: _measured(t.get(col), col)
+        values = {
+            'motion': measured('rlnAccumMotionTotal'),
+            'ctfResolution': measured('rlnCtfMaxResolution'),
+            'figureOfMerit': measured('rlnCtfFigureOfMerit'),
+            'ctfCorrelation': lambda t: t.get(COL_CTF_CORRELATION),
+            'astigmatism': lambda t: t.get('rlnCtfAstigmatism'),
+            'defocus': lambda t: t.get('rlnDefocusU'),
+        }
+        return [dict(t.get(COL_IMAGE_QC) or {},
+                     movie=None if t.get(COL_MOVIE_INDEX) is None else int(t[COL_MOVIE_INDEX]),
+                     angle=t.get(COL_TILT_ANGLE), dropped=bool(t.get('excluded')),
+                     **{k: get(t) for k, get in values.items()})
+                for t in self.tilts]
+
+    def proposed_exclusions(self):
+        """ {movie index: [flags]} for the tilts to propose leaving out:
+        the unusable ones, and those after a tilt that lost the field on the
+        same side of the first acquired tilt ('beyond', tilt_qc.beyond_field).
+        Needs summarize(). """
+        flags = [list(t.get('reject', [])) for t in self.tilts]
+        if getattr(self, '_limits', {}).get('beyond'):
+            tilt_qc.beyond_field(self._rule_tilts(), flags)
+        return {int(t[COL_MOVIE_INDEX]): f for t, f in zip(self.tilts, flags)
+                if f and t.get(COL_MOVIE_INDEX) is not None}
 
     def _alignment_metrics(self):
         """ Alignment quality from the Relion 5 columns that emwrap actually
@@ -612,16 +674,26 @@ class TiltSeriesMetrics:
 
         if self.nTilts:
             n = self.nTilts
+            # Formatted only for the flags present: a limit an entry turned
+            # off (None) never flags
             labels = {
-                'motion': f'motion above {th["motionTotal"]["reject"]:.0f} Å',
-                'ctf': f'CTF fit worse than {th["ctfMaxResolution"]["reject"]:.0f} Å',
-                'ctfcorr': f'CTF profile correlation below {th["ctfCorrelation"]["reject"]}',
-                'fom': f'CTF figure of merit below {th["ctfFigureOfMerit"]["reject"]}',
-                'astigmatism': f'astigmatism above {th["astigmatism"]["reject"] / 1e4:.2f} µm',
-                'defocus': f'defocus overfocused or above {th["defocus"]["reject"] / 1e4:.0f} µm',
+                'motion': lambda: f'motion above {th["motionTotal"]["reject"]:.0f} Å',
+                'ctf': lambda: f'CTF fit worse than {th["ctfMaxResolution"]["reject"]:.0f} Å',
+                'ctfcorr': lambda: f'CTF profile correlation below {th["ctfCorrelation"]["reject"]}',
+                'fom': lambda: f'CTF figure of merit below {th["ctfFigureOfMerit"]["reject"]}',
+                'astigmatism': lambda: f'astigmatism above {th["astigmatism"]["reject"] / 1e4:.2f} µm',
+                'defocus': lambda: f'defocus overfocused or above {th["defocus"]["reject"] / 1e4:.0f} µm',
+                'blank': lambda: (f'image texture under {th["imageTexture"]["reject"]:.0%} '
+                                  'of the series median'),
+                'blacked': lambda: (f'black area over the series median by more than '
+                                    f'{th["darkArea"]["reject"]:.0%} of the field'),
+                'field': lambda: 'a different field from the tilt before it',
+                'shifted': lambda: (f'the field shifted over {th["fieldShift"]["reject"]:.0%} '
+                                    'from the first tilt'),
             }
             # Plain strings from here are formatted by check(), not here
-            why = ', '.join(f'{c} with {labels[k]}'
+            why = ', '.join(f'{c} with ' + (labels[k]() if k in labels
+                                             else tilt_qc.REASON_LABELS.get(k, k))
                             for k, c in self.rejectCounts.most_common())
             why = f' ({why})' if why else ''
             n_dropped = n - self.nUsable
@@ -684,6 +756,24 @@ class TiltSeriesMetrics:
 # --------------------------------------------------------------------------
 # The session
 # --------------------------------------------------------------------------
+def _check_selection(deselected, excluded_tilts=None, proposed_tilts=None, reviewed=None):
+    """ Raise ValueError unless a selection posted by a browser has the
+    expected shape: lists of tilt series names, {name: [movie indices]}.
+    None stands for a part not posted. """
+    def names(v):
+        return isinstance(v, list) and all(isinstance(n, str) for n in v)
+
+    def tilt_map(d):
+        return d is None or (isinstance(d, dict) and all(
+            isinstance(k, str) and isinstance(ids, list)
+            and all(type(i) is int for i in ids) for k, ids in d.items()))
+
+    if not (names(deselected) and tilt_map(excluded_tilts) and tilt_map(proposed_tilts)
+            and (reviewed is None or names(reviewed))):
+        raise ValueError('Invalid selection: expected lists of tilt series names and '
+                         '{name: [movie indices]}')
+
+
 class OtfSession:
     """ A single on-the-fly CryoET session, backed by a RELION 5 project. """
 
@@ -777,8 +867,11 @@ class OtfSession:
     # -- the user's selection ---------------------------------------------
     def selection(self):
         """ The session's selection (see SELECTION_FILE): 'deselected'
-        tilt series names, 'excludedTilts' {name: [movie indices]}, who
-        changed it last and when, and the 'exports' made from it. """
+        tilt series names, 'excludedTilts' {name: [movie indices]},
+        'proposedTilts' {name: [movie indices]} the automatic proposals
+        accepted (so one ticked again is not proposed again), 'reviewed'
+        {name: {'by', 'at'}} the tilt series a curator marked as reviewed,
+        who changed it last and when, and the 'exports' made from it. """
         try:
             with open(self.join(SELECTION_FILE)) as f:
                 data = json.load(f)
@@ -788,22 +881,24 @@ class OtfSession:
             'deselected': sorted(set(data.get('deselected', []))),
             'excludedTilts': {name: sorted({int(i) for i in ids})
                               for name, ids in data.get('excludedTilts', {}).items() if ids},
+            'proposedTilts': {name: sorted({int(i) for i in ids})
+                              for name, ids in data.get('proposedTilts', {}).items() if ids},
+            'reviewed': {name: r for name, r in data.get('reviewed', {}).items()
+                         if isinstance(r, dict)},
             'updated': data.get('updated'),
             'updatedBy': data.get('updatedBy'),
             'exports': data.get('exports', []),
         }
 
-    def save_selection(self, deselected, excluded_tilts, user=None, export=None):
+    def save_selection(self, deselected, excluded_tilts, user=None, export=None,
+                       proposed_tilts=None, reviewed=None):
         """ Store the selection, keeping the earlier exports and adding
-        export if given.  Written then renamed, so a reader never gets a
-        partial file.  Returns what was stored. """
-        # Posted by the browser: names and lists of movie indices only
-        if (not isinstance(deselected, list)
-                or not all(isinstance(n, str) for n in deselected)
-                or not isinstance(excluded_tilts or {}, dict)
-                or not all(isinstance(ids, list) for ids in (excluded_tilts or {}).values())):
-            raise ValueError('Invalid selection: expected a list of tilt series '
-                             'names and {name: [movie indices]}')
+        export if given, the stored proposedTilts unless proposed_tilts is
+        given, and the stored reviewed marks unless reviewed (the names of
+        the tilt series reviewed) is given: a name newly in it is stamped
+        with user and the time.  Written then renamed, so a reader never
+        gets a partial file.  Returns what was stored. """
+        _check_selection(deselected, excluded_tilts, proposed_tilts, reviewed)
         data = self.selection()
         data.update(
             deselected=sorted(set(deselected)),
@@ -811,6 +906,13 @@ class OtfSession:
                            for name, ids in (excluded_tilts or {}).items() if ids},
             updated=time.strftime('%Y-%m-%dT%H:%M:%S'),
             updatedBy=user)
+        if proposed_tilts is not None:
+            data['proposedTilts'] = {name: sorted({int(i) for i in ids})
+                                     for name, ids in proposed_tilts.items() if ids}
+        if reviewed is not None:
+            now = time.strftime('%Y-%m-%dT%H:%M:%S')
+            data['reviewed'] = {name: data['reviewed'].get(name) or {'by': user, 'at': now}
+                                for name in sorted(set(reviewed))}
         if export:
             data['exports'].append(export)
         path = self.join(SELECTION_FILE)
@@ -823,6 +925,44 @@ class OtfSession:
             json.dump(data, f, indent=2)
         os.replace(tmp, path)
         return data
+
+    def propose_exclusions(self, deselected=None, excluded_tilts=None, proposed_tilts=None):
+        """ The tilts to propose leaving out, given a selection (the
+        browser's, which may not be saved yet): per selected tilt series,
+        those of TiltSeriesMetrics.proposed_exclusions not excluded already
+        and not proposed before (one ticked again after a proposal stays).
+
+        Returns {'series': [{'name', 'add': [movie indices], 'flags':
+        {flag: count}, 'curated': whether it has tilts excluded other than by
+        an accepted proposal}],
+        'review': [{'name', 'status', 'keeps'}]}, review being the series
+        that would keep under the usable fraction limit: listed for the
+        user, never deselected.  Series still processing are left out. """
+        deselected = [] if deselected is None else deselected
+        _check_selection(deselected, excluded_tilts, proposed_tilts)
+        excluded, proposed = excluded_tilts or {}, proposed_tilts or {}
+        deselected = set(deselected)
+        out, review = [], []
+        limit = self.thresholds['usableFraction'].get(STATUS_BAD)
+        for ts in self.tilt_series():
+            if ts.tomoName in deselected or ts.status == STATUS_RUNNING or not ts.nTilts:
+                continue
+            ex = {int(i) for i in excluded.get(ts.tomoName, [])}
+            before = {int(i) for i in proposed.get(ts.tomoName, [])}
+            prop = ts.proposed_exclusions()
+            add = sorted(set(prop) - ex - before)
+            if add:
+                out.append({'name': ts.tomoName, 'add': add,
+                            'flags': dict(Counter(f for m in add for f in prop[m])),
+                            'curated': bool(ex - before)})
+            # What it keeps if this proposal is accepted for it
+            used = {int(t[COL_MOVIE_INDEX]) for t in ts.tilts
+                    if not t.get('excluded') and t.get(COL_MOVIE_INDEX) is not None}
+            keeps = len(used - ex - set(add)) / ts.nTilts
+            if limit is not None and keeps < limit:
+                review.append({'name': ts.tomoName, 'status': ts.status, 'keeps': keeps})
+        review.sort(key=lambda r: r['keeps'])
+        return {'series': out, 'review': review, 'usableLimit': limit}
 
     def subset_plan(self):
         """ What a subset job made from the stored selection contains.
@@ -1111,6 +1251,31 @@ class OtfSession:
                 self._merge_tilts(ts, tilts, key)
                 last = (key, star)
         self._read_ctf_correlations(ts, [star for _, star in stars if star])
+        self._read_image_qc(ts)
+
+    def _read_image_qc(self, ts):
+        """ The image content measures of each tilt, from the json emwrap
+        writes beside the tilt jpegs, matched by micrograph name: raw in
+        t['imageQc'] for the rule, the match ones also as strip columns. """
+        src = next((t[COL_MICROGRAPH] for t in ts.tilts if t.get(COL_MICROGRAPH)), None)
+        if not src:
+            return
+        path = self.join(os.path.dirname(os.path.dirname(src)), THUMBNAILS_DIR,
+                         ts.tomoName + tilt_qc.SUFFIX)
+        data = _read_cached(path, _read_json)
+        if not isinstance(data, dict):
+            return
+        rows = {r['name']: r for r in data.get('tilts') or []
+                if isinstance(r, dict) and r.get('name')}
+        if not rows:
+            return
+        for t in ts.tilts:
+            name = os.path.splitext(os.path.basename(t.get(COL_MICROGRAPH) or ''))[0]
+            if (r := rows.get(name)) is None:
+                continue
+            t[COL_IMAGE_QC] = {k: r.get(k) for k in tilt_qc.MEASURES}
+            for col in (COL_MATCH_PEAK, COL_FIELD_SHIFT):
+                t[col] = r.get(col)
 
     def _read_ctf_correlations(self, ts, stars):
         """ The CTF profile correlation of each tilt, from the json emwrap
