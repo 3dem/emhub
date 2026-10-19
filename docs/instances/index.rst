@@ -8,6 +8,7 @@ In this section you will find information about how to use EMhub.
     :maxdepth: 2
 
     SciLifeLab <scilifelab/index>
+    St. Jude <stjude/index>
 
 
 
