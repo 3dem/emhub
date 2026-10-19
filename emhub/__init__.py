@@ -507,16 +507,32 @@ def create_app(test_config=None):
 
     redis_config = os.path.join(emhub_instance_path, 'redis.conf')
     if os.path.exists(redis_config):
+        # Redis defaults, used if not specified in the config file
+        host, port = '127.0.0.1', 6379
         with open(redis_config) as f:
             for line in f:
-                if line.startswith('bind'):
-                    host = line.split()[1]
-                elif line.startswith('port'):
-                    port = int(line.split()[1])
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+                if parts[0] == 'bind':
+                    host = parts[1]
+                elif parts[0] == 'port':
+                    port = int(parts[1])
         import redis
         app.r = redis.StrictRedis(host, port,
-                                  charset="utf-8", decode_responses=True)
-        app.r.ping()
+                                  encoding="utf-8", decode_responses=True,
+                                  socket_connect_timeout=5)
+        try:
+            app.r.ping()
+        except redis.exceptions.RedisError as e:
+            raise RuntimeError(
+                f"Redis config file found at '{redis_config}', but could not "
+                f"connect to Redis at {host}:{port}: {e}\n"
+                f"Make sure the Redis server is running, e.g.:\n"
+                f"    cd {emhub_instance_path} && "
+                f"redis-server redis.conf --daemonize yes\n"
+                f"or remove/rename '{redis_config}' to run without Redis."
+            ) from None
 
     app.dm = DataManager(app.instance_path, user=app.user, redis=app.r)
 
