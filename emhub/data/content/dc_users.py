@@ -40,6 +40,9 @@ def register_content(dc):
         ldap = int(kwargs.get('ldap', 0))
         data = dc.get_users_list()
         users = data['users']
+        # Allow to render a single user (e.g. to refresh its row)
+        if user_id := kwargs.get('user_id', None):
+            users = [u for u in users if u.id == int(user_id)]
         # ldap_map_file = '/Users/jdela80/ldap_map.json'
         # if ldap:
         #     ldap_map = {}
@@ -55,6 +58,31 @@ def register_content(dc):
         # for u in users:
         #     u.ldap_username = ldap_map.get(u.email, None)
         return {'users': users}
+
+    @dc.content
+    def users_independent(**kwargs):
+        """ Users that are independent for at least one of the instruments
+        listed in the 'independent' section of config:resources. """
+        dm = dc.app.dm
+        independent = dm.get_config('resources').get('independent', {})
+        resources = {r.name: r for r in dm.get_resources()}
+        instruments = [{'id': resources[name].id, 'name': name, 'mode': mode}
+                       for name, mode in independent.items() if name in resources]
+        totals = {i['id']: 0 for i in instruments}
+        users = []
+
+        for u in dc.get_users_list(**kwargs)['users']:
+            u.independent_ids = [i['id'] for i in instruments
+                                 if u.is_independent_for(i['id'])]
+            if u.independent_ids:
+                users.append(u)
+                for rid in u.independent_ids:
+                    totals[rid] += 1
+
+        # Users independent on more instruments first, then by name
+        users.sort(key=lambda u: (-len(u.independent_ids), u.name.lower()))
+
+        return {'instruments': instruments, 'users': users, 'totals': totals}
 
     @dc.content
     def users_groups_cards(**kwargs):

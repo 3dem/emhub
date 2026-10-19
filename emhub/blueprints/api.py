@@ -212,12 +212,15 @@ def update_user_form():
             # check that there are not other users referencing this one as pi
             # still this will not be a very common case
 
-        if independent_resources := f.get('user-indepent-resources', ''):
+        # Only managers can set the independent resources. An empty value
+        # means that all of them were unselected
+        if 'user-indepent-resources' in f and app.user.is_manager:
             def _val(v):
                 try:
                     return int(v)
                 except:
                     return None
+            independent_resources = f['user-indepent-resources']
             attrs['extra'] = {
                 'independent_resources': [_val(v) for v in independent_resources.split(',') if _val(v)]
             }

@@ -367,11 +367,14 @@ class DataContent:
     def get_users_list(self, **kwargs):
         status = kwargs.get('status', 'active')
         all_users = self.app.dm.get_users()
+        resources = {r.id: r.name for r in self.app.dm.get_resources()}
         users = []
         for u in all_users:
             if status == 'all' or u.status == status:
                 u.image = self.user_profile_image(u)
                 u.project_codes = [p.code for p in u.get_applications()]
+                u.independent_names = [resources[rid] for rid in u.independent_resources
+                                       if rid in resources]
                 users.append(u)
 
         return {'users': users}

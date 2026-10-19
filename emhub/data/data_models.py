@@ -464,9 +464,13 @@ def create_data_models(dm):
         def independent_resources(self, value):
             self.__setExtra('independent_resources', value)
 
-        def is_independent(self, resource_id):
-            """ Return True if the user is independent for the given resource. """
-            return resource_id in self.independent_resources
+        def is_independent_for(self, resource_id):
+            """ Return True if the user is independent for the given resource.
+            Users with the global 'independent' role are independent for
+            all resources. (Not named 'is_independent' to avoid overriding
+            the role-based property above.)
+            """
+            return self.is_independent or resource_id in self.independent_resources
 
     class Template(Base):
         """ Classes used as template to create Applications.
