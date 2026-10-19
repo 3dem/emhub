@@ -296,6 +296,56 @@ function deleteUser(user_id) {
 } // function deleteProject
 
 
+/**
+ * Refresh a single row of a DataTable with the row rendered by the server.
+ * The content is requested again and the row with the given id is updated,
+ * added (if it is new in the content) or removed (if it is not anymore).
+ *
+ * @param tableSelector: selector of the DataTable (e.g. '#users-table')
+ * @param content_id: content that renders the table
+ * @param params: parameters for the content request
+ * @param rowId: DOM id of the row (e.g. 'user-row-5')
+ * @param afterRefresh: optional function receiving the parsed content
+ */
+function refreshDataTableRow(tableSelector, content_id, params, rowId, afterRefresh) {
+    var ajaxContent = get_ajax_content(content_id, params);
+
+    ajaxContent.done(function (html) {
+        // parseHTML does not execute the scripts in the content
+        var content = $('<div>').append($.parseHTML(html));
+        var dt = $(tableSelector).DataTable();
+        var row = dt.row('#' + rowId);
+        var newTr = content.find('#' + rowId);
+
+        // If the table rendered by the server does not have the same columns
+        // (e.g. the template changed after this page was loaded), reload the page
+        if (newTr.length && newTr.children('td').length !== dt.columns().count()) {
+            window.location.reload();
+            return;
+        }
+
+        if (newTr.length) {
+            if (row.node()) {
+                var cells = newTr.children('td').map(function () {
+                    return this.innerHTML;
+                }).get();
+                row.data(cells);
+            }
+            else
+                dt.row.add(newTr[0]);
+        }
+        else if (row.node())
+            row.remove();
+
+        dt.draw(false);  // keep the current page
+
+        if (nonEmpty(afterRefresh))
+            afterRefresh(content);
+    });
+
+    ajaxContent.fail(ajax_request_failed);
+}
+
 /*-------------------------- Sessions ------------------------------------ */
 function showSession(session_id){
     var content = get_ajax_content("session_form", {session_id: session_id});

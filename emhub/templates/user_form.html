@@ -128,7 +128,7 @@
 
                             {% set independent_resources = user.extra.get('independent_resources', []) %}
 
-                            <select id="user-indepent-resources" name="user-indepent-resources" class="selectpicker show-tick" multiple data-width="100%" title="Independent Instruments...">
+                            <select id="user-indepent-resources" name="user-indepent-resources" class="selectpicker show-tick" multiple data-width="100%" title="Independent Instruments..." {{ disabled }}>
                                 {% for r in resources %}
                                     {% if r['name'] in independent_config %}
                                         {% set selected = 'selected' if r['id'] in independent_resources else '' %}
@@ -230,6 +230,8 @@ function handleUserAjaxDone(jsonResponse) {
     else {
         showMessage('SUCCESS', 'User updated successfully.');
         $('#user-modal').modal('hide');
+        // Let the current page (e.g. users tables) refresh the updated user
+        $(document).trigger('emhub:user-updated', [jsonResponse.user.id]);
     }
 }
 
