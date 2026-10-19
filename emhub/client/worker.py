@@ -181,8 +181,9 @@ class TaskHandler(threading.Thread):
                     self.error(msg)
                     with open(os.path.join(self.worker.logsFolder, errorLog), 'w') as f:
                         f.write(errorTrace)
-                    # TODO: Send the log EMhub
-                    #self.update_task({'error': errorTrace, 'done': 1})
+                    # Report the error to EMhub, to see it while monitoring
+                    if self.emhub_log is not None:
+                        self.update_log({'error': msg, 'count': self.count})
                     print(e)
                 except Exception as e2:
                     print(f"Another exception occurred while handling "
@@ -235,10 +236,12 @@ class Worker:
         self.token = None  # API token used after connection
         self.name = kwargs.get('name', System.hostname())
         self.logFile = kwargs.get('logFile', 'worker.log')
-        self.logsFolder = os.path.expanduser('~/.emhub/sessions/logs')
+        # Folder for the log files (and other files of the worker), it can be
+        # changed (e.g. to debug workers in the same machine)
+        self.logsFolder = kwargs.get('logsFolder') or os.path.expanduser('~/.emhub/sessions/logs')
+        # Login to the server in setup (_connect), retrying if it is not available
         self.dc = DataClient(server_url=config.EMHUB_SERVER_URL)
         self.dc.timeout = 60
-        self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
         self.tasks = {}
         self._tasksLock = threading.Lock()
         self.debug = kwargs.get('debug', False)
@@ -250,11 +253,25 @@ class Worker:
     def error(self, msg):
         self.logger.error(f"{self._logPrefix} {msg}")
 
+    def _login(self):
+        self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
+
+    def _dc_request(self, method, jsonData):
+        """ Request to the server returning the JSON result. If it fails, the
+        login session might have expired (e.g. worker running for a long time),
+        so login again and retry once. """
+        try:
+            return self.dc.request(method, jsonData=jsonData).json()
+        except Exception as e:
+            try:
+                self._login()
+            except Exception:
+                raise e  # server not available, raise the original error
+            return self.dc.request(method, jsonData=jsonData).json()
+
     def request(self, method, data, key=None):
         data['token'] = self.token
-        r = self.dc.request(method,
-                            jsonData={'attrs': data})
-        result = r.json()
+        result = self._dc_request(method, {'attrs': data})
         if 'error' in result:
             self.error(f"Error from server: {result['error']}")
         elif key:
@@ -292,7 +309,7 @@ class Worker:
             jsonData: arguments that will send as JSON to the request.
         """
         def _get_data():
-            return self.dc.request(endpoint, jsonData=jsonData).json()
+            return self._dc_request(endpoint, jsonData)
 
         errorMsg = f"retrieving data from endpoint: {endpoint}"
         return self._request(_get_data, errorMsg)
@@ -325,11 +342,17 @@ class Worker:
 
     def get_tasks(self, key):
         self.info(f"Retrieving {key} tasks...")
-        return self.request(f'get_{key}_tasks',
-                            {'worker': self.name}, 'tasks')
+        data = {'worker': self.name}
+        if key == 'new':
+            # Wait for new tasks less than the requests timeout
+            data['block'] = max(1, int(self.dc.timeout * 0.5)) * 1000
+        return self.request(f'get_{key}_tasks', data, 'tasks')
 
     def process_tasks(self, key):
-        if tasks := self.get_tasks(key):
+        tasks = self.get_tasks(key)
+        if tasks is None:  # error from server, already logged in request
+            raise Exception(f"Could not retrieve {key} tasks from server")
+        if tasks:
             with self._tasksLock:
                 new_tasks = [t for t in tasks if t['id'] not in self.tasks]
             self.info(f"Got {len(new_tasks)} tasks.")
@@ -344,29 +367,49 @@ class Worker:
         self.info(f"EMHUB server...")
         self.info(f"     SERVER_URL: {config.EMHUB_SERVER_URL}")
 
-        self.token = self.request('connect_worker',
-                                  {'worker': self.name, 'specs': System.specs()},
-                                  key='token')
-        if self.token is None:
-            raise Exception(f"{Color.bold('Worker could not connect')}, got {Color.red('NONE')} as token!\n"
-                            f"Check the connection with the EMhub server and "
-                            f"the Redis server configuration.")
+        self._connect()
+
+    def _connect(self):
+        """ Login and connect this worker to the server, retrying until the
+        server is available (e.g. if it is down when the worker starts). """
+        wait = 5  # seconds, doubled until max 60
+        while True:
+            try:
+                self._login()
+                self.token = self.request('connect_worker',
+                                          {'worker': self.name, 'specs': System.specs()},
+                                          key='token')
+                if self.token is not None:
+                    self.info("Connected to EMhub.")
+                    return
+                self.error("Worker could not connect, got NONE as token! "
+                           f"Check that '{self.name}' is registered as a "
+                           "valid host in the EMhub 'hosts' config form.")
+            except Exception as e:
+                self.error(f"Could not connect to EMhub ({config.EMHUB_SERVER_URL}): {e}")
+            self.info(f"Retrying connection in {wait} seconds.")
+            time.sleep(wait)
+            wait = min(60, wait * 2)
 
     def run(self):
         self.setup()
-        self.process_tasks('pending')  # get pending tasks
+        wait = 5  # seconds to wait after errors, doubled until max 300
 
         while True:
             try:
-                self.process_tasks('new')  # sleep for 5 min while not new tasks
-                # The following should not happen, but it is a protection
-                # in case there are pending tasks not being handled
+                # Get pending tasks first (e.g. after start or errors), this
+                # is a protection in case there are tasks not being handled
                 self.process_tasks('pending')
-
+                self.process_tasks('new')  # blocks for a while if no new tasks
+                wait = 5  # reset the wait after a successful round
             except Exception as e:
-                self.error('FATAL ERROR: ' + str(e))
-                self.error(traceback.format_exc())
-                time.sleep(30)
+                # Errors from the server (e.g. unregistered host) return
+                # immediately, so wait before retrying to avoid a busy loop
+                self.error(f"ERROR: {e}. Retrying in {wait} seconds.")
+                if self.debug:
+                    self.error(traceback.format_exc())
+                time.sleep(wait)
+                wait = min(300, wait * 2)
 
 
 class CmdWorker(Worker):

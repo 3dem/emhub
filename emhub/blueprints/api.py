@@ -515,7 +515,7 @@ def poll_active_sessions():
         tries -= 1
         dm.commit()
 
-        return send_json_data([])
+    return send_json_data([])
 
 
 @api_bp.route('/create_session', methods=['POST'])
@@ -1336,7 +1336,7 @@ def delete_task():
                     result += wstream.delete_task(t['id'])
 
         elif task_id.startswith('<'):
-            task_id.replace('<', '')
+            task_id = task_id.replace('<', '')
             for t in wstream.get_all_tasks():
                 if t['id'] < task_id:
                     result += wstream.delete_task(t['id'])
@@ -1366,7 +1366,11 @@ def get_new_tasks():
     """
     def _get_new_tasks(**attrs):
         worker = validate_worker_token(attrs['token'])
-        tasks = app.dm.get_worker_stream(worker, update=True).get_new_tasks()
+        # Blocking time (ms) waiting for new tasks, it should be shorter than
+        # the worker's requests timeout, otherwise tasks read after the worker
+        # gave up are claimed (pending) but never received
+        block = int(attrs.get('block', 30000))
+        tasks = app.dm.get_worker_stream(worker, update=True).get_new_tasks(block=block)
         return tasks
 
     return _handle_item(_get_new_tasks, 'tasks')
@@ -1413,7 +1417,8 @@ def get_all_tasks():
 def update_log():
     """ Add a new event for a given log. """
     def _update_log(**attrs):
-        validate_worker_token(attrs['token'])
+        worker = validate_worker_token(attrs['token'])
+        app.dm.worker_seen(worker)
         log_id = attrs['log_id']
         event = attrs['event']
         app.dm.update_log(log_id, event)

@@ -36,6 +36,12 @@ import datetime as dt
 import jinja2
 from emtools.utils import Pretty
 
+# Workers status (Workers page), from their last connection or request:
+# active (green) if seen in the last hour, inactive (yellow) if seen in the
+# last week and not connected (grey) otherwise
+WORKER_ACTIVE_TIME = dt.timedelta(hours=1)
+WORKER_CONNECTED_TIME = dt.timedelta(days=7)
+
 
 def register_content(dc):
 
@@ -183,27 +189,34 @@ def register_content(dc):
         dm = dc.app.dm
         workers = {}
         now = dt.datetime.now()
+        seen = dm.get_workers_seen()
         for k, v in dm.get_hosts().items():
             workers[k] = w = dict(v)
-            active = False
-            if updated := w.get('updated', ''):
-                u = Pretty.parse_datetime(updated)
-                td = now - u
-                active = td < dt.timedelta(minutes=2)
-                w['updated_elapsed'] = f"({Pretty.elapsed(u, now=now)})"
-            if connected := w.get('connected', ''):
-                c = Pretty.parse_datetime(connected)
-                w['connected_elapsed'] = f"({Pretty.elapsed(c, now=now)})"
-            w.update({
-                'has_specs': bool(w.get('specs', '')),
-                'active': active
-            })
+            w['updated'] = seen.get(k, '')  # last request to the server
+            times = []
+            for key in ['updated', 'connected']:
+                if value := w.get(key, ''):
+                    t = Pretty.parse_datetime(value)
+                    times.append(t)
+                    w[f'{key}_elapsed'] = f"({Pretty.elapsed(t, now=now)})"
+            # Status from the last connection or request to the server
+            age = now - max(times) if times else None
+            if age is not None and age < WORKER_ACTIVE_TIME:
+                w['status'], w['badge'] = 'active', 'success'
+            elif age is not None and age < WORKER_CONNECTED_TIME:
+                w['status'], w['badge'] = 'inactive', 'warning'
+            else:
+                w['status'], w['badge'] = 'not connected', 'secondary'
 
-        all_tasks = dm.get_all_tasks()
+        def _sort_key(item):
+            """ Last request first, then last connection (missing ones last). """
+            w = item[1]
+            return (w.get('updated', ''), w.get('connected', ''))
+
+        workers = dict(sorted(workers.items(), key=_sort_key, reverse=True))
 
         return {'workers': workers,
                 'has_redis': dm.r is not None,
-                'taskGroups': {h: t for h, t in all_tasks} if all_tasks else {},
                 'now': Pretty.now()
                 }
 

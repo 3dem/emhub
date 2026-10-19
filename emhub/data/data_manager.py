@@ -1661,7 +1661,7 @@ class DataManager(DbManager):
                 return 0
             return 1
 
-        def get_new_tasks(self, block=120000):
+        def get_new_tasks(self, block=30000):
             results = self.r.xreadgroup('group', self.worker, {self.name: '>'},
                                         block=block)
             new_tasks = []
@@ -1714,10 +1714,18 @@ class DataManager(DbManager):
 
     # ---------------------------- ENTRIES ---------------------------------
     def get_hosts(self):
-        """ Use Redis to cache hosts information, avoiding
-        reading it from the config all the time. """
-        self._hosts = getattr(self, '_hosts', self.get_config('hosts'))
-        return self._hosts
+        """ Hosts (workers) from the config, cached in Redis, so it is the
+        same for all the server processes (not cached in this instance). """
+        return self.get_config('hosts')
+
+    def worker_seen(self, worker):
+        """ Register the last time a worker made a request to the server. """
+        if self.r is not None:
+            self.r.hset('workers:seen', worker, Pretty.now())
+
+    def get_workers_seen(self):
+        """ Last time each worker made a request: {worker: datetime str}. """
+        return self.r.hgetall('workers:seen') if self.r is not None else {}
 
     def get_workers(self):
         return self.get_hosts()
@@ -1727,6 +1735,7 @@ class DataManager(DbManager):
         self.get_worker_stream(worker, update=True).connect()
         hosts = self.get_hosts()
         w = hosts[worker]
+        w.pop('updated', None)  # last request time is kept in Redis (worker_seen)
         w.update({'specs': specs,
                   'connected': Pretty.datetime(now)})
         self.update_config('hosts', hosts, cache=True)
@@ -1738,7 +1747,7 @@ class DataManager(DbManager):
             raise Exception("Unregistered host %s" % worker)
 
         if update:
-            host['updated'] = Pretty.now()
+            self.worker_seen(worker)
 
         return DataManager.WorkerStream(worker, self)
 

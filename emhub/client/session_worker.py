@@ -81,8 +81,14 @@ class SessionHandler(TaskHandler):
         self.worker.remove_handler(self.task)
 
     def get_session(self):
-        session = self._request(lambda: self.dc.get_session(self.session_id),
-                                f"retrieving session {self.session_id}")
+        def _get_session():
+            try:
+                return self.dc.get_session(self.session_id)
+            except Exception:
+                self.worker._login()  # e.g. expired login session
+                return self.dc.get_session(self.session_id)
+
+        session = self._request(_get_session, f"retrieving session {self.session_id}")
         if session is None:
             raise Exception(f"Could not retrieve session {self.session_id}")
         return session
