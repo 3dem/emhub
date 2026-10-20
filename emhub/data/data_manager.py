@@ -30,6 +30,7 @@ import datetime as dt
 import os
 import uuid
 import json
+import re
 from collections import defaultdict
 
 import sqlalchemy
@@ -40,6 +41,169 @@ from .data_db import DbManager
 from .data_log import DataLog
 from .data_models import create_data_models
 from .processing import get_processing_project, resolve_processing_path
+
+
+# ---------------- Parsing of condition/orderBy from API requests -------------
+# Only a small grammar is accepted, enough for the queries used by the
+# clients (e.g. "id=5", "project_id=3 and type='tomo_processing'"):
+#
+#    condition  := or_expr
+#    or_expr    := and_expr ( OR and_expr )*
+#    and_expr   := factor ( AND factor )*
+#    factor     := '(' or_expr ')' | comparison
+#    comparison := COLUMN OP VALUE | COLUMN [NOT] IN '(' VALUE (',' VALUE)* ')'
+#    OP         := = | == | != | <> | < | <= | > | >=
+#    VALUE      := integer | float | 'string' | "string"
+#
+#    order_by   := COLUMN [ASC|DESC] ( ',' COLUMN [ASC|DESC] )*
+#
+# Values always become bound parameters and column names must be plain
+# identifiers, so no SQL from the request reaches the database. Column names
+# are not checked against the model, an unknown column fails in the database.
+
+FILTER_MAX_LENGTH = 2000
+
+# Columns that can not be used from a request, even if they exist,
+# to avoid guessing their values with comparisons.
+FILTER_HIDDEN_COLUMNS = {'password_hash'}
+
+_KEYWORDS = {'and', 'or', 'not', 'in', 'asc', 'desc'}
+
+_OPS = {'=': '=', '==': '=', '!=': '!=', '<>': '!=',
+        '<': '<', '<=': '<=', '>': '>', '>=': '>='}
+
+_TOKEN_RE = re.compile(r"""
+    (?P<num>-?\d+(?:\.\d+)?(?![\w.]))
+  | (?P<str>'[^']*'|"[^"]*")
+  | (?P<op><=|>=|!=|<>|==|=|<|>)
+  | (?P<lparen>\()
+  | (?P<rparen>\))
+  | (?P<comma>,)
+  | (?P<word>[A-Za-z_]\w*)
+""", re.VERBOSE)
+
+
+class SqlFilterError(ValueError):
+    pass
+
+
+def _tokenize(text):
+    if len(text) > FILTER_MAX_LENGTH:
+        raise SqlFilterError(f"Too long, max {FILTER_MAX_LENGTH} characters")
+    tokens = []
+    pos = 0
+    while True:
+        while pos < len(text) and text[pos].isspace():
+            pos += 1
+        if pos == len(text):
+            return tokens
+        m = _TOKEN_RE.match(text, pos)
+        if not m:
+            raise SqlFilterError(f"Invalid syntax near: {text[pos:pos + 20]!r}")
+        tokens.append((m.lastgroup, m.group(m.lastgroup)))
+        pos = m.end()
+
+
+def _column(token):
+    kind, value = token
+    if kind != 'word' or value.lower() in _KEYWORDS:
+        raise SqlFilterError(f"Expected column name, got {value!r}")
+    if value.lower() in FILTER_HIDDEN_COLUMNS:
+        raise SqlFilterError(f"Column {value!r} can not be used")
+    return value
+
+
+class _ConditionParser:
+    def __init__(self, text):
+        self.tokens = _tokenize(text)
+        self.pos = 0
+        self.params = {}
+
+    def _peek(self):
+        return self.tokens[self.pos] if self.pos < len(self.tokens) else (None, None)
+
+    def _next(self):
+        token = self._peek()
+        if token[0] is None:
+            raise SqlFilterError("Unexpected end of condition")
+        self.pos += 1
+        return token
+
+    def _is_word(self, word):
+        kind, value = self._peek()
+        return kind == 'word' and value.lower() == word
+
+    def _expect(self, kind):
+        token = self._next()
+        if token[0] != kind:
+            raise SqlFilterError(f"Expected {kind}, got {token[1]!r}")
+        return token
+
+    def _value(self):
+        kind, value = self._next()
+        if kind == 'num':
+            value = float(value) if '.' in value else int(value)
+        elif kind == 'str':
+            value = value[1:-1]
+        else:
+            raise SqlFilterError(f"Expected value, got {value!r}")
+        name = 'p%d' % len(self.params)
+        self.params[name] = value
+        return ':' + name
+
+    def parse(self):
+        if not self.tokens:
+            raise SqlFilterError("Empty condition")
+        sql = self._or_expr()
+        if self.pos != len(self.tokens):
+            raise SqlFilterError(f"Unexpected {self._peek()[1]!r}")
+        return sql
+
+    def _or_expr(self):
+        parts = [self._and_expr()]
+        while self._is_word('or'):
+            self.pos += 1
+            parts.append(self._and_expr())
+        return ' OR '.join(parts)
+
+    def _and_expr(self):
+        parts = [self._factor()]
+        while self._is_word('and'):
+            self.pos += 1
+            parts.append(self._factor())
+        return ' AND '.join(parts)
+
+    def _factor(self):
+        if self._peek()[0] == 'lparen':
+            self.pos += 1
+            sql = self._or_expr()
+            self._expect('rparen')
+            return '(%s)' % sql
+        return self._comparison()
+
+    def _comparison(self):
+        col = _column(self._next())
+
+        negate = self._is_word('not')
+        if negate:
+            self.pos += 1
+        if self._is_word('in'):
+            self.pos += 1
+            self._expect('lparen')
+            values = [self._value()]
+            while self._peek()[0] == 'comma':
+                self.pos += 1
+                values.append(self._value())
+            self._expect('rparen')
+            return '%s %sIN (%s)' % (col, 'NOT ' if negate else '',
+                                     ', '.join(values))
+        if negate:
+            raise SqlFilterError("Expected IN after NOT")
+
+        kind, op = self._next()
+        if kind != 'op':
+            raise SqlFilterError(f"Expected operator, got {op!r}")
+        return '%s %s %s' % (col, _OPS[op], self._value())
 
 
 class DataManager(DbManager):
@@ -1225,12 +1389,65 @@ class DataManager(DbManager):
 
         return new_item
 
+    @staticmethod
+    def parse_condition(condition):
+        """ Parse a condition string from a request.
+
+        Returns:
+            A sqlalchemy TextClause with bound parameters, or None if
+            the condition is None or empty.
+        Raises:
+            SqlFilterError if the condition is not valid.
+        """
+        if condition is None or (isinstance(condition, str) and not condition.strip()):
+            return None
+        if not isinstance(condition, str):
+            raise SqlFilterError("Condition must be a string")
+
+        parser = _ConditionParser(condition)
+        sql = parser.parse()
+        return sqlalchemy.text(sql).bindparams(**parser.params)
+
+    @staticmethod
+    def parse_order_by(orderBy):
+        """ Parse an orderBy string from a request.
+
+        Returns:
+            A sqlalchemy TextClause, or None if orderBy is None or empty.
+        Raises:
+            SqlFilterError if orderBy is not valid.
+        """
+        if orderBy is None or (isinstance(orderBy, str) and not orderBy.strip()):
+            return None
+        if not isinstance(orderBy, str):
+            raise SqlFilterError("orderBy must be a string")
+
+        parts = []
+        for part in orderBy.split(','):
+            tokens = _tokenize(part)
+            if not 1 <= len(tokens) <= 2:
+                raise SqlFilterError(f"Invalid orderBy: {part.strip()!r}")
+            col = _column(tokens[0])
+            direction = 'ASC'
+            if len(tokens) == 2:
+                kind, value = tokens[1]
+                if kind != 'word' or value.lower() not in ('asc', 'desc'):
+                    raise SqlFilterError(f"Invalid order direction: {value!r}")
+                direction = value.upper()
+            parts.append('%s %s' % (col, direction))
+
+        return sqlalchemy.text(', '.join(parts))
+
     def __items_from_query(self, ModelClass,
                            condition=None, orderBy=None, asJson=False):
         query = self._db_session.query(ModelClass)
 
         if condition is not None:
-            query = query.filter(sqlalchemy.text(condition))
+            # Conditions from API requests come already parsed as a
+            # TextClause with bound parameters (see parse_condition)
+            if isinstance(condition, str):
+                condition = sqlalchemy.text(condition)
+            query = query.filter(condition)
 
         if orderBy is not None:
             query = query.order_by(orderBy)

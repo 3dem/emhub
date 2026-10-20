@@ -41,7 +41,7 @@ from flask import current_app as app
 
 from emhub.utils import (pretty_datetime, datetime_to_isoformat, pretty_date,
                          datetime_from_isoformat, get_quarter, pretty_quarter,
-                         shortname)
+                         shortname, parse_int_range)
 
 from emtools.utils import Pretty, Timer
 from emtools.image import Thumbnail
@@ -1255,6 +1255,14 @@ class DataContent:
         }
 
 
+def _pucks_range_condition(kwargs):
+    """ Return the normalized 'min-max' pucks_range and the condition
+    to query the pucks. pucks_range comes from the URL, so it is parsed
+    to int before going into the SQL condition. """
+    min_id, max_id = parse_int_range(kwargs.get('pucks_range'), (1, 9999))
+    return '%d-%d' % (min_id, max_id), 'id>=%d and id<=%d' % (min_id, max_id)
+
+
 def register_content(dc):
 
     def _check_pucks_manager():
@@ -1278,9 +1286,7 @@ def register_content(dc):
         dewar = cane = puck = None
         
         # JMRT: 2026-05-27: range is used to limit the number of pucks to load
-        pucks_range = kwargs.get('pucks_range', '1-9999')  
-        min_id, max_id = pucks_range.split('-')
-        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        pucks_range, condStr = _pucks_range_condition(kwargs)
         pucks = dm.get_pucks(condition=condStr, orderBy='id')
         # All pucks are loaded to show the occupancy, but non-managers
         # can only see details of the pucks assigned to their lab
@@ -1334,9 +1340,7 @@ def register_content(dc):
         if config_form is None:
             raise Exception("Missing config:dewars form")
 
-        pucks_range = kwargs.get('pucks_range', '1-9999')
-        min_id, max_id = pucks_range.split('-')
-        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        pucks_range, condStr = _pucks_range_condition(kwargs)
         pucks = dm.get_pucks(condition=condStr, orderBy='id')
         storage = dm.PuckStorage(pucks)
 
@@ -1383,9 +1387,7 @@ def register_content(dc):
         dm = app.dm
         puck_id = int(kwargs.get('puck_id', 0) or 0)
 
-        pucks_range = kwargs.get('pucks_range', '1-9999')
-        min_id, max_id = pucks_range.split('-')
-        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        pucks_range, condStr = _pucks_range_condition(kwargs)
         pucks = dm.get_pucks(condition=condStr, orderBy='id')
         storage = dm.PuckStorage(pucks)
 
@@ -1484,10 +1486,7 @@ def register_content(dc):
 
         dm = app.dm  # shortcut
 
-        range = kwargs.get('pucks_range', '1-9999')  # by default all
-
-        min_id, max_id = range.split('-')
-        condStr = 'id>=%s and id<=%s' % (min_id, max_id)
+        pucks_range, condStr = _pucks_range_condition(kwargs)
 
         pucks = dm.get_pucks(condition=condStr, orderBy='id')
 
@@ -1516,7 +1515,7 @@ def register_content(dc):
 
         return {
             'storage': storage,
-            'pucks_range': range,
+            'pucks_range': pucks_range,
             'dewar': storage.get_dewar(dewar),
             'cane': storage.get_cane(dewar, cane)
         }
