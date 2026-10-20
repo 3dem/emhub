@@ -59,6 +59,16 @@ def pretty_quarter(quarter):
                         qe.strftime('%b %Y'))
 
 
+def parse_int_range(value, default):
+    """ Parse a 'min-max' string (e.g. '1-999') into two ints.
+    Return default if the value is not valid. """
+    try:
+        min_value, max_value = (int(x) for x in str(value).split('-'))
+    except ValueError:
+        return default
+    return (min_value, max_value) if min_value <= max_value else default
+
+
 def datetime_from_isoformat(iso_string):
     """ Parse the input string and handle ending Z and assume UTC. """
     dt_string = iso_string.replace('Z', '+00:00').replace('+0000', '+00:00')

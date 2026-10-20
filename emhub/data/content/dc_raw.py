@@ -34,6 +34,7 @@ import json
 import datetime as dt
 
 import jinja2
+import sqlalchemy
 from emtools.utils import Pretty
 
 
@@ -60,15 +61,22 @@ def register_content(dc):
 
     @dc.content
     def raw_entries_list(**kwargs):
-        cond = ['%s="%s"' % (k, kwargs[k]) for k in ['id', 'type'] if k in kwargs]
+        # id/type come from the URL, pass them as bound parameters
+        params = {k: kwargs[k] for k in ['id', 'type'] if k in kwargs}
+        condition = None
+        if params:
+            condStr = ' and '.join('%s=:%s' % (k, k) for k in params)
+            condition = sqlalchemy.text(condStr).bindparams(**params)
         return {
-            'entries': dc.app.dm.get_entries(condition=' and '.join(cond))
+            'entries': dc.app.dm.get_entries(condition=condition)
         }
 
     @dc.content
     def raw_booking_list(**kwargs):
         if 'user' in kwargs:
-            return {'bookings': dc.app.dm.get_user_bookings(kwargs['user'])}
+            # user comes from the URL and goes into the SQL condition
+            uid = int(kwargs['user'])
+            return {'bookings': dc.app.dm.get_user_bookings(uid)}
 
         return {'bookings': dc.app.dm.get_bookings()}
 
