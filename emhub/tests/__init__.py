@@ -29,3 +29,4 @@
 from .test_data import *
 from .test_api import *
 from .test_string import *
+from .test_sql_filter import *

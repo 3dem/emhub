@@ -55,6 +55,7 @@ from emtools.utils import Pretty, Color, Path
 from emwrap.base.job_form import JobValidationError
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
+from emhub.data.data_manager import SqlFilterError
 from emhub.data.processing import resolve_project_root
 from .api_viewers import *
 
@@ -1689,11 +1690,15 @@ def delete_puck():
 # -------------------- UTILS functions ----------------------------------------
 
 def filter_request(func):
-    condition = request.json.get('condition', None)
-    orderBy = request.json.get('orderBy', None)
+    # condition/orderBy come from the client, they are parsed into a
+    # restricted form with values as bound parameters before going to the db
+    try:
+        condition = app.dm.parse_condition(request.json.get('condition'))
+        orderBy = app.dm.parse_order_by(request.json.get('orderBy'))
+    except SqlFilterError as e:
+        return send_error(f"Invalid condition/orderBy: {e}")
 
-    items = func(condition=condition, orderBy=orderBy,
-                 asJson=True)
+    items = func(condition=condition, orderBy=orderBy, asJson=True)
 
     if 'attrs' in request.json:
         attrs = request.json['attrs']
