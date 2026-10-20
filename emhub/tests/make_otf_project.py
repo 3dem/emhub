@@ -23,6 +23,7 @@ import random
 import argparse
 
 from emtools.metadata import StarFile, Table, RelionStar
+from emtools.image import TiltThumbnails
 
 
 N_TILTS = 41
@@ -188,8 +189,7 @@ def _write_image_qc(path, name, ts_index, tilt_table, seed):
         if ts_index % 9 == 5 and m in last[-2:]:
             d['fieldShift'] = 0.42                  # walked off the target
         out.append(d)
-    folder = os.path.join(path, os.path.dirname(os.path.dirname(rows[0].rlnMicrographName)),
-                          'thumbnails')
+    folder = os.path.join(path, TiltThumbnails.folder(rows[0].rlnMicrographName))
     os.makedirs(folder, exist_ok=True)
     with open(os.path.join(folder, name + '_imageqc.json'), 'w') as f:
         json.dump({'version': 1, 'tomoName': name, 'source': 'synthetic',

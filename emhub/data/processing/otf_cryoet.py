@@ -32,7 +32,7 @@ from collections import OrderedDict, Counter
 from emtools.metadata import StarFile, RelionStar
 # The curation rule (reject limits, flags, tilts after a lost field) lives
 # there only: shared with the emw-tilt-curation job and the curation skill
-from emtools.image import tilt_qc
+from emtools.image import tilt_qc, TiltThumbnails
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +76,6 @@ JOB_OUTPUT_STAR = {
 # separate star file, so a per tilt series failure is recorded explicitly
 # rather than inferred from missing output.
 FAILED_STAR = 'failed_tilt_series.star'
-
-# Folder of per tilt jpegs emwrap writes next to the tilt averages
-THUMBNAILS_DIR = 'thumbnails'
 
 # The user's curation of a session, in the project folder next to emhub's
 # other project files.  It lists what was taken out (deselected tilt series,
@@ -806,17 +803,20 @@ class OtfSession:
 
     def tilt_thumbnail(self, tilt, kind='image'):
         """ A file emwrap writes for a tilt, as {'path', 'version'}, or None
-        if it has not been written.  emwrap puts them in a 'thumbnails'
-        folder beside the folder of the source MRC: the tilt image (and a
-        larger one), the CTF fit image and the CTF fit radial profile.  path is project relative;
+        if it has not been written.  emwrap puts them in the thumbnails
+        folder of the job of the source MRC (TiltThumbnails.folder): the
+        tilt image (and a larger one), the CTF fit image and the CTF fit
+        radial profile.  path is project relative;
         version is the modification time, for the URL, so the browser does
         not keep showing a cached copy after emwrap rewrites the file. """
         col, pattern = self.THUMBNAIL_KINDS[kind]
         src = tilt.get(col)
         if not src:
             return None
-        name = pattern.format(name=os.path.splitext(os.path.basename(src))[0])
-        rel = os.path.join(os.path.dirname(os.path.dirname(src)), THUMBNAILS_DIR, name)
+        folder = TiltThumbnails.folder(src)
+        if not folder:
+            return None
+        rel = os.path.join(folder, pattern.format(name=os.path.splitext(os.path.basename(src))[0]))
         try:
             mtime = os.stat(self.join(rel)).st_mtime
         except OSError:
@@ -1258,10 +1258,10 @@ class OtfSession:
         writes beside the tilt jpegs, matched by micrograph name: raw in
         t['imageQc'] for the rule, the match ones also as strip columns. """
         src = next((t[COL_MICROGRAPH] for t in ts.tilts if t.get(COL_MICROGRAPH)), None)
-        if not src:
+        folder = TiltThumbnails.folder(src) if src else None
+        if not folder:
             return
-        path = self.join(os.path.dirname(os.path.dirname(src)), THUMBNAILS_DIR,
-                         ts.tomoName + tilt_qc.SUFFIX)
+        path = self.join(tilt_qc.json_path(folder, ts.tomoName))
         data = _read_cached(path, _read_json)
         if not isinstance(data, dict):
             return
