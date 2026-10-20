@@ -1,0 +1,121 @@
+{
+  "endpoint": "/api/list_project_dir",
+  "request": {
+    "attrs": {
+      "root": "<ROOT>/projects/spike_project",
+      "path": "."
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "items": [
+      {
+        "name": ".emhub",
+        "path": "./.emhub",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "default_pipeline.star",
+        "path": "./default_pipeline.star",
+        "isDir": false,
+        "size": 4425,
+        "mime": "text"
+      },
+      {
+        "name": "PyTom",
+        "path": "./PyTom",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "EMwrap",
+        "path": "./EMwrap",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "External",
+        "path": "./External",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "InitialModel",
+        "path": "./InitialModel",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "WarpCtfRec",
+        "path": "./WarpCtfRec",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "Refine3D",
+        "path": "./Refine3D",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "WarpMctf",
+        "path": "./WarpMctf",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": ".Trash",
+        "path": "./.Trash",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "WarpMCreatePopulation",
+        "path": "./WarpMCreatePopulation",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "data",
+        "path": "./data",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "WarpTsAlign",
+        "path": "./WarpTsAlign",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": ".gui_projectdir",
+        "path": "./.gui_projectdir",
+        "isDir": false,
+        "size": 0,
+        "mime": null
+      },
+      {
+        "name": "WarpExportParticles",
+        "path": "./WarpExportParticles",
+        "isDir": true,
+        "size": 0,
+        "mime": null
+      }
+    ]
+  }
+}

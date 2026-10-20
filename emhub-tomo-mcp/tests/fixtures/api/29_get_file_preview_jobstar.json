@@ -1,0 +1,26 @@
+{
+  "endpoint": "/api/get_file_preview",
+  "request": {
+    "attrs": {
+      "root": "<ROOT>/projects/spike_project",
+      "path": "EMwrap/job001/job.star"
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "preview": {
+      "kind": "text",
+      "mime": "text/plain",
+      "meta": {
+        "name": "EMwrap/job001/job.star",
+        "size": "972 bytes",
+        "modified": "2026-10-20 17:13:25"
+      },
+      "truncated": false,
+      "note": "Cannot preview this file type.",
+      "text": "\n# StarFile written on 2026-10-20 17:13:25 by emtools (0.2.0-rc260805)\n\n\ndata_job\n\n_rlnJobTypeLabel       emw-import-ts\n_rlnJobIsContinue               0\n_rlnJobIsTomo                   0\n\n\n\n\ndata_joboptions_values\n\nloop_\n_rlnJobOptionVariable  #1\n_rlnJobOptionValue  #2\nmdoc_files                data/mdoc/none_*.mdoc  \ntilt_axis_angle           -85.6                  \nacq.voltage               not-a-number           \nacq.cs                    2.7                    \nacq.amplitude_contrast    0.1                    \nwait.timeout              1                      \nwait.file_change          1                      \nwait.sleep                1                      \nacq.amplitude_constrast   0.1                    \nacq.gain                  data/gain_ref.mrc      \nacq.pixel_size            0.789                  \nacq.total_dose            2.64                   \ntilt_images               data/frames/           \ndo_queue                  No                     \n\n"
+    }
+  }
+}

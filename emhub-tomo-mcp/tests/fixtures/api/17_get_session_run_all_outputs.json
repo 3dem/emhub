@@ -1,0 +1,267 @@
+{
+  "endpoint": "/api/get_session_run",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "run_id": "EMwrap/job001",
+      "output": [
+        "json",
+        "stdout",
+        "stderr",
+        "form"
+      ]
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "run": {
+      "json": {
+        "values": {
+          "mdoc_files": "data/mdoc/*.mrc.mdoc",
+          "tilt_axis_angle": "-85.6",
+          "acq.voltage": "300",
+          "acq.cs": "2.7",
+          "acq.amplitude_contrast": "0.1",
+          "wait.timeout": "1",
+          "wait.file_change": "1",
+          "wait.sleep": "1",
+          "acq.amplitude_constrast": "0.1",
+          "acq.gain": "data/gain_ref.mrc",
+          "acq.pixel_size": "0.789",
+          "acq.total_dose": "2.64",
+          "tilt_images": "data/frames/",
+          "do_queue": false
+        },
+        "info": {
+          "id": "EMwrap/job001",
+          "className": "import",
+          "label": "EMwrap/job001",
+          "name": "EMwrap/job001",
+          "alias": "emw-import-ts",
+          "jobtype": "emw-import-ts"
+        },
+        "inputs": [],
+        "outputs": [
+          "EMwrap/job001/tilt_series.star"
+        ]
+      },
+      "stdout": "",
+      "stderr": "",
+      "form": {
+        "package": "",
+        "name": "emw-import-ts",
+        "logo": "",
+        "sections": [
+          {
+            "label": "Input",
+            "params": [
+              {
+                "name": "tilt_images",
+                "label": "Tilt images folder",
+                "paramClass": "PathParam",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "mdoc_files",
+                "label": "Mdoc files",
+                "paramClass": "FilesPatternParam",
+                "help": "Pattern to match the mdoc files.",
+                "default": "mdocs/Position*[1-9].mdoc",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "acq.gain",
+                "label": "Gain file",
+                "paramClass": "PathParam",
+                "allowsEmpty": true,
+                "help": "",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "tilt_axis_angle",
+                "label": "Tilt axis angle (deg)",
+                "paramClass": "FloatParam",
+                "default": 85,
+                "help": "This is the nominal value for the tilt-axis orientation to the Y-axis (positive is CCW from Y))",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "label": "Acquisition",
+                "paramClass": "Group",
+                "params": [
+                  {
+                    "name": "acq.pixel_size",
+                    "label": "Pixel Size (\u00c5)",
+                    "paramClass": "FloatParam",
+                    "help": "",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "acq.voltage",
+                    "label": "Voltage (kV)",
+                    "default": 300,
+                    "paramClass": "FloatParam",
+                    "help": "",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "acq.cs",
+                    "label": "Spherical Aberration (mm)",
+                    "default": 2.7,
+                    "paramClass": "FloatParam",
+                    "help": "",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "acq.amplitude_contrast",
+                    "label": "Amplitude Contrast",
+                    "default": 0.1,
+                    "paramClass": "FloatParam",
+                    "help": "",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "acq.total_dose",
+                    "label": "Total dose per tilt",
+                    "paramClass": "FloatParam",
+                    "help": "Total dose per tilt image.",
+                    "allowsEmpty": true,
+                    "important": false,
+                    "expertLevel": 0
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "label": "Streaming",
+            "params": [
+              {
+                "name": "wait.timeout",
+                "label": "Wait time for new files",
+                "default": 1,
+                "help": "Wait time (in minutes) after which, if no new files are found, the import will stop.",
+                "paramClass": "StringParam",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "wait.file_change",
+                "label": "File change wait time",
+                "default": 1,
+                "help": "Wait this time (in minutes) without modifications in a file to report as new.",
+                "paramClass": "StringParam",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "wait.sleep",
+                "label": "Sleep time between checks",
+                "default": 1,
+                "help": "Sleep this time (in minutes) after not files are found to check again.",
+                "paramClass": "StringParam",
+                "important": false,
+                "expertLevel": 0
+              }
+            ]
+          },
+          {
+            "label": "Compute",
+            "params": [
+              {
+                "label": "Queue",
+                "paramClass": "Group",
+                "params": [
+                  {
+                    "name": "queue.name",
+                    "label": "Queue",
+                    "help": "Select the queue to use for this job.",
+                    "paramClass": "EnumParam",
+                    "choices": {
+                      "None": "None",
+                      "cryo": "cryo",
+                      "cryo_core": "cryo_core",
+                      "rtx5000": "rtx5000"
+                    },
+                    "default": "None",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "queue.param.cryo.queue_name",
+                    "default": "cryo",
+                    "condition": "false and queue.name == 'cryo'",
+                    "paramClass": "StringParam",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "queue.param.cryo.gpu_type",
+                    "label": "GPU type",
+                    "help": "Select the GPU type if you need an specific one for this job.",
+                    "default": "any",
+                    "paramClass": "EnumParam",
+                    "choices": [
+                      "any",
+                      "V100",
+                      "A100"
+                    ],
+                    "condition": "queue.name == 'cryo'",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "queue.param.cryo_core.queue_name",
+                    "default": "cryo_core",
+                    "condition": "false and queue.name == 'cryo_core'",
+                    "paramClass": "StringParam",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "queue.param.rtx5000.queue_name",
+                    "default": "rtx5000",
+                    "condition": "false and queue.name == 'rtx5000'",
+                    "paramClass": "StringParam",
+                    "important": false,
+                    "expertLevel": 0
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "label": "extra params",
+            "params": [
+              {
+                "label": "acq.amplitude_constrast",
+                "name": "acq.amplitude_constrast",
+                "paramClass": "StringParam",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "label": "do_queue",
+                "name": "do_queue",
+                "paramClass": "StringParam",
+                "important": false,
+                "expertLevel": 0
+              }
+            ]
+          }
+        ],
+        "help": ""
+      }
+    }
+  }
+}

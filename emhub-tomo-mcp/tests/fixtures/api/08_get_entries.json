@@ -1,0 +1,28 @@
+{
+  "endpoint": "/api/get_entries",
+  "request": {},
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": [
+    {
+      "id": 1,
+      "date": "2026-10-20T15:13:24+00:00",
+      "type": "tomo_processing",
+      "title": "API spike project",
+      "description": "",
+      "project_id": 5,
+      "creation_date": "2026-10-20T15:13:24.600928+00:00",
+      "creation_user_id": 1,
+      "last_update_date": "2026-10-20T15:13:24.624941+00:00",
+      "last_update_user_id": 1,
+      "extra": {
+        "data": {
+          "processing_path": "<ROOT>/projects/spike_project",
+          "data_path": "<ROOT>/data",
+          "share_table": []
+        }
+      }
+    }
+  ]
+}

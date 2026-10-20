@@ -1,0 +1,18 @@
+{
+  "endpoint": "/api/get_session_run",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "job_type": "emw-warp-mctf",
+      "output": [
+        "form"
+      ]
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "error": "ERROR from Server: 'run'. Traceback: Traceback (most recent call last):\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/blueprints/api.py\", line 1749, in _handle_item\n    result = handle_func(**attrs)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/blueprints/api.py\", line 635, in _get_run\n    run = pp['run']\nKeyError: 'run'\n"
+  }
+}

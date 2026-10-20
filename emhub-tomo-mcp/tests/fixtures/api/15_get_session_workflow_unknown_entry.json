@@ -1,0 +1,15 @@
+{
+  "endpoint": "/api/get_session_workflow",
+  "request": {
+    "attrs": {
+      "entry_id": 999999,
+      "widget": false
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "error": "ERROR from Server: 'NoneType' object has no attribute 'extra'. Traceback: Traceback (most recent call last):\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/blueprints/api.py\", line 1749, in _handle_item\n    result = handle_func(**attrs)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/blueprints/api.py\", line 997, in _handle\n    pp, pm = get_project_manager(**attrs)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/blueprints/api.py\", line 669, in get_project_manager\n    pp = app.dm.get_processing_project(**attrs)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/data/data_manager.py\", line 793, in get_processing_project\n    processing_path = entry.extra['data']['processing_path']\nAttributeError: 'NoneType' object has no attribute 'extra'\n"
+  }
+}

@@ -1,0 +1,411 @@
+{
+  "endpoint": "/api/duplicate_jobs",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "run_ids": [
+        "EMwrap/job001"
+      ]
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "workflow": {
+      "protocols": {
+        "PROJECT": {
+          "id": "PROJECT",
+          "children": [
+            "EMwrap/job001",
+            "PyTom/job002",
+            "EMwrap/job012"
+          ],
+          "parents": [],
+          "label": "",
+          "status": "",
+          "type": "PROJECT",
+          "parameter": [],
+          "inputs": [],
+          "outputs": [],
+          "cpuTime": "",
+          "elapsedTime": "",
+          "isInteractive": false,
+          "numberOfSteps": 0,
+          "stepsDone": 0
+        },
+        "EMwrap/job001": {
+          "id": "EMwrap/job001",
+          "label": "emw-import-ts",
+          "parents": [
+            "PROJECT"
+          ],
+          "children": [
+            "WarpMctf/job003"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: EMwrap/job001/tilt_series.star)",
+              "value": "EMwrap/job001/tilt_series.star",
+              "parentId": "EMwrap/job001"
+            }
+          ],
+          "status": "saved",
+          "type": "emw-import-ts",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "Import (API spike)",
+          "comment": "recorded by record_api_samples.py",
+          "tags": [
+            "5f29868d-996c-49cc-8ce7-515d4bbe3040"
+          ]
+        },
+        "PyTom/job002": {
+          "id": "PyTom/job002",
+          "label": "emw-pytom-create_template",
+          "parents": [
+            "PROJECT"
+          ],
+          "children": [
+            "PyTom/job006",
+            "PyTom/job006"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: PyTom/job002/emd_15854_mask.mrc)",
+              "value": "PyTom/job002/emd_15854_mask.mrc",
+              "parentId": "PyTom/job002"
+            },
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: PyTom/job002/emd_15854.mrc)",
+              "value": "PyTom/job002/emd_15854.mrc",
+              "parentId": "PyTom/job002"
+            }
+          ],
+          "status": "saved",
+          "type": "emw-pytom-create_template",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "WarpMctf/job003": {
+          "id": "WarpMctf/job003",
+          "label": "emw-warp-mctf",
+          "parents": [
+            "EMwrap/job001"
+          ],
+          "children": [
+            "WarpTsAlign/job004"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: WarpMctf/job003/tilt_series.star)",
+              "value": "WarpMctf/job003/tilt_series.star",
+              "parentId": "WarpMctf/job003"
+            }
+          ],
+          "status": "saved",
+          "type": "emw-warp-mctf",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "WarpTsAlign/job004": {
+          "id": "WarpTsAlign/job004",
+          "label": "emw-warp-tsalign",
+          "parents": [
+            "WarpMctf/job003"
+          ],
+          "children": [
+            "WarpCtfRec/job005"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: WarpTsAlign/job004/aligned_tilt_series.star)",
+              "value": "WarpTsAlign/job004/aligned_tilt_series.star",
+              "parentId": "WarpTsAlign/job004"
+            }
+          ],
+          "status": "saved",
+          "type": "emw-warp-tsalign",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "WarpCtfRec/job005": {
+          "id": "WarpCtfRec/job005",
+          "label": "emw-warp-ctfrec",
+          "parents": [
+            "WarpTsAlign/job004"
+          ],
+          "children": [
+            "PyTom/job006",
+            "WarpExportParticles/job007"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: WarpCtfRec/job005/tomograms.star)",
+              "value": "WarpCtfRec/job005/tomograms.star",
+              "parentId": "WarpCtfRec/job005"
+            }
+          ],
+          "status": "saved",
+          "type": "emw-warp-ctfrec",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "PyTom/job006": {
+          "id": "PyTom/job006",
+          "label": "emw-pytom",
+          "parents": [
+            "WarpCtfRec/job005",
+            "PyTom/job002",
+            "PyTom/job002"
+          ],
+          "children": [
+            "WarpExportParticles/job007"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: PyTom/job006/optimisation_set.star)",
+              "value": "PyTom/job006/optimisation_set.star",
+              "parentId": "PyTom/job006"
+            }
+          ],
+          "status": "saved",
+          "type": "emw-pytom",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "WarpExportParticles/job007": {
+          "id": "WarpExportParticles/job007",
+          "label": "emw-warp-export_particles",
+          "parents": [
+            "WarpCtfRec/job005",
+            "PyTom/job006"
+          ],
+          "children": [
+            "InitialModel/job008",
+            "Refine3D/job009"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: WarpExportParticles/job007/optimisation_set.star)",
+              "value": "WarpExportParticles/job007/optimisation_set.star",
+              "parentId": "WarpExportParticles/job007"
+            }
+          ],
+          "status": "saved",
+          "type": "emw-warp-export_particles",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "InitialModel/job008": {
+          "id": "InitialModel/job008",
+          "label": "relion.initialmodel.tomo",
+          "parents": [
+            "WarpExportParticles/job007"
+          ],
+          "children": [
+            "Refine3D/job009"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: InitialModel/job008/initial_model.mrc)",
+              "value": "InitialModel/job008/initial_model.mrc",
+              "parentId": "InitialModel/job008"
+            }
+          ],
+          "status": "saved",
+          "type": "relion.initialmodel.tomo",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "Refine3D/job009": {
+          "id": "Refine3D/job009",
+          "label": "relion.refine3d.tomo",
+          "parents": [
+            "WarpExportParticles/job007",
+            "InitialModel/job008"
+          ],
+          "children": [
+            "External/job010",
+            "WarpMCreatePopulation/job011"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: Refine3D/job009/run_class001.mrc)",
+              "value": "Refine3D/job009/run_class001.mrc",
+              "parentId": "Refine3D/job009"
+            },
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: Refine3D/job009/run_data.star)",
+              "value": "Refine3D/job009/run_data.star",
+              "parentId": "Refine3D/job009"
+            }
+          ],
+          "status": "saved",
+          "type": "relion.refine3d.tomo",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "External/job010": {
+          "id": "External/job010",
+          "label": "emw-relion-mask_create",
+          "parents": [
+            "Refine3D/job009"
+          ],
+          "children": [
+            "WarpMCreatePopulation/job011"
+          ],
+          "inputs": [],
+          "outputs": [
+            {
+              "outputName": "File",
+              "pointerClass": "File",
+              "info": "File (Missing: External/job010/mask.mrc)",
+              "value": "External/job010/mask.mrc",
+              "parentId": "External/job010"
+            }
+          ],
+          "status": "saved",
+          "type": "emw-relion-mask_create",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "WarpMCreatePopulation/job011": {
+          "id": "WarpMCreatePopulation/job011",
+          "label": "emw-warp-mtools_create",
+          "parents": [
+            "External/job010",
+            "Refine3D/job009"
+          ],
+          "children": [],
+          "inputs": [],
+          "outputs": [],
+          "status": "saved",
+          "type": "emw-warp-mtools_create",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        },
+        "EMwrap/job012": {
+          "id": "EMwrap/job012",
+          "label": "emw-import-ts",
+          "parents": [
+            "PROJECT"
+          ],
+          "children": [],
+          "inputs": [],
+          "outputs": [],
+          "status": "saved",
+          "type": "emw-import-ts",
+          "cpuTime": "0",
+          "elapsedTime": 0,
+          "isInteractive": false,
+          "numberOfSteps": 1,
+          "stepsDone": 1,
+          "runName": "",
+          "comment": "",
+          "tags": []
+        }
+      },
+      "duplicated": [
+        {
+          "sourceId": "EMwrap/job001",
+          "newId": "EMwrap/job012"
+        }
+      ]
+    }
+  }
+}

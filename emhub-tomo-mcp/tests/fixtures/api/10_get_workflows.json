@@ -1,0 +1,33 @@
+{
+  "endpoint": "/api/get_workflows",
+  "request": {},
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": [
+    {
+      "id": "apof-aretomo3",
+      "file": "apof-aretomo3.json",
+      "title": "ApoF - AreTomo3 preprocessing",
+      "description": "AreTomo3 preprocessing workflow for the ApoF tutorial dataset."
+    },
+    {
+      "id": "apof-warp-tutorial-otf",
+      "file": "apof-warp-tutorial-otf.json",
+      "title": "apof-warp-tutorial-otf",
+      "description": ""
+    },
+    {
+      "id": "apof-warp-tutorial-part1",
+      "file": "apof-warp-tutorial-part1.json",
+      "title": "ApoF - Warp + PyTOM + Relion",
+      "description": "Same Warp Apoferritin tutorial, but using AreTomo2 for tilt-series alignment and PyTOM for template matching. It also uses Relion and M for refinements."
+    },
+    {
+      "id": "apof-warp-tutorial-part2",
+      "file": "apof-warp-tutorial-part2.json",
+      "title": "ApoF - M Refinements",
+      "description": "M refinement part of the same Warp Apoferritn tutorial."
+    }
+  ]
+}

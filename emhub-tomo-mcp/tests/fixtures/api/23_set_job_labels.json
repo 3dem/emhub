@@ -1,0 +1,23 @@
+{
+  "endpoint": "/api/set_job_labels",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "run_id": "EMwrap/job001",
+      "label_ids": [
+        "5f29868d-996c-49cc-8ce7-515d4bbe3040"
+      ]
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "labels": {
+      "id": "EMwrap/job001",
+      "tagIds": [
+        "5f29868d-996c-49cc-8ce7-515d4bbe3040"
+      ]
+    }
+  }
+}

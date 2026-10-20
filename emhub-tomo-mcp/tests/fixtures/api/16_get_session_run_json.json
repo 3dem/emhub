@@ -1,0 +1,49 @@
+{
+  "endpoint": "/api/get_session_run",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "run_id": "EMwrap/job001",
+      "output": [
+        "json"
+      ]
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "run": {
+      "json": {
+        "values": {
+          "mdoc_files": "data/mdoc/*.mrc.mdoc",
+          "tilt_axis_angle": "-85.6",
+          "acq.voltage": "300",
+          "acq.cs": "2.7",
+          "acq.amplitude_contrast": "0.1",
+          "wait.timeout": "1",
+          "wait.file_change": "1",
+          "wait.sleep": "1",
+          "acq.amplitude_constrast": "0.1",
+          "acq.gain": "data/gain_ref.mrc",
+          "acq.pixel_size": "0.789",
+          "acq.total_dose": "2.64",
+          "tilt_images": "data/frames/",
+          "do_queue": false
+        },
+        "info": {
+          "id": "EMwrap/job001",
+          "className": "import",
+          "label": "EMwrap/job001",
+          "name": "EMwrap/job001",
+          "alias": "emw-import-ts",
+          "jobtype": "emw-import-ts"
+        },
+        "inputs": [],
+        "outputs": [
+          "EMwrap/job001/tilt_series.star"
+        ]
+      }
+    }
+  }
+}

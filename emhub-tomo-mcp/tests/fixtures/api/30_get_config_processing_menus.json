@@ -1,0 +1,257 @@
+{
+  "endpoint": "/api/get_config",
+  "request": {
+    "attrs": {
+      "config": "processing_menus"
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "config": {
+      "menu_widget": {
+        "protocols": {
+          "Groups": {
+            "text": "By Groups",
+            "openItem": true,
+            "childs": [
+              {
+                "text": "Preprocessing",
+                "icon": "bookmark.gif",
+                "tag": "section",
+                "openItem": true,
+                "childs": [
+                  {
+                    "text": "Import TS",
+                    "value": "emw-import-ts",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp MotionCor and CTF",
+                    "value": "emw-warp-mctf",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp AreTomo",
+                    "value": "emw-warp-aretomo",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp CTF and Reconstruction",
+                    "value": "emw-warp-ctfrec",
+                    "tag": "protocol"
+                  }
+                ]
+              },
+              {
+                "text": "Picking",
+                "icon": "bookmark.gif",
+                "tag": "section",
+                "openItem": true,
+                "childs": [
+                  {
+                    "text": "PyTOM - Create Template & Mask",
+                    "value": "emw-pytom-create_template",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "PyTOM - Template Matching",
+                    "value": "emw-pytom",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "PyTME",
+                    "value": "emw-pytme",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp Particles Export",
+                    "value": "emw-warp-export_particles",
+                    "tag": "protocol"
+                  }
+                ]
+              },
+              {
+                "text": "Refinement",
+                "icon": "bookmark.gif",
+                "tag": "section",
+                "openItem": true,
+                "childs": [
+                  {
+                    "text": "Relion Tomo auto-refine",
+                    "value": "emw-relion-tomorefine",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp MTools create",
+                    "value": "emw-warp-mtools_create",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp MCore refine",
+                    "value": "emw-warp-mcore",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp estimate weights",
+                    "value": "emw-warp-estimate_weights",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp MTools resample",
+                    "value": "emw-warp-mtools_resample",
+                    "tag": "protocol"
+                  }
+                ]
+              }
+            ]
+          },
+          "Packages": {
+            "text": "By Packages",
+            "openItem": true,
+            "childs": [
+              {
+                "text": "Warp",
+                "icon": "bookmark.gif",
+                "tag": "section",
+                "openItem": true,
+                "childs": [
+                  {
+                    "text": "Warp MotionCor and CTF",
+                    "value": "emw-warp-mctf",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp AreTomo",
+                    "value": "emw-warp-aretomo",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp CTF and Reconstruction",
+                    "value": "emw-warp-ctfrec",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Warp Particles Export",
+                    "value": "emw-warp-export_particles",
+                    "tag": "protocol"
+                  }
+                ]
+              },
+              {
+                "text": "PyTOM",
+                "icon": "bookmark.gif",
+                "tag": "section",
+                "openItem": true,
+                "childs": [
+                  {
+                    "text": "PyTOM",
+                    "value": "emw-pytom",
+                    "tag": "protocol"
+                  }
+                ]
+              },
+              {
+                "text": "PyTME",
+                "icon": "bookmark.gif",
+                "tag": "section",
+                "openItem": true,
+                "childs": [
+                  {
+                    "text": "PyTME",
+                    "value": "emw-pytme",
+                    "tag": "protocol"
+                  }
+                ]
+              },
+              {
+                "text": "Relion",
+                "icon": "bookmark.gif",
+                "tag": "section",
+                "openItem": true,
+                "childs": [
+                  {
+                    "text": "Relion Tomo reconstruct",
+                    "value": "emw-relion-tomorecons",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Relion Tomo auto-refine",
+                    "value": "emw-relion-tomorefine",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Relion Tomo classify",
+                    "value": "emw-relion-tomoclassify",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Relion symmetrize volume",
+                    "value": "emw-relion-symmetrize_volume",
+                    "tag": "protocol"
+                  },
+                  {
+                    "text": "Relion create mask",
+                    "value": "emw-relion-mask_create",
+                    "tag": "protocol"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "workflows": [
+          {
+            "name": "Warp Tutorial",
+            "description": "Import Tilt-Series and run OTF (Warp mctf, aretomo and ctfrec)",
+            "id": "warp-tutorial",
+            "tag": "workflow"
+          },
+          {
+            "name": "Warp PyTOM and M-Relion",
+            "description": "Import Tilt-Series, run Warp mctf, aretomo and ctfrec. Then run PyTOM, particles export and Relion. ",
+            "id": "warp-pytom-m-relion",
+            "tag": "workflow"
+          }
+        ]
+      },
+      "menu_flowchart": {
+        "protocols": [
+          {
+            "label": "1. Import/MotionCor",
+            "jobs": [
+              "emw-import-ts",
+              "emw-warp-mctf"
+            ]
+          },
+          {
+            "label": "2. Alignment/Reconstruction",
+            "jobs": [
+              "emw-warp-aretomo",
+              "emw-warp-etomo_patches",
+              "emw-warp-ctfrec"
+            ]
+          },
+          {
+            "label": "3. Picking/Refinement",
+            "jobs": [
+              "emw-pytom-create_template",
+              "emw-pytom",
+              "emw-warp-export_particles",
+              "emw-relion-tomorecons",
+              "emw-relion-tomorefine"
+            ]
+          },
+          {
+            "label": "Workflows",
+            "workflows": [
+              "warp-otf",
+              "warp-pytom-m-relion"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
