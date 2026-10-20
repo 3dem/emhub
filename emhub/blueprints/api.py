@@ -1123,6 +1123,17 @@ def handle_workflow(handle_func=None, reload=False):
     return _handle_item(_handle, 'workflow')
 
 
+@api_bp.route('/get_workflows', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_workflows():
+    """ List the processing workflow templates available on this server
+    (id, title, description, file), so clients can pick one to load via
+    'load_workflow' (or run in one step via the MCP 'run_workflow' tool).
+    """
+    from emwrap.base import ProcessingConfig
+    return send_json_data(ProcessingConfig.get_workflows())
+
+
 @api_bp.route('/get_session_workflow', methods=['POST'])
 @flask_login.login_required
 def get_session_workflow():
