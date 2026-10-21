@@ -780,6 +780,14 @@ class DataContent:
                 'ctfs_run_id': sdata.get_ctfs_runid()
             })
 
+        elif result == 'tilt_series':
+            data['tilt_series'] = sdata.get_tilt_series_data(kwargs['ts_name'],
+                                                             kwargs.get('job_id'))
+
+        elif result == 'tilt_image':
+            data['image'] = sdata.get_tilt_image(kwargs['path'],
+                                                 kwargs.get('kind', 'micrograph'))
+
         elif result == 'classes2d':
             runId = int(kwargs.get('run_id', -1))
 

@@ -1,0 +1,263 @@
+<!-- Live view of a tomography OTF session (emwrap TomoOTF, session.json otf_type = 'tomo') -->
+{% import "entry_macros.html" as macros %}
+
+{% set booking = s.booking %}
+{% set owner = booking.owner %}
+{% set is_manager = current_user.is_manager %}
+
+{% macro counter_card(label, value, detail) -%}
+    <div class="col-2">
+        <div class="card status_card">
+            <div class="card-body">
+                <h5 class="text-muted">{{ label }}</h5>
+                <div class="metric-value d-inline-block"><h1 class="mb-1">{{ value }}</h1></div>
+                <div class="metric-label d-inline-block float-right text-success font-weight-bold">{{ detail }}</div>
+            </div>
+        </div>
+    </div>
+{%- endmacro %}
+
+<div class="container-fluid dashboard-content ">
+    {% set title = "Session Live Tomography " %}
+    {% set navigation = [('Sessions', url_for_content('sessions_list')),
+                         (s.shortname, url_for_content('session_details', session_id=s.id)),
+                         ('OTF', '')] %}
+    {% include 'include_header.html' %}
+
+{% if is_manager or current_user.same_pi(owner) %}
+
+    <!-- Row: Status cards -->
+    <div class="row">
+        {% call macros.status_card('Info') %}
+            <div class="row col-12 p-0 m-0">
+                <div class="col-4 p-0 m-0">
+                    <label class="text-muted col-12 p-0 m-0">{{ booking.start|pretty_date }}</label>
+                    <img class="m-0 p-0" src="{{ url_for('images.static', filename=booking.resource.image) }}" alt="{{ booking.resource.name }}" width="48">
+                    <label class="text-muted p-0 m-0 font-weight-bold">{{ booking.resource.name }}</label>
+                </div>
+                <div class="col-8 p-0 m-0">
+                    {{ macros.status_row('Staff', booking.operator|shortname) }}
+                    {{ macros.status_row('Owner', owner|pairname) }}
+                    {{ macros.status_row('Project', macros.project(s.project)) }}
+                </div>
+            </div>
+        {% endcall %}
+
+        {{ counter_card('Tilt Series', tilt_series|length,
+                        (tilt_series|sum(attribute='tilts')) ~ ' tilts') }}
+
+        {% for j in jobs %}
+            {{ counter_card(j.type, j.tomograms,
+                            j.aligned ~ ' aligned' ~ (', ' ~ j.failed ~ ' failed' if j.failed else '')) }}
+        {% endfor %}
+
+        {% call macros.status_card('Status') %}
+            <div class="row col-12 p-0 m-0">
+                <div class="col-4 p-0 m-0">
+                    <label class="text-muted col-12 p-0 m-0">OTF: </label>
+                    <h3 class="text-muted col-12 p-0 m-0 font-bold"><span style="color: #3d405c">{{ s.otf_status }}</span></h3>
+                </div>
+                <div class="col-8 p-0 m-0">
+                    {{ macros.status_row('Size', s.size|pretty_size) }}
+                    {{ macros.status_row('Updated', s.extra['updated']) }}
+                    {% if current_user.is_admin %}
+                    <div class="col-12 text-sm-right mt-2">
+                        <a href="{{ url_for_content('session_workflow', session_id=s.id) }}" class="btn btn-outline-dark btn-sm"><i class="fas fa-external-link-alt"></i> Workflow</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endcall %}
+    </div>
+
+    {% if tilt_series %}
+    <div class="row">
+        <!-- Tilt series list -->
+        <div class="col-5">
+            <div class="card">
+                <div class="card-header d-flex">
+                    <h5 class="mb-0">Tilt Series</h5>
+                    <div class="ml-auto d-flex">
+                        {% if jobs %}
+                        <label class="text-muted mr-2 mb-0 align-self-center">Job</label>
+                        <select id="ts-job" class="form-control form-control-sm" onchange="tsReloadSelected()">
+                            {% for j in jobs %}
+                                <option value="{{ j.id }}">{{ j.type }} ({{ j.id }})</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                        <a class="btn btn-sm btn-outline-dark ml-2" href="javascript:window.location.reload()"><i class="fas fa-sync-alt"></i></a>
+                    </div>
+                </div>
+                <div class="card-body p-0" style="max-height: 70vh; overflow-y: auto">
+                    <table class="table table-sm table-hover mb-0" id="ts-table">
+                        <thead><tr>
+                            <th>Name</th><th>Tilts</th><th>Range</th><th>Dose</th><th>Imported</th>
+                            {% for j in jobs %}<th>{{ j.id.split('/')[-1] }}</th>{% endfor %}
+                        </tr></thead>
+                        <tbody>
+                        {% for ts in tilt_series %}
+                            <tr id="ts-row-{{ loop.index0 }}" style="cursor: pointer" onclick="tsSelect({{ loop.index0 }})">
+                                <td>{{ ts.name }}</td>
+                                <td>{{ ts.tilts }}</td>
+                                <td>{{ ts.min_angle }} / {{ ts.max_angle }}</td>
+                                <td>{{ ts.dose }}</td>
+                                <td class="ts-time" data-ts="{{ ts.ts }}"></td>
+                                {% for j in jobs %}
+                                    {% set st = ts.status[j.id] %}
+                                    {% set badge = {'reconstructed': 'success', 'aligned': 'info', 'failed': 'danger'}.get(st, 'light') %}
+                                    <td><span class="badge badge-{{ badge }}">{{ st }}</span></td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected tilt series -->
+        <div class="col-7">
+            <div class="card">
+                <div class="card-header d-flex">
+                    <h5 class="mb-0" id="ts-title">Select a tilt series</h5>
+                    <div class="ml-auto">
+                        <button class="btn btn-sm btn-outline-dark" id="ts-tomo-btn" style="display: none" onclick="tsShowTomogram()"><i class="fas fa-cube"></i> Tomogram</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-5 p-0" style="max-height: 65vh; overflow-y: auto">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead><tr><th>#</th><th>Angle</th><th>Dose</th><th>Def (µm)</th><th>Res (Å)</th><th>Motion</th></tr></thead>
+                                <tbody id="tilts-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="col-7 text-center">
+                            {{ macros.overlay('ts-overlay') }}
+                            <h6 class="text-muted" id="tilt-label"></h6>
+                            <img id="tilt-image" class="img-fluid" style="display: none">
+                            <img id="tilt-psd" class="mt-2" style="display: none; width: 50%">
+                            <p class="text-muted" id="tilt-msg"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+        <div class="row"><div class="col-12">
+            <h4 class="text-muted">No tilt series imported yet. <span id="reload_label"></span></h4>
+        </div></div>
+    {% endif %}
+
+{% else %}
+    <h3>You do not have access to this session.</h3>
+{% endif %}
+</div>
+
+<script>
+    var session_id = {{ s.id }};
+    var tilt_series = {{ tilt_series|tojson }};
+    var ts_current = null;  // tilt series data loaded from the server
+    var ts_overlay = null;
+
+    function tsRequest(attrs, done) {
+        attrs.session_id = session_id;
+        send_ajax_json(Api.urls.get_session_data, attrs, function (response) {
+            if ('error' in response)
+                showError(response.error);
+            else
+                done(response);
+        });
+    }
+
+    function tsSelect(index) {
+        $('#ts-table tr').removeClass('table-active');
+        $('#ts-row-' + index).addClass('table-active');
+        let ts = tilt_series[index];
+        $('#ts-title').text(ts.name).data('index', index);
+        $('#tilts-body').html('');
+        $('#ts-tomo-btn').hide();
+        ts_overlay.show('Loading ' + ts.name);
+        tsRequest({result: 'tilt_series', ts_name: ts.name, job_id: $('#ts-job').val() || ''}, function (r) {
+            ts_overlay.hide();
+            ts_current = r.tilt_series;
+            let fmt = function (v) { return v === null ? '' : v; };
+            let rows = ts_current.tilts.map(function (t, i) {
+                return '<tr style="cursor: pointer" id="tilt-row-' + i + '" onclick="tiltSelect(' + i + ')">' +
+                    '<td>' + (i + 1) + '</td><td>' + t.angle + '</td><td>' + t.dose + '</td>' +
+                    '<td>' + fmt(t.defocus) + '</td><td>' + fmt(t.resolution) + '</td><td>' + fmt(t.motion) + '</td></tr>';
+            });
+            $('#tilts-body').html(rows.join(''));
+            if (ts_current.tomogram)
+                $('#ts-tomo-btn').show();
+            if (ts_current.tilts.length)
+                tiltSelect(0);
+        });
+    }
+
+    function tsReloadSelected() {
+        let index = $('#ts-title').data('index');
+        if (index !== undefined)
+            tsSelect(index);
+    }
+
+    function showImage(selector, path, kind) {
+        $(selector).hide();
+        if (!path)
+            return;
+        tsRequest({result: 'tilt_image', path: path, kind: kind}, function (r) {
+            $(selector).attr('src', 'data:image/png;base64,' + r.image).show();
+        });
+    }
+
+    function tiltSelect(i) {
+        let t = ts_current.tilts[i];
+        $('#tilts-body tr').removeClass('table-active');
+        $('#tilt-row-' + i).addClass('table-active');
+        $('#tilt-label').text('Tilt ' + (i + 1) + ': ' + t.angle + '°, dose ' + t.dose);
+        if (t.micrograph) {
+            $('#tilt-msg').text('');
+        } else {
+            $('#tilt-msg').text(ts_current.job_id ? 'No aligned image for this tilt.'
+                                                  : 'Not processed yet by the selected job. Movie: ' + t.movie);
+        }
+        showImage('#tilt-image', t.micrograph, 'micrograph');
+        showImage('#tilt-psd', t.psd, 'psd');
+    }
+
+    function tsShowTomogram() {
+        $('#tilts-body tr').removeClass('table-active');
+        $('#tilt-label').text('Tomogram (central slice)');
+        $('#tilt-msg').text(ts_current.tomogram);
+        $('#tilt-psd').hide();
+        showImage('#tilt-image', ts_current.tomogram, 'tomogram');
+    }
+
+    var reload_counter = 60;  // seconds to reload when there is no data yet
+    function check_reload() {
+        if (reload_counter > 0) {
+            $('#reload_label').text('Reloading in ' + reload_counter + ' seconds.');
+            reload_counter -= 1;
+            setTimeout(check_reload, 1000);
+        }
+        else
+            window.location.reload();
+    }
+
+    $(function () {
+        $('.ts-time').each(function () {
+            let ts = parseFloat($(this).data('ts'));
+            if (ts)
+                $(this).text(new Date(ts * 1000).toLocaleTimeString());
+        });
+        makeSameHeight('status_card');
+        if (tilt_series.length) {
+            ts_overlay = new Overlay('ts-overlay');
+            tsSelect(tilt_series.length - 1);  // Last acquired
+        }
+        else
+            check_reload();
+    });
+</script>
