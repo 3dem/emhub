@@ -69,10 +69,11 @@ class ProjectDetail(_Result):
     project: ProjectSummary
     job_count: int
     status_counts: dict[str, int]
-    failed: list[str] = Field(description="Jobs that failed or were aborted.")
-    active: list[str] = Field(description="Jobs scheduled, launched or running.")
+    failed: list[str] = Field(description="Jobs that failed or were aborted (at most 50).")
+    active: list[str] = Field(description="Jobs scheduled, launched or running (at most 50).")
     ready_to_run: list[str] = Field(
-        description="Saved jobs whose parent jobs have all finished, so they can be run now."
+        description="Saved jobs whose parent jobs have all finished, so they can be run now "
+        "(at most 50)."
     )
     labels: list[LabelInfo]
     jobs: list[JobNode] = Field(description="Job graph, in pipeline order; possibly filtered.")

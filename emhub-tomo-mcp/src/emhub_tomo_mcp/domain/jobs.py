@@ -31,7 +31,7 @@ from .models import (
     ProjectDetail,
     WaitResult,
 )
-from .projects import ProjectRef
+from .projects import ProjectRef, folder_must_exist
 from .shaping import clean_log, is_error_line, omitted_lines, take_window
 
 TERMINAL = frozenset({"finished", "failed", "aborted"})
@@ -39,6 +39,7 @@ ACTIVE = frozenset({"scheduled", "launched", "running"})
 PROBLEM = frozenset({"failed", "aborted"})
 
 MAX_LOG_LINES = 500
+LIST_CAP = 50  # failed, active and ready lists in a project overview
 MAX_LOG_BYTES = 32_000
 MAX_ERROR_LINES = 30
 STREAM_FILES: dict[LogStream, str] = {
@@ -78,7 +79,8 @@ class JobService:
     async def _labels(self, ref: ProjectRef) -> tuple[dict[str, str], list[LabelInfo]]:
         """Label names by id and label summaries; empty if EMhub has no labels endpoint."""
         try:
-            payload = await self._api.get_project_labels(ref.id)
+            with folder_must_exist(ref):
+                payload = await self._api.get_project_labels(ref.id)
         except EmhubMcpError as exc:
             if exc.kind is ErrorKind.UNSUPPORTED:
                 return {}, []
@@ -105,10 +107,12 @@ class JobService:
         )
 
     async def graph(self, ref: ProjectRef) -> dict[str, WorkflowNode]:
-        return await self._api.get_workflow_graph(ref.id)
+        with folder_must_exist(ref):
+            return await self._api.get_workflow_graph(ref.id)
 
     async def status_counts(self, ref: ProjectRef) -> dict[str, int]:
-        jobs = await self._api.get_job_statuses(ref.id)
+        with folder_must_exist(ref):
+            jobs = await self._api.get_job_statuses(ref.id)
         return dict(Counter((j.status or "unknown").lower() for j in jobs))
 
     async def project_detail(
@@ -117,7 +121,7 @@ class JobService:
         *,
         statuses: Collection[str] | None = None,
         job_types: Collection[str] | None = None,
-        limit: int = 300,
+        limit: int = 100,
     ) -> ProjectDetail:
         graph = await self.graph(ref)
         label_names, label_infos = await self._labels(ref)
@@ -141,9 +145,9 @@ class JobService:
             project=ref.summary,
             job_count=len(nodes),
             status_counts=dict(counts),
-            failed=[n.id for n in nodes if _status(n) in PROBLEM],
-            active=[n.id for n in nodes if _status(n) in ACTIVE],
-            ready_to_run=ready,
+            failed=[n.id for n in nodes if _status(n) in PROBLEM][:LIST_CAP],
+            active=[n.id for n in nodes if _status(n) in ACTIVE][:LIST_CAP],
+            ready_to_run=ready[:LIST_CAP],
             labels=label_infos,
             jobs=[self._node(n, label_names) for n in shown],
             jobs_omitted=len(nodes) - len(shown),
@@ -174,7 +178,8 @@ class JobService:
         node, _ = await self.require_job(ref, job_id)
         # Logs are always read (EMhub caps them at 2000 lines) to spot failures that
         # did not change the job status.
-        run = await self._api.get_run(ref.id, job_id, ["json", "stdout", "stderr"])
+        with folder_must_exist(ref):
+            run = await self._api.get_run(ref.id, job_id, ["json", "stdout", "stderr"])
         label_names, _ = await self._labels(ref)
         run_json = run.run_json
         values = dict(run_json.values) if run_json else {}
@@ -273,7 +278,8 @@ class JobService:
     ) -> JobLogs:
         node, _ = await self.require_job(ref, job_id)
         run_outputs = [s for s in streams if s in ("stdout", "stderr")]
-        run = await self._api.get_run(ref.id, job_id, run_outputs) if run_outputs else None
+        with folder_must_exist(ref):
+            run = await self._api.get_run(ref.id, job_id, run_outputs) if run_outputs else None
         windows: list[LogWindow] = []
         errors: list[LogLine] = []
         for stream in streams:
@@ -363,9 +369,9 @@ class JobService:
         )
 
     async def _states(self, ref: ProjectRef, wanted: Sequence[str]) -> dict[str, str]:
-        jobs = {
-            j.id: (j.status or "unknown").lower() for j in await self._api.get_job_statuses(ref.id)
-        }
+        with folder_must_exist(ref):
+            statuses = await self._api.get_job_statuses(ref.id)
+        jobs = {j.id: (j.status or "unknown").lower() for j in statuses}
         missing = [j for j in wanted if j not in jobs]
         if missing:
             close = difflib.get_close_matches(missing[0], list(jobs), n=3, cutoff=0.5)

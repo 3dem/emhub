@@ -16,6 +16,23 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class _Payload(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
+    @field_validator("*", mode="before")
+    @classmethod
+    def _null_collections(cls, value: Any, info: Any) -> Any:
+        """EMhub sometimes sends null for an empty list or dict."""
+        if value is None and info.field_name in cls._collection_fields():
+            annotation = cls.model_fields[info.field_name].annotation
+            return {} if "dict" in str(annotation) else []
+        return value
+
+    @classmethod
+    def _collection_fields(cls) -> set[str]:
+        return {
+            name
+            for name, f in cls.model_fields.items()
+            if str(f.annotation).startswith(("list", "dict"))
+        }
+
 
 class EmhubUser(_Payload):
     id: int

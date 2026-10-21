@@ -41,7 +41,7 @@ before looking at single jobs.
 | `project_id` | integer | required | Project id, from list_projects. ≥ 1 |
 | `statuses` | list of `saved` \| `scheduled` \| `launched` \| `running` \| `finished` \| `failed` \| `aborted` or null | `None` | Only list jobs with these statuses. max items 7 |
 | `job_types` | list of string or null | `None` | Only list jobs of these types. max items 50 |
-| `limit` | integer | `300` | Maximum number of jobs listed. ≥ 1, ≤ 1000 |
+| `limit` | integer | `100` | Maximum number of jobs listed. ≥ 1, ≤ 1000 |
 
 Returns: `project`, `job_count`, `status_counts`, `failed`, `active`, `ready_to_run`, `labels`, `jobs`, `jobs_omitted`.
 

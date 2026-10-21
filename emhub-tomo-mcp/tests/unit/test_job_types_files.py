@@ -64,6 +64,18 @@ async def test_describe(services: Services, fake: FakeEmhub) -> None:
     }
 
 
+async def test_describe_type_without_form(services: Services, fake: FakeEmhub) -> None:
+    ref = await services.projects.get(1)
+    fake.form = {
+        "name": "emw-pytme",
+        "sections": [{"label": "Parameters", "params": []}],
+        "source": "jobstar",
+    }
+    with pytest.raises(EmhubMcpError) as info:
+        await services.job_types.describe("emw-pytme", ref, detail="compact")
+    assert info.value.kind is ErrorKind.NOT_FOUND and "no parameter form" in info.value.message
+
+
 async def test_templates(services: Services, fake: FakeEmhub) -> None:
     templates = await services.job_types.templates()
     assert [t.id for t in templates.templates][:1] == ["apof-aretomo3"]
@@ -82,10 +94,11 @@ async def test_list_files(services: Services) -> None:
         ("EMwrap", "dir"),
         ("WarpMctf", "dir"),
     ]
-    assert listing.total == 5 and listing.next_cursor
+    assert listing.total == 6 and listing.next_cursor
     rest = await services.files.list(ref, ".", limit=3, cursor=listing.next_cursor)
     assert [(e.path, e.size) for e in rest.entries] == [
         ("default_pipeline.star", 14),
+        ("latin1.log", 17),
         ("notes.txt", 21),
     ]
     stars = await services.files.list(
@@ -184,3 +197,13 @@ async def test_read_image(services: Services) -> None:
     )
     assert image.png is not None and image.png.startswith(b"\x89PNG")
     assert image.content.image == {"name": "WarpMctf/job003/preview.mrc"}
+
+
+async def test_unreadable_text_file(services: Services) -> None:
+    ref = await services.projects.get(1)
+    read = await services.files.read(
+        ref, "latin1.log", tail_lines=None, head_lines=None, start_line=None, want_image=False
+    )
+    assert read.content.text is None
+    assert "could not read this file as text" in (read.content.note or "")
+    assert "utf-8" in (read.content.note or "")

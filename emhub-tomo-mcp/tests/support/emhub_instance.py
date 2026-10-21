@@ -128,10 +128,18 @@ def create_instance(home: Path, instance_dir: Path, log: IO[str]) -> str:
     return password
 
 
-def start_server(home: Path, instance_dir: Path, port: int, log_file: Path) -> subprocess.Popen:
-    """Serve ``instance_dir`` on 127.0.0.1:port in a new process group."""
+def start_server(
+    home: Path, instance_dir: Path, port: int, log_file: Path, logged_user: str | None = None
+) -> subprocess.Popen:
+    """Serve ``instance_dir`` on 127.0.0.1:port in a new process group.
+
+    With ``logged_user``, every request is logged in as that user, the way
+    ``emh-tomo --run`` serves EMhub (it uses ``admin``).
+    """
     # Flask only accepts an absolute instance path.
     env = {**_safe_env(), "FLASK_APP": "emhub", "EMHUB_INSTANCE": str(instance_dir.resolve())}
+    if logged_user:
+        env["EMHUB_LOGGED_USER"] = logged_user
     with log_file.open("a") as log:
         return subprocess.Popen(
             _in_installation(
@@ -198,6 +206,7 @@ def emhub_instance(
     workdir: str | os.PathLike[str] | None = None,
     keep: bool = False,
     timeout: float = 120,
+    logged_user: str | None = None,
 ) -> Iterator[EmhubInstance]:
     """Create, serve and finally remove a throw-away EMhub instance.
 
@@ -206,6 +215,7 @@ def emhub_instance(
         workdir: where to create the temporary folder (default: system temp).
         keep: keep the temporary folder after the server has stopped.
         timeout: seconds to wait for the server to answer.
+        logged_user: log every request in as this user, like ``emh-tomo --run``.
     """
     home = installation_home(home)
     root = Path(tempfile.mkdtemp(prefix="emhub-instance-", dir=workdir)).resolve()
@@ -218,7 +228,7 @@ def emhub_instance(
             password = create_instance(home, instance_dir, log)
         port = free_port()
         url = f"http://127.0.0.1:{port}"
-        proc = start_server(home, instance_dir, port, log_file)
+        proc = start_server(home, instance_dir, port, log_file, logged_user)
         wait_until_serving(url, proc, log_file, timeout)
         yield EmhubInstance(
             url=url,

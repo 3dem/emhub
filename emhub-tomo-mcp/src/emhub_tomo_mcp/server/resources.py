@@ -11,7 +11,7 @@ from mcp.server.mcpserver import MCPServer
 from ..errors import invalid
 from ..services import Services
 from .responses import guarded_resource
-from .tools_read import _any_project
+from .tools_read import with_form_context
 
 GUIDES = {
     "overview": ("EMhub-Tomo overview", "Projects, jobs and the usual tomography pipeline."),
@@ -71,6 +71,7 @@ def register_resources(mcp: MCPServer, services: Services) -> None:
     )
     @guarded_resource
     async def job_type_form(job_type: str) -> str:
-        ref = await _any_project(services)
-        form = await services.job_types.form(job_type, ref)
+        form = await with_form_context(
+            services, None, lambda ref: services.job_types.form(job_type, ref)
+        )
         return json.dumps(form, separators=(",", ":"))

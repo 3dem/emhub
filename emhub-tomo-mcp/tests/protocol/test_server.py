@@ -297,3 +297,15 @@ async def test_legacy_protocol(services: Services) -> None:
         assert [t.name for t in (await c.list_tools()).tools] == EXPECTED_TOOLS
         result = await c.call_tool("get_project", {"project_id": 1})
         assert not result.is_error
+
+
+async def test_job_forms_skip_projects_without_folder(client: Client, fake: FakeEmhub) -> None:
+    # The admin's own project comes first but its folder is gone: use another one.
+    fake.missing_folders.add(2)
+    result = await client.call_tool("describe_job_type", {"job_type": "emw-warp-mctf"})
+    assert not result.is_error, _text(result)
+    form = await client.read_resource("emhub-tomo://job-types/emw-warp-mctf/form")
+    assert json.loads(form.contents[0].text)["name"] == "emw-warp-mctf"  # type: ignore[union-attr]
+    fake.missing_folders.update({1, 3})
+    result = await client.call_tool("describe_job_type", {"job_type": "emw-warp-mctf"})
+    assert result.is_error and "No accessible project" in _text(result)

@@ -8,6 +8,7 @@ layer), never from the caller.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from typing import Any, TypeVar
 
@@ -30,6 +31,7 @@ from .models import (
 )
 
 T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
 USER_ATTRS = ["id", "username", "email", "name", "roles"]
 
@@ -46,6 +48,25 @@ def _parse(adapter: TypeAdapter[T], data: Any, method: str) -> T:
         ) from None
 
 
+def _parse_items(adapter: TypeAdapter[T], data: Any, method: str) -> list[T]:
+    """Parse a list item by item: one malformed record is skipped (and logged)
+    instead of making the whole answer unusable."""
+    if not isinstance(data, list):
+        raise EmhubMcpError(
+            ErrorKind.UPSTREAM_ERROR,
+            f"EMhub returned an unexpected payload for '{method}' (not a list).",
+            hint="The EMhub version may not be supported by this server.",
+            log_detail=repr(data)[:3000],
+        )
+    items = []
+    for raw in data:
+        try:
+            items.append(adapter.validate_python(raw))
+        except ValidationError as exc:
+            logger.warning("Skipping a malformed item from '%s': %s", method, str(exc)[:500])
+    return items
+
+
 def _field(data: Any, key: str, method: str) -> Any:
     if not isinstance(data, dict) or key not in data:
         raise EmhubMcpError(
@@ -56,16 +77,16 @@ def _field(data: Any, key: str, method: str) -> Any:
     return data[key]
 
 
-_USERS = TypeAdapter(list[EmhubUser])
-_ENTRIES = TypeAdapter(list[EmhubEntry])
-_PROJECTS = TypeAdapter(list[EmhubProject])
-_WIDGET = TypeAdapter(dict[str, WorkflowNode])
-_FLAT = TypeAdapter(list[FlatJob])
+_USERS = TypeAdapter(EmhubUser)
+_ENTRIES = TypeAdapter(EmhubEntry)
+_PROJECTS = TypeAdapter(EmhubProject)
+_NODE = TypeAdapter(WorkflowNode)
+_FLAT = TypeAdapter(FlatJob)
 _RUN = TypeAdapter(RunPayload)
 _LABELS = TypeAdapter(LabelsPayload)
-_TEMPLATES = TypeAdapter(list[WorkflowTemplateInfo])
-_JOB_TYPES = TypeAdapter(list[JobTypeInfo])
-_DIR = TypeAdapter(list[DirItem])
+_TEMPLATES = TypeAdapter(WorkflowTemplateInfo)
+_JOB_TYPES = TypeAdapter(JobTypeInfo)
+_DIR = TypeAdapter(DirItem)
 _PREVIEW = TypeAdapter(FilePreview)
 
 
@@ -75,32 +96,37 @@ class EmhubApi:
 
     async def get_users(self) -> list[EmhubUser]:
         data = await self.client.call("get_users", body={"attrs": USER_ATTRS})
-        return _parse(_USERS, data, "get_users")
+        return _parse_items(_USERS, data, "get_users")
 
     async def get_entries(self) -> list[EmhubEntry]:
         data = await self.client.call("get_entries", {})
-        return _parse(_ENTRIES, data, "get_entries")
+        return _parse_items(_ENTRIES, data, "get_entries")
 
     async def get_projects(self) -> list[EmhubProject]:
         data = await self.client.call("get_projects", {})
-        return _parse(_PROJECTS, data, "get_projects")
+        return _parse_items(_PROJECTS, data, "get_projects")
 
     async def get_workflow_graph(self, entry_id: int) -> dict[str, WorkflowNode]:
         """Job graph keyed by job id, without EMhub's synthetic ``PROJECT`` node."""
         data = await self.client.call(
             "get_session_workflow", {"entry_id": entry_id, "widget": True}
         )
-        nodes = _parse(
-            _WIDGET, _field(data, "workflow", "get_session_workflow"), "get_session_workflow"
-        )
-        nodes.pop("PROJECT", None)
-        return nodes
+        graph = _field(data, "workflow", "get_session_workflow")
+        if not isinstance(graph, dict):
+            raise EmhubMcpError(
+                ErrorKind.UPSTREAM_ERROR,
+                "EMhub returned an unexpected job graph (not a mapping).",
+                log_detail=repr(graph)[:3000],
+            )
+        graph.pop("PROJECT", None)
+        nodes = _parse_items(_NODE, list(graph.values()), "get_session_workflow")
+        return {node.id: node for node in nodes}
 
     async def get_job_statuses(self, entry_id: int) -> list[FlatJob]:
         data = await self.client.call(
             "get_session_workflow", {"entry_id": entry_id, "widget": False}
         )
-        return _parse(
+        return _parse_items(
             _FLAT,
             _field(data, "workflow", "get_session_workflow"),
             "get_session_workflow",
@@ -138,11 +164,11 @@ class EmhubApi:
 
     async def get_workflow_templates(self) -> list[WorkflowTemplateInfo]:
         data = await self.client.call("get_workflows", {})
-        return _parse(_TEMPLATES, data, "get_workflows")
+        return _parse_items(_TEMPLATES, data, "get_workflows")
 
     async def get_job_types(self) -> list[JobTypeInfo]:
         data = await self.client.call("get_job_types", {})
-        return _parse(_JOB_TYPES, data, "get_job_types")
+        return _parse_items(_JOB_TYPES, data, "get_job_types")
 
     async def get_config(self, name: str) -> dict[str, Any]:
         data = await self.client.call("get_config", {"config": name})
@@ -151,7 +177,7 @@ class EmhubApi:
 
     async def list_dir(self, root: str, path: str) -> list[DirItem]:
         data = await self.client.call("list_project_dir", {"root": root, "path": path})
-        return _parse(
+        return _parse_items(
             _DIR,
             _field(data, "items", "list_project_dir"),
             "list_project_dir",

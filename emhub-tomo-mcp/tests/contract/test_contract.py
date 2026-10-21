@@ -148,6 +148,7 @@ class World:
     project_a: int  # admin's: the tutorial template, a finished import, a failed job
     project_b: int  # admin's, shared with bob (view-only)
     project_c: int  # admin's, not shared
+    project_gone: int  # admin's, its folder was deleted
     import_job: str  # finished cleanly
     partial_job: str  # finished, but its program failed
     failed_job: str  # failed
@@ -257,6 +258,11 @@ def _world(site: Path, workdir: Path) -> Iterator[World]:
             [{"user_email": "bob@example.org", "user_perms": "view-only"}],
         )
         c = _entry(rest, container, projects / "c", data, "Private C", [])
+        # A project whose folder was deleted after it was registered.
+        gone = _entry(rest, container, projects / "gone", data, "Deleted folder", [])
+        shutil.rmtree(projects / "gone")
+        # A text file that is not UTF-8 (Latin-1), as some old tools write.
+        (projects / "a" / "latin1.log").write_bytes("Défocus = 2.5 µm\n".encode("latin-1"))
 
         rest("load_workflow", {"entry_id": a, "workflow_id": "apof-warp-tutorial-part1"})
         jobs = rest("get_session_workflow", {"entry_id": a, "widget": False})["workflow"]
@@ -308,6 +314,7 @@ def _world(site: Path, workdir: Path) -> Iterator[World]:
             project_a=a,
             project_b=b,
             project_c=c,
+            project_gone=gone,
             import_job=import_job,
             partial_job=mctf_job,
             failed_job=failed_job,
@@ -359,7 +366,7 @@ async def test_status(admin: Client) -> None:
     status = await call(admin, "get_server_status")
     assert status["reachable"] and status["error"] is None
     assert status["identity"]["username"] == "admin" and status["identity"]["is_admin"]
-    assert status["visible_projects"] == 3
+    assert status["visible_projects"] == 4
     assert status["capabilities"] == {"get_workflows": True, "get_job_types": True}
 
 
@@ -367,7 +374,10 @@ async def test_status(admin: Client) -> None:
 async def test_projects_and_visibility(admin: Client, bob: Client, world: World) -> None:
     listing = await call(admin, "list_projects", include_job_counts=True)
     by_id = {p["id"]: p for p in listing["projects"]}
-    assert set(by_id) == {world.project_a, world.project_b, world.project_c}
+    assert set(by_id) == {world.project_a, world.project_b, world.project_c, world.project_gone}
+    # Counting jobs of a project whose folder is gone fails for that project only.
+    assert by_id[world.project_gone]["job_counts"] is None
+    assert by_id[world.project_gone]["error"]
     a = by_id[world.project_a]
     assert (a["owner"], a["access"], a["processing_path"]) == ("admin", "owner", str(world.root_a))
     assert a["job_counts"] == {"finished": 2, "failed": 1, "saved": 9}
@@ -513,3 +523,63 @@ async def test_resources(admin: Client, world: World) -> None:
     assert len(json.loads(workflow.contents[0].text)) == 12  # type: ignore[union-attr]
     form = await admin.read_resource("emhub-tomo://job-types/emw-import-ts/form")
     assert json.loads(form.contents[0].text)["sections"]  # type: ignore[union-attr]
+
+
+@pytest.mark.anyio
+async def test_deleted_project_folder(admin: Client, world: World) -> None:
+    message = await error(admin, "get_project", project_id=world.project_gone)
+    assert "[not_found]" in message and "folder" in message
+    assert "Traceback" not in message
+
+
+@pytest.mark.anyio
+async def test_non_utf8_file(admin: Client, world: World) -> None:
+    """EMhub reads text files as UTF-8; the failure must be reported, not shown as empty."""
+    content = await call(admin, "read_project_file", project_id=world.project_a, path="latin1.log")
+    assert content["text"] is None
+    assert "could not read this file as text" in content["note"]
+    assert "utf-8" in content["note"]
+
+
+# ------------------------------------------------------------------ auto-login
+
+
+@pytest.fixture(scope="module")
+def autologin_instance(tmp_path_factory: pytest.TempPathFactory) -> Iterator[EmhubInstance]:
+    """An EMhub served the way 'emh-tomo --run' serves it: every request is admin."""
+    workdir = Path(os.environ.get("EMHUB_TEST_WORKDIR") or tmp_path_factory.mktemp("autologin"))
+    workdir.mkdir(parents=True, exist_ok=True)
+    with emhub_instance(workdir=workdir, logged_user="admin") as inst:
+        rest = Rest(inst.url)  # no login: the server logs requests in by itself
+        admin = next(u for u in rest("get_users", ["id", "username"]) if u["username"] == "admin")
+        container = rest(
+            "create_project",
+            {
+                "user_id": admin["id"],
+                "status": "special:processing_tomo",
+                "user_can_edit": True,
+                "is_confidential": False,
+                "title": "Default",
+                "description": "",
+            },
+        )["project"]["id"]
+        data = inst.root / "data"
+        data.mkdir()
+        _entry(rest, container, inst.root / "p", data, "Autologin project", [])
+        yield inst
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("auth", ["autologin", "auto"])
+async def test_autologin_mode(autologin_instance: EmhubInstance, auth: str) -> None:
+    loaded = load_settings(
+        {"EMHUB_SERVER_URL": autologin_instance.url, "EMHUB_TOMO_MCP_AUTH": auth}
+    )
+    async with Client(build_server(Services.create(loaded.settings))) as client:
+        status = await call(client, "get_server_status")
+        assert status["error"] is None and status["identity"]["username"] == "admin"
+        assert status["auth_mode"] == auth
+        listing = await call(client, "list_projects")
+        assert [p["title"] for p in listing["projects"]] == ["Autologin project"]
+        detail = await call(client, "get_project", project_id=listing["projects"][0]["id"])
+        assert detail["job_count"] == 0

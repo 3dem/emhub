@@ -239,3 +239,18 @@ async def test_wait_errors(services: Services) -> None:
 async def test_status_counts(services: Services, services_for: Any) -> None:
     counts = await services.jobs.status_counts(await services.projects.get(1))
     assert counts == {"finished": 3, "failed": 1, "saved": 7}
+
+
+async def test_missing_project_folder(services: Services, fake: FakeEmhub) -> None:
+    fake.missing_folders.add(1)
+    ref = await services.projects.get(1)
+    for call in (
+        services.jobs.project_detail(ref),
+        services.jobs.job_detail(ref, "EMwrap/job001"),
+        services.jobs.status_counts(ref),
+        services.job_types.describe("emw-warp-mctf", ref, detail="compact"),
+    ):
+        with pytest.raises(EmhubMcpError) as info:
+            await call
+        assert info.value.kind is ErrorKind.NOT_FOUND
+        assert "folder of project 1 (/data/projects/apof) does not exist" in info.value.message

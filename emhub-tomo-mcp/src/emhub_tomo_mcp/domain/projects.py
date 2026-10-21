@@ -14,9 +14,10 @@ seconds to avoid fetching them on every tool call.
 
 from __future__ import annotations
 
+import contextlib
 import difflib
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Literal
 
@@ -68,6 +69,25 @@ class _Snapshot:
     entries: list[EmhubEntry]
     projects: dict[int, EmhubProject]
     users: dict[int, EmhubUser]
+
+
+class ProjectFolderMissing(EmhubMcpError):
+    """The project's EMhub entry points at a folder that no longer exists."""
+
+
+@contextlib.contextmanager
+def folder_must_exist(ref: ProjectRef) -> Iterator[None]:
+    """Turn EMhub's error for a missing project folder into a clear not_found."""
+    try:
+        yield
+    except EmhubMcpError as exc:
+        if exc.kind is ErrorKind.UPSTREAM_ERROR and "can't load processing path" in exc.message:
+            raise ProjectFolderMissing(
+                ErrorKind.NOT_FOUND,
+                f"The folder of project {ref.id} ({ref.root}) does not exist.",
+                hint="It may have been moved or deleted; its EMhub entry still points there.",
+            ) from None
+        raise
 
 
 def project_right(

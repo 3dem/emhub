@@ -161,6 +161,9 @@ class FakeEmhub:
                     "default_pipeline.star": "data_pipeline\n",
                     "data": None,
                     "notes.txt": "line 1\nline 2\nline 3\n",
+                    "latin1.log": UnicodeDecodeError(
+                        "utf-8", b"\xe9", 0, 1, "invalid continuation byte"
+                    ),
                 },
                 "WarpMctf": {"job003": None},
                 "WarpMctf/job003": {
@@ -189,6 +192,9 @@ class FakeEmhub:
     has_workflows: bool = True
     has_labels: bool = True
     require_login: bool = False
+    down: bool = False  # refuse every connection
+    record: bool = True  # keep every request in ``calls``
+    missing_folders: set[int] = field(default_factory=set)  # entries whose folder is gone
     password: str = "s3cret"
     fail: dict[str, Callable[[httpx2.Request], httpx2.Response]] = field(default_factory=dict)
     calls: list[tuple[str, Any]] = field(default_factory=list)
@@ -203,10 +209,13 @@ class FakeEmhub:
         return [body for m, body in self.calls if m == method]
 
     def handle(self, request: httpx2.Request) -> httpx2.Response:
+        if self.down:
+            raise httpx2.ConnectError("connection refused")
         assert request.method == "POST"
         method = request.url.path.removeprefix("/api/")
         body = json.loads(request.content or b"{}")
-        self.calls.append((method, body))
+        if self.record:
+            self.calls.append((method, body))
         if method in self.fail:
             return self.fail[method](request)
         if method == "login":
@@ -238,11 +247,17 @@ class FakeEmhub:
         entry_id = int(attrs["entry_id"])
         for entry in self.entries:
             if entry["id"] == entry_id:
+                if entry_id in self.missing_folders:
+                    path = entry["extra"]["data"]["processing_path"]
+                    raise RuntimeError(f"ERROR: can't load processing path: {path}")
                 return entry
         raise RuntimeError("'NoneType' object has no attribute 'extra'")
 
     def _api_get_users(self, attrs: Any) -> Any:
-        return [{k: v for k, v in u.items() if not attrs or k in attrs} for u in self.users]
+        return [
+            {k: v for k, v in u.items() if not attrs or k in attrs} if isinstance(u, dict) else u
+            for u in self.users
+        ]
 
     def _api_get_projects(self, attrs: Any) -> Any:
         return self.projects
@@ -357,7 +372,14 @@ class FakeEmhub:
         items = []
         for name, content in root[path].items():
             is_dir = content is None
-            size = (content if isinstance(content, int) else len(content)) if not is_dir else 0
+            if is_dir:
+                size = 0
+            elif isinstance(content, int):
+                size = content
+            elif isinstance(content, Exception):
+                size = 17
+            else:
+                size = len(content)
             items.append(
                 {
                     "name": name,
@@ -373,6 +395,16 @@ class FakeEmhub:
         root, rel = self._folder(attrs)
         folder, _, name = rel.rpartition("/")
         content = root.get(folder or ".", {}).get(name)
+        if isinstance(content, Exception):  # EMhub could not read it
+            return {
+                "preview": {
+                    "kind": "none",
+                    "mime": "text/plain",
+                    "meta": {"name": rel},
+                    "note": "ERROR: Traceback (most recent call last): ...",
+                    "error": str(content),
+                }
+            }
         if isinstance(content, str):
             return {
                 "preview": {

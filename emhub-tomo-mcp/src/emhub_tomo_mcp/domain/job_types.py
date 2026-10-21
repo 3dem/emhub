@@ -28,7 +28,7 @@ from .models import (
     WorkflowTemplate,
     WorkflowTemplateList,
 )
-from .projects import ProjectRef
+from .projects import ProjectRef, folder_must_exist
 from .shaping import truncate
 
 REGISTRY_TTL = 300.0
@@ -104,13 +104,15 @@ class JobTypeService:
 
     async def form(self, job_type: str, ref: ProjectRef) -> dict[str, Any]:
         await self.require(job_type)
-        return await self._api.get_job_form(ref.id, job_type)
+        with folder_must_exist(ref):
+            return await self._api.get_job_form(ref.id, job_type)
 
     async def describe(
         self, job_type: str, ref: ProjectRef, *, detail: Detail
     ) -> JobTypeDescription:
         summary = await self.require(job_type)
-        form = await self._api.get_job_form(ref.id, job_type)
+        with folder_must_exist(ref):
+            form = await self._api.get_job_form(ref.id, job_type)
         params: list[ParamSpec] = []
         hidden = 0
         queue_names: list[str] = []
@@ -137,6 +139,13 @@ class JobTypeService:
                     help=_help(raw.get("help"), help_limit, first_sentence=detail == "compact"),
                     expert=bool(raw.get("expertLevel")),
                 )
+            )
+        if not params and not hidden:
+            # EMhub answers with an empty placeholder form for job types without one.
+            raise EmhubMcpError(
+                ErrorKind.NOT_FOUND,
+                f"Job type '{job_type}' has no parameter form on this server.",
+                hint="It may be an internal or unfinished job type.",
             )
         return JobTypeDescription(
             job_type=job_type,

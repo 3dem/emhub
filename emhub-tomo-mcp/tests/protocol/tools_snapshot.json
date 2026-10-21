@@ -389,7 +389,7 @@
      "title": "Job Types"
     },
     "limit": {
-     "default": 300,
+     "default": 100,
      "description": "Maximum number of jobs listed.",
      "maximum": 1000,
      "minimum": 1,
@@ -662,7 +662,7 @@
    "additionalProperties": false,
    "properties": {
     "active": {
-     "description": "Jobs scheduled, launched or running.",
+     "description": "Jobs scheduled, launched or running (at most 50).",
      "items": {
       "type": "string"
      },
@@ -670,7 +670,7 @@
      "type": "array"
     },
     "failed": {
-     "description": "Jobs that failed or were aborted.",
+     "description": "Jobs that failed or were aborted (at most 50).",
      "items": {
       "type": "string"
      },
@@ -705,7 +705,7 @@
      "$ref": "#/$defs/ProjectSummary"
     },
     "ready_to_run": {
-     "description": "Saved jobs whose parent jobs have all finished, so they can be run now.",
+     "description": "Saved jobs whose parent jobs have all finished, so they can be run now (at most 50).",
      "items": {
       "type": "string"
      },

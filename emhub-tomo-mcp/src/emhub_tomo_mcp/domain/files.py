@@ -15,6 +15,7 @@ import fnmatch
 import posixpath
 from dataclasses import dataclass
 
+from ..emhub.client import clean_server_message
 from ..emhub.endpoints import EmhubApi
 from ..emhub.models import DirItem
 from ..errors import EmhubMcpError, ErrorKind, invalid, not_found
@@ -121,7 +122,14 @@ class FileService:
                     )
                 )
             preview = await self._api.get_file_preview(ref.root, rel)
-            lines = clean_log(preview.text or "")
+            if preview.error or preview.text is None:
+                reason = clean_server_message(preview.error or preview.note or "no text returned")
+                return FileRead(
+                    base.model_copy(
+                        update={"note": f"EMhub could not read this file as text: {reason}"}
+                    )
+                )
+            lines = clean_log(preview.text)
             if start_line is not None:
                 window = take_window(
                     lines,

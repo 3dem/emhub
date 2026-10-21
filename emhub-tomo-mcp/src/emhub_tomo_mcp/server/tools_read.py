@@ -9,7 +9,8 @@ REST comes from J.M. de la Rosa Trevin's prototype (emhub branch jm_mcp).
 
 # No "from __future__ import annotations": the SDK reads these annotations.
 import base64
-from typing import Annotated, Literal
+from collections.abc import Awaitable, Callable
+from typing import Annotated, Literal, TypeVar
 
 import anyio
 from mcp.server.mcpserver import Context, MCPServer
@@ -29,7 +30,7 @@ from ..domain.models import (
     WaitResult,
     WorkflowTemplateList,
 )
-from ..domain.projects import ProjectRef
+from ..domain.projects import ProjectFolderMissing, ProjectRef
 from ..errors import EmhubMcpError, invalid
 from ..services import Services
 from .responses import counts_text, guarded_tool, plural, respond
@@ -52,6 +53,8 @@ Cursor = Annotated[
     str | None, Field(max_length=500, description="next_cursor from the previous page.")
 ]
 Status = Literal["saved", "scheduled", "launched", "running", "finished", "failed", "aborted"]
+
+T = TypeVar("T")
 
 READ_ONLY = ToolAnnotations(
     read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
@@ -148,7 +151,7 @@ def register_read_tools(mcp: MCPServer, services: Services) -> None:
         ] = None,
         limit: Annotated[
             int, Field(ge=1, le=1000, description="Maximum number of jobs listed.")
-        ] = 300,
+        ] = 100,
     ) -> Annotated[CallToolResult, ProjectDetail]:
         """Overview of one project: its folders, job counts per status, failed and active
         jobs, jobs ready to run (saved, with all parents finished), labels, and the job
@@ -159,7 +162,7 @@ def register_read_tools(mcp: MCPServer, services: Services) -> None:
         summary = (
             f"Project {ref.id} '{ref.summary.title}': {plural(detail.job_count, 'job')}"
             + (f" ({counts_text(detail.status_counts)})" if detail.status_counts else "")
-            + (f"; failed: {', '.join(detail.failed)}" if detail.failed else "")
+            + (f"; failed: {_first(detail.failed, detail.status_counts)}" if detail.failed else "")
             + "."
         )
         return respond(detail, summary)
@@ -309,8 +312,11 @@ def register_read_tools(mcp: MCPServer, services: Services) -> None:
         """The parameters of a job type: name, type, default, choices, the condition under
         which each is shown, its section, and help; plus the queues configured on this
         server. Use it to understand or explain a job's parameters."""
-        ref = await (projects.get(project_id) if project_id else _any_project(services))
-        result = await services.job_types.describe(job_type, ref, detail=detail)
+        result = await with_form_context(
+            services,
+            project_id,
+            lambda ref: services.job_types.describe(job_type, ref, detail=detail),
+        )
         return respond(
             result,
             f"{job_type}: {plural(len(result.params), 'parameter')}; "
@@ -423,8 +429,23 @@ def register_read_tools(mcp: MCPServer, services: Services) -> None:
         return respond(content, summary, extra)
 
 
-async def _any_project(services: Services) -> ProjectRef:
-    listing = await services.projects.list(scope="all", limit=1)
-    if not listing.projects:
-        raise invalid("No accessible project to read job forms in; give project_id.")
-    return await services.projects.get(listing.projects[0].id)
+def _first(job_ids: list[str], counts: dict[str, int], shown: int = 5) -> str:
+    total = counts.get("failed", 0) + counts.get("aborted", 0)
+    text = ", ".join(job_ids[:shown])
+    return text + (f" and {total - shown} more" if total > shown else "")
+
+
+async def with_form_context(
+    services: Services, project_id: int | None, read: Callable[[ProjectRef], Awaitable[T]]
+) -> T:
+    """Run ``read`` with a project as context for job forms: the given one, or
+    else the first accessible project whose folder still exists."""
+    if project_id:
+        return await read(await services.projects.get(project_id))
+    listing = await services.projects.list(scope="all", limit=20)
+    for summary in listing.projects:
+        try:
+            return await read(await services.projects.get(summary.id))
+        except ProjectFolderMissing:
+            continue
+    raise invalid("No accessible project to read job forms in; give project_id.")

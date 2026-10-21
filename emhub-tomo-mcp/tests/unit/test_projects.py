@@ -110,3 +110,17 @@ async def test_never_sends_list_filters(services: Services, fake: FakeEmhub) -> 
     await services.jobs.project_detail(await services.projects.get(1))
     for _, body in fake.calls:
         assert "condition" not in str(body) and "orderBy" not in str(body)
+
+
+async def test_malformed_records_are_skipped(
+    services: Services, fake: FakeEmhub, caplog: pytest.LogCaptureFixture
+) -> None:
+    fake.users += ["not a user", {"id": "x"}, {"id": 11, "username": "ok", "roles": None}]
+    fake.graphs[1]["Broken/job050"] = {"id": "Broken/job050", "parents": "nope"}
+    fake.graphs[1]["Weird/job051"] = "not a node"
+    listing = await services.projects.list()
+    assert [p.id for p in listing.projects] == [1]
+    detail = await services.jobs.project_detail(await services.projects.get(1))
+    assert detail.job_count == 11
+    assert "Skipping a malformed item from 'get_users'" in caplog.text
+    assert "Skipping a malformed item from 'get_session_workflow'" in caplog.text
