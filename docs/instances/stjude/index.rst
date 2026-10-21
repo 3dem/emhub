@@ -321,6 +321,35 @@ the OTF is running). The OTF folder is ``extra.otf.path`` or, by default,
     OTF worker host. Stop also kills the OTF runner and the running jobs, that
     are marked as aborted so they can be continued.
 
+**Stopping the worker**
+    When the worker is stopped (``systemctl stop``/``restart``: SIGTERM,
+    Ctrl-C: SIGINT, or closed terminal: SIGHUP), its main process stops the
+    task processes and, for each OTF task with running processing, the OTF
+    (``OTF.stop``: runner, local and cluster jobs, marked as aborted). These
+    tasks are marked with ``shutdown`` in ``worker.json`` and the session
+    shows the OTF as ``stopped``. When the worker starts again they are
+    resumed with ``restart: continue``: the jobs continue with their outputs.
+    OTF tasks still waiting for data are resumed as usual.
+
+    The task processes ignore Ctrl-C and terminal hangups, so the worker
+    coordinates the shutdown. For the service, only the worker must receive
+    SIGTERM: the unit uses ``KillMode=mixed`` (with ``TimeoutStopSec`` long
+    enough to stop the OTFs), and the start script runs the worker with
+    ``exec python ...`` so it is the main process. With the default
+    ``KillMode=control-group`` all processes get SIGTERM at once, so the OTF
+    processing is killed without being stopped (it is still continued when the
+    worker starts again, if it was active in the last day).
+
+    .. code-block:: ini
+        :caption: emhub-worker-otf.service (relevant lines)
+
+        [Service]
+        ExecStart=/usr/local/em/scripts/emhub-worker-otf.sh
+        Restart=on-failure
+        RestartSec=30
+        KillMode=mixed
+        TimeoutStopSec=180
+
 
 SPA or tomography
 -----------------
