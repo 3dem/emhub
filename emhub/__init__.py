@@ -116,8 +116,7 @@ def create_app(test_config=None):
     os.makedirs(app.config['PAGES'], exist_ok=True)
 
     # Define some content_id list that does not requires login
-    NO_LOGIN_CONTENT = ['users_list',
-                        'user_reset_password']
+    NO_LOGIN_CONTENT = ['user_reset_password']
 
     def no_login_content(content_id, params):
         """ Return True if the content can be shown without login.
