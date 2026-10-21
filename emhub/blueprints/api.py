@@ -1131,7 +1131,17 @@ def get_workflows():
     'load_workflow' (or run in one step via the MCP 'run_workflow' tool).
     """
     from emwrap.base import ProcessingConfig
-    return send_json_data(ProcessingConfig.get_workflows())
+    workflows = ProcessingConfig.get_workflows()
+    # Also list each template's jobs (id and type), so clients can tell what
+    # loading it adds, and whether a project already has these jobs.
+    for workflow in workflows:
+        try:
+            jobs = ProcessingConfig.get_workflow(workflow['id']).get('jobs', [])
+            workflow['jobs'] = [{'jobid': j.get('jobid'), 'jobtype': j.get('jobtype')}
+                                for j in jobs]
+        except Exception:
+            workflow['jobs'] = []
+    return send_json_data(workflows)
 
 
 @api_bp.route('/get_job_types', methods=['GET', 'POST'])
@@ -1305,9 +1315,43 @@ def load_workflow():
             'workflow_id': workflow_id,
             'workflow_file': os.path.basename(workflow_file),
             'loaded_jobs': len(id_map),
+            # Template job id -> new job id, so clients know which jobs were created
+            'job_ids': id_map,
         }
 
     return handle_workflow(_load_workflow)
+
+
+@api_bp.route('/validate_job', methods=['POST'])
+@flask_login.login_required
+def validate_job():
+    """ Validate job params against the job type's form, without saving or
+    running anything. For an existing job (run_id), the given params are
+    merged into its current ones; for a new job, job_type is required.
+    With for_schedule, inputs produced by parent jobs may not exist yet.
+    """
+    def _validate_job(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        params = attrs.get('params') or {}
+        run = pp.get('run')
+        job = None
+        if run:
+            job = pm._getJob(run.id)
+            job_type = job['jobtype']
+            job_params = pm._readJobParams(job, extraParams=params)
+        else:
+            job_type = attrs.get('job_type')
+            if not job_type:
+                raise Exception("Provide run_id for an existing job, or job_type.")
+            job_params = params
+        try:
+            pm._validateJobInputs(job_type, job_params, job=job,
+                                  for_schedule=bool(attrs.get('for_schedule')))
+        except JobValidationError as e:
+            return {'valid': False, 'errors': list(e.errors)}
+        return {'valid': True, 'errors': []}
+
+    return _handle_item(_validate_job, 'validation')
 
 
 @api_bp.route('/export_workflow', methods=['POST'])
