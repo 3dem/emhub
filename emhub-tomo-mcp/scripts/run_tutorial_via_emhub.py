@@ -136,6 +136,11 @@ def main() -> int:
     parser.add_argument("--jobs", choices=sorted(JOBS), default="small")
     parser.add_argument("--interval", type=int, default=1, help="watcher interval (minutes)")
     parser.add_argument("--hours", type=float, default=12, help="give up after this long")
+    parser.add_argument(
+        "--tilt-series",
+        metavar="NAME",
+        help="import only this tilt series, e.g. TS_1 (smaller and faster)",
+    )
     args = parser.parse_args()
 
     info = json.loads((args.instance / "dev_server.json").read_text())
@@ -157,6 +162,8 @@ def main() -> int:
         }
         if "gpus" in job_params(api, sel, job_id) and job_type not in LOCAL_JOB_TYPES:
             params["gpus"] = args.gpus
+        if job_type == "emw-import-ts" and args.tilt_series:
+            params["mdoc_files"] = f"data/mdoc/{args.tilt_series}.mrc.mdoc"
         api("save_job", {**sel, "run_id": job_id, "params": params})
         api("schedule_job", {**sel, "run_id": job_id, "interval": args.interval})
         log(f"Scheduled {job_id} ({job_type}) {params}")

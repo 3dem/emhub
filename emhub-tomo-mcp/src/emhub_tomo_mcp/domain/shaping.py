@@ -27,6 +27,8 @@ _ERROR_LINE = re.compile(
     r"|permission denied|cuda error|exit code:? *[1-9]|cancelled|time limit|does not exist",
     re.IGNORECASE,
 )
+# Cursors are URL-safe base64 without padding.
+_CURSOR_CHARS = re.compile(r"[A-Za-z0-9_-]{1,400}")
 # Marker EMhub inserts when it shortens a long log.
 _OMITTED = re.compile(r"=+ OMITTED (\d+) LINES =+")
 
@@ -136,6 +138,8 @@ def decode_cursor(cursor: str | None, query: object) -> int:
     """Offset stored in ``cursor``; it must come from the same listing."""
     if not cursor:
         return 0
+    if not _CURSOR_CHARS.fullmatch(cursor):
+        raise invalid("Invalid cursor.", hint="Pass back 'next_cursor' unchanged.")
     try:
         padded = cursor + "=" * (-len(cursor) % 4)
         data = json.loads(base64.urlsafe_b64decode(padded.encode()))

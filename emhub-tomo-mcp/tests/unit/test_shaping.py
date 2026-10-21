@@ -113,7 +113,9 @@ def test_cursor_round_trip() -> None:
     assert paginate(list(range(5)), 4, 2, query) == ([4], None)
 
 
-@pytest.mark.parametrize("cursor", ["!!!", "e30", encode_cursor(1, {"other": True})])
+@pytest.mark.parametrize(
+    "cursor", ["!!!", "e30", "abc/def", "abc+def", "a" * 500, encode_cursor(1, {"other": True})]
+)
 def test_bad_cursors(cursor: str) -> None:
     with pytest.raises(EmhubMcpError) as info:
         decode_cursor(cursor, {"path": "x"})
