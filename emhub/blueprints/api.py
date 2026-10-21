@@ -1134,6 +1134,26 @@ def get_workflows():
     return send_json_data(ProcessingConfig.get_workflows())
 
 
+@api_bp.route('/get_job_types', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_job_types():
+    """ List the job types registered in emwrap (id, label, output folder
+    type, whether it appears in the processing menu, whether it has a form),
+    so clients can tell which job types exist on this server.
+    """
+    from emwrap.base import ProcessingConfig
+    job_types = []
+    for job_type, conf in ProcessingConfig.get_jobs().items():
+        job_types.append({
+            'id': job_type,
+            'label': conf.get('label', job_type),
+            'output': conf.get('output', ''),
+            'visible': ProcessingConfig.is_job_visible(job_type),
+            'has_form': os.path.exists(ProcessingConfig.get_job_form_file(job_type))
+        })
+    return send_json_data(job_types)
+
+
 @api_bp.route('/get_session_workflow', methods=['POST'])
 @flask_login.login_required
 def get_session_workflow():
