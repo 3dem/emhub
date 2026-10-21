@@ -1,11 +1,21 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 (2026-10-21)
 
-- Tools `get_jobs` (several jobs in one call) and `get_star_table` (tables, columns and counts from STAR files).
-- Tests: concurrent changes to one project, a slow EMhub over real HTTP, latency for a 200-job project.
+First release: read access for everyone, write access for operators who enable it. Tagged `emhub-tomo-mcp-v1.0.0` (locally) on the emhub branch `sc_mcp_server`; not yet published.
 
-## 0.2.0 (unreleased)
+- Tools `get_jobs` (up to 20 jobs in one call) and `get_star_table` (a STAR file's tables, selected columns, pages of rows and counts per value, e.g. particles per tomogram).
+- Fixed: outputs that EMhub reports as missing were shown as existing unless their type was `File` (e.g. RELION's optimisation sets), so `get_job` missed the warning for finished jobs with missing outputs. Found by the evals; checked against the files on disk for every job of the tutorial projects.
+- Docs: [deployment](docs/deployment.md) (installing on a cluster, access levels, the audit log) and [troubleshooting](docs/troubleshooting.md).
+- Tests:
+  - three launches of one job at the same time give one launch;
+  - a slow EMhub over real HTTP times out within the limits, and changes are not retried;
+  - `get_project` on a 200-job project stays within its latency budget;
+  - the docs' internal links resolve, and the version matches the package metadata.
+- Agentic evals with write access (`tests/evals/run_write_evals.py`) on a throw-away EMhub with stub programs, graded on the answer and on the resulting EMhub state.
+- CI workflow for GitHub Actions (`.github/workflows/emhub-tomo-mcp.yml` in the emhub repository): lint, types, tests on Python 3.10–3.13, package build.
+
+## 0.2.0 (development version, not released)
 
 Write access, opt-in with `EMHUB_TOMO_MCP_ACCESS`.
 
@@ -17,7 +27,7 @@ Write access, opt-in with `EMHUB_TOMO_MCP_ACCESS`.
 - Tests: operations against a stateful fake EMhub; protocol tests per access level; contract tests that drive a pipeline through MCP on a real EMhub with stub launchers.
 - From heavy testing of 0.1.0: missing project folders, unreadable files and malformed EMhub records are handled; large projects stay within response budgets; agentic evals (`tests/evals`).
 
-## 0.1.0 (unreleased)
+## 0.1.0 (development version, not released)
 
 First version: read-only access to EMhub-Tomo processing projects.
 

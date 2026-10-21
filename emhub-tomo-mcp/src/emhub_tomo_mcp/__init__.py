@@ -9,4 +9,4 @@ The package has three layers:
 - ``server``: the MCP server (tools, resources, prompts) on top of the domain.
 """
 
-__version__ = "0.2.0"
+__version__ = "1.0.0"

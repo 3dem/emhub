@@ -4,7 +4,7 @@ An [MCP](https://modelcontextprotocol.io) server that gives AI assistants (Claud
 
 With read access (the default), an assistant can answer questions such as "which of my projects have failed jobs?", "why did `WarpTsAlign/job004` fail?" or "how far did the ApoF tutorial get?". With write access, which the operator enables, it can also set up projects from workflow templates, edit parameters, and run, schedule and stop jobs, with checks on parameters, queues, GPUs and launch rates, and an audit log.
 
-Status: **0.2.0** (Phases 1 and 2 of the development plan). Developed on the emhub branch `sc_mcp_server`.
+Status: **1.0.0** (Phases 1 to 3 of the development plan). Developed on the emhub branch `sc_mcp_server`; not yet merged or published.
 
 ## What it offers
 
@@ -75,6 +75,8 @@ Claude Code (`.mcp.json` in your project):
 
 - [docs/configuration.md](docs/configuration.md): environment variables
 - [docs/client-setup.md](docs/client-setup.md): Claude Code, VS Code, Claude Desktop, SSH
+- [docs/deployment.md](docs/deployment.md): installing on a cluster, access levels, logs and the audit log
+- [docs/troubleshooting.md](docs/troubleshooting.md): symptoms, causes and fixes
 - [docs/security.md](docs/security.md): what the server can and cannot do, and how it handles untrusted content
 - [docs/tools.md](docs/tools.md): tool, resource and prompt reference (generated)
 - [docs/development.md](docs/development.md): architecture, tests, development tools
