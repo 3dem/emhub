@@ -29,7 +29,9 @@ from emhub.data.processing.otf_cryoet import (
     STATUS_RUNNING, STATUS_FAILED, STATUSES_NEED_REVIEW, COL_TILT_ANGLE,
     COL_PRE_EXPOSURE, COL_MOVIE_INDEX, COL_CTF_CORRELATION, COL_IMAGE_TEXTURE,
     COL_DARK_AREA, COL_MATCH_PEAK, COL_FIELD_SHIFT, _measured, _early_is_total)
-from emtools.image.tilt_qc import REASON_LABELS
+from emwrap.base.tilt_quality_curation import TiltQualityCuration
+
+REASON_LABELS = TiltQualityCuration.REASON_LABELS
 
 
 ENTRY_TYPE = 'tomo_processing'

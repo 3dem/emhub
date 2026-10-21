@@ -23,7 +23,7 @@ import random
 import argparse
 
 from emtools.metadata import StarFile, Table, RelionStar
-from emtools.image import TiltThumbnails
+from emwrap.base.tilt_thumbnails import TiltThumbnailWriter
 
 
 N_TILTS = 41
@@ -160,7 +160,7 @@ def _tilt_rows(ts_index, cols, rng, placeholders=False):
 
 
 def _write_image_qc(path, name, ts_index, tilt_table, seed):
-    """ <name>_imageqc.json as emwrap writes it (emtools tilt_qc), for
+    """ <name>_imageqc.json as emwrap writes it (TiltQualityCuration), for
     the motion corrected tilts of a series.  Values like a real lamella;
     some series get one tilt of each kind the dashboard flags, near the
     end of acquisition where they happen. """
@@ -189,7 +189,7 @@ def _write_image_qc(path, name, ts_index, tilt_table, seed):
         if ts_index % 9 == 5 and m in last[-2:]:
             d['fieldShift'] = 0.42                  # walked off the target
         out.append(d)
-    folder = os.path.join(path, TiltThumbnails.folder(rows[0].rlnMicrographName))
+    folder = os.path.join(path, TiltThumbnailWriter.folder(rows[0].rlnMicrographName))
     os.makedirs(folder, exist_ok=True)
     with open(os.path.join(folder, name + '_imageqc.json'), 'w') as f:
         json.dump({'version': 1, 'tomoName': name, 'source': 'synthetic',

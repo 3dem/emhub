@@ -32,7 +32,8 @@ from collections import OrderedDict, Counter
 from emtools.metadata import StarFile, RelionStar
 # The curation rule (reject limits, flags, tilts after a lost field) lives
 # there only: shared with the emw-tilt-curation job and the curation skill
-from emtools.image import tilt_qc, TiltThumbnails
+from emwrap.base.tilt_quality_curation import TiltQualityCuration
+from emwrap.base.tilt_thumbnails import TiltThumbnailWriter
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +95,9 @@ COL_POWER_SPECTRUM = 'rlnCtfPowerSpectrum'
 # Not a RELION column: the CTF profile correlation from <movie>_ctf.json
 COL_CTF_CORRELATION = 'ctfCorrelation'
 # Not RELION columns either: the image content measures emwrap writes per
-# tilt series, <tomoName>_imageqc.json beside the jpegs (emtools tilt_qc),
+# tilt series, <tomoName>_imageqc.json beside the jpegs (emwrap TiltQualityCuration),
 # kept raw in t['imageQc']; these are what the strips show.  Texture and
-# dark area are relative to the series (tilt_qc.relative_measures).
+# dark area are relative to the series (TiltQualityCuration.relative_measures).
 COL_IMAGE_QC = 'imageQc'
 COL_IMAGE_TEXTURE = 'imageTexture'     # fraction of the series median
 COL_DARK_AREA = 'darkAreaExcess'       # fraction of the field black beyond the series median
@@ -139,7 +140,7 @@ PLACEHOLDER_ZERO_COLS = {
 #
 # Tilts are judged first: a tilt past a 'reject' limit counts as unusable,
 # one past a 'target' is usable but not optimal.  The reject limits are the
-# curation rule's (emtools tilt_qc.DEFAULT_LIMITS, see rule_limits); the
+# curation rule's (emwrap TiltQualityCuration.DEFAULT_LIMITS, see rule_limits); the
 # targets are the dashboard's own.  A tilt series is then
 # judged on how many usable tilts it keeps.  Only data quality is judged
 # here; job failures are handled separately.
@@ -169,7 +170,7 @@ DEFAULT_THRESHOLDS = {
     'shiftRoughness': {},
 }
 
-# Where each limit of the curation rule (emtools tilt_qc.DEFAULT_LIMITS)
+# Where each limit of the curation rule (emwrap TiltQualityCuration.DEFAULT_LIMITS)
 # sits in the thresholds: the defaults are filled in from the rule, and an
 # entry's otf_thresholds go back to it through rule_limits.  Image content:
 # blank, blacked out, a different field (both correlations low), shifted.
@@ -188,7 +189,7 @@ RULE_KEYS = {
     'beyond': ('fieldLoss', 'beyond'),                 # propose the tilts after a lost field
 }
 for _limit, (_key, _field) in RULE_KEYS.items():
-    DEFAULT_THRESHOLDS.setdefault(_key, {})[_field] = tilt_qc.DEFAULT_LIMITS[_limit]
+    DEFAULT_THRESHOLDS.setdefault(_key, {})[_field] = TiltQualityCuration.DEFAULT_LIMITS[_limit]
 
 STATUS_OK = 'ok'
 STATUS_SUSPECT = 'suspect'
@@ -201,7 +202,7 @@ STATUSES_NEED_REVIEW = (STATUS_SUSPECT, STATUS_BAD, STATUS_FAILED)
 
 
 def rule_limits(th):
-    """ The curation rule's limits (tilt_qc) from the dashboard's
+    """ The curation rule's limits (TiltQualityCuration) from the dashboard's
     thresholds (see RULE_KEYS); None turns a check off. """
     return {limit: th.get(key, {}).get(field) for limit, (key, field) in RULE_KEYS.items()}
 
@@ -501,8 +502,8 @@ class TiltSeriesMetrics:
         # Unusable: the curation rule's flags; off target: the targets here
         rule = self._rule_tilts()
         self._limits = rule_limits(th)
-        flags = tilt_qc.tilt_flags(rule, self._limits)
-        relative = tilt_qc.relative_measures(rule)
+        flags = TiltQualityCuration.tilt_flags(rule, self._limits)
+        relative = TiltQualityCuration.relative_measures(rule)
         for t, reject, (texture, dark) in zip(self.tilts, flags, relative):
             t[COL_IMAGE_TEXTURE], t[COL_DARK_AREA] = texture, dark
             off = []
@@ -535,7 +536,7 @@ class TiltSeriesMetrics:
                                  if {'ctf', 'ctfcorr'} & set(t['offTarget']))
 
     def _rule_tilts(self):
-        """ The tilts as the curation rule (emtools tilt_qc) takes them,
+        """ The tilts as the curation rule (emwrap TiltQualityCuration) takes them,
         in order; placeholder zeros are not measured. """
         def measured(col):
             return lambda t: _measured(t.get(col), col)
@@ -556,11 +557,11 @@ class TiltSeriesMetrics:
     def proposed_exclusions(self):
         """ {movie index: [flags]} for the tilts to propose leaving out:
         the unusable ones, and those after a tilt that lost the field on the
-        same side of the first acquired tilt ('beyond', tilt_qc.beyond_field).
+        same side of the first acquired tilt ('beyond', TiltQualityCuration.beyond_field).
         Needs summarize(). """
         flags = [list(t.get('reject', [])) for t in self.tilts]
         if getattr(self, '_limits', {}).get('beyond'):
-            tilt_qc.beyond_field(self._rule_tilts(), flags)
+            TiltQualityCuration.beyond_field(self._rule_tilts(), flags)
         return {int(t[COL_MOVIE_INDEX]): f for t, f in zip(self.tilts, flags)
                 if f and t.get(COL_MOVIE_INDEX) is not None}
 
@@ -690,7 +691,7 @@ class TiltSeriesMetrics:
             }
             # Plain strings from here are formatted by check(), not here
             why = ', '.join(f'{c} with ' + (labels[k]() if k in labels
-                                             else tilt_qc.REASON_LABELS.get(k, k))
+                                             else TiltQualityCuration.REASON_LABELS.get(k, k))
                             for k, c in self.rejectCounts.most_common())
             why = f' ({why})' if why else ''
             n_dropped = n - self.nUsable
@@ -804,7 +805,7 @@ class OtfSession:
     def tilt_thumbnail(self, tilt, kind='image'):
         """ A file emwrap writes for a tilt, as {'path', 'version'}, or None
         if it has not been written.  emwrap puts them in the thumbnails
-        folder of the job of the source MRC (TiltThumbnails.folder): the
+        folder of the job of the source MRC (TiltThumbnailWriter.folder): the
         tilt image (and a larger one), the CTF fit image and the CTF fit
         radial profile.  path is project relative;
         version is the modification time, for the URL, so the browser does
@@ -813,7 +814,7 @@ class OtfSession:
         src = tilt.get(col)
         if not src:
             return None
-        folder = TiltThumbnails.folder(src)
+        folder = TiltThumbnailWriter.folder(src)
         if not folder:
             return None
         rel = os.path.join(folder, pattern.format(name=os.path.splitext(os.path.basename(src))[0]))
@@ -1258,10 +1259,10 @@ class OtfSession:
         writes beside the tilt jpegs, matched by micrograph name: raw in
         t['imageQc'] for the rule, the match ones also as strip columns. """
         src = next((t[COL_MICROGRAPH] for t in ts.tilts if t.get(COL_MICROGRAPH)), None)
-        folder = TiltThumbnails.folder(src) if src else None
+        folder = TiltThumbnailWriter.folder(src) if src else None
         if not folder:
             return
-        path = self.join(tilt_qc.json_path(folder, ts.tomoName))
+        path = self.join(TiltQualityCuration.json_path(folder, ts.tomoName))
         data = _read_cached(path, _read_json)
         if not isinstance(data, dict):
             return
@@ -1273,7 +1274,7 @@ class OtfSession:
             name = os.path.splitext(os.path.basename(t.get(COL_MICROGRAPH) or ''))[0]
             if (r := rows.get(name)) is None:
                 continue
-            t[COL_IMAGE_QC] = {k: r.get(k) for k in tilt_qc.MEASURES}
+            t[COL_IMAGE_QC] = {k: r.get(k) for k in TiltQualityCuration.MEASURES}
             for col in (COL_MATCH_PEAK, COL_FIELD_SHIFT):
                 t[col] = r.get(col)
 
