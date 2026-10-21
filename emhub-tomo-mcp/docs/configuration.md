@@ -64,10 +64,11 @@ Hint: Job ids look like 'WarpMctf/job002'; get_project lists them.
 | `unreachable` | EMhub is not running, or `EMHUB_SERVER_URL` has the wrong port. |
 | `auth` | Login needed or rejected, or `EMHUB_USER` does not exist. |
 | `not_found` | Unknown or invisible project, job, job type or file. |
-| `validation` | Invalid argument, e.g. a path outside the project. |
-| `policy_denied` | Project outside `EMHUB_TOMO_MCP_PROJECTS`. |
+| `validation` | Invalid argument, e.g. a path outside the project, or parameters EMhub rejected. |
+| `conflict` | The job's status does not allow the change (e.g. it is running), or the change would duplicate or orphan jobs. |
+| `policy_denied` | Project outside `EMHUB_TOMO_MCP_PROJECTS`; access level or project right too low; queue, GPU or launch limits. |
 | `unsupported` | The EMhub server lacks an optional endpoint. |
 | `upstream_error` | EMhub reported an error; the first line of its message is shown. |
 | `internal_error` | Unexpected error in the MCP server. |
 
-The server log (stderr) has the full detail under the same reference id, including EMhub's traceback for `upstream_error`. Tracebacks are never sent to the client.
+[troubleshooting.md](troubleshooting.md) lists the usual causes. The server log (stderr) has the full detail under the same reference id, including EMhub's traceback for `upstream_error`. Tracebacks are never sent to the client.

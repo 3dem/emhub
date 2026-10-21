@@ -49,6 +49,19 @@ EMHUB_TOMO_HOME=/path/to/emhub-tomo  EMHUB_TEST_WORKDIR=/scratch/tmp  pytest tes
 
 `test_contract_write.py` (about 10 minutes) drives the change tools: it creates projects, loads the tutorial, edits the import, schedules the preprocessing chain and waits for it, stops a running and a scheduled job, checks the refusal of GPU jobs on the EMhub host, and labels, annotates, copies, exports and deletes jobs. The stubs' behaviour is set with `site_helpers.set_stub_mode` (`fail`, `ok`, `sleep N`).
 
+`tests/protocol/test_hardening.py` covers concurrency and slowness: three launches of one job at the same time give one launch and two conflicts; a real HTTP server that answers too slowly gives a timeout within the configured limits, and changes are not retried; `get_project` on a 200-job project stays within a latency budget.
+
+### Live test
+
+`tests/live/test_live_pipeline.py` drives the preprocessing of one ApoF tilt series through the MCP tools on a real EMhub-Tomo with real programs on a cluster queue (about 25 minutes, 3 GPUs). It is opt-in (`EMHUB_TOMO_MCP_LIVE=1`); the variables it needs are in its docstring.
+
+### Agentic evals
+
+The evals check that a model using the server answers correctly, within a budget of tool calls. They run Claude Code headless (`claude -p`) with only this server's tools, and cost API usage (each run prints its cost).
+
+- **Read access**: `tests/evals/run_evals.py --mcp-config mcp.json --scenarios tests/evals/apof_scenarios.json`. Questions about real ApoF projects on a development server (`scripts/dev_server.py`), graded on the answer text. `--regrade FILE` applies changed checks to saved answers without new runs.
+- **Write access**: `EMHUB_TOMO_HOME=... tests/evals/run_write_evals.py --workdir DIR`. A throw-away EMhub with stub programs; each scenario gets its own project, and the model acts with `operate` access and no default queue. Graded on the answer and on the resulting state: the audit log, job statuses, parameters and labels. The scenarios (`write_scenarios.json`) cover setting up a project, editing parameters, labelling, running a job on request, a refused deletion, instructions planted in a job comment, a GPU job without a cluster queue, and an ambiguous request. One run of the 8 scenarios costs about $1.70; `--repeat 3` runs each three times.
+
 Coverage: `pytest --cov`. The target is ≥ 90 % for `emhub/` and `domain/`.
 
 ## Snapshots and generated docs
@@ -64,6 +77,7 @@ Coverage: `pytest --cov`. The target is ≥ 90 % for `emhub/` and `domain/`.
 | `record_api_samples.py` | Re-record `tests/fixtures/api/` against a throw-away server. |
 | `run_tutorial_via_emhub.py` | Run the ApoF tutorial through EMhub's REST API on a cluster queue, to check a site's set-up. |
 | `gen_tool_docs.py` | Generate `docs/tools.md`. |
+| `sweep_real_data.py` | Call every read tool on every visible project, job and job folder of a server (read-only); reports errors, response sizes and latencies. |
 
 ## Adding a tool
 

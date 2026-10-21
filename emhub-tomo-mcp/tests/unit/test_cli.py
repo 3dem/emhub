@@ -4,12 +4,16 @@
 from __future__ import annotations
 
 import json
+import re
+from importlib import metadata
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fake_emhub import FakeEmhub
 
 from emhub_tomo_mcp import __main__ as cli
+from emhub_tomo_mcp import __version__
 from emhub_tomo_mcp.services import Services
 
 
@@ -71,3 +75,11 @@ def test_serve_builds_and_runs_the_server(env: Any) -> None:
     env.setattr("emhub_tomo_mcp.server.build_server", lambda services: FakeServer())
     assert cli.main([]) == 0
     assert ran == ["stdio"]
+
+
+def test_version_matches_package_metadata() -> None:
+    root = Path(__file__).resolve().parents[2]
+    declared = re.search(r'^version = "([^"]+)"', (root / "pyproject.toml").read_text(), re.M)
+    assert declared and declared.group(1) == __version__
+    assert metadata.version("emhub-tomo-mcp") == __version__  # reinstall after a bump
+    assert f"## {__version__}" in (root / "CHANGELOG.md").read_text()
