@@ -19,7 +19,7 @@ from emhub_tomo_mcp.server import build_server
 pytestmark = pytest.mark.anyio
 
 SNAPSHOT = Path(__file__).parent / "tools_snapshot_admin.json"
-READ_TOOLS = 11
+READ_TOOLS = 13
 OPERATE_TOOLS = [
     "create_project",
     "load_workflow_template",

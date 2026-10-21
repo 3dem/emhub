@@ -21,12 +21,14 @@ from ..domain.models import (
     FileContent,
     FileList,
     JobDetail,
+    JobDetails,
     JobLogs,
     JobTypeDescription,
     JobTypeList,
     ProjectDetail,
     ProjectList,
     ServerStatus,
+    StarTableContent,
     WaitResult,
     WorkflowTemplateList,
 )
@@ -204,6 +206,38 @@ def register_read_tools(mcp: MCPServer, services: Services) -> None:
         )
         return respond(detail, summary)
 
+    @mcp.tool(title="Details of several jobs", annotations=READ_ONLY)
+    @guarded_tool
+    async def get_jobs(
+        project_id: ProjectId,
+        job_ids: Annotated[list[JobId], Field(min_length=1, max_length=20)],
+        include_empty_params: Annotated[
+            bool, Field(description="Also list parameters whose value is empty.")
+        ] = False,
+    ) -> Annotated[CallToolResult, JobDetails]:
+        """The same details as get_job for up to 20 jobs in one call (without log
+        windows). Use it to compare jobs or to review a pipeline's parameters."""
+        ref = await projects.get(project_id)
+        wanted = list(dict.fromkeys(job_ids))
+        details: dict[str, JobDetail] = {}
+        limiter = anyio.CapacityLimiter(4)
+
+        async def one(job_id: str) -> None:
+            async with limiter:
+                details[job_id] = await jobs.job_detail(
+                    ref, job_id, include_empty_params=include_empty_params
+                )
+
+        async with anyio.create_task_group() as tg:
+            for job_id in wanted:
+                tg.start_soon(one, job_id)
+        result = JobDetails(project_id=ref.id, jobs=[details[j] for j in wanted])
+        warned = [d.id for d in result.jobs if d.warnings]
+        summary = "; ".join(f"{d.id}: {d.status}" for d in result.jobs) + (
+            f". Warnings for {', '.join(warned)}." if warned else "."
+        )
+        return respond(result, summary)
+
     @mcp.tool(title="Job logs", annotations=READ_ONLY)
     @guarded_tool
     async def get_job_logs(
@@ -370,6 +404,64 @@ def register_read_tools(mcp: MCPServer, services: Services) -> None:
             + ("" if len(result.entries) == result.total else f"; showing {len(result.entries)}")
             + ".",
         )
+
+    @mcp.tool(title="Read a STAR table", annotations=READ_ONLY)
+    @guarded_tool
+    async def get_star_table(
+        project_id: ProjectId,
+        path: Annotated[
+            str,
+            Field(
+                min_length=1,
+                max_length=1024,
+                description="STAR file relative to the project folder, e.g. "
+                "'WarpExportParticles/job007/particles.star'.",
+            ),
+        ],
+        table: Annotated[
+            str | None,
+            Field(
+                max_length=200,
+                description="Table (data block) name; the largest loop table if omitted.",
+            ),
+        ] = None,
+        columns: Annotated[
+            list[str] | None,
+            Field(
+                max_length=50,
+                description="Columns to return, with or without the 'rln' prefix "
+                "(e.g. 'TomoName'); all if omitted.",
+            ),
+        ] = None,
+        count_by: Annotated[
+            str | None,
+            Field(
+                max_length=200,
+                description="Also count the rows per value of this column, e.g. 'TomoName' "
+                "for particles per tomogram.",
+            ),
+        ] = None,
+        limit: Annotated[int, Field(ge=0, le=500, description="Rows to return.")] = 50,
+        cursor: Cursor = None,
+    ) -> Annotated[CallToolResult, StarTableContent]:
+        """Read a table from a STAR file (tilt series, tomograms, particles, optics, ...):
+        the file's tables, the selected columns of a page of rows, the total number of rows,
+        and optionally counts per value of a column. Use limit=0 with count_by to only
+        count."""
+        ref = await projects.get(project_id)
+        result = await services.files.star_table(
+            ref,
+            path,
+            table=table,
+            columns=columns,
+            limit=limit,
+            cursor=cursor,
+            count_by=count_by,
+        )
+        summary = f"{result.path} [{result.table}]: {plural(result.total_rows, 'row')}"
+        if result.counts is not None:
+            summary += f" in {plural(len(result.counts), 'group')} of {result.count_by}"
+        return respond(result, summary + ".")
 
     @mcp.tool(title="Read a project file", annotations=READ_ONLY)
     @guarded_tool

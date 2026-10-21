@@ -51,7 +51,7 @@ async def test_stdio_server_starts_without_emhub() -> None:
     )
     async with Client(params) as client:
         tools = (await client.list_tools()).tools
-        assert len(tools) == 11
+        assert len(tools) == 13
         result = await client.call_tool("get_project", {"project_id": 1})
         assert result.is_error
         assert "[unreachable]" in result.content[0].text  # type: ignore[union-attr]

@@ -260,6 +260,33 @@ class FileContent(_Result):
     note: str | None = None
 
 
+class StarTableSummary(_Result):
+    name: str
+    columns: int
+    rows: int
+
+
+class StarTableContent(_Result):
+    project_id: int
+    path: str
+    tables: list[StarTableSummary] = Field(description="All tables (data blocks) in the file.")
+    table: str = Field(description="The table shown.")
+    columns: list[str]
+    rows: list[list[str]] = Field(description="Rows of the selected columns; values as text.")
+    total_rows: int
+    first_row: int = Field(description="1-based number of the first returned row (0 if none).")
+    next_cursor: str | None
+    count_by: str | None = None
+    counts: dict[str, int] | None = Field(
+        default=None, description="Rows per value of count_by (all rows, at most 500 values)."
+    )
+
+
+class JobDetails(_Result):
+    project_id: int
+    jobs: list[JobDetail]
+
+
 # ------------------------------------------------------------------- status
 
 

@@ -13,10 +13,12 @@ Status: **0.2.0** (Phases 1 and 2 of the development plan). Developed on the emh
 | `get_server_status` | Connection, identity, visible projects, optional EMhub features |
 | `list_projects`, `get_project` | Projects you can access; one project's job graph, failed and active jobs, jobs ready to run |
 | `get_job`, `get_job_logs` | One job's parameters, inputs, outputs, error lines and logs; warnings when a "finished" job shows signs of failure |
+| `get_jobs` | Several jobs (up to 20) in one call, for comparisons |
 | `wait_for_jobs` | Bounded wait (≤ 10 min per call) with progress notifications |
 | `list_job_types`, `describe_job_type` | Job types and their parameters, including the server's queues |
 | `list_workflow_templates` | Ready-made workflows such as the ApoF tutorial |
 | `list_project_files`, `read_project_file` | Files inside a project; text windows or PNG previews of images and MRC files |
+| `get_star_table` | Tables of a STAR file: selected columns, pages of rows, counts per value (e.g. particles per tomogram) |
 
 With `EMHUB_TOMO_MCP_ACCESS=operate`:
 

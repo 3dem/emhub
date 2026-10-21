@@ -27,16 +27,28 @@ EXPECTED_TOOLS = [
     "list_projects",
     "get_project",
     "get_job",
+    "get_jobs",
     "get_job_logs",
     "wait_for_jobs",
     "list_job_types",
     "describe_job_type",
     "list_workflow_templates",
     "list_project_files",
+    "get_star_table",
     "read_project_file",
 ]
 
 HAPPY_CALLS: list[tuple[str, dict[str, Any]]] = [
+    ("get_jobs", {"project_id": 1, "job_ids": ["EMwrap/job001", "WarpTsAlign/job004"]}),
+    (
+        "get_star_table",
+        {
+            "project_id": 1,
+            "path": "Export/job007/particles.star",
+            "count_by": "TomoName",
+            "limit": 2,
+        },
+    ),
     ("get_server_status", {}),
     ("list_projects", {}),
     ("list_projects", {"scope": "all", "include_job_counts": True, "limit": 2}),

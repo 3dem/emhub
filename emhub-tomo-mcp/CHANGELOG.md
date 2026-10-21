@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Tools `get_jobs` (several jobs in one call) and `get_star_table` (tables, columns and counts from STAR files).
+- Tests: concurrent changes to one project, a slow EMhub over real HTTP, latency for a 200-job project.
+
 ## 0.2.0 (unreleased)
 
 Write access, opt-in with `EMHUB_TOMO_MCP_ACCESS`.
