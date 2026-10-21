@@ -8,6 +8,7 @@ running, finished (emwrap's "Succeeded"), failed and aborted.
 from __future__ import annotations
 
 import difflib
+import re
 import time
 from collections import Counter
 from collections.abc import Awaitable, Callable, Collection, Sequence
@@ -62,6 +63,12 @@ def _parents(node: WorkflowNode) -> list[str]:
 
 def _children(node: WorkflowNode) -> list[str]:
     return list(dict.fromkeys(node.children))
+
+
+# EMhub describes an output as '<type> (<info>)'; emwrap's info for a file that is
+# not there is 'Missing: <path>', or 'Pending' while its job is active.
+# 'No-info: <path>' and 'Error: ...' are files that exist but could not be described.
+_NOT_THERE = re.compile(r"(^|\()(Missing\b|Pending\b)")
 
 
 class JobService:
@@ -225,7 +232,8 @@ class JobService:
         known: dict[str, bool | None] = {}
         for out in node.outputs:
             if out.value:
-                known[out.value] = not (out.info or "").startswith(("File (Missing", "Missing"))
+                info = (out.info or "").strip()
+                known[out.value] = not _NOT_THERE.search(info) if info else None
         for path in run_outputs:
             known.setdefault(path, None)
         return [OutputFile(path=p, exists=e) for p, e in known.items()]

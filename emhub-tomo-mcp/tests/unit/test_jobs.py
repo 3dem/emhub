@@ -110,6 +110,32 @@ async def test_hidden_failure_warnings(services: Services, fake: FakeEmhub) -> N
     assert failed.warnings == []
 
 
+@pytest.mark.parametrize(
+    ("info", "exists"),
+    [
+        ("File (Missing: x)", False),
+        (
+            "TomoOptimisationSet.star.relion.initialmodel (Missing: InitialModel/job008/x.star)",
+            False,
+        ),
+        ("Missing: x", False),
+        ("TiltSeries (Pending)", False),
+        ("File (No-info: Refine3D/job009/run_data.star)", True),
+        ("Volume (64 x 64 x 64)", True),
+        ("", None),
+    ],
+)
+async def test_output_existence(
+    services: Services, fake: FakeEmhub, info: str, exists: bool | None
+) -> None:
+    """EMhub's output descriptions say whether a file is there, for any output type."""
+    ref = await services.projects.get(1)
+    fake.graphs[1]["EMwrap/job001"]["outputs"][0]["info"] = info
+    job = await services.jobs.job_detail(ref, "EMwrap/job001")
+    assert job.outputs[0].exists is exists
+    assert any("outputs are missing" in w for w in job.warnings) is (exists is False)
+
+
 async def test_unknown_job(services: Services) -> None:
     ref = await services.projects.get(1)
     with pytest.raises(EmhubMcpError) as info:
