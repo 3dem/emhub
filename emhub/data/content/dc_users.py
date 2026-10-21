@@ -37,6 +37,8 @@ def register_content(dc):
 
     @dc.content
     def users_list(**kwargs):
+        if not dc.app.user.is_manager:
+            raise Exception('Invalid access: only managers can view the users list.')
         ldap = int(kwargs.get('ldap', 0))
         data = dc.get_users_list()
         users = data['users']
