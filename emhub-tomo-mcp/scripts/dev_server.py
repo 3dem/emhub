@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests" / "support"))
 
-from emhub_instance import (  # noqa: E402
+from emhub_instance import (
     create_instance,
     free_port,
     installation_home,
@@ -72,9 +72,15 @@ def start(instance_dir: Path, port: int | None) -> None:
     log_file = instance_dir / "dev_server.log"
     proc = start_server(home, instance_dir, port, log_file)
     wait_until_serving(url, proc, log_file, timeout=120)
-    info = {"url": url, "port": port, "pid": proc.pid, "username": "admin",
-            "password_file": str(password_file), "log_file": str(log_file),
-            "started": time.strftime("%Y-%m-%d %H:%M:%S")}
+    info = {
+        "url": url,
+        "port": port,
+        "pid": proc.pid,
+        "username": "admin",
+        "password_file": str(password_file),
+        "log_file": str(log_file),
+        "started": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
     _runtime_file(instance_dir).write_text(json.dumps(info, indent=2) + "\n")
     print(f"Serving {url} (pid {proc.pid}); admin password in {password_file}")
 

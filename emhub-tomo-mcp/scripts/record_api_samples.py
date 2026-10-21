@@ -50,14 +50,23 @@ class Recorder:
         home = os.environ.get("EMHUB_TOMO_HOME", "")
         self.homes = sorted({home, os.path.realpath(home)} - {""}, key=len, reverse=True)
         self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), _NoRedirect())
+            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), _NoRedirect()
+        )
         self.count = 0
 
-    def call(self, name: str, method: str, payload: dict[str, Any] | None = None,
-             opener: urllib.request.OpenerDirector | None = None) -> Any:
+    def call(
+        self,
+        name: str,
+        method: str,
+        payload: dict[str, Any] | None = None,
+        opener: urllib.request.OpenerDirector | None = None,
+    ) -> Any:
         request = urllib.request.Request(
-            f"{self.url}/api/{method}", data=json.dumps(payload or {}).encode(),
-            headers={"Content-Type": "application/json"}, method="POST")
+            f"{self.url}/api/{method}",
+            data=json.dumps(payload or {}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         location = None
         try:
             with (opener or self.opener).open(request, timeout=120) as resp:
@@ -82,11 +91,25 @@ class Recorder:
             text = text.replace(home, "<EMHUB_TOMO_HOME>")
         return text
 
-    def _save(self, name: str, method: str, payload: Any, status: int, ctype: str,
-              location: str | None, response: Any) -> None:
+    def _save(
+        self,
+        name: str,
+        method: str,
+        payload: Any,
+        status: int,
+        ctype: str,
+        location: str | None,
+        response: Any,
+    ) -> None:
         self.count += 1
-        sample = {"endpoint": f"/api/{method}", "request": payload, "status": status,
-                  "content_type": ctype, "location": location, "response": response}
+        sample = {
+            "endpoint": f"/api/{method}",
+            "request": payload,
+            "status": status,
+            "content_type": ctype,
+            "location": location,
+            "response": response,
+        }
         text = self._sanitize(json.dumps(sample, indent=2, default=str))
         (FIXTURES_DIR / f"{self.count:02d}_{name}.json").write_text(text + "\n")
         preview = response if isinstance(response, str) else json.dumps(response, default=str)
@@ -111,15 +134,26 @@ def record(inst: EmhubInstance) -> None:
     rec.call("get_entries_not_logged_in", "get_entries", {}, opener=anonymous)
     rec.call("login_wrong_password", "login", {"username": "admin", "password": "wrong"})
     rec.call("login", "login", {"username": inst.username, "password": inst.password})
-    users = rec.call("get_users_selected_attrs", "get_users",
-                     {"attrs": ["id", "username", "email", "roles"]})
+    users = rec.call(
+        "get_users_selected_attrs", "get_users", {"attrs": ["id", "username", "email", "roles"]}
+    )
     admin_id = next(u["id"] for u in users if u["username"] == "admin")
 
     # --- a tomography project: EMhub project container + tomo_processing entry --
-    project = rec.call("create_project_container", "create_project", {"attrs": {
-        "user_id": admin_id, "status": "special:processing_tomo", "user_can_edit": True,
-        "is_confidential": False, "title": "Default Project for tomo_processing entries",
-        "description": ""}})
+    project = rec.call(
+        "create_project_container",
+        "create_project",
+        {
+            "attrs": {
+                "user_id": admin_id,
+                "status": "special:processing_tomo",
+                "user_can_edit": True,
+                "is_confidential": False,
+                "title": "Default Project for tomo_processing entries",
+                "description": "",
+            }
+        },
+    )
     project_id = _value(project, "project", "id")
 
     data_dir = inst.root / "data"
@@ -130,15 +164,31 @@ def record(inst: EmhubInstance) -> None:
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def entry_attrs(processing_path: Path, title: str) -> dict[str, Any]:
-        return {"project_id": project_id, "type": "tomo_processing", "title": title,
-                "description": "", "date": now,
-                "extra": {"data": {"processing_path": str(processing_path),
-                                   "data_path": str(data_dir), "share_table": []}}}
+        return {
+            "project_id": project_id,
+            "type": "tomo_processing",
+            "title": title,
+            "description": "",
+            "date": now,
+            "extra": {
+                "data": {
+                    "processing_path": str(processing_path),
+                    "data_path": str(data_dir),
+                    "share_table": [],
+                }
+            },
+        }
 
-    rec.call("create_entry_parent_missing", "create_entry",
-             {"attrs": entry_attrs(inst.root / "missing" / "p", "bad path")})
-    entry = rec.call("create_entry_tomo_processing", "create_entry",
-                     {"attrs": entry_attrs(proc_path, "API spike project")})
+    rec.call(
+        "create_entry_parent_missing",
+        "create_entry",
+        {"attrs": entry_attrs(inst.root / "missing" / "p", "bad path")},
+    )
+    entry = rec.call(
+        "create_entry_tomo_processing",
+        "create_entry",
+        {"attrs": entry_attrs(proc_path, "API spike project")},
+    )
     entry_id = _value(entry, "entry", "id")
     rec.call("get_entries", "get_entries", {})
     rec.call("get_projects", "get_projects", {})
@@ -146,37 +196,81 @@ def record(inst: EmhubInstance) -> None:
     # --- workflow templates and the job graph -------------------------------
     sel = {"entry_id": entry_id}
     rec.call("get_workflows", "get_workflows", {})
-    rec.call("get_session_workflow_empty", "get_session_workflow", {"attrs": {**sel, "widget": False}})
+    rec.call(
+        "get_session_workflow_empty", "get_session_workflow", {"attrs": {**sel, "widget": False}}
+    )
     rec.call("load_workflow", "load_workflow", {"attrs": {**sel, "workflow_id": WORKFLOW_ID}})
-    flat = rec.call("get_session_workflow_flat", "get_session_workflow",
-                    {"attrs": {**sel, "widget": False}})
-    rec.call("get_session_workflow_widget", "get_session_workflow", {"attrs": {**sel, "widget": True}})
-    rec.call("get_session_workflow_unknown_entry", "get_session_workflow",
-             {"attrs": {"entry_id": 999999, "widget": False}})
+    flat = rec.call(
+        "get_session_workflow_flat", "get_session_workflow", {"attrs": {**sel, "widget": False}}
+    )
+    rec.call(
+        "get_session_workflow_widget", "get_session_workflow", {"attrs": {**sel, "widget": True}}
+    )
+    rec.call(
+        "get_session_workflow_unknown_entry",
+        "get_session_workflow",
+        {"attrs": {"entry_id": 999999, "widget": False}},
+    )
 
     # --- single jobs and forms ----------------------------------------------
     import_job = next(j["id"] for j in _value(flat, "workflow") if j["type"] == "emw-import-ts")
-    rec.call("get_session_run_json", "get_session_run",
-             {"attrs": {**sel, "run_id": import_job, "output": ["json"]}})
-    rec.call("get_session_run_all_outputs", "get_session_run",
-             {"attrs": {**sel, "run_id": import_job, "output": ["json", "stdout", "stderr", "form"]}})
-    rec.call("get_session_run_form_new_job_type", "get_session_run",
-             {"attrs": {**sel, "run_id": None, "job_type": "emw-warp-mctf", "output": ["form"]}})
-    rec.call("get_session_run_form_without_run_id", "get_session_run",
-             {"attrs": {**sel, "job_type": "emw-warp-mctf", "output": ["form"]}})
+    rec.call(
+        "get_session_run_json",
+        "get_session_run",
+        {"attrs": {**sel, "run_id": import_job, "output": ["json"]}},
+    )
+    rec.call(
+        "get_session_run_all_outputs",
+        "get_session_run",
+        {"attrs": {**sel, "run_id": import_job, "output": ["json", "stdout", "stderr", "form"]}},
+    )
+    rec.call(
+        "get_session_run_form_new_job_type",
+        "get_session_run",
+        {"attrs": {**sel, "run_id": None, "job_type": "emw-warp-mctf", "output": ["form"]}},
+    )
+    rec.call(
+        "get_session_run_form_without_run_id",
+        "get_session_run",
+        {"attrs": {**sel, "job_type": "emw-warp-mctf", "output": ["form"]}},
+    )
     # Invalid on purpose: records the validation-error format, launches nothing.
-    rec.call("launch_job_invalid_params", "launch_job", {"attrs": {
-        **sel, "run_id": import_job, "clean": False,
-        "params": {"acq.voltage": "not-a-number", "mdoc_files": "data/mdoc/none_*.mdoc"}}})
+    rec.call(
+        "launch_job_invalid_params",
+        "launch_job",
+        {
+            "attrs": {
+                **sel,
+                "run_id": import_job,
+                "clean": False,
+                "params": {"acq.voltage": "not-a-number", "mdoc_files": "data/mdoc/none_*.mdoc"},
+            }
+        },
+    )
 
     # --- annotations, labels, duplication -----------------------------------
-    rec.call("save_job_annotation", "save_job_annotation", {"attrs": {
-        **sel, "run_id": import_job, "runName": "Import (API spike)",
-        "comment": "recorded by record_api_samples.py"}})
-    label = rec.call("save_project_label", "save_project_label",
-                     {"attrs": {**sel, "label": {"name": "spike", "color": "#1f77b4"}}})
-    rec.call("set_job_labels", "set_job_labels", {"attrs": {
-        **sel, "run_id": import_job, "label_ids": [_value(label, "label", "id")]}})
+    rec.call(
+        "save_job_annotation",
+        "save_job_annotation",
+        {
+            "attrs": {
+                **sel,
+                "run_id": import_job,
+                "runName": "Import (API spike)",
+                "comment": "recorded by record_api_samples.py",
+            }
+        },
+    )
+    label = rec.call(
+        "save_project_label",
+        "save_project_label",
+        {"attrs": {**sel, "label": {"name": "spike", "color": "#1f77b4"}}},
+    )
+    rec.call(
+        "set_job_labels",
+        "set_job_labels",
+        {"attrs": {**sel, "run_id": import_job, "label_ids": [_value(label, "label", "id")]}},
+    )
     rec.call("get_project_labels", "get_project_labels", {"attrs": sel})
     dup = rec.call("duplicate_jobs", "duplicate_jobs", {"attrs": {**sel, "run_ids": [import_job]}})
     copy_id = _value(dup, "workflow", "duplicated", 0, "newId")
@@ -186,8 +280,11 @@ def record(inst: EmhubInstance) -> None:
     root = {"root": str(proc_path)}
     rec.call("list_project_dir_root", "list_project_dir", {"attrs": {**root, "path": "."}})
     rec.call("list_project_dir_job", "list_project_dir", {"attrs": {**root, "path": import_job}})
-    rec.call("get_file_preview_jobstar", "get_file_preview",
-             {"attrs": {**root, "path": f"{import_job}/job.star"}})
+    rec.call(
+        "get_file_preview_jobstar",
+        "get_file_preview",
+        {"attrs": {**root, "path": f"{import_job}/job.star"}},
+    )
 
     # --- configuration and logout -------------------------------------------
     rec.call("get_config_processing_menus", "get_config", {"attrs": {"config": "processing_menus"}})

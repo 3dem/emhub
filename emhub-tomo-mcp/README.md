@@ -1,24 +1,76 @@
-# emhub-tomo-mcp (work in progress)
+# emhub-tomo-mcp
 
-An MCP server that lets AI assistants inspect and operate EMhub-Tomo cryo-ET processing projects through the EMhub REST API. It is developed on branch `sc_mcp_server`, created from `devel`, and **must not be merged** until that is explicitly agreed.
+An [MCP](https://modelcontextprotocol.io) server that gives AI assistants (Claude Code, Claude Desktop, VS Code and other MCP clients) **read-only** access to [EMhub-Tomo](https://3dem.github.io/emhub-tomo/) cryo-ET processing projects.
 
-The server itself (Phase 1 of the plan) has not been written yet. What is here so far is the tooling it will be developed and tested with:
+With it, an assistant can answer questions such as "which of my projects have failed jobs?", "why did `WarpTsAlign/job004` fail?" or "how far did the ApoF tutorial get?". It reads projects, job graphs, parameters, logs and files through the EMhub REST API. It cannot change anything: no creating projects, editing parameters, launching or deleting jobs. Write access is planned as a separate, opt-in access level.
 
-| Path | What it is |
+Status: **0.1.0**, Phase 1 of the development plan (read-only). Developed on the emhub branch `sc_mcp_server`.
+
+## What it offers
+
+| Tools | Purpose |
 |---|---|
-| `tests/support/emhub_instance.py` | Creates and serves EMhub instances inside an existing EMhub-Tomo installation: a throw-away one for tests (`emhub_instance()`), or the pieces for a long-lived one. Servers listen on 127.0.0.1 only, never run in debug mode, never auto-log users in, and get a random admin password. Standard library only. |
-| `tests/fixtures/api/` | 31 real request/response pairs recorded from EMhub `devel` (paths and passwords masked). The MCP layer's unit and protocol tests run against them. |
-| `scripts/record_api_samples.py` | Re-records `tests/fixtures/api/` against a throw-away server. |
-| `scripts/dev_server.py` | `start`, `status` or `stop` a long-lived development server. Its admin password is in `INSTANCE_DIR/dev_admin_password` (mode 600). |
-| `scripts/run_tutorial_via_emhub.py` | Runs the ApoF tutorial through a running server's REST API, with jobs submitted through a cluster queue, and follows them until they finish. Use it to check a site's queue set-up. |
+| `get_server_status` | Connection, identity, visible projects, optional EMhub features |
+| `list_projects`, `get_project` | Projects you can access; one project's job graph, failed and active jobs, jobs ready to run |
+| `get_job`, `get_job_logs` | One job's parameters, inputs, outputs, error lines and logs; warnings when a "finished" job shows signs of failure |
+| `wait_for_jobs` | Bounded wait (≤ 10 min per call) with progress notifications |
+| `list_job_types`, `describe_job_type` | Job types and their parameters, including the server's queues |
+| `list_workflow_templates` | Ready-made workflows such as the ApoF tutorial |
+| `list_project_files`, `read_project_file` | Files inside a project; text windows or PNG previews of images and MRC files |
 
-All of them need `EMHUB_TOMO_HOME`, the EMhub-Tomo installation folder (the one with `emwrap.bashrc`). They run with any Python ≥ 3.9. For example:
+There are also resources (background guides, a project's job graph, job-type forms) and two prompts (`diagnose_job`, `project_report`). See [docs/tools.md](docs/tools.md) for the full reference.
+
+## Install
+
+Requires Python ≥ 3.10. This is independent of the Python used by your EMhub-Tomo installation, and needs nothing from emhub, emwrap or emtools.
 
 ```bash
-export EMHUB_TOMO_HOME=/path/to/emhub-tomo-installation
-python scripts/dev_server.py start "$EMHUB_TOMO_HOME/dev/instances/dev"
-python scripts/run_tutorial_via_emhub.py --instance "$EMHUB_TOMO_HOME/dev/instances/dev" \
-    --data "$EMHUB_TOMO_HOME/testdata/WarpApofTutorial" \
-    --projects-dir "$EMHUB_TOMO_HOME/dev/projects" --queue <your queue> --gpus 3 --jobs small
-python scripts/dev_server.py stop "$EMHUB_TOMO_HOME/dev/instances/dev"
+# from a checkout of the emhub repository
+uv tool install ./emhub-tomo-mcp            # or: pip install ./emhub-tomo-mcp
+emhub-tomo-mcp --version
 ```
+
+## Configure and check
+
+The server talks to a running EMhub-Tomo, typically one started with `emh-tomo --run`:
+
+```bash
+export EMHUB_SERVER_URL=http://127.0.0.1:5000    # the URL emh-tomo --run printed
+emhub-tomo-mcp --check
+```
+
+`emh-tomo --run` logs every request in as `admin`, so no password is needed there. For other EMhub servers, set `EMHUB_USER` and `EMHUB_PASSWORD_FILE`. All settings are described in [docs/configuration.md](docs/configuration.md).
+
+## Connect a client
+
+Claude Code (`.mcp.json` in your project):
+
+```json
+{
+  "mcpServers": {
+    "emhub-tomo": {
+      "command": "emhub-tomo-mcp",
+      "env": { "EMHUB_SERVER_URL": "http://127.0.0.1:5000" }
+    }
+  }
+}
+```
+
+[docs/client-setup.md](docs/client-setup.md) covers VS Code, Claude Desktop, and running the server on a cluster over SSH.
+
+## Documentation
+
+- [docs/configuration.md](docs/configuration.md): environment variables
+- [docs/client-setup.md](docs/client-setup.md): Claude Code, VS Code, Claude Desktop, SSH
+- [docs/security.md](docs/security.md): what the server can and cannot do, and how it handles untrusted content
+- [docs/tools.md](docs/tools.md): tool, resource and prompt reference (generated)
+- [docs/development.md](docs/development.md): architecture, tests, development tools
+- [CHANGELOG.md](CHANGELOG.md)
+
+## Acknowledgements
+
+The REST-only design, addressing projects through EMhub entries, and listing workflow templates over REST follow J.M. de la Rosa Trevin's MCP prototype on the emhub branch `jm_mcp`.
+
+## License
+
+GPL-3.0-or-later, like EMhub.

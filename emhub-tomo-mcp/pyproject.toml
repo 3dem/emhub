@@ -1,0 +1,79 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "emhub-tomo-mcp"
+version = "0.1.0"
+description = "MCP server for EMhub-Tomo cryo-ET processing projects"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+authors = [{ name = "Sergio Cruz-León", email = "sergio.cruz@biophys.mpg.de" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "mcp>=2.3,<3",
+    "httpx2>=2.10,<3",
+    "pydantic>=2.12,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=6",
+    "hypothesis>=6.100",
+    "ruff>=0.15",
+    "mypy>=1.15",
+]
+
+[project.scripts]
+emhub-tomo-mcp = "emhub_tomo_mcp.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/emhub_tomo_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "docs", "README.md", "CHANGELOG.md", "pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "contract: needs a real EMhub-Tomo installation (EMHUB_TOMO_HOME); skipped otherwise",
+]
+filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
+
+[tool.coverage.run]
+source = ["emhub_tomo_mcp"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "@overload"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S", "ASYNC", "PT", "RET", "C4"]
+ignore = ["S101"]  # assert is fine in tests and for type narrowing
+
+[tool.ruff.lint.per-file-ignores]
+# Compound asserts read well in tests; the path tests use look-alike characters on purpose.
+"tests/**" = ["S", "B011", "PT018", "RUF001"]
+"scripts/**" = ["S"]
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+mypy_path = "src"
+packages = ["emhub_tomo_mcp"]
+plugins = ["pydantic.mypy"]

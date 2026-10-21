@@ -17,6 +17,7 @@ any Python >= 3.9, independently of the installation's Python.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import secrets
 import shutil
@@ -101,15 +102,29 @@ def create_instance(home: Path, instance_dir: Path, log: IO[str]) -> str:
     """Create a minimal instance with the processing extras in ``instance_dir``
     (which must not exist yet) and return its random admin password."""
     env = _safe_env()
-    subprocess.run(_in_installation(home, "emh-data", "--create_minimal", str(instance_dir)),
-                   env=env, stdout=log, stderr=subprocess.STDOUT, check=True)
-    extras = subprocess.run(_in_installation(home, "python", "-c", _FIND_EXTRAS),
-                            env=env, capture_output=True, text=True, check=True).stdout.strip()
+    subprocess.run(
+        _in_installation(home, "emh-data", "--create_minimal", str(instance_dir)),
+        env=env,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        check=True,
+    )
+    extras = subprocess.run(
+        _in_installation(home, "python", "-c", _FIND_EXTRAS),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     shutil.copytree(extras, instance_dir / "extra", dirs_exist_ok=True)
     password = secrets.token_urlsafe(18)
-    subprocess.run(_in_installation(home, "python", "-c", _SET_ADMIN_PASSWORD, str(instance_dir)),
-                   env={**env, "EMHUB_TEST_ADMIN_PASSWORD": password},
-                   stdout=log, stderr=subprocess.STDOUT, check=True)
+    subprocess.run(
+        _in_installation(home, "python", "-c", _SET_ADMIN_PASSWORD, str(instance_dir)),
+        env={**env, "EMHUB_TEST_ADMIN_PASSWORD": password},
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        check=True,
+    )
     return password
 
 
@@ -119,9 +134,14 @@ def start_server(home: Path, instance_dir: Path, port: int, log_file: Path) -> s
     env = {**_safe_env(), "FLASK_APP": "emhub", "EMHUB_INSTANCE": str(instance_dir.resolve())}
     with log_file.open("a") as log:
         return subprocess.Popen(
-            _in_installation(home, "flask", "run", "--host", "127.0.0.1",
-                             "--port", str(port), "--no-reload"),
-            env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+            _in_installation(
+                home, "flask", "run", "--host", "127.0.0.1", "--port", str(port), "--no-reload"
+            ),
+            env=env,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
 
 
 def wait_until_serving(url: str, proc: subprocess.Popen, log_file: Path, timeout: float) -> None:
@@ -139,8 +159,25 @@ def wait_until_serving(url: str, proc: subprocess.Popen, log_file: Path, timeout
     raise TimeoutError(f"EMhub server not ready after {timeout:.0f} s:\n{_log_tail(log_file)}")
 
 
+def stop_child_server(proc: subprocess.Popen, timeout: float = 15) -> None:
+    """Stop a server started by ``start_server`` in this process, and reap it."""
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+    # Jobs the server launched on the local queue run in the same process group.
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(proc.pid, signal.SIGKILL)
+
+
 def stop_server(pid: int, timeout: float = 15) -> None:
-    """Stop the server process group started by ``start_server``."""
+    """Stop the server process group started by ``start_server`` in another
+    process (see scripts/dev_server.py); polls until the group is gone."""
     try:
         os.killpg(pid, signal.SIGTERM)
     except ProcessLookupError:
@@ -183,11 +220,16 @@ def emhub_instance(
         url = f"http://127.0.0.1:{port}"
         proc = start_server(home, instance_dir, port, log_file)
         wait_until_serving(url, proc, log_file, timeout)
-        yield EmhubInstance(url=url, username="admin", password=password, root=root,
-                            instance_dir=instance_dir, log_file=log_file)
+        yield EmhubInstance(
+            url=url,
+            username="admin",
+            password=password,
+            root=root,
+            instance_dir=instance_dir,
+            log_file=log_file,
+        )
     finally:
         if proc is not None:
-            stop_server(proc.pid)
-            proc.wait()
+            stop_child_server(proc)
         if not keep:
             shutil.rmtree(root, ignore_errors=True)

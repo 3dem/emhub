@@ -42,14 +42,18 @@ class Api:
     def __init__(self, url: str) -> None:
         self.url = url
         self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+            urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+        )
 
     def __call__(self, method: str, attrs: dict[str, Any] | None = None, **body: Any) -> Any:
         if attrs is not None:
             body["attrs"] = attrs
         request = urllib.request.Request(
-            f"{self.url}/api/{method}", data=json.dumps(body).encode(),
-            headers={"Content-Type": "application/json"}, method="POST")
+            f"{self.url}/api/{method}",
+            data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         with self.opener.open(request, timeout=300) as resp:
             data = json.loads(resp.read())
         if isinstance(data, dict) and ("error" in data or "errors" in data):
@@ -65,23 +69,46 @@ def log(message: str) -> None:
 def create_project(api: Api, data_dir: Path, projects_dir: Path) -> int:
     users = api("get_users", attrs=["id", "username"])
     admin_id = next(u["id"] for u in users if u["username"] == "admin")
-    container = next((p for p in api("get_projects")
-                      if p.get("status") == "special:processing_tomo"
-                      and p.get("user_id") == admin_id), None)
+    container = next(
+        (
+            p
+            for p in api("get_projects")
+            if p.get("status") == "special:processing_tomo" and p.get("user_id") == admin_id
+        ),
+        None,
+    )
     if container is None:
-        container = api("create_project", {
-            "user_id": admin_id, "status": "special:processing_tomo", "user_can_edit": True,
-            "is_confidential": False, "title": "Default Project for tomo_processing entries",
-            "description": ""})["project"]
+        container = api(
+            "create_project",
+            {
+                "user_id": admin_id,
+                "status": "special:processing_tomo",
+                "user_can_edit": True,
+                "is_confidential": False,
+                "title": "Default Project for tomo_processing entries",
+                "description": "",
+            },
+        )["project"]
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     processing_path = projects_dir / f"emhub_tutorial_{stamp}"
-    entry = api("create_entry", {
-        "project_id": container["id"], "type": "tomo_processing",
-        "title": f"ApoF tutorial via EMhub ({stamp})", "description": "",
-        "date": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "extra": {"data": {"processing_path": str(processing_path),
-                           "data_path": str(data_dir), "share_table": []}}})["entry"]
+    entry = api(
+        "create_entry",
+        {
+            "project_id": container["id"],
+            "type": "tomo_processing",
+            "title": f"ApoF tutorial via EMhub ({stamp})",
+            "description": "",
+            "date": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "extra": {
+                "data": {
+                    "processing_path": str(processing_path),
+                    "data_path": str(data_dir),
+                    "share_table": [],
+                }
+            },
+        },
+    )["entry"]
     log(f"Project {entry['id']}: {processing_path}")
     return entry["id"]
 
@@ -113,8 +140,9 @@ def main() -> int:
 
     info = json.loads((args.instance / "dev_server.json").read_text())
     api = Api(info["url"])
-    api("login", username=info["username"],
-        password=Path(info["password_file"]).read_text().strip())
+    api(
+        "login", username=info["username"], password=Path(info["password_file"]).read_text().strip()
+    )
 
     entry_id = create_project(api, args.data.resolve(), args.projects_dir.resolve())
     sel = {"entry_id": entry_id}
@@ -124,7 +152,9 @@ def main() -> int:
     selected = [(j["id"], j["type"]) for j in jobs if wanted is None or j["type"] in wanted]
 
     for job_id, job_type in selected:
-        params: dict[str, Any] = {"queue.name": "None" if job_type in LOCAL_JOB_TYPES else args.queue}
+        params: dict[str, Any] = {
+            "queue.name": "None" if job_type in LOCAL_JOB_TYPES else args.queue
+        }
         if "gpus" in job_params(api, sel, job_id) and job_type not in LOCAL_JOB_TYPES:
             params["gpus"] = args.gpus
         api("save_job", {**sel, "run_id": job_id, "params": params})

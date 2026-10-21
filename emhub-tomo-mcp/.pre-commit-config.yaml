@@ -1,0 +1,24 @@
+# Checks for changes under emhub-tomo-mcp/. From the emhub repository root:
+#   pre-commit install --config emhub-tomo-mcp/.pre-commit-config.yaml
+# The hooks run the tools of the active environment (the package dev environment).
+repos:
+  - repo: local
+    hooks:
+      - id: emhub-tomo-mcp-ruff
+        name: ruff (emhub-tomo-mcp)
+        entry: bash -c 'cd emhub-tomo-mcp && ruff check src tests scripts && ruff format --check src tests scripts'
+        language: system
+        files: ^emhub-tomo-mcp/
+        pass_filenames: false
+      - id: emhub-tomo-mcp-mypy
+        name: mypy (emhub-tomo-mcp)
+        entry: bash -c 'cd emhub-tomo-mcp && mypy'
+        language: system
+        files: ^emhub-tomo-mcp/src/
+        pass_filenames: false
+      - id: emhub-tomo-mcp-tests
+        name: unit and protocol tests (emhub-tomo-mcp)
+        entry: bash -c 'cd emhub-tomo-mcp && pytest -q tests/unit tests/protocol'
+        language: system
+        files: ^emhub-tomo-mcp/
+        pass_filenames: false
