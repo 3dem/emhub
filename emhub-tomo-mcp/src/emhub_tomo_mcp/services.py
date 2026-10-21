@@ -14,15 +14,18 @@ from .domain.files import FileService
 from .domain.job_types import JobTypeService
 from .domain.jobs import JobService
 from .domain.models import ServerStatus
+from .domain.operations import Operations
 from .domain.projects import ProjectCatalog
 from .emhub.client import EmhubClient
 from .emhub.endpoints import EmhubApi
 from .errors import EmhubMcpError, ErrorKind
+from .policy import LaunchLimiter, ProjectLocks, make_audit
 
 # Optional EMhub endpoints and what depends on them.
 OPTIONAL_ENDPOINTS = {
     "get_workflows": "list_workflow_templates",
     "get_job_types": "list_job_types (otherwise EMhub's processing menu is used)",
+    "validate_job": "parameter checks before changes (otherwise only the form is checked)",
 }
 
 
@@ -35,6 +38,7 @@ class Services:
     jobs: JobService
     job_types: JobTypeService
     files: FileService
+    operations: Operations
     config_warnings: list[str] = field(default_factory=list)
 
     @classmethod
@@ -47,14 +51,27 @@ class Services:
     ) -> Services:
         client = EmhubClient(settings, transport=transport)
         api = EmhubApi(client)
+        projects = ProjectCatalog(api, settings)
+        jobs = JobService(api)
+        job_types = JobTypeService(api)
         return cls(
             settings=settings,
             client=client,
             api=api,
-            projects=ProjectCatalog(api, settings),
-            jobs=JobService(api),
-            job_types=JobTypeService(api),
+            projects=projects,
+            jobs=jobs,
+            job_types=job_types,
             files=FileService(api),
+            operations=Operations(
+                settings,
+                api,
+                projects,
+                jobs,
+                job_types,
+                limiter=LaunchLimiter(settings.max_launches_per_hour),
+                locks=ProjectLocks(),
+                audit=make_audit(settings),
+            ),
             config_warnings=list(config_warnings),
         )
 
@@ -68,9 +85,11 @@ class Services:
                 await self.client.call(endpoint, {})
                 capabilities[endpoint] = True
             except EmhubMcpError as exc:
-                if exc.kind is not ErrorKind.UNSUPPORTED:
+                if exc.kind in (ErrorKind.UNREACHABLE, ErrorKind.AUTH):
                     raise
-                capabilities[endpoint] = False
+                # Any answer but "no such endpoint" means it exists (an empty
+                # request may well be rejected).
+                capabilities[endpoint] = exc.kind is not ErrorKind.UNSUPPORTED
         return capabilities
 
     async def status(self) -> ServerStatus:
@@ -81,7 +100,7 @@ class Services:
             reachable=False,
             identity=None,
             auth_mode=self.settings.auth,
-            access_level="read",
+            access_level=self.settings.access,
             capabilities={},
             visible_projects=None,
             warnings=list(self.config_warnings),

@@ -70,6 +70,11 @@ class ProjectDetail(_Result):
     job_count: int
     status_counts: dict[str, int]
     failed: list[str] = Field(description="Jobs that failed or were aborted (at most 50).")
+    blocked: list[str] = Field(
+        default_factory=list,
+        description="Scheduled jobs that will never start because a job they wait for failed "
+        "or was aborted (at most 50). Stop them, or fix and re-run that job.",
+    )
     active: list[str] = Field(description="Jobs scheduled, launched or running (at most 50).")
     ready_to_run: list[str] = Field(
         description="Saved jobs whose parent jobs have all finished, so they can be run now "
@@ -204,10 +209,18 @@ class JobTypeDescription(_Result):
     )
 
 
+class TemplateJob(_Result):
+    jobid: str = Field(description="Job id inside the template; loading renumbers it.")
+    jobtype: str
+
+
 class WorkflowTemplate(_Result):
     id: str
     title: str
     description: str
+    jobs: list[TemplateJob] = Field(
+        default_factory=list, description="The template's jobs (empty if EMhub does not say)."
+    )
 
 
 class WorkflowTemplateList(_Result):
@@ -268,3 +281,20 @@ class ServerStatus(_Result):
     visible_projects: int | None
     warnings: list[str]
     error: str | None = None
+
+
+# ------------------------------------------------------------------ changes
+
+
+class ChangeResult(_Result):
+    action: str
+    project_id: int | None
+    dry_run: bool = Field(description="True if nothing was changed; 'details' says what would be.")
+    done: bool
+    jobs: list[JobState] = Field(
+        default_factory=list, description="The affected jobs and their status after the change."
+    )
+    created: list[str] = Field(default_factory=list, description="Ids of new jobs.")
+    project: ProjectSummary | None = None
+    details: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)

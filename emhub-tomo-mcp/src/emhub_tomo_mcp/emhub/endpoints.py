@@ -25,6 +25,7 @@ from .models import (
     FlatJob,
     JobTypeInfo,
     LabelsPayload,
+    ProjectLabel,
     RunPayload,
     WorkflowNode,
     WorkflowTemplateInfo,
@@ -88,6 +89,8 @@ _TEMPLATES = TypeAdapter(WorkflowTemplateInfo)
 _JOB_TYPES = TypeAdapter(JobTypeInfo)
 _DIR = TypeAdapter(DirItem)
 _PREVIEW = TypeAdapter(FilePreview)
+_ENTRY = TypeAdapter(EmhubEntry)
+_LABEL = TypeAdapter(ProjectLabel)
 
 
 class EmhubApi:
@@ -192,3 +195,149 @@ class EmhubApi:
             _field(data, "preview", "get_file_preview"),
             "get_file_preview",
         )
+
+    # ---------------------------------------------------------------- changes
+
+    async def create_project_container(self, user_id: int) -> int:
+        """Create the per-user EMhub project that groups tomo processing entries."""
+        data = await self.client.mutate(
+            "create_project",
+            {
+                "user_id": user_id,
+                "status": "special:processing_tomo",
+                "user_can_edit": True,
+                "is_confidential": False,
+                "title": "Default Project for tomo_processing entries",
+                "description": "",
+            },
+        )
+        return int(_field(_field(data, "project", "create_project"), "id", "create_project"))
+
+    async def create_entry(self, attrs: dict[str, Any]) -> EmhubEntry:
+        data = await self.client.mutate("create_entry", attrs)
+        return _parse(_ENTRY, _field(data, "entry", "create_entry"), "create_entry")
+
+    async def load_workflow(self, entry_id: int, workflow_id: str) -> dict[str, str] | None:
+        """Load a template; the map of template job ids to new job ids, if EMhub returns it."""
+        data = await self.client.mutate(
+            "load_workflow", {"entry_id": entry_id, "workflow_id": workflow_id}
+        )
+        result = _field(data, "workflow", "load_workflow")
+        ids = result.get("job_ids") if isinstance(result, dict) else None
+        return {str(k): str(v) for k, v in ids.items()} if isinstance(ids, dict) else None
+
+    async def validate_job(
+        self,
+        entry_id: int,
+        run_id: str | None,
+        job_type: str | None,
+        params: dict[str, Any],
+        *,
+        for_schedule: bool = False,
+    ) -> list[str]:
+        """EMhub's own parameter validation (no changes); the list of problems."""
+        attrs: dict[str, Any] = {
+            "entry_id": entry_id,
+            "params": params,
+            "for_schedule": for_schedule,
+        }
+        if run_id:
+            attrs["run_id"] = run_id
+        else:
+            attrs["job_type"] = job_type
+        data = await self.client.call("validate_job", attrs)
+        result = _field(data, "validation", "validate_job")
+        errors = result.get("errors") if isinstance(result, dict) else None
+        return [str(e) for e in errors] if isinstance(errors, list) else []
+
+    async def save_job(
+        self, entry_id: int, run_id: str | None, job_type: str | None, params: dict[str, Any]
+    ) -> None:
+        attrs: dict[str, Any] = {"entry_id": entry_id, "params": params}
+        if run_id:
+            attrs["run_id"] = run_id
+        else:
+            attrs.update(run_id=None, job_type=job_type)
+        await self.client.mutate("save_job", attrs)
+
+    async def launch_job(
+        self, entry_id: int, run_id: str, params: dict[str, Any], *, clean: bool
+    ) -> None:
+        await self.client.mutate(
+            "launch_job",
+            {
+                "entry_id": entry_id,
+                "run_id": run_id,
+                "params": params,
+                "clean": clean,
+            },
+        )
+
+    async def schedule_job(self, entry_id: int, run_id: str, interval_minutes: int) -> None:
+        await self.client.mutate(
+            "schedule_job",
+            {
+                "entry_id": entry_id,
+                "run_id": run_id,
+                "interval": interval_minutes,
+            },
+        )
+
+    async def stop_jobs(self, entry_id: int, run_ids: Sequence[str]) -> None:
+        await self.client.mutate("stop_jobs", {"entry_id": entry_id, "run_ids": list(run_ids)})
+
+    async def save_job_annotation(
+        self, entry_id: int, run_id: str, run_name: str, comment: str
+    ) -> None:
+        await self.client.mutate(
+            "save_job_annotation",
+            {
+                "entry_id": entry_id,
+                "run_id": run_id,
+                "runName": run_name,
+                "comment": comment,
+            },
+        )
+
+    async def save_project_label(self, entry_id: int, name: str, color: str) -> ProjectLabel:
+        data = await self.client.mutate(
+            "save_project_label", {"entry_id": entry_id, "label": {"name": name, "color": color}}
+        )
+        return _parse(_LABEL, _field(data, "label", "save_project_label"), "save_project_label")
+
+    async def set_job_labels(self, entry_id: int, run_id: str, label_ids: Sequence[str]) -> None:
+        await self.client.mutate(
+            "set_job_labels",
+            {
+                "entry_id": entry_id,
+                "run_id": run_id,
+                "label_ids": list(label_ids),
+            },
+        )
+
+    async def duplicate_jobs(self, entry_id: int, run_ids: Sequence[str]) -> dict[str, str]:
+        data = await self.client.mutate(
+            "duplicate_jobs", {"entry_id": entry_id, "run_ids": list(run_ids)}
+        )
+        workflow = _field(data, "workflow", "duplicate_jobs")
+        pairs = workflow.get("duplicated", []) if isinstance(workflow, dict) else []
+        return {
+            str(p["sourceId"]): str(p["newId"])
+            for p in pairs
+            if isinstance(p, dict) and "sourceId" in p and "newId" in p
+        }
+
+    async def export_workflow(
+        self, entry_id: int, run_ids: Sequence[str], output_path: str
+    ) -> None:
+        await self.client.mutate(
+            "export_workflow",
+            {
+                "entry_id": entry_id,
+                "run_ids": list(run_ids),
+                "output_path": output_path,
+            },
+        )
+
+    async def delete_jobs(self, entry_id: int, run_ids: Sequence[str]) -> None:
+        await self.client.mutate("delete_jobs", {"entry_id": entry_id, "run_ids": list(run_ids)})

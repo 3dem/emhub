@@ -43,6 +43,19 @@ class Settings(BaseModel):
     cache_ttl: float = 10.0
     use_env_proxy: bool = False
     log_level: LogLevel = "INFO"
+    # Write access (operate and admin levels)
+    allowed_roots: tuple[str, ...] = ()
+    default_queue: str | None = None
+    allow_local_gpu: bool = False
+    max_launches_per_hour: int = 20
+    max_active_gpu_jobs: int | None = None
+    max_gpus_per_job: int | None = None
+    state_dir: str = ""
+    mutation_timeout: float = 120.0
+
+    @property
+    def can_write(self) -> bool:
+        return self.access in ("operate", "admin")
 
     @property
     def identity_username(self) -> str:
@@ -56,11 +69,20 @@ class Settings(BaseModel):
     def warnings(self) -> list[str]:
         """Non-fatal configuration problems, reported by ``--check`` and at startup."""
         result = []
-        if self.access != "read":
+        if self.can_write and not self.allowed_roots:
+            result.append("EMHUB_TOMO_MCP_ALLOWED_ROOTS is not set, so create_project is disabled.")
+        if self.can_write and not self.default_queue and not self.allow_local_gpu:
             result.append(
-                f"EMHUB_TOMO_MCP_ACCESS={self.access}: this version only provides read-only "
-                "tools, so the server behaves as 'read'."
+                "EMHUB_TOMO_MCP_DEFAULT_QUEUE is not set: GPU jobs must name a cluster queue "
+                "themselves, or they are refused."
             )
+        if self.can_write and self.allow_local_gpu:
+            result.append(
+                "EMHUB_TOMO_MCP_ALLOW_LOCAL_GPU is on: GPU jobs may run on the EMhub host itself."
+            )
+        for root in self.allowed_roots:
+            if not os.path.isdir(root):
+                result.append(f"EMHUB_TOMO_MCP_ALLOWED_ROOTS: {root} is not an existing folder.")
         if self.auth != "password" and self.username is None:
             result.append(
                 f"EMHUB_USER is not set; assuming the emh-tomo auto-login user "
@@ -175,6 +197,47 @@ def _project_allowlist(env: Mapping[str, str]) -> frozenset[int] | None:
     return frozenset(ids)
 
 
+def _positive_int(env: Mapping[str, str], name: str, default: int | None) -> int | None:
+    value = _get(env, name)
+    if value is None:
+        return default
+    if not value.isdigit() or int(value) < 1:
+        raise ConfigError(f"{name}={value!r} is not a positive whole number")
+    return int(value)
+
+
+def _allowed_roots(env: Mapping[str, str]) -> tuple[str, ...]:
+    value = _get(env, "EMHUB_TOMO_MCP_ALLOWED_ROOTS")
+    if value is None:
+        return ()
+    roots = []
+    for item in value.split(":"):
+        item = item.strip()
+        if not item:
+            continue
+        if not item.startswith("/"):
+            raise ConfigError(f"EMHUB_TOMO_MCP_ALLOWED_ROOTS: {item!r} is not an absolute path")
+        roots.append(os.path.normpath(item))
+    return tuple(roots)
+
+
+def _queue_name(env: Mapping[str, str]) -> str | None:
+    value = _get(env, "EMHUB_TOMO_MCP_DEFAULT_QUEUE")
+    if value is not None and not value.replace("-", "").replace("_", "").replace(".", "").isalnum():
+        raise ConfigError(f"EMHUB_TOMO_MCP_DEFAULT_QUEUE={value!r} is not a valid queue name")
+    return value
+
+
+def _state_dir(env: Mapping[str, str]) -> str:
+    value = _get(env, "EMHUB_TOMO_MCP_STATE_DIR")
+    if value is None:
+        base = _get(env, "XDG_STATE_HOME") or os.path.join(
+            _get(env, "HOME") or os.path.expanduser("~"), ".local", "state"
+        )
+        value = os.path.join(base, "emhub-tomo-mcp")
+    return os.path.abspath(os.path.expanduser(value))
+
+
 class LoadedSettings(BaseModel):
     """Settings plus problems found while loading them."""
 
@@ -221,5 +284,13 @@ def load_settings(env: Mapping[str, str] | None = None) -> LoadedSettings:
         log_level=_choice(
             env, "EMHUB_TOMO_MCP_LOG_LEVEL", ("DEBUG", "INFO", "WARNING", "ERROR"), "INFO"
         ),
+        allowed_roots=_allowed_roots(env),
+        default_queue=_queue_name(env),
+        allow_local_gpu=_bool(env, "EMHUB_TOMO_MCP_ALLOW_LOCAL_GPU", False),
+        max_launches_per_hour=_positive_int(env, "EMHUB_TOMO_MCP_MAX_LAUNCHES_PER_HOUR", 20) or 20,
+        max_active_gpu_jobs=_positive_int(env, "EMHUB_TOMO_MCP_MAX_ACTIVE_GPU_JOBS", None),
+        max_gpus_per_job=_positive_int(env, "EMHUB_TOMO_MCP_MAX_GPUS_PER_JOB", None),
+        state_dir=_state_dir(env),
+        mutation_timeout=_positive_float(env, "EMHUB_TOMO_MCP_MUTATION_TIMEOUT", 120.0),
     )
     return LoadedSettings(settings=settings, load_warnings=load_warnings + settings.warnings())

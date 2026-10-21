@@ -87,6 +87,12 @@ class EmhubClient:
     def server_url(self) -> str:
         return self._settings.server_url
 
+    async def mutate(self, method: str, attrs: Mapping[str, Any]) -> Any:
+        """A call that changes something: never retried, with the mutation timeout."""
+        return await self.call(
+            method, attrs, mutating=True, http_timeout=self._settings.mutation_timeout
+        )
+
     async def aclose(self) -> None:
         await self._http.aclose()
 

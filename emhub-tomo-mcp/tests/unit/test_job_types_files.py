@@ -13,7 +13,13 @@ pytestmark = pytest.mark.anyio
 async def test_registry(services: Services) -> None:
     registry = await services.job_types.registry()
     assert registry.source == "registry"
-    assert [t.id for t in registry.job_types] == ["emw-import-ts", "emw-warp-mctf", "emw-pytme"]
+    assert [t.id for t in registry.job_types] == [
+        "emw-import-ts",
+        "emw-warp-mctf",
+        "emw-warp-tsalign",
+        "emw-warp-ctfrec",
+        "emw-pytme",
+    ]
     assert registry.job_types[1].output_type == "WarpMctf"
     await services.job_types.registry()
     assert len(services.job_types._api.client.__dict__) > 0

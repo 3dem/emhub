@@ -146,6 +146,10 @@ class JobService:
             job_count=len(nodes),
             status_counts=dict(counts),
             failed=[n.id for n in nodes if _status(n) in PROBLEM][:LIST_CAP],
+            blocked=[
+                f"{job} (waits for {cause}, which {_status(graph[cause])})"
+                for job, cause in blocked_jobs(graph).items()
+            ][:LIST_CAP],
             active=[n.id for n in nodes if _status(n) in ACTIVE][:LIST_CAP],
             ready_to_run=ready[:LIST_CAP],
             labels=label_infos,
@@ -330,7 +334,7 @@ class JobService:
             raise invalid("Give at least one job id.")
         wanted = list(dict.fromkeys(job_ids))
         started = self._clock()
-        states = await self._states(ref, wanted)
+        states, blocked = await self._wait_states(ref, wanted)
 
         def satisfied(current: dict[str, str]) -> bool:
             done = [current[j] in TERMINAL for j in wanted]
@@ -340,11 +344,19 @@ class JobService:
         timed_out = False
         while not satisfied(states):
             idle = [j for j in wanted if states[j] not in TERMINAL and states[j] not in ACTIVE]
-            if idle and (mode == "all" or len(idle) == len(wanted)):
-                note = (
-                    f"Not waiting: {', '.join(idle)} is not scheduled or running "
-                    f"(status {states[idle[0]]}), so it will not finish on its own."
-                )
+            stuck = [j for j in wanted if j in blocked]
+            if (idle or stuck) and (
+                mode == "all"
+                or len(idle) + len(stuck) == len([j for j in wanted if states[j] not in TERMINAL])
+            ):
+                reasons = [f"{j} is {states[j]}, so it will not finish on its own" for j in idle]
+                reasons += [
+                    f"{j} is scheduled but will never start: {blocked[j]} "
+                    f"{states.get(blocked[j]) or 'failed'}; stop it with stop_jobs, or "
+                    "fix and re-run that job"
+                    for j in stuck
+                ]
+                note = "Not waiting: " + "; ".join(reasons) + "."
                 break
             elapsed = self._clock() - started
             if elapsed >= timeout_s:
@@ -356,7 +368,7 @@ class JobService:
                 summary = ", ".join(f"{j}: {states[j]}" for j in wanted[:5])
                 await progress(finished, len(wanted), summary)
             await self._sleep(min(poll_s, timeout_s - elapsed))
-            states = await self._states(ref, wanted)
+            states, blocked = await self._wait_states(ref, wanted)
 
         return WaitResult(
             project_id=ref.id,
@@ -368,15 +380,43 @@ class JobService:
             note=note,
         )
 
-    async def _states(self, ref: ProjectRef, wanted: Sequence[str]) -> dict[str, str]:
-        with folder_must_exist(ref):
-            statuses = await self._api.get_job_statuses(ref.id)
-        jobs = {j.id: (j.status or "unknown").lower() for j in statuses}
-        missing = [j for j in wanted if j not in jobs]
+    async def _wait_states(
+        self, ref: ProjectRef, wanted: Sequence[str]
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """Statuses of all jobs (keyed by id) and the blocked jobs among ``wanted``."""
+        graph = await self.graph(ref)
+        missing = [j for j in wanted if j not in graph]
         if missing:
-            close = difflib.get_close_matches(missing[0], list(jobs), n=3, cutoff=0.5)
+            close = difflib.get_close_matches(missing[0], list(graph), n=3, cutoff=0.5)
             raise not_found(f"Job '{missing[0]}' in project {ref.id}", candidates=close)
-        return {j: jobs[j] for j in wanted}
+        states = {j: _status(n) for j, n in graph.items()}
+        blocked = {j: cause for j, cause in blocked_jobs(graph).items() if j in wanted}
+        return states, blocked
+
+
+def blocked_jobs(graph: dict[str, WorkflowNode]) -> dict[str, str]:
+    """Scheduled jobs that will never start, with the failed or aborted job that
+    blocks each: emwrap's scheduler keeps waiting for parents that will not finish."""
+    blocked: dict[str, str] = {}
+    changed = True
+    while changed:
+        changed = False
+        for job_id, node in graph.items():
+            if job_id in blocked or _status(node) != "scheduled":
+                continue
+            for parent in _parents(node):
+                parent_node = graph.get(parent)
+                if parent_node is None:
+                    continue
+                if _status(parent_node) in PROBLEM:
+                    blocked[job_id] = parent
+                elif parent in blocked:
+                    blocked[job_id] = blocked[parent]
+                else:
+                    continue
+                changed = True
+                break
+    return blocked
 
 
 def health_warnings(

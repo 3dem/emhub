@@ -90,7 +90,51 @@ def test_other_options() -> None:
     assert s.project_allowlist == frozenset({3, 7, 9})
     assert (s.cache_ttl, s.use_env_proxy, s.log_level) == (2.5, True, "DEBUG")
     assert s.identity_username == "carol"
-    assert any("only provides read-only tools" in w for w in s.warnings())
+    assert s.can_write
+    warnings = " ".join(s.warnings())
+    assert "create_project is disabled" in warnings
+    assert "EMHUB_TOMO_MCP_DEFAULT_QUEUE is not set" in warnings
+
+
+def test_write_options(tmp_path: Path) -> None:
+    s = load_settings(
+        {
+            **URL,
+            "EMHUB_TOMO_MCP_ACCESS": "admin",
+            "EMHUB_TOMO_MCP_ALLOWED_ROOTS": f"{tmp_path}/projects/::/nonexistent",
+            "EMHUB_TOMO_MCP_DEFAULT_QUEUE": "phys-a",
+            "EMHUB_TOMO_MCP_ALLOW_LOCAL_GPU": "true",
+            "EMHUB_TOMO_MCP_MAX_LAUNCHES_PER_HOUR": "5",
+            "EMHUB_TOMO_MCP_MAX_ACTIVE_GPU_JOBS": "2",
+            "EMHUB_TOMO_MCP_MAX_GPUS_PER_JOB": "3",
+            "EMHUB_TOMO_MCP_STATE_DIR": str(tmp_path / "st"),
+            "EMHUB_TOMO_MCP_MUTATION_TIMEOUT": "60",
+        }
+    ).settings
+    assert s.allowed_roots == (f"{tmp_path}/projects", "/nonexistent")
+    assert (s.default_queue, s.allow_local_gpu, s.max_launches_per_hour) == ("phys-a", True, 5)
+    assert (s.max_active_gpu_jobs, s.max_gpus_per_job, s.mutation_timeout) == (2, 3, 60.0)
+    assert s.state_dir == str(tmp_path / "st")
+    warnings = " ".join(s.warnings())
+    assert "/nonexistent is not an existing folder" in warnings
+    assert "ALLOW_LOCAL_GPU is on" in warnings
+    default = load_settings({**URL, "HOME": "/home/x"}).settings
+    assert default.state_dir == "/home/x/.local/state/emhub-tomo-mcp"
+    assert not default.can_write and default.max_active_gpu_jobs is None
+
+
+@pytest.mark.parametrize(
+    ("env", "message"),
+    [
+        ({"EMHUB_TOMO_MCP_ALLOWED_ROOTS": "relative/path"}, "is not an absolute path"),
+        ({"EMHUB_TOMO_MCP_DEFAULT_QUEUE": "a b;c"}, "is not a valid queue name"),
+        ({"EMHUB_TOMO_MCP_MAX_GPUS_PER_JOB": "0"}, "is not a positive whole number"),
+        ({"EMHUB_TOMO_MCP_MAX_LAUNCHES_PER_HOUR": "lots"}, "is not a positive whole number"),
+    ],
+)
+def test_invalid_write_options(env: dict[str, str], message: str) -> None:
+    with pytest.raises(ConfigError, match=re.escape(message)):
+        load_settings({**URL, **env})
 
 
 def test_warns_about_plain_http_password() -> None:

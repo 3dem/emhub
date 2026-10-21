@@ -2,12 +2,19 @@
 
 ## What the server can do
 
-- **Read only.** Every tool is read-only and declares this with MCP tool annotations. No tool creates, changes, launches, stops or deletes anything. There is no code path that calls a mutating EMhub endpoint.
-- **Through EMhub only.** The server reads nothing from the file system and runs no programs. Everything goes through the EMhub REST API, with the EMhub account configured for it.
-- **Visible projects only.** It lists and reads only the projects the configured EMhub user owns or that are shared with them (all projects for EMhub admins), optionally narrowed by `EMHUB_TOMO_MCP_PROJECTS`. See [configuration.md](configuration.md#which-projects-are-visible).
-- **Inside the project folder only.** File tools take paths relative to the project folder. The folder itself always comes from the project's EMhub entry, never from the request. Absolute paths, `~`, `..` segments (also as Unicode look-alikes), backslashes and control characters are rejected before any request is sent. Links inside the project, such as `data/` to the raw data, are followed.
-- **Bounded output.** Lists are paginated; logs and files are returned as windows (≤ 500 log lines or 32 KB per log, ≤ 1000 lines or 48 KB per file); text files over 16 MiB and previews over 4 MiB are refused.
-- **Plain requests.** Projects are addressed by id; lists are fetched whole and filtered by the server, without query parameters.
+- **Read access by default.** With `EMHUB_TOMO_MCP_ACCESS=read` (the default) every tool is read-only and declares this with MCP tool annotations; the change tools do not exist.
+- **Changes only when configured.** `operate` adds tools that create projects and edit, run, schedule, stop, label, copy and export jobs; `admin` adds deleting jobs and re-running from a clean folder. `run_job`, `stop_jobs` and `delete_jobs` are annotated as destructive, so clients ask before using them. On each project the user's right lowers the level: viewers can only read; editors cannot delete.
+- **Checked before sending.** Parameter names must exist in the job type's form; values must match their type and choices; no value may contain control characters or line breaks; queue parameters without fixed choices may only contain letters, digits and `_ . , : @ / = + -`. Then EMhub's own validation runs without saving anything. Running jobs are never edited, re-run or deleted; finished jobs are only re-run on explicit request; jobs whose outputs other jobs use are not deleted alone.
+- **GPU jobs on the cluster.** A GPU job without a queue gets `EMHUB_TOMO_MCP_DEFAULT_QUEUE`; running GPU jobs on the EMhub host is refused unless `EMHUB_TOMO_MCP_ALLOW_LOCAL_GPU` is set. Limits on GPUs per job, GPU jobs at once and launches per hour apply when set.
+- **Projects only inside allowed folders.** `create_project` only uses folders under `EMHUB_TOMO_MCP_ALLOWED_ROOTS`, for the project and for its data (which becomes readable through the project).
+- **Through EMhub only.** The server reads and writes nothing on the file system itself (except its audit log) and runs no programs; everything goes through the EMhub REST API, with the configured EMhub account.
+- **Inside the project folder only.** File tools take paths relative to the project folder; the folder itself always comes from the project's EMhub entry. Absolute paths, `~`, `..` segments (also as Unicode look-alikes), backslashes and control characters are rejected before any request is sent.
+- **Bounded output.** Lists are paginated; logs and files are returned as windows; text files over 16 MiB and previews over 4 MiB are refused.
+- **Plain requests.** Projects are addressed by id; lists are fetched whole and filtered by the server.
+
+## Audit log
+
+Every change attempt (including refused ones and dry runs) is appended to `audit.jsonl` in `EMHUB_TOMO_MCP_STATE_DIR`: time, EMhub user, action, project, arguments, outcome, and the jobs' statuses afterwards. Changes to one project are serialized within the server. A change that EMhub does not confirm in time is not retried; the server reports the current status instead.
 
 ## Untrusted content
 

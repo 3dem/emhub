@@ -224,7 +224,7 @@ async def test_wait_for_saved_job_returns(services: Services) -> None:
     ref = await services.projects.get(1)
     result = await services.jobs.wait(ref, ["PyTom/job006"], mode="all", timeout_s=600, poll_s=15)
     assert not result.satisfied and not result.timed_out
-    assert "PyTom/job006 is not scheduled or running" in (result.note or "")
+    assert "PyTom/job006 is saved, so it will not finish on its own" in (result.note or "")
 
 
 async def test_wait_errors(services: Services) -> None:
@@ -254,3 +254,30 @@ async def test_missing_project_folder(services: Services, fake: FakeEmhub) -> No
             await call
         assert info.value.kind is ErrorKind.NOT_FOUND
         assert "folder of project 1 (/data/projects/apof) does not exist" in info.value.message
+
+
+async def test_blocked_scheduled_jobs(services: Services, fake: FakeEmhub) -> None:
+    graph = fake.graphs[1]
+    graph["WarpCtfRec/job005"]["status"] = "scheduled"  # its parent WarpTsAlign/job004 failed
+    graph["PyTom/job006"]["status"] = "scheduled"  # waits for the blocked WarpCtfRec/job005
+    graph["InitialModel/job008"]["status"] = "scheduled"  # parents still saved: not blocked
+    ref = await services.projects.get(1)
+    detail = await services.jobs.project_detail(ref)
+    assert detail.blocked == [
+        "WarpCtfRec/job005 (waits for WarpTsAlign/job004, which failed)",
+        "PyTom/job006 (waits for WarpTsAlign/job004, which failed)",
+    ]
+    result = await services.jobs.wait(
+        ref, ["WarpCtfRec/job005"], mode="all", timeout_s=600, poll_s=15
+    )
+    assert not result.satisfied and not result.timed_out
+    assert "will never start: WarpTsAlign/job004 failed" in (result.note or "")
+    assert "stop_jobs" in (result.note or "")
+    # With mode "any", a blocked job does not stop the wait while another can still finish.
+    graph["EMwrap/job001"]["status"] = "running"
+    clock = Clock()
+    svc = job_service(services, clock)
+    timed = await svc.wait(
+        ref, ["WarpCtfRec/job005", "EMwrap/job001"], mode="any", timeout_s=30, poll_s=15
+    )
+    assert timed.timed_out

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "emhub-tomo-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP server for EMhub-Tomo cryo-ET processing projects"
 readme = "README.md"
 license = "GPL-3.0-or-later"

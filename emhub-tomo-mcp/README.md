@@ -1,10 +1,10 @@
 # emhub-tomo-mcp
 
-An [MCP](https://modelcontextprotocol.io) server that gives AI assistants (Claude Code, Claude Desktop, VS Code and other MCP clients) **read-only** access to [EMhub-Tomo](https://3dem.github.io/emhub-tomo/) cryo-ET processing projects.
+An [MCP](https://modelcontextprotocol.io) server that gives AI assistants (Claude Code, Claude Desktop, VS Code and other MCP clients) access to [EMhub-Tomo](https://3dem.github.io/emhub-tomo/) cryo-ET processing projects through the EMhub REST API.
 
-With it, an assistant can answer questions such as "which of my projects have failed jobs?", "why did `WarpTsAlign/job004` fail?" or "how far did the ApoF tutorial get?". It reads projects, job graphs, parameters, logs and files through the EMhub REST API. It cannot change anything: no creating projects, editing parameters, launching or deleting jobs. Write access is planned as a separate, opt-in access level.
+With read access (the default), an assistant can answer questions such as "which of my projects have failed jobs?", "why did `WarpTsAlign/job004` fail?" or "how far did the ApoF tutorial get?". With write access, which the operator enables, it can also set up projects from workflow templates, edit parameters, and run, schedule and stop jobs, with checks on parameters, queues, GPUs and launch rates, and an audit log.
 
-Status: **0.1.0**, Phase 1 of the development plan (read-only). Developed on the emhub branch `sc_mcp_server`.
+Status: **0.2.0** (Phases 1 and 2 of the development plan). Developed on the emhub branch `sc_mcp_server`.
 
 ## What it offers
 
@@ -17,6 +17,17 @@ Status: **0.1.0**, Phase 1 of the development plan (read-only). Developed on the
 | `list_job_types`, `describe_job_type` | Job types and their parameters, including the server's queues |
 | `list_workflow_templates` | Ready-made workflows such as the ApoF tutorial |
 | `list_project_files`, `read_project_file` | Files inside a project; text windows or PNG previews of images and MRC files |
+
+With `EMHUB_TOMO_MCP_ACCESS=operate`:
+
+| Tools | Purpose |
+|---|---|
+| `create_project`, `load_workflow_template` | New projects inside allowed folders; add a template's jobs |
+| `save_job` | Edit a job's parameters, or create a job; checked against the form and by EMhub |
+| `run_job`, `schedule_jobs`, `stop_jobs` | Launch now; schedule a pipeline (each job starts after its parents); stop or cancel |
+| `annotate_job`, `tag_jobs`, `duplicate_jobs`, `export_workflow` | Names, comments, labels, copies, workflow files |
+
+`admin` adds `delete_jobs`. Changing tools support `dry_run`.
 
 There are also resources (background guides, a project's job graph, job-type forms) and two prompts (`diagnose_job`, `project_report`). See [docs/tools.md](docs/tools.md) for the full reference.
 

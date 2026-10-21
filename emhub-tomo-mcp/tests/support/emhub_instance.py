@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
 import secrets
 import shutil
 import signal
@@ -183,6 +184,16 @@ def stop_child_server(proc: subprocess.Popen, timeout: float = 15) -> None:
         os.killpg(proc.pid, signal.SIGKILL)
 
 
+def kill_watchers(root: Path) -> None:
+    """Stop emwrap's schedule watchers for projects under ``root``: they run
+    detached from the server and would otherwise outlive it."""
+    with contextlib.suppress(FileNotFoundError):
+        # Both the instance's path and the watcher flag must match: other
+        # projects' watchers are left alone.
+        pattern = f"--path {re.escape(str(root))}/.* --schedule-watch "
+        subprocess.run(["pkill", "-f", pattern], check=False, capture_output=True)
+
+
 def stop_server(pid: int, timeout: float = 15) -> None:
     """Stop the server process group started by ``start_server`` in another
     process (see scripts/dev_server.py); polls until the group is gone."""
@@ -241,5 +252,6 @@ def emhub_instance(
     finally:
         if proc is not None:
             stop_child_server(proc)
+        kill_watchers(root)
         if not keep:
             shutil.rmtree(root, ignore_errors=True)

@@ -669,6 +669,14 @@
      "title": "Active",
      "type": "array"
     },
+    "blocked": {
+     "description": "Scheduled jobs that will never start because a job they wait for failed or was aborted (at most 50). Stop them, or fix and re-run that job.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Blocked",
+     "type": "array"
+    },
     "failed": {
      "description": "Jobs that failed or were aborted (at most 50).",
      "items": {
@@ -1737,6 +1745,26 @@
   "name": "list_workflow_templates",
   "output_schema": {
    "$defs": {
+    "TemplateJob": {
+     "additionalProperties": false,
+     "properties": {
+      "jobid": {
+       "description": "Job id inside the template; loading renumbers it.",
+       "title": "Jobid",
+       "type": "string"
+      },
+      "jobtype": {
+       "title": "Jobtype",
+       "type": "string"
+      }
+     },
+     "required": [
+      "jobid",
+      "jobtype"
+     ],
+     "title": "TemplateJob",
+     "type": "object"
+    },
     "WorkflowTemplate": {
      "additionalProperties": false,
      "properties": {
@@ -1747,6 +1775,14 @@
       "id": {
        "title": "Id",
        "type": "string"
+      },
+      "jobs": {
+       "description": "The template's jobs (empty if EMhub does not say).",
+       "items": {
+        "$ref": "#/$defs/TemplateJob"
+       },
+       "title": "Jobs",
+       "type": "array"
       },
       "title": {
        "title": "Title",

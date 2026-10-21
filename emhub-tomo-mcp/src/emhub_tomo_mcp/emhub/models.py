@@ -159,11 +159,17 @@ class LabelsPayload(_Payload):
     jobs: dict[str, list[str]] = Field(default_factory=dict)
 
 
+class TemplateJobInfo(_Payload):
+    jobid: str = ""
+    jobtype: str = ""
+
+
 class WorkflowTemplateInfo(_Payload):
     id: str
     title: str | None = None
     description: str | None = None
     file: str | None = None
+    jobs: list[TemplateJobInfo] = Field(default_factory=list)
 
 
 class JobTypeInfo(_Payload):

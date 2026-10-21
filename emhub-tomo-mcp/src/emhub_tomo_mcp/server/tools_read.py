@@ -163,6 +163,11 @@ def register_read_tools(mcp: MCPServer, services: Services) -> None:
             f"Project {ref.id} '{ref.summary.title}': {plural(detail.job_count, 'job')}"
             + (f" ({counts_text(detail.status_counts)})" if detail.status_counts else "")
             + (f"; failed: {_first(detail.failed, detail.status_counts)}" if detail.failed else "")
+            + (
+                f"; blocked (will never start): {', '.join(detail.blocked[:3])}"
+                if detail.blocked
+                else ""
+            )
             + "."
         )
         return respond(detail, summary)

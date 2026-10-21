@@ -25,6 +25,7 @@ from .models import (
     JobTypeList,
     JobTypeSummary,
     ParamSpec,
+    TemplateJob,
     WorkflowTemplate,
     WorkflowTemplateList,
 )
@@ -41,6 +42,9 @@ PARAM_TYPES = {
     "EnumParam": "enum",
     "PathParam": "path",
     "TextParam": "text",
+    "FilesPatternParam": "files pattern",
+    "MultiPointerParam": "paths",
+    "TableParam": "table",
 }
 COMPACT_HELP_CHARS = 160
 FULL_HELP_CHARS = 1500
@@ -176,6 +180,9 @@ class JobTypeService:
                     id=i.id,
                     title=(i.title or i.id).strip(),
                     description=(i.description or "").strip(),
+                    jobs=[
+                        TemplateJob(jobid=j.jobid, jobtype=j.jobtype) for j in i.jobs if j.jobtype
+                    ],
                 )
                 for i in infos
             ]

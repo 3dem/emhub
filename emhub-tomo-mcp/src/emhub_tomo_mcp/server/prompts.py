@@ -8,7 +8,7 @@ from mcp.server.mcpserver import MCPServer
 from pydantic import Field
 
 
-def register_prompts(mcp: MCPServer) -> None:
+def register_prompts(mcp: MCPServer, *, can_write: bool = False) -> None:
     @mcp.prompt(title="Diagnose a job")
     def diagnose_job(
         project_id: Annotated[str, Field(description="Project id")],
@@ -41,4 +41,28 @@ def register_prompts(mcp: MCPServer) -> None:
             "key results where they are easy to find (number of tomograms, picked particles, "
             "refinement resolution in the logs of the last refinement jobs). Keep it under 15 "
             "lines, and list failed jobs with a one-line reason each (from get_job_logs)."
+        )
+
+    if not can_write:
+        return
+
+    @mcp.prompt(title="Set up preprocessing")
+    def setup_preprocessing(
+        data_path: Annotated[str, Field(description="Absolute path of the raw data")],
+        processing_path: Annotated[str, Field(description="Absolute path for the new project")],
+        workflow_id: Annotated[
+            str, Field(description="Workflow template, e.g. 'apof-warp-tutorial-part1'")
+        ] = "apof-warp-tutorial-part1",
+    ) -> str:
+        """Create a project for new data and prepare its preprocessing jobs, without running."""
+        return (
+            f"Set up tomography preprocessing for the data in {data_path}.\n\n"
+            f"1. Create a project in {processing_path} with create_project (try dry_run first).\n"
+            f"2. Load the workflow template '{workflow_id}' with load_workflow_template.\n"
+            "3. Look at the import job with get_job and list the data folder with "
+            "list_project_files: check that the mdoc pattern, gain file, pixel size, voltage and "
+            "tilt axis match the data; change what does not with save_job.\n"
+            "4. Show the user the jobs, their queues and GPUs (schedule_jobs with dry_run=true) "
+            "and ask before scheduling anything.\n\n"
+            "Do not run or schedule jobs until the user confirms."
         )

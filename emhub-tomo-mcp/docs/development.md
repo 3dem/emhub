@@ -9,10 +9,12 @@ src/emhub_tomo_mcp/
   services.py       wiring, status and capability probing (shared by server and CLI)
   __main__.py       command line: serve on stdio, --check, --print-config
   emhub/            async REST client (httpx2) and typed endpoint calls; no MCP imports
-  domain/           projects and visibility, jobs and logs, job types, files, paths, shaping
+  domain/           projects and visibility, jobs and logs, job types, files, paths, shaping,
+                    validation (parameters against forms), operations (all changes)
+  policy.py         access levels per project, launch limit, project locks, audit log
   server/           MCP tools, resources, prompts, instructions and guides
 tests/
-  unit/             client, config, domain, CLI (fake EMhub, no network)
+  unit/             client, config, domain, operations, policy, CLI (fake EMhub, no network)
   protocol/         the MCP surface through an in-memory client; stdio; docs up to date
   contract/         against a real throw-away EMhub-Tomo (needs EMHUB_TOMO_HOME)
   support/          fake_emhub.py (in-memory EMhub), emhub_instance.py (real instances)
@@ -43,7 +45,9 @@ Contract tests need an EMhub-Tomo installation (the folder with `emwrap.bashrc`)
 EMHUB_TOMO_HOME=/path/to/emhub-tomo  EMHUB_TEST_WORKDIR=/scratch/tmp  pytest tests/contract
 ```
 
-They take about 1.5 minutes. They create a project from the ApoF tutorial template, run an import job that finishes, a motion-correction job whose program (a stub) fails, and an import that fails outright, then check every tool against them. A second user checks project sharing.
+`test_contract.py` (about 1.5 minutes) creates a project from the ApoF tutorial template, runs an import job that finishes, a motion-correction job whose program (a stub) fails, and an import that fails outright, then checks every read tool against them. A second user checks project sharing; a second server checks auto-login.
+
+`test_contract_write.py` (about 10 minutes) drives the change tools: it creates projects, loads the tutorial, edits the import, schedules the preprocessing chain and waits for it, stops a running and a scheduled job, checks the refusal of GPU jobs on the EMhub host, and labels, annotates, copies, exports and deletes jobs. The stubs' behaviour is set with `site_helpers.set_stub_mode` (`fail`, `ok`, `sleep N`).
 
 Coverage: `pytest --cov`. The target is ≥ 90 % for `emhub/` and `domain/`.
 

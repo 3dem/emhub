@@ -188,6 +188,12 @@ class FakeEmhub:
         default_factory=lambda: recorded("18_get_session_run_form_new_job_type")["run"]["form"]
     )
     stderr: dict[str, str] = field(default_factory=dict)  # per job id, overrides the default
+    params: dict[tuple[int, str], dict[str, Any]] = field(default_factory=dict)  # job.star
+    forms: dict[str, dict[str, Any]] = field(default_factory=dict)  # per job type
+    has_validate: bool = True
+    validation_errors: list[str] = field(default_factory=list)  # validate_job answers these
+    load_returns_ids: bool = True
+    launched: list[tuple[int, str, dict[str, Any], bool]] = field(default_factory=list)
     has_job_types: bool = True
     has_workflows: bool = True
     has_labels: bool = True
@@ -291,11 +297,12 @@ class FakeEmhub:
         if run_id is None:
             if "run_id" not in attrs:
                 raise KeyError("run")
-            return {"run": {"form": copy.deepcopy(self.form)} if "form" in outputs else {}}
+            form = self.form_for(attrs.get("job_type", ""))
+            return {"run": {"form": form} if "form" in outputs else {}}
         node = self.graphs[entry["id"]][run_id]
         result: dict[str, Any] = {}
         if "json" in outputs:
-            values = {
+            values = self.params.get((entry["id"], run_id)) or {
                 "input_tiltseries": "WarpMctf/job003/tilt_series.star",
                 "gpus": "3",
                 "method": "1",
@@ -325,7 +332,17 @@ class FakeEmhub:
     def _api_get_workflows(self, attrs: Any) -> Any:
         if not self.has_workflows:
             raise _NotOffered
-        return recorded("10_get_workflows")
+        mini = {
+            "id": "mini",
+            "title": "Mini preprocessing",
+            "description": "Three jobs.",
+            "jobs": [
+                {"jobid": "EMwrap/job900", "jobtype": "emw-import-ts"},
+                {"jobid": "WarpMctf/job901", "jobtype": "emw-warp-mctf"},
+                {"jobid": "WarpTsAlign/job902", "jobtype": "emw-warp-tsalign"},
+            ],
+        }
+        return [*recorded("10_get_workflows"), mini]
 
     def _api_get_job_types(self, attrs: Any) -> Any:
         if not self.has_job_types:
@@ -342,6 +359,20 @@ class FakeEmhub:
                 "id": "emw-warp-mctf",
                 "label": "Warp Motion and CTF",
                 "output": "WarpMctf",
+                "visible": True,
+                "has_form": True,
+            },
+            {
+                "id": "emw-warp-tsalign",
+                "label": "Warp Tilt Series Alignment",
+                "output": "WarpTsAlign",
+                "visible": True,
+                "has_form": True,
+            },
+            {
+                "id": "emw-warp-ctfrec",
+                "label": "Warp CTF and Reconstruction",
+                "output": "WarpCtfRec",
                 "visible": True,
                 "has_form": True,
             },
@@ -428,6 +459,208 @@ class FakeEmhub:
                 }
             }
         raise FileNotFoundError(f"No such file: {rel}")
+
+    # ------------------------------------------------------------- changes
+
+    def form_for(self, job_type: str) -> dict[str, Any]:
+        if job_type in self.forms:
+            return copy.deepcopy(self.forms[job_type])
+        form = copy.deepcopy(self.form)
+        if job_type == "emw-import-ts":  # a job without GPUs
+
+            def strip(params: list[Any]) -> list[Any]:
+                kept = []
+                for p in params:
+                    if p.get("name") == "gpus":
+                        continue
+                    if "params" in p:
+                        p["params"] = strip(p["params"])
+                    kept.append(p)
+                return kept
+
+            for section in form["sections"]:
+                section["params"] = strip(section["params"])
+        return form
+
+    def _new_job(self, entry_id: int, job_type: str, parents: list[str]) -> str:
+        graph = self.graphs.setdefault(
+            entry_id,
+            {"PROJECT": {"id": "PROJECT", "children": [], "parents": [], "type": "PROJECT"}},
+        )
+        prefix = {
+            "emw-import-ts": "EMwrap",
+            "emw-warp-mctf": "WarpMctf",
+            "emw-warp-tsalign": "WarpTsAlign",
+            "emw-warp-ctfrec": "WarpCtfRec",
+        }
+        number = 1 + max([int(k.rsplit("job", 1)[1]) for k in graph if "/job" in k] or [0])
+        job_id = f"{prefix.get(job_type, 'Other')}/job{number:03d}"
+        graph[job_id] = {
+            "id": job_id,
+            "type": job_type,
+            "status": "saved",
+            "parents": parents or ["PROJECT"],
+            "children": [],
+            "outputs": [],
+            "elapsedTime": 0,
+            "runName": "",
+            "comment": "",
+            "tags": [],
+        }
+        for parent in parents:
+            graph[parent]["children"].append(job_id)
+        self.params[(entry_id, job_id)] = {}
+        return job_id
+
+    def _node_of(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        entry = self._entry(attrs)
+        return self.graphs[entry["id"]][attrs["run_id"]]
+
+    def _flat(self, entry_id: int) -> dict[str, Any]:
+        return self._api_get_session_workflow({"entry_id": entry_id})
+
+    def _api_create_project(self, attrs: dict[str, Any]) -> Any:
+        project = {
+            "id": 100 + len(self.projects),
+            "status": attrs["status"],
+            "title": attrs["title"],
+            "user_id": attrs["user_id"],
+        }
+        self.projects.append(project)
+        return {"project": project}
+
+    def _api_create_entry(self, attrs: dict[str, Any]) -> Any:
+        path = attrs["extra"]["data"]["processing_path"]
+        if not path.startswith("/data/"):
+            raise RuntimeError(f"Parent path '{path}' does not exist!")
+        entry = {
+            "id": 200 + len(self.entries),
+            "type": attrs["type"],
+            "title": attrs["title"],
+            "project_id": attrs["project_id"],
+            "extra": attrs["extra"],
+            "creation_date": "2026-10-21T12:00:00+00:00",
+            "last_update_date": "2026-10-21T12:00:00+00:00",
+        }
+        self.entries.append(entry)
+        self.graphs[entry["id"]] = {
+            "PROJECT": {"id": "PROJECT", "children": [], "parents": [], "type": "PROJECT"}
+        }
+        self.files[path] = {".": {}}
+        return {"entry": entry}
+
+    def _api_load_workflow(self, attrs: dict[str, Any]) -> Any:
+        entry = self._entry(attrs)
+        if attrs["workflow_id"] != "mini":
+            raise RuntimeError(f"Workflow file not found: {attrs['workflow_id']}")
+        imp = self._new_job(entry["id"], "emw-import-ts", [])
+        mctf = self._new_job(entry["id"], "emw-warp-mctf", [imp])
+        ali = self._new_job(entry["id"], "emw-warp-tsalign", [mctf])
+        self.params[(entry["id"], mctf)] = {
+            "input_tiltseries": f"{imp}/tilt_series.star",
+            "gpus": "2",
+        }
+        self.params[(entry["id"], ali)] = {
+            "input_tiltseries": f"{mctf}/tilt_series.star",
+            "gpus": "",
+        }
+        result: dict[str, Any] = {"protocols": {}, "workflow_id": "mini", "loaded_jobs": 3}
+        if self.load_returns_ids:
+            result["job_ids"] = {
+                "EMwrap/job900": imp,
+                "WarpMctf/job901": mctf,
+                "WarpTsAlign/job902": ali,
+            }
+        return {"workflow": result}
+
+    def _api_validate_job(self, attrs: dict[str, Any]) -> Any:
+        if not self.has_validate:
+            raise _NotOffered
+        self._entry(attrs)
+        return {
+            "validation": {
+                "valid": not self.validation_errors,
+                "errors": list(self.validation_errors),
+            }
+        }
+
+    def _api_save_job(self, attrs: dict[str, Any]) -> Any:
+        entry = self._entry(attrs)
+        if attrs.get("run_id"):
+            node = self._node_of(attrs)
+            self.params.setdefault((entry["id"], node["id"]), {}).update(attrs["params"])
+            node["status"] = "saved"
+        else:
+            job = self._new_job(entry["id"], attrs["job_type"], [])
+            self.params[(entry["id"], job)] = dict(attrs["params"])
+        return self._flat(entry["id"])
+
+    def _api_launch_job(self, attrs: dict[str, Any]) -> Any:
+        entry = self._entry(attrs)
+        node = self._node_of(attrs)
+        self.params.setdefault((entry["id"], node["id"]), {}).update(attrs["params"])
+        node["status"] = "launched"
+        self.launched.append((entry["id"], node["id"], dict(attrs["params"]), attrs["clean"]))
+        return self._flat(entry["id"])
+
+    def _api_schedule_job(self, attrs: dict[str, Any]) -> Any:
+        self._node_of(attrs)["status"] = "scheduled"
+        self.launched.append((int(attrs["entry_id"]), attrs["run_id"], {}, False))
+        return self._flat(int(attrs["entry_id"]))
+
+    def _api_stop_jobs(self, attrs: dict[str, Any]) -> Any:
+        entry = self._entry(attrs)
+        for job in attrs["run_ids"]:
+            node = self.graphs[entry["id"]][job]
+            node["status"] = "saved" if node["status"] == "scheduled" else "aborted"
+        return self._flat(entry["id"])
+
+    def _api_save_job_annotation(self, attrs: dict[str, Any]) -> Any:
+        node = self._node_of(attrs)
+        node["runName"], node["comment"] = attrs["runName"], attrs["comment"]
+        return {
+            "protocol": {"id": node["id"], "runName": node["runName"], "comment": node["comment"]}
+        }
+
+    def _api_save_project_label(self, attrs: dict[str, Any]) -> Any:
+        entry = self._entry(attrs)
+        labels = self.labels.setdefault(entry["id"], {"labels": [], "jobs": {}})
+        label = {**attrs["label"], "id": f"lbl-new-{len(labels['labels'])}"}
+        labels["labels"].append(label)
+        return {"label": label}
+
+    def _api_set_job_labels(self, attrs: dict[str, Any]) -> Any:
+        entry = self._entry(attrs)
+        labels = self.labels.setdefault(entry["id"], {"labels": [], "jobs": {}})
+        labels["jobs"][attrs["run_id"]] = list(attrs["label_ids"])
+        self._node_of(attrs)["tags"] = list(attrs["label_ids"])
+        return {"labels": {"id": attrs["run_id"], "tagIds": attrs["label_ids"]}}
+
+    def _api_duplicate_jobs(self, attrs: dict[str, Any]) -> Any:
+        entry = self._entry(attrs)
+        graph = self.graphs[entry["id"]]
+        pairs = []
+        for job in attrs["run_ids"]:
+            new = self._new_job(entry["id"], graph[job]["type"], [])
+            self.params[(entry["id"], new)] = dict(self.params.get((entry["id"], job), {}))
+            pairs.append({"sourceId": job, "newId": new})
+        return {"workflow": {"protocols": {}, "duplicated": pairs}}
+
+    def _api_export_workflow(self, attrs: dict[str, Any]) -> Any:
+        entry = self._entry(attrs)
+        root = entry["extra"]["data"]["processing_path"]
+        self.files.setdefault(root, {".": {}})["."][attrs["output_path"]] = "{}"
+        return self._flat(entry["id"])
+
+    def _api_delete_jobs(self, attrs: dict[str, Any]) -> Any:
+        entry = self._entry(attrs)
+        graph = self.graphs[entry["id"]]
+        for job in attrs["run_ids"]:
+            node = graph.pop(job)
+            for parent in node["parents"]:
+                if parent in graph:
+                    graph[parent]["children"] = [c for c in graph[parent]["children"] if c != job]
+        return self._flat(entry["id"])
 
 
 class _NotOffered(Exception):
