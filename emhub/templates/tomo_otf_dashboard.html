@@ -1,0 +1,805 @@
+{# On-the-fly CryoET dashboard: one session, refreshed while it runs. #}
+
+{# The wrapper holds the page and the modal, so one class switches both
+   to dark mode. #}
+{# Styles first: the theme script and the plots read their variables. #}
+<style>
+/* Every colour that changes with the theme is a variable here; the light
+   values are the dashboard's own, the dark ones apply with .otf-dark.  The
+   status colours, the same in both, come from dc_tomo_otf.PALETTE. */
+.otf-page {
+    --otf-data: {{ palette.data }}; --otf-good: {{ palette.good }};
+    --otf-review: {{ palette.review }}; --otf-bad: {{ palette.bad }};
+    --otf-waiting: {{ palette.waiting }};
+    --otf-bg: transparent; --otf-surface: #fff; --otf-surface-alt: #eef1f3;
+    --otf-border: #dde2e6; --otf-ink: #2e2f39; --otf-muted: #64748b;
+    --otf-secondary: #6c757d; --otf-faint: #9aa4ab;
+    --otf-btn-border: #cfd6e4; --otf-hover: #eef3fb;
+    --otf-good-text: #1f8f3d; --otf-warn-text: #b45309;
+    --otf-plot-text: #444; --otf-grid: #eee; --otf-connector: #c9dcfb;
+    --otf-hint: #7fb0fe; --otf-neutral: #8b99a4;
+}
+.otf-page.otf-dark {
+    --otf-bg: #16181d; --otf-surface: #1f2229; --otf-surface-alt: #2a2e37;
+    --otf-border: #353a45; --otf-ink: #e4e7ec; --otf-muted: #9aa5b4;
+    --otf-secondary: #9aa5b4; --otf-faint: #7d8794;
+    --otf-btn-border: #414856; --otf-hover: #2a3242;
+    --otf-good-text: #2ec551; --otf-warn-text: #fbbf24;
+    --otf-plot-text: #aeb6c2; --otf-grid: #2c313a; --otf-connector: #34568c;
+}
+
+/* Kept local to the dashboard: these are data marks, not app chrome. */
+.otf-counter-value { font-size: 2rem; font-weight: 500; line-height: 1.05; }
+.otf-counter-label { font-size: .8rem; color: var(--otf-secondary); }
+.otf-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+/* Status shapes, the same as the plot markers: colour is never the only cue.
+   The dot's colour is set inline as both background and color. */
+.otf-shape-square { border-radius: 0; }
+.otf-shape-triangle { border-radius: 0; width: 10px; height: 9px;
+                      clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.otf-shape-diamond { border-radius: 0; width: 10px; height: 10px;
+                     clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.otf-shape-ring { background: transparent !important; box-shadow: inset 0 0 0 2px currentColor; }
+.otf-warn { color: var(--otf-warn-text); }
+.otf-stage-bar { height: 12px; background: var(--otf-surface-alt);
+                 border: 1px solid var(--otf-border); position: relative; overflow: hidden; }
+.otf-stage-fill { position: absolute; top: 0; bottom: 0; left: 0; }
+.otf-fingerprint { vertical-align: middle; }
+.otf-num { font-variant-numeric: tabular-nums; text-align: right; }
+.otf-sd { color: var(--otf-faint); font-size: .75rem; }
+.otf-row-link { cursor: pointer; }
+.otf-state-acquiring { color: var(--otf-good-text); }
+.otf-state-idle, .otf-state-ended { color: var(--otf-secondary); }
+.otf-state-stalled { color: var(--otf-bad); font-weight: 500; }
+.otf-state-unknown { color: var(--otf-faint); }
+/* The theme's muted text and light buttons are lavender; blue-grey here */
+.otf-page .text-muted { color: var(--otf-muted) !important; }
+.otf-counter-icon { font-size: 1.1rem; margin-right: .45rem; vertical-align: middle; }
+/* Summary card: counters, a divider, then the pipeline as a flow */
+.otf-summary { row-gap: .8rem; }
+.otf-counters { gap: 1.6rem; padding-right: 1.6rem; margin-right: 1.6rem;
+                border-right: 1px solid var(--otf-border); }
+.otf-flow { align-items: flex-start; min-width: 520px; }
+.otf-flow-step { flex: 1 1 0; min-width: 0; }
+.otf-flow-label { font-size: .78rem; color: var(--otf-secondary); white-space: nowrap;
+                  overflow: hidden; text-overflow: ellipsis; }
+.otf-flow-count { font-size: 1.05rem; white-space: nowrap; margin: 1px 0 4px;
+                  font-variant-numeric: tabular-nums; }
+.otf-flow-arrow { color: var(--otf-faint); font-size: .7rem; margin: 1.3rem .6rem 0; }
+.otf-flow .otf-stage-bar { height: 6px; }
+.otf-flow-failed { display: block; line-height: 1; margin-top: 3px; }
+/* Toggles: the selected option must be obvious, the others quiet */
+/* !important: bootstrap's .btn-outline-light.active is more specific */
+.otf-toggle .btn, .otf-theme-toggle { color: var(--otf-ink); background: var(--otf-surface);
+                                      border-color: var(--otf-btn-border); }
+.otf-toggle .btn:hover, .otf-theme-toggle:hover { background: var(--otf-hover); color: var(--otf-ink); }
+.otf-toggle .btn.active, .otf-toggle .btn.active:hover {
+    color: #fff !important; background: var(--otf-data) !important;
+    border-color: var(--otf-data) !important; }
+/* The theme button shows what it switches to */
+.otf-dark .otf-theme-to-dark, .otf-page:not(.otf-dark) .otf-theme-to-light { display: none; }
+.otf-why { color: var(--otf-muted); font-size: .8rem; }
+.otf-table td, .otf-table th { white-space: nowrap; }
+.otf-table-scroll { max-height: 75vh; overflow: auto; }
+.otf-sortable { cursor: pointer; user-select: none; }
+.otf-sortable:hover { color: var(--otf-data); }
+.otf-pager { margin-left: .75rem; font-size: .8rem; color: var(--otf-secondary); white-space: nowrap; }
+.otf-pager .btn { padding: 0 .45rem; line-height: 1.3; }
+.otf-sort-ind { font-size: .65rem; margin-left: .25rem; color: var(--otf-data); }
+/* The header row stays in view while the rows scroll under it.  A shadow
+   rather than the border, which a sticky cell does not keep. */
+.otf-table thead th { position: sticky; top: 0; z-index: 2; background: var(--otf-surface);
+                      border-bottom: 0; box-shadow: inset 0 -2px 0 var(--otf-border); }
+/* Stage dots: done, processing, failed, waiting; the shapes and colours of
+   the statuses */
+.otf-stage-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+                 margin-right: 3px; vertical-align: middle; }
+.otf-stage-done { background: var(--otf-data); }
+.otf-stage-processing { box-shadow: inset 0 0 0 2px var(--otf-waiting); }
+.otf-stage-failed { background: var(--otf-bad); border-radius: 0; }
+.otf-stage-waiting { box-shadow: inset 0 0 0 1.5px var(--otf-btn-border); }
+.otf-filmstrip { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
+.otf-thumb { flex: 0 0 auto; margin: 0; text-align: center; position: relative; }
+/* width auto: the img width/height attributes only give its proportions */
+.otf-thumb img { width: auto; }
+.otf-thumb img, .otf-thumb-missing { height: 84px; border: 2px solid transparent;
+                                     cursor: zoom-in; display: block; }
+.otf-thumb-missing { width: 118px; background: var(--otf-surface-alt); color: var(--otf-faint);
+                     font-size: .7rem; line-height: 80px; cursor: default; }
+.otf-thumb figcaption { font-size: .7rem; color: var(--otf-muted); }
+/* Selection: a checkbox per row and per tilt image, and the boxes that
+   select by status */
+.otf-select-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem 1.1rem;
+                  font-size: .82rem; color: var(--otf-secondary); }
+.otf-select-bar label { margin: 0; cursor: pointer; white-space: nowrap; }
+.otf-select-bar input, .otf-table .otf-sel { cursor: pointer; vertical-align: middle; }
+.otf-select-bar .otf-count { color: var(--otf-faint); }
+.otf-select-summary { margin-left: auto; white-space: nowrap; }
+.otf-table td.otf-sel-cell, .otf-table th.otf-sel-cell { width: 28px; padding-right: 0; }
+tr.otf-deselected td:not(.otf-sel-cell) { opacity: .45; }
+.otf-tilt-sel { position: absolute; top: 5px; left: 5px; z-index: 1; cursor: pointer; }
+.otf-thumb-off img { opacity: .3; }
+/* Tilts used: left after curation, green once the tilt series is reviewed,
+   grey while not; the collected count in bold */
+.otf-final-reviewed { color: var(--otf-good-text); font-weight: 600; }
+.otf-final-pending { color: var(--otf-faint); }
+.otf-tilts-collected { font-weight: 600; }
+/* The tilt series opened last, to find the place again on coming back */
+tr.otf-row-last td { background: var(--otf-hover); }
+tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
+.otf-reviewed-by { color: var(--otf-faint); }
+/* Unticked by an accepted proposal (and not ticked again since) */
+.otf-auto-tag { display: none; position: absolute; top: 4px; right: 5px; z-index: 1;
+                font-size: .62rem; line-height: 1.3; padding: 0 3px; border-radius: 3px;
+                background: var(--otf-surface); color: var(--otf-ink); cursor: help; }
+.otf-thumb-auto .otf-auto-tag { display: block; }
+/* A tilt processing dropped: still shown, dimmed */
+.otf-thumb-dropped img { opacity: .45; border-style: dashed !important; }
+/* Hover is a light dashed hint; only the selection is solid blue */
+.otf-thumb-active img { outline: 2px dashed var(--otf-hint); outline-offset: -2px; }
+.otf-thumb-selected img { outline: 3px solid var(--otf-data); outline-offset: -3px;
+                          box-shadow: 0 0 0 2px var(--otf-data); }
+.otf-thumb-selected figcaption { color: var(--otf-data); font-weight: 600; }
+/* Tilt series window: wider than modal-xl, for the strips and the
+   selected tilt side by side */
+.modal-dialog.otf-modal-wide { max-width: min(1640px, 96vw); margin-top: .5rem; margin-bottom: .5rem; }
+/* Tilt series window tabs */
+.otf-tabs { margin-bottom: 12px; }
+.otf-tabs .nav-link { color: var(--otf-muted); padding: .4rem .9rem; }
+.otf-tabs .nav-link.active { color: var(--otf-ink); font-weight: 500; }
+.otf-dark .otf-tabs { border-color: var(--otf-border); }
+.otf-dark .otf-tabs .nav-link.active { background: var(--otf-surface); border-color: var(--otf-border)
+                                       var(--otf-border) var(--otf-surface); }
+.otf-dark .otf-tabs .nav-link:not(.active):hover { border-color: transparent; color: var(--otf-ink); }
+/* The aligned stack and the tomogram side by side */
+.otf-viewers { display: flex; flex-wrap: wrap; gap: 0 32px; align-items: flex-start; }
+.otf-viewer-panel { min-width: 0; }
+.otf-viewer-panel h6 { overflow-wrap: anywhere; }
+/* Tomogram orthogonal sections; the lines mark the other two slices */
+.otf-volume-info { font-size: .8rem; color: var(--otf-muted); margin: 0 0 8px; }
+.otf-ortho { display: grid; grid-template-columns: max-content max-content; gap: 6px 14px;
+             align-items: start; }
+.otf-ortho figure { position: relative; width: max-content; }
+#otf-vol-x > div { min-width: 150px; }
+.otf-xh { position: absolute; pointer-events: none; background: var(--otf-data); opacity: .75; }
+.otf-xh-v { top: 0; bottom: 0; width: 1px; }
+.otf-xh-h { left: 0; right: 0; height: 1px; }
+/* Each figure's flex-grow is its image's width/height, so both images
+   are the same height */
+.otf-tilt-view { display: flex; gap: 10px; align-items: flex-start; }
+.otf-tilt-view figure { margin: 0; min-width: 0; }
+.otf-tilt-view figcaption { font-size: .75rem; color: var(--otf-muted); }
+.otf-tilt-view img { width: 100%; display: block; }
+.otf-zoomable { cursor: zoom-in; }
+/* Larger view of a tilt, over the tilt series window */
+.otf-lightbox { position: fixed; inset: 0; z-index: 1080; display: none;
+                align-items: center; justify-content: center;
+                background: rgba(10, 12, 16, .88); cursor: zoom-out; }
+.otf-lightbox.show { display: flex; }
+.otf-lightbox figure { margin: 0; text-align: center; }
+/* Filling the screen, proportions kept */
+.otf-lightbox img { width: 94vw; height: 88vh; object-fit: contain; display: block; margin: 0 auto; }
+.otf-lightbox figcaption { color: #e4e7ec; font-size: .85rem; margin-top: 10px; }
+.otf-ctf-caption { font-size: .75rem; color: var(--otf-muted); margin: 6px 0 0; }
+.otf-ctf-profile { width: 100%; height: 160px; }
+/* Height of the selected tilt's images, as a share of the screen */
+#otf-tilt-pane { --otf-pane-image: 32vh; }
+/* Short screens (laptops): a lower filmstrip and smaller tilt images, so the tilt series window fits */
+@media (max-height: 820px) {
+    .otf-thumb img, .otf-thumb-missing { height: 64px; }
+    .otf-thumb-missing { line-height: 60px; }
+    #otf-tilt-pane { --otf-pane-image: 24vh; }
+    .otf-ctf-profile { height: 120px; }
+}
+.otf-tooltip .tooltip-inner { max-width: 380px; text-align: left; }
+.otf-name { font-family: SFMono-Regular, Menlo, Consolas, monospace; color: var(--otf-ink); }
+.otf-legend .otf-dot { margin-left: .6rem; }
+.otf-legend-line { display: inline-block; width: 18px; height: 0; margin: 0 .3rem 0 .9rem;
+                   border-top: 2px solid var(--otf-ink); vertical-align: middle; }
+@keyframes otf-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .3 } }
+.otf-state-acquiring .otf-dot { animation: otf-pulse 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+    .otf-state-acquiring .otf-dot { animation: none; }
+}
+
+/* Dark mode for the theme's own components, within the dashboard only */
+/* Out over the padding of emhub's container, content staying in place */
+.otf-dark { background: var(--otf-bg); color: var(--otf-ink); min-height: 100vh;
+            margin: 0 -15px; padding: 0 15px; }
+.otf-dark h1, .otf-dark h2, .otf-dark h3, .otf-dark h4, .otf-dark h5, .otf-dark h6,
+.otf-dark .breadcrumb-item.active { color: var(--otf-ink); }
+.otf-dark .card, .otf-dark .modal-content { background: var(--otf-surface);
+                                            color: var(--otf-ink); box-shadow: none; }
+.otf-dark .card-header, .otf-dark .modal-header { background: var(--otf-surface); }
+.otf-dark .card-header, .otf-dark .modal-header, .otf-dark .modal-content,
+.otf-dark .table td, .otf-dark .table th, .otf-dark .border-top {
+    border-color: var(--otf-border) !important; }
+.otf-dark .table { color: var(--otf-ink); }
+.otf-dark .table thead th { color: var(--otf-muted); }
+.otf-dark .table-hover tbody tr:hover { background: var(--otf-hover); color: var(--otf-ink); }
+.otf-dark .close { color: var(--otf-ink); text-shadow: none; }
+.otf-dark pre { background: var(--otf-surface-alt); color: var(--otf-ink); }
+.otf-dark .alert-info { background: #13324a; border-color: #1d4a6b; color: #b9dcf5; }
+.otf-dark .alert-warning { background: #3a2f0b; border-color: #5c4a10; color: #f5dd8c; }
+.otf-dark .alert-danger { background: #3d1418; border-color: #6b1f26; color: #f5b5bb; }
+</style>
+
+<div class="otf-page" id="otf-page">
+<script>
+/* Dark mode.  The otf-dark class switches the CSS variables below.  Plotly
+   does not read CSS, so each plot is drawn by a function that reads the
+   theme, kept on its div, and the toggle calls them again.  Defined before
+   the content, whose plots are drawn as it loads. */
+(function(window, document, $) {
+    var page = document.getElementById('otf-page');
+    page.classList.toggle('otf-dark', window.localStorage.getItem('otfTheme') === 'dark');
+
+    // The value of a theme variable, for Plotly, which does not read CSS
+    function otfCss(name) {
+        return window.getComputedStyle(page).getPropertyValue(name).trim();
+    }
+    // Transparent backgrounds let the card show through
+    function otfThemeLayout(layout) {
+        var grid = otfCss('--otf-grid');
+        var theme = {
+            paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+            font: {color: otfCss('--otf-plot-text')},
+            xaxis: {gridcolor: grid}, yaxis: {gridcolor: grid}
+        };
+        // Every axis of a figure with several panels (yaxis2, ...)
+        Object.keys(layout).forEach(function(k) {
+            if (/^[xy]axis\d+$/.test(k)) theme[k] = {gridcolor: grid};
+        });
+        return $.extend(true, theme, layout);
+    }
+    function otfPlot(div, draw) {
+        div.otfDraw = draw;
+        draw();
+    }
+
+    window.otfCss = otfCss;
+    window.otfThemeLayout = otfThemeLayout;
+    window.otfPlot = otfPlot;
+    window.otfToggleTheme = function() {
+        var dark = page.classList.toggle('otf-dark');
+        window.localStorage.setItem('otfTheme', dark ? 'dark' : 'light');
+        $(page).find('.js-plotly-plot').each(function() {
+            if (this.otfDraw) this.otfDraw();
+        });
+    };
+
+    /* The selection: tilt series and tilts taken out of the session.  It
+       lives here, outside the refreshed content (and before it, which
+       uses it as it loads), so a refresh cannot undo a
+       click; the content seeds it once from what is stored in the project,
+       and every change is saved there shortly after. */
+    /* Where the user was: the tilt series opened last, marked in the table
+       and the trends when coming back, and the tilt selected in each tilt
+       series, opened again with it.  Kept in this browser per entry and
+       tilt analysis job, so a reload keeps them too.  Here, as the content
+       uses it as it loads. */
+    var OTF_NAV_KEY = 'otfNav:' + {{ entry_id }} + ':' + {{ job_id|tojson }};
+    window.otfNav = (function() {
+        try { return $.extend({last: null, tilts: {}}, JSON.parse(localStorage.getItem(OTF_NAV_KEY))); }
+        catch (e) { return {last: null, tilts: {}}; }
+    })();
+    window.otfSaveNav = function() {
+        try { localStorage.setItem(OTF_NAV_KEY, JSON.stringify(otfNav)); } catch (e) {}
+    };
+    var otfSel = null, otfSaveTimer = null, otfSaveState = '';
+    window.otfSelection = function(stored) {
+        if (otfSel === null && stored) {
+            otfSel = {deselected: new Set(stored.deselected || []),
+                      excludedTilts: $.extend({}, stored.excludedTilts || {}),
+                      proposedTilts: $.extend({}, stored.proposedTilts || {}),
+                      reviewed: $.extend({}, stored.reviewed || {})};
+        }
+        return otfSel;
+    };
+    // Kept here and shown again by each refreshed content
+    function otfSetSaveState(state) {
+        otfSaveState = state;
+        $('.otf-save-state').text({saving: 'saving…', saved: 'saved', error: 'not saved'}[state] || '')
+            .toggleClass('text-danger', state === 'error');
+    }
+    window.otfRedrawSaveState = function() { otfSetSaveState(otfSaveState); };
+    window.otfSetSaveState = otfSetSaveState;
+    /* Store the selection in the tilt analysis job, with an export (a
+       subset made from it) to record if given. */
+    function otfPostSelection(exportRecord) {
+        otfSetSaveState('saving');
+        var attrs = {entry_id: {{ entry_id }}, job_id: {{ job_id|tojson }},
+                     deselected: Array.from(otfSel.deselected),
+                     excludedTilts: otfSel.excludedTilts, proposedTilts: otfSel.proposedTilts,
+                     reviewed: Object.keys(otfSel.reviewed)};
+        if (exportRecord) attrs['export'] = exportRecord;
+        send_ajax_json(Api.urls.tomo_otf_save_selection, attrs,
+                       function(data) {
+                           if (data.error) { otfSetSaveState('error'); showError(data.error); }
+                           else otfSetSaveState('saved');
+                       },
+                       function() { otfSetSaveState('error'); });
+    }
+    window.otfSaveSelectionNow = function(exportRecord) {
+        window.clearTimeout(otfSaveTimer);
+        otfPostSelection(exportRecord);
+    };
+    window.otfSelectionChanged = function() {
+        if (window.otfRenderSelection) window.otfRenderSelection();
+        otfSetSaveState('saving');
+        window.clearTimeout(otfSaveTimer);
+        otfSaveTimer = window.setTimeout(function() { otfPostSelection(); }, 600);
+    };
+
+})(window, document, window.jQuery);
+</script>
+
+<div class="container-fluid dashboard-content">
+
+    {# Scoped: the content included below has its own title, the session's.
+       The project step opens its workflow page, as the project list does. #}
+    {% with project_step = (title, url_for_content('tomo_session', tomo_session_id=entry_id, mode='widget')) %}
+    {% with title = "On-the-fly CryoET" %}
+    {% with navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), project_step, (title, '')] %}
+    {% include 'include_header.html' %}
+    {% endwith %}
+    {% endwith %}
+    {% endwith %}
+
+    {# Messages that must outlive the 30 s refresh of the content below #}
+    <div id="otf-messages"></div>
+
+    <div id="otf-dashboard-content">
+        {% include 'tomo_otf_dashboard_content.html' %}
+    </div>
+
+</div>
+
+<script>
+(function(window, document, $, undefined) {
+"use strict";
+
+    var OTF_ENTRY_ID = {{ entry_id }};
+    // The tilt analysis job shown (several dashboards may share a project)
+    var OTF_JOB_ID = {{ job_id|tojson }};
+    // The alignment and reconstruction jobs asked for ('' for the newest)
+    var OTF_ALIGN_JOB = {{ align_job|tojson }};
+    var OTF_TOMO_JOB = {{ tomo_job|tojson }};
+    var OTF_ROOT = {{ processing_path|tojson }};
+    var OTF_REFRESH_MS = {{ refresh_seconds }} * 1000;
+    var OTF_MODAL = '#otf-tiltseries-modal';
+    var otfTimer = null;
+
+    /* Plotly keeps a window resize listener per plot, so replacing the html
+       alone leaks every plot on each refresh; purge them first.  An open
+       tooltip lives in <body> and would outlive its target. */
+    function otfClear($el) {
+        $el.find('.js-plotly-plot').each(function() { Plotly.purge(this); });
+        $el.find('[data-toggle="tooltip"]').tooltip('dispose');
+        return $el.empty();
+    }
+
+    /* Requests are not cancelled, so a slow one (the timer's) can come back
+       after a newer one (a click); only the latest per target is shown. */
+    var otfLatest = {};
+    function otfReplace(selector, ajaxContent, showModal) {
+        var seq = otfLatest[selector] = (otfLatest[selector] || 0) + 1;
+        ajaxContent.done(function(html) {
+            if (seq !== otfLatest[selector]) return;
+            // A refresh must not throw the reader back to the top of the table
+            var scroll = $(selector).find('#otf-table-scroll').scrollTop();
+            var $el = otfClear($(selector));
+            $el.html(html);
+            if (scroll) $el.find('#otf-table-scroll').scrollTop(scroll);
+            if (showModal) $el.modal('show');
+        });
+        ajaxContent.fail(function() {
+            if (seq === otfLatest[selector]) ajax_request_failed.apply(this, arguments);
+        });
+    }
+
+    /* Refresh only the inner content, so scroll position and the open
+       detail panel survive. Plotly is re-drawn by the inner template. */
+    function otfRefresh() {
+        var content = get_ajax_content('tomo_otf_dashboard_content',
+                                       {entry_id: OTF_ENTRY_ID, job_id: OTF_JOB_ID,
+                                        align_job: OTF_ALIGN_JOB, tomo_job: OTF_TOMO_JOB,
+                                        sort: window.otfSort || 'worst',
+                                        filter: window.otfFilter || 'all',
+                                        page: window.otfPage || 1});
+        otfReplace('#otf-dashboard-content', content, false);
+    }
+
+    function otfStart() {
+        if (otfTimer === null)
+            otfTimer = window.setInterval(otfRefresh, OTF_REFRESH_MS);
+    }
+
+    function otfStop() {
+        if (otfTimer !== null) {
+            window.clearInterval(otfTimer);
+            otfTimer = null;
+        }
+    }
+
+    /* A dashboard left open on a screen in the microscope room should not
+       keep polling when the tab is hidden, and should catch up at once when
+       it comes back. */
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            otfStop();
+        } else {
+            otfRefresh();
+            otfStart();
+        }
+    });
+
+    window.otfRefresh = otfRefresh;
+    /* A new order or filter starts again from the first page */
+    window.otfSetSort = function(sort) {
+        window.otfSort = sort;
+        otfSetPage(1);
+    };
+    window.otfSetFilter = function(filter) {
+        window.otfFilter = filter;
+        otfSetPage(1);
+    };
+    function otfSetPage(page) {
+        window.otfPage = page;
+        $('#otf-table-scroll').scrollTop(0);
+        otfRefresh();
+    }
+    window.otfSetPage = otfSetPage;
+    window.otfShowTiltSeries = function(tomoName, order) {
+        otfNav.last = tomoName;
+        otfSaveNav();
+        var content = get_ajax_content('tomo_otf_tiltseries',
+                                       {entry_id: OTF_ENTRY_ID, job_id: OTF_JOB_ID,
+                                        align_job: OTF_ALIGN_JOB, tomo_job: OTF_TOMO_JOB,
+                                        tomo_name: tomoName,
+                                        order: order || 'angle'});
+        otfReplace(OTF_MODAL, content, true);
+    };
+
+    /* The strips are drawn while the modal is still hidden, so Plotly sizes
+       them to its 700px default; fit them once the modal is laid out. */
+    $(OTF_MODAL).on('shown.bs.modal', function() {
+        $(this).find('.js-plotly-plot').each(function() {
+            Plotly.Plots.resize(this);
+        });
+    });
+    // Back in the overview: bring the row of the tilt series into view
+    $(OTF_MODAL).on('hidden.bs.modal', function() {
+        if (window.otfMarkLastOpened) otfMarkLastOpened(true);
+    });
+
+    /* Keys in the tilt series window go to its filmstrip (otfTiltKey, set
+       by the window), also while the larger view of a tilt is open, unless
+       typing in a field */
+    document.addEventListener('keydown', function(e) {
+        if (!window.otfTiltKey || !$(OTF_MODAL).hasClass('show')) return;
+        // Not while typing or moving a slider
+        if (e.altKey || e.ctrlKey || e.metaKey ||
+            $(e.target).is('input:not([type=checkbox]), select, textarea, [contenteditable]')) return;
+        // A focused box or button already acts on Space and Enter itself
+        if ((e.key === ' ' || e.key === 'Enter') && $(e.target).is('input, button, a')) return;
+        if (otfTiltKey(e.key, $lightbox.hasClass('show'))) e.preventDefault();
+    });
+
+    /* A tomogram as orthogonal sections at one scale: the Z section, the Y
+       section above it (same X) and the X section beside it (same Y, made
+       upright by the server), with lines on each marking where the other
+       two are. */
+    function otfOrthoViewer($body, pane, voxel) {
+        var d = pane.dimensions, X = d[0], Y = d[1], Z = d[2];
+        var s = 520 / Math.max(X, Y);      // screen px per voxel
+        var n = ['x', 'y', 'z'].map(function(a) { return Object.keys(pane.axes[a].slices).length; });
+        var shown = (n[0] === n[1] && n[1] === n[2]) ? n[0] + ' slices per axis'
+                                                     : n.join(', ') + ' slices (X, Y, Z)';
+        $('<p class="otf-volume-info"></p>').text(
+            'Volume dimensions (X × Y × Z): ' + d.join(' × ') + ' voxels' +
+            (voxel ? ' at ' + voxel.toFixed(2) + ' Å' : '') +
+            '. Showing ' + shown + ', evenly spaced over the whole volume.'
+        ).appendTo($body);
+        $body.append('<div class="otf-ortho"><div id="otf-vol-y"></div><div></div>' +
+                     '<div id="otf-vol-z"></div><div id="otf-vol-x"></div></div>');
+        var size = {x: [Z, Y], y: [X, Z], z: [X, Y]};     // width, height in voxels
+        var cards = {};
+        [['y', 'Y slice: ', true], ['z', 'Z slice: ', false], ['x', 'X slice: ', false]].forEach(function(c) {
+            var axis = c[0];
+            cards[axis] = new ImageSliderCard('otf-vol-' + axis, pane.axes[axis].slices,
+                                              {slider_prefix: c[1], slider_ontop: c[2], coordinates: []});
+            $('#' + cards[axis].id('canvas')).css({width: size[axis][0] * s, height: size[axis][1] * s})
+                .after('<div class="otf-xh otf-xh-v"></div><div class="otf-xh otf-xh-h"></div>');
+        });
+        function at(axis) {
+            var card = cards[axis];
+            return (Number(card.indexes[$('#' + card.id('slider_input')).val()]) + 0.5) * s;
+        }
+        // Each view: which slice its vertical and horizontal lines follow
+        var lines = {z: ['x', 'y'], y: ['x', 'z'], x: ['z', 'y']};
+        function mark() {
+            Object.keys(lines).forEach(function(axis) {
+                var $fig = $('#otf-vol-' + axis + ' figure');
+                $fig.find('.otf-xh-v').css('left', at(lines[axis][0]));
+                $fig.find('.otf-xh-h').css('top', at(lines[axis][1]));
+            });
+        }
+        $body.find('input[type=range]').on('input', mark);
+        mark();
+    }
+
+    /* Load a viewer into its own panel inside the given container.  The
+       content comes from the same pane endpoint as the project table view.
+       done($panel) is called once it is drawn. */
+    function otfViewer(into, kind, attrs, opts, done) {
+        opts = opts || {};
+        var bodyId = 'otf-viewer-body-' + kind;
+        var $panel = $('<div class="otf-viewer-panel"></div>').attr('data-viewer', kind)
+            .append('<h6 class="mt-3"></h6>')
+            .append($('<div></div>').attr('id', bodyId)
+                    .html('<small class="text-muted">Loading…</small>'))
+            .appendTo($(into));
+        attrs.root = OTF_ROOT;
+        attrs.pointerClass = 'tomograms';
+        send_ajax_json(Api.urls.resolve_table_view_pane, attrs, function(data) {
+            var pane = data.paneContent;
+            if (!$.contains(document, $panel[0])) return;     // window replaced meanwhile
+            if (!pane) {
+                $panel.remove();
+                showError(data.error || 'Could not load viewer content.');
+                return;
+            }
+            $panel.find('h6').text(pane.title || '');
+            var $body = $('#' + bodyId).empty();
+            if (pane.kind === 'imageSlider' && pane.axes && pane.dimensions &&
+                    pane.axes.x && pane.axes.y && pane.axes.z) {
+                otfOrthoViewer($body, pane, opts.voxel);
+            } else if (pane.kind === 'imageSlider') {
+                // Sections named by their tilt when the dashboard matched them
+                var slices = pane.slices, prefix = pane.sliderPrefix || '';
+                var keys = Object.keys(slices);
+                if (opts.labels && opts.labels.length === keys.length) {
+                    slices = {};
+                    keys.forEach(function(k, i) { slices[opts.labels[i]] = pane.slices[k]; });
+                    prefix = '';
+                }
+                new ImageSliderCard(bodyId, slices, {slider_prefix: prefix});
+            } else if (pane.kind === 'text') {
+                $body.append($('<pre class="small" style="max-height: 60vh; overflow: auto"></pre>')
+                             .text(pane.text));
+            } else {
+                $body.append($('<small class="text-muted"></small>').text(pane.message || ''));
+            }
+            if (done) done($panel);
+        }, function() {
+            $('#' + bodyId).html('<small class="text-muted">Could not load the viewer.</small>');
+        });
+    }
+
+    /* Create subset: launch an EMwrap subset job (create_tomo_subset, as
+       the table viewer) from the tilt series the analysis is of, with the
+       selected ones in it and without their excluded tilts, then store the
+       selection with the export.  The result stays above the content. */
+    var otfSubsetBusy = false;    // the refreshed content asks, see otfIsSubsetBusy
+    window.otfIsSubsetBusy = function() { return otfSubsetBusy; };
+    window.otfCreateSubset = function() {
+        var sel = otfSelection();
+        if (!sel || otfSubsetBusy) return;
+        var question = $('<div></div>')
+            .append($('<p></p>').text('Launch an EMwrap subset job from the tilt series of ' +
+                                      'this analysis with this selection:'))
+            .append($('<p class="font-weight-bold"></p>').text($('#otf-select-summary').text()))
+            .append($('<p class="mb-0"></p>').text('Tilt series not motion corrected yet are left ' +
+                                                   'out. The selection and this export are recorded ' +
+                                                   'in ' + OTF_JOB_ID + '/otf_selection.json.'));
+        // emhub's confirmation window, as elsewhere in emhub
+        function busy(on) {
+            otfSubsetBusy = on;
+            $('.otf-create-subset').prop('disabled', on);
+        }
+        confirm('Create subset', question.html(), 'Cancel', 'Create subset', function() {
+            var input = window.otfSubsetInput;
+            if (!input) { showError('There is no motion correction output to make a subset from yet.'); return; }
+            var inStar = new Set(input.names);
+            var selected = {};      // name -> excluded movie indices
+            input.names.forEach(function(name) {
+                if (!sel.deselected.has(name)) selected[name] = sel.excludedTilts[name] || [];
+            });
+            var names = Object.keys(selected);
+            if (!names.length) {
+                showError('None of the selected tilt series is in the motion correction output yet');
+                return;
+            }
+            var skipped = (window.otfAllSeries || []).map(function(t) { return t.name; })
+                .filter(function(name) { return !inStar.has(name) && !sel.deselected.has(name); });
+            busy(true);
+            send_ajax_json(Api.urls.create_tomo_subset,
+                           {root: OTF_ROOT, entry_id: OTF_ENTRY_ID, starPath: input.star,
+                            pointerClass: 'TiltSeries', subsetItems: names, excludeTilts: selected},
+                           function(data) {
+                               busy(false);
+                               var r = data.subsetResult;
+                               if (!r) { showError(data.error || 'Could not create the subset.'); return; }
+                               otfSaveSelectionNow({inputSet: input.star, selected: selected,
+                                                    deselected: Array.from(sel.deselected).sort(),
+                                                    skipped: skipped, jobId: r.jobId});
+                               var text = r.message + ' from ' + r.sourceFile + '.' +
+                                   (skipped.length ? ' Not motion corrected yet, left out: ' +
+                                    skipped.join(', ') + '.' : '');
+                               $('<div class="alert alert-success alert-dismissible py-2 mb-3"></div>')
+                                   .append($('<small></small>').text(text))
+                                   .append('<button type="button" class="close py-1" data-dismiss="alert">&times;</button>')
+                                   .prependTo('#otf-messages');
+                           },
+                           function() { busy(false); ajax_request_failed.apply(this, arguments); });
+        });
+    };
+
+    /* Propose exclusions: of the tilts the curation rule leaves out (the
+       content brings them, otfProposalInputs), those of the selected tilt
+       series (the selection as it is here, saved or not) that are not out
+       already, nor were proposed before.  Accepted, they are unticked like
+       any other and remembered as proposed (proposedTilts), so one ticked
+       again stays.  Tilt series are never deselected; those keeping too few
+       tilts are listed. */
+    var OTF_PROPOSAL_LABELS = {{ (proposalLabels or {})|tojson }};
+    function otfProposalCounts(series, skipCurated) {
+        var use = series.filter(function(s) { return !(skipCurated && s.curated); });
+        var flags = {}, n = 0;
+        use.forEach(function(s) {
+            n += s.add.length;
+            Object.keys(s.flags).forEach(function(f) { flags[f] = (flags[f] || 0) + s.flags[f]; });
+        });
+        // A tilt can have several flags: these count tilts per flag
+        var parts = Object.keys(flags).sort(function(a, b) { return flags[b] - flags[a]; })
+            .map(function(f) { return flags[f] + ' ' + (OTF_PROPOSAL_LABELS[f] || f); });
+        var text = !n ? 'No tilts outside the tilt series that already have unticked tilts' :
+            n + ' tilt' + (n === 1 ? '' : 's') + ' in ' + use.length + ' tilt series' +
+            (parts.length ? ': ' + parts.join(', ') : '');
+        return {series: use, text: text};
+    }
+    var otfProposal = null, otfProposeSkip = false;
+    /* {series: [{name, add: [movie indices], flags: {flag: count}, curated:
+       whether it has tilts unticked other than by an accepted proposal}],
+       review: [{name, status, keeps}], usableLimit}: what accepting the
+       proposal adds, and the tilt series it would leave with too few tilts. */
+    function otfComputeProposal(sel, inputs) {
+        var out = [], review = [], limit = inputs.usableLimit;
+        function ids(map, name) { return new Set((map[name] || []).map(Number)); }
+        inputs.series.forEach(function(ts) {
+            if (sel.deselected.has(ts.name)) return;
+            var ex = ids(sel.excludedTilts, ts.name), before = ids(sel.proposedTilts, ts.name);
+            var add = Object.keys(ts.proposed).map(Number)
+                .filter(function(m) { return !ex.has(m) && !before.has(m); })
+                .sort(function(a, b) { return a - b; });
+            if (add.length) {
+                var flags = {};
+                add.forEach(function(m) {
+                    ts.proposed[m].forEach(function(f) { flags[f] = (flags[f] || 0) + 1; });
+                });
+                out.push({name: ts.name, add: add, flags: flags,
+                          curated: Array.from(ex).some(function(m) { return !before.has(m); })});
+            }
+            // What it keeps if this proposal is accepted for it
+            var added = new Set(add);
+            var keeps = ts.used.filter(function(m) { return !ex.has(m) && !added.has(m); }).length / ts.nTilts;
+            if (limit !== null && limit !== undefined && keeps < limit)
+                review.push({name: ts.name, status: ts.status, keeps: keeps});
+        });
+        review.sort(function(a, b) { return a.keeps - b.keeps; });
+        return {series: out, review: review, usableLimit: limit};
+    }
+    // Inside emhub's confirmation window, which is made anew each time
+    $(document).on('change', '.otf-propose-skip', function() {
+        otfProposeSkip = this.checked;
+        if (otfProposal)
+            $(this).closest('.modal-body').find('.otf-propose-count')
+                   .text(otfProposalCounts(otfProposal.series, this.checked).text);
+    });
+    // emhub's message and confirmation windows stay in the page once
+    // closed; take them out, so their ids stay unique
+    $(document).on('hidden.bs.modal', '#yesno-modal, #msg-modal', function() { $(this).remove(); });
+    window.otfProposeExclusions = function() {
+        var sel = otfSelection();
+        if (!sel) return;
+        if (!window.otfProposalInputs) { showError('The tilt series are not loaded yet.'); return; }
+        otfShowProposal(otfProposal = otfComputeProposal(sel, window.otfProposalInputs));
+    };
+    function otfShowProposal(p) {
+        var nCurated = p.series.filter(function(s) { return s.curated; }).length;
+        otfProposeSkip = nCurated > 0;
+        var body = $('<div></div>');
+        var limit = Math.round(100 * (p.usableLimit || 0));
+        var review = $('<div></div>');
+        if (p.review.length) {
+            review.append($('<p class="mb-1 mt-3"></p>').text(
+                p.review.length + ' tilt series would keep fewer than ' + limit + '% of their tilts. ' +
+                'They are not deselected; look at them and deselect them if they are not worth keeping:'));
+            var ul = $('<ul class="mb-0"></ul>').appendTo(review);
+            p.review.slice(0, 8).forEach(function(r) {
+                ul.append($('<li></li>').text(r.name + ': keeps ' + Math.round(100 * r.keeps) + '%'));
+            });
+            if (p.review.length > 8) ul.append($('<li></li>').text('and ' + (p.review.length - 8) + ' more'));
+        }
+        if (!p.series.length) {
+            body.append($('<p></p>').text('The curation rule finds no tilts to leave out beyond those ' +
+                                          'already unticked or proposed before.')).append(review);
+            showMessage('Propose exclusions', body.html());
+            return;
+        }
+        body.append($('<p class="mb-1"></p>').text('The curation rule proposes leaving out:'))
+            .append($('<p class="font-weight-bold otf-propose-count"></p>')
+                    .text(otfProposalCounts(p.series, nCurated > 0).text));
+        if (nCurated)
+            body.append($('<label class="d-block"></label>')
+                .append('<input type="checkbox" class="otf-propose-skip mr-2" checked>')
+                .append(document.createTextNode('Leave alone the ' + nCurated + ' tilt series that ' +
+                                                'already have unticked tilts (curated by hand or by the ' +
+                                                'curation skill)')));
+        body.append($('<p class="mb-0"></p>').text(
+                'They are unticked in the selection and marked "auto" in each tilt series window; ' +
+                'tick one again to keep it, and it is not proposed again. Unusable tilts are ' +
+                'proposed, and the tilts acquired after one that lost the field (blank, blacked ' +
+                'out, a different field or shifted) on the same side.'))
+            .append(review);
+        confirm('Propose exclusions', body.html(), 'Cancel', 'Untick them', function() {
+            var sel = otfSelection();
+            otfProposalCounts(p.series, otfProposeSkip).series.forEach(function(s) {
+                function merge(map) {
+                    var ids = new Set(map[s.name] || []);
+                    s.add.forEach(function(m) { ids.add(m); });
+                    map[s.name] = Array.from(ids).sort(function(a, b) { return a - b; });
+                }
+                merge(sel.excludedTilts);
+                merge(sel.proposedTilts);
+            });
+            otfSelectionChanged();
+        });
+    }
+
+    /* A larger view of an image over everything, closed by a click or Esc.
+       It shows the image already loaded, so it opens at once. */
+    var $lightbox = $('#otf-lightbox');
+    window.otfLightbox = function(src, caption) {
+        $lightbox.find('img').attr('src', src);
+        $lightbox.find('figcaption').text(caption || '');
+        $lightbox.addClass('show');
+    };
+    $lightbox.on('click', function() { $lightbox.removeClass('show'); });
+    window.otfCloseLightbox = function() { $lightbox.removeClass('show'); };
+    // Esc closes the larger view first, not the tilt series window under it
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && $lightbox.hasClass('show')) {
+            $lightbox.removeClass('show');
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }, true);
+
+    window.otfViewStar = function(into, tomoName, starPath, done) {
+        otfViewer(into, 'metadata', {actionId: 'metadata', starPath: starPath, rowLabel: tomoName},
+                  {}, done);
+    };
+    window.otfViewStack = function(into, tomoName, stackPath, labels, done) {
+        otfViewer(into, 'stack', {actionId: 'aligned-slices', rowLabel: tomoName,
+                                  row: {cells: {rlnTiltSeriesAligned: stackPath}}},
+                  {labels: labels}, done);
+    };
+    window.otfViewTomogram = function(into, tomoName, tomoPath, voxel, done) {
+        otfViewer(into, 'tomogram', {actionId: 'volume-slices', rowLabel: tomoName, ortho: true,
+                                     row: {cells: {rlnTomoReconstructedTomogram: tomoPath}}},
+                  {voxel: voxel}, done);
+    };
+    if (!document.hidden) otfStart();
+
+})(window, document, window.jQuery);
+</script>
+
+<div class="modal fade" id="otf-tiltseries-modal" tabindex="-1" role="dialog" aria-hidden="true"></div>
+
+<div class="otf-lightbox" id="otf-lightbox" role="dialog" aria-label="Larger view">
+    <figure><img alt=""><figcaption></figcaption></figure>
+</div>
+
+</div>

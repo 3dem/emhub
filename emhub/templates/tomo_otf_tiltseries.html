@@ -1,0 +1,656 @@
+{# Per tilt series detail.  Shown as a modal from the dashboard, so the
+   trends stay on screen behind it. #}
+
+<div class="modal-dialog modal-xl otf-modal-wide" role="document">
+<div class="modal-content">
+
+    {% if error %}
+        <div class="modal-body">
+            <div class="alert alert-warning mb-0">{{ error }}</div>
+        </div>
+    {% else %}
+
+    <div class="modal-header align-items-baseline">
+        <h5 class="modal-title mr-3"><span class="otf-name">{{ tomoName }}</span></h5>
+        <span class="mr-3">
+            <span class="otf-dot otf-shape-{{ statusShape }} mr-1"
+                  style="background: {{ statusColor }}; color: {{ statusColor }}"></span>
+            <small>{{ statusLabel }}</small>
+        </span>
+        <small class="text-muted">
+            {{ nUsed }} of {{ nTilts }} tilts used
+            {% if pixelSize %} &middot; pixel {{ '%.3f'|format(pixelSize) }} Å{% endif %}
+            {% if tsPixelSize %} &middot; TS pixel {{ '%.3f'|format(tsPixelSize) }} Å{% endif %}
+        </small>
+        <label class="mb-0 ml-auto mr-3 otf-select-bar" title="Mark the tilt series as reviewed: the table shows the tilts left after curation in green. Ticking or unticking a tilt marks it too.">
+            <input type="checkbox" id="otf-reviewed" class="mr-1" {% if not canEdit %}disabled{% endif %}>
+            Reviewed <span class="otf-reviewed-by"></span></label>
+        <button type="button" class="close ml-0" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+
+    <div class="modal-body">
+
+        {% if reasons %}
+            <div class="alert {{ 'alert-danger' if status == 'bad' else 'alert-warning' }} py-2">
+                <small>
+                {% for r in reasons %}{{ r }}{% if not loop.last %} &middot; {% endif %}{% endfor %}
+                </small>
+            </div>
+        {% endif %}
+
+        {% if failedAt %}
+            <div class="alert alert-danger py-2">
+                <small>This tilt series is listed in the failed output of the
+                {{ failedAt }} stage, so later stages never received it.</small>
+            </div>
+        {% endif %}
+
+        {# Three tabs, so nothing needs scrolling to: the per-tilt QC, the
+           aligned stack beside the tomogram, and the metadata.  The other
+           two load the first time they are opened. #}
+        {% set hasStack = alignedStack and alignedStack != 'None' %}
+        <ul class="nav nav-tabs otf-tabs" role="tablist">
+            <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#otf-tab-qc"
+                                    role="tab">Per-tilt QC</a></li>
+            <li class="nav-item"><a class="nav-link {% if not (hasStack or tomogram) %}disabled{% endif %}"
+                                    data-toggle="tab" href="#otf-tab-viewers" role="tab">Alignment &amp; tomogram</a></li>
+            <li class="nav-item"><a class="nav-link {% if not tiltSeriesStar %}disabled{% endif %}"
+                                    data-toggle="tab" href="#otf-tab-metadata" role="tab">Metadata</a></li>
+        </ul>
+        <div class="tab-content">
+        <div class="tab-pane fade show active" id="otf-tab-qc" role="tabpanel">
+
+        {# The selected tilt sits beside the strips, so clicking a point shows
+           it without scrolling away from the plots.  Stacked on narrow
+           screens. #}
+        <div class="row">
+        <div class="{{ 'col-lg-7' if thumbs else 'col-12' }}">
+        {# The tab is the heading; the legend and the order (of the strips and
+           the filmstrip) share one row #}
+        <div class="d-flex align-items-center mb-1">
+            <small class="text-muted mr-2">
+                <span class="otf-dot mr-1" style="background: var(--otf-data)"></span>within target
+                <span class="otf-dot otf-shape-triangle ml-2 mr-1" style="background: var(--otf-review)"></span>off target
+                <span class="otf-dot otf-shape-diamond ml-2 mr-1" style="background: var(--otf-bad)"></span>unusable;
+                dashed lines: target (amber) and reject limit (red){% if hasDropped %};
+                <span class="otf-dot mr-1" style="background: var(--otf-waiting)"></span>dropped during processing{% endif %}
+            </small>
+            <div class="btn-group btn-group-sm otf-toggle ml-auto text-nowrap" role="group">
+                <button type="button"
+                        class="btn btn-outline-light {% if order == 'angle' %}active{% endif %}"
+                        onclick='otfShowTiltSeries({{ tomoName|tojson }}, "angle")'>By tilt angle</button>
+                <button type="button"
+                        class="btn btn-outline-light {% if order == 'acq' %}active{% endif %}"
+                        onclick='otfShowTiltSeries({{ tomoName|tojson }}, "acq")'>By acquisition order</button>
+            </div>
+        </div>
+
+        {% for s in strips %}
+            <div id="otf-strip-{{ s.key }}" class="otf-strip" style="height: {{ 104 if loop.last else 84 }}px"></div>
+        {% endfor %}
+
+        {% if not strips %}
+            <p class="text-muted"><small>No per-tilt metrics to plot for this
+            tilt series.</small></p>
+        {% endif %}
+        </div>
+        {% if thumbs %}
+            <div class="col-lg-5">
+                <div id="otf-tilt-pane"></div>
+            </div>
+        {% endif %}
+        </div>
+
+        {% if thumbs %}
+            <div class="d-flex align-items-baseline mt-3 mb-1">
+                <h6 class="mb-0">Tilt images</h6>
+                <small class="text-muted ml-3">Click a plot point or an image to
+                    select that tilt in both and open it with its CTF fit. Untick a
+                    tilt to leave it out of the subset. Keys: <b>&larr; &rarr;</b>
+                    previous / next, <b>Enter</b> larger view, <b>Space</b> tick / untick</small>
+                <span class="ml-auto text-nowrap otf-select-bar">
+                    <label for="otf-tilt-preset" class="mb-0">Keep</label>
+                    <select id="otf-tilt-preset" class="custom-select custom-select-sm w-auto"
+                            {% if not canEdit %}disabled{% endif %}>
+                        <option value="all">All tilts</option>
+                        <option value="usable">Within target + off target</option>
+                        <option value="within">Within target only</option>
+                        <option value="custom" hidden>Custom</option>
+                    </select>
+                    <span id="otf-tilt-count" class="otf-count"></span>
+                </span>
+            </div>
+            <div class="otf-filmstrip" id="otf-filmstrip">
+                {% for th in thumbs %}
+                    <figure class="otf-thumb {% if th.dropped %}otf-thumb-dropped{% endif %}" data-index="{{ loop.index0 }}" data-ctf="{{ th.ctf }}"
+                            data-movie="{{ th.movie if th.movie is not none else '' }}" data-qc="{{ th.qc }}"
+                            data-selectable="{{ 1 if th.selectable else 0 }}"
+                            {% if th.medium %}data-medium="{{ url_for('images.tomo_otf_thumbnail', entry=entry_id, path=th.medium.path, v=th.medium.version) }}"{% endif %}
+                            {% if th.ps %}data-ps="{{ url_for('images.tomo_otf_thumbnail', entry=entry_id, path=th.ps.path, v=th.ps.version) }}"{% endif %}
+                            {% if th.profile %}data-profile="{{ url_for('images.tomo_otf_thumbnail', entry=entry_id, path=th.profile.path, v=th.profile.version) }}"{% endif %}>
+                        <input type="checkbox" class="otf-tilt-sel"
+                               {% if not (th.selectable and canEdit) %}disabled{% endif %}
+                               title="{{ 'Keep this tilt in the selection' if th.selectable else 'Dropped at motion correction: not in its output, so not in a subset' }}">
+                        {% if th.image %}
+                            <img loading="lazy" alt="{{ th.label }}"
+                                 {% if thumbSize %}width="{{ thumbSize[0] }}" height="{{ thumbSize[1] }}"{% endif %}
+                                 style="border-color: {{ th.border }}"
+                                 src="{{ url_for('images.tomo_otf_thumbnail', entry=entry_id, path=th.image.path, v=th.image.version) }}">
+                        {% else %}
+                            <div class="otf-thumb-missing">no image</div>
+                        {% endif %}
+                        <span class="otf-auto-tag"
+                              title="Unticked by an accepted proposal{{ ': ' + th.proposal if th.proposal else '' }}. Tick it to keep the tilt.">auto</span>
+                        <figcaption>{{ th.label }}</figcaption>
+                    </figure>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        </div>
+
+        <div class="tab-pane fade" id="otf-tab-viewers" role="tabpanel">
+            {% if not tomogram %}<small class="text-muted d-block">No tomogram reconstructed yet.</small>{% endif %}
+            <div class="otf-viewers" id="otf-viewers"></div>
+        </div>
+        <div class="tab-pane fade" id="otf-tab-metadata" role="tabpanel"></div>
+        </div>
+
+    </div>
+
+    <script>
+    (function(window, document, $, undefined) {
+    "use strict";
+
+        var strips = {{ strips|tojson }};
+        var x = {{ x|tojson }};
+        var xLabel = {{ xLabel|tojson }};
+        var movieIndex = {{ movieIndex|tojson }};
+        var notes = {{ tiltNotes|tojson }};
+        var angles = {{ angles|tojson }};
+        var doses = {{ doses|tojson }};
+        var dataColor = otfCss('--otf-data'), reviewColor = otfCss('--otf-review'),
+            badColor = otfCss('--otf-bad');
+        var tomoName = {{ tomoName|tojson }};
+
+        // Identify each tilt the same way in every strip's hover
+        var tiltText = x.map(function(_, j) {
+            var parts = [];
+            if (movieIndex[j] !== null) parts.push('Movie index ' + movieIndex[j]);
+            if (angles[j] !== null) parts.push('tilt ' + angles[j].toFixed(1).replace(/^-0\.0$/, '0.0') + '°');
+            if (doses[j] !== null) parts.push('dose ' + doses[j].toFixed(1) + ' e/Å²');
+            return parts.join(' · ') + (notes[j] ? '<br><b>' + notes[j] + '</b>' : '');
+        });
+
+        /* A per-tilt target (the CTF one follows the tilt angle) is a tick
+           at each tilt, so it stays readable in acquisition order too. */
+        function guide(y, color, name) {
+            if (Array.isArray(y))
+                return {type: 'scatter', mode: 'markers', x: x, y: y,
+                        marker: {symbol: 'line-ew-open', size: 12, color: color,
+                                 line: {width: 1.5, color: color}},
+                        name: name, hoverinfo: 'skip'};
+            return {type: 'scatter', mode: 'lines', x: x,
+                    y: x.map(function() { return y; }),
+                    line: {color: color, width: 1, dash: 'dash'},
+                    name: name, hoverinfo: 'skip'};
+        }
+
+        // A guide far above the data would squash it; draw only nearby ones
+        function near(y, values) {
+            var vmax = Math.max.apply(null, values.filter(function(v) { return v !== null; }));
+            var g = Array.isArray(y) ? Math.min.apply(null, y) : y;
+            return y !== null && isFinite(vmax) && g <= vmax * 1.25;
+        }
+
+        // The selected tilt, drawn as a blue line in every strip
+        var selected = null;
+        function selectedShapes() {
+            return selected === null ? [] : [{
+                type: 'line', xref: 'x', yref: 'paper', x0: x[selected], x1: x[selected],
+                y0: 0, y1: 1, line: {color: dataColor, width: 2}
+            }];
+        }
+
+        /* The strips share the height left once the window fits the screen
+           (otfFitStrips); the last one also carries the x axis */
+        var STRIP_HEIGHT = 84, STRIP_MIN = 48, STRIP_AXIS = 20, stripHeight = STRIP_HEIGHT;
+
+        strips.forEach(function(s, i) {
+            var div = document.getElementById('otf-strip-' + s.key);
+            if (!div) return;
+
+            var last = (i === strips.length - 1);
+            otfPlot(div, function() {
+                var traces = [{
+                    type: 'scatter', mode: 'lines+markers',
+                    x: x, y: s.values, text: tiltText,
+                    marker: {color: s.colors, symbol: s.symbols, size: 7},
+                    line: {color: otfCss('--otf-connector'), width: 1},
+                    hovertemplate: '%{text}<br>' + s.label + ': %{y:.3f} ' + s.unit + '<extra></extra>'
+                }];
+                // Dashed guides: target (amber) and reject limit (red)
+                if (near(s.target, s.values)) traces.push(guide(s.target, reviewColor, 'target'));
+                if (near(s.reject, s.values)) traces.push(guide(s.reject, badColor, 'reject'));
+
+                /* Label above the strip: a rotated y title does not fit 84px. */
+                Plotly.react(div, traces, otfThemeLayout({
+                    margin: {l: 48, r: 12, t: 16, b: (last ? 30 : 10)},
+                    height: stripHeight + (last ? STRIP_AXIS : 0),
+                    showlegend: false,
+                    hovermode: 'closest',
+                    xaxis: {
+                        title: (last ? {text: xLabel, font: {size: 10}} : null),
+                        showticklabels: last,
+                        zeroline: false
+                    },
+                    yaxis: {zeroline: false},
+                    annotations: [{
+                        text: s.label + (s.unit ? ' (' + s.unit + ')' : ''),
+                        xref: 'paper', yref: 'paper', x: 0, y: 1,
+                        xanchor: 'left', yanchor: 'bottom', showarrow: false,
+                        font: {size: 11, color: otfCss('--otf-ink')}
+                    }],
+                    shapes: selectedShapes()
+                }), {displayModeBar: false, responsive: true});
+            });
+
+            div.on('plotly_hover', function(ev) {
+                var p = ev.points[0];
+                if (p && p.curveNumber === 0) otfHighlightThumb(p.pointIndex);
+            });
+            div.on('plotly_unhover', function() {
+                $strip.find('.otf-thumb-active').removeClass('otf-thumb-active');
+            });
+            div.on('plotly_click', function(ev) {
+                var p = ev.points[0];
+                if (p && p.curveNumber === 0) {
+                    otfHighlightThumb(p.pointIndex);
+                    otfOpenTilt(p.pointIndex, true);
+                }
+            });
+        });
+
+        var $strip = $('#otf-filmstrip');
+
+        // Scroll the filmstrip, never the modal, to centre a tilt's image
+        function otfScrollToThumb(index) {
+            var $fig = $strip.find('.otf-thumb[data-index="' + index + '"]');
+            if (!$fig.length) return;
+            var strip = $strip[0], fig = $fig[0];
+            strip.scrollLeft = fig.offsetLeft - strip.offsetLeft
+                               - (strip.clientWidth - fig.clientWidth) / 2;
+        }
+
+        function otfHighlightThumb(index) {
+            $strip.find('.otf-thumb').removeClass('otf-thumb-active')
+                  .filter('[data-index="' + index + '"]').addClass('otf-thumb-active');
+            otfScrollToThumb(index);
+        }
+
+        // A selected tilt: blue in the strip and a blue line in every plot
+        function otfMarkTilt(index) {
+            selected = index;
+            strips.forEach(function(s) {
+                var div = document.getElementById('otf-strip-' + s.key);
+                if (div) Plotly.relayout(div, {shapes: selectedShapes()});
+            });
+            // One selection at a time: it replaces any hover highlight too
+            $strip.find('.otf-thumb').removeClass('otf-thumb-selected otf-thumb-active')
+                  .filter('[data-index="' + index + '"]').addClass('otf-thumb-selected');
+        }
+
+        /* Measured vs simulated rotational average: at this dose the more
+           reliable check of the fit.  x is spatial frequency, labelled as
+           resolution. */
+        function otfPlotProfile(div, p) {
+            var res = [30, 20, 15, 12, 10, 8, 7, 6, 5];
+            var traces = [
+                {x: p.k, y: p.simulated, name: 'simulated from the fit', mode: 'lines',
+                 line: {color: otfCss('--otf-neutral'), width: 1.5}, hoverinfo: 'skip'},
+                {x: p.k, y: p.measured, name: 'measured', mode: 'lines',
+                 line: {color: dataColor, width: 1.5}, hoverinfo: 'skip'}
+            ];
+            var shapes = [];
+            if (p.fitResolution) {
+                shapes.push({type: 'line', xref: 'x', yref: 'paper', y0: 0, y1: 1,
+                             x0: 1 / p.fitResolution, x1: 1 / p.fitResolution,
+                             line: {color: reviewColor, width: 1.5, dash: 'dash'}});
+            }
+            otfPlot(div, function() {
+                Plotly.react(div, traces, otfThemeLayout({
+                    height: div.clientHeight || 160, margin: {l: 30, r: 10, t: 24, b: 34},
+                    showlegend: true, legend: {orientation: 'h', x: 0, y: 1.2, font: {size: 10}},
+                    xaxis: {tickvals: res.map(function(r) { return 1 / r; }),
+                            ticktext: res.map(function(r) { return r + ' Å'; }),
+                            range: [p.k[0], p.k[p.k.length - 1]], zeroline: false, tickfont: {size: 9}},
+                    yaxis: {showticklabels: false, zeroline: false},
+                    shapes: shapes
+                }), {displayModeBar: false, responsive: true});
+            });
+        }
+
+        /* The tilt pane, beside the strips: the tilt image and the CTF fit
+           view side by side, then the caption and the fit profile.  Built
+           once and updated in place on every selection, so it does not
+           blink: an image is replaced only once the new one has loaded, and
+           the profile is redrawn in its plot.  Each figure grows by its
+           image's width/height, so the two images share one height. */
+        // How to read the CTF fit view: a tooltip on its caption, so the
+        // pane keeps only the values and fits the screen
+        var CTF_HELP = 'Measured, as stored by Warp (top) | simulated from the fit ' +
+            '(bottom); rings running straight across the line mean the fit ' +
+            'matches. On a low dose tilt the measured rings are faint; the ' +
+            'profile below averages each ring and is the more reliable check.';
+        var tiltAspect = {{ (thumbSize[0] / thumbSize[1]) if thumbSize else 1 }};
+        var pane = null, shown = -1;
+
+        function otfFigure($row, caption, aspect) {
+            var $fig = $('<figure></figure>').css('flex', aspect + ' 1 0').appendTo($row);
+            $('<img>').css('aspect-ratio', String(aspect)).appendTo($fig);
+            $('<figcaption></figcaption>').text(caption).appendTo($fig);
+            return $fig;
+        }
+
+        function otfTiltPane() {
+            if (pane) return pane;
+            var $pane = $('#otf-tilt-pane');
+            pane = {title: $('<h6></h6>').appendTo($pane)};
+            // At most --otf-pane-image (a share of the screen height) for the two images: the row's
+            // width is capped (the image and the square CTF view keep one height)
+            var $row = $('<div class="otf-tilt-view"></div>').appendTo($pane)
+                .css('max-width', 'calc(' + ((tiltAspect || 1) + 1) + ' * var(--otf-pane-image) + 10px)');
+            pane.image = otfFigure($row, 'Tilt image · click for a larger view', tiltAspect);
+            pane.ps = otfFigure($row, 'CTF fit \u24d8', 1);
+            pane.ps.find('figcaption').attr('title', CTF_HELP).css('cursor', 'help');
+            pane.caption = $('<p class="otf-ctf-caption"></p>').appendTo($pane);
+            pane.profile = $('<div class="otf-ctf-profile"></div>').appendTo($pane);
+            pane.image.find('img').addClass('otf-zoomable').on('click', function() {
+                otfLargerView(shown);
+            });
+            return pane;
+        }
+
+        // Show src in a figure once it has loaded; hide the figure without one
+        function otfShowImage($fig, src) {
+            $fig.toggle(!!src);
+            if (!src) return;
+            var $img = $fig.find('img').data('want', src), im = new Image();
+            im.onload = function() { if ($img.data('want') === src) $img.attr('src', src); };
+            im.src = src;
+        }
+
+        function otfOpenTilt(j, scroll) {
+            otfMarkTilt(j);
+            if (movieIndex[j] !== null) {
+                otfNav.tilts[tomoName] = movieIndex[j];
+                otfSaveNav();
+            }
+            shown = j;
+            var p = otfTiltPane(), $fig = $strip.find('.otf-thumb[data-index="' + j + '"]');
+            p.title.text(tiltText[j].split('<br>')[0]);
+            // The 1024 px jpeg when emwrap wrote one: the pane is wider than 512 px
+            otfShowImage(p.image, $fig.data('medium') || $fig.find('img').attr('src'));
+            otfShowImage(p.ps, $fig.data('ps'));
+            var text = $fig.data('ctf') || '';
+            p.caption.toggle(!!$fig.data('ps'));
+            p.profile.toggle(!!($fig.data('ps') && $fig.data('profile')));
+            if ($fig.data('ps') && $fig.data('profile')) {
+                $.getJSON($fig.data('profile')).done(function(prof) {
+                    if (shown !== j) return;        // another tilt was picked meanwhile
+                    otfPlotProfile(p.profile[0], prof);
+                    p.caption.text((text ? text + ' · ' : '') + 'measured vs simulated correlation r = ' +
+                                   prof.correlation.toFixed(2));
+                });
+            } else {
+                p.caption.text(text);
+            }
+            // Only matters on narrow screens, where the pane is below the strips
+            if (scroll) $('#otf-tilt-pane')[0].scrollIntoView({behavior: 'smooth', block: 'nearest'});
+        }
+
+        $strip.on('click', 'img', function() {
+            otfOpenTilt($(this).closest('.otf-thumb').data('index'), true);
+        });
+
+        /* Open a tilt straight away, so the pane is never empty: the one last
+           selected in this tilt series (kept when switching the order or
+           reopening it), else the first unusable tilt, else the one nearest
+           0 degrees. */
+        function otfFirstTilt() {
+            var prev = otfNav.tilts[tomoName], j, best = -1;
+            if (prev !== undefined && prev !== null) {
+                j = movieIndex.indexOf(prev);
+                if (j >= 0) return j;
+            }
+            for (j = 0; j < notes.length; j++)
+                if (notes[j].indexOf('unusable') === 0) return j;
+            for (j = 0; j < angles.length; j++)
+                if (angles[j] !== null && (best < 0 || Math.abs(angles[j]) < Math.abs(angles[best])))
+                    best = j;
+            return best >= 0 ? best : 0;
+        }
+
+        if ($('#otf-tilt-pane').length && x.length) {
+            var first = otfFirstTilt();
+            otfOpenTilt(first, false);
+            // The filmstrip has no layout until the modal is shown
+            var $modal = $('#otf-tiltseries-modal');
+            if ($modal.hasClass('show')) otfScrollToThumb(first);
+            else $modal.one('shown.bs.modal', function() { otfScrollToThumb(first); });
+        }
+
+        /* Fit the window to the screen: the strips give up the height the
+           window is over by, down to STRIP_MIN each (beyond that it
+           scrolls), and take it back when there is room.  Measured once the
+           window is laid out; again when the browser window is resized. */
+        function otfFitStrips() {
+            var $m = $('#otf-tiltseries-modal');
+            if (!strips.length || !$m.hasClass('show') || !$('#otf-tab-qc').hasClass('active')) return;
+            var dialog = $m.find('.modal-dialog')[0];
+            var margins = 2 * parseFloat(getComputedStyle(dialog).marginTop || 0);
+            var spare = window.innerHeight - margins - dialog.getBoundingClientRect().height;
+            // Rounded down: a fraction of a pixel over still scrolls
+            var h = Math.floor(Math.max(STRIP_MIN, Math.min(STRIP_HEIGHT,
+                                                            stripHeight + spare / strips.length)));
+            if (h === stripHeight) return;
+            stripHeight = h;
+            strips.forEach(function(s, i) {
+                var div = document.getElementById('otf-strip-' + s.key);
+                var height = h + (i === strips.length - 1 ? STRIP_AXIS : 0);
+                if (!div) return;
+                div.style.height = height + 'px';
+                if (div.layout) Plotly.relayout(div, {height: height});
+            });
+        }
+        function otfFitSoon() {
+            window.clearTimeout(window.otfFitTimer);
+            window.otfFitTimer = window.setTimeout(otfFitStrips, 100);
+        }
+        // The window grows after it opens (the selected tilt's images and
+        // profile load), so fit whenever its size changes.  One observer and
+        // one resize handler at a time: each window replaces the last's.
+        if (window.otfFitObserver) window.otfFitObserver.disconnect();
+        if (window.ResizeObserver) {
+            window.otfFitObserver = new ResizeObserver(otfFitSoon);
+            window.otfFitObserver.observe($('#otf-tiltseries-modal .modal-dialog')[0]);
+        }
+        $('#otf-tiltseries-modal').one('shown.bs.modal', otfFitSoon);
+        $(window).off('resize.otfFit').on('resize.otfFit', otfFitSoon);
+
+        /* The other tabs load the first time they are opened: the aligned
+           stack and the tomogram are a few MB each. */
+        var opened = {};
+        $('#otf-tiltseries-modal .otf-tabs a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+            var tab = $(e.target).attr('href');
+            if (opened[tab]) return;
+            opened[tab] = true;
+            if (tab === '#otf-tab-metadata') {
+                otfViewStar(tab, tomoName, {{ tiltSeriesStar|tojson }});
+            } else if (tab === '#otf-tab-viewers') {
+                var panels = {}, waiting = 0;
+                var ready = function(kind) {
+                    return function($panel) {
+                        panels[kind] = $panel;
+                        if (--waiting === 0) otfAlignViewers(panels);
+                    };
+                };
+                {% if hasStack %}waiting++;{% endif %}
+                {% if tomogram %}waiting++;{% endif %}
+                {% if hasStack %}
+                otfViewStack('#otf-viewers', tomoName, {{ alignedStack|tojson }},
+                             {{ stackLabels|tojson }}, ready('stack'));
+                {% endif %}
+                {% if tomogram %}
+                otfViewTomogram('#otf-viewers', tomoName, {{ tomogram|tojson }},
+                                {{ tomoPixelSize|tojson }}, ready('tomogram'));
+                {% endif %}
+            }
+        });
+
+        // The stack image starts level with the tomogram's Z section
+        function otfAlignViewers(panels) {
+            if (!panels.stack || !panels.tomogram) return;
+            var $s = panels.stack.find('canvas'), $z = panels.tomogram.find('#otf-vol-z canvas');
+            if (!$s.length || !$z.length) return;
+            var top = function(el) { return el.getBoundingClientRect().top; };
+            if (Math.abs(top(panels.stack[0]) - top(panels.tomogram[0])) > 2) return;  // wrapped
+            var dy = top($z[0]) - top($s[0]);
+            if (dy > 0) panels.stack.css('padding-top', dy);
+        }
+
+        /* Tilt selection: a box on each image, and presets by tilt QC.
+           Unticked tilts are stored by movie index under this tilt series;
+           the subset job leaves them out of the motion correction output. */
+        var PRESETS = {all: null, usable: ['within', 'offTarget'], within: ['within']};
+        function excludedSet() {
+            var s = otfSelection();
+            return new Set((s && s.excludedTilts[tomoName]) || []);
+        }
+        function selectableThumbs() {
+            return $strip.find('.otf-thumb[data-selectable="1"]').toArray();
+        }
+        function keptBy(preset, qc) {
+            return PRESETS[preset] === null || PRESETS[preset].indexOf(qc) >= 0;
+        }
+        function otfRenderTilts() {
+            var ex = excludedSet(), kept = 0, thumbs = selectableThumbs();
+            var s = otfSelection(), proposed = new Set((s && s.proposedTilts[tomoName]) || []);
+            $strip.find('.otf-thumb').each(function() {
+                var movie = Number(this.dataset.movie);
+                var on = this.dataset.selectable === '1' && !ex.has(movie);
+                $(this).find('.otf-tilt-sel').prop('checked', on);
+                $(this).toggleClass('otf-thumb-off', !on);
+                $(this).toggleClass('otf-thumb-auto', ex.has(movie) && proposed.has(movie));
+                if (on) kept++;
+            });
+            $('#otf-tilt-count').text(kept + ' of ' + thumbs.length + ' kept');
+            // The first preset the ticks match, else custom
+            var match = Object.keys(PRESETS).filter(function(p) {
+                return thumbs.every(function(f) {
+                    return !ex.has(Number(f.dataset.movie)) === keptBy(p, f.dataset.qc);
+                });
+            })[0];
+            $('#otf-tilt-preset').val(match || 'custom');
+        }
+        function otfSetExcluded(ex) {
+            var s = otfSelection();
+            if (!s) return;
+            var before = excludedSet();
+            var ids = Array.from(ex).sort(function(a, b) { return a - b; });
+            if (ids.length) s.excludedTilts[tomoName] = ids;
+            else delete s.excludedTilts[tomoName];
+            // A tilt unticked here is a decision by hand, not an automatic
+            // one, even if a proposal unticked it before; one ticked again
+            // stays in proposedTilts, so it is not proposed again
+            var proposed = (s.proposedTilts[tomoName] || []).filter(function(m) {
+                return before.has(m) || !ex.has(m);
+            });
+            if (proposed.length) s.proposedTilts[tomoName] = proposed;
+            else delete s.proposedTilts[tomoName];
+            // Changing the tilts is reviewing them
+            if (!s.reviewed[tomoName]) s.reviewed[tomoName] = {by: null, at: new Date().toISOString()};
+            otfRenderTilts();
+            otfRenderReviewed();
+            otfSelectionChanged();
+        }
+
+        /* Reviewed: a mark the curator sets, stored with who and when (the
+           server stamps them; until the next load, a new mark is "you") */
+        function otfRenderReviewed() {
+            var s = otfSelection(), r = s && s.reviewed[tomoName];
+            $('#otf-reviewed').prop('checked', !!r);
+            var when = r && r.at ? new Date(r.at) : null;
+            $('.otf-reviewed-by').text(!r ? '' : '(' + (r.by || 'you') +
+                (when && !isNaN(when) ? ', ' + when.toLocaleString([], {day: 'numeric', month: 'short',
+                                                                        hour: '2-digit', minute: '2-digit'}) : '') + ')');
+        }
+        $('#otf-reviewed').on('change', function() {
+            var s = otfSelection();
+            if (!s) return;
+            if (this.checked) s.reviewed[tomoName] = {by: null, at: new Date().toISOString()};
+            else delete s.reviewed[tomoName];
+            otfRenderReviewed();
+            otfSelectionChanged();
+        });
+        $strip.on('click', '.otf-tilt-sel', function(e) {
+            e.stopPropagation();
+            var ex = excludedSet(), movie = Number($(this).closest('.otf-thumb')[0].dataset.movie);
+            if (this.checked) ex.delete(movie); else ex.add(movie);
+            otfSetExcluded(ex);
+            this.blur();     // Space must act on the open tilt, not this box
+        });
+        $('#otf-tilt-preset').on('change', function() {
+            var preset = this.value, ex = excludedSet();
+            if (preset === 'custom') return;
+            selectableThumbs().forEach(function(f) {
+                var movie = Number(f.dataset.movie);
+                if (keptBy(preset, f.dataset.qc)) ex.delete(movie); else ex.add(movie);
+            });
+            otfSetExcluded(ex);
+            this.blur();     // or the arrows would change the preset
+        });
+        otfRenderTilts();
+
+        /* Keys, from the page (see otfTiltKey there): arrows open the
+           previous or next tilt in the filmstrip order, also in the larger
+           view; Enter opens or closes the larger view; Space ticks or
+           unticks the open tilt.  Returns whether the key was used. */
+        function otfLargerView(j) {
+            var $fig = $strip.find('.otf-thumb[data-index="' + j + '"]');
+            var src = $fig.data('medium') || $fig.find('img').attr('src');
+            if (src) otfLightbox(src, tomoName + ' · ' + tiltText[j].split('<br>')[0]);
+        }
+        window.otfTiltKey = function(key, inLargerView) {
+            // Only with the filmstrip in view (Per-tilt QC tab)
+            if (shown < 0 || !x.length || !$strip.is(':visible')) return false;
+            if (key === 'ArrowLeft' || key === 'ArrowRight') {
+                var j = shown + (key === 'ArrowRight' ? 1 : -1);
+                if (j < 0 || j >= x.length) return true;
+                otfOpenTilt(j, false);
+                otfScrollToThumb(j);
+                if (inLargerView) otfLargerView(j);
+                return true;
+            }
+            if (key === 'Enter') {
+                if (inLargerView) otfCloseLightbox(); else otfLargerView(shown);
+                return true;
+            }
+            if (key === ' ') {
+                var $box = $strip.find('.otf-thumb[data-index="' + shown + '"] .otf-tilt-sel');
+                if ($box.length && !$box.prop('disabled')) $box.click();
+                return true;
+            }
+            return false;
+        };
+        otfRenderReviewed();
+
+    })(window, document, window.jQuery);
+    </script>
+
+    {% endif %}
+
+</div>
+</div>

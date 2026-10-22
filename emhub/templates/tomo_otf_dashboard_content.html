@@ -1,0 +1,573 @@
+{# The part of the OTF dashboard that refreshes.  Kept self contained so it
+   can be swapped in over ajax without touching the page around it. #}
+
+{% if error %}
+    <div class="alert alert-warning">
+        <strong>{{ title }}</strong> — {{ error }}
+        <div class="mt-1"><small>Checked at {{ updated }}. The dashboard keeps
+        retrying, so it will pick the session up once the path is readable.</small></div>
+    </div>
+{% else %}
+
+<!-- Session identity and whether data is still arriving -->
+<div class="card mb-3">
+    <div class="card-body py-2 d-flex flex-wrap align-items-baseline">
+        <h5 class="mb-0 mr-4">{{ title }}</h5>
+        <span class="text-muted mr-4">
+            {% if owner %}{{ owner }} (owner){% endif %}
+            {% if staff %}, {{ staff }}{% endif %}
+        </span>
+        <small class="text-muted mr-4">{{ processing_path }}</small>
+        {# The tilt series shown, those of the tilt analysis job; picking
+           another analysis job (a project may have several) loads it #}
+        {% set shown = analysisJobs|selectattr('id', 'equalto', job_id)|first %}
+        <span class="dropdown mr-4">
+            <a class="small dropdown-toggle" href="#" data-toggle="dropdown"
+               title="The tilt series this dashboard shows, analyzed by {{ job_id }}. Pick another tilt analysis job to show it.">
+                <i class="fas fa-layer-group"></i>
+                {{ (shown.input if shown and shown.input) or 'input not known yet' }}
+                <span class="text-muted">({{ job_id }}{% if shown and shown.alias %}, {{ shown.alias }}{% endif %})</span></a>
+            <div class="dropdown-menu">
+                <h6 class="dropdown-header">Tilt analysis</h6>
+                {% for j in analysisJobs|reverse %}
+                    <a class="dropdown-item small{% if j.id == job_id %} active{% endif %}"
+                       href="{{ url_for_content('tomo_otf_dashboard', entry_id=entry_id, job_id=j.id) }}">
+                        {{ j.input or 'input not known yet' }}
+                        <span class="text-muted">{{ j.id }}{% if j.alias %}, {{ j.alias }}{% endif %}, {{ j.status }}</span></a>
+                {% endfor %}
+            </div>
+        </span>
+        {# The alignment and reconstruction shown: jobs derived from the tilt
+           series of the analysis, the newest unless one is picked #}
+        {% for key, icon in [('align', 'fa-align-center'), ('tomogram', 'fa-cube')] %}
+            {% set ds = downstream[key] %}
+            {% set picked = ds.options|selectattr('id', 'equalto', ds.selected)|first %}
+            <span class="dropdown mr-4">
+                <a class="small dropdown-toggle{% if not ds.selected %} text-muted{% endif %}" href="#"
+                   data-toggle="dropdown"
+                   title="{{ ds.label }} shown: {% if picked %}{{ picked.star }}{% else %}none{% endif %}. Only jobs derived from the tilt series of the analysis{% if key == 'tomogram' %} (and from the alignment shown){% endif %}.">
+                    <i class="fas {{ icon }}"></i>
+                    {% if ds.selected %}{{ ds.selected }}{% elif ds.requested == 'none' %}no {{ ds.label|lower }}{% else %}{{ ds.label|lower }}: not run yet{% endif %}
+                    {% if ds.selected and not ds.requested %}<span class="text-muted">(newest)</span>{% endif %}
+                </a>
+                <div class="dropdown-menu">
+                    <h6 class="dropdown-header">{{ ds.label }}</h6>
+                    {% set args = {'entry_id': entry_id, 'job_id': job_id} %}
+                    {% if key == 'tomogram' and align_job %}{% set _ = args.update({'align_job': align_job}) %}{% endif %}
+                    <a class="dropdown-item small{% if not ds.requested %} active{% endif %}"
+                       href="{{ url_for_content('tomo_otf_dashboard', **args) }}">The newest</a>
+                    {% for o in ds.options|reverse %}
+                        {% set oargs = dict(args) %}
+                        {% set _ = oargs.update({'align_job' if key == 'align' else 'tomo_job': o.id}) %}
+                        <a class="dropdown-item small{% if ds.requested and o.id == ds.selected %} active{% endif %}"
+                           href="{{ url_for_content('tomo_otf_dashboard', **oargs) }}">
+                            {{ o.id }}
+                            <span class="text-muted">{% if o.alias %}{{ o.alias }}, {% endif %}{{ o.jobType }}, {{ o.status }}</span></a>
+                    {% else %}
+                        <span class="dropdown-item-text small text-muted">No job derived from the analyzed tilt series yet</span>
+                    {% endfor %}
+                    {% set nargs = dict(args) %}
+                    {% set _ = nargs.update({'align_job' if key == 'align' else 'tomo_job': 'none'}) %}
+                    <a class="dropdown-item small{% if ds.requested == 'none' %} active{% endif %}"
+                       href="{{ url_for_content('tomo_otf_dashboard', **nargs) }}">None</a>
+                </div>
+            </span>
+        {% endfor %}
+        {% if notReported %}
+            {# A fixed property of the pipeline, so a hint rather than a banner #}
+            <small class="otf-why mr-4" data-toggle="tooltip"
+                   title="This pipeline does not measure {{ notReported|join(', ') }}. emwrap writes those columns as zeros, so they are shown as n/a rather than as a perfect score, and they are not used to flag a tilt series.">
+                <i class="fas fa-info-circle"></i>
+                {{ notReported|length }} metric{{ 's' if notReported|length > 1 }} not measured
+            </small>
+        {% endif %}
+
+        <div class="ml-auto d-flex align-items-baseline">
+            <span class="otf-state-{{ state.key }} mr-4" data-toggle="tooltip" title="{{ state.help }}">
+                <span class="otf-dot mr-1"
+                      style="background: var({% if state.key == 'acquiring' %}--otf-good{% elif state.key == 'stalled' %}--otf-bad{% else %}--otf-waiting{% endif %})"></span>
+                {{ state.label }}
+            </span>
+            <small class="text-muted mr-4">last movie {{ state.sinceStr }} ago</small>
+            <small class="text-muted">updated {{ updated }}</small>
+            <button type="button" class="btn btn-sm otf-theme-toggle ml-3"
+                    onclick="otfToggleTheme()" title="Switch between light and dark mode">
+                <span class="otf-theme-to-dark"><i class="fas fa-moon"></i> Dark</span>
+                <span class="otf-theme-to-light"><i class="fas fa-sun"></i> Light</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+{% for w in warnings %}
+<div class="alert alert-warning py-2 mb-3"><small>{{ w }}</small></div>
+{% endfor %}
+
+<!-- Counters, then the pipeline as a flow: each stage's count and how far
+     it is behind the stage before it, so the bottleneck shows at a glance.
+     One compact card, so the trends start on the first screen. -->
+<div class="card mb-3">
+    <div class="card-body py-3 d-flex flex-wrap align-items-center otf-summary">
+        <div class="d-flex otf-counters">
+            {% for c in counters %}
+                <div>
+                    <div class="otf-counter-value" style="color: {{ c.text or c.color }}">
+                        <i class="fas {{ c.icon }} otf-counter-icon" style="color: {{ c.color }}"></i>{{ c.value }}
+                    </div>
+                    <div class="otf-counter-label">{{ c.label }}{% if c.note %}<br>{{ c.note }}{% endif %}</div>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="d-flex flex-grow-1 otf-flow">
+            {% for st in stages %}
+                {% if not loop.first %}<i class="fas fa-chevron-right otf-flow-arrow"></i>{% endif %}
+                <div class="otf-flow-step" data-toggle="tooltip"
+                     title="{{ st.label }}: {{ st.done }} of {{ st.total }} tilt series{% if st.received is not none and st.received < st.total %} ({{ st.received }} given to its job){% endif %}{% if st.lag %}, {{ st.lag }} behind the previous stage{% endif %}{% if st.bottleneck %} (the bottleneck){% endif %}{% if st.failed %}; {{ st.failed }} could not be processed{% endif %}">
+                    <div class="otf-flow-label {% if st.bottleneck %}otf-warn{% endif %}">{{ st.short }}</div>
+                    <div class="otf-flow-count">
+                        {{ st.done }}<small class="text-muted"> / {{ st.total }}</small>
+                        {% if st.lag %}<small class="otf-warn"> &darr;{{ st.lag }}</small>{% endif %}
+                    </div>
+                    <div class="otf-stage-bar">
+                        <div class="otf-stage-fill"
+                             style="width: {{ '%.1f'|format(st.percent) }}%;
+                                    background: var({{ '--otf-waiting' if st.running else '--otf-data' }});
+                                    opacity: .75"></div>
+                    </div>
+                    {% if st.failed %}<small class="text-danger otf-flow-failed">{{ st.failed }} failed</small>{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Session trends.  One point per tilt series in acquisition order, all
+     four plots on the same x axis so a common step points at the
+     instrument and a single moving trace points at the sample. -->
+<div class="card mb-3">
+    <div class="card-header">
+        <div class="d-flex align-items-baseline">
+            <h5 class="mb-0">Session trends</h5>
+            <small class="text-muted ml-3">
+                one point per tilt series in acquisition order; click a point
+                to open that tilt series; hover a plot title for what it measures
+            </small>
+        </div>
+        <small class="text-muted otf-legend">
+            {% for s in legend %}
+                <span class="otf-dot otf-shape-{{ s.shape }} mr-1"
+                      style="background: {{ s.color }}; color: {{ s.color }}"></span>{{ s.label }}
+            {% endfor %}
+            <span class="otf-legend-line"></span>rolling median over 7 tilt
+            series, so a sustained shift stands out from a single outlier
+        </small>
+    </div>
+    <div class="card-body pt-2">
+        {% if trends.plots %}
+            <div id="otf-trends"></div>
+        {% else %}
+            <p class="text-muted mb-0"><small>No session trends yet: none of
+            the quality metrics have values from this pipeline.</small></p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Tilt series table -->
+<div class="card mb-3">
+    <div class="card-header d-flex align-items-baseline">
+        <h5 class="mb-0">Tilt series</h5>
+        {# Sorted and filtered over all the tilt series, then sent a page
+           at a time #}
+        {% macro pager() -%}
+            {% if nPages > 1 %}
+            <span class="otf-pager">
+                <button type="button" class="btn btn-sm btn-outline-light"
+                        {% if page == 1 %}disabled{% endif %}
+                        onclick="otfSetPage({{ page - 1 }})" title="Previous page" aria-label="Previous page">&lsaquo;</button>
+                page {{ page }} of {{ nPages }}
+                <button type="button" class="btn btn-sm btn-outline-light"
+                        {% if page == nPages %}disabled{% endif %}
+                        onclick="otfSetPage({{ page + 1 }})" title="Next page" aria-label="Next page">&rsaquo;</button>
+            </span>
+            {% endif %}
+        {%- endmacro %}
+        <small class="text-muted ml-3">
+            {% if nPages > 1 %}{{ firstRow }}&ndash;{{ firstRow + rows|length - 1 }} of {% endif %}{{ nRowsTotal }}
+            tilt series{% if filter == 'attn' %} needing review{% endif %}
+        </small>
+        {{ pager() }}
+        <div class="ml-auto">
+            <div class="btn-group btn-group-sm otf-toggle mr-2" role="group">
+                <button type="button"
+                        class="btn btn-outline-light {% if filter == 'all' %}active{% endif %}"
+                        onclick="otfSetFilter('all')">All</button>
+                <button type="button"
+                        class="btn btn-outline-light {% if filter == 'attn' %}active{% endif %}"
+                        onclick="otfSetFilter('attn')">Needs review</button>
+            </div>
+            <div class="btn-group btn-group-sm otf-toggle" role="group">
+                <button type="button"
+                        class="btn btn-outline-light {% if sort == 'worst' %}active{% endif %}"
+                        onclick="otfSetSort('worst')">Worst first</button>
+                <button type="button"
+                        class="btn btn-outline-light {% if sort == 'recent' %}active{% endif %}"
+                        onclick="otfSetSort('recent')">Newest first</button>
+            </div>
+        </div>
+    </div>
+
+    {# Selection: tick or untick rows one by one, or every tilt series of a
+       status at once (a dash when only some are ticked).  Saved to the
+       project as it changes; everything not unticked is selected. #}
+    <div class="card-body py-2 border-bottom otf-select-bar" id="otf-select-bar">
+        <span>Select</span>
+        <label><input type="checkbox" data-select="all" {% if not canEdit %}disabled{% endif %}>
+            All <span class="otf-count" data-count="all"></span></label>
+        {% for s in selectBy %}
+            <label><input type="checkbox" data-select="{{ s.key }}" {% if not canEdit %}disabled{% endif %}>
+                <span class="otf-dot otf-shape-{{ s.shape }}" style="background: {{ s.color }}; color: {{ s.color }}"></span>
+                {{ s.label }} <span class="otf-count" data-count="{{ s.key }}"></span></label>
+        {% endfor %}
+        <span class="otf-select-summary">
+            <span id="otf-select-summary"></span>
+            <small class="otf-save-state ml-2"></small>
+            {% if canEdit %}
+                <button type="button" class="btn btn-sm btn-outline-primary ml-3 otf-propose"
+                        onclick="otfProposeExclusions()"
+                        title="Untick, after your confirmation, the tilts the curation rule would leave out: unusable tilts, and those acquired after a tilt that lost the field">
+                    <i class="fas fa-magic mr-1"></i>Propose exclusions</button>
+                <button type="button" class="btn btn-sm btn-primary ml-2 otf-create-subset"
+                        onclick="otfCreateSubset()"
+                        title="Launch an EMwrap subset job from the motion correction output with the selected tilt series, without their unticked tilts">
+                    <i class="fas fa-layer-group mr-1"></i>Create subset</button>
+            {% else %}<small class="text-muted ml-2">read only: only the project owner,
+                its collaborators and managers can change the selection</small>{% endif %}
+        </span>
+    </div>
+
+    {# Scrolls on its own with the column names held at the top; the page
+       keeps this scroll position across refreshes. #}
+    <div class="otf-table-scroll" id="otf-table-scroll">
+        <table class="table table-sm table-hover mb-0 otf-table">
+            <thead>
+                <tr>
+                    <th class="otf-sel-cell"></th>
+                    {# Click a column name to sort by it, again to reverse #}
+                    {% macro sortable(key, label, cls='', tip='') -%}
+                        <th class="otf-sortable {{ cls }}" data-sort="{{ key }}" tabindex="0"
+                            aria-sort="{{ 'ascending' if sort == key else 'descending' if sort == '-' ~ key else 'none' }}"
+                            {%- if tip %} data-toggle="tooltip" title="{{ tip }}"{% endif %}>{{ label }}<span class="otf-sort-ind">
+                            {%- if sort == key %}&#9650;{% elif sort == '-' ~ key %}&#9660;{% endif -%}
+                        </span></th>
+                    {%- endmacro %}
+                    {{ sortable('name', 'Tilt series') }}
+                    {{ sortable('status', 'Status') }}
+                    {{ sortable('tilts', 'Tilts used', 'otf-num',
+                                'Left after curation / used by the latest stage / collected. The first is green once the tilt series is marked reviewed, grey while not (tilts unticked, by hand or by an accepted proposal), a dash when nothing was unticked and it is not reviewed. Processing can drop tilts (deselected or disabled in Warp).') }}
+                    {{ sortable('motion', 'Accum. motion (Å)', 'otf-num') }}
+                    {% if showEarly %}{{ sortable('early', 'Early motion (Å)', 'otf-num') }}{% endif %}
+                    {{ sortable('defocus', 'Defocus (µm)', 'otf-num') }}
+                    {{ sortable('ctf', 'CTF fit resolution (Å)', 'otf-num') }}
+                    {{ sortable('axis', 'Tilt axis (°)', 'otf-num') }}
+                    {{ sortable('roughness', 'Shift roughness (Å)', 'otf-num') }}
+                    <th>Per-tilt QC{% if fingerprintLabel %} ({{ fingerprintLabel }}){% endif %}</th>
+                    {{ sortable('stage', 'Stages') }}
+                </tr>
+            </thead>
+            <tbody>
+            {% set nMetricCols = 7 if showEarly else 6 %}
+            {# The row opens with the name from its attribute: a quote in a
+               name cannot break out of the code #}
+            {% for r in rows %}
+                <tr class="otf-row-link" data-name="{{ r.tomoName }}" onclick="otfShowTiltSeries(this.dataset.name)">
+
+                    <td class="otf-sel-cell" onclick="event.stopPropagation()">
+                        <input type="checkbox" class="otf-sel" data-name="{{ r.tomoName }}"
+                               aria-label="Select {{ r.tomoName }}"
+                               {% if not canEdit %}disabled{% endif %}></td>
+
+                    <td><span class="otf-name">{{ r.tomoName }}</span></td>
+
+                    {# The reasons belong to the state, not to the whole row #}
+                    <td class="text-nowrap">
+                        <span class="otf-dot otf-shape-{{ r.statusShape }} mr-1"
+                              style="background: {{ r.statusColor }}; color: {{ r.statusColor }}"></span>
+                        <small>{{ r.statusLabel }}</small>
+                        {% if r.reasons %}
+                            <i class="fas fa-info-circle otf-why ml-1" data-toggle="tooltip"
+                               data-html="true" data-placement="right"
+                               title="{{ r.reasons|join('<br><br>') }}"></i>
+                        {% endif %}
+                    </td>
+
+                    {% if r.status == 'failed' %}
+                        {# A stage that could not process this series is a
+                           different problem from poor data, so it does not
+                           get dressed up with empty metric columns. #}
+                        <td colspan="{{ nMetricCols }}" class="text-muted">
+                            <small>
+                                {{ stages|selectattr('key', 'equalto', r.failedAt)|map(attribute='label')|first|default(r.failedAt) }}
+                                could not process this tilt series
+                            </small>
+                        </td>
+                    {% elif r.status == 'running' %}
+                        <td colspan="{{ nMetricCols }}" class="text-muted">
+                            <small>{{ r.stageLabel }} in progress</small>
+                        </td>
+                    {% else %}
+                        {# The first number is filled in from the selection, see otfRenderSelection #}
+                        <td class="otf-num otf-tilts" data-toggle="tooltip" title="{{ r.tiltsTip }}"
+                            data-name="{{ r.tomoName }}" data-used="{{ r.usedMovies|tojson }}">
+                            <span class="otf-final">&mdash;</span> / {{ r.nUsed }} /
+                            <span class="otf-tilts-collected">{{ r.nTilts }}</span>
+                        </td>
+                        <td class="otf-num">
+                            {% if r.motion.mean is not none %}
+                                {{ '%.1f'|format(r.motion.mean) }}
+                                <span class="otf-sd">max {{ '%.1f'|format(r.motion.max) }}</span>
+                            {% elif r.motion.notReported %}<span class="otf-sd">n/a</span>
+                            {% else %}&ndash;{% endif %}
+                        </td>
+                        {% if showEarly %}
+                        <td class="otf-num">
+                            {% if r.motionEarly.mean is not none %}{{ '%.2f'|format(r.motionEarly.mean) }}
+                            {% elif r.motionEarly.notReported %}<span class="otf-sd">n/a</span>
+                            {% else %}&ndash;{% endif %}
+                        </td>
+                        {% endif %}
+                        <td class="otf-num">
+                            {% if r.defocus.median is not none %}
+                                {{ '%.2f'|format(r.defocus.median / 10000) }}
+                                <span class="otf-sd">&plusmn;{{ '%.2f'|format(r.defocus.std / 10000) }}</span>
+                            {% else %}&ndash;{% endif %}
+                        </td>
+                        <td class="otf-num">
+                            {% if r.ctfRes.mean is not none %}
+                                {{ '%.2f'|format(r.ctfRes.mean) }}
+                                <span class="otf-sd">&plusmn;{{ '%.2f'|format(r.ctfRes.std) }}{% if r.nCtfOffTarget %} &middot; {{ r.nCtfOffTarget }} off target{% endif %}{% if r.nRejected %} &middot; <span class="text-danger">{{ r.nRejected }} unusable</span>{% endif %}</span>
+                            {% elif r.ctfRes.notReported %}<span class="otf-sd">n/a</span>
+                            {% else %}&ndash;{% endif %}
+                        </td>
+                        <td class="otf-num">
+                            {% if r.tiltAxis.mean is not none %}
+                                {{ '%.2f'|format(r.tiltAxis.mean) }}
+                                <span class="otf-sd">&plusmn;{{ '%.2f'|format(r.tiltAxis.std) }}</span>
+                            {% else %}&ndash;{% endif %}
+                        </td>
+                        <td class="otf-num">
+                            {% if r.shiftRoughness is not none %}{{ '%.1f'|format(r.shiftRoughness) }}{% else %}&ndash;{% endif %}
+                        </td>
+                    {% endif %}
+
+                    <td>{{ r.fingerprint|safe }}</td>
+                    <td class="otf-stages" data-toggle="tooltip" title="{{ r.stageTip }}">
+                        {%- for d in r.stageDots %}<span class="otf-stage-dot otf-stage-{{ d }}"></span>{% endfor -%}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if nPages > 1 %}<div class="card-footer py-1 text-right">{{ pager() }}</div>{% endif %}
+</div>
+
+<script>
+(function(window, document, $, undefined) {
+"use strict";
+
+    $('#otf-dashboard-content [data-toggle="tooltip"]').tooltip({
+        boundary: 'window',
+        template: '<div class="tooltip otf-tooltip" role="tooltip">' +
+                  '<div class="arrow"></div><div class="tooltip-inner"></div></div>'
+    });
+
+    /* Selection.  The state is the page's (otfSelection), seeded from the
+       project the first time; here it is drawn onto the rows, the status
+       boxes and the summary, and changed by them. */
+    var sel = otfSelection({{ selection|tojson }});
+    var allSeries = {{ allSeries|tojson }};
+    // For the page's Propose exclusions and Create subset, as of this refresh
+    window.otfProposalInputs = {{ proposals|tojson }};
+    window.otfSubsetInput = {{ subsetInput|tojson }};
+    window.otfAllSeries = allSeries;
+    function namesOf(key) {
+        return allSeries.filter(function(t) { return key === 'all' || t.status === key; })
+                        .map(function(t) { return t.name; });
+    }
+    function otfRenderSelection() {
+        if (!sel) return;
+        $('#otf-dashboard-content input.otf-sel').each(function() {
+            var on = !sel.deselected.has(this.dataset.name);
+            this.checked = on;
+            $(this).closest('tr').toggleClass('otf-deselected', !on);
+        });
+        // Tilts left after curation: green when reviewed, grey when tilts
+        // were unticked but the tilt series is not reviewed, else a dash
+        $('#otf-dashboard-content td.otf-tilts').each(function() {
+            // jQuery parses data-used once and keeps it with the element
+            var name = this.dataset.name, used = $(this).data('used');
+            var ex = new Set(sel.excludedTilts[name] || []);
+            var left = used.filter(function(m) { return !ex.has(m); }).length;
+            // Grey whenever tilts are unticked, those processing dropped too
+            var reviewed = !!sel.reviewed[name], cut = ex.size > 0;
+            $(this).find('.otf-final')
+                .text(reviewed || cut ? left : '\u2014')
+                .toggleClass('otf-final-reviewed', reviewed)
+                .toggleClass('otf-final-pending', !reviewed && cut);
+        });
+        $('#otf-select-bar input[data-select]').each(function() {
+            var names = namesOf(this.dataset.select);
+            var n = names.filter(function(n) { return !sel.deselected.has(n); }).length;
+            this.checked = names.length > 0 && n === names.length;
+            this.indeterminate = n > 0 && n < names.length;
+            $('#otf-select-bar [data-count="' + this.dataset.select + '"]').text('(' + n + '/' + names.length + ')');
+        });
+        var selected = namesOf('all').filter(function(n) { return !sel.deselected.has(n); });
+        var tilts = selected.reduce(function(sum, n) { return sum + (sel.excludedTilts[n] || []).length; }, 0);
+        // Excluded and proposed: unticked by an accepted proposal, not ticked since
+        var auto = selected.reduce(function(sum, n) {
+            var p = new Set(sel.proposedTilts[n] || []);
+            return sum + (sel.excludedTilts[n] || []).filter(function(m) { return p.has(m); }).length;
+        }, 0);
+        $('#otf-select-summary').text(selected.length + ' of ' + allSeries.length + ' tilt series selected' +
+                                      (tilts ? ' · ' + tilts + ' tilt' + (tilts > 1 ? 's' : '') + ' excluded' +
+                                       (auto ? ' (' + auto + ' automatic)' : '') : ''));
+        otfRedrawSaveState();
+    }
+    window.otfRenderSelection = otfRenderSelection;
+    // On the table, which each refresh replaces: bound once per content
+    $('#otf-table-scroll').on('change', 'input.otf-sel', function() {
+        if (this.checked) sel.deselected.delete(this.dataset.name);
+        else sel.deselected.add(this.dataset.name);
+        otfSelectionChanged();
+    });
+    // A status box selects all of that status, or unselects them if all were
+    $('#otf-select-bar').on('click', 'input[data-select]', function(e) {
+        var names = namesOf(this.dataset.select);
+        var all = names.every(function(n) { return !sel.deselected.has(n); });
+        names.forEach(function(n) { if (all) sel.deselected.add(n); else sel.deselected.delete(n); });
+        otfSelectionChanged();
+    });
+    otfRenderSelection();
+
+    /* The tilt series opened last: its row highlighted (and brought into
+       view on closing its window) and a line at it in the trends */
+    function otfLastShapes() {
+        var j = otfNav.last === null ? -1 : names.indexOf(otfNav.last);
+        return j < 0 ? [] : [{type: 'line', xref: 'x', yref: 'paper', x0: x[j], x1: x[j], y0: 0, y1: 1,
+                              layer: 'below', line: {color: otfCss('--otf-data'), width: 1.5, dash: 'dot'}}];
+    }
+    window.otfMarkLastOpened = function(scroll) {
+        var $rows = $('#otf-dashboard-content tr.otf-row-link').removeClass('otf-row-last');
+        var row = $rows.filter(function() { return this.dataset.name === otfNav.last; })
+                       .addClass('otf-row-last')[0];
+        if (row && scroll) row.scrollIntoView({block: 'nearest'});
+        var div = document.getElementById('otf-trends');
+        if (div && div.layout) Plotly.relayout(div, {shapes: otfLastShapes()});
+    };
+    // Still disabled while a subset job is being launched or a proposal made
+    if (window.otfIsSubsetBusy && otfIsSubsetBusy()) $('.otf-create-subset').prop('disabled', true);
+
+    // Sort by a column: ascending first, then descending
+    $('#otf-dashboard-content .otf-table th[data-sort]').on('click', function() {
+        var key = this.dataset.sort;
+        otfSetSort({{ sort|tojson }} === key ? '-' + key : key);
+    }).on('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).click(); }
+    });
+
+    var trends = {{ trends|tojson }};
+    var x = trends.x, colors = trends.colors, symbols = trends.symbols, names = trends.names;
+    // x is a tilt series index: whole-number ticks, about a dozen at most
+    var dtick = Math.max(1, Math.ceil(x.length / 12));
+
+    // Plotly hover labels do not wrap on their own
+    function otfWrap(text, width) {
+        var lines = [], line = '';
+        (text || '').split(' ').forEach(function(word) {
+            if (line && (line + ' ' + word).length > width) {
+                lines.push(line);
+                line = word;
+            } else {
+                line = line ? line + ' ' + word : word;
+            }
+        });
+        if (line) lines.push(line);
+        return lines.join('<br>');
+    }
+
+    /* One figure, one panel per metric, all on the same x axis: tick labels
+       only under the bottom panel, and a single hover line through all of
+       them, with every value of that tilt series in the label, so a step
+       common to all the metrics is easy to see.  Fixed layout, no autoscale
+       surprises: a chart that rescales every refresh is unreadable from
+       across the room. */
+    var PANEL = 70, GAP = 30, TOP = 22, BOTTOM = 26;
+    var div = document.getElementById('otf-trends');
+    var n = trends.plots.length;
+    if (div && n) {
+        var area = n * PANEL + (n - 1) * GAP;
+        // Plotly keeps a hover label to its own panel, so each point carries
+        // the whole tilt series
+        var hover = x.map(function(_, j) {
+            return '<b>' + names[j] + '</b> · ' + trends.statuses[j] +
+                trends.plots.map(function(tr) {
+                    var v = tr.y[j];
+                    return '<br>' + tr.label + ': ' +
+                           (v === null ? 'n/a' : v.toFixed(2) + ' ' + tr.unit);
+                }).join('');
+        });
+        otfPlot(div, function() {
+            var ink = otfCss('--otf-ink');
+            var traces = [], annotations = [];
+            var layout = {
+                margin: {l: 48, r: 12, t: TOP, b: BOTTOM},
+                height: area + TOP + BOTTOM,
+                showlegend: false,
+                hovermode: 'closest',
+                xaxis: {showticklabels: true, title: null, zeroline: false,
+                        tick0: 1, dtick: dtick, anchor: 'y' + n,
+                        showspikes: true, spikemode: 'across', spikesnap: 'data',
+                        spikecolor: otfCss('--otf-faint'), spikethickness: 1,
+                        spikedash: 'solid'},
+                annotations: annotations,
+                shapes: otfLastShapes()
+            };
+            trends.plots.forEach(function(tr, i) {
+                var axis = i ? 'y' + (i + 1) : 'y';
+                // Panels top to bottom, each with a title above it
+                var top = area - i * (PANEL + GAP);
+                layout[i ? 'yaxis' + (i + 1) : 'yaxis'] = {
+                    domain: [(top - PANEL) / area, top / area], zeroline: false};
+                traces.push({
+                    type: 'scatter', mode: 'markers', x: x, y: tr.y, yaxis: axis,
+                    text: names, hovertext: hover,
+                    hovertemplate: '%{hovertext}<extra></extra>',
+                    marker: {size: 7, color: colors, symbol: symbols}
+                }, {
+                    type: 'scatter', mode: 'lines', x: x, y: tr.median, yaxis: axis,
+                    hoverinfo: 'skip', line: {width: 1.6, color: ink}
+                });
+                annotations.push({
+                    text: tr.label + (tr.unit ? ' (' + tr.unit + ')' : ''),
+                    xref: 'paper', yref: axis + ' domain', x: 0, y: 1,
+                    xanchor: 'left', yanchor: 'bottom', showarrow: false,
+                    font: {size: 12, color: ink},
+                    hovertext: otfWrap(tr.help, 60), captureevents: true
+                });
+            });
+            Plotly.react(div, traces, otfThemeLayout(layout),
+                         {displayModeBar: false, responsive: true});
+        });
+
+        div.on('plotly_click', function(ev) {
+            var p = ev.points.filter(function(q) { return q.text; })[0];
+            if (p) window.otfShowTiltSeries(p.text);
+        });
+    }
+
+    otfMarkLastOpened(false);
+})(window, document, window.jQuery);
+</script>
+
+{% endif %}

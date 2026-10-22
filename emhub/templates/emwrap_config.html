@@ -157,11 +157,19 @@
                             {% for row in job_rows %}
                             <tr>
                                 <td><strong>{{ row.name }}</strong></td>
-                                <td><code>{{ row.launcher }}</code></td>
+                                <td><code>{{ row.launcher }}</code>
+                                    {# Programs the job also runs, e.g. Warp for a deselection step #}
+                                    {% for p in row.programs or [] %}
+                                        <br><small>{{ p.name }}: <code>{{ p.display }}</code></small>
+                                    {% endfor %}
+                                </td>
                                 <td>
                                     <span class="badge badge-{{ badge_map.get(row.launcher_status, 'secondary') }}">
                                         {{ row.launcher_status_label }}
                                     </span>
+                                    {% for p in row.programs or [] %}
+                                        <br><span class="badge badge-{{ badge_map.get(p.status, 'secondary') }}">{{ p.name }}: {{ p.status_label }}</span>
+                                    {% endfor %}
                                 </td>
                                 <td><code>{{ row.form_file }}</code></td>
                                 <td>
