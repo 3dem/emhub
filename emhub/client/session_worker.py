@@ -76,10 +76,6 @@ class SessionHandler(TaskHandler):
     def getLogPrefix(self):
         return f"{self.task['args']['action'].upper()}-{self.session_id}"
 
-    def _stop_thread(self, error=None):
-        TaskHandler._stop_thread(self, error)
-        self.worker.remove_handler(self.task)
-
     def get_session(self):
         def _get_session():
             try:

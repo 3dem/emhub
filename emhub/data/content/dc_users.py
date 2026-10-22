@@ -64,7 +64,11 @@ def register_content(dc):
     @dc.content
     def users_independent(**kwargs):
         """ Users that are independent for at least one of the instruments
-        listed in the 'independent' section of config:resources. """
+        listed in the 'independent' section of config:resources.
+        Only for managers (admins and heads are also managers). """
+        if not dc.app.user.is_manager:
+            raise Exception('Invalid access: only managers can view the '
+                            'independent users list.')
         dm = dc.app.dm
         independent = dm.get_config('resources').get('independent', {})
         resources = {r.name: r for r in dm.get_resources()}

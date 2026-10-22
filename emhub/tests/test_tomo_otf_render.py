@@ -51,7 +51,19 @@ def build_stub_dc(project_path):
         def json(self):
             return {'id': self.id, 'title': self.title}
 
+    class Session:
+        """ An EMhub session whose OTF folder is the project. """
+        id = 7
+        shortname = 'bt24_session'
+        data_path = project_path
+        owner = User('M. Okonjo')
+        project = Project()
+        extra = {'otf': {}}
+
     class DataManager:
+        def get_session_by(self, **kw):
+            return Session() if kw.get('id') == 7 else None
+
         def get_entry_by(self, **kw):
             return Entry() if kw.get('id') == 6 else None
 
@@ -67,7 +79,8 @@ def build_stub_dc(project_path):
     class App:
         dm = DataManager()
         user = types.SimpleNamespace(is_manager=True, id=1,
-                                     can_edit_project=lambda project: True)
+                                     can_edit_project=lambda project: True,
+                                     same_pi=lambda other: False)
 
     class DC:
         app = App()
@@ -244,6 +257,20 @@ def main():
             print(f'  rendered {name}: {len(html)} chars')
         except Exception:
             failures += 1
+
+    # ---- the same dashboard, from an EMhub session (session_live) ----
+    sdata = dc.funcs['tomo_otf_dashboard'](session_id=7)
+    if sdata['error'] or sdata['source'] != {'session_id': 7} or sdata['otf_page'] != 'session_live':
+        print(f'  FAIL: session dashboard: error={sdata["error"]!r}, source={sdata["source"]}')
+        failures += 1
+    for name in ('tomo_otf_dashboard_content.html', 'tomo_otf_dashboard.html'):
+        try:
+            html = render(env, name, sdata)
+            print(f'  rendered {name} for a session: {len(html)} chars')
+        except Exception:
+            failures += 1
+    if not dc.funcs['tomo_otf_tiltseries'](session_id=7, tomo_name=data['rows'][0]['tomoName'])['source']:
+        failures += 1
 
     # ---- detail, both orderings, and a failed series ----
     rows = data['rows']

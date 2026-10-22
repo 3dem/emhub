@@ -56,7 +56,8 @@ from emwrap.base.job_form import JobValidationError
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data.data_manager import SqlFilterError
-from emhub.data.processing import resolve_project_root, resolve_processing_path
+from emhub.data.processing import (resolve_project_root, resolve_processing_path,
+                                   project_file_path)
 from .api_viewers import *
 from .api_viewers_spa import (resolve_spa_table_view_type, build_spa_table,
                               build_spa_pane_content)
@@ -709,7 +710,7 @@ def list_project_dir():
     def _handle(**attrs):
         root = resolve_project_root(attrs['root'])
         path = attrs['path']
-        full_path = os.path.join(root, path)    
+        full_path = project_file_path(root, path)
         items = []
         for fn in os.listdir(full_path):
             fn_path = os.path.join(full_path, fn)
@@ -740,7 +741,7 @@ def get_file_preview():
     def _handle(**attrs):
         root = resolve_project_root(attrs['root'])
         path = attrs['path']
-        full_path = os.path.join(root, path)
+        full_path = project_file_path(root, path)
         s = os.stat(full_path)
         
         info = {
@@ -797,7 +798,7 @@ def get_table_view_data():
         if not star_path:
             raise Exception('Missing starPath / outputPath')
 
-        full_path = os.path.join(root, star_path)
+        full_path = project_file_path(root, star_path)
         if not os.path.exists(full_path):
             raise Exception(f'STAR file not found: {star_path}')
 
@@ -816,12 +817,22 @@ def get_table_view_data():
     return _handle_item(_handle, 'tableViewData')
 
 
-def _check_can_edit_processing(root, entry_id=None):
+def _check_can_edit_processing(root, entry_id=None, session_id=None):
     """ Raise unless the current user may change the processing project at
     root: edit the project of its tomo_processing entry (entry_id, or the
-    entries with that processing path).  A path with no entry is for
-    managers only. """
+    entries with that processing path), or the session whose OTF folder
+    it is (session_id).  A path with no entry is for managers only. """
     root = os.path.abspath(root)
+
+    if session_id:
+        from emhub.data.content.dc_tomo_otf import resolve_tomo_otf_source
+        source = resolve_tomo_otf_source(app.dm, app.user, session_id=session_id)
+        if not source['path'] or os.path.abspath(source['path']) != root:
+            raise Exception('The processing path is not the OTF folder of the session')
+        if not source['can_edit']:
+            raise Exception('Only the session owner lab, the project editors and '
+                            'managers can launch jobs in this project')
+        return
 
     def _root(entry):
         path = resolve_processing_path(entry.extra.get('data', {}).get('processing_path', ''))
@@ -853,7 +864,7 @@ def create_tomo_subset():
     change the project (see _check_can_edit_processing). """
     def _handle(**attrs):
         root = resolve_project_root(attrs['root'])
-        _check_can_edit_processing(root, attrs.get('entry_id'))
+        _check_can_edit_processing(root, attrs.get('entry_id'), attrs.get('session_id'))
         star_path = attrs.get('starPath') or attrs.get('star_path') or attrs.get('outputPath')
         pointer_class = attrs.get('pointerClass') or attrs.get('pointer_class') or ''
         subset_items = attrs.get('subsetItems') or attrs.get('subset_items') or []
@@ -872,21 +883,19 @@ def create_tomo_subset():
     return _handle_item(_handle, 'subsetResult')
 
 
-def _tomo_otf_session_for_edit(entry_id, job_id=None):
-    """ The on-the-fly session of a tomo_processing entry, as its tilt
-    analysis job job_id shows it (the latest if not given), if the current
-    user may change its project: its owner, collaborators or a manager. """
+def _tomo_otf_session_for_edit(attrs):
+    """ The on-the-fly session of a tomo_processing entry (attrs['entry_id'])
+    or of an EMhub session (attrs['session_id']), as its tilt analysis job
+    attrs['job_id'] shows it (the latest if not given), if the current user
+    may change it (see resolve_tomo_otf_source). """
     from emhub.data.processing.tomo_otf import OtfSession
-    entry = app.dm.get_entry_by(id=int(entry_id))
-    if entry is None or entry.type != 'tomo_processing':
-        raise Exception(f'No tomo processing entry with id {entry_id}')
-    project = app.dm.get_project_by(id=entry.project_id)
-    if project is None or not app.user.can_edit_project(project):
+    from emhub.data.content.dc_tomo_otf import resolve_tomo_otf_source
+    source = resolve_tomo_otf_source(app.dm, app.user, **attrs)
+    if not source['can_edit']:
         raise Exception('Only the project owner, its collaborators and managers '
                         'can change this selection')
-    data = entry.extra.get('data', {})
-    return OtfSession(resolve_processing_path(data.get('processing_path', '')),
-                      analysis_job=job_id or None, thresholds=data.get('otf_thresholds'))
+    return OtfSession(source['path'], analysis_job=attrs.get('job_id') or None,
+                      thresholds=source['thresholds'])
 
 
 # What the dashboard records of a subset it made (create_tomo_subset)
@@ -902,7 +911,7 @@ def tomo_otf_save_selection():
     if given, the export of a subset made from it (attrs['export'], with
     _TOMO_OTF_EXPORT_KEYS), stamped with the user and the time. """
     def _handle(**attrs):
-        session = _tomo_otf_session_for_edit(attrs['entry_id'], attrs.get('job_id'))
+        session = _tomo_otf_session_for_edit(attrs)
         export = attrs.get('export')
         if export is not None:
             if not isinstance(export, dict) or not export.get('jobId'):
@@ -932,7 +941,7 @@ def resolve_table_view_pane():
 
         # SPA outputs (Movies, Micrographs)
         output_path = attrs.get('outputPath') or attrs.get('starPath') or attrs.get('path')
-        output_full = os.path.join(root, output_path) if output_path else None
+        output_full = project_file_path(root, output_path) if output_path else None
         if spa_key := resolve_spa_table_view_type(pointer_class, output_full):
             return build_spa_pane_content(action_id, root, spa_key, row_cells,
                                           output_path=output_path,
@@ -1020,10 +1029,14 @@ def _coords3d_output_path(attrs, protocol_id=None):
         or attrs.get('output_name')
     )
     if output_path:
+        # Only outputs inside the project (raise ValueError otherwise)
+        project_file_path(attrs['root'], output_path)
         return output_path
     protocol_id = protocol_id or attrs.get('protocolId') or attrs.get('protocol_id')
     if protocol_id:
-        return os.path.join(protocol_id, 'optimisation_set.star')
+        output_path = os.path.join(protocol_id, 'optimisation_set.star')
+        project_file_path(attrs['root'], output_path)
+        return output_path
     raise Exception('Missing outputPath / outputName')
 
 

@@ -278,7 +278,7 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
        series, opened again with it.  Kept in this browser per entry and
        tilt analysis job, so a reload keeps them too.  Here, as the content
        uses it as it loads. */
-    var OTF_NAV_KEY = 'otfNav:' + {{ entry_id }} + ':' + {{ job_id|tojson }};
+    var OTF_NAV_KEY = 'otfNav:' + {{ (source|dictsort|map('join', '=')|join('&'))|tojson }} + ':' + {{ job_id|tojson }};
     window.otfNav = (function() {
         try { return $.extend({last: null, tilts: {}}, JSON.parse(localStorage.getItem(OTF_NAV_KEY))); }
         catch (e) { return {last: null, tilts: {}}; }
@@ -308,10 +308,10 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
        subset made from it) to record if given. */
     function otfPostSelection(exportRecord) {
         otfSetSaveState('saving');
-        var attrs = {entry_id: {{ entry_id }}, job_id: {{ job_id|tojson }},
+        var attrs = $.extend({}, {{ source|tojson }}, {job_id: {{ job_id|tojson }},
                      deselected: Array.from(otfSel.deselected),
                      excludedTilts: otfSel.excludedTilts, proposedTilts: otfSel.proposedTilts,
-                     reviewed: Object.keys(otfSel.reviewed)};
+                     reviewed: Object.keys(otfSel.reviewed)});
         if (exportRecord) attrs['export'] = exportRecord;
         send_ajax_json(Api.urls.tomo_otf_save_selection, attrs,
                        function(data) {
@@ -338,11 +338,19 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
 
     {# Scoped: the content included below has its own title, the session's.
        The project step opens its workflow page, as the project list does. #}
-    {% with project_step = (title, url_for_content('tomo_session', tomo_session_id=entry_id, mode='widget')) %}
+    {% if otf_session %}
+    {# Live view of a session: the project step opens its OTF workflow #}
+    {% set root_step = ('Sessions', url_for_content('sessions_list')) %}
+    {% set project_step = (title, url_for_content('session_details', session_id=otf_session.id)) %}
+    {% set workflow_step = ('Workflow', url_for_content('session_workflow', session_id=otf_session.id)) %}
+    {% else %}
+    {% set root_step = ('Tomo Processing', url_for_content('processing_tomo_list')) %}
+    {% set project_step = (title, url_for_content('tomo_session', tomo_session_id=source.entry_id, mode='widget')) %}
+    {% set workflow_step = None %}
+    {% endif %}
     {% with title = "On-the-fly CryoET" %}
-    {% with navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), project_step, (title, '')] %}
+    {% with navigation = [root_step, project_step] + ([workflow_step] if workflow_step else []) + [(title, '')] %}
     {% include 'include_header.html' %}
-    {% endwith %}
     {% endwith %}
     {% endwith %}
 
@@ -359,7 +367,8 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
 (function(window, document, $, undefined) {
 "use strict";
 
-    var OTF_ENTRY_ID = {{ entry_id }};
+    // What the dashboard shows: {entry_id: ...} or {session_id: ...}
+    var OTF_SOURCE = {{ source|tojson }};
     // The tilt analysis job shown (several dashboards may share a project)
     var OTF_JOB_ID = {{ job_id|tojson }};
     // The alignment and reconstruction jobs asked for ('' for the newest)
@@ -402,11 +411,11 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
        detail panel survive. Plotly is re-drawn by the inner template. */
     function otfRefresh() {
         var content = get_ajax_content('tomo_otf_dashboard_content',
-                                       {entry_id: OTF_ENTRY_ID, job_id: OTF_JOB_ID,
+                                       $.extend({}, OTF_SOURCE, {job_id: OTF_JOB_ID,
                                         align_job: OTF_ALIGN_JOB, tomo_job: OTF_TOMO_JOB,
                                         sort: window.otfSort || 'worst',
                                         filter: window.otfFilter || 'all',
-                                        page: window.otfPage || 1});
+                                        page: window.otfPage || 1}));
         otfReplace('#otf-dashboard-content', content, false);
     }
 
@@ -454,10 +463,10 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
         otfNav.last = tomoName;
         otfSaveNav();
         var content = get_ajax_content('tomo_otf_tiltseries',
-                                       {entry_id: OTF_ENTRY_ID, job_id: OTF_JOB_ID,
+                                       $.extend({}, OTF_SOURCE, {job_id: OTF_JOB_ID,
                                         align_job: OTF_ALIGN_JOB, tomo_job: OTF_TOMO_JOB,
                                         tomo_name: tomoName,
-                                        order: order || 'angle'});
+                                        order: order || 'angle'}));
         otfReplace(OTF_MODAL, content, true);
     };
 
@@ -615,8 +624,8 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
                 .filter(function(name) { return !inStar.has(name) && !sel.deselected.has(name); });
             busy(true);
             send_ajax_json(Api.urls.create_tomo_subset,
-                           {root: OTF_ROOT, entry_id: OTF_ENTRY_ID, starPath: input.star,
-                            pointerClass: 'TiltSeries', subsetItems: names, excludeTilts: selected},
+                           $.extend({}, OTF_SOURCE, {root: OTF_ROOT, starPath: input.star,
+                            pointerClass: 'TiltSeries', subsetItems: names, excludeTilts: selected}),
                            function(data) {
                                busy(false);
                                var r = data.subsetResult;

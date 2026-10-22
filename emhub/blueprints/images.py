@@ -112,18 +112,21 @@ def tomo_otf_thumbnail():
     refuses anything outside the project root.  The browser caches them
     across refreshes; the dashboard adds the file's modification time to
     the URL (v=), so a file emwrap rewrites gets a new URL. """
-    try:
-        entry = app.dm.get_entry_by(id=int(request.args.get('entry', 0)))
-    except ValueError:
-        flask.abort(404)
+    from emhub.data.content.dc_tomo_otf import resolve_tomo_otf_source
     rel = request.args.get('path', '')
     parts = rel.split('/')
-    if (entry is None or entry.type != 'tomo_processing'
-            or not rel.endswith(('.jpg', '_ctf.json')) or len(parts) < 2
+    if (not rel.endswith(('.jpg', '_ctf.json')) or len(parts) < 2
             or parts[-2] != 'thumbnails'):
         flask.abort(404)
-    root = resolve_processing_path(
-        entry.extra.get('data', {}).get('processing_path', ''))
+    # The dashboard source: a tomo_processing entry ('entry_id', or 'entry'
+    # in older URLs) or a session whose OTF folder is a tomo OTF project
+    args = {k: request.args[k] for k in ('entry_id', 'session_id') if request.args.get(k)}
+    if not args and request.args.get('entry'):
+        args['entry_id'] = request.args['entry']
+    try:
+        root = resolve_tomo_otf_source(app.dm, app.user, **args)['path'] if args else None
+    except Exception:
+        flask.abort(404)
     if not root:
         flask.abort(404)
     response = flask.send_from_directory(root, rel, max_age=3600)

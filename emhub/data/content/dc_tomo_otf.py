@@ -19,6 +19,7 @@ by emwrap while the microscope is still collecting.
 
 import os
 import re
+import json
 import time
 
 from PIL import Image
@@ -352,42 +353,111 @@ def _elapsed_str(seconds):
     return f'{seconds // 3600}h {(seconds % 3600) // 60:02d}m'
 
 
+def _resolve_entry(dm, **kwargs):
+    """ Find the tomo_processing entry for a dashboard.
+
+    Accepts entry_id / tomo_session_id / otf_entry_id / project_id,
+    because the dashboard is reachable both from the tomo project list
+    (which passes an entry id) and from a project page (which passes a
+    project id).
+    """
+    for key in ('entry_id', 'tomo_session_id', 'otf_entry_id'):
+        if value := kwargs.get(key):
+            entry = dm.get_entry_by(id=int(value))
+            if entry is not None and entry.type == ENTRY_TYPE:
+                return entry
+
+    # Fall back to the entries of a project, newest first.  A session
+    # dashboard needs one entry; if a project has several, the most
+    # recently modified one is the session in progress.
+    if pid := kwargs.get('project_id'):
+        entries = dm.get_entries(
+            condition=f"type='{ENTRY_TYPE}' AND project_id={int(pid)}")
+        if entries:
+            def _mtime(e):
+                path = resolve_processing_path(
+                    e.extra.get('data', {}).get('processing_path', ''))
+                pipeline = os.path.join(path or '', 'default_pipeline.star')
+                return (os.path.getmtime(pipeline)
+                        if os.path.exists(pipeline) else 0)
+            return max(entries, key=_mtime)
+
+    raise Exception(
+        'Expecting entry_id of a tomo_processing entry, a project_id '
+        'that contains one, or the session_id of a tomo OTF session.')
+
+
+def is_tomo_otf_session(session):
+    """ True if the session OTF folder (data_path) is an emwrap tomo OTF
+    project (session.json with otf_type 'tomo'). """
+    path = resolve_processing_path(session.data_path or '')
+    sessionJson = os.path.join(path or '', 'session.json')
+    if not path or not os.path.exists(sessionJson):
+        return False
+    try:
+        with open(sessionJson) as f:
+            return json.load(f).get('otf_type') == 'tomo'
+    except (OSError, ValueError):
+        return False
+
+
+def resolve_tomo_otf_source(dm, user, **kwargs):
+    """ Where an on-the-fly CryoET dashboard reads its session from: an EMhub
+    session whose OTF folder (data_path) is an emwrap tomo OTF project
+    (session_id), or a tomo_processing entry (see _resolve_entry).
+
+    Returns a dict with:
+        args: the request args that select this source again (ajax
+            refreshes, links and api calls), {'session_id': id} or
+            {'entry_id': id}
+        page: the content that shows the dashboard for this source
+        path: the processing path (resolved), raw_path: as stored
+        title, thresholds, project (or None), can_edit
+        entry or session: the source object (the other one is None)
+    """
+    if session_id := kwargs.get('session_id'):
+        session = dm.get_session_by(id=int(session_id))
+        if session is None:
+            raise Exception(f'Unexisting session with id: {session_id}')
+        owner, project = session.owner, session.project
+        can_edit = bool(user.is_manager or user.same_pi(owner)
+                        or (project is not None and user.can_edit_project(project)))
+        if not can_edit:
+            raise Exception('You do not have access to this session information.')
+        raw_path = session.data_path or ''
+        return {
+            'args': {'session_id': session.id},
+            'page': 'session_live',
+            'path': resolve_processing_path(raw_path),
+            'raw_path': raw_path,
+            'title': session.shortname,
+            'thresholds': session.extra.get('otf', {}).get('otf_thresholds'),
+            'project': project,
+            'can_edit': can_edit,
+            'session': session,
+            'entry': None,
+        }
+
+    entry = _resolve_entry(dm, **kwargs)
+    data = entry.extra.get('data', {})
+    raw_path = data.get('processing_path', '')
+    path = resolve_processing_path(raw_path)
+    project = dm.get_project_by(id=entry.project_id)
+    return {
+        'args': {'entry_id': entry.id},
+        'page': 'tomo_otf_dashboard',
+        'path': path,
+        'raw_path': raw_path,
+        'title': entry.title or os.path.basename(path or ''),
+        'thresholds': data.get('otf_thresholds'),
+        'project': project,
+        'can_edit': project is not None and bool(user.can_edit_project(project)),
+        'session': None,
+        'entry': entry,
+    }
+
+
 def register_content(dc):
-
-    def _resolve_entry(**kwargs):
-        """ Find the tomo_processing entry for this dashboard.
-
-        Accepts entry_id / tomo_session_id / otf_entry_id / project_id,
-        because the dashboard is reachable both from the tomo project list
-        (which passes an entry id) and from a project page (which passes a
-        project id).
-        """
-        dm = dc.app.dm
-
-        for key in ('entry_id', 'tomo_session_id', 'otf_entry_id'):
-            if value := kwargs.get(key):
-                entry = dm.get_entry_by(id=int(value))
-                if entry is not None and entry.type == ENTRY_TYPE:
-                    return entry
-
-        # Fall back to the entries of a project, newest first.  A session
-        # dashboard needs one entry; if a project has several, the most
-        # recently modified one is the session in progress.
-        if pid := kwargs.get('project_id'):
-            entries = dm.get_entries(
-                condition=f"type='{ENTRY_TYPE}' AND project_id={int(pid)}")
-            if entries:
-                def _mtime(e):
-                    path = resolve_processing_path(
-                        e.extra.get('data', {}).get('processing_path', ''))
-                    pipeline = os.path.join(path or '', 'default_pipeline.star')
-                    return (os.path.getmtime(pipeline)
-                            if os.path.exists(pipeline) else 0)
-                return max(entries, key=_mtime)
-
-        raise Exception(
-            'Expecting entry_id of a tomo_processing entry, or a project_id '
-            'that contains one.')
 
     def _session_state(summary):
         """ acquiring / idle / stalled, plus how long since the last movie.
@@ -526,22 +596,25 @@ def register_content(dc):
         return rows_page, len(rows), page, n_pages
 
     def _load(**kwargs):
-        """ Open the session for this entry, or return the reason it failed.
+        """ Open the session for this entry (or EMhub session), or return
+        the reason it failed.
 
         A dashboard that 500s mid-session is worse than one that explains
         itself, so a missing project, or one that is not a RELION project,
         is reported as content.  The star files are read later, and
         tolerate files being written as they are read (tomo_otf).
         """
-        entry = _resolve_entry(**kwargs)
-        data = entry.extra.get('data', {})
-        raw_path = data.get('processing_path', '')
-        path = resolve_processing_path(raw_path)
+        source = resolve_tomo_otf_source(dc.app.dm, dc.app.user, **kwargs)
+        path, raw_path = source['path'], source['raw_path']
 
         info = {
-            'entry': entry,
-            'project': dc.app.dm.get_project_by(id=entry.project_id),
-            'entry_id': entry.id,
+            'entry': source['entry'],
+            'project': source['project'],
+            'canEdit': source['can_edit'],
+            # Args to request this dashboard again, and the page showing it
+            'source': source['args'],
+            'otf_page': source['page'],
+            'otf_session': source['session'],
             # The tilt analysis job the dashboard shows, the latest if not given
             'job_id': kwargs.get('job_id') or '',
             'analysisJobs': [],
@@ -549,7 +622,7 @@ def register_content(dc):
             'align_job': kwargs.get('align_job') or '',
             'tomo_job': kwargs.get('tomo_job') or '',
             'downstream': None,
-            'title': entry.title or os.path.basename(path or ''),
+            'title': source['title'],
             'processing_path': raw_path,
             'error': None,
             'session': None,
@@ -560,7 +633,7 @@ def register_content(dc):
             return info
         try:
             session = OtfSession(path, analysis_job=info['job_id'] or None,
-                                 thresholds=data.get('otf_thresholds'),
+                                 thresholds=source['thresholds'],
                                  align_job=info['align_job'] or None,
                                  tomo_job=info['tomo_job'] or None)
             info['job_id'] = session.analysis_job.id
@@ -573,18 +646,17 @@ def register_content(dc):
             info['error'] = str(e)
         return info
 
+    def _source(info):
+        """ The values every dashboard template needs to request it again. """
+        return {'source': info['source'], 'otf_page': info['otf_page'],
+                'otf_session': info['otf_session']}
+
     def _staff(project):
         """ Owner and collaborators of the project holding the entry. """
         if project is None:
             return None, []
         users = (dc.app.dm.get_user_by(id=int(uid)) for uid in project.collaborators_ids)
         return project.user, [u for u in users if u is not None]
-
-    def _can_edit(project):
-        """ Whether the current user may change the session's selection:
-        the project's owner, its collaborators or a manager (the same check
-        as the api's tomo_otf_save_selection). """
-        return project is not None and bool(dc.app.user.can_edit_project(project))
 
     def _int(kwargs, key, default):
         try:
@@ -613,7 +685,7 @@ def register_content(dc):
         if info['error'] or info['session'] is None:
             # The content shows the error alone
             return {'error': info['error'], 'title': info['title'],
-                    'entry_id': info['entry_id'], 'job_id': info['job_id'],
+                    **_source(info), 'job_id': info['job_id'],
                     'analysisJobs': info['analysisJobs'],
                     'align_job': info['align_job'], 'tomo_job': info['tomo_job'],
                     'processing_path': info['processing_path'],
@@ -686,7 +758,7 @@ def register_content(dc):
         return {
             'error': None,
             'title': info['title'],
-            'entry_id': info['entry_id'],
+            **_source(info),
             'job_id': info['job_id'],
             'analysisJobs': info['analysisJobs'],
             'align_job': info['align_job'],
@@ -717,7 +789,7 @@ def register_content(dc):
             # Selection: the stored state, every tilt series with its status
             # (the table may show only some), and the statuses to select by
             'selection': _selection_state(session),
-            'canEdit': _can_edit(info['project']),
+            'canEdit': info['canEdit'],
             'allSeries': [{'name': t.tomoName, 'status': t.status} for t in ts_list],
             # What the page proposes exclusions and makes subsets from, for
             # its selection as it is there
@@ -734,14 +806,14 @@ def register_content(dc):
         tomo_name = kwargs.get('tomo_name')
         if info['error'] or info['session'] is None:
             return {'error': info['error'], 'tomoName': tomo_name,
-                    'entry_id': info['entry_id'], 'job_id': info['job_id']}
+                    **_source(info), 'job_id': info['job_id']}
 
         session = info['session']
         ts = next((t for t in session.tilt_series()
                    if t.tomoName == tomo_name), None)
         if ts is None:
             return {'error': f'No tilt series named {tomo_name}',
-                    'tomoName': tomo_name, 'entry_id': info['entry_id'],
+                    'tomoName': tomo_name, **_source(info),
                     'job_id': info['job_id']}
 
         order = kwargs.get('order', 'angle')
@@ -860,7 +932,7 @@ def register_content(dc):
         style = STATUS_STYLE[ts.status]
         return {
             'error': None,
-            'entry_id': info['entry_id'],
+            **_source(info),
             'job_id': info['job_id'],
             'tomoName': ts.tomoName,
             'status': ts.status,
@@ -897,5 +969,5 @@ def register_content(dc):
             'thumbs': thumbs,
             'thumbSize': thumb_size,
             'hasDropped': any(t.get('excluded') for t in tilts),
-            'canEdit': _can_edit(info['project']),
+            'canEdit': info['canEdit'],
         }

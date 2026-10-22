@@ -439,11 +439,15 @@ var svc = {
     // A tilt analysis opens its OTF dashboard
     if (pointerClass === 'TiltSeriesAnalysis') {
       var jobId = outputPath ? outputPath.split('/').slice(0, -1).join('/') : ctx.protocolId;
+      // The OTF project of a session is shown in the session live page
+      var url = project_details.session_id
+          ? "{{ url_for_content('session_live') }}"
+             + '&session_id=' + encodeURIComponent(project_details.session_id)
+          : "{{ url_for_content('tomo_otf_dashboard') }}"
+             + '&entry_id=' + encodeURIComponent(project_details.id);
       return {
         handled: true,
-        url: "{{ url_for_content('tomo_otf_dashboard') }}"
-             + '&entry_id=' + encodeURIComponent(project_details.id)
-             + '&job_id=' + encodeURIComponent(jobId),
+        url: url + '&job_id=' + encodeURIComponent(jobId),
         target: "_blank"
       };
     }

@@ -28,6 +28,7 @@ from collections import OrderedDict
 import configparser
 from pprint import pprint
 import traceback
+import requests
 
 from emtools.utils import Pretty, Process, Path, Color, System
 from emtools.metadata import EPU
@@ -106,6 +107,9 @@ class TaskHandler(threading.Thread):
         if error:
             self.error(error)
 
+        # Workers that control all the tasks can ignore it (remove_handler)
+        self.worker.remove_handler(self.task)
+
     def _request(self, requestFunc, errorMsg, tries=10):
         return self.worker._request(requestFunc, errorMsg, tries=tries)
 
@@ -151,11 +155,12 @@ class TaskHandler(threading.Thread):
         return self.update_remote('update_log', data, tries=2, wait=5)
 
     def update_task(self, event, tries=-1, wait=10):
+        """ Update the task with this event, see update_remote. """
         data = {
             'task_id': self.task['id'],
             'event': event
         }
-        self.update_remote('update_task', data)
+        return self.update_remote('update_task', data, tries=tries, wait=wait)
 
     def run(self):
         """ Implement thread's activity, running an infinite loop calling
@@ -257,16 +262,18 @@ class Worker:
         self.dc.login(config.EMHUB_USER, config.EMHUB_PASSWORD)
 
     def _dc_request(self, method, jsonData):
-        """ Request to the server returning the JSON result. If it fails, the
-        login session might have expired (e.g. worker running for a long time),
-        so login again and retry once. """
+        """ Request to the server returning the JSON result. If the login
+        session expired (e.g. worker running for a long time), the server
+        replies 401 (or 403), so login again and retry once. Other errors
+        (e.g. timeouts or server not available) are raised, to be handled
+        by the caller retries. """
         try:
             return self.dc.request(method, jsonData=jsonData).json()
-        except Exception as e:
-            try:
-                self._login()
-            except Exception:
-                raise e  # server not available, raise the original error
+        except requests.HTTPError as e:
+            if e.response is None or e.response.status_code not in (401, 403):
+                raise
+            self.info("Login session expired, login again.")
+            self._login()
             return self.dc.request(method, jsonData=jsonData).json()
 
     def request(self, method, data, key=None):
@@ -394,15 +401,19 @@ class Worker:
     def run(self):
         self.setup()
         wait = 5  # seconds to wait after errors, doubled until max 300
+        check_pending = True
 
         while True:
             try:
-                # Get pending tasks first (e.g. after start or errors), this
-                # is a protection in case there are tasks not being handled
-                self.process_tasks('pending')
+                # Get pending tasks at start and after errors, this is a
+                # protection in case there are tasks not being handled
+                if check_pending:
+                    self.process_tasks('pending')
+                    check_pending = False
                 self.process_tasks('new')  # blocks for a while if no new tasks
                 wait = 5  # reset the wait after a successful round
             except Exception as e:
+                check_pending = True
                 # Errors from the server (e.g. unregistered host) return
                 # immediately, so wait before retrying to avoid a busy loop
                 self.error(f"ERROR: {e}. Retrying in {wait} seconds.")

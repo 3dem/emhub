@@ -339,7 +339,10 @@ def register_content(dc):
         data = dc.get_data('processing_content', session_id=session_id)
         project_path = data['processing_project'].path
         data['session'] = session
-        return _get_project_widget_data(data, session_id, project_path)
+        data = _get_project_widget_data(data, session_id, project_path)
+        # Links from the widget (e.g. the OTF dashboard) go to the session
+        data['project_details']['session_id'] = session_id
+        return data
 
     @dc.content
     def project_flowchart(**kwargs):

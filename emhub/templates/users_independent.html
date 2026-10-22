@@ -48,10 +48,8 @@
                                 </td>
                                 {% endfor %}
                                 <td>
-                                    {% if current_user.is_manager %}
-                                        <button class="btn btn-sm btn-outline-light" onclick="showUserProfile({{ user.id }})"><i class="far fa-user"></i></button>
-                                        <button class="btn btn-sm btn-outline-light" onclick="showUser({{ user.id }})"><i class="far fa-edit"></i></button>
-                                    {% endif %}
+                                    <button class="btn btn-sm btn-outline-light" onclick="showUserProfile({{ user.id }})"><i class="far fa-user"></i></button>
+                                    <button class="btn btn-sm btn-outline-light" onclick="showUser({{ user.id }})"><i class="far fa-edit"></i></button>
                                 </td>
                                 <td>{{ user.independent_ids|length }}</td>
                             </tr>
