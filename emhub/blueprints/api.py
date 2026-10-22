@@ -56,8 +56,11 @@ from emwrap.base.job_form import JobValidationError
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data.data_manager import SqlFilterError
-from emhub.data.processing import resolve_project_root, resolve_processing_path
+from emhub.data.processing import (resolve_project_root, resolve_processing_path,
+                                   project_file_path)
 from .api_viewers import *
+from .api_viewers_spa import (resolve_spa_table_view_type, build_spa_table,
+                              build_spa_pane_content)
 
 
 def _em_image_listing_fields(file_path):
@@ -211,15 +214,23 @@ def update_user_form():
             # check that there are not other users referencing this one as pi
             # still this will not be a very common case
 
-        if independent_resources := f.get('user-indepent-resources', ''):
+        # Only managers can set the independent resources. An empty value
+        # means that all of them were unselected
+        if 'user-indepent-resources' in f and app.user.is_manager:
             def _val(v):
                 try:
                     return int(v)
                 except:
                     return None
+            independent_resources = f['user-indepent-resources']
             attrs['extra'] = {
                 'independent_resources': [_val(v) for v in independent_resources.split(',') if _val(v)]
             }
+
+        # Only admins can change the local authentication flag. An unchecked
+        # checkbox is not sent, so the hidden field tells us it was rendered
+        if 'user-auth-local-field' in f and app.user.is_admin:
+            attrs.setdefault('extra', {})['auth_local'] = 'user-auth-local' in f
 
         password = f['user-password'].strip()
         if password:
@@ -509,7 +520,7 @@ def poll_active_sessions():
         tries -= 1
         dm.commit()
 
-        return send_json_data([])
+    return send_json_data([])
 
 
 @api_bp.route('/create_session', methods=['POST'])
@@ -699,7 +710,7 @@ def list_project_dir():
     def _handle(**attrs):
         root = resolve_project_root(attrs['root'])
         path = attrs['path']
-        full_path = os.path.join(root, path)    
+        full_path = project_file_path(root, path)
         items = []
         for fn in os.listdir(full_path):
             fn_path = os.path.join(full_path, fn)
@@ -730,7 +741,7 @@ def get_file_preview():
     def _handle(**attrs):
         root = resolve_project_root(attrs['root'])
         path = attrs['path']
-        full_path = os.path.join(root, path)
+        full_path = project_file_path(root, path)
         s = os.stat(full_path)
         
         info = {
@@ -787,9 +798,13 @@ def get_table_view_data():
         if not star_path:
             raise Exception('Missing starPath / outputPath')
 
-        full_path = os.path.join(root, star_path)
+        full_path = project_file_path(root, star_path)
         if not os.path.exists(full_path):
             raise Exception(f'STAR file not found: {star_path}')
+
+        # SPA outputs (Movies, Micrographs)
+        if spa_key := resolve_spa_table_view_type(pointer_class, full_path):
+            return build_spa_table(full_path, spa_key)
 
         type_key = resolve_table_view_type(pointer_class, star_path)
         if type_key == 'tomocoordinates':
@@ -802,12 +817,22 @@ def get_table_view_data():
     return _handle_item(_handle, 'tableViewData')
 
 
-def _check_can_edit_processing(root, entry_id=None):
+def _check_can_edit_processing(root, entry_id=None, session_id=None):
     """ Raise unless the current user may change the processing project at
     root: edit the project of its tomo_processing entry (entry_id, or the
-    entries with that processing path).  A path with no entry is for
-    managers only. """
+    entries with that processing path), or the session whose OTF folder
+    it is (session_id).  A path with no entry is for managers only. """
     root = os.path.abspath(root)
+
+    if session_id:
+        from emhub.data.content.dc_tomo_otf import resolve_tomo_otf_source
+        source = resolve_tomo_otf_source(app.dm, app.user, session_id=session_id)
+        if not source['path'] or os.path.abspath(source['path']) != root:
+            raise Exception('The processing path is not the OTF folder of the session')
+        if not source['can_edit']:
+            raise Exception('Only the session owner lab, the project editors and '
+                            'managers can launch jobs in this project')
+        return
 
     def _root(entry):
         path = resolve_processing_path(entry.extra.get('data', {}).get('processing_path', ''))
@@ -839,7 +864,7 @@ def create_tomo_subset():
     change the project (see _check_can_edit_processing). """
     def _handle(**attrs):
         root = resolve_project_root(attrs['root'])
-        _check_can_edit_processing(root, attrs.get('entry_id'))
+        _check_can_edit_processing(root, attrs.get('entry_id'), attrs.get('session_id'))
         star_path = attrs.get('starPath') or attrs.get('star_path') or attrs.get('outputPath')
         pointer_class = attrs.get('pointerClass') or attrs.get('pointer_class') or ''
         subset_items = attrs.get('subsetItems') or attrs.get('subset_items') or []
@@ -858,21 +883,19 @@ def create_tomo_subset():
     return _handle_item(_handle, 'subsetResult')
 
 
-def _tomo_otf_session_for_edit(entry_id, job_id=None):
-    """ The on-the-fly session of a tomo_processing entry, as its tilt
-    analysis job job_id shows it (the latest if not given), if the current
-    user may change its project: its owner, collaborators or a manager. """
+def _tomo_otf_session_for_edit(attrs):
+    """ The on-the-fly session of a tomo_processing entry (attrs['entry_id'])
+    or of an EMhub session (attrs['session_id']), as its tilt analysis job
+    attrs['job_id'] shows it (the latest if not given), if the current user
+    may change it (see resolve_tomo_otf_source). """
     from emhub.data.processing.tomo_otf import OtfSession
-    entry = app.dm.get_entry_by(id=int(entry_id))
-    if entry is None or entry.type != 'tomo_processing':
-        raise Exception(f'No tomo processing entry with id {entry_id}')
-    project = app.dm.get_project_by(id=entry.project_id)
-    if project is None or not app.user.can_edit_project(project):
+    from emhub.data.content.dc_tomo_otf import resolve_tomo_otf_source
+    source = resolve_tomo_otf_source(app.dm, app.user, **attrs)
+    if not source['can_edit']:
         raise Exception('Only the project owner, its collaborators and managers '
                         'can change this selection')
-    data = entry.extra.get('data', {})
-    return OtfSession(resolve_processing_path(data.get('processing_path', '')),
-                      analysis_job=job_id or None, thresholds=data.get('otf_thresholds'))
+    return OtfSession(source['path'], analysis_job=attrs.get('job_id') or None,
+                      thresholds=source['thresholds'])
 
 
 # What the dashboard records of a subset it made (create_tomo_subset)
@@ -888,7 +911,7 @@ def tomo_otf_save_selection():
     if given, the export of a subset made from it (attrs['export'], with
     _TOMO_OTF_EXPORT_KEYS), stamped with the user and the time. """
     def _handle(**attrs):
-        session = _tomo_otf_session_for_edit(attrs['entry_id'], attrs.get('job_id'))
+        session = _tomo_otf_session_for_edit(attrs)
         export = attrs.get('export')
         if export is not None:
             if not isinstance(export, dict) or not export.get('jobId'):
@@ -915,6 +938,14 @@ def resolve_table_view_pane():
         column_id = attrs.get('columnId') or attrs.get('column_id')
         row = attrs.get('row') or {}
         row_cells = row.get('cells') or {}
+
+        # SPA outputs (Movies, Micrographs)
+        output_path = attrs.get('outputPath') or attrs.get('starPath') or attrs.get('path')
+        output_full = project_file_path(root, output_path) if output_path else None
+        if spa_key := resolve_spa_table_view_type(pointer_class, output_full):
+            return build_spa_pane_content(action_id, root, spa_key, row_cells,
+                                          output_path=output_path,
+                                          row_label=attrs.get('rowLabel'))
 
         type_hint_path = resolve_table_view_type_hint(attrs, row_cells)
         type_key = resolve_table_view_type(pointer_class, type_hint_path)
@@ -998,10 +1029,14 @@ def _coords3d_output_path(attrs, protocol_id=None):
         or attrs.get('output_name')
     )
     if output_path:
+        # Only outputs inside the project (raise ValueError otherwise)
+        project_file_path(attrs['root'], output_path)
         return output_path
     protocol_id = protocol_id or attrs.get('protocolId') or attrs.get('protocol_id')
     if protocol_id:
-        return os.path.join(protocol_id, 'optimisation_set.star')
+        output_path = os.path.join(protocol_id, 'optimisation_set.star')
+        project_file_path(attrs['root'], output_path)
+        return output_path
     raise Exception('Missing outputPath / outputName')
 
 
@@ -1399,7 +1434,7 @@ def delete_task():
                     result += wstream.delete_task(t['id'])
 
         elif task_id.startswith('<'):
-            task_id.replace('<', '')
+            task_id = task_id.replace('<', '')
             for t in wstream.get_all_tasks():
                 if t['id'] < task_id:
                     result += wstream.delete_task(t['id'])
@@ -1429,7 +1464,11 @@ def get_new_tasks():
     """
     def _get_new_tasks(**attrs):
         worker = validate_worker_token(attrs['token'])
-        tasks = app.dm.get_worker_stream(worker, update=True).get_new_tasks()
+        # Blocking time (ms) waiting for new tasks, it should be shorter than
+        # the worker's requests timeout, otherwise tasks read after the worker
+        # gave up are claimed (pending) but never received
+        block = int(attrs.get('block', 30000))
+        tasks = app.dm.get_worker_stream(worker, update=True).get_new_tasks(block=block)
         return tasks
 
     return _handle_item(_get_new_tasks, 'tasks')
@@ -1476,7 +1515,8 @@ def get_all_tasks():
 def update_log():
     """ Add a new event for a given log. """
     def _update_log(**attrs):
-        validate_worker_token(attrs['token'])
+        worker = validate_worker_token(attrs['token'])
+        app.dm.worker_seen(worker)
         log_id = attrs['log_id']
         event = attrs['event']
         app.dm.update_log(log_id, event)

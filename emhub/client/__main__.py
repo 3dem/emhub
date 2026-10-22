@@ -677,35 +677,92 @@ def process_sessions(args):
 
             _request(f'{url_prefix}_session', s)
 
-        if update := args.update:
-            if os.path.exists(update):  # Update sessions from a JSON file
-                print(f"Loading session from json: {update}...")
-                with open(update) as f:
-                    _session_create_or_update(json.load(f))
+        def _session_id_and_folder(values, option, default_folder=None):
+            """ Parse SESSION_ID [FOLDER] values of an update option. """
+            if len(values) > 2:
+                raise Exception(f"{option} expects SESSION_ID [FOLDER]")
+            folder = values[1] if len(values) > 1 else default_folder
+            return int(values[0]), folder
 
-            else:  # An id should be provided
-                session_id = int(args.update)
-                r = dc.request('get_sessions', jsonData={'condition': 'id=%s' % session_id})
-                s = r.json()[0]
-                extra = s['extra']
-                raw = s['extra']['raw']
-                cwd = os.path.abspath(os.getcwd())
-                rawPath = os.path.realpath(os.path.join(cwd, 'data'))
-                #rawPath = raw['path']
-                raw['path'] = rawPath
-                extra['otf'] = {
-                    "cryolo_model": "",
-                    "host": "cryo-em-wkst04.stjude.org",
-                    "path": cwd,
-                    "status": "running",
-                    "workflow": "emwrap"
-                }
-                if os.path.exists(rawPath):
-                    mf = MovieFiles()
-                    mf.scan(rawPath)
-                    raw.update(mf.info())
-                    _request('update_session', {'id': session_id, 'extra': extra})
-                    #print(json.dumps(extra, indent=4))
+        def _update_extra(session_id, key, value):
+            """ Update only extra[key] of the session (the server merges
+            the first level keys of extra, so others are kept). """
+            print(f">>> Updating session ID={session_id}: extra['{key}']")
+            print(json.dumps(value, indent=4))
+            _request('update_session', {'id': session_id, 'extra': {key: value}})
+
+        def _update_raw(session_id, raw_folder=None):
+            """ Update extra['raw'] with the path and the files stats of the
+            raw data folder (by default, the current session raw path). """
+            s = dc.get_session(session_id)
+            raw = dict(s['extra'].get('raw', {}))
+            rawPath = os.path.realpath(raw_folder or raw.get('path', ''))
+            if not os.path.isdir(rawPath):
+                raise Exception(f"Raw data folder does not exist: '{rawPath}'")
+            if rawPath != raw.get('path'):
+                # Stats of a previous raw folder are no longer valid
+                print(f"Raw folder changed: '{raw.get('path', '')}' -> '{rawPath}'")
+                raw = {}
+
+            print(f"Scanning raw data folder: {rawPath}")
+            mf = MovieFiles()
+            mf.scan(rawPath)
+            raw.update(mf.info())
+            raw['path'] = rawPath
+            _update_extra(session_id, 'raw', raw)
+
+        def _update_otf(session_id, otf_folder):
+            """ Update extra['otf'] from an OTF project folder (e.g. created
+            manually with 'emw-otf -c'). Other keys of extra['otf'] (e.g. the
+            workflow config key, host or crYOLO model) are kept.
+            The EMhub server also sets the session data_path from the OTF path. """
+            otfPath = os.path.abspath(otf_folder)
+            if not os.path.isdir(otfPath):
+                raise Exception(f"OTF folder does not exist: '{otfPath}'")
+
+            s = dc.get_session(session_id)
+            otf = dict(s['extra'].get('otf', {}))
+            otf['path'] = otfPath
+
+            sessionJsonFn = os.path.join(otfPath, 'session.json')
+            if os.path.exists(sessionJsonFn):
+                with open(sessionJsonFn) as f:
+                    sessionJson = json.load(f)
+                if (sid := sessionJson.get('session_id')) not in (None, session_id):
+                    raise Exception(f"OTF project was created for session {sid}, "
+                                    f"not for session {session_id}: {sessionJsonFn}")
+                if otfType := sessionJson.get('otf_type'):
+                    otf['otf_type'] = otfType
+                if wf := sessionJson.get('workflow'):
+                    otf['workflow_template'] = wf.get('file', '')
+            else:
+                print(Color.warn(f"No session.json in {otfPath}, it is not an "
+                                 f"emwrap OTF project, only updating the path."))
+
+            # The sessions server (re)creates and launches the OTF when
+            # the status is missing or 'created'
+            if otf.get('status', 'created') == 'created':
+                otf['status'] = 'launched'
+
+            _update_extra(session_id, 'otf', otf)
+
+        if args.update_raw:
+            _update_raw(*_session_id_and_folder(args.update_raw, '--update-raw'))
+            return
+
+        if args.update_otf:
+            _update_otf(*_session_id_and_folder(args.update_otf, '--update-otf',
+                                                default_folder=os.getcwd()))
+            return
+
+        if update := args.update:
+            if not os.path.exists(update):
+                raise Exception(f"JSON file not found: '{update}'. "
+                                f"To update a session from its raw data or OTF "
+                                f"folders, use --update-raw or --update-otf.")
+            print(f"Loading session from json: {update}...")
+            with open(update) as f:
+                _session_create_or_update(json.load(f))
             return
 
         sessions = dc.request('get_sessions', jsonData=None).json()
@@ -1071,10 +1128,17 @@ def main():
                    help="List sessions, leave it empty to list all.")
     g.add_argument('--create', '-c', metavar='SESSION_JSON',
                    help='Create a session from the json file. ')
-    g.add_argument('--update', '-u', metavar='JSON_FILE_OR_ID',
-                   help="Update forms with data from the json file. "
-                        "A session ID can also be passed and then"
-                        "it will be updated reading files from raw. ")
+    g.add_argument('--update', '-u', metavar='SESSION_JSON',
+                   help="Update a session with data from the json file "
+                        "(it should contain the session id).")
+    g.add_argument('--update-raw', nargs='+', metavar=('SESSION_ID', 'RAW_FOLDER'),
+                   help="Update the session extra['raw'] with the path and the "
+                        "files stats of the raw data folder. By default, the "
+                        "current raw path of the session is scanned again.")
+    g.add_argument('--update-otf', nargs='+', metavar=('SESSION_ID', 'OTF_FOLDER'),
+                   help="Update the session extra['otf'] (and data_path) from an "
+                        "OTF project folder, e.g. created with 'emw-otf -c'. "
+                        "By default, the current folder is used.")
     session_p.add_argument('--filters', '-f', nargs='*', metavar='FILTER',
                            help="Filter string to be used with list option.")
     session_p.add_argument('--from_date', metavar='FROM_DATE',

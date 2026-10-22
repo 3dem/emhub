@@ -163,7 +163,9 @@ class RelionSessionData(SessionData):
     def get_ctfs_runid(self):
         """ Return the run_id for the ctfs used for the general session overview. """
         # Remove the last part (filename) from the path
-        return '/'.join(self.session['micrographs'].split('/')[:-1])
+        if not (micrographs := self.session['micrographs']):
+            return ''
+        return '/'.join(micrographs.split('/')[:-1])
 
     def _job_info(self, job):
         return self.project.readJobInfo(job, default={})

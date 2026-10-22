@@ -316,12 +316,14 @@ class DataManager(DbManager):
         return user
 
     def update_user(self, **attrs):
-        """ Update an existing user. """
-        try:
-            pi_id = int(attrs['pi_id'])
-        except:
-            pi_id = None
-        attrs['pi_id'] = pi_id
+        """ Update an existing user.
+        The pi_id is only changed when provided (an empty value clears it).
+        """
+        if 'pi_id' in attrs:
+            try:
+                attrs['pi_id'] = int(attrs['pi_id'])
+            except (TypeError, ValueError):
+                attrs['pi_id'] = None
 
         if 'password' in attrs:
             attrs['password_hash'] = self.User.create_password_hash(attrs['password'])
@@ -1622,6 +1624,8 @@ class DataManager(DbManager):
             if not r.is_active:
                 raise Exception("Selected resource is inactive now. ")
 
+            self.__check_independent_booking(r, booking)
+
             # Booking can not be made in the past
             if (booking.start.date() < self.now().date() and
                     not self.check_resource_access(r, 'past_bookings')):
@@ -1643,19 +1647,7 @@ class DataManager(DbManager):
 
             # Validate if there are restrictions in max number of bookings for
             # this type of resource or similar ones (same tags)
-            pending = self.__get_session_dict('pending_bookings')
-            nextBookings = None
-            for tagName, maxPending in pending.items():
-                m = int(maxPending)
-                if m > 0 and tagName in r.tags:
-                    # Only retrieve the next bookings when it is required
-                    if nextBookings is None:
-                        nextBookings = self.get_next_bookings(user)
-                    count = sum(1 for b in nextBookings if tagName in b.resource.tags)
-                    if count >= m:
-                        raise Exception("You already reached the maximum number"
-                                        " of pending bookings for resource tag "
-                                        "'%s'" % tagName)
+            self.__check_pending_bookings(r, booking)
 
         s, e = booking.start, booking.end
         week = dt.timedelta(days=7)
@@ -1727,6 +1719,94 @@ class DataManager(DbManager):
                                         % (app.code, tagKey))
         else:
             booking.application_id = None
+
+    def __is_unclaimed_slot(self, resource, booking):
+        """ Return True if the booking is inside a slot that starts within the
+        next 'unclaimed_slot_hours' (config:bookings, default 24).
+        Such slots can be booked without the pending bookings limit. """
+        hours = self.get_config('bookings').get('unclaimed_slot_hours', 24)
+        if not hours or booking.start - self.now() > dt.timedelta(hours=hours):
+            return False
+
+        return any(b.is_slot and booking.inside_slot(b)
+                   for b in self.get_bookings_range(booking.start, booking.end,
+                                                    resource=resource))
+
+    def __check_pending_bookings(self, resource, booking):
+        """ Check the maximum number of pending (upcoming) bookings per lab
+        for resources with a given tag or name (sessions_config 'pending_bookings',
+        e.g. 'Krios01': 1, 'arctica': 2). Bookings of all the members of the
+        owner's lab (same PI) are counted.
+        """
+        def _match(key, r):
+            return key == r.name or key in r.tags.split()
+
+        pending = self.__get_session_dict('pending_bookings')
+        limits = {k: int(m) for k, m in pending.items()
+                  if int(m) > 0 and _match(k, resource)}
+
+        if not limits or self.__is_unclaimed_slot(resource, booking):
+            return
+
+        owner = self.get_user_by(id=booking.owner_id) or self._user
+        pi = owner.get_pi()
+        lab_ids = {owner.id}
+        if pi is not None:
+            lab_ids.add(pi.id)
+            lab_ids.update(u.id for u in pi.lab_members)
+
+        conditionStr = ("start>='%s' AND type='booking' AND owner_id IN (%s)"
+                        % (datetime_to_isoformat(self.now()),
+                           ','.join(str(i) for i in lab_ids)))
+        nextBookings = [b for b in self.get_bookings(condition=conditionStr)
+                        if b.id != booking.id]
+
+        for key, m in limits.items():
+            count = sum(1 for b in nextBookings if _match(key, b.resource))
+            if count >= m:
+                raise Exception("Your lab already reached the maximum number "
+                                "of pending bookings (%d) for '%s'. " % (m, key))
+
+    def __booking_on_weekend(self, booking):
+        """ Return True if any part of the booking falls on Saturday or Sunday
+        (in the local timezone). """
+        start = self.dt_as_local(booking.start)
+        # Exclude the end instant, a booking ending at Sat 00:00 is not on weekend
+        end = self.dt_as_local(booking.end) - dt.timedelta(microseconds=1)
+        day = start.date()
+        while day <= end.date():
+            if day.weekday() >= 5:
+                return True
+            day += dt.timedelta(days=1)
+        return False
+
+    def __check_independent_booking(self, resource, booking):
+        """ Check the 'independent' rules from the 'resources' config, e.g:
+            "independent": {"Krios01": "weekends", "Aquilos2": "anyday"}
+        With 'anyday', only independent users can book the resource.
+        With 'weekends', only independent users can book on weekends.
+        """
+        independent = self.get_config('resources').get('independent', {})
+        mode = independent.get(resource.name, None)
+
+        if mode is None:
+            return
+
+        owner = self.get_user_by(id=booking.owner_id) or self._user
+
+        if owner.is_manager or owner.is_independent_for(resource.id):
+            return
+
+        if mode == 'anyday':
+            raise Exception(f"Only independent users can book {resource.name}. ")
+
+        if mode == 'weekends':
+            if self.__booking_on_weekend(booking):
+                raise Exception(f"Only independent users can book "
+                                f"{resource.name} on weekends. ")
+        else:
+            raise Exception(f"Invalid independent mode '{mode}' for resource "
+                            f"{resource.name}, expected 'anyday' or 'weekends'.")
 
     def __check_cancellation(self, booking, attrs=None):
         """ Check if this booking can be updated or deleted.
@@ -1878,7 +1958,7 @@ class DataManager(DbManager):
                 return 0
             return 1
 
-        def get_new_tasks(self, block=120000):
+        def get_new_tasks(self, block=30000):
             results = self.r.xreadgroup('group', self.worker, {self.name: '>'},
                                         block=block)
             new_tasks = []
@@ -1931,10 +2011,18 @@ class DataManager(DbManager):
 
     # ---------------------------- ENTRIES ---------------------------------
     def get_hosts(self):
-        """ Use Redis to cache hosts information, avoiding
-        reading it from the config all the time. """
-        self._hosts = getattr(self, '_hosts', self.get_config('hosts'))
-        return self._hosts
+        """ Hosts (workers) from the config, cached in Redis, so it is the
+        same for all the server processes (not cached in this instance). """
+        return self.get_config('hosts')
+
+    def worker_seen(self, worker):
+        """ Register the last time a worker made a request to the server. """
+        if self.r is not None:
+            self.r.hset('workers:seen', worker, Pretty.now())
+
+    def get_workers_seen(self):
+        """ Last time each worker made a request: {worker: datetime str}. """
+        return self.r.hgetall('workers:seen') if self.r is not None else {}
 
     def get_workers(self):
         return self.get_hosts()
@@ -1944,6 +2032,7 @@ class DataManager(DbManager):
         self.get_worker_stream(worker, update=True).connect()
         hosts = self.get_hosts()
         w = hosts[worker]
+        w.pop('updated', None)  # last request time is kept in Redis (worker_seen)
         w.update({'specs': specs,
                   'connected': Pretty.datetime(now)})
         self.update_config('hosts', hosts, cache=True)
@@ -1955,7 +2044,7 @@ class DataManager(DbManager):
             raise Exception("Unregistered host %s" % worker)
 
         if update:
-            host['updated'] = Pretty.now()
+            self.worker_seen(worker)
 
         return DataManager.WorkerStream(worker, self)
 

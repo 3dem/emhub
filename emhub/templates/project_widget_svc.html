@@ -430,18 +430,24 @@ var svc = {
     var pointerClass = String(ctx.pointerClass || ctx.outputRaw?.pointerClass || '').replace(/\s+/g, '');
     var outputPath = ctx.value || ctx.outputRaw?.value || '';
 
-    if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles') {
+    if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles' ||
+        pointerClass === 'Movies' || pointerClass === 'Micrographs' || pointerClass === 'MultiClasses2D' ||
+        pointerClass === 'Particles') {
       return buildTableViewerAnalyzeDecision(ctx, pointerClass);
     }
 
     // A tilt analysis opens its OTF dashboard
     if (pointerClass === 'TiltSeriesAnalysis') {
       var jobId = outputPath ? outputPath.split('/').slice(0, -1).join('/') : ctx.protocolId;
+      // The OTF project of a session is shown in the session live page
+      var url = project_details.session_id
+          ? "{{ url_for_content('session_live') }}"
+             + '&session_id=' + encodeURIComponent(project_details.session_id)
+          : "{{ url_for_content('tomo_otf_dashboard') }}"
+             + '&entry_id=' + encodeURIComponent(project_details.id);
       return {
         handled: true,
-        url: "{{ url_for_content('tomo_otf_dashboard') }}"
-             + '&entry_id=' + encodeURIComponent(project_details.id)
-             + '&job_id=' + encodeURIComponent(jobId),
+        url: url + '&job_id=' + encodeURIComponent(jobId),
         target: "_blank"
       };
     }
@@ -649,8 +655,14 @@ var svc = {
         || request.row?.cells?.tomogramPath
         || request.row?.cells?.tomogram
         || request.row?.cells?.rlnTomoReconstructedTomogram
+        // SPA rows (Micrographs, Movies), e.g. for row actions (CTF, motion...)
+        || request.row?.cells?.micrographPath
+        || request.row?.cells?.moviePath
         || '';
     }
+    // Row actions resolved on the server from the output (e.g. SPA metadata)
+    if (!pathRel)
+      pathRel = request.outputPath || '';
 
     if (!pathRel) {
       return { kind: 'empty', message: 'No path available for this row action.' };

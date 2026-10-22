@@ -42,6 +42,8 @@ from emtools.utils import Pretty, Path, Timer
 from emtools.metadata import Bins, TsBins, EPU, StarFile
 from emtools.image import Thumbnail
 
+from .dc_tomo_otf import is_tomo_otf_session
+
 
 def register_content(dc):
 
@@ -123,6 +125,11 @@ def register_content(dc):
             }
             data.update(dc.get_data('tomo_session_content',
                                     tomo_session=json.dumps(data['tomo_session'])))
+        elif is_tomo_otf_session(session):
+            # Tomo OTF from emwrap (session.json with otf_type = 'tomo'),
+            # shown with the on-the-fly CryoET dashboard
+            data['tomo_live'] = True
+            data.update(dc.get_data('tomo_otf_dashboard', **kwargs))
         else:
             data.update(dc.get_session_data(session))
 

@@ -7,7 +7,10 @@ extensions = ['sphinx.ext.autodoc',
               'rst.linker',
               'sphinxcontrib.napoleon',
               'sphinx_copybutton',
+              'sphinx.ext.graphviz',
               ]
+
+graphviz_output_format = 'svg'
 
 master_doc = "index"
 

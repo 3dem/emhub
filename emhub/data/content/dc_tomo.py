@@ -412,10 +412,8 @@ def register_content(dc):
     def entry_tomo_processing_validate(entry):
         e = entry.json()
         data = e['extra']['data']
-        ppath = None
-
-        dpath = data.get('data_path', '')
-        ppath = resolve_processing_path(data.get('processing_path', ''))
+        dpath = resolve_processing_path(data.get('data_path', '').strip())
+        ppath = resolve_processing_path(data.get('processing_path', '').strip())
 
         if not ppath:
             raise Exception(f"Processing path can not be empty.")
@@ -441,7 +439,7 @@ def register_content(dc):
             os.makedirs(ppath)
             from emwrap.base import ProjectManager
             pm = ProjectManager(ppath, create=True)            
-            os.symlink(data['data_path'], os.path.join(ppath, 'data'))
+            os.symlink(dpath, os.path.join(ppath, 'data'))
 
 
     @dc.content

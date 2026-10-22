@@ -32,7 +32,8 @@ import os
 from emtools.metadata import StarFile, RelionStar
 from emtools.utils import Path
 
-from emhub.data.processing import get_processing_project, resolve_project_root
+from emhub.data.processing import (get_processing_project, resolve_project_root,
+                                   project_file_path)
 
 
 # --- Shared table column / field / action definitions ---
@@ -342,7 +343,7 @@ def _table_view_row_actions(spec, type_key, row_cells, root=None):
         actions.extend(
             _optional_actions_for_series(
                 type_key,
-                os.path.join(resolve_project_root(root), star_rel))
+                project_file_path(root, star_rel))
         )
     return actions
 
@@ -630,13 +631,11 @@ def _find_tomogram_row(full_path):
 
 
 def _resolve_data_path(root, rel_path):
+    """ Full path of a file referenced in a row (relative to the project
+    root or absolute), that must be inside the project (see project_file_path). """
     if not rel_path:
         return None
-    if os.path.isabs(rel_path):
-        if rel_path.startswith('~'):
-            return os.path.abspath(os.path.expanduser(rel_path))
-        return rel_path
-    return os.path.join(resolve_project_root(root), rel_path)
+    return project_file_path(root, rel_path)
 
 
 def _resolve_tomogram_path(root, row_cells):
@@ -915,7 +914,7 @@ def resolve_row_tomogram_path(row_cells, column_id=None):
 
 def build_series_star_pane_content(action_id, root, star_rel, row_label, type_key):
     """Build pane content for actions that read a per-series tilt-series STAR file."""
-    full_path = os.path.join(resolve_project_root(root), star_rel)
+    full_path = project_file_path(root, star_rel)
     if not os.path.exists(full_path):
         raise Exception(f'STAR file not found: {star_rel}')
 
