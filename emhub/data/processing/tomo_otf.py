@@ -15,7 +15,7 @@ and computes the metrics needed by the OTF dashboard.
 Nothing in this module depends on Flask, so it can be used from a worker,
 a script or the test suite.  Run it standalone for a quick check:
 
-    python -m emhub.data.processing.otf_cryoet /path/to/project
+    python -m emhub.data.processing.tomo_otf /path/to/project
 """
 
 import os
@@ -33,7 +33,6 @@ from emtools.metadata import StarFile, RelionStar
 # The curation rule (reject limits, flags, tilts after a lost field) lives
 # there only: shared with the emw-tilt-curation job and the curation skill
 from emwrap.base.tilt_quality_curation import TiltQualityCuration
-from emwrap.base.tilt_thumbnails import TiltThumbnailWriter
 
 logger = logging.getLogger(__name__)
 
@@ -78,11 +77,25 @@ JOB_OUTPUT_STAR = {
 # rather than inferred from missing output.
 FAILED_STAR = 'failed_tilt_series.star'
 
-# The user's curation of a session, in the project folder next to emhub's
-# other project files.  It lists what was taken out (deselected tilt series,
-# excluded tilts per series by movie index), so anything not listed, such as
-# a tilt series acquired later, is selected.
-SELECTION_FILE = os.path.join('.emhub', 'otf_selection.json')
+# A dashboard shows one tilt analysis job (emwrap emw-tilt-analyze): the
+# tilt series it analyzes, its jpegs, CTF fit views and image measures.  Its
+# output, tilt_analysis.star, points to its thumbnails folder and to the
+# tilt series it analyzes; a project may have several, one dashboard each.
+ANALYSIS_JOBTYPE = 'emw-tilt-analyze'
+ANALYSIS_STAR = 'tilt_analysis.star'
+ANALYSIS_THUMBNAILS = 'thumbnails'
+# Warp OTF does motion correction, CTF, alignment and reconstruction in one
+# job: an analysis of its output gets those stages from it
+WARP_OTF_STARS = OrderedDict([('align', 'aligned_tilt_series.star'),
+                              ('tomogram', 'tomograms.star')])
+
+# The user's curation of a dashboard, in the folder of its tilt analysis
+# job.  It lists what was taken out (deselected tilt series, excluded tilts
+# per series by movie index), so anything not listed, such as a tilt series
+# acquired later, is selected.
+SELECTION_FILE = 'otf_selection.json'
+# Asked for as the alignment or reconstruction job to show: none
+NO_JOB = 'none'
 
 # RELION 5 per-tilt columns we read.  Everything is optional: a job that did
 # not run yet simply leaves the column out, and the metric comes back as None.
@@ -298,6 +311,18 @@ def _read_json(path):
         return json.load(f)
 
 
+def _read_analysis_row(path):
+    """ The 'analysis' row of a tilt_analysis.star, as a dict. """
+    with StarFile(path) as sf:
+        for row in sf.iterTable('analysis', guessType=False):
+            return row._asdict()
+    return {}
+
+
+def _rmslash(path):
+    return str(path).strip().rstrip('/')
+
+
 def _read_cached(path, read):
     """ read(path), or what it returned before for this unchanged file.
 
@@ -340,9 +365,17 @@ class OtfJob:
         self.id = job_id                 # e.g. 'External/job020'
         self.jobtype = jobtype           # e.g. 'emw-warp-mctf'
         self.status = status             # RELION status label
-        self.alias = alias
+        # RELION writes 'None' for a job without an alias
+        self.alias = None if alias in (None, '', 'None') else alias
         self.outputs = []                # [(nodeName, nodeType)]
         self.inputs = []                 # star files it reads, project relative
+        self.star = None                 # its global star, when it is known
+
+    def with_star(self, star):
+        """ A copy of this job whose global star file is star. """
+        job = OtfJob(self.project, self.id, self.jobtype, self.status, self.alias)
+        job.outputs, job.inputs, job.star = self.outputs, self.inputs, star
+        return job
 
     @property
     def path(self):
@@ -365,6 +398,8 @@ class OtfJob:
         tilt_series.star it may never write), and is the fallback while the
         node is not registered yet.
         """
+        if self.star:
+            return self.star
         known = JOB_OUTPUT_STAR.get(self.jobtype)
         rel = os.path.join(self.id, known) if known else None
         stars = [name for name, ntype in self.outputs
@@ -773,10 +808,22 @@ def _check_selection(deselected, excluded_tilts=None, proposed_tilts=None, revie
 
 
 class OtfSession:
-    """ A single on-the-fly CryoET session, backed by a RELION 5 project. """
+    """ A single on-the-fly CryoET session, backed by a RELION 5 project,
+    as one of its tilt analysis jobs (emw-tilt-analyze) shows it. """
 
-    def __init__(self, path, thresholds=None):
+    def __init__(self, path, analysis_job=None, thresholds=None,
+                 align_job=None, tomo_job=None):
+        """ analysis_job: the id of the tilt analysis job ('EMwrap/job012'
+        or 'job012'), by default the project's latest one.  align_job,
+        tomo_job: the alignment and reconstruction jobs to show, among those
+        derived from the tilt series the analysis is of (see downstream()),
+        by default the newest ones; NO_JOB to show none. """
         self.path = os.path.abspath(os.path.expanduser(path))
+        self._analysisId = _rmslash(analysis_job) if analysis_job else None
+        self._analysisJob = None
+        self._requested = {'align': _rmslash(align_job) if align_job else None,
+                           'tomogram': _rmslash(tomo_job) if tomo_job else None}
+        self._downstream = None
         # An override of one limit keeps the other limits of that metric
         self.thresholds = {
             k: ({**v, **(thresholds or {}).get(k, {})} if isinstance(v, dict)
@@ -803,21 +850,17 @@ class OtfSession:
     }
 
     def tilt_thumbnail(self, tilt, kind='image'):
-        """ A file emwrap writes for a tilt, as {'path', 'version'}, or None
-        if it has not been written.  emwrap puts them in the thumbnails
-        folder of the job of the source MRC (TiltThumbnailWriter.folder): the
-        tilt image (and a larger one), the CTF fit image and the CTF fit
-        radial profile.  path is project relative;
+        """ A file the tilt analysis job writes for a tilt, as {'path',
+        'version'}, or None if it has not been written: the tilt image (and a
+        larger one), the CTF fit image and the CTF fit radial profile, in
+        its thumbnails folder.  path is project relative;
         version is the modification time, for the URL, so the browser does
         not keep showing a cached copy after emwrap rewrites the file. """
         col, pattern = self.THUMBNAIL_KINDS[kind]
         src = tilt.get(col)
         if not src:
             return None
-        folder = TiltThumbnailWriter.folder(src)
-        if not folder:
-            return None
-        rel = os.path.join(folder, pattern.format(name=os.path.splitext(os.path.basename(src))[0]))
+        rel = os.path.join(self.analysis()['thumbnails'], pattern.format(name=os.path.splitext(os.path.basename(src))[0]))
         try:
             mtime = os.stat(self.join(rel)).st_mtime
         except OSError:
@@ -874,7 +917,7 @@ class OtfSession:
         {name: {'by', 'at'}} the tilt series a curator marked as reviewed,
         who changed it last and when, and the 'exports' made from it. """
         try:
-            with open(self.join(SELECTION_FILE)) as f:
+            with open(self.selection_file) as f:
                 data = json.load(f)
         except (OSError, ValueError):
             data = {}
@@ -916,7 +959,7 @@ class OtfSession:
                                 for name in sorted(set(reviewed))}
         if export:
             data['exports'].append(export)
-        path = self.join(SELECTION_FILE)
+        path = self.selection_file
         os.makedirs(os.path.dirname(path), exist_ok=True)
         # A temporary file per save, so two saves at once cannot mix.  Made
         # by open(), so it gets the folder's permissions (default ACLs) as
@@ -927,63 +970,37 @@ class OtfSession:
         os.replace(tmp, path)
         return data
 
-    def propose_exclusions(self, deselected=None, excluded_tilts=None, proposed_tilts=None):
-        """ The tilts to propose leaving out, given a selection (the
-        browser's, which may not be saved yet): per selected tilt series,
-        those of TiltSeriesMetrics.proposed_exclusions not excluded already
-        and not proposed before (one ticked again after a proposal stays).
-
-        Returns {'series': [{'name', 'add': [movie indices], 'flags':
-        {flag: count}, 'curated': whether it has tilts excluded other than by
-        an accepted proposal}],
-        'review': [{'name', 'status', 'keeps'}]}, review being the series
-        that would keep under the usable fraction limit: listed for the
-        user, never deselected.  Series still processing are left out. """
-        deselected = [] if deselected is None else deselected
-        _check_selection(deselected, excluded_tilts, proposed_tilts)
-        excluded, proposed = excluded_tilts or {}, proposed_tilts or {}
-        deselected = set(deselected)
-        out, review = [], []
-        limit = self.thresholds['usableFraction'].get(STATUS_BAD)
+    def proposal_inputs(self):
+        """ What the page proposes exclusions from, for its selection (saved
+        or not): per tilt series with tilts and not still processing, its
+        'status', 'nTilts', the movie indices it 'uses' (not dropped by
+        processing) and the tilts the curation rule leaves out,
+        'proposed' {movie index: [flags]} (TiltSeriesMetrics.
+        proposed_exclusions); and 'usableLimit', the fraction of tilts under
+        which a tilt series is listed for review (never deselected). """
+        series = []
         for ts in self.tilt_series():
-            if ts.tomoName in deselected or ts.status == STATUS_RUNNING or not ts.nTilts:
+            if ts.status == STATUS_RUNNING or not ts.nTilts:
                 continue
-            ex = {int(i) for i in excluded.get(ts.tomoName, [])}
-            before = {int(i) for i in proposed.get(ts.tomoName, [])}
-            prop = ts.proposed_exclusions()
-            add = sorted(set(prop) - ex - before)
-            if add:
-                out.append({'name': ts.tomoName, 'add': add,
-                            'flags': dict(Counter(f for m in add for f in prop[m])),
-                            'curated': bool(ex - before)})
-            # What it keeps if this proposal is accepted for it
-            used = {int(t[COL_MOVIE_INDEX]) for t in ts.tilts
-                    if not t.get('excluded') and t.get(COL_MOVIE_INDEX) is not None}
-            keeps = len(used - ex - set(add)) / ts.nTilts
-            if limit is not None and keeps < limit:
-                review.append({'name': ts.tomoName, 'status': ts.status, 'keeps': keeps})
-        review.sort(key=lambda r: r['keeps'])
-        return {'series': out, 'review': review, 'usableLimit': limit}
+            used = sorted({int(t[COL_MOVIE_INDEX]) for t in ts.tilts
+                           if not t.get('excluded') and t.get(COL_MOVIE_INDEX) is not None})
+            series.append({'name': ts.tomoName, 'status': ts.status, 'nTilts': ts.nTilts,
+                           'used': used,
+                           'proposed': {int(m): flags for m, flags
+                                        in ts.proposed_exclusions().items()}})
+        return {'series': series,
+                'usableLimit': self.thresholds['usableFraction'].get(STATUS_BAD)}
 
-    def subset_plan(self):
-        """ What a subset job made from the stored selection contains.
-
-        It starts from the motion correction output: excluding tilts only
-        makes sense before alignment.  'selected' is {name: [excluded movie
-        indices]} for the selected tilt series in that output, 'skipped'
-        the selected ones not motion corrected yet, left out.
-        """
-        sel = self.selection()
+    def subset_input(self):
+        """ What a subset from the dashboard is made of: the tilt series the
+        analysis is of ('star', excluding tilts only makes sense before
+        alignment) and the tilt series in it ('names'); the page leaves out
+        the ones not in it yet.  None while there is no such output. """
         job = self.stages().get('motioncorr')
         star = job.output_star() if job else None
         if not star:
-            raise Exception('There is no motion correction output to make a subset from yet')
-        names = list(self._read_global_star(star))
-        deselected = set(sel['deselected'])
-        selected = {n: sel['excludedTilts'].get(n, []) for n in names if n not in deselected}
-        skipped = sorted({t.tomoName for t in self.tilt_series()} - set(names) - deselected)
-        return {'inputSet': star, 'selected': selected,
-                'deselected': sorted(deselected), 'skipped': skipped}
+            return None
+        return {'star': star, 'names': sorted(self._read_global_star(star))}
 
     @property
     def pipelineStar(self):
@@ -1004,20 +1021,131 @@ class OtfSession:
             self._jobs = jobs
         return self._jobs
 
-    def stages(self, reload=False):
-        """ Map stage key -> the job that produced it (latest one wins).
+    def analysis_jobs(self):
+        """ The tilt analysis jobs of the project, in pipeline order. """
+        return [j for j in self.jobs() if j.jobtype == ANALYSIS_JOBTYPE]
 
-        Returns an OrderedDict following STAGES, with None for stages that
-        have no job in this project yet.
+    @property
+    def analysis_job(self):
+        """ The tilt analysis job this dashboard shows. """
+        if self._analysisJob is None:
+            jobs = self.analysis_jobs()
+            if self._analysisId:
+                jobs = [j for j in jobs if j.id == self._analysisId
+                        or os.path.basename(j.id) == self._analysisId]
+                if not jobs:
+                    raise Exception(f'No tilt analysis job {self._analysisId} '
+                                    f'({ANALYSIS_JOBTYPE}) in this project')
+            elif not jobs:
+                raise Exception(f'This project has no tilt analysis job ({ANALYSIS_JOBTYPE}) '
+                                'yet: the dashboard shows one, run it on the motion '
+                                'corrected tilt series')
+            self._analysisJob = jobs[-1]
+        return self._analysisJob
+
+    def analysis(self, job=None):
+        """ Where a tilt analysis is (by default the one shown): {'job',
+        'thumbnails' (its folder), 'input' (the tilt series it analyzes)},
+        project relative; from its tilt_analysis.star, or its pipeline input
+        before it writes it. """
+        job = job or self.analysis_job
+        rows = _read_cached(self.join(job.id, ANALYSIS_STAR), _read_analysis_row) or {}
+        return {'job': job.id,
+                'thumbnails': rows.get('emwThumbnailsFolder') or os.path.join(job.id, ANALYSIS_THUMBNAILS),
+                'input': rows.get('emwInputTiltSeries') or (job.inputs[0] if job.inputs else None)}
+
+    @property
+    def selection_file(self):
+        return self.join(self.analysis_job.id, SELECTION_FILE)
+
+    @staticmethod
+    def _derived(jobs, nodes):
+        """ The jobs that read one of nodes (star files), directly or
+        through the outputs of other jobs, in pipeline order. """
+        nodes, derived = set(nodes), set()
+        changed = True
+        while changed:
+            changed = False
+            for job in jobs:
+                if id(job) not in derived and nodes & set(job.inputs):
+                    derived.add(id(job))
+                    nodes |= {name for name, _ in job.outputs}
+                    changed = True
+        return [j for j in jobs if id(j) in derived]
+
+    def _pick(self, key, options):
+        """ The job of a downstream stage to show: the requested one if it
+        is an option (NO_JOB for none), else the newest. """
+        requested = self._requested.get(key)
+        if requested == NO_JOB:
+            return None
+        if requested:
+            for job in options:
+                if requested in (job.id, os.path.basename(job.id)):
+                    return job
+        return options[-1] if options else None
+
+    def stages(self, reload=False):
+        """ Map stage key -> the job that produced it, as the tilt
+        analysis sees the session.
+
+        Motion correction and CTF are the job that wrote the tilt series the
+        analysis is of; the import, the one that wrote that job's input.
+        Alignment and reconstruction are the jobs derived from those tilt
+        series (the reconstruction from the alignment shown): the requested
+        ones, by default the newest, see downstream().  Warp OTF does every
+        stage in one job, so they all are its.  Returns an OrderedDict
+        following STAGES, with None for stages that have no job yet.
         """
         if self._stages is None or reload:
             stages = OrderedDict((key, None) for key in STAGES)
-            for job in self.jobs(reload=reload):     # in pipeline order
-                for key, spec in STAGES.items():
-                    if job.jobtype in spec['jobtypes']:
-                        stages[key] = job
+            jobs = self.jobs(reload=reload)
+            downstream = {'align': [], 'tomogram': []}
+            star = self.analysis()['input']
+            source = next((j for j in jobs if star and star.startswith(j.id.rstrip('/') + '/')), None)
+            if source is not None:
+                stages['motioncorr'] = stages['ctf'] = source.with_star(star)
+                # The import the source job read, else the latest one
+                imports = [j for j in jobs if j.jobtype in STAGES['import']['jobtypes']]
+                stages['import'] = next(
+                    (j for j in reversed(imports)
+                     if {name for name, _ in j.outputs} & set(source.inputs)),
+                    imports[-1] if imports else None)
+                if source.jobtype == 'emw-warp-otf':
+                    for key, name in WARP_OTF_STARS.items():
+                        downstream[key] = [source.with_star(os.path.join(source.id, name))]
+                else:
+                    downstream['align'] = [j for j in self._derived(jobs, [star])
+                                           if j.jobtype in STAGES['align']['jobtypes']]
+                stages['align'] = self._pick('align', downstream['align'])
+                if source.jobtype != 'emw-warp-otf' and stages['align'] is not None:
+                    alignOutputs = [name for name, _ in stages['align'].outputs]
+                    downstream['tomogram'] = [j for j in self._derived(jobs, alignOutputs)
+                                              if j.jobtype in STAGES['tomogram']['jobtypes']]
+                stages['tomogram'] = self._pick('tomogram', downstream['tomogram'])
+            self._downstream = downstream
             self._stages = stages
         return self._stages
+
+    def downstream(self):
+        """ The alignment and reconstruction jobs the dashboard can show:
+        {stage: {'options': [{'id', 'alias', 'status', 'jobType', 'star'}],
+        newest last, 'selected': the id shown or None, 'requested': what was
+        asked for or None (the newest)}}.  Only jobs derived from the tilt
+        series of the analysis (reconstructions, from the alignment shown). """
+        stages = self.stages()
+        out = {}
+        for key in ('align', 'tomogram'):
+            job = stages.get(key)
+            out[key] = {
+                'label': STAGES[key]['label'],
+                'options': [{'id': j.id, 'alias': j.alias, 'status': j.status,
+                             'jobType': j.jobtype, 'star': j.output_star()}
+                            for j in self._downstream[key]],
+                'selected': job.id if job else None,
+                'requested': self._requested.get(key),
+            }
+        return out
 
     # -- reading the star files -------------------------------------------
     def _read_global(self, job):
@@ -1255,14 +1383,11 @@ class OtfSession:
         self._read_image_qc(ts)
 
     def _read_image_qc(self, ts):
-        """ The image content measures of each tilt, from the json emwrap
-        writes beside the tilt jpegs, matched by micrograph name: raw in
-        t['imageQc'] for the rule, the match ones also as strip columns. """
-        src = next((t[COL_MICROGRAPH] for t in ts.tilts if t.get(COL_MICROGRAPH)), None)
-        folder = TiltThumbnailWriter.folder(src) if src else None
-        if not folder:
-            return
-        path = self.join(TiltQualityCuration.json_path(folder, ts.tomoName))
+        """ The image content measures of each tilt, from the json the tilt
+        analysis writes beside the tilt jpegs, matched by micrograph name:
+        raw in t['imageQc'] for the rule, the match ones also as strip
+        columns. """
+        path = self.join(self._image_qc_json(ts))
         data = _read_cached(path, _read_json)
         if not isinstance(data, dict):
             return
@@ -1278,16 +1403,23 @@ class OtfSession:
             for col in (COL_MATCH_PEAK, COL_FIELD_SHIFT):
                 t[col] = r.get(col)
 
+    def _image_qc_json(self, ts):
+        return TiltQualityCuration.json_path(self.analysis()['thumbnails'], ts.tomoName)
+
     def _read_ctf_correlations(self, ts, stars):
-        """ The CTF profile correlation of each tilt, from the json emwrap
-        writes beside its CTF fit view.  emwrap writes those before the tilt
-        series star file, so they are kept until one of the series' star
-        files changes, rather than checking every json on each refresh. """
+        """ The CTF profile correlation of each tilt, from the json the tilt
+        analysis writes beside its CTF fit view.  It writes those before the
+        image measures of the tilt series, so they are kept until the
+        series' star files or its image measures change, rather than
+        checking every json on each refresh. """
+        files = list(dict.fromkeys(stars))
+        if os.path.exists(self.join(self._image_qc_json(ts))):
+            files.append(self._image_qc_json(ts))
         try:
-            stamps = tuple((p, os.stat(self.join(p)).st_mtime_ns) for p in dict.fromkeys(stars))
+            stamps = tuple((p, os.stat(self.join(p)).st_mtime_ns) for p in files)
         except OSError:
             stamps = None
-        key = (self.path, ts.tomoName, stamps)
+        key = (self.path, self.analysis_job.id, ts.tomoName, stamps)
         values = _CORR_CACHE.get(key) if stamps else None
         if values is None:
             values = {}
@@ -1422,18 +1554,21 @@ class OtfSession:
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('project', help='Path to the RELION 5 project folder')
+    p.add_argument('--analysis', metavar='JOB_ID',
+                   help='The tilt analysis job to show (default: the latest)')
     p.add_argument('--json', action='store_true', help='Dump everything as JSON')
     p.add_argument('--tilts', metavar='TOMO_NAME',
                    help='Print the per-tilt table of one tilt series')
     args = p.parse_args()
 
-    session = OtfSession(args.project)
+    session = OtfSession(args.project, analysis_job=args.analysis)
 
     if args.json:
         print(json.dumps(session.json(with_tilts=True), indent=2))
         return
 
-    print(f'Project: {session.path}\n')
+    print(f'Project: {session.path}')
+    print(f'Tilt analysis: {session.analysis_job.id}\n')
     print('Jobs found:')
     for key, job in session.stages().items():
         label = STAGES[key]['label']

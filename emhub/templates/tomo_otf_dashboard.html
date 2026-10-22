@@ -6,7 +6,7 @@
 <style>
 /* Every colour that changes with the theme is a variable here; the light
    values are the dashboard's own, the dark ones apply with .otf-dark.  The
-   status colours, the same in both, come from dc_otf.PALETTE. */
+   status colours, the same in both, come from dc_tomo_otf.PALETTE. */
 .otf-page {
     --otf-data: {{ palette.data }}; --otf-good: {{ palette.good }};
     --otf-review: {{ palette.review }}; --otf-bad: {{ palette.bad }};
@@ -275,9 +275,10 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
        and every change is saved there shortly after. */
     /* Where the user was: the tilt series opened last, marked in the table
        and the trends when coming back, and the tilt selected in each tilt
-       series, opened again with it.  Kept in this browser per entry, so a
-       reload keeps them too.  Here, as the content uses it as it loads. */
-    var OTF_NAV_KEY = 'otfNav:' + {{ entry_id }};
+       series, opened again with it.  Kept in this browser per entry and
+       tilt analysis job, so a reload keeps them too.  Here, as the content
+       uses it as it loads. */
+    var OTF_NAV_KEY = 'otfNav:' + {{ entry_id }} + ':' + {{ job_id|tojson }};
     window.otfNav = (function() {
         try { return $.extend({last: null, tilts: {}}, JSON.parse(localStorage.getItem(OTF_NAV_KEY))); }
         catch (e) { return {last: null, tilts: {}}; }
@@ -303,21 +304,31 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
     }
     window.otfRedrawSaveState = function() { otfSetSaveState(otfSaveState); };
     window.otfSetSaveState = otfSetSaveState;
+    /* Store the selection in the tilt analysis job, with an export (a
+       subset made from it) to record if given. */
+    function otfPostSelection(exportRecord) {
+        otfSetSaveState('saving');
+        var attrs = {entry_id: {{ entry_id }}, job_id: {{ job_id|tojson }},
+                     deselected: Array.from(otfSel.deselected),
+                     excludedTilts: otfSel.excludedTilts, proposedTilts: otfSel.proposedTilts,
+                     reviewed: Object.keys(otfSel.reviewed)};
+        if (exportRecord) attrs['export'] = exportRecord;
+        send_ajax_json(Api.urls.tomo_otf_save_selection, attrs,
+                       function(data) {
+                           if (data.error) { otfSetSaveState('error'); showError(data.error); }
+                           else otfSetSaveState('saved');
+                       },
+                       function() { otfSetSaveState('error'); });
+    }
+    window.otfSaveSelectionNow = function(exportRecord) {
+        window.clearTimeout(otfSaveTimer);
+        otfPostSelection(exportRecord);
+    };
     window.otfSelectionChanged = function() {
         if (window.otfRenderSelection) window.otfRenderSelection();
         otfSetSaveState('saving');
         window.clearTimeout(otfSaveTimer);
-        otfSaveTimer = window.setTimeout(function() {
-            send_ajax_json(Api.urls.otf_save_selection,
-                           {entry_id: {{ entry_id }}, deselected: Array.from(otfSel.deselected),
-                            excludedTilts: otfSel.excludedTilts, proposedTilts: otfSel.proposedTilts,
-                            reviewed: Object.keys(otfSel.reviewed)},
-                           function(data) {
-                               if (data.error) { otfSetSaveState('error'); showError(data.error); }
-                               else otfSetSaveState('saved');
-                           },
-                           function() { otfSetSaveState('error'); });
-        }, 600);
+        otfSaveTimer = window.setTimeout(function() { otfPostSelection(); }, 600);
     };
 
 })(window, document, window.jQuery);
@@ -325,10 +336,13 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
 
 <div class="container-fluid dashboard-content">
 
-    {# Scoped: the content included below has its own title, the session's #}
+    {# Scoped: the content included below has its own title, the session's.
+       The project step opens its workflow page, as the project list does. #}
+    {% with project_step = (title, url_for_content('tomo_session', tomo_session_id=entry_id, mode='widget')) %}
     {% with title = "On-the-fly CryoET" %}
-    {% with navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), (title, '')] %}
+    {% with navigation = [('Tomo Processing', url_for_content('processing_tomo_list')), project_step, (title, '')] %}
     {% include 'include_header.html' %}
+    {% endwith %}
     {% endwith %}
     {% endwith %}
 
@@ -336,7 +350,7 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
     <div id="otf-messages"></div>
 
     <div id="otf-dashboard-content">
-        {% include 'otf_dashboard_content.html' %}
+        {% include 'tomo_otf_dashboard_content.html' %}
     </div>
 
 </div>
@@ -346,6 +360,11 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
 "use strict";
 
     var OTF_ENTRY_ID = {{ entry_id }};
+    // The tilt analysis job shown (several dashboards may share a project)
+    var OTF_JOB_ID = {{ job_id|tojson }};
+    // The alignment and reconstruction jobs asked for ('' for the newest)
+    var OTF_ALIGN_JOB = {{ align_job|tojson }};
+    var OTF_TOMO_JOB = {{ tomo_job|tojson }};
     var OTF_ROOT = {{ processing_path|tojson }};
     var OTF_REFRESH_MS = {{ refresh_seconds }} * 1000;
     var OTF_MODAL = '#otf-tiltseries-modal';
@@ -382,8 +401,9 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
     /* Refresh only the inner content, so scroll position and the open
        detail panel survive. Plotly is re-drawn by the inner template. */
     function otfRefresh() {
-        var content = get_ajax_content('otf_dashboard_content',
-                                       {entry_id: OTF_ENTRY_ID,
+        var content = get_ajax_content('tomo_otf_dashboard_content',
+                                       {entry_id: OTF_ENTRY_ID, job_id: OTF_JOB_ID,
+                                        align_job: OTF_ALIGN_JOB, tomo_job: OTF_TOMO_JOB,
                                         sort: window.otfSort || 'worst',
                                         filter: window.otfFilter || 'all',
                                         page: window.otfPage || 1});
@@ -433,8 +453,9 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
     window.otfShowTiltSeries = function(tomoName, order) {
         otfNav.last = tomoName;
         otfSaveNav();
-        var content = get_ajax_content('otf_tiltseries',
-                                       {entry_id: OTF_ENTRY_ID,
+        var content = get_ajax_content('tomo_otf_tiltseries',
+                                       {entry_id: OTF_ENTRY_ID, job_id: OTF_JOB_ID,
+                                        align_job: OTF_ALIGN_JOB, tomo_job: OTF_TOMO_JOB,
                                         tomo_name: tomoName,
                                         order: order || 'angle'});
         otfReplace(OTF_MODAL, content, true);
@@ -556,40 +577,56 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
         });
     }
 
-    /* Create subset: save the selection and launch an EMwrap subset job
-       with it from the motion correction output (the server works out the
-       tilt series in that output).  The result stays above the content. */
+    /* Create subset: launch an EMwrap subset job (create_tomo_subset, as
+       the table viewer) from the tilt series the analysis is of, with the
+       selected ones in it and without their excluded tilts, then store the
+       selection with the export.  The result stays above the content. */
     var otfSubsetBusy = false;    // the refreshed content asks, see otfIsSubsetBusy
     window.otfIsSubsetBusy = function() { return otfSubsetBusy; };
     window.otfCreateSubset = function() {
         var sel = otfSelection();
         if (!sel || otfSubsetBusy) return;
         var question = $('<div></div>')
-            .append($('<p></p>').text('Launch an EMwrap subset job from the motion correction ' +
-                                      'output with this selection:'))
+            .append($('<p></p>').text('Launch an EMwrap subset job from the tilt series of ' +
+                                      'this analysis with this selection:'))
             .append($('<p class="font-weight-bold"></p>').text($('#otf-select-summary').text()))
             .append($('<p class="mb-0"></p>').text('Tilt series not motion corrected yet are left ' +
                                                    'out. The selection and this export are recorded ' +
-                                                   'in .emhub/otf_selection.json.'));
+                                                   'in ' + OTF_JOB_ID + '/otf_selection.json.'));
         // emhub's confirmation window, as elsewhere in emhub
         function busy(on) {
             otfSubsetBusy = on;
             $('.otf-create-subset').prop('disabled', on);
         }
         confirm('Create subset', question.html(), 'Cancel', 'Create subset', function() {
+            var input = window.otfSubsetInput;
+            if (!input) { showError('There is no motion correction output to make a subset from yet.'); return; }
+            var inStar = new Set(input.names);
+            var selected = {};      // name -> excluded movie indices
+            input.names.forEach(function(name) {
+                if (!sel.deselected.has(name)) selected[name] = sel.excludedTilts[name] || [];
+            });
+            var names = Object.keys(selected);
+            if (!names.length) {
+                showError('None of the selected tilt series is in the motion correction output yet');
+                return;
+            }
+            var skipped = (window.otfAllSeries || []).map(function(t) { return t.name; })
+                .filter(function(name) { return !inStar.has(name) && !sel.deselected.has(name); });
             busy(true);
-            send_ajax_json(Api.urls.otf_create_subset,
-                           {entry_id: OTF_ENTRY_ID, deselected: Array.from(sel.deselected),
-                            excludedTilts: sel.excludedTilts, proposedTilts: sel.proposedTilts,
-                            reviewed: Object.keys(sel.reviewed)},
+            send_ajax_json(Api.urls.create_tomo_subset,
+                           {root: OTF_ROOT, entry_id: OTF_ENTRY_ID, starPath: input.star,
+                            pointerClass: 'TiltSeries', subsetItems: names, excludeTilts: selected},
                            function(data) {
                                busy(false);
                                var r = data.subsetResult;
                                if (!r) { showError(data.error || 'Could not create the subset.'); return; }
-                               otfSetSaveState('saved');
+                               otfSaveSelectionNow({inputSet: input.star, selected: selected,
+                                                    deselected: Array.from(sel.deselected).sort(),
+                                                    skipped: skipped, jobId: r.jobId});
                                var text = r.message + ' from ' + r.sourceFile + '.' +
-                                   (r.skipped && r.skipped.length ? ' Not motion corrected yet, left out: ' +
-                                    r.skipped.join(', ') + '.' : '');
+                                   (skipped.length ? ' Not motion corrected yet, left out: ' +
+                                    skipped.join(', ') + '.' : '');
                                $('<div class="alert alert-success alert-dismissible py-2 mb-3"></div>')
                                    .append($('<small></small>').text(text))
                                    .append('<button type="button" class="close py-1" data-dismiss="alert">&times;</button>')
@@ -599,13 +636,13 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
         });
     };
 
-    /* Propose exclusions: the server runs the curation rule over the
-       selected tilt series (the selection as it is here, saved or not) and
-       returns the tilts to leave out that are not out already, nor were
-       proposed before.  Accepted, they are unticked like any other and
-       remembered as proposed (proposedTilts), so one ticked again stays.
-       Tilt series are never deselected; those keeping too few tilts are
-       listed. */
+    /* Propose exclusions: of the tilts the curation rule leaves out (the
+       content brings them, otfProposalInputs), those of the selected tilt
+       series (the selection as it is here, saved or not) that are not out
+       already, nor were proposed before.  Accepted, they are unticked like
+       any other and remembered as proposed (proposedTilts), so one ticked
+       again stays.  Tilt series are never deselected; those keeping too few
+       tilts are listed. */
     var OTF_PROPOSAL_LABELS = {{ (proposalLabels or {})|tojson }};
     function otfProposalCounts(series, skipCurated) {
         var use = series.filter(function(s) { return !(skipCurated && s.curated); });
@@ -622,11 +659,36 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
             (parts.length ? ': ' + parts.join(', ') : '');
         return {series: use, text: text};
     }
-    var otfProposal = null, otfProposeSkip = false, otfProposeBusy = false;
-    window.otfIsProposeBusy = function() { return otfProposeBusy; };
-    function otfProposeBusySet(on) {
-        otfProposeBusy = on;
-        $('.otf-propose').prop('disabled', on);
+    var otfProposal = null, otfProposeSkip = false;
+    /* {series: [{name, add: [movie indices], flags: {flag: count}, curated:
+       whether it has tilts unticked other than by an accepted proposal}],
+       review: [{name, status, keeps}], usableLimit}: what accepting the
+       proposal adds, and the tilt series it would leave with too few tilts. */
+    function otfComputeProposal(sel, inputs) {
+        var out = [], review = [], limit = inputs.usableLimit;
+        function ids(map, name) { return new Set((map[name] || []).map(Number)); }
+        inputs.series.forEach(function(ts) {
+            if (sel.deselected.has(ts.name)) return;
+            var ex = ids(sel.excludedTilts, ts.name), before = ids(sel.proposedTilts, ts.name);
+            var add = Object.keys(ts.proposed).map(Number)
+                .filter(function(m) { return !ex.has(m) && !before.has(m); })
+                .sort(function(a, b) { return a - b; });
+            if (add.length) {
+                var flags = {};
+                add.forEach(function(m) {
+                    ts.proposed[m].forEach(function(f) { flags[f] = (flags[f] || 0) + 1; });
+                });
+                out.push({name: ts.name, add: add, flags: flags,
+                          curated: Array.from(ex).some(function(m) { return !before.has(m); })});
+            }
+            // What it keeps if this proposal is accepted for it
+            var added = new Set(add);
+            var keeps = ts.used.filter(function(m) { return !ex.has(m) && !added.has(m); }).length / ts.nTilts;
+            if (limit !== null && limit !== undefined && keeps < limit)
+                review.push({name: ts.name, status: ts.status, keeps: keeps});
+        });
+        review.sort(function(a, b) { return a.keeps - b.keeps; });
+        return {series: out, review: review, usableLimit: limit};
     }
     // Inside emhub's confirmation window, which is made anew each time
     $(document).on('change', '.otf-propose-skip', function() {
@@ -640,21 +702,9 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
     $(document).on('hidden.bs.modal', '#yesno-modal, #msg-modal', function() { $(this).remove(); });
     window.otfProposeExclusions = function() {
         var sel = otfSelection();
-        if (!sel || otfProposeBusy) return;
-        otfProposeBusySet(true);
-        send_ajax_json(Api.urls.otf_propose_exclusions,
-                       {entry_id: OTF_ENTRY_ID, deselected: Array.from(sel.deselected),
-                        excludedTilts: sel.excludedTilts, proposedTilts: sel.proposedTilts},
-                       function(data) {
-                           otfProposeBusySet(false);
-                           var p = otfProposal = data.proposal;
-                           if (!p) { showError(data.error || 'Could not make a proposal.'); return; }
-                           otfShowProposal(p);
-                       },
-                       function() {
-                           otfProposeBusySet(false);
-                           ajax_request_failed.apply(this, arguments);
-                       });
+        if (!sel) return;
+        if (!window.otfProposalInputs) { showError('The tilt series are not loaded yet.'); return; }
+        otfShowProposal(otfProposal = otfComputeProposal(sel, window.otfProposalInputs));
     };
     function otfShowProposal(p) {
         var nCurated = p.series.filter(function(s) { return s.curated; }).length;

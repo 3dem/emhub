@@ -127,9 +127,9 @@
                     <figure class="otf-thumb {% if th.dropped %}otf-thumb-dropped{% endif %}" data-index="{{ loop.index0 }}" data-ctf="{{ th.ctf }}"
                             data-movie="{{ th.movie if th.movie is not none else '' }}" data-qc="{{ th.qc }}"
                             data-selectable="{{ 1 if th.selectable else 0 }}"
-                            {% if th.medium %}data-medium="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.medium.path, v=th.medium.version) }}"{% endif %}
-                            {% if th.ps %}data-ps="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.ps.path, v=th.ps.version) }}"{% endif %}
-                            {% if th.profile %}data-profile="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.profile.path, v=th.profile.version) }}"{% endif %}>
+                            {% if th.medium %}data-medium="{{ url_for('images.tomo_otf_thumbnail', entry=entry_id, path=th.medium.path, v=th.medium.version) }}"{% endif %}
+                            {% if th.ps %}data-ps="{{ url_for('images.tomo_otf_thumbnail', entry=entry_id, path=th.ps.path, v=th.ps.version) }}"{% endif %}
+                            {% if th.profile %}data-profile="{{ url_for('images.tomo_otf_thumbnail', entry=entry_id, path=th.profile.path, v=th.profile.version) }}"{% endif %}>
                         <input type="checkbox" class="otf-tilt-sel"
                                {% if not (th.selectable and canEdit) %}disabled{% endif %}
                                title="{{ 'Keep this tilt in the selection' if th.selectable else 'Dropped at motion correction: not in its output, so not in a subset' }}">
@@ -137,7 +137,7 @@
                             <img loading="lazy" alt="{{ th.label }}"
                                  {% if thumbSize %}width="{{ thumbSize[0] }}" height="{{ thumbSize[1] }}"{% endif %}
                                  style="border-color: {{ th.border }}"
-                                 src="{{ url_for('images.otf_thumbnail', entry=entry_id, path=th.image.path, v=th.image.version) }}">
+                                 src="{{ url_for('images.tomo_otf_thumbnail', entry=entry_id, path=th.image.path, v=th.image.version) }}">
                         {% else %}
                             <div class="otf-thumb-missing">no image</div>
                         {% endif %}

@@ -12,9 +12,9 @@ The dashboard shows one session at a time: a tomo_processing entry whose
 extra['data']['processing_path'] points at a RELION 5 project being written
 by emwrap while the microscope is still collecting.
 
-    otf_dashboard          the page, rendered once
-    otf_dashboard_content  the part that refreshes, fetched over ajax
-    otf_tiltseries         per tilt series detail
+    tomo_otf_dashboard          the page, rendered once
+    tomo_otf_dashboard_content  the part that refreshes, fetched over ajax
+    tomo_otf_tiltseries         per tilt series detail
 """
 
 import os
@@ -24,7 +24,7 @@ import time
 from PIL import Image
 
 from emhub.data.processing import resolve_processing_path
-from emhub.data.processing.otf_cryoet import (
+from emhub.data.processing.tomo_otf import (
     OtfSession, TiltSeriesMetrics, STAGES, STATUS_OK, STATUS_SUSPECT, STATUS_BAD,
     STATUS_RUNNING, STATUS_FAILED, STATUSES_NEED_REVIEW, COL_TILT_ANGLE,
     COL_PRE_EXPOSURE, COL_MOVIE_INDEX, COL_CTF_CORRELATION, COL_IMAGE_TEXTURE,
@@ -47,7 +47,7 @@ STALL_SECONDS = 15 * 60
 # processing failures), grey waiting or unavailable.  Colour is never the
 # only cue: each status also has a shape, as dots and plot markers.
 # 'var(--otf-...)' colours are the dashboard's theme variables
-# (otf_dashboard.html), so they follow its dark mode.
+# (tomo_otf_dashboard.html), so they follow its dark mode.
 DATA_COLOR = '#0d6efd'   # blue, for data marks (the theme primary reads purple)
 INK_COLOR = 'var(--otf-ink)'   # #2e2f39 in light mode
 GOOD_COLOR, REVIEW_COLOR, BAD_COLOR = '#2ec551', '#f59e0b', '#ef172c'
@@ -106,7 +106,7 @@ TILT_STRIPS = [
     ('rlnCtfMaxResolution', 'CTF fit resolution', 'Å', 1.0),
     (COL_CTF_CORRELATION, 'CTF profile correlation', '', 1.0),
     ('rlnCtfFigureOfMerit', 'CTF figure of merit', '', 1.0),
-    # Image content, relative to the series where noted (see otf_cryoet)
+    # Image content, relative to the series where noted (see tomo_otf)
     (COL_IMAGE_TEXTURE, 'Image texture', '% of series median', 100.0),
     (COL_DARK_AREA, 'Black area above series median', '% of field', 100.0),
     (COL_MATCH_PEAK, 'Match with the tilt before', 'phase correlation', 1.0),
@@ -531,7 +531,7 @@ def register_content(dc):
         A dashboard that 500s mid-session is worse than one that explains
         itself, so a missing project, or one that is not a RELION project,
         is reported as content.  The star files are read later, and
-        tolerate files being written as they are read (otf_cryoet).
+        tolerate files being written as they are read (tomo_otf).
         """
         entry = _resolve_entry(**kwargs)
         data = entry.extra.get('data', {})
@@ -542,6 +542,13 @@ def register_content(dc):
             'entry': entry,
             'project': dc.app.dm.get_project_by(id=entry.project_id),
             'entry_id': entry.id,
+            # The tilt analysis job the dashboard shows, the latest if not given
+            'job_id': kwargs.get('job_id') or '',
+            'analysisJobs': [],
+            # The alignment and reconstruction jobs asked for ('' the newest)
+            'align_job': kwargs.get('align_job') or '',
+            'tomo_job': kwargs.get('tomo_job') or '',
+            'downstream': None,
             'title': entry.title or os.path.basename(path or ''),
             'processing_path': raw_path,
             'error': None,
@@ -552,8 +559,16 @@ def register_content(dc):
             info['error'] = f'Processing path not found: {raw_path}'
             return info
         try:
-            info['session'] = OtfSession(
-                path, thresholds=data.get('otf_thresholds'))
+            session = OtfSession(path, analysis_job=info['job_id'] or None,
+                                 thresholds=data.get('otf_thresholds'),
+                                 align_job=info['align_job'] or None,
+                                 tomo_job=info['tomo_job'] or None)
+            info['job_id'] = session.analysis_job.id
+            info['downstream'] = session.downstream()
+            info['analysisJobs'] = [{'id': j.id, 'alias': j.alias, 'status': j.status,
+                                     'input': session.analysis(j)['input']}
+                                    for j in session.analysis_jobs()]
+            info['session'] = session
         except Exception as e:
             info['error'] = str(e)
         return info
@@ -568,7 +583,7 @@ def register_content(dc):
     def _can_edit(project):
         """ Whether the current user may change the session's selection:
         the project's owner, its collaborators or a manager (the same check
-        as the api's otf_save_selection). """
+        as the api's tomo_otf_save_selection). """
         return project is not None and bool(dc.app.user.can_edit_project(project))
 
     def _int(kwargs, key, default):
@@ -585,20 +600,22 @@ def register_content(dc):
 
     # ---------------------------------------------------------------- page
     @dc.content
-    def otf_dashboard(**kwargs):
+    def tomo_otf_dashboard(**kwargs):
         # The page around the content; a refresh asks for the content only
-        return dict(otf_dashboard_content(**kwargs),
+        return dict(tomo_otf_dashboard_content(**kwargs),
                     refresh_seconds=max(10, _int(kwargs, 'refresh_seconds', 30)),
                     palette=PALETTE, proposalLabels=TILT_FLAG_LABELS)
 
     # ------------------------------------------------------ refreshed part
     @dc.content
-    def otf_dashboard_content(**kwargs):
+    def tomo_otf_dashboard_content(**kwargs):
         info = _load(**kwargs)
         if info['error'] or info['session'] is None:
             # The content shows the error alone
             return {'error': info['error'], 'title': info['title'],
-                    'entry_id': info['entry_id'],
+                    'entry_id': info['entry_id'], 'job_id': info['job_id'],
+                    'analysisJobs': info['analysisJobs'],
+                    'align_job': info['align_job'], 'tomo_job': info['tomo_job'],
                     'processing_path': info['processing_path'],
                     'updated': time.strftime('%H:%M:%S')}
 
@@ -670,6 +687,11 @@ def register_content(dc):
             'error': None,
             'title': info['title'],
             'entry_id': info['entry_id'],
+            'job_id': info['job_id'],
+            'analysisJobs': info['analysisJobs'],
+            'align_job': info['align_job'],
+            'tomo_job': info['tomo_job'],
+            'downstream': info['downstream'],
             'processing_path': info['processing_path'],
             'owner': owner.name if owner else '',
             'staff': ', '.join(u.name for u in collaborators),
@@ -697,25 +719,30 @@ def register_content(dc):
             'selection': _selection_state(session),
             'canEdit': _can_edit(info['project']),
             'allSeries': [{'name': t.tomoName, 'status': t.status} for t in ts_list],
+            # What the page proposes exclusions and makes subsets from, for
+            # its selection as it is there
+            'proposals': session.proposal_inputs(),
+            'subsetInput': session.subset_input(),
             'selectBy': [dict(STATUS_STYLE[s], key=s) for s in (STATUS_OK, STATUS_SUSPECT,
                                                                STATUS_BAD, STATUS_FAILED)],
         }
 
     # ---------------------------------------------------------- detail view
     @dc.content
-    def otf_tiltseries(**kwargs):
+    def tomo_otf_tiltseries(**kwargs):
         info = _load(**kwargs)
         tomo_name = kwargs.get('tomo_name')
         if info['error'] or info['session'] is None:
             return {'error': info['error'], 'tomoName': tomo_name,
-                    'entry_id': info['entry_id']}
+                    'entry_id': info['entry_id'], 'job_id': info['job_id']}
 
         session = info['session']
         ts = next((t for t in session.tilt_series()
                    if t.tomoName == tomo_name), None)
         if ts is None:
             return {'error': f'No tilt series named {tomo_name}',
-                    'tomoName': tomo_name, 'entry_id': info['entry_id']}
+                    'tomoName': tomo_name, 'entry_id': info['entry_id'],
+                    'job_id': info['job_id']}
 
         order = kwargs.get('order', 'angle')
         tilts = sorted(
@@ -834,6 +861,7 @@ def register_content(dc):
         return {
             'error': None,
             'entry_id': info['entry_id'],
+            'job_id': info['job_id'],
             'tomoName': ts.tomoName,
             'status': ts.status,
             'statusLabel': style['label'],

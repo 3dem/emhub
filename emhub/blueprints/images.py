@@ -103,9 +103,9 @@ def entry():
         flask.abort(404)
 
 
-@images_bp.route("/otf_thumbnail", methods=['GET'])
+@images_bp.route("/tomo_otf_thumbnail", methods=['GET'])
 @flask_login.login_required
-def otf_thumbnail():
+def tomo_otf_thumbnail():
     """ Serve a tilt jpeg, or CTF fit profile json, that emwrap wrote under a
     'thumbnails' folder of a tomo_processing project.  The path comes from
     the browser, so only those files are served, and send_from_directory

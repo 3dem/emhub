@@ -18,6 +18,61 @@
             {% if staff %}, {{ staff }}{% endif %}
         </span>
         <small class="text-muted mr-4">{{ processing_path }}</small>
+        {# The tilt series shown, those of the tilt analysis job; picking
+           another analysis job (a project may have several) loads it #}
+        {% set shown = analysisJobs|selectattr('id', 'equalto', job_id)|first %}
+        <span class="dropdown mr-4">
+            <a class="small dropdown-toggle" href="#" data-toggle="dropdown"
+               title="The tilt series this dashboard shows, analyzed by {{ job_id }}. Pick another tilt analysis job to show it.">
+                <i class="fas fa-layer-group"></i>
+                {{ (shown.input if shown and shown.input) or 'input not known yet' }}
+                <span class="text-muted">({{ job_id }}{% if shown and shown.alias %}, {{ shown.alias }}{% endif %})</span></a>
+            <div class="dropdown-menu">
+                <h6 class="dropdown-header">Tilt analysis</h6>
+                {% for j in analysisJobs|reverse %}
+                    <a class="dropdown-item small{% if j.id == job_id %} active{% endif %}"
+                       href="{{ url_for_content('tomo_otf_dashboard', entry_id=entry_id, job_id=j.id) }}">
+                        {{ j.input or 'input not known yet' }}
+                        <span class="text-muted">{{ j.id }}{% if j.alias %}, {{ j.alias }}{% endif %}, {{ j.status }}</span></a>
+                {% endfor %}
+            </div>
+        </span>
+        {# The alignment and reconstruction shown: jobs derived from the tilt
+           series of the analysis, the newest unless one is picked #}
+        {% for key, icon in [('align', 'fa-align-center'), ('tomogram', 'fa-cube')] %}
+            {% set ds = downstream[key] %}
+            {% set picked = ds.options|selectattr('id', 'equalto', ds.selected)|first %}
+            <span class="dropdown mr-4">
+                <a class="small dropdown-toggle{% if not ds.selected %} text-muted{% endif %}" href="#"
+                   data-toggle="dropdown"
+                   title="{{ ds.label }} shown: {% if picked %}{{ picked.star }}{% else %}none{% endif %}. Only jobs derived from the tilt series of the analysis{% if key == 'tomogram' %} (and from the alignment shown){% endif %}.">
+                    <i class="fas {{ icon }}"></i>
+                    {% if ds.selected %}{{ ds.selected }}{% elif ds.requested == 'none' %}no {{ ds.label|lower }}{% else %}{{ ds.label|lower }}: not run yet{% endif %}
+                    {% if ds.selected and not ds.requested %}<span class="text-muted">(newest)</span>{% endif %}
+                </a>
+                <div class="dropdown-menu">
+                    <h6 class="dropdown-header">{{ ds.label }}</h6>
+                    {% set args = {'entry_id': entry_id, 'job_id': job_id} %}
+                    {% if key == 'tomogram' and align_job %}{% set _ = args.update({'align_job': align_job}) %}{% endif %}
+                    <a class="dropdown-item small{% if not ds.requested %} active{% endif %}"
+                       href="{{ url_for_content('tomo_otf_dashboard', **args) }}">The newest</a>
+                    {% for o in ds.options|reverse %}
+                        {% set oargs = dict(args) %}
+                        {% set _ = oargs.update({'align_job' if key == 'align' else 'tomo_job': o.id}) %}
+                        <a class="dropdown-item small{% if ds.requested and o.id == ds.selected %} active{% endif %}"
+                           href="{{ url_for_content('tomo_otf_dashboard', **oargs) }}">
+                            {{ o.id }}
+                            <span class="text-muted">{% if o.alias %}{{ o.alias }}, {% endif %}{{ o.jobType }}, {{ o.status }}</span></a>
+                    {% else %}
+                        <span class="dropdown-item-text small text-muted">No job derived from the analyzed tilt series yet</span>
+                    {% endfor %}
+                    {% set nargs = dict(args) %}
+                    {% set _ = nargs.update({'align_job' if key == 'align' else 'tomo_job': 'none'}) %}
+                    <a class="dropdown-item small{% if ds.requested == 'none' %} active{% endif %}"
+                       href="{{ url_for_content('tomo_otf_dashboard', **nargs) }}">None</a>
+                </div>
+            </span>
+        {% endfor %}
         {% if notReported %}
             {# A fixed property of the pipeline, so a hint rather than a banner #}
             <small class="otf-why mr-4" data-toggle="tooltip"
@@ -331,6 +386,10 @@
        boxes and the summary, and changed by them. */
     var sel = otfSelection({{ selection|tojson }});
     var allSeries = {{ allSeries|tojson }};
+    // For the page's Propose exclusions and Create subset, as of this refresh
+    window.otfProposalInputs = {{ proposals|tojson }};
+    window.otfSubsetInput = {{ subsetInput|tojson }};
+    window.otfAllSeries = allSeries;
     function namesOf(key) {
         return allSeries.filter(function(t) { return key === 'all' || t.status === key; })
                         .map(function(t) { return t.name; });
@@ -408,7 +467,6 @@
     };
     // Still disabled while a subset job is being launched or a proposal made
     if (window.otfIsSubsetBusy && otfIsSubsetBusy()) $('.otf-create-subset').prop('disabled', true);
-    if (window.otfIsProposeBusy && otfIsProposeBusy()) $('.otf-propose').prop('disabled', true);
 
     // Sort by a column: ascending first, then descending
     $('#otf-dashboard-content .otf-table th[data-sort]').on('click', function() {

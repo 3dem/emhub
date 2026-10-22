@@ -17,7 +17,7 @@
 from .dc_base import DataContent, register_content
 from . import (dc_base, dc_raw, dc_users, dc_reports, dc_bookings,
                dc_projects, dc_sessions, dc_tomo, dc_fibsem, dc_cluster,
-               dc_otf)
+               dc_tomo_otf)
 
 dc = DataContent()
 
@@ -31,4 +31,4 @@ dc_reports.register_content(dc)
 dc_tomo.register_content(dc)
 dc_fibsem.register_content(dc)
 dc_cluster.register_content(dc)
-dc_otf.register_content(dc)
+dc_tomo_otf.register_content(dc)

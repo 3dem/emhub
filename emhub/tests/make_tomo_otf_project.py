@@ -8,13 +8,13 @@
 # **************************************************************************
 """ Write a synthetic RELION 5 on-the-fly tomography project.
 
-Used to exercise emhub.data.processing.otf_cryoet without access to a real
+Used to exercise emhub.data.processing.tomo_otf without access to a real
 session.  The layout mirrors what emwrap produces: External/jobNNN folders
 for emw-import-ts, emw-warp-mctf, emw-warp-tsalign and emw-warp-ctfrec, a
 default_pipeline.star tying them together, one global star file per job and
 one per-tilt-series star file per tilt series.
 
-    python -m emhub.tests.make_otf_project /tmp/fake_otf --tilt-series 40
+    python -m emhub.tests.make_tomo_otf_project /tmp/fake_otf --tilt-series 40
 """
 
 import os
@@ -23,7 +23,6 @@ import random
 import argparse
 
 from emtools.metadata import StarFile, Table, RelionStar
-from emwrap.base.tilt_thumbnails import TiltThumbnailWriter
 
 
 N_TILTS = 41
@@ -42,6 +41,10 @@ JOBS = [
 ]
 # With --acquiring, how many of the newest tilt series each stage is behind.
 STAGE_LAGS = [0, 1, 3, 6]
+# The tilt analysis jobs (emw-tilt-analyze) of the motion correction output,
+# that the dashboards show: as many as write_project(analyses=) asks for
+ANALYSIS_JOBS = ['EMwrap/job006', 'EMwrap/job007', 'EMwrap/job008']
+ANALYSIS_NODE_TYPE = 'TomogramGroupMetadata.star.emwrap.TiltSeriesAnalysis'
 
 GLOBAL_COLS = [
     'rlnTomoName', 'rlnTomoTiltSeriesStarFile', 'rlnVoltage',
@@ -159,9 +162,10 @@ def _tilt_rows(ts_index, cols, rng, placeholders=False):
     return rows
 
 
-def _write_image_qc(path, name, ts_index, tilt_table, seed):
-    """ <name>_imageqc.json as emwrap writes it (TiltQualityCuration), for
-    the motion corrected tilts of a series.  Values like a real lamella;
+def _write_image_qc(folder, name, ts_index, tilt_table, seed):
+    """ <name>_imageqc.json as the tilt analysis writes it
+    (TiltQualityCuration) into folder, for the motion corrected tilts of a
+    series.  Values like a real lamella;
     some series get one tilt of each kind the dashboard flags, near the
     end of acquisition where they happen. """
     rng = random.Random(seed * 1000 + ts_index)
@@ -189,7 +193,6 @@ def _write_image_qc(path, name, ts_index, tilt_table, seed):
         if ts_index % 9 == 5 and m in last[-2:]:
             d['fieldShift'] = 0.42                  # walked off the target
         out.append(d)
-    folder = os.path.join(path, TiltThumbnailWriter.folder(rows[0].rlnMicrographName))
     os.makedirs(folder, exist_ok=True)
     with open(os.path.join(folder, name + '_imageqc.json'), 'w') as f:
         json.dump({'version': 1, 'tomoName': name, 'source': 'synthetic',
@@ -197,7 +200,7 @@ def _write_image_qc(path, name, ts_index, tilt_table, seed):
 
 
 def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
-                  dropped=False, image_qc=False):
+                  dropped=False, image_qc=False, analyses=1):
     """ placeholders=True reproduces what emwrap devel currently writes:
     accumulated motion hardcoded to 0 and the CTF quality columns left at
     the defaultdict zero, with only the defocus values real.  Use it to
@@ -211,9 +214,13 @@ def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
     (from the 4th) motion correction leaves out one deselected tilt, and in
     every 10th (from the 8th) alignment leaves out two disabled ones.
 
-    image_qc=True writes the image content measures emwrap writes beside
-    the tilt jpegs, with some blank, blacked out, different field and
-    shifted tilts (see _write_image_qc). """
+    image_qc=True writes the image content measures the tilt analysis
+    writes beside the tilt jpegs, with some blank, blacked out, different
+    field and shifted tilts (see _write_image_qc).
+
+    analyses: how many tilt analysis jobs of the motion correction output
+    to write (ANALYSIS_JOBS), each with its tilt_analysis.star listing the
+    motion corrected tilt series. """
     rng = random.Random(seed)
     os.makedirs(path, exist_ok=True)
 
@@ -238,6 +245,8 @@ def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
     # With dropped=True: {series index % 10: (first stage index, movie numbers)}
     drops = {3: (1, {6}), 7: (2, {9, 10})} if dropped else {}
 
+    analysis_jobs = ANALYSIS_JOBS[:analyses]
+    mctf_names = []
     for stage, (((job_id, jobtype, _), star_name, cols, _node), lag) in enumerate(
             zip(stage_defs, lags)):
         job_dir = os.path.join(path, job_id)
@@ -265,7 +274,10 @@ def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
             with StarFile(os.path.join(path, ts_star), 'w') as sf:
                 sf.writeTable(name, tilt_table)
             if image_qc and jobtype == 'emw-warp-mctf' and len(tilt_table):
-                _write_image_qc(path, name, i, tilt_table, seed)
+                for aj in analysis_jobs:
+                    _write_image_qc(os.path.join(path, aj, 'thumbnails'), name, i, tilt_table, seed)
+        if jobtype == 'emw-warp-mctf':
+            mctf_names, mctf_star = stage_names, f'{job_id}/{star_name}'
 
         # Tomogram job also carries the aligned stack and tomogram columns
         if jobtype == 'emw-warp-ctfrec':
@@ -301,11 +313,31 @@ def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
             with StarFile(os.path.join(job_dir, 'failed_tilt_series.star'), 'w') as sf:
                 sf.writeTable('global', ft)
 
-    _write_pipeline(path, stage_defs)
+    for aj in analysis_jobs:
+        _write_analysis(path, aj, mctf_star, mctf_names, 'Running' if acquiring else 'Succeeded')
+    _write_pipeline(path, stage_defs,
+                    [(aj, 'Running' if acquiring else 'Succeeded') for aj in analysis_jobs],
+                    mctf_star if analysis_jobs else None)
     return path
 
 
-def _write_pipeline(path, stage_defs):
+def _write_analysis(path, job_id, input_star, names, status):
+    """ tilt_analysis.star of a tilt analysis job, as emw-tilt-analyze
+    writes it: its folders and input, and the tilt series it analyzed. """
+    os.makedirs(os.path.join(path, job_id, 'thumbnails'), exist_ok=True)
+    analysis = Table(['emwTiltAnalysisFolder', 'emwThumbnailsFolder', 'emwInputTiltSeries'])
+    analysis.addRowValues(job_id, f'{job_id}/thumbnails', input_star)
+    global_table = Table(['rlnTomoName', 'rlnTomoTiltSeriesStarFile', 'emwImageQcFile', 'emwTilts'])
+    in_dir = os.path.dirname(input_star)
+    for name in names:
+        global_table.addRowValues(name, f'{in_dir}/tilt_series/{name}.star',
+                                  f'{job_id}/thumbnails/{name}_imageqc.json', N_TILTS)
+    with StarFile(os.path.join(path, job_id, 'tilt_analysis.star'), 'w') as sf:
+        sf.writeTable('analysis', analysis, singleRow=True)
+        sf.writeTable('global', global_table)
+
+
+def _write_pipeline(path, stage_defs, analyses=(), analysis_input=None):
     tables = RelionStar.pipeline_tables()
 
     tables['processes'] = Table(['rlnPipeLineProcessName',
@@ -314,6 +346,8 @@ def _write_pipeline(path, stage_defs):
                                  'rlnPipeLineProcessStatusLabel'])
     for (job_id, jobtype, status), _star, _cols, _node in stage_defs:
         tables['processes'].addRowValues(job_id + '/', 'None', jobtype, status)
+    for job_id, status in analyses:
+        tables['processes'].addRowValues(job_id + '/', 'None', 'emw-tilt-analyze', status)
 
     for (job_id, jobtype, _st), star_name, _cols, node_type in stage_defs:
         node = f'{job_id}/{star_name}'
@@ -331,8 +365,14 @@ def _write_pipeline(path, stage_defs):
             tables['input_edges'].addRowValues(prev_node, job_id + '/')
         prev_node = f'{job_id}/{star_name}'
 
+    for job_id, _st in analyses:
+        node = f'{job_id}/tilt_analysis.star'
+        tables['nodes'].addRowValues(node, ANALYSIS_NODE_TYPE, 0)
+        tables['output_edges'].addRowValues(job_id + '/', node)
+        tables['input_edges'].addRowValues(analysis_input, job_id + '/')
+
     general = Table(['rlnPipeLineJobCounter'])
-    general.addRowValues(len(stage_defs) + 1)
+    general.addRowValues(len(stage_defs) + len(analyses) + 1)
 
     with StarFile(os.path.join(path, 'default_pipeline.star'), 'w') as sf:
         sf.writeTable('pipeline_general', general)
@@ -358,10 +398,12 @@ def main():
     p.add_argument('--image-qc', action='store_true', dest='image_qc',
                    help='write the image content measures (blank, blacked '
                         'out, different field tilts) beside the tilt jpegs')
+    p.add_argument('--analyses', type=int, default=1,
+                   help='how many tilt analysis jobs (dashboards) to write')
     args = p.parse_args()
     write_project(args.path, n_ts=args.n_ts, seed=args.seed,
                   placeholders=args.placeholders, acquiring=args.acquiring,
-                  dropped=args.dropped, image_qc=args.image_qc)
+                  dropped=args.dropped, image_qc=args.image_qc, analyses=args.analyses)
     print(f'Wrote fake OTF project with {args.n_ts} tilt series to {args.path}')
 
 
