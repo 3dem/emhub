@@ -434,6 +434,18 @@ var svc = {
       return buildTableViewerAnalyzeDecision(ctx, pointerClass);
     }
 
+    // A tilt analysis opens its OTF dashboard
+    if (pointerClass === 'TiltSeriesAnalysis') {
+      var jobId = outputPath ? outputPath.split('/').slice(0, -1).join('/') : ctx.protocolId;
+      return {
+        handled: true,
+        url: "{{ url_for_content('tomo_otf_dashboard') }}"
+             + '&entry_id=' + encodeURIComponent(project_details.id)
+             + '&job_id=' + encodeURIComponent(jobId),
+        target: "_blank"
+      };
+    }
+
     visualizeOutput({ file_path: outputPath || ctx.value });
 
     return {
@@ -680,6 +692,7 @@ var svc = {
       Api.urls.create_tomo_subset,
       {
         root: project_details.path,
+        entry_id: project_details.id,   // whose project the user must be able to edit
         starPath: sourcePath,
         outputPath: sourcePath,
         pointerClass: request.pointerClass,

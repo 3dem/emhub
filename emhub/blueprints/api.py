@@ -56,7 +56,7 @@ from emwrap.base.job_form import JobValidationError
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data.data_manager import SqlFilterError
-from emhub.data.processing import resolve_project_root
+from emhub.data.processing import resolve_project_root, resolve_processing_path
 from .api_viewers import *
 
 
@@ -802,11 +802,44 @@ def get_table_view_data():
     return _handle_item(_handle, 'tableViewData')
 
 
+def _check_can_edit_processing(root, entry_id=None):
+    """ Raise unless the current user may change the processing project at
+    root: edit the project of its tomo_processing entry (entry_id, or the
+    entries with that processing path).  A path with no entry is for
+    managers only. """
+    root = os.path.abspath(root)
+
+    def _root(entry):
+        path = resolve_processing_path(entry.extra.get('data', {}).get('processing_path', ''))
+        # As the project pages see it, when the paths are mounted elsewhere
+        if path and (path_map := os.environ.get('EMHUB_PATH_MAP')):
+            a, b = path_map.split(':')
+            path = path.replace(a, b)
+        return os.path.abspath(path) if path else None
+
+    if entry_id:
+        entry = app.dm.get_entry_by(id=int(entry_id))
+        entries = [entry] if entry is not None and _root(entry) == root else []
+    else:
+        entries = [e for e in app.dm.get_entries(condition="type='tomo_processing'")
+                   if _root(e) == root]
+    projects = [p for e in entries if (p := app.dm.get_project_by(id=e.project_id))]
+    if not (any(app.user.can_edit_project(p) for p in projects)
+            or (not entries and app.user.is_manager)):
+        raise Exception('Only the project owner, its collaborators and managers '
+                        'can launch jobs in this project')
+
+
 @api_bp.route('/create_tomo_subset', methods=['POST'])
 @flask_login.login_required
 def create_tomo_subset():
+    """ Launch an emw-subset-ts job with the given tomograms (subsetItems)
+    of a STAR file (starPath), optionally without some of their tilts
+    (excludeTilts, {tomoName: [movie indices]}), if the current user may
+    change the project (see _check_can_edit_processing). """
     def _handle(**attrs):
         root = resolve_project_root(attrs['root'])
+        _check_can_edit_processing(root, attrs.get('entry_id'))
         star_path = attrs.get('starPath') or attrs.get('star_path') or attrs.get('outputPath')
         pointer_class = attrs.get('pointerClass') or attrs.get('pointer_class') or ''
         subset_items = attrs.get('subsetItems') or attrs.get('subset_items') or []
@@ -823,6 +856,53 @@ def create_tomo_subset():
         )
 
     return _handle_item(_handle, 'subsetResult')
+
+
+def _tomo_otf_session_for_edit(entry_id, job_id=None):
+    """ The on-the-fly session of a tomo_processing entry, as its tilt
+    analysis job job_id shows it (the latest if not given), if the current
+    user may change its project: its owner, collaborators or a manager. """
+    from emhub.data.processing.tomo_otf import OtfSession
+    entry = app.dm.get_entry_by(id=int(entry_id))
+    if entry is None or entry.type != 'tomo_processing':
+        raise Exception(f'No tomo processing entry with id {entry_id}')
+    project = app.dm.get_project_by(id=entry.project_id)
+    if project is None or not app.user.can_edit_project(project):
+        raise Exception('Only the project owner, its collaborators and managers '
+                        'can change this selection')
+    data = entry.extra.get('data', {})
+    return OtfSession(resolve_processing_path(data.get('processing_path', '')),
+                      analysis_job=job_id or None, thresholds=data.get('otf_thresholds'))
+
+
+# What the dashboard records of a subset it made (create_tomo_subset)
+_TOMO_OTF_EXPORT_KEYS = ('inputSet', 'selected', 'deselected', 'skipped', 'jobId')
+
+
+@api_bp.route('/tomo_otf_save_selection', methods=['POST'])
+@flask_login.login_required
+def tomo_otf_save_selection():
+    """ Store the on-the-fly dashboard's selection, in its tilt analysis
+    job: deselected tilt series and excluded tilts (movie indices) per tilt
+    series, the accepted automatic proposals and the reviewed marks; and,
+    if given, the export of a subset made from it (attrs['export'], with
+    _TOMO_OTF_EXPORT_KEYS), stamped with the user and the time. """
+    def _handle(**attrs):
+        session = _tomo_otf_session_for_edit(attrs['entry_id'], attrs.get('job_id'))
+        export = attrs.get('export')
+        if export is not None:
+            if not isinstance(export, dict) or not export.get('jobId'):
+                raise Exception('Invalid export: expected the subset job and what it selected')
+            export = {k: export.get(k) for k in _TOMO_OTF_EXPORT_KEYS}
+            export.update(created=time.strftime('%Y-%m-%dT%H:%M:%S'), by=app.user.name)
+        return session.save_selection(attrs.get('deselected', []),
+                                      attrs.get('excludedTilts', {}),
+                                      user=app.user.name,
+                                      export=export,
+                                      proposed_tilts=attrs.get('proposedTilts'),
+                                      reviewed=attrs.get('reviewed'))
+
+    return _handle_item(_handle, 'selection')
 
 
 @api_bp.route('/resolve_table_view_pane', methods=['POST'])
@@ -892,6 +972,7 @@ def resolve_table_view_pane():
                 tomo_rel,
                 title=tomo_rel,
                 coordinates=coordinates,
+                ortho=bool(attrs.get('ortho')),
             )
 
         star_rel = resolve_row_star_path(attrs, row_cells, column_id)

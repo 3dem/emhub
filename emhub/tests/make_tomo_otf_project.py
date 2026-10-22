@@ -1,0 +1,411 @@
+# **************************************************************************
+# *
+# * This program is free software; you can redistribute it and/or modify
+# * it under the terms of the GNU General Public License as published by
+# * the Free Software Foundation; either version 3 of the License, or
+# * (at your option) any later version.
+# *
+# **************************************************************************
+""" Write a synthetic RELION 5 on-the-fly tomography project.
+
+Used to exercise emhub.data.processing.tomo_otf without access to a real
+session.  The layout mirrors what emwrap produces: External/jobNNN folders
+for emw-import-ts, emw-warp-mctf, emw-warp-tsalign and emw-warp-ctfrec, a
+default_pipeline.star tying them together, one global star file per job and
+one per-tilt-series star file per tilt series.
+
+    python -m emhub.tests.make_tomo_otf_project /tmp/fake_otf --tilt-series 40
+"""
+
+import os
+import json
+import random
+import argparse
+
+from emtools.metadata import StarFile, Table, RelionStar
+
+
+N_TILTS = 41
+TILT_STEP = 3
+DOSE_PER_TILT = 3.1
+PIXEL_SIZE = 1.3
+TS_PIXEL_SIZE = 2.6
+
+# Folder names as emwrap actually creates them on a live project: one
+# folder per job type rather than everything under External/.
+JOBS = [
+    ('EMwrap/job001', 'emw-import-ts', 'Succeeded'),
+    ('WarpMctf/job003', 'emw-warp-mctf', 'Succeeded'),
+    ('WarpTsAlign/job004', 'emw-warp-tsalign', 'Succeeded'),
+    ('WarpCtfRec/job005', 'emw-warp-ctfrec', 'Succeeded'),
+]
+# With --acquiring, how many of the newest tilt series each stage is behind.
+STAGE_LAGS = [0, 1, 3, 6]
+# The tilt analysis jobs (emw-tilt-analyze) of the motion correction output,
+# that the dashboards show: as many as write_project(analyses=) asks for
+ANALYSIS_JOBS = ['EMwrap/job006', 'EMwrap/job007', 'EMwrap/job008']
+ANALYSIS_NODE_TYPE = 'TomogramGroupMetadata.star.emwrap.TiltSeriesAnalysis'
+
+GLOBAL_COLS = [
+    'rlnTomoName', 'rlnTomoTiltSeriesStarFile', 'rlnVoltage',
+    'rlnSphericalAberration', 'rlnAmplitudeContrast',
+    'rlnMicrographOriginalPixelSize', 'rlnTomoHand',
+    'rlnOpticsGroupName', 'rlnTomoTiltSeriesPixelSize',
+]
+
+# Movie index first, as emwrap writes it; subset jobs exclude tilts by it
+TILT_COLS_IMPORT = ['rlnTomoTiltMovieIndex'] + list(RelionStar.TOMO_FRAME_SERIES_COLUMNS)
+TILT_COLS_MCTF = TILT_COLS_IMPORT + [
+    'rlnMicrographName', 'rlnMicrographMetadata',
+    'rlnAccumMotionTotal', 'rlnAccumMotionEarly', 'rlnAccumMotionLate',
+    'rlnCtfImage', 'rlnDefocusU', 'rlnDefocusV', 'rlnCtfAstigmatism',
+    'rlnDefocusAngle', 'rlnCtfFigureOfMerit', 'rlnCtfMaxResolution',
+    'rlnCtfIceRingDensity',
+]
+TILT_COLS_ALIGN = TILT_COLS_MCTF + list(RelionStar.TOMO_ALIGNMENT_COLUMNS)
+
+
+def _dose_symmetric_order(n):
+    """ Acquisition order for a dose-symmetric scheme starting at zero. """
+    mid = n // 2
+    order = [mid]
+    for k in range(1, mid + 1):
+        if mid + k < n:
+            order.append(mid + k)
+        if mid - k >= 0:
+            order.append(mid - k)
+    return order
+
+
+def _tilt_rows(ts_index, cols, rng, placeholders=False):
+    """ Per-tilt values, with a session-wide drift so the dashboard has
+    something to show: a step at tilt series 40 and a slow degradation
+    after 60. """
+    drift = max(0.0, (ts_index - 60) / 40.0)
+    step = 1.0 if ts_index > 40 else 0.0
+    order = _dose_symmetric_order(N_TILTS)
+    acq_of = {j: k for k, j in enumerate(order)}
+
+    rows = []
+    for j in range(N_TILTS):
+        angle = -60 + TILT_STEP * j
+        acq = acq_of[j]
+        ct = 1.0 / max(0.2, abs(__import__('math').cos(angle * 3.14159 / 180)))
+        dose = DOSE_PER_TILT * (acq + 1)
+
+        values = {
+            'rlnTomoTiltMovieIndex': j + 1,
+            'rlnMicrographMovieName': f'frames/TS_{ts_index+1:04d}_{j:03d}.eer',
+            'rlnTomoTiltMovieFrameCount': 8,
+            'rlnTomoNominalStageTiltAngle': round(angle, 2),
+            'rlnTomoNominalTiltAxisAngle': 85.0,
+            'rlnMicrographPreExposure': round(dose, 3),
+            'rlnTomoNominalDefocus': -3.0,
+        }
+
+        if 'rlnAccumMotionTotal' in cols:
+            total = (4.2 + 2.9 * acq / 40 + 1.5 * drift + 0.9 * step) \
+                    * (0.85 + 0.3 * rng.random()) * ct ** 0.35
+            # Every 25th series loses the stage halfway through, so enough
+            # tilts cross the motion reject limit to make the series poor.
+            if ts_index % 25 == 24 and acq >= N_TILTS // 2:
+                total *= 6.0
+            early = (1.1 + 0.6 * drift) * (0.7 + 0.6 * rng.random())
+            defU = 26000 + 3400 * (ts_index % 7) / 7 + angle * 118 \
+                   + 900 * (rng.random() - 0.5)
+            astig = 420 + 1500 * drift * rng.random()
+            # Late in the session the high tilts degrade past the reject limit
+            res = (3.6 + 1.25 * (ct - 1) + 9.0 * drift * (ct - 1) + 0.35 * step) \
+                  * (0.92 + 0.18 * rng.random())
+            values.update({
+                'rlnMicrographName': f'{JOBS[1][0]}/tilt_images/TS_{ts_index+1:04d}_{j:03d}.mrc',
+                'rlnMicrographMetadata': f'{JOBS[1][0]}/motion/TS_{ts_index+1:04d}_{j:03d}.star',
+                'rlnAccumMotionTotal': round(total, 4),
+                'rlnAccumMotionEarly': round(early, 4),
+                'rlnAccumMotionLate': round(max(0.0, total - early), 4),
+                'rlnCtfImage': f'{JOBS[1][0]}/ctf/TS_{ts_index+1:04d}_{j:03d}.ctf:mrc',
+                'rlnDefocusU': round(defU, 2),
+                'rlnDefocusV': round(defU - astig, 2),
+                'rlnCtfAstigmatism': round(astig, 2),
+                'rlnDefocusAngle': round(rng.random() * 180, 2),
+                'rlnCtfFigureOfMerit': round(0.18 - 0.05 * drift, 4),
+                'rlnCtfMaxResolution': round(res, 3),
+                'rlnCtfIceRingDensity': round(0.02 + 0.03 * drift, 4),
+            })
+
+        if 'rlnTomoXTilt' in cols:
+            # Stage drift is smooth: a slow trajectory across tilt angle plus
+            # a small amount of jitter, which grows with the session drift.
+            # Independent random shifts would make every series look badly
+            # aligned, which is not what a real stage does.
+            jitter = 1.5 + 12.0 * drift
+            values.update({
+                'rlnTomoXTilt': 0.0,
+                'rlnTomoYTilt': round(angle, 3),
+                'rlnTomoZRot': round(85.2 + 1.9 * drift * (rng.random() - 0.3), 3),
+                'rlnTomoXShiftAngst': round(
+                    38 * __import__('math').sin(angle / 42.0)
+                    + jitter * (rng.random() - 0.5), 3),
+                'rlnTomoYShiftAngst': round(
+                    -24 * __import__('math').cos(angle / 55.0)
+                    + jitter * (rng.random() - 0.5), 3),
+            })
+
+        if placeholders:
+            for c in ('rlnAccumMotionTotal', 'rlnAccumMotionEarly',
+                      'rlnAccumMotionLate', 'rlnCtfMaxResolution',
+                      'rlnCtfFigureOfMerit', 'rlnCtfIceRingDensity'):
+                if c in values:
+                    values[c] = 0
+
+        rows.append([values.get(c, 0) for c in cols])
+    return rows
+
+
+def _write_image_qc(folder, name, ts_index, tilt_table, seed):
+    """ <name>_imageqc.json as the tilt analysis writes it
+    (TiltQualityCuration) into folder, for the motion corrected tilts of a
+    series.  Values like a real lamella;
+    some series get one tilt of each kind the dashboard flags, near the
+    end of acquisition where they happen. """
+    rng = random.Random(seed * 1000 + ts_index)
+    rows = sorted(tilt_table, key=lambda r: r.rlnTomoTiltMovieIndex)
+    first = rows[0].rlnTomoTiltMovieIndex      # the first acquired: no match values
+    # The last ones acquired, where the planted problems go (padded for a
+    # very short series)
+    last = [r.rlnTomoTiltMovieIndex for r in rows[-4:]]
+    last = [last[0]] * (2 - len(last)) + last
+    out = []
+    for r in rows:
+        m = r.rlnTomoTiltMovieIndex
+        d = {'movie': m, 'angle': r.rlnTomoNominalStageTiltAngle,
+             'name': os.path.splitext(os.path.basename(r.rlnMicrographName))[0],
+             'texture': 9.0 + 2.0 * rng.random(), 'darkArea': 0.02 * rng.random()}
+        if m != first:
+            d.update(matchPeak=0.15 + 0.2 * rng.random(), matchNcc=0.4 + 0.3 * rng.random(),
+                     fieldShift=0.02 + 0.04 * rng.random())
+        if ts_index % 6 == 1 and m == last[-1]:
+            d['texture'] = 3.0                      # blank
+        if ts_index % 9 == 2 and m == last[-2]:
+            d['darkArea'] = 0.35                    # blacked out
+        if ts_index % 9 == 2 and m == last[-1]:
+            d.update(matchPeak=0.02, matchNcc=0.05)  # a different field
+        if ts_index % 9 == 5 and m in last[-2:]:
+            d['fieldShift'] = 0.42                  # walked off the target
+        out.append(d)
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, name + '_imageqc.json'), 'w') as f:
+        json.dump({'version': 1, 'tomoName': name, 'source': 'synthetic',
+                   'tilts': out}, f)
+
+
+def write_project(path, n_ts=40, seed=42, placeholders=False, acquiring=False,
+                  dropped=False, image_qc=False, analyses=1):
+    """ placeholders=True reproduces what emwrap devel currently writes:
+    accumulated motion hardcoded to 0 and the CTF quality columns left at
+    the defaultdict zero, with only the defocus values real.  Use it to
+    check the dashboard reports those as not available rather than as a
+    perfect score.
+
+    acquiring=True writes a session in progress: every job is Running and
+    each later stage lags the one before it, as with emwrap on the fly.
+
+    dropped=True drops tilts the way Warp does: in every 10th tilt series
+    (from the 4th) motion correction leaves out one deselected tilt, and in
+    every 10th (from the 8th) alignment leaves out two disabled ones.
+
+    image_qc=True writes the image content measures the tilt analysis
+    writes beside the tilt jpegs, with some blank, blacked out, different
+    field and shifted tilts (see _write_image_qc).
+
+    analyses: how many tilt analysis jobs of the motion correction output
+    to write (ANALYSIS_JOBS), each with its tilt_analysis.star listing the
+    motion corrected tilt series. """
+    rng = random.Random(seed)
+    os.makedirs(path, exist_ok=True)
+
+    jobs = [(j, t, 'Running' if acquiring else s) for j, t, s in JOBS]
+    lags = STAGE_LAGS if acquiring else [0] * len(jobs)
+    stage_defs = [
+        # Filenames and node type labels as emwrap actually writes them.
+        (jobs[0], 'tilt_series.star', TILT_COLS_IMPORT,
+         'TomogramGroupMetadata.star.emwrap.TiltSeries'),
+        (jobs[1], 'tilt_series.star', TILT_COLS_MCTF,
+         'TomogramGroupMetadata.star.emwrap.TiltSeriesAligned'),
+        (jobs[2], 'aligned_tilt_series.star', TILT_COLS_ALIGN,
+         'TomogramGroupMetadata.star.emwrap.tsalign'),
+        (jobs[3], 'tomograms.star', TILT_COLS_ALIGN,
+         'TomogramGroupMetadata.star.relion.tomo.Tomograms'),
+    ]
+
+    names = [f'TS_{i+1:04d}' for i in range(n_ts)]
+    # One tilt series that alignment cannot process.
+    failed_at_align = names[n_ts // 2] if n_ts > 4 else None
+
+    # With dropped=True: {series index % 10: (first stage index, movie numbers)}
+    drops = {3: (1, {6}), 7: (2, {9, 10})} if dropped else {}
+
+    analysis_jobs = ANALYSIS_JOBS[:analyses]
+    mctf_names = []
+    for stage, (((job_id, jobtype, _), star_name, cols, _node), lag) in enumerate(
+            zip(stage_defs, lags)):
+        job_dir = os.path.join(path, job_id)
+        os.makedirs(os.path.join(job_dir, 'tilt_series'), exist_ok=True)
+
+        stage_names = names[:max(0, n_ts - lag)]
+        if failed_at_align and jobtype in ('emw-warp-tsalign', 'emw-warp-ctfrec'):
+            stage_names = [n for n in stage_names if n != failed_at_align]
+
+        global_table = Table(GLOBAL_COLS)
+        for i, name in enumerate(names):
+            ts_star = f'{job_id}/tilt_series/{name}.star'
+            if name in stage_names:
+                global_table.addRowValues(
+                    name, ts_star, 300.0, 2.7, 0.07,
+                    PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE)
+
+            tilt_table = Table(cols)
+            first, movies = drops.get(i % 10, (len(stage_defs), set()))
+            for row in _tilt_rows(i, cols, rng, placeholders=placeholders):
+                movie = row[cols.index('rlnMicrographMovieName')]
+                if stage >= first and int(movie.rsplit('_', 1)[1].split('.')[0]) in movies:
+                    continue
+                tilt_table.addRowValues(*row)
+            with StarFile(os.path.join(path, ts_star), 'w') as sf:
+                sf.writeTable(name, tilt_table)
+            if image_qc and jobtype == 'emw-warp-mctf' and len(tilt_table):
+                for aj in analysis_jobs:
+                    _write_image_qc(os.path.join(path, aj, 'thumbnails'), name, i, tilt_table, seed)
+        if jobtype == 'emw-warp-mctf':
+            mctf_names, mctf_star = stage_names, f'{job_id}/{star_name}'
+
+        # Tomogram job also carries the aligned stack and tomogram columns
+        if jobtype == 'emw-warp-ctfrec':
+            gt = Table(GLOBAL_COLS + ['rlnTiltSeriesAligned',
+                                      'rlnTomoReconstructedTomogram',
+                                      'rlnTomoTomogramBinning'])
+            for i, name in enumerate(stage_names):
+                gt.addRowValues(
+                    name, f'{job_id}/tilt_series/{name}.star', 300.0, 2.7, 0.07,
+                    PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE,
+                    f'{JOBS[2][0]}/stacks/{name}.mrcs',
+                    f'{job_id}/tomograms/rec_{name}.mrc', 4.0)
+            global_table = gt
+        elif jobtype == 'emw-warp-tsalign':
+            gt = Table(GLOBAL_COLS + ['rlnTiltSeriesAligned'])
+            for i, name in enumerate(stage_names):
+                gt.addRowValues(
+                    name, f'{job_id}/tilt_series/{name}.star', 300.0, 2.7, 0.07,
+                    PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE,
+                    f'{job_id}/stacks/{name}.mrcs')
+            global_table = gt
+
+        with StarFile(os.path.join(job_dir, star_name), 'w') as sf:
+            sf.writeTable('global', global_table)
+
+        # Series this stage could not process, as emwrap records them.
+        if failed_at_align and jobtype == 'emw-warp-tsalign':
+            ft = Table(GLOBAL_COLS + ['rlnTiltSeriesAligned'])
+            ft.addRowValues(
+                failed_at_align,
+                f'{job_id}/tilt_series/{failed_at_align}.star', 300.0, 2.7,
+                0.07, PIXEL_SIZE, -1, 'optics1', TS_PIXEL_SIZE, 'None')
+            with StarFile(os.path.join(job_dir, 'failed_tilt_series.star'), 'w') as sf:
+                sf.writeTable('global', ft)
+
+    for aj in analysis_jobs:
+        _write_analysis(path, aj, mctf_star, mctf_names, 'Running' if acquiring else 'Succeeded')
+    _write_pipeline(path, stage_defs,
+                    [(aj, 'Running' if acquiring else 'Succeeded') for aj in analysis_jobs],
+                    mctf_star if analysis_jobs else None)
+    return path
+
+
+def _write_analysis(path, job_id, input_star, names, status):
+    """ tilt_analysis.star of a tilt analysis job, as emw-tilt-analyze
+    writes it: its folders and input, and the tilt series it analyzed. """
+    os.makedirs(os.path.join(path, job_id, 'thumbnails'), exist_ok=True)
+    analysis = Table(['emwTiltAnalysisFolder', 'emwThumbnailsFolder', 'emwInputTiltSeries'])
+    analysis.addRowValues(job_id, f'{job_id}/thumbnails', input_star)
+    global_table = Table(['rlnTomoName', 'rlnTomoTiltSeriesStarFile', 'emwImageQcFile', 'emwTilts'])
+    in_dir = os.path.dirname(input_star)
+    for name in names:
+        global_table.addRowValues(name, f'{in_dir}/tilt_series/{name}.star',
+                                  f'{job_id}/thumbnails/{name}_imageqc.json', N_TILTS)
+    with StarFile(os.path.join(path, job_id, 'tilt_analysis.star'), 'w') as sf:
+        sf.writeTable('analysis', analysis, singleRow=True)
+        sf.writeTable('global', global_table)
+
+
+def _write_pipeline(path, stage_defs, analyses=(), analysis_input=None):
+    tables = RelionStar.pipeline_tables()
+
+    tables['processes'] = Table(['rlnPipeLineProcessName',
+                                 'rlnPipeLineProcessAlias',
+                                 'rlnPipeLineProcessTypeLabel',
+                                 'rlnPipeLineProcessStatusLabel'])
+    for (job_id, jobtype, status), _star, _cols, _node in stage_defs:
+        tables['processes'].addRowValues(job_id + '/', 'None', jobtype, status)
+    for job_id, status in analyses:
+        tables['processes'].addRowValues(job_id + '/', 'None', 'emw-tilt-analyze', status)
+
+    for (job_id, jobtype, _st), star_name, _cols, node_type in stage_defs:
+        node = f'{job_id}/{star_name}'
+        tables['nodes'].addRowValues(node, node_type, 0)
+        tables['output_edges'].addRowValues(job_id + '/', node)
+        if jobtype == 'emw-warp-tsalign':
+            failed_node = f'{job_id}/failed_tilt_series.star'
+            tables['nodes'].addRowValues(
+                failed_node, node_type + '-failed', 0)
+            tables['output_edges'].addRowValues(job_id + '/', failed_node)
+
+    prev_node = None
+    for (job_id, _jt, _st), star_name, _cols, _node in stage_defs:
+        if prev_node:
+            tables['input_edges'].addRowValues(prev_node, job_id + '/')
+        prev_node = f'{job_id}/{star_name}'
+
+    for job_id, _st in analyses:
+        node = f'{job_id}/tilt_analysis.star'
+        tables['nodes'].addRowValues(node, ANALYSIS_NODE_TYPE, 0)
+        tables['output_edges'].addRowValues(job_id + '/', node)
+        tables['input_edges'].addRowValues(analysis_input, job_id + '/')
+
+    general = Table(['rlnPipeLineJobCounter'])
+    general.addRowValues(len(stage_defs) + len(analyses) + 1)
+
+    with StarFile(os.path.join(path, 'default_pipeline.star'), 'w') as sf:
+        sf.writeTable('pipeline_general', general)
+        for name in ('processes', 'nodes', 'input_edges', 'output_edges'):
+            sf.writeTable('pipeline_' + name, tables[name])
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('path', help='Where to write the fake project')
+    p.add_argument('--tilt-series', type=int, default=40, dest='n_ts')
+    p.add_argument('--seed', type=int, default=42)
+    p.add_argument('--emwrap-placeholders', action='store_true',
+                   dest='placeholders',
+                   help='write motion and CTF quality as the placeholder '
+                        'zeros emwrap currently produces')
+    p.add_argument('--dropped', action='store_true',
+                   help='drop tilts at motion correction and alignment, as '
+                        'Warp does with deselected and disabled tilts')
+    p.add_argument('--acquiring', action='store_true',
+                   help='write a session in progress: all jobs Running, '
+                        'later stages lagging behind')
+    p.add_argument('--image-qc', action='store_true', dest='image_qc',
+                   help='write the image content measures (blank, blacked '
+                        'out, different field tilts) beside the tilt jpegs')
+    p.add_argument('--analyses', type=int, default=1,
+                   help='how many tilt analysis jobs (dashboards) to write')
+    args = p.parse_args()
+    write_project(args.path, n_ts=args.n_ts, seed=args.seed,
+                  placeholders=args.placeholders, acquiring=args.acquiring,
+                  dropped=args.dropped, image_qc=args.image_qc, analyses=args.analyses)
+    print(f'Wrote fake OTF project with {args.n_ts} tilt series to {args.path}')
+
+
+if __name__ == '__main__':
+    main()
