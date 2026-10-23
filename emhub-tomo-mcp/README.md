@@ -73,6 +73,7 @@ Claude Code (`.mcp.json` in your project):
 
 ## Documentation
 
+- [docs/apof-tutorial.md](docs/apof-tutorial.md): **tutorial**, the Warp ApoF tutorial run end to end through Claude Code, with the real conversations and screenshots
 - [docs/configuration.md](docs/configuration.md): environment variables
 - [docs/client-setup.md](docs/client-setup.md): Claude Code, VS Code, Claude Desktop, SSH
 - [docs/deployment.md](docs/deployment.md): installing on a cluster, access levels, logs and the audit log
