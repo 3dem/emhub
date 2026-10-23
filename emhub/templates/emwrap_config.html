@@ -241,20 +241,25 @@
 
     if ($('#emwrap-workflows').length) {
         $('#emwrap-workflows').DataTable({
-            pageLength: 25,
+            paging: false,
+            searching: false,
+            info: false,
             ordering: false
         });
     }
 
     if ($('#emwrap-programs').length) {
         $('#emwrap-programs').DataTable({
-            pageLength: 25
+            paging: false,
+            searching: false,
+            info: false
         });
     }
 
     if ($('#emwrap-jobs').length) {
         $('#emwrap-jobs').DataTable({
-            pageLength: 50
+            paging: false,
+            info: false
         });
     }
 

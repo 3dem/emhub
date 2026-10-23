@@ -30,6 +30,7 @@ import os
 import sys
 import json
 import platform
+import subprocess
 from uuid import uuid4
 import shutil
 import random
@@ -167,11 +168,45 @@ def load_benchmark_run_jobs(processing_path):
     return jobs
 
 
+def _get_git_info(path):
+    """ Return 'branch @ commit' (plus tag and modified flag) for PATH if it
+    is inside a git checkout (i.e. installed from sources), or None. """
+    def _git(*args):
+        try:
+            r = subprocess.run(['git', '-C', path, *args], capture_output=True,
+                               text=True, timeout=5)
+            return r.stdout.strip() if r.returncode == 0 else None
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    commit = _git('rev-parse', '--short', 'HEAD')
+    if not commit:
+        return None
+    info = f"{_git('rev-parse', '--abbrev-ref', 'HEAD')} @ {commit}"
+    if tag := _git('describe', '--tags', '--exact-match'):
+        info += f" (tag {tag})"
+    if _git('status', '--porcelain', '--untracked-files=no'):
+        info += ", modified"
+    return info
+
+
+def _get_library_row(module):
+    """ Row with the path, version and git info (when installed from
+    sources) of one of the core libraries. """
+    path = os.path.dirname(module.__file__)
+    details = [f"Version: {getattr(module, '__version__', 'unknown')}"]
+    if git_info := _get_git_info(path):
+        details.append(f"Git: {git_info}")
+    return {'label': module.__name__, 'value': path, 'status': 'ok',
+            'details': ' | '.join(details)}
+
+
 def _get_python_env_rows(instance_path):
     """ Return rows describing the Python environment running the server,
     to quickly spot when it is not the expected one (e.g. an old conda env
     picked up from PATH).
     """
+    import emtools
     import emhub
     import emwrap
 
@@ -208,8 +243,9 @@ def _get_python_env_rows(instance_path):
         prefix_row,
         _row('Python Executable', sys.executable),
         _row('Python Version', platform.python_version()),
-        _row('emhub Package', os.path.dirname(emhub.__file__)),
-        _row('emwrap Package', os.path.dirname(emwrap.__file__)),
+        _get_library_row(emtools),
+        _get_library_row(emwrap),
+        _get_library_row(emhub),
         instance_row,
     ]
 
