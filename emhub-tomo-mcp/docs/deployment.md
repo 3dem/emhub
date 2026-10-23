@@ -20,7 +20,7 @@ How to install and run the server for yourself or for the users of a facility, w
   | `/api/get_job_types` | `list_job_types` | Job types come from the processing menu |
   | `/api/validate_job` | EMhub's own parameter checks before changes | Only the form is checked |
 
-  These endpoints, and the new job ids returned by `load_workflow`, are on the emhub branch `sc_mcp_server` (the first comes from `jm_mcp`).
+  These endpoints, and the new job ids returned by `load_workflow`, are on the emhub branch `dev-sc_mcp_server` (the first comes from `jm_mcp`).
 
 ## Install
 

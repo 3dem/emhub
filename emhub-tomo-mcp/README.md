@@ -4,7 +4,7 @@ An [MCP](https://modelcontextprotocol.io) server that gives AI assistants (Claud
 
 With read access (the default), an assistant can answer questions such as "which of my projects have failed jobs?", "why did `WarpTsAlign/job004` fail?" or "how far did the ApoF tutorial get?". With write access, which the operator enables, it can also set up projects from workflow templates, edit parameters, and run, schedule and stop jobs, with checks on parameters, queues, GPUs and launch rates, and an audit log.
 
-Status: **1.0.0** (Phases 1 to 3 of the development plan). Developed on the emhub branch `sc_mcp_server`; not yet merged or published.
+Status: **1.0.0** (Phases 1 to 3 of the development plan). Developed on the emhub branch `dev-sc_mcp_server`; not yet merged or published.
 
 ## What it offers
 
