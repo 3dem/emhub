@@ -652,6 +652,44 @@ resolution) and plots M's Fourier Shell Correlation curves:
 *The population after the first M round (WarpMCore/job012, refinements off): M's files and its FSC curves. The map panel needs WebGL (see above).*
 
 
+After five rounds, ask how it is going:
+
+**You:**
+
+> How are the M refinements going? Which resolution did M reach after each round so far, and is it still improving?
+
+<details><summary>16 tool calls: get_project, get_job_logs, list_project_files</summary><ol><li><code>get_project(project_id=1, job_types=[&quot;emw-warp-mcore&quot;, &quot;emw-warp-estimate_weights&quot;, &quot;emw-warp-mtools_resample&quot;])</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job012&quot;, contains=&quot;resolution&quot;, tail_lines=40)</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job013&quot;, contains=&quot;resolution&quot;, tail_lines=40)</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job014&quot;, contains=&quot;resolution&quot;, tail_lines=40)</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job015&quot;, contains=&quot;resolution&quot;, tail_lines=40)</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job016&quot;, contains=&quot;resolution&quot;, tail_lines=40)</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job016&quot;, tail_lines=80, streams=[&quot;stdout&quot;, &quot;stderr&quot;, &quot;job_log&quot;])</code></li><li><code>list_project_files(project_id=1, path=&quot;WarpMCore/job016&quot;)</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job012&quot;, contains=&quot;Å&quot;, streams=[&quot;stdout&quot;])</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job013&quot;, contains=&quot;Å&quot;, streams=[&quot;stdout&quot;])</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job014&quot;, contains=&quot;Å&quot;, streams=[&quot;stdout&quot;])</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job015&quot;, contains=&quot;Å&quot;, streams=[&quot;stdout&quot;])</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCreatePopulation/job011&quot;, contains=&quot;Å&quot;, streams=[&quot;stdout&quot;])</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpEstimateWeights/job017&quot;, tail_lines=30, streams=[&quot;stdout&quot;, &quot;stderr&quot;])</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;Refine3D/job009&quot;, contains=&quot;final resolution&quot;, streams=[&quot;stdout&quot;])</code></li><li><code>get_project(project_id=1, statuses=[&quot;launched&quot;, &quot;running&quot;, &quot;scheduled&quot;, &quot;failed&quot;, &quot;aborted&quot;])</code></li></ol></details>
+
+**Assistant:**
+
+> The M refinements are going well. Five M rounds have finished and each one reached a better resolution than the last, but the gains are getting smaller. No job has failed and none of the logs show errors.
+>
+> | Round | What M refined | Resolution | Change |
+> |---|---|---|---|
+> | job012 | Nothing: 0 iterations, so this is the starting reconstruction | 7.72 Å | — |
+> | job013 | Particle poses, 3×3 image warp, defocus (full search) | 3.79 Å | −3.93 Å |
+> | job014 | The same, with a local defocus search | 3.22 Å | −0.57 Å |
+> | job015 | Particle poses, image warp, stage angles | 3.05 Å | −0.17 Å |
+> | job016 | Adds Cs, beam tilt and trefoil, magnification | **2.97 Å** | −0.08 Å |
+>
+> **Is it still improving?** Yes, but it's levelling off. Each round improved, and the improvement shrank from 0.57 to 0.17 to 0.08 Å. More rounds of the same refinements would add little. The remaining rounds do different things:
+>
+> - **job017** (per-particle weights) finished at 23:15. It doesn't report a resolution.
+> - **job018** is scheduled and should start within 5 minutes of job017 finishing. It will give the first resolution with the new weights.
+> - **job019 to job022** follow: per-frame weights, a refinement, trajectory resampling, and a final refinement with everything switched on. Whether these improve on 2.97 Å won't be known until they run.
+>
+> For reference, part 1's RELION refinement (`Refine3D/job009`) ended at 8.26 Å without masking. That's not a direct comparison, because M reports its own resolution measure.
+>
+> Rounds have taken 15–33 minutes each, so the rest of the chain should take about another 1.5–2 hours.
+
+<sub>16 tool calls · 53 s</sub>
+
+
+![The population after the fifth round (WarpMCore/job016): the FSC curves now reach about 3 Å.](images/apof-tutorial/s11_population_job016.jpg)
+
+*The population after the fifth round (WarpMCore/job016): the FSC curves now reach about 3 Å.*
+
+
 ## Results
 
 Part 2 is still running. This section will show the final map, its resolution and the
