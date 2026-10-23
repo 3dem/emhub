@@ -27,7 +27,9 @@
 Content function to visualize tomography results
 """
 import os
+import sys
 import json
+import platform
 from uuid import uuid4
 import shutil
 import random
@@ -165,6 +167,53 @@ def load_benchmark_run_jobs(processing_path):
     return jobs
 
 
+def _get_python_env_rows(instance_path):
+    """ Return rows describing the Python environment running the server,
+    to quickly spot when it is not the expected one (e.g. an old conda env
+    picked up from PATH).
+    """
+    import emhub
+    import emwrap
+
+    prefix = sys.prefix
+    conda_prefix = os.environ.get('CONDA_PREFIX')
+    if os.path.exists(os.path.join(prefix, 'conda-meta')):
+        env_type = 'conda'
+    elif prefix != sys.base_prefix:
+        env_type = 'venv'
+    else:
+        env_type = 'system'
+
+    def _row(label, value, status='ok', details=''):
+        return {'label': label, 'value': value, 'status': status,
+                'details': details}
+
+    prefix_row = _row('Environment Prefix', prefix)
+    if (conda_prefix and
+            os.path.realpath(conda_prefix) != os.path.realpath(prefix)):
+        prefix_row['status'] = 'warning'
+        prefix_row['details'] = (f"Differs from the active CONDA_PREFIX "
+                                 f"({conda_prefix}), the server Python likely "
+                                 f"comes from another environment in PATH.")
+
+    env_instance = os.environ.get('EMHUB_INSTANCE', '')
+    instance_row = _row('EMHUB_INSTANCE', env_instance or instance_path)
+    if not env_instance:
+        instance_row['status'] = 'warning'
+        instance_row['details'] = 'Not set, showing the Flask instance path.'
+
+    return [
+        _row('Environment Type', env_type),
+        _row('Environment Name', os.path.basename(prefix)),
+        prefix_row,
+        _row('Python Executable', sys.executable),
+        _row('Python Version', platform.python_version()),
+        _row('emhub Package', os.path.dirname(emhub.__file__)),
+        _row('emwrap Package', os.path.dirname(emwrap.__file__)),
+        instance_row,
+    ]
+
+
 def register_content(dc):
 
     def _get_workflow_widget_data(workflow_id):
@@ -204,6 +253,7 @@ def register_content(dc):
         report = ProcessingConfig.get_config_report()
 
         return {
+            'python_env_rows': _get_python_env_rows(dc.app.instance_path),
             'config_summary': report['summary'],
             'workflow_rows': report['workflow_rows'],
             'job_rows': report['job_rows'],
