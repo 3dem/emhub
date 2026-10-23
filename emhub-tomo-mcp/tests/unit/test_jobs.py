@@ -110,7 +110,6 @@ async def test_hidden_failure_warnings(services: Services, fake: FakeEmhub) -> N
     assert failed.warnings == []
 
 
-
 async def test_inputs_from_parameters_after_a_run(services: Services, fake: FakeEmhub) -> None:
     """emwrap's run information lists no inputs once a job has run; the files of other
     jobs named in the parameters are shown instead."""
@@ -119,6 +118,7 @@ async def test_inputs_from_parameters_after_a_run(services: Services, fake: Fake
     job = await services.jobs.job_detail(ref, "WarpTsAlign/job004")
     assert job.inputs and all("/job" in path for path in job.inputs)
     assert not any(path.startswith("WarpTsAlign/job004/") for path in job.inputs)
+
 
 async def test_partly_failed_warp_job_is_flagged(services: Services, fake: FakeEmhub) -> None:
     """emwrap finishes a Warp job when only some tilt series failed, and says so in

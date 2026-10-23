@@ -28,6 +28,7 @@ import posixpath
 import re
 import time
 from collections.abc import Awaitable, Callable, Iterable, Sequence
+from datetime import datetime
 from typing import Any
 
 import anyio
@@ -60,6 +61,10 @@ def _text(value: str, what: str, limit: int, pattern: re.Pattern[str] = TEXT_RE)
         raise invalid(f"{what} contains control characters.")
     return value
 
+
+# emwrap's scheduler logs this in <job>/job.log just before it submits the job.
+_LAUNCHING = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d): All inputs ready\. Launching", re.M)
+LAUNCH_WINDOW_S = 120
 
 _GPU_HINT = (
     "Lower the job's GPU count: 'gpus', or 'gpu_ids' for RELION jobs, whose 'gpus' "
@@ -571,6 +576,7 @@ class Operations:
                 node = self._node(graph, ref, job_id)
                 status = self._status(node)
                 self._check_runnable(job_id, status, rerun)
+                await self._check_not_launching(ref, job_id, status)
                 # Policy first (queue, GPUs, launches), then EMhub's validation.
                 clean_params = await self._check_form(ref, node.type, params, allow_unknown=False)
                 merged = {**await self._current_params(ref, job_id), **clean_params}
@@ -626,6 +632,33 @@ class Operations:
                 hint="Pass rerun=true if that is intended, or duplicate it.",
             )
 
+    async def _check_not_launching(self, ref: ProjectRef, job_id: str, status: str) -> None:
+        """Refuse a job that emwrap's scheduler is starting right now. While it submits a
+        scheduled job, the job reads as 'saved' (the scheduled mark is removed first), so
+        running or scheduling it again would launch it twice."""
+        if status != "saved":
+            return
+        try:
+            log = await self._api.get_file_preview(ref.root, f"{job_id}/job.log")
+        except EmhubMcpError:
+            return  # no scheduler log: it was never scheduled
+        stamps = _LAUNCHING.findall(log.text or "")
+        if not stamps:
+            return
+        try:
+            age = (
+                datetime.now() - datetime.strptime(stamps[-1], "%Y-%m-%d %H:%M:%S")
+            ).total_seconds()
+        except ValueError:
+            return
+        if 0 <= age < LAUNCH_WINDOW_S:
+            raise EmhubMcpError(
+                ErrorKind.CONFLICT,
+                f"{job_id} is being started by EMhub's scheduler right now "
+                f"({stamps[-1]}); its status reads 'saved' until the launch is recorded.",
+                hint="Check its status again in a minute (get_job); do not launch it yourself.",
+            )
+
     async def _mutate_or_report(
         self, ref: ProjectRef, job_ids: Sequence[str], call: Awaitable[None]
     ) -> None:
@@ -669,6 +702,7 @@ class Operations:
                 before = {n.id: self._status(n) for n in nodes}
                 for node in nodes:
                     self._check_runnable(node.id, before[node.id], rerun)
+                    await self._check_not_launching(ref, node.id, before[node.id])
                 ordered = _topological(graph, wanted)
                 updates: dict[str, dict[str, Any]] = {}
                 notes: list[str] = []

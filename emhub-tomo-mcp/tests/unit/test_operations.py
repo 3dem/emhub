@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -506,6 +507,24 @@ async def test_relion_jobs_use_gpu_ids(make: Any, fake: FakeEmhub) -> None:
         ref, job, params={}, rerun=False, clean=False, dry_run=True
     )
     assert "on queue 'None', no GPUs" in cpu.details[0]
+
+
+async def test_job_being_started_by_the_scheduler(ops: Services, fake: FakeEmhub) -> None:
+    """While emwrap's scheduler submits a scheduled job, the job reads as 'saved'; running
+    or scheduling it then would launch it twice."""
+    ref = await new_project(ops)
+    job = "WarpMctf/job002"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log = f"{now}: All inputs ready. Launching current job {job}.\n"
+    fake.files[ref.root].setdefault(job, {})["job.log"] = log
+    for call in (
+        ops.operations.run_job(ref, job, params={}, rerun=False, clean=False, dry_run=True),
+        ops.operations.schedule_jobs(ref, [job], interval_minutes=5, rerun=False, dry_run=True),
+    ):
+        await expect(ErrorKind.CONFLICT, "being started by EMhub's scheduler", call)
+    # An old launch in the log (the job ran and was saved again) does not block it.
+    fake.files[ref.root][job]["job.log"] = "2026-01-01 10:00:00: All inputs ready. Launching x.\n"
+    await ops.operations.run_job(ref, job, params={}, rerun=False, clean=False, dry_run=True)
 
 
 async def test_launch_rate_limit(make: Any) -> None:
