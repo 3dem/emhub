@@ -61,18 +61,26 @@ Python version:
 
 Apple Silicon Macs: use a native arm64 Python (e.g. Homebrew's
 ``python3.10``, or Miniforge). Older Intel (x86_64) conda installations,
-such as the one bundled with Scipion, run under Rosetta, and
-``cryptography`` (required by ``mcp`` through ``PyJWT[crypto]``) has no
-x86_64 macOS wheels since version 49. pip then tries to build it from
-source, which needs Rust and usually fails (e.g. with
-``CERTIFICATE_VERIFY_FAILED`` when downloading Rust behind a TLS
-inspecting proxy). Check the architecture with
-``python -c "import platform; print(platform.machine())"``; if it prints
+such as the one bundled with Scipion, run under Rosetta, and some pinned
+packages have no x86_64 macOS wheels, so pip tries to build them from
+source, which usually fails:
+
+* ``gevent==26.9.0`` (from emhub's ``requirements.txt``) only has x86_64
+  (universal2) wheels for Python >= 3.12.
+* ``cryptography`` (required by ``mcp`` through ``PyJWT[crypto]``) has no
+  x86_64 wheels since version 49; building it needs Rust, and downloading
+  Rust fails behind a TLS inspecting proxy with
+  ``CERTIFICATE_VERIFY_FAILED``.
+
+Check the architecture with
+``python -c "import platform; print(platform.machine())"``. If it prints
 ``x86_64`` on an Apple Silicon Mac, either switch to an arm64 Python or
-keep an older ``cryptography`` when installing:
+use Python >= 3.12 and keep an older ``cryptography`` when installing:
 
 .. code-block:: bash
 
+    conda create -n emhub-mcp python=3.12
+    conda activate emhub-mcp
     pip install -e ./emtools -e './emhub[mcp]' 'cryptography<49'
 
 After pulling new changes there is nothing to reinstall, but running MCP
