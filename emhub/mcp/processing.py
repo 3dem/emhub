@@ -19,9 +19,9 @@ underlying ``/api/get_session_workflow``, ``/api/launch_job``, ... endpoints
 
 Registered by :func:`register_tools`, called from ``emhub.mcp.server``.
 Read tools, creating tomo projects, job tools (save/duplicate/copy/
-launch/schedule/stop, labels, notes) and exporting workflows are always
-registered, EMhub checks the user can edit the project. Deleting jobs and
-loading workflows are only registered when ``allow_admin`` is True.
+launch/schedule/stop, labels, notes) and exporting/loading workflows are
+always registered, EMhub checks the user can edit the project. Deleting
+jobs is only registered when ``allow_admin`` is True.
 """
 
 from typing import Optional
@@ -80,7 +80,7 @@ def register_tools(mcp, client, allow_admin=False):
         mcp: The ``MCPServer`` (mcp 2.x) or ``FastMCP`` (mcp 1.x) instance.
         client: A connected ``EmhubMcpClient``.
         allow_admin (bool): Whether to also register the admin tools
-            (delete jobs, load workflow).
+            (delete jobs).
     """
 
     def _project_root(session_id=None, entry_id=None, path=None):
@@ -608,33 +608,13 @@ def register_tools(mcp, client, allow_admin=False):
         return client.call('save_job_annotation', attrs=attrs,
                            key='protocol')
 
-    if not allow_admin:
-        return
-
-    # ------------------------- Admin tools --------------------------------
-    @mcp.tool(annotations=DESTRUCTIVE)
-    def processing_delete_jobs(run_ids: list[str],
-                               session_id: Optional[int] = None,
-                               entry_id: Optional[int] = None,
-                               path: Optional[str] = None) -> list[dict]:
-        """ (Admin) Delete jobs and their results from a project. This can
-        not be undone, always confirm with the user before calling it.
-
-        Args:
-            run_ids: Ids of the jobs to delete.
-            session_id, entry_id, path: Project selector, provide one.
-        """
-        return _workflow_call('delete_jobs',
-                              _project_selector(session_id, entry_id, path),
-                              run_ids=run_ids)
-
     @mcp.tool(annotations=WRITE)
     def processing_load_workflow(workflow_id: Optional[str] = None,
                                  workflow_file: Optional[str] = None,
                                  session_id: Optional[int] = None,
                                  entry_id: Optional[int] = None,
                                  path: Optional[str] = None) -> dict:
-        """ (Admin) Add the jobs of a workflow to a project, saved but not
+        """ Add the jobs of a workflow to a project, saved but not
         launched: a template (workflow_id, e.g. 'spa-otf' or 'tomo-otf',
         see processing_list_workflows) or a JSON file in the project
         (workflow_file, e.g. one written by processing_export_workflow).
@@ -659,6 +639,26 @@ def register_tools(mcp, client, allow_admin=False):
         # 'protocols' is the UI widget structure, not useful here
         result.pop('protocols', None)
         return result
+
+    if not allow_admin:
+        return
+
+    # ------------------------- Admin tools --------------------------------
+    @mcp.tool(annotations=DESTRUCTIVE)
+    def processing_delete_jobs(run_ids: list[str],
+                               session_id: Optional[int] = None,
+                               entry_id: Optional[int] = None,
+                               path: Optional[str] = None) -> list[dict]:
+        """ (Admin) Delete jobs and their results from a project. This can
+        not be undone, always confirm with the user before calling it.
+
+        Args:
+            run_ids: Ids of the jobs to delete.
+            session_id, entry_id, path: Project selector, provide one.
+        """
+        return _workflow_call('delete_jobs',
+                              _project_selector(session_id, entry_id, path),
+                              run_ids=run_ids)
 
 
 def _job_attrs(run_id, job_type, params):

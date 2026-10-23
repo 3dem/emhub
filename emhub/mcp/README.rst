@@ -245,10 +245,10 @@ Tools are registered in three levels:
 * **Read** tools, always available.
 * **Safe writes**, always available: creating, updating and cancelling
   bookings; creating tomo projects; saving, launching, scheduling and
-  stopping jobs; job labels and notes. EMhub validates them for the logged in user.
+  stopping jobs; loading and exporting workflows; job labels and notes. EMhub validates them for the logged in user.
 * **Admin** tools, only registered when the user has the ``admin`` or
   ``developer`` role: creating/updating users and resources, updating
-  sessions, deleting jobs and loading workflow templates.
+  sessions and deleting jobs.
 
 Tools carry MCP annotations (``readOnlyHint``, ``destructiveHint``) and
 the docstrings of writing tools ask the model to confirm with the user
@@ -350,9 +350,10 @@ only if there are none.
   ``processing_schedule_job``, ``processing_stop_jobs``,
   ``processing_set_job_labels``, ``processing_save_label``,
   ``processing_delete_label``, ``processing_annotate_job``,
-  ``processing_export_workflow`` (a workflow JSON in the project folder).
-* Admin: ``processing_delete_jobs``, ``processing_load_workflow`` (a
-  template or a workflow JSON of the project).
+  ``processing_export_workflow`` (a workflow JSON in the project folder),
+  ``processing_load_workflow`` (a template or a workflow JSON of the
+  project).
+* Admin: ``processing_delete_jobs``.
 
 The ``/api/get_classes2d`` and ``/api/get_file_info`` endpoints are not
 exposed: they read form data, do not require login and return large

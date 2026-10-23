@@ -93,13 +93,14 @@ class TestMcpServer(unittest.TestCase):
 
     def test_admin_tools(self):
         admin_tools = {'booking_create_user', 'booking_update_resource',
-                       'processing_delete_jobs', 'processing_load_workflow'}
+                       'processing_delete_jobs'}
         mcp, _ = self._server(roles=['user'])
         names = _tool_names(mcp)
         self.assertFalse(admin_tools & names)
         # Safe writes are available to every user
         self.assertIn('booking_create_booking', names)
         self.assertIn('processing_launch_job', names)
+        self.assertIn('processing_load_workflow', names)
 
         mcp, _ = self._server(roles=['user', 'admin'])
         self.assertTrue(admin_tools <= _tool_names(mcp))
@@ -191,7 +192,7 @@ class TestMcpServer(unittest.TestCase):
         self.assertEqual(r, {'workflow_file': 'wf.json', 'exported_jobs': 2})
 
     def test_load_workflow_file(self):
-        mcp, client = self._server(['processing'], roles=['admin'],
+        mcp, client = self._server(['processing'], roles=['user'],
                                    results={'load_workflow': {}})
         _call_tool(mcp, 'processing_load_workflow', entry_id=5,
                    workflow_file='wf.json')
