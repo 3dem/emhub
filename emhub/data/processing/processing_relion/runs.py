@@ -223,7 +223,7 @@ class RelionRun(SessionRun):
             iterDict = defaultdict(lambda: [])
             lastIter = -1
             import re
-            r = re.compile('.+_it(\d{3,5}?)_.+\.(\w+)')
+            r = re.compile(r'.+_it(\d{3,5}?)_.+\.(\w+)')
 
             for v in glob(self.join('*_it*.*')):
                 if s := r.search(v):

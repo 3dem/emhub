@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emhub"
+dynamic = ["version", "dependencies"]
+description = "Web application for monitoring EM results"
+readme = {file = "README.rst", content-type = "text/x-rst"}
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    {name = "J.M. De la Rosa Trevin", email = "delarosatrevin@scilifelab.se"},
+    {name = "Grigory Sharov", email = "gsharov@mrc-lmb.cam.ac.uk"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+
+[project.urls]
+Homepage = "https://github.com/3dem/emhub"
+"Bug Reports" = "https://github.com/3dem/emhub/issues"
+Source = "https://github.com/3dem/emhub/"
+
+[project.scripts]
+emh-data = "emhub.data.__main__:main"
+emh-client = "emhub.client.__main__:main"
+emh-relion = "emhub.data.processing.processing_relion.__main__:main"
+
+[tool.setuptools]
+# Templates and static files are included via MANIFEST.in
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["emhub*"]
+namespaces = false
+
+[tool.setuptools.dynamic]
+version = {attr = "emhub.__version__"}
+# Pinned versions tested with Python 3.10 - 3.15
+dependencies = {file = ["requirements.txt"]}

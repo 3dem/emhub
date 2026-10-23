@@ -535,8 +535,12 @@ def create_app(test_config=None):
 
     app.dm = DataManager(app.instance_path, user=app.user, redis=app.r)
 
-    from flaskext.markdown import Markdown
-    Markdown(app, extensions=['tables', 'fenced_code'])
+    import markdown
+    from markupsafe import Markup
+
+    @app.template_filter('markdown')
+    def markdown_filter(text):
+        return Markup(markdown.markdown(text, extensions=['tables', 'fenced_code']))
 
     app.jinja_env.filters['pretty_datetime'] = app.dm.local_datetime
 

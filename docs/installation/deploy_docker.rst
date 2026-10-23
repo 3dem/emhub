@@ -9,9 +9,9 @@ A Docker image for running EMhub can be created with the following dockerfile:
 
 .. code-block:: docker
 
-    FROM python:3.8
+    FROM python:3.12
 
-    LABEL description="Python 3.8 based image to run emhub application"
+    LABEL description="Python 3.12 based image to run emhub application"
     LABEL maintainer="J.M. de la Rosa Trevin delarosatrevin@gmail.com"
 
     ENV EMHUB_INSTANCE /emhub-data/emhub-instance
