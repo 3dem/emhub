@@ -338,11 +338,19 @@ editors of the entries registered with that path, and for managers
 only if there are none.
 
 * Read: ``processing_list_projects``, ``processing_get_workflow``,
-  ``processing_get_job`` (values, info, inputs/outputs and optionally
-  logs and the parameters form), ``processing_list_files``,
-  ``processing_read_file``, ``processing_get_table``,
-  ``processing_get_labels``, ``processing_list_workflows`` (workflow
-  templates, through ``/api/get_workflow_templates``).
+  ``processing_get_project_summary`` (jobs per status, failed, active,
+  ready to run and blocked jobs, labels), ``processing_get_job`` (values,
+  info, inputs/outputs and optionally logs, ``job.log``, error-like log
+  lines, a search in the logs and the parameters form),
+  ``processing_list_files``, ``processing_read_file``,
+  ``processing_get_table``, ``processing_get_labels``,
+  ``processing_list_workflows`` (workflow templates, through
+  ``/api/get_workflow_templates``), ``processing_list_job_types``
+  (``/api/get_job_types``), ``processing_describe_job_type`` (the
+  parameters of a job type, before a job exists),
+  ``processing_validate_job`` (check parameters without saving, through
+  ``/api/validate_job``) and ``processing_wait_for_jobs`` (wait, at most
+  10 minutes per call, until jobs finish, fail or are aborted).
 * Safe writes: ``processing_create_tomo_project`` (a ``tomo_processing``
   entry, through ``/api/create_tomo_project``), ``processing_save_job``,
   ``processing_duplicate_jobs``, ``processing_copy_job`` (duplicate and

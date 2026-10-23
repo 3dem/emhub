@@ -660,6 +660,9 @@ def get_session_run():
         if 'stderr' in outputs:
             results['stderr'] = _loadFileLines(run.getStdError())
 
+        if 'joblog' in outputs:  # scheduling and cluster submission
+            results['joblog'] = _loadFileLines(run.join('job.log'))
+
         if 'form' in outputs:
             values = run.values if run else None
             # Pass runId so get_form_definition can read job.star when there
@@ -1413,6 +1416,58 @@ def get_workflow_templates():
         return ProcessingConfig.get_workflows()
 
     return _handle_item(_handle, 'workflows')
+
+
+@api_bp.route('/get_job_types', methods=['POST'])
+@flask_login.login_required
+def get_job_types():
+    """ Return the job types registered in emwrap (id, label, output folder,
+    whether it is shown in the processing menu and whether it has a form). """
+    def _handle(**attrs):
+        from emwrap.base import ProcessingConfig
+        return [{
+            'id': job_type,
+            'label': conf.get('label', job_type),
+            'output': conf.get('output', ''),
+            'visible': ProcessingConfig.is_job_visible(job_type),
+            'has_form': os.path.exists(
+                ProcessingConfig.get_job_form_file(job_type))
+        } for job_type, conf in ProcessingConfig.get_jobs().items()]
+
+    return _handle_item(_handle, 'job_types')
+
+
+@api_bp.route('/validate_job', methods=['POST'])
+@flask_login.login_required
+def validate_job():
+    """ Validate job params against the job type's form, without saving or
+    running anything. For an existing job (run_id) the given params are
+    merged into its current ones; a new job needs job_type. With
+    for_schedule, inputs produced by parent jobs may not exist yet.
+    """
+    def _validate_job(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        params = attrs.get('params') or {}
+        run = pp.get('run')
+        job = None
+        if run:
+            job = pm._getJob(run.id)
+            job_type = job['jobtype']
+            job_params = pm._readJobParams(job, extraParams=params)
+        else:
+            job_type = attrs.get('job_type')
+            if not job_type:
+                raise Exception("Provide run_id for an existing job, "
+                                "or job_type for a new one.")
+            job_params = params
+        try:
+            pm._validateJobInputs(job_type, job_params, job=job,
+                                  for_schedule=bool(attrs.get('for_schedule')))
+        except JobValidationError as e:
+            return {'valid': False, 'errors': list(e.errors)}
+        return {'valid': True, 'errors': []}
+
+    return _handle_item(_validate_job, 'validation')
 
 
 @api_bp.route('/launch_job', methods=['POST'])
