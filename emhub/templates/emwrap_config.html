@@ -1,10 +1,48 @@
 <div class="container-fluid dashboard-content">
-    {% set title = "EMwrap Configuration" %}
-    {% set navigation = [('Processing', url_for_content('processing_projects_list')), ('EMwrap Configuration', '')] %}
+    {% set title = "EMhub Configuration" %}
+    {% set navigation = [('Processing', url_for_content('processing_projects_list')), ('EMhub Configuration', '')] %}
     {% set about = "Important paths and launchers derived from ProcessingConfig.check_config." %}
     {% include 'include_header.html' %}
 
     {% set badge_map = {'ok': 'success', 'warning': 'warning', 'error': 'danger'} %}
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Python Environment</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="emwrap-python-env" class="table table-striped table-bordered" style="width:100%">
+                            <thead>
+                            <tr>
+                                <th>Option</th>
+                                <th>Value</th>
+                                <th>Status</th>
+                                <th>Details</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {% for row in python_env_rows %}
+                            <tr>
+                                <td><strong>{{ row.label }}</strong></td>
+                                <td><code>{{ row.value }}</code></td>
+                                <td>
+                                    <span class="badge badge-{{ badge_map.get(row.status, 'secondary') }}">
+                                        {{ row.status }}
+                                    </span>
+                                </td>
+                                <td>{{ row.details }}</td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="row">
         <div class="col-12">
