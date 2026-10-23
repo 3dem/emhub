@@ -641,6 +641,17 @@ nothing of the first one and finds its way through the project itself.
 *All 22 jobs: part 1 finished, part 2 scheduled, its first M job running.*
 
 
+### Following Part 2
+
+Each M round runs for 20 to 25 minutes on 2 GPUs. The eye icon of a ``WarpPopulation``
+output opens the population viewer. It lists M's files (maps, half maps, masks, local
+resolution) and plots M's Fourier Shell Correlation curves:
+
+![The population after the first M round (WarpMCore/job012, refinements off): M's files and its FSC curves. The map panel needs WebGL (see above).](images/apof-tutorial/s10_population_job012.jpg)
+
+*The population after the first M round (WarpMCore/job012, refinements off): M's files and its FSC curves. The map panel needs WebGL (see above).*
+
+
 ## Results
 
 Part 2 is still running. This section will show the final map, its resolution and the
