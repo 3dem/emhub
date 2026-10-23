@@ -41,6 +41,7 @@ DO NOT IMPORT THIS MODULE!
 import datetime as dt
 import re
 from collections import OrderedDict
+import hmac
 import jwt
 
 from sqlalchemy import (Column, Integer, String, JSON,
@@ -49,9 +50,20 @@ from sqlalchemy.orm import relationship
 from sqlalchemy_utc import UtcDateTime, utcnow
 from flask_login import UserMixin
 from flask import current_app as app
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash as werkzeug_check_password_hash
 
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
+
+
+def check_password_hash(pwhash, password):
+    """ Check the password, also accepting 'sha256$salt$hash' entries created
+    with Werkzeug < 3.0 (that method was removed in Werkzeug 3.0). """
+    if pwhash and pwhash.startswith('sha256$'):
+        _, salt, hashval = pwhash.split('$', 2)
+        h = hmac.new(salt.encode(), password.encode(), 'sha256').hexdigest()
+        return hmac.compare_digest(h, hashval)
+    return werkzeug_check_password_hash(pwhash, password)
 
 
 Base = declarative_base()
@@ -257,7 +269,7 @@ class User(UserMixin, Base):
 
     @staticmethod
     def create_password_hash(password):
-        return generate_password_hash(password, method='sha256')
+        return generate_password_hash(password, method='pbkdf2:sha256')
 
     def set_password(self, password):
         """Create hashed password."""

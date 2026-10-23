@@ -44,10 +44,10 @@ os.system(f"mkdir -p '{outputDir}'")
 
 print(f"Writing output .json files to: {outputDir}")
 
-r = re.compile('joboptions\[(?P<name>"[^"]*")]\s*=\s*JobOption\((?P<label>"[^"]*")(?P<rest>.*)')
-rr = re.compile('(?P<parts>.*)(?P<help>".*")\);')
+r = re.compile(r'joboptions\[(?P<name>"[^"]*")]\s*=\s*JobOption\((?P<label>"[^"]*")(?P<rest>.*)')
+rr = re.compile(r'(?P<parts>.*)(?P<help>".*")\);')
 
-rrr = re.compile('void\s*RelionJob::initialise(?P<jobname>[a-zA-Z]+Job)')
+rrr = re.compile(r'void\s*RelionJob::initialise(?P<jobname>[a-zA-Z]+Job)')
 
 with open(pipeline_jobs_cpp) as f:
     lines = f.readlines()

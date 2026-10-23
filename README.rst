@@ -29,7 +29,7 @@ Basic Installation
 
 .. code-block:: bash
 
-    conda create --name=emhub python=3.8
+    conda create --name=emhub python=3.12
     conda activate emhub
 
     git clone https://github.com/3dem/emhub.git
@@ -66,14 +66,14 @@ we need to:
 
 .. code-block:: bash
 
-    python install twine restructuredtext-lint
+    pip install build twine restructuredtext-lint
     cd emhub
 
     # It might be a good idea to check the README.rst before uploading:
     rst-lint README.rst
 
-    python setup.py sdist
-    twine upload dist/emhub-0.0.1a3.tar.gz
+    python -m build
+    twine upload dist/*
 
 
 Creating a Docker image
@@ -113,7 +113,7 @@ to build the documentation.
 
     # Install environment
 
-    conda create -y --name=emhub-docs python=3.8
+    conda create -y --name=emhub-docs python=3.12
     conda activate emhub-docs
     conda install nodejs=20 -c conda-forge -y
     npm install -g jsdoc
