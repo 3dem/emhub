@@ -35,6 +35,11 @@ Source = "https://github.com/3dem/emhub/"
 emh-data = "emhub.data.__main__:main"
 emh-client = "emhub.client.__main__:main"
 emh-relion = "emhub.data.processing.processing_relion.__main__:main"
+emh-mcp = "emhub.mcp.server:main"
+
+[project.optional-dependencies]
+# MCP server (emh-mcp), see emhub/mcp/README.rst
+mcp = ["mcp>=1.20"]
 
 [tool.setuptools]
 # Templates and static files are included via MANIFEST.in
