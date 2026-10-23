@@ -341,13 +341,18 @@ only if there are none.
   ``processing_get_job`` (values, info, inputs/outputs and optionally
   logs and the parameters form), ``processing_list_files``,
   ``processing_read_file``, ``processing_get_table``,
-  ``processing_get_labels``.
+  ``processing_get_labels``, ``processing_list_workflows`` (workflow
+  templates, through ``/api/get_workflow_templates``).
 * Safe writes: ``processing_create_tomo_project`` (a ``tomo_processing``
   entry, through ``/api/create_tomo_project``), ``processing_save_job``,
-  ``processing_launch_job``, ``processing_schedule_job``,
-  ``processing_stop_jobs``, ``processing_set_job_labels``,
-  ``processing_annotate_job``.
-* Admin: ``processing_delete_jobs``, ``processing_load_workflow``.
+  ``processing_duplicate_jobs``, ``processing_copy_job`` (duplicate and
+  change some parameters), ``processing_launch_job``,
+  ``processing_schedule_job``, ``processing_stop_jobs``,
+  ``processing_set_job_labels``, ``processing_save_label``,
+  ``processing_delete_label``, ``processing_annotate_job``,
+  ``processing_export_workflow`` (a workflow JSON in the project folder).
+* Admin: ``processing_delete_jobs``, ``processing_load_workflow`` (a
+  template or a workflow JSON of the project).
 
 The ``/api/get_classes2d`` and ``/api/get_file_info`` endpoints are not
 exposed: they read form data, do not require login and return large

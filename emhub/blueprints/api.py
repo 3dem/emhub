@@ -1291,17 +1291,29 @@ def load_workflow():
     def _load_workflow(pp, pm, **attrs):
         from emwrap.base import ProcessingConfig
 
-        workflow_id = attrs['workflow_id']
-        workflow_file = ProcessingConfig.get_workflow_file(workflow_id)
-        if not os.path.exists(workflow_file):
-            raise Exception(f"Workflow file not found: {workflow_file}")
+        workflow_id = attrs.get('workflow_id')
+        if project_file := attrs.get('workflow_file'):
+            # A workflow JSON in the project (e.g. from /api/export_workflow)
+            workflow_file = project_file_path(pp['project'].path, project_file)
+            if not workflow_file.endswith('.json'):
+                raise Exception(f"Expecting a .json workflow file: {project_file}")
+            if not os.path.exists(workflow_file):
+                raise Exception(f"Workflow file not found: {project_file}")
+            with open(workflow_file) as f:
+                workflow = json.load(f)
+        elif workflow_id:
+            workflow_file = ProcessingConfig.get_workflow_file(workflow_id)
+            if not os.path.exists(workflow_file):
+                raise Exception(f"Workflow file not found: {workflow_file}")
+            workflow = ProcessingConfig.get_workflow(workflow_id)
+        else:
+            raise Exception("Missing 'workflow_id' or 'workflow_file'")
 
-        workflow = ProcessingConfig.get_workflow(workflow_id)
         expected_jobs = len(workflow.get('jobs', []))
-        id_map = pm.loadWorkflow(workflow_id=workflow_id)
+        id_map = pm.loadWorkflow(workflow=workflow)
         if len(id_map) != expected_jobs:
             raise Exception(
-                f"Workflow load mismatch for {workflow_id}: "
+                f"Workflow load mismatch for {workflow_id or project_file}: "
                 f"expected {expected_jobs} jobs from {workflow_file}, "
                 f"created {len(id_map)}"
             )
@@ -1311,6 +1323,7 @@ def load_workflow():
             'workflow_id': workflow_id,
             'workflow_file': os.path.basename(workflow_file),
             'loaded_jobs': len(id_map),
+            'id_map': id_map,
         }
 
     return handle_workflow(_load_workflow, edit=True)
@@ -1376,9 +1389,30 @@ def export_workflow():
     Export a workflow from a set of jobs ids.
     """
     def _export_workflow(pp, pm, **attrs):
-        pm.exportWorkflow(attrs['run_ids'], attrs['output_path'])
+        # The file is written in the project folder, with the output_path name
+        output_path = attrs['output_path']
+        if not output_path.endswith('.json'):
+            raise Exception(f"Expecting a .json output file: {output_path}")
+        workflow_file = pm.exportWorkflow(attrs['run_ids'], output_path)
+        return {
+            'protocols': pp['project'].get_workflow(widget=True),
+            'workflow_file': os.path.basename(workflow_file),
+            'exported_jobs': len(attrs['run_ids']),
+        }
 
     return handle_workflow(_export_workflow, edit=True)
+
+
+@api_bp.route('/get_workflow_templates', methods=['POST'])
+@flask_login.login_required
+def get_workflow_templates():
+    """ Return the workflow templates (id, file, title and description)
+    that can be loaded in a project with /api/load_workflow. """
+    def _handle(**attrs):
+        from emwrap.base import ProcessingConfig
+        return ProcessingConfig.get_workflows()
+
+    return _handle_item(_handle, 'workflows')
 
 
 @api_bp.route('/launch_job', methods=['POST'])

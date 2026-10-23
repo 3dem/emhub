@@ -5,6 +5,7 @@ the REST calls instead of a running EMhub server. Requires the optional
 """
 
 import asyncio
+import json
 import unittest
 
 from emhub.mcp.server import _import_fastmcp
@@ -47,6 +48,24 @@ def _tool_names(mcp):
 
 def _call_tool(mcp, name, **args):
     return asyncio.run(mcp.call_tool(name, args))
+
+
+def _tool_result(mcp, name, **args):
+    """ Result of a tool returning a dict, parsed from its text content. """
+    r = _call_tool(mcp, name, **args)
+    if isinstance(r, tuple):  # mcp 1.x: (content, structured)
+        r = r[0]
+    content = r if isinstance(r, list) else r.content
+    return json.loads(content[0].text)
+
+
+def _tool_error(mcp, name, **args):
+    """ Error message of a tool call that fails. """
+    try:
+        r = _call_tool(mcp, name, **args)
+    except Exception as e:  # mcp 1.x raises ToolError
+        return str(e)
+    return str(r) if r.is_error else None
 
 
 @unittest.skipIf(FastMCP is None, "'mcp' package not installed")
@@ -132,6 +151,87 @@ class TestMcpServer(unittest.TestCase):
         self.assertEqual(c['key'], 'entry')
         self.assertEqual(c['attrs'], {'processing_path': '/data/tomo/p1',
                                       'data_path': '/data/raw'})
+
+    def test_duplicate_and_copy_jobs(self):
+        dup = {'protocols': {}, 'duplicated': [
+            {'sourceId': 'CtfFind/job003/', 'newId': 'CtfFind/job009/'}]}
+        mcp, client = self._server(['processing'],
+                                   results={'duplicate_jobs': dup})
+        _call_tool(mcp, 'processing_duplicate_jobs', session_id=12,
+                   run_ids=['CtfFind/job003/'])
+        c = client.calls[-1]
+        self.assertEqual(c['method'], 'duplicate_jobs')
+        self.assertEqual(c['attrs'], {'session_id': 12,
+                                      'run_ids': ['CtfFind/job003/']})
+
+        client.calls.clear()
+        r = _tool_result(mcp, 'processing_copy_job', session_id=12,
+                         run_id='CtfFind/job003/', params={'gpu': '1'})
+        self.assertEqual([c['method'] for c in client.calls],
+                         ['duplicate_jobs', 'save_job'])
+        self.assertEqual(client.calls[-1]['attrs'],
+                         {'session_id': 12, 'run_id': 'CtfFind/job009/',
+                          'params': {'gpu': '1'}})
+        self.assertEqual(r, {'sourceId': 'CtfFind/job003/',
+                             'newId': 'CtfFind/job009/'})
+
+    def test_export_workflow(self):
+        workflow = [{'id': 'Import/job001/'}, {'id': 'CtfFind/job002/'}]
+        mcp, client = self._server(['processing'], results={
+            'get_session_workflow': workflow,
+            'export_workflow': {'protocols': {}, 'workflow_file': 'wf.json',
+                                'exported_jobs': 2}})
+        r = _tool_result(mcp, 'processing_export_workflow', entry_id=5,
+                         output_file='wf.json')
+        c = client.calls[-1]
+        self.assertEqual(c['method'], 'export_workflow')
+        self.assertEqual(c['attrs'], {'entry_id': 5, 'output_path': 'wf.json',
+                                      'run_ids': ['Import/job001/',
+                                                  'CtfFind/job002/']})
+        self.assertEqual(r, {'workflow_file': 'wf.json', 'exported_jobs': 2})
+
+    def test_load_workflow_file(self):
+        mcp, client = self._server(['processing'], roles=['admin'],
+                                   results={'load_workflow': {}})
+        _call_tool(mcp, 'processing_load_workflow', entry_id=5,
+                   workflow_file='wf.json')
+        self.assertEqual(client.calls[-1]['attrs'],
+                         {'entry_id': 5, 'workflow_file': 'wf.json'})
+        self.assertIn("exactly one of 'workflow_id'",
+                      _tool_error(mcp, 'processing_load_workflow', entry_id=5,
+                                  workflow_id='tomo-otf',
+                                  workflow_file='wf.json'))
+
+    def test_labels(self):
+        labels = {'labels': [{'id': 'L1', 'title': 'good', 'color': 'red'}],
+                  'jobs': {}}
+        mcp, client = self._server(['processing'], results={
+            'get_project_labels': labels,
+            'delete_project_label': {'id': 'L1', 'deleted': True}})
+        _call_tool(mcp, 'processing_save_label', session_id=12,
+                   title='best', color='#D2F5CB')
+        self.assertEqual(client.calls[-1]['attrs'],
+                         {'session_id': 12,
+                          'label': {'title': 'best', 'color': '#D2F5CB'}})
+        # Updating keeps the values not given
+        _call_tool(mcp, 'processing_save_label', session_id=12,
+                   label_id='L1', color='green')
+        self.assertEqual(client.calls[-1]['attrs']['label'],
+                         {'id': 'L1', 'title': 'good', 'color': 'green'})
+        self.assertIn("no label with id 'L2'",
+                      _tool_error(mcp, 'processing_save_label', session_id=12,
+                                  label_id='L2', color='green'))
+        _call_tool(mcp, 'processing_delete_label', session_id=12,
+                   label_id='L1')
+        self.assertEqual(client.calls[-1]['method'], 'delete_project_label')
+
+    def test_list_workflows(self):
+        mcp, client = self._server(['processing'], results={
+            'get_workflow_templates': [{'id': 'tomo-otf'}]})
+        _call_tool(mcp, 'processing_list_workflows')
+        c = client.calls[-1]
+        self.assertEqual((c['method'], c['attrs'], c['key']),
+                         ('get_workflow_templates', {}, 'workflows'))
 
     def test_project_selector(self):
         from emhub.mcp.processing import _project_selector
