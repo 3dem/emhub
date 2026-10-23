@@ -58,6 +58,41 @@ Basic Installation
     # user: admin, password: admin
 
 
+MCP server
+----------
+
+`emh-mcp` exposes EMhub to LLM agents (Claude Desktop, Claude Code, ...) as an
+MCP server over stdio. It talks to a running EMhub through the REST API, logged
+in as the given user, so EMhub enforces that user's permissions. It needs
+Python >= 3.10:
+
+.. code-block:: bash
+
+    pip install -e '.[mcp]'
+
+    # Register it in Claude Code (use --tools booking or --tools processing
+    # to serve only one group of tools)
+    claude mcp add emhub -e EMHUB_SERVER_URL=https://emhub.example.org \
+        -e EMHUB_USER=myuser -e EMHUB_PASSWORD=mypassword -- emh-mcp --tools all
+
+    # Or try it in the MCP inspector
+    npx @modelcontextprotocol/inspector emh-mcp
+
+Two groups of tools are available:
+
+* ``booking_*``: users, resources (instruments), bookings, sessions, projects.
+* ``processing_*``: processing projects (selected by ``session_id``,
+  ``entry_id`` or ``path``), their jobs, logs, output tables and workflows.
+
+Admin tools (users, resources, deleting jobs, loading workflows) are only
+available when the user has the ``admin`` or ``developer`` role. Input dates
+without an offset are taken in the local timezone, or ``EMHUB_TIMEZONE``
+(e.g. ``America/Chicago``) when set.
+
+See ``emhub/mcp/README.rst`` for the client setup, design decisions and the
+list of tools.
+
+
 Publishing the package to PyPI
 ------------------------------
 

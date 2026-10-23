@@ -161,10 +161,10 @@ setup(
     #
     # Similar to `install_requires` above, these must be valid existing
     # applications.
-    #extras_require={  # Optional
-    #    'dev': ['check-manifest'],
-    #    'test': ['coverage'],
-    #},
+    extras_require={  # Optional
+        # MCP server (emh-mcp), requires Python >= 3.10
+        'mcp': ['mcp>=1.10'],
+    },
 
     # If there are data files included in your packages that need to be
     # installed, specify them here.
@@ -182,6 +182,7 @@ setup(
            'emh-data = emhub.data.__main__:main',
            'emh-client = emhub.client.__main__:main',
            'emh-relion = emhub.data.processing.processing_relion.__main__:main',
+           'emh-mcp = emhub.mcp.server:main',
        ],
     },
 
