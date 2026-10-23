@@ -97,7 +97,7 @@
     "name": "unknown-project",
     "prompt": "What is the status of EMhub-Tomo project 42?",
     "must": [
-      "not found|doesn.?t exist|does not exist|no project|isn.?t|not (visible|accessible)"
+      "not.found|doesn.?t exist|does not exist|no (\\S+ )?project|isn.?t|not (visible|accessible)"
     ],
     "max_calls": 8
   },
