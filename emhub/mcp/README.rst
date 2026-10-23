@@ -21,10 +21,56 @@ Python >= 3.10. Both the 1.x and 2.x versions of ``mcp`` are supported:
 
     pip install -e '.[mcp]'      # from the emhub repository
     # or, in an existing emhub environment
-    pip install 'mcp>=1.10'
+    pip install 'mcp>=1.20'
 
 This installs the ``emh-mcp`` command (also available as
 ``python -m emhub.mcp``).
+
+Development install
+~~~~~~~~~~~~~~~~~~~
+
+While the MCP server is under development it lives in the ``jm_mcp``
+branch of emhub. Clone emhub on that branch, and emtools on ``devel``
+(the branch ``jm_mcp`` is based on), then install both in editable mode
+so the environment follows your checkouts:
+
+.. code-block:: bash
+
+    mkdir emhub-mcp && cd emhub-mcp
+    git clone -b jm_mcp git@github.com:3dem/emhub.git
+    git clone -b devel git@github.com:3dem/emtools.git
+
+    python3.10 -m venv venv          # or: conda create -n emhub-mcp python=3.10
+    source venv/bin/activate
+
+    # emtools first, so pip uses the local checkout instead of PyPI
+    pip install -e ./emtools -e './emhub[mcp]'
+    pip install -U 'mcp>=1.20'       # see the note on PyJWT below
+
+    emh-mcp --help
+
+Python version:
+
+* The MCP server needs **Python 3.10 or 3.11**. The ``mcp`` package does
+  not support older versions, and some of the versions pinned in emhub's
+  ``requirements.txt`` (e.g. ``numpy==1.23.0``, ``Pillow==9.2.0``) have no
+  builds for Python 3.12 or newer.
+* This is only for the environment running ``emh-mcp``, usually the
+  machine where Claude Code runs. The EMhub server can keep running on
+  Python 3.8: the MCP server is a separate process that talks to EMhub
+  through its REST API.
+
+PyJWT note: emhub pins ``PyJWT==2.8.0`` while ``mcp>=1.20`` requires
+``PyJWT>=2.10.1``, so the first ``pip install`` falls back to ``mcp``
+1.19, which fails to import with current versions of pydantic. The second
+command upgrades ``mcp`` and PyJWT; pip then warns that emhub requires
+``PyJWT==2.8.0``, which is harmless (emhub only uses ``jwt.encode`` and
+``jwt.decode`` with HS256). This step will not be needed once the PyJWT
+pin is relaxed.
+
+After pulling new changes there is nothing to reinstall, but running MCP
+servers keep the old code: reconnect them (``/mcp`` in Claude Code) or
+start a new session.
 
 Configuration
 ~~~~~~~~~~~~~
