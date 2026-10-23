@@ -83,7 +83,7 @@
     "name": "ambiguous-import",
     "setup": {"template": true, "duplicate": ["emw-import-ts"]},
     "prompt": "Run the import job in EMhub-Tomo project {project}.",
-    "must": ["\\?", "EMwrap/job002", "EMwrap/job012"],
+    "must": ["\\?", "EMwrap/job0(0\\d|1[01])", "EMwrap/job012"],
     "audit_not_done": ["run_job"],
     "audit_never": ["schedule_jobs", "save_job", "delete_jobs"],
     "saved_except": [],
