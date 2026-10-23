@@ -173,12 +173,31 @@ def _check_queue_value(
     return None
 
 
-def gpu_count(value: Any) -> int:
-    """GPUs a job asks for, from its ``gpus`` parameter: a count ("3") or several
-    device ids ("0,1,2" or "0 1 2"). An empty or unreadable value counts as one."""
-    parts = str(value if value is not None else "").replace(",", " ").split()
-    if len(parts) > 1:
-        return len(parts)
-    if parts and parts[0].isdigit():
-        return int(parts[0])
-    return 1
+# A job type can use GPUs if its form has emwrap's 'gpus' or RELION's 'gpu_ids'.
+GPU_PARAMS = ("gpus", "gpu_ids")
+
+
+def job_gpus(params: Mapping[str, Any]) -> int:
+    """GPUs a job of a GPU-capable type uses, counted as emwrap counts them when it
+    submits the job to a cluster queue (``ProjectManager._count_job_gpus``): the
+    distinct ids in RELION's ``gpu_ids`` if set ("0:1" -> 2), otherwise in emwrap's
+    ``gpus`` ("3" -> 3, "0 0 1" -> 2, "0,1 2,3" -> 4). To stay on the safe side, a
+    count that is empty, zero or unreadable is one, unless RELION's ``use_gpu`` is off
+    and no ids are given."""
+    gpu_ids = str(params.get("gpu_ids") or "").strip()
+    if gpu_ids:
+        return max(1, len(_ids(gpu_ids.replace(":", ","))))
+    if str(params.get("use_gpu", "")).strip().lower() in ("no", "false", "0"):
+        return 0
+    text = str(params.get("gpus") if params.get("gpus") is not None else "").strip()
+    quoted = len(text) > 1 and text[0] == text[-1] and text[0] in "\"'"
+    if quoted:
+        text = text[1:-1].strip()
+    parts = text.split()
+    if len(parts) == 1 and not quoted and "," not in parts[0]:
+        return max(1, int(parts[0])) if parts[0].isdigit() else 1
+    return max(1, len(_ids(",".join(parts))))
+
+
+def _ids(text: str) -> set[str]:
+    return {token.strip() for token in text.split(",") if token.strip()}

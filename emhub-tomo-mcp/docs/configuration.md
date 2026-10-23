@@ -17,7 +17,7 @@ The server is configured with environment variables, usually set in the MCP clie
 | `EMHUB_TOMO_MCP_ALLOWED_ROOTS` | unset | `:`-separated absolute folders. `create_project` may only put projects, and point at data, inside them. Unset: `create_project` is refused. |
 | `EMHUB_TOMO_MCP_DEFAULT_QUEUE` | unset | Queue given to GPU jobs that have none (e.g. `phys-a`); must be a queue of the server. |
 | `EMHUB_TOMO_MCP_ALLOW_LOCAL_GPU` | `false` | Allow GPU jobs on the queue `None`, i.e. on the EMhub host itself. Keep it off on shared login nodes. |
-| `EMHUB_TOMO_MCP_MAX_GPUS_PER_JOB` | no limit | Refuse jobs whose `gpus` parameter asks for more. |
+| `EMHUB_TOMO_MCP_MAX_GPUS_PER_JOB` | no limit | Refuse jobs that ask for more GPUs. GPUs are counted as emwrap counts them for the cluster: the distinct ids of RELION's `gpu_ids` if set, otherwise the `gpus` parameter. |
 | `EMHUB_TOMO_MCP_MAX_ACTIVE_GPU_JOBS` | no limit | Refuse launching or scheduling GPU jobs that would make more than this many run at once (in all visible projects). |
 | `EMHUB_TOMO_MCP_MAX_LAUNCHES_PER_HOUR` | `20` | Launches (run or schedule, per job) in any hour, against runaway loops. Counted per server process. |
 | `EMHUB_TOMO_MCP_STATE_DIR` | `$XDG_STATE_HOME/emhub-tomo-mcp` | Where the audit log `audit.jsonl` is written (mode 600). |

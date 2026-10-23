@@ -369,7 +369,7 @@ async def test_run_job_applies_default_queue(
     dry = await ops.operations.run_job(
         ref, "WarpMctf/job002", params={}, rerun=False, clean=False, dry_run=True
     )
-    assert "on queue 'cryo' with 2 GPU(s)" in dry.details[0]
+    assert "on queue 'cryo', 2 GPU(s)" in dry.details[0]
     assert "using the default queue 'cryo'" in dry.warnings[0]
     assert fake.launched == []
     done = await ops.operations.run_job(
@@ -463,6 +463,49 @@ async def test_gpu_limits(make: Any, fake: FakeEmhub) -> None:
     await svc.operations.run_job(
         ref, "WarpMctf/job002", params={}, rerun=False, clean=False, dry_run=False
     )
+
+
+async def test_relion_jobs_use_gpu_ids(make: Any, fake: FakeEmhub) -> None:
+    """RELION's forms give GPUs as gpu_ids (emwrap ignores their 'gpus'): such jobs need a
+    cluster queue too, and count their distinct ids against the limits."""
+    no_default = make(EMHUB_TOMO_MCP_DEFAULT_QUEUE="")
+    ref = await new_project(no_default)
+    form = fake.form_for("emw-import-ts")  # the default form without 'gpus'
+    form["sections"][0]["params"] += [
+        {"name": "use_gpu", "label": "Use GPU acceleration?", "paramClass": "BooleanParam"},
+        {"name": "gpu_ids", "label": "Which GPUs to use:", "paramClass": "StringParam"},
+    ]
+    fake.forms["emw-warp-tsalign"] = form
+    job = "WarpTsAlign/job003"
+    fake.params[(ref.id, job)] = {"use_gpu": "Yes", "gpu_ids": "0:1", "gpus": "4"}
+    await expect(
+        ErrorKind.POLICY_DENIED,
+        "would run on the EMhub host",
+        no_default.operations.run_job(ref, job, params={}, rerun=False, clean=False, dry_run=True),
+    )
+    limited = make(EMHUB_TOMO_MCP_MAX_GPUS_PER_JOB="3")
+    ref2 = await limited.projects.get(ref.id)
+    dry = await limited.operations.run_job(
+        ref2, job, params={}, rerun=False, clean=False, dry_run=True
+    )
+    assert "on queue 'cryo', 2 GPU(s)" in dry.details[0]  # 'gpus' = 4 is not what counts
+    await expect(
+        ErrorKind.POLICY_DENIED,
+        "asks for 4 GPUs; the limit is 3",
+        limited.operations.run_job(
+            ref2, job, params={"gpu_ids": "0:1:2:3"}, rerun=False, clean=False, dry_run=True
+        ),
+    )
+    plan = await limited.operations.schedule_jobs(
+        ref2, [job], interval_minutes=5, rerun=False, dry_run=True
+    )
+    assert f"{job}: queue 'cryo', 2 GPU(s)." in plan.details
+    # Without GPUs, it is a CPU job and may run on the EMhub host.
+    fake.params[(ref.id, job)] = {"use_gpu": "No", "gpu_ids": ""}
+    cpu = await no_default.operations.run_job(
+        ref, job, params={}, rerun=False, clean=False, dry_run=True
+    )
+    assert "on queue 'None', no GPUs" in cpu.details[0]
 
 
 async def test_launch_rate_limit(make: Any) -> None:

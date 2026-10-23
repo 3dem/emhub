@@ -42,7 +42,7 @@ from .jobs import ACTIVE, JobService
 from .models import ChangeResult, JobState
 from .paths import normalize_project_path
 from .projects import ENTRY_TYPE, ProjectCatalog, ProjectRef, folder_must_exist
-from .validation import form_params, gpu_count, validate_params
+from .validation import GPU_PARAMS, form_params, job_gpus, validate_params
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,12 @@ def _text(value: str, what: str, limit: int, pattern: re.Pattern[str] = TEXT_RE)
     if not pattern.match(value):
         raise invalid(f"{what} contains control characters.")
     return value
+
+
+_GPU_HINT = (
+    "Lower the job's GPU count: 'gpus', or 'gpu_ids' for RELION jobs, whose 'gpus' "
+    "emwrap ignores (EMHUB_TOMO_MCP_MAX_GPUS_PER_JOB)."
+)
 
 
 class Operations:
@@ -174,10 +180,20 @@ class Operations:
     async def _is_gpu_type(self, ref: ProjectRef, job_type: str) -> bool:
         if job_type not in self._gpu_types:
             try:
-                self._gpu_types[job_type] = "gpus" in form_params(await self._form(ref, job_type))
+                names = form_params(await self._form(ref, job_type))
+                self._gpu_types[job_type] = any(p in names for p in GPU_PARAMS)
             except EmhubMcpError:
                 self._gpu_types[job_type] = False
         return self._gpu_types[job_type]
+
+    async def _job_gpus(self, ref: ProjectRef, job_type: str, params: dict[str, Any]) -> int:
+        """GPUs the job would use with these parameters; 0 if it cannot use GPUs."""
+        return job_gpus(params) if await self._is_gpu_type(ref, job_type) else 0
+
+    @staticmethod
+    def _placement(merged: dict[str, Any], gpus: int) -> str:
+        queue = merged.get("queue.name") or "None"
+        return f"queue '{queue}'" + (f", {gpus} GPU(s)" if gpus else ", no GPUs")
 
     async def _current_params(self, ref: ProjectRef, job_id: str) -> dict[str, Any]:
         with folder_must_exist(ref):
@@ -246,7 +262,7 @@ class Operations:
         self, ref: ProjectRef, job_type: str, merged: dict[str, Any], params: dict[str, Any]
     ) -> list[str]:
         """Apply the default queue and refuse GPU jobs on the EMhub host; returns notes."""
-        if not await self._is_gpu_type(ref, job_type):
+        if not await self._job_gpus(ref, job_type, merged):
             return []
         queue = str(merged.get("queue.name") or "").strip()
         notes = []
@@ -289,14 +305,14 @@ class Operations:
     async def _gpu_limits(
         self, ref: ProjectRef, job_type: str, merged: dict[str, Any], new_parallel: int
     ) -> None:
-        if not await self._is_gpu_type(ref, job_type):
+        gpus = await self._job_gpus(ref, job_type, merged)
+        if not gpus:
             return
-        gpus = gpu_count(merged.get("gpus"))
         limit = self._settings.max_gpus_per_job
         if limit is not None and gpus > limit:
             raise denied(
                 f"{job_type} asks for {gpus} GPUs; the limit is {limit} per job.",
-                hint="Lower the 'gpus' parameter (EMHUB_TOMO_MCP_MAX_GPUS_PER_JOB).",
+                hint=_GPU_HINT,
             )
         cap = self._settings.max_active_gpu_jobs
         if cap is not None:
@@ -563,16 +579,8 @@ class Operations:
                 await self._gpu_limits(ref, node.type, merged, new_parallel=1)
                 self._limiter.check(1)
                 notes += await self._emhub_check(ref, node.type, job_id, clean_params, False)
-                details = [
-                    f"Launch {job_id} ({node.type}) on queue "
-                    f"'{merged.get('queue.name') or 'None'}'"
-                    + (
-                        f" with {gpu_count(merged.get('gpus'))} GPU(s)"
-                        if await self._is_gpu_type(ref, node.type)
-                        else ""
-                    )
-                    + "."
-                ]
+                gpus = await self._job_gpus(ref, node.type, merged)
+                details = [f"Launch {job_id} ({node.type}) on {self._placement(merged, gpus)}."]
                 details += [f"Set {k} = {v!r}" for k, v in clean_params.items()]
                 if clean:
                     details.append("Move the current job folder to the project's .Trash first.")
@@ -664,6 +672,7 @@ class Operations:
                 ordered = _topological(graph, wanted)
                 updates: dict[str, dict[str, Any]] = {}
                 notes: list[str] = []
+                placements: list[str] = []
                 for job_id in ordered:
                     node = graph[job_id]
                     _, job_notes = await self._check_params(
@@ -675,15 +684,13 @@ class Operations:
                     merged.update(params)
                     updates[job_id] = params
                     notes += [f"{job_id}: {n}" for n in job_notes]
+                    gpus = await self._job_gpus(ref, node.type, merged)
+                    placements.append(f"{job_id}: {self._placement(merged, gpus)}.")
                     max_gpus = self._settings.max_gpus_per_job
-                    if (
-                        max_gpus is not None
-                        and await self._is_gpu_type(ref, node.type)
-                        and gpu_count(merged.get("gpus")) > max_gpus
-                    ):
+                    if max_gpus is not None and gpus > max_gpus:
                         raise denied(
-                            f"{job_id} asks for {gpu_count(merged.get('gpus'))} "
-                            f"GPUs; the limit is {max_gpus} per job."
+                            f"{job_id} asks for {gpus} GPUs; the limit is {max_gpus} per job.",
+                            hint=_GPU_HINT,
                         )
                 parallel = await self._parallel_gpu_starts(ref, graph, ordered)
                 if parallel and self._settings.max_active_gpu_jobs is not None:
@@ -697,7 +704,8 @@ class Operations:
                 self._limiter.check(len(ordered))
                 details = [
                     f"Schedule {', '.join(ordered)} (checked every {interval_minutes} "
-                    "min; each starts when its parent jobs have finished)."
+                    "min; each starts when its parent jobs have finished).",
+                    *placements,
                 ]
                 if dry_run:
                     return ChangeResult(

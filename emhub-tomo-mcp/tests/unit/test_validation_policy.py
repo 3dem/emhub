@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from fake_emhub import recorded
 
-from emhub_tomo_mcp.domain.validation import form_params, gpu_count, validate_params
+from emhub_tomo_mcp.domain.validation import form_params, job_gpus, validate_params
 from emhub_tomo_mcp.errors import EmhubMcpError, ErrorKind
 from emhub_tomo_mcp.policy import (
     AuditLog,
@@ -139,11 +139,30 @@ def test_table_bool_and_paths() -> None:
 
 
 @pytest.mark.parametrize(
-    ("value", "count"),
-    [("3", 3), (3, 3), ("0", 0), ("0,1,2", 3), ("0 1", 2), ("", 1), (None, 1), ("all", 1)],
+    ("params", "count"),
+    [
+        # emwrap's 'gpus': a count, or ids (distinct ids count, as emwrap counts them)
+        ({"gpus": "3"}, 3),
+        ({"gpus": 3}, 3),
+        ({"gpus": "0,1,2"}, 3),
+        ({"gpus": "0 1"}, 2),
+        ({"gpus": "0 0 1"}, 2),
+        ({"gpus": "0,1 2,3"}, 4),
+        ({"gpus": '"2"'}, 1),
+        # empty, zero or unreadable: one, to stay on the safe side
+        ({"gpus": ""}, 1),
+        ({"gpus": "0"}, 1),
+        ({"gpus": "all"}, 1),
+        ({}, 1),
+        # RELION's gpu_ids win over 'gpus', which emwrap ignores for these jobs
+        ({"gpu_ids": "0:1", "gpus": "4", "use_gpu": "Yes"}, 2),
+        ({"gpu_ids": "0,1:0,1"}, 2),
+        ({"gpu_ids": "", "use_gpu": "No"}, 0),
+        ({"use_gpu": "Yes"}, 1),
+    ],
 )
-def test_gpu_count(value: Any, count: int) -> None:
-    assert gpu_count(value) == count
+def test_job_gpus(params: dict[str, Any], count: int) -> None:
+    assert job_gpus(params) == count
 
 
 @pytest.mark.parametrize(
