@@ -6,9 +6,6 @@
 > calls left out are Claude Code loading the tools' definitions. The screenshots of the
 > EMhub web interface were taken during the run. The assistant made every change in EMhub;
 > no command was typed and no button was clicked.
->
-> At the time of writing, part 2 (the M refinements) is still running. Its results will be
-> added when it finishes.
 
 This page repeats the [Warp ApoF Tutorial](https://3dem.github.io/emhub-tomo/warp_apof_tutorial.html) with an AI assistant doing the work.
 You describe what you want in plain language. The assistant then:
@@ -692,26 +689,126 @@ After five rounds, ask how it is going:
 
 ## Results
 
-Part 2 is still running. This section will show the final map, its resolution and the
-FSC curves from M once the last job has finished.
+All 22 jobs finished, the last one at 00:35. Ask for the result and a report of the
+whole run:
+
+**You:**
+
+> Part 2 has finished. What final resolution did M reach, and how did it develop over all the rounds? Then give me a short report of the whole tutorial run, parts 1 and 2: jobs, run times and results. Show me the final map too.
+
+<details><summary>16 tool calls: get_project, get_job_logs, list_project_files, get_jobs, read_project_file, get_star_table</summary><ol><li><code>get_project(project_id=1)</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job018&quot;, contains=&quot;Å&quot;, streams=[&quot;stdout&quot;])</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job020&quot;, contains=&quot;Å&quot;, streams=[&quot;stdout&quot;])</code></li><li><code>get_job_logs(project_id=1, job_id=&quot;WarpMCore/job022&quot;, tail_lines=60, streams=[&quot;stdout&quot;, &quot;stderr&quot;])</code></li><li><code>list_project_files(project_id=1, path=&quot;WarpMCore/job022/m&quot;)</code></li><li><code>list_project_files(project_id=1, path=&quot;WarpMCore/job022/m/species&quot;)</code></li><li><code>get_jobs(project_id=1, job_ids=[&quot;EMwrap/job001&quot;, &quot;PyTom/job002&quot;, &quot;WarpMctf/job003&quot;, &quot;WarpTsAlign/job004&quot;, &quot;WarpCtfRec/job005&quot;, &quot;PyTom/job006&quot;, &quot;Warp…)</code></li><li><code>list_project_files(project_id=1, path=&quot;WarpMCore/job022/m/species/ApoF_36bd26f3&quot;)</code></li><li><code>read_project_file(project_id=1, path=&quot;WarpMCore/job022/m/species/ApoF_36bd26f3/ApoF_filtsharp.mrc&quot;, as_image=true)</code></li><li><code>get_star_table(project_id=1, path=&quot;WarpCtfRec/job005/tomograms.star&quot;, limit=0)</code></li><li><code>get_star_table(project_id=1, path=&quot;Refine3D/job009/run_data.star&quot;, limit=0, count_by=&quot;TomoName&quot;)</code></li><li><code>get_star_table(project_id=1, path=&quot;WarpMCore/job022/m/species/ApoF_36bd26f3/ApoF_particles.star&quot;, limit=0)</code></li><li><code>read_project_file(project_id=1, path=&quot;PyTom/job006/optimisation_set.star&quot;)</code></li><li><code>read_project_file(project_id=1, path=&quot;WarpMCore/job022/m/species/ApoF_36bd26f3/ApoF_denoised.mrc&quot;, as_image=true)</code></li><li><code>get_star_table(project_id=1, path=&quot;PyTom/job006/particles.star&quot;, limit=0, count_by=&quot;TomoName&quot;)</code></li><li><code>read_project_file(project_id=1, path=&quot;WarpMCore/job022/m/species/ApoF_36bd26f3/ApoF.species&quot;)</code></li></ol></details>
+
+**Assistant:**
+
+> M's final resolution is **2.90 Å**, from the last round, `WarpMCore/job022`. All 22 jobs of parts 1 and 2 finished and none failed.
+>
+> **How the resolution developed**
+>
+> | Step | What it did | Time | Resolution |
+> |---|---|---|---|
+> | Refine3D/job009 (part 1, RELION) | Final RELION refinement | 40 min | 8.26 Å (without masking) |
+> | WarpMCore/job012 | Starting reconstruction in M, no refinement | 23 min | 7.72 Å |
+> | WarpMCore/job013 | Particle poses, image warp, defocus (full search) | 24 min | 3.79 Å |
+> | WarpMCore/job014 | The same, with a local defocus search | 30 min | 3.22 Å |
+> | WarpMCore/job015 | Particle poses, image warp, stage angles | 15 min | 3.05 Å |
+> | WarpMCore/job016 | Adds Cs, beam tilt and trefoil, magnification | 33 min | 2.97 Å |
+> | WarpEstimateWeights/job017 | Per-particle weights | 8 s | — |
+> | WarpMCore/job018 | Reconstruction with those weights, no refinement | 14 min | 2.96 Å |
+> | WarpEstimateWeights/job019 | Per-frame weights | 9 s | — |
+> | WarpMCore/job020 | Particle poses | 15 min | 2.93 Å |
+> | WarpMResample/job021 | Trajectory resampling (2 samples) | 14 s | — |
+> | WarpMCore/job022 | All refinements at once | 35 min | **2.90 Å** |
+>
+> - **The first real refinement gave the big jump**, from 7.72 to 3.79 Å.
+> - **The next three rounds added smaller gains:** 0.57, 0.17 and 0.08 Å.
+> - **Everything after job016 added only 0.07 Å in total**, and the last three resolutions differed by 0.01–0.03 Å each. The resolution has levelled off.
+>
+> RELION's 8.26 Å and M's numbers are measured differently, so the two aren't directly comparable.
+>
+> **Report on the whole tutorial run**
+>
+> **Overall:** 22 jobs took 4 h 43 min of run time: 1 h 35 min for part 1 and 3 h 8 min for part 2. Five tilt series gave 3,992 picked particles, 3,797 of which went through RELION and M to a 2.90 Å map. Part 2 took about 3.5 h from scheduling (about 21:05) to finishing (00:35). The extra time is queue waits plus the 5-minute checks for each job's parent. Every GPU job ran on phys-a.
+>
+> **Part 1** (part 2's jobs are the table above):
+>
+> | Job | Time | Result |
+> |---|---|---|
+> | EMwrap/job001 – import | 27 s | 5 tilt series |
+> | PyTom/job002 – template | 4 min | Template and mask from EMD-15854 at 10 Å/px |
+> | WarpMctf/job003 – motion and CTF | 2 min | Frames corrected |
+> | WarpTsAlign/job004 – alignment | 1 min | Tilt series aligned |
+> | WarpCtfRec/job005 – CTF and reconstruction | 4 min | 5 tomograms at 10 Å/px |
+> | PyTom/job006 – template matching | 8 min | 3,992 particles (687–1,191 per tomogram) |
+> | WarpExportParticles/job007 – export | 1 min | Particles at 4 Å/px, box 64 |
+> | InitialModel/job008 – initial model | 17 min | Initial model with O symmetry |
+> | Refine3D/job009 – refinement | 40 min | 3,797 particles, 8.26 Å |
+> | External/job010 – mask | 1 s | Mask |
+> | WarpMCreatePopulation/job011 – M population | 17 min | Population at 0.7894 Å/px |
+>
+> **Notes:**
+>
+> - **I fixed two things when loading part 2.** The template still pointed job012 at its own old job ID instead of job011, and no job had a queue set. The template ID bug isn't in `UPSTREAM_ISSUES.md` yet.
+> - **`InitialModel/job008` has a RELION warning but is fine.** It's marked finished, but RELION warns that `run_optimisation_set.star` is missing. Refine3D only used `initial_model.mrc`, which exists, so the results aren't affected.
+> - **195 particles were dropped** between picking (3,992) and RELION refinement (3,797). I didn't check which step dropped them.
+>
+> **Final map**
+>
+> The map is in `WarpMCore/job022/m/species/ApoF_36bd26f3/`. It's 354³ voxels at 0.7894 Å/px with O symmetry and a B-factor of −33. I made previews of the central slice (z = 177) of two versions:
+>
+> - **Sharpened** (`ApoF_filtsharp.mrc`): `/u/secruz/.claude/projects/-phys-ptmp-secruz-software-development-emHubTomo-dev-mcp-tutorial-session/63ca9c63-5c4b-460a-9b76-aa5867fdedb3/tool-results/mcp-emhub-tomo-blob-1792794955936-vph9s5.png`
+> - **Denoised** (`ApoF_denoised.mrc`): `/u/secruz/.claude/projects/-phys-ptmp-secruz-software-development-emHubTomo-dev-mcp-tutorial-session/63ca9c63-5c4b-460a-9b76-aa5867fdedb3/tool-results/mcp-emhub-tomo-blob-1792794967236-8a4kuo.png`
+>
+> Both show the apoferritin shell as a ring about 12 nm across with a hollow interior. The fine detail around the ring has four-fold symmetry, because the slice is cut across one of the four-fold axes. The sharpened map has strong speckle noise outside the shell. The denoised map shows the same shell on a clean background.
+>
+> A single slice can't show side-chain detail. To check that, open the 3D map, for example: `chimerax /ptmp/secruz/software_development/emHubTomo/dev/projects/mcp_apof_tutorial/WarpMCore/job022/m/species/ApoF_36bd26f3/ApoF_denoised.mrc`
+
+<sub>16 tool calls · 2 min</sub>
+
+
+<img src="images/apof-tutorial/11_final_results_img2.png" alt="What the assistant saw: the central section of the final denoised map (ApoF_denoised.mrc, 0.79 Å/pixel), across one of apoferritin&#x27;s four-fold axes." width="60%">
+
+*What the assistant saw: the central section of the final denoised map (ApoF_denoised.mrc, 0.79 Å/pixel), across one of apoferritin's four-fold axes.*
+
+
+![The final population (WarpMCore/job022) in EMhub's population viewer, with M's FSC curves.](images/apof-tutorial/s12_population_final.jpg)
+
+*The final population (WarpMCore/job022) in EMhub's population viewer, with M's FSC curves.*
+
+
+![The finished project: all 22 jobs of both parts.](images/apof-tutorial/s13_project_table_done.jpg)
+
+*The finished project: all 22 jobs of both parts.*
+
+
+In short:
+
+| | |
+|---|---|
+| Tilt series | 5 (TS_1, TS_11, TS_17, TS_23, TS_32), 41 tilts each |
+| Particles picked by PyTOM | 3,992 (687 to 1,191 per tomogram) |
+| Particles refined | 3,797 |
+| RELION Refine3D (part 1) | 8.26 Å, limited by the 4 Å/pixel particles |
+| M, after 7 refinement rounds (part 2) | **2.90 Å** |
 
 ## The Run in Numbers
 
 | | Part 1 | Part 2 |
 |---|---|---|
-| Jobs | 11, all finished | 11, running |
-| Wall time, from scheduling to the last job | 2 h 2 min | — |
-| Compute time (sum of the jobs' run times) | 1 h 35 min | — |
-| Longest job | Refine3D, 40 min | — |
+| Jobs | 11, all finished | 11, all finished |
+| Wall time, from scheduling to the last job | 2 h 2 min | 3 h 30 min |
+| Compute time (sum of the jobs' run times) | 1 h 35 min | 3 h 8 min |
+| Longest job | Refine3D, 40 min | the last M round, 35 min |
 | GPU jobs at once | 1, on ``phys-a`` | 1, on ``phys-a`` |
-| Prompts typed | 7 (first conversation) | 2 so far (second conversation) |
-| Tool calls by the assistant | 84 | 22 so far |
-| Cost of the prompts | $9.84 | $0.89 so far |
+| Prompts typed | 7 (first conversation) | 4 (second conversation) |
+| Tool calls by the assistant | 84 | 54 |
+| Cost of the prompts | $9.84 | $3.82 |
+
+In total: 22 jobs in 5 h 36 min, 11 prompts, 138 tool calls, $13.66.
 
 The assistant was Claude Opus 5.5 in Claude Code. The cost of a prompt grows with the
 conversation, because everything said before is sent again. In the first conversation
-the prompts went from $0.17 to $3.54. The second conversation started fresh, at about
-$0.45 per prompt.
+the prompts went from $0.17 to $3.54. The second conversation started fresh: its four
+prompts cost $0.42 to $1.91.
 
 ## What to Ask
 
