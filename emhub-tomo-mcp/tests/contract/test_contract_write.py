@@ -124,7 +124,8 @@ async def new_project(client: Client, site: Site, name: str) -> tuple[int, dict[
 @pytest.mark.anyio
 async def test_pipeline_through_mcp(admin: Client, site: Site) -> None:
     """Create a project, load the tutorial, set up the import and schedule the
-    preprocessing chain; every job starts after its parent and reaches an end."""
+    preprocessing chain: each job starts after its parent, and jobs that can never
+    start, because a parent failed, are reported and can be cancelled."""
     set_stub_mode(site.site, "ok")
     pid, jobs = await new_project(admin, site, "pipeline")
     imp = jobs["emw-import-ts"]
@@ -154,16 +155,18 @@ async def test_pipeline_through_mcp(admin: Client, site: Site) -> None:
         admin, "wait_for_jobs", project_id=pid, job_ids=chain, timeout_s=600, poll_interval_s=10
     )
     states = {j["id"]: j["status"] for j in done["jobs"]}
-    assert states[imp] == "finished" and states[jobs["emw-warp-mctf"]] == "finished"
-    if not done["satisfied"]:
-        # The stubs produce no alignment, so it fails; the reconstruction scheduled after
-        # it would wait forever. The server says so instead of waiting.
-        assert not done["timed_out"] and "will never start" in done["note"], done
-        rec = jobs["emw-warp-ctfrec"]
-        detail = await call(admin, "get_project", project_id=pid)
-        assert any(b.startswith(rec) for b in detail["blocked"]), detail["blocked"]
-        cancelled = await call(admin, "stop_jobs", project_id=pid, job_ids=[rec])
-        assert cancelled["jobs"][0]["status"] == "saved"
+    mctf, tsalign, rec = chain[1:]
+    # The import runs for real and finishes. The stubs write no movies, so motion
+    # correction fails (emwrap fails a Warp job that produced no tilt series), and the
+    # jobs scheduled after it would wait forever. The server says so instead of waiting.
+    assert states[imp] == "finished" and states[mctf] == "failed", states
+    assert not done["satisfied"] and not done["timed_out"], done
+    assert "will never start" in done["note"], done
+    detail = await call(admin, "get_project", project_id=pid)
+    for job in (tsalign, rec):
+        assert any(b.startswith(job) for b in detail["blocked"]), detail["blocked"]
+    cancelled = await call(admin, "stop_jobs", project_id=pid, job_ids=[tsalign, rec])
+    assert [j["status"] for j in cancelled["jobs"]] == ["saved", "saved"]
     audit = (site.state / "audit.jsonl").read_text()
     assert '"action": "schedule_jobs"' in audit and '"outcome": "done"' in audit
 

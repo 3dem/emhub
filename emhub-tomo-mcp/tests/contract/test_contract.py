@@ -62,7 +62,7 @@ class World:
     project_c: int  # admin's, not shared
     project_gone: int  # admin's, its folder was deleted
     import_job: str  # finished cleanly
-    partial_job: str  # finished, but its program failed
+    warp_failed_job: str  # failed: its program (a stub) failed, so no tilt series came out
     failed_job: str  # failed
     root_a: Path
 
@@ -178,7 +178,10 @@ def _world(site: Path, workdir: Path) -> Iterator[World]:
                 "params": {"queue.name": "None", "gpus": "1"},
             },
         )
-        assert _wait_status(rest, a, mctf_job) == "finished"
+        # emwrap fails a Warp job when no tilt series came out (here the program is a
+        # stub that fails); when only some fail, the job finishes with a warning line
+        # (tests/unit/test_jobs.py covers that case, which stubs cannot produce).
+        assert _wait_status(rest, a, mctf_job) == "failed"
         # A copy of the import with a wait.timeout that is not a number: the form does
         # not type-check it, so int() fails in the job itself.
         copy = rest("duplicate_jobs", {"entry_id": a, "run_ids": [import_job]})
@@ -201,7 +204,7 @@ def _world(site: Path, workdir: Path) -> Iterator[World]:
             project_c=c,
             project_gone=gone,
             import_job=import_job,
-            partial_job=mctf_job,
+            warp_failed_job=mctf_job,
             failed_job=failed_job,
             root_a=projects / "a",
         )
@@ -269,7 +272,7 @@ async def test_projects_and_visibility(admin: Client, bob: Client, world: World)
     assert by_id[world.project_gone]["error"]
     a = by_id[world.project_a]
     assert (a["owner"], a["access"], a["processing_path"]) == ("admin", "owner", str(world.root_a))
-    assert a["job_counts"] == {"finished": 2, "failed": 1, "saved": 9}
+    assert a["job_counts"] == {"finished": 1, "failed": 2, "saved": 9}
 
     shared = await call(bob, "list_projects")
     assert [(p["id"], p["access"]) for p in shared["projects"]] == [(world.project_b, "viewer")]
@@ -282,16 +285,16 @@ async def test_projects_and_visibility(admin: Client, bob: Client, world: World)
 async def test_project_graph(admin: Client, world: World) -> None:
     detail = await call(admin, "get_project", project_id=world.project_a)
     assert detail["job_count"] == 12
-    assert detail["failed"] == [world.failed_job]
+    assert detail["failed"] == [world.warp_failed_job, world.failed_job]
     jobs = {j["id"]: j for j in detail["jobs"]}
     assert jobs[world.import_job]["status"] == "finished"
     assert jobs[world.import_job]["elapsed_s"] is not None
-    assert jobs[world.partial_job]["parents"] == [world.import_job]
-    assert jobs[world.partial_job]["status"] == "finished"
+    assert jobs[world.warp_failed_job]["parents"] == [world.import_job]
+    assert jobs[world.warp_failed_job]["status"] == "failed"
     template_job = next(j for j in jobs.values() if j["type"] == "emw-pytom-create_template")
     assert template_job["parents"] == [] and template_job["id"] in detail["ready_to_run"]
     tsalign = next(j for j in jobs.values() if j["type"] == "emw-warp-tsalign")
-    assert tsalign["id"] in detail["ready_to_run"]
+    assert tsalign["id"] not in detail["ready_to_run"]  # its parent failed
     for job in jobs.values():
         assert len(job["parents"]) == len(set(job["parents"]))
         for parent in job["parents"]:
@@ -328,22 +331,21 @@ async def test_failed_job_diagnosis(admin: Client, world: World) -> None:
 
 
 @pytest.mark.anyio
-async def test_finished_job_with_failed_program_is_flagged(admin: Client, world: World) -> None:
-    job = await call(admin, "get_job", project_id=world.project_a, job_id=world.partial_job)
-    assert job["status"] == "finished" and job["type"] == "emw-warp-mctf"
+async def test_warp_job_whose_program_failed(admin: Client, world: World) -> None:
+    job = await call(admin, "get_job", project_id=world.project_a, job_id=world.warp_failed_job)
+    assert job["status"] == "failed" and job["type"] == "emw-warp-mctf"
     assert job["params"]["input_tiltseries"] == f"{world.import_job}/tilt_series.star"
-    assert job["warnings"] and "error-like" in job["warnings"][0]
+    assert job["warnings"] == []  # the status already says it failed
     error_text = "\n".join(e["text"] for e in job["error_lines"])
-    assert "Exit code: 1" in error_text
+    assert "tilt-series were produced (1 of 1 failed)" in error_text
     logs = await call(
         admin,
         "get_job_logs",
         project_id=world.project_a,
-        job_id=world.partial_job,
+        job_id=world.warp_failed_job,
         contains="stub launcher called",
     )
     assert "WarpTools" in logs["logs"][0]["text"]
-    assert logs["warnings"]
 
 
 @pytest.mark.anyio

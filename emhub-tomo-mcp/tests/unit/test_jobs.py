@@ -110,6 +110,20 @@ async def test_hidden_failure_warnings(services: Services, fake: FakeEmhub) -> N
     assert failed.warnings == []
 
 
+async def test_partly_failed_warp_job_is_flagged(services: Services, fake: FakeEmhub) -> None:
+    """emwrap finishes a Warp job when only some tilt series failed, and says so in
+    one line of stdout; the job is failed only when none came out."""
+    ref = await services.projects.get(1)
+    fake.stdout["EMwrap/job001"] = (
+        "Running WarpTools fs_motion_and_ctf\n"
+        "WARNING: 1 of 5 tilt-series failed: TS_32\n"
+        "Output tilt-series: 4 of 5\n"
+    )
+    job = await services.jobs.job_detail(ref, "EMwrap/job001")
+    assert job.status == "finished" and len(job.warnings) == 1
+    assert "TS_32" in job.warnings[0] and "error-like" in job.warnings[0]
+
+
 @pytest.mark.parametrize(
     ("info", "exists"),
     [

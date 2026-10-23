@@ -218,6 +218,7 @@ class FakeEmhub:
         default_factory=lambda: recorded("18_get_session_run_form_new_job_type")["run"]["form"]
     )
     stderr: dict[str, str] = field(default_factory=dict)  # per job id, overrides the default
+    stdout: dict[str, str] = field(default_factory=dict)  # per job id, overrides the default
     params: dict[tuple[int, str], dict[str, Any]] = field(default_factory=dict)  # job.star
     forms: dict[str, dict[str, Any]] = field(default_factory=dict)  # per job type
     has_validate: bool = True
@@ -348,7 +349,7 @@ class FakeEmhub:
             }
         failed = node.get("status") == "failed"
         if "stdout" in outputs:
-            result["stdout"] = FAILED_STDOUT if failed else ""
+            result["stdout"] = self.stdout.get(run_id, FAILED_STDOUT if failed else "")
         if "stderr" in outputs:
             result["stderr"] = self.stderr.get(run_id, FAILED_STDERR if failed else "")
         return {"run": result}
