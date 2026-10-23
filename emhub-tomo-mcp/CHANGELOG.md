@@ -2,7 +2,7 @@
 
 ## 1.0.0 (2026-10-21)
 
-First release: read access for everyone, write access for operators who enable it. Tagged `emhub-tomo-mcp-v1.0.0` (locally) on the emhub branch `sc_mcp_server`; not yet published.
+First release: read access for everyone, write access for operators who enable it. Tagged `emhub-tomo-mcp-v1.0.0` (locally) on the emhub branch `sc_mcp_server`; not yet published. It is based on emhub `devel` of 2026-10-23 and tested against emwrap and emtools `devel` of the same day.
 
 - Tools `get_jobs` (up to 20 jobs in one call) and `get_star_table` (a STAR file's tables, selected columns, pages of rows and counts per value, e.g. particles per tomogram).
 - Fixed: outputs that EMhub reports as missing were shown as existing unless their type was `File` (e.g. RELION's optimisation sets), so `get_job` missed the warning for finished jobs with missing outputs. Found by the evals; checked against the files on disk for every job of the tutorial projects.
