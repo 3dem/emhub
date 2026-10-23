@@ -100,6 +100,31 @@ def _em_image_preview_meta(file_path):
     return preview_meta, preview_kind
 
 
+def _preview_max_size(value):
+    """ Requested preview size in pixels (64 to 1024), or None. """
+    if value in (None, ''):
+        return None
+    return min(1024, max(64, int(value)))
+
+
+def _is_mrc_file(path):
+    return path.lower().endswith(('.mrc', '.mrcs', '.st', '.ali', '.rec'))
+
+
+def _central_section_preview(file_path, max_size):
+    """ The central Z section of an MRC volume or stack (a tomogram's middle
+    slice, a tilt series' middle image) as a base64 PNG, and its description. """
+    import mrcfile
+    with mrcfile.mmap(file_path, permissive=True) as mrc:
+        data = mrc.data
+        depth = data.shape[0] if data.ndim == 3 else 1
+        index = depth // 2
+        section = data[index] if data.ndim == 3 else data
+        thumb = Thumbnail(max_size=(max_size, max_size), output_format='base64',
+                          contrast_factor=1.5)
+        return thumb.from_array(section), f'z={index} of {depth}'
+
+
 api_bp = flask.Blueprint('api', __name__)
 
 
@@ -767,12 +792,23 @@ def get_file_preview():
             elif Path.isImage(path) or Path.isEmImage(path):
                 preview_meta, preview_kind = _em_image_preview_meta(full_path)
                 info['meta'].update(preview_meta)
+                # Optional: 'max_size' (pixels) and, for MRC files, 'slice': 'center'
+                # for the central section instead of a montage (e.g. a tomogram).
+                max_size = _preview_max_size(attrs.get('max_size'))
+                if attrs.get('slice') == 'center' and _is_mrc_file(path):
+                    data, section = _central_section_preview(full_path, max_size or 512)
+                    info['meta']['slice'] = section
+                elif max_size and Path.isImage(path):
+                    data = Thumbnail(max_size=(max_size, max_size),
+                                     output_format='base64').from_path(full_path)
+                else:
+                    data = Thumbnail.Preview(full_path)
                 info.update({
                     "mime": "image/png",
                     "kind": preview_kind or "image",
                     "source": {
                         "sourceType": "base64",
-                        "dataBase64": Thumbnail.Preview(full_path)
+                        "dataBase64": data
                     }
                 })
         except Exception as e:
