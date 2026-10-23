@@ -122,6 +122,17 @@ class TestMcpServer(unittest.TestCase):
                                       'params': {'gpu': '0'},
                                       'clean': False})
 
+    def test_create_tomo_project(self):
+        mcp, client = self._server(['processing'], roles=['user'])
+        self.assertIn('processing_create_tomo_project', _tool_names(mcp))
+        _call_tool(mcp, 'processing_create_tomo_project',
+                   processing_path='/data/tomo/p1', data_path='/data/raw')
+        c = client.calls[-1]
+        self.assertEqual(c['method'], 'create_tomo_project')
+        self.assertEqual(c['key'], 'entry')
+        self.assertEqual(c['attrs'], {'processing_path': '/data/tomo/p1',
+                                      'data_path': '/data/raw'})
+
     def test_project_selector(self):
         from emhub.mcp.processing import _project_selector
         self.assertEqual(_project_selector(session_id=1), {'session_id': 1})

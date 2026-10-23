@@ -18,8 +18,9 @@ underlying ``/api/get_session_workflow``, ``/api/launch_job``, ... endpoints
 (see ``DataManager.get_processing_project``).
 
 Registered by :func:`register_tools`, called from ``emhub.mcp.server``.
-Read tools and job tools (save/launch/schedule/stop, labels, notes) are
-always registered, EMhub checks the user can edit the project. Deleting
+Read tools, creating tomo projects and job tools (save/launch/schedule/stop,
+labels, notes) are always registered, EMhub checks the user can edit the
+project. Deleting
 jobs and loading workflows are only registered when ``allow_admin`` is
 True.
 """
@@ -274,6 +275,43 @@ def register_tools(mcp, client, allow_admin=False):
         return client.call('get_project_labels',
                            attrs=_project_selector(session_id, entry_id, path),
                            key='labels')
+
+    # ------------------------- Project tools ------------------------------
+    @mcp.tool(annotations=WRITE)
+    def processing_create_tomo_project(processing_path: str,
+                                       data_path: Optional[str] = None,
+                                       title: Optional[str] = None,
+                                       description: Optional[str] = None,
+                                       project_id: Optional[int] = None
+                                       ) -> dict:
+        """ Create a tomography processing project (a 'tomo_processing'
+        entry, select it later with entry_id). If processing_path does not
+        exist, EMhub creates it (its parent folder must exist) with an
+        empty pipeline and a 'data' link to data_path, so job inputs can be
+        relative paths like 'data/mdoc/*.mdoc'. An existing processing_path
+        must already be a project (with default_pipeline.star) and is only
+        registered, if no other entry has it. Paths are on the EMhub server machine. Add jobs then
+        with processing_load_workflow or processing_save_job.
+
+        Args:
+            processing_path: Project folder, absolute path.
+            data_path: Folder with the raw data (frames, mdoc files, gain
+                reference), required for a new project.
+            title: Optional title, the folder name is shown without it.
+            description: Optional description.
+            project_id: EMhub project to add the entry to, by default the
+                'Default Project for tomo_processing entries' of the user.
+
+        Returns:
+            The created entry (id, project_id, extra.data with the paths).
+        """
+        attrs = {'processing_path': processing_path}
+        for k, v in [('data_path', data_path), ('title', title),
+                     ('description', description),
+                     ('project_id', project_id)]:
+            if v is not None:
+                attrs[k] = v
+        return client.call('create_tomo_project', attrs=attrs, key='entry')
 
     # ------------------------- Job tools ----------------------------------
     @mcp.tool(annotations=WRITE)

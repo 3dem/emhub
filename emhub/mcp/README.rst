@@ -244,8 +244,8 @@ Tools are registered in three levels:
 
 * **Read** tools, always available.
 * **Safe writes**, always available: creating, updating and cancelling
-  bookings; saving, launching, scheduling and stopping jobs; job labels
-  and notes. EMhub validates them for the logged in user.
+  bookings; creating tomo projects; saving, launching, scheduling and
+  stopping jobs; job labels and notes. EMhub validates them for the logged in user.
 * **Admin** tools, only registered when the user has the ``admin`` or
   ``developer`` role: creating/updating users and resources, updating
   sessions, deleting jobs and loading workflow templates.
@@ -327,14 +327,26 @@ Every processing tool selects the project with exactly one of
 ``tomo_processing`` entry) or ``path`` (the project folder), as
 ``DataManager.get_processing_project`` does.
 
+Read tools work for anyone who can see the project. The tools that change
+it (saving, launching, scheduling, stopping and deleting jobs, loading
+workflows, labels and notes) are checked by EMhub
+(``_check_can_edit_project`` in ``blueprints/api.py``), as for the web
+UI. Allowed users are the editors of the project of the
+``tomo_processing`` entry, the lab of the session owner and the editors
+of the session project, and managers. A ``path`` is allowed for the
+editors of the entries registered with that path, and for managers
+only if there are none.
+
 * Read: ``processing_list_projects``, ``processing_get_workflow``,
   ``processing_get_job`` (values, info, inputs/outputs and optionally
   logs and the parameters form), ``processing_list_files``,
   ``processing_read_file``, ``processing_get_table``,
   ``processing_get_labels``.
-* Safe writes: ``processing_save_job``, ``processing_launch_job``,
-  ``processing_schedule_job``, ``processing_stop_jobs``,
-  ``processing_set_job_labels``, ``processing_annotate_job``.
+* Safe writes: ``processing_create_tomo_project`` (a ``tomo_processing``
+  entry, through ``/api/create_tomo_project``), ``processing_save_job``,
+  ``processing_launch_job``, ``processing_schedule_job``,
+  ``processing_stop_jobs``, ``processing_set_job_labels``,
+  ``processing_annotate_job``.
 * Admin: ``processing_delete_jobs``, ``processing_load_workflow``.
 
 The ``/api/get_classes2d`` and ``/api/get_file_info`` endpoints are not
