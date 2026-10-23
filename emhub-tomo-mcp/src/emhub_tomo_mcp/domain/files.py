@@ -35,6 +35,7 @@ from .star import StarTable, parse_star
 
 MAX_TEXT_FILE_BYTES = 16 * 1024 * 1024
 MAX_IMAGE_BYTES = 4 * 1024 * 1024
+PREVIEW_SIZE = 512  # pixels; the central section of a volume, or an image
 MAX_READ_LINES = 1000
 MAX_READ_BYTES = 48_000
 
@@ -174,7 +175,9 @@ class FileService:
                         }
                     )
                 )
-            preview = await self._api.get_file_preview(ref.root, rel)
+            preview = await self._api.get_file_preview(
+                ref.root, rel, center_slice=kind == "em", max_size=PREVIEW_SIZE
+            )
             data = (preview.source or {}).get("dataBase64")
             if not data or preview.error:
                 note = "EMhub could not make a preview of this file."
@@ -186,7 +189,13 @@ class FileService:
             if len(png) > MAX_IMAGE_BYTES:
                 return FileRead(base.model_copy(update={"note": "The preview image is too large."}))
             meta = {k: v for k, v in preview.meta.items() if isinstance(v, (str, int, float, bool))}
-            return FileRead(base.model_copy(update={"image": meta}), png=png)
+            montage: str | None = None
+            if kind == "em" and "slice" not in meta:
+                montage = (
+                    "EMhub sent its standard preview: a montage of the first frames or "
+                    "slices, not the central section (this EMhub cannot make one)."
+                )
+            return FileRead(base.model_copy(update={"image": meta, "note": montage}), png=png)
 
         return FileRead(
             base.model_copy(

@@ -141,7 +141,10 @@ async def test_image_preview(client: Client) -> None:
     image = result.content[1]
     assert isinstance(image, ImageContent) and image.mime_type == "image/png"
     assert result.structured_content is not None
-    assert result.structured_content["image"] == {"name": "WarpMctf/job003/preview.mrc"}
+    assert result.structured_content["image"] == {
+        "name": "WarpMctf/job003/preview.mrc",
+        "slice": "z=0 of 1",
+    }
 
 
 @pytest.mark.parametrize(

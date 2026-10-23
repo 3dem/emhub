@@ -186,10 +186,18 @@ class EmhubApi:
             "list_project_dir",
         )
 
-    async def get_file_preview(self, root: str, path: str) -> FilePreview:
-        data = await self.client.call(
-            "get_file_preview", {"root": root, "path": path}, http_timeout=120
-        )
+    async def get_file_preview(
+        self, root: str, path: str, *, center_slice: bool = False, max_size: int | None = None
+    ) -> FilePreview:
+        """A text window or a PNG preview. EMhubs that know them take ``slice='center'``
+        (the central section of an MRC volume or stack instead of a montage) and
+        ``max_size`` (pixels); older ones ignore both."""
+        attrs: dict[str, Any] = {"root": root, "path": path}
+        if center_slice:
+            attrs["slice"] = "center"
+        if max_size:
+            attrs["max_size"] = max_size
+        data = await self.client.call("get_file_preview", attrs, http_timeout=120)
         return _parse(
             _PREVIEW,
             _field(data, "preview", "get_file_preview"),

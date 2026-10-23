@@ -219,6 +219,8 @@ class FakeEmhub:
     )
     stderr: dict[str, str] = field(default_factory=dict)  # per job id, overrides the default
     stdout: dict[str, str] = field(default_factory=dict)  # per job id, overrides the default
+    preview_slices: bool = True  # EMhub can preview the central section of MRC files
+    run_inputs: dict[str, list[str]] = field(default_factory=dict)  # per job id
     params: dict[tuple[int, str], dict[str, Any]] = field(default_factory=dict)  # job.star
     forms: dict[str, dict[str, Any]] = field(default_factory=dict)  # per job type
     has_validate: bool = True
@@ -344,7 +346,7 @@ class FakeEmhub:
             result["json"] = {
                 "values": values,
                 "info": {"id": run_id, "className": "warp", "jobtype": node["type"]},
-                "inputs": ["WarpMctf/job003/tilt_series.star"],
+                "inputs": self.run_inputs.get(run_id, ["WarpMctf/job003/tilt_series.star"]),
                 "outputs": [o["value"] for o in node.get("outputs", [])] + [f"{run_id}/extra.star"],
             }
         failed = node.get("status") == "failed"
@@ -485,7 +487,12 @@ class FakeEmhub:
                 "preview": {
                     "kind": "image",
                     "mime": "image/png",
-                    "meta": {"name": rel, "dims": [1, 1], "nested": {"x": 1}},
+                    "meta": {"name": rel, "dims": [1, 1], "nested": {"x": 1}}
+                    | (
+                        {"slice": "z=0 of 1"}
+                        if attrs.get("slice") == "center" and self.preview_slices
+                        else {}
+                    ),
                     "source": {"sourceType": "base64", "dataBase64": png},
                 }
             }

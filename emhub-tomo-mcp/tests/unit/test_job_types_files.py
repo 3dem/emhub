@@ -182,7 +182,7 @@ async def test_read_refusals(services: Services, fake: FakeEmhub) -> None:
     assert len(fake.calls_to("get_file_preview")) == calls_before
 
 
-async def test_read_image(services: Services) -> None:
+async def test_read_image(services: Services, fake: FakeEmhub) -> None:
     ref = await services.projects.get(1)
     no_image = await services.files.read(
         ref,
@@ -202,7 +202,22 @@ async def test_read_image(services: Services) -> None:
         want_image=True,
     )
     assert image.png is not None and image.png.startswith(b"\x89PNG")
-    assert image.content.image == {"name": "WarpMctf/job003/preview.mrc"}
+    # MRC files: the central section, at up to 512 pixels.
+    assert image.content.image == {"name": "WarpMctf/job003/preview.mrc", "slice": "z=0 of 1"}
+    assert image.content.note is None
+    sent = fake.calls_to("get_file_preview")[-1]["attrs"]
+    assert sent["slice"] == "center" and sent["max_size"] == 512
+    # An EMhub without the option sends its montage; the note says so.
+    fake.preview_slices = False
+    montage = await services.files.read(
+        ref,
+        "WarpMctf/job003/preview.mrc",
+        tail_lines=None,
+        head_lines=None,
+        start_line=None,
+        want_image=True,
+    )
+    assert "montage" in (montage.content.note or "")
 
 
 async def test_unreadable_text_file(services: Services) -> None:

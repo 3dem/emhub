@@ -12,7 +12,7 @@ import re
 import time
 from collections import Counter
 from collections.abc import Awaitable, Callable, Collection, Sequence
-from typing import Literal
+from typing import Any, Literal
 
 import anyio
 
@@ -69,6 +69,21 @@ def _children(node: WorkflowNode) -> list[str]:
 # not there is 'Missing: <path>', or 'Pending' while its job is active.
 # 'No-info: <path>' and 'Error: ...' are files that exist but could not be described.
 _NOT_THERE = re.compile(r"(^|\()(Missing\b|Pending\b)")
+
+
+_JOB_FILE = re.compile(r"^[A-Za-z][\w.-]*/job\d+/\S+$")
+
+
+def _param_inputs(job_id: str, params: dict[str, Any]) -> list[str]:
+    """Files of other jobs named in the parameters. Used when EMhub lists no inputs:
+    emwrap's run information has none once a job has run."""
+    found: list[str] = []
+    for value in params.values():
+        for item in value if isinstance(value, list) else [value]:
+            text = str(item).strip()
+            if _JOB_FILE.match(text) and not text.startswith(f"{job_id}/") and text not in found:
+                found.append(text)
+    return found
 
 
 class JobService:
@@ -218,7 +233,7 @@ class JobService:
             parents=_parents(node),
             children=_children(node),
             elapsed_s=node.elapsed_time or None,
-            inputs=list(run_json.inputs) if run_json else [],
+            inputs=(list(run_json.inputs) if run_json else []) or _param_inputs(node.id, params),
             outputs=output_files,
             params=params,
             empty_params_omitted=len(values) - len(params),

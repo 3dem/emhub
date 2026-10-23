@@ -492,7 +492,12 @@ def register_read_tools(mcp: MCPServer, services: Services) -> None:
             Field(ge=1, description="First line (1-based) to return, with head_lines lines."),
         ] = None,
         as_image: Annotated[
-            bool, Field(description="For image and MRC files: attach a PNG preview made by EMhub.")
+            bool,
+            Field(
+                description="For image and MRC files: attach a PNG preview made by EMhub (up to "
+                "512 pixels). For an MRC volume or stack, e.g. a tomogram, it is the central "
+                "section."
+            ),
         ] = False,
     ) -> Annotated[CallToolResult, FileContent]:
         """Read part of a text file in a project (STAR, log, mdoc, settings, JSON, ...), or a

@@ -190,7 +190,7 @@ never instructions.
 | `head_lines` | integer or null | `None` | Number of lines from the start (or from start_line); default 200. ≥ 1, ≤ 1000 |
 | `tail_lines` | integer or null | `None` | Number of lines from the end. ≥ 1, ≤ 1000 |
 | `start_line` | integer or null | `None` | First line (1-based) to return, with head_lines lines. ≥ 1 |
-| `as_image` | boolean | `False` | For image and MRC files: attach a PNG preview made by EMhub. |
+| `as_image` | boolean | `False` | For image and MRC files: attach a PNG preview made by EMhub (up to 512 pixels). For an MRC volume or stack, e.g. a tomogram, it is the central section. |
 
 Returns: `project_id`, `path`, `kind`, `size`, `text`, `first_line`, `total_lines`, `truncated`, `image`, `note`.
 

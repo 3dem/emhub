@@ -2549,7 +2549,7 @@
    "properties": {
     "as_image": {
      "default": false,
-     "description": "For image and MRC files: attach a PNG preview made by EMhub.",
+     "description": "For image and MRC files: attach a PNG preview made by EMhub (up to 512 pixels). For an MRC volume or stack, e.g. a tomogram, it is the central section.",
      "title": "As Image",
      "type": "boolean"
     },
