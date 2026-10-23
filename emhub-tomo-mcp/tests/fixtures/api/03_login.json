@@ -1,0 +1,11 @@
+{
+  "endpoint": "/api/login",
+  "request": {
+    "username": "admin",
+    "password": "<PASSWORD>"
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": "OK"
+}

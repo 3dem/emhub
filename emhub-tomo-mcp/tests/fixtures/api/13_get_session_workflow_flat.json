@@ -1,0 +1,117 @@
+{
+  "endpoint": "/api/get_session_workflow",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "widget": false
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "workflow": [
+      {
+        "id": "EMwrap/job001",
+        "label": "emw-import-ts ",
+        "links": [
+          "WarpMctf/job003"
+        ],
+        "status": "saved",
+        "type": "emw-import-ts"
+      },
+      {
+        "id": "PyTom/job002",
+        "label": "emw-pytom-create_template ",
+        "links": [
+          "PyTom/job006",
+          "PyTom/job006"
+        ],
+        "status": "saved",
+        "type": "emw-pytom-create_template"
+      },
+      {
+        "id": "WarpMctf/job003",
+        "label": "emw-warp-mctf ",
+        "links": [
+          "WarpTsAlign/job004"
+        ],
+        "status": "saved",
+        "type": "emw-warp-mctf"
+      },
+      {
+        "id": "WarpTsAlign/job004",
+        "label": "emw-warp-tsalign ",
+        "links": [
+          "WarpCtfRec/job005"
+        ],
+        "status": "saved",
+        "type": "emw-warp-tsalign"
+      },
+      {
+        "id": "WarpCtfRec/job005",
+        "label": "emw-warp-ctfrec ",
+        "links": [
+          "PyTom/job006",
+          "WarpExportParticles/job007"
+        ],
+        "status": "saved",
+        "type": "emw-warp-ctfrec"
+      },
+      {
+        "id": "PyTom/job006",
+        "label": "emw-pytom ",
+        "links": [
+          "WarpExportParticles/job007"
+        ],
+        "status": "saved",
+        "type": "emw-pytom"
+      },
+      {
+        "id": "WarpExportParticles/job007",
+        "label": "emw-warp-export_particles ",
+        "links": [
+          "InitialModel/job008",
+          "Refine3D/job009"
+        ],
+        "status": "saved",
+        "type": "emw-warp-export_particles"
+      },
+      {
+        "id": "InitialModel/job008",
+        "label": "relion.initialmodel.tomo ",
+        "links": [
+          "Refine3D/job009"
+        ],
+        "status": "saved",
+        "type": "relion.initialmodel.tomo"
+      },
+      {
+        "id": "Refine3D/job009",
+        "label": "relion.refine3d.tomo ",
+        "links": [
+          "External/job010",
+          "WarpMCreatePopulation/job011"
+        ],
+        "status": "saved",
+        "type": "relion.refine3d.tomo"
+      },
+      {
+        "id": "External/job010",
+        "label": "emw-relion-mask_create ",
+        "links": [
+          "WarpMCreatePopulation/job011"
+        ],
+        "status": "saved",
+        "type": "emw-relion-mask_create"
+      },
+      {
+        "id": "WarpMCreatePopulation/job011",
+        "label": "emw-warp-mtools_create ",
+        "links": [],
+        "status": "saved",
+        "type": "emw-warp-mtools_create"
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+# Checks for the MCP server in emhub-tomo-mcp/: lint, types, unit and protocol tests.
+# Contract, live and eval tests need an EMhub-Tomo installation and are run by hand
+# (see emhub-tomo-mcp/docs/development.md).
+name: emhub-tomo-mcp
+
+on:
+  push:
+    paths: ["emhub-tomo-mcp/**", ".github/workflows/emhub-tomo-mcp.yml"]
+  pull_request:
+    paths: ["emhub-tomo-mcp/**", ".github/workflows/emhub-tomo-mcp.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emhub-tomo-mcp-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: emhub-tomo-mcp
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: uv venv && uv pip install -e ".[dev]"
+      - name: Lint
+        if: matrix.python == '3.12'
+        run: |
+          uv run --no-sync ruff check src tests scripts
+          uv run --no-sync ruff format --check src tests scripts
+      - name: Types
+        if: matrix.python == '3.12'
+        run: uv run --no-sync mypy
+      - name: Tests
+        run: uv run --no-sync pytest -q -p no:cacheprovider
+      - name: Package
+        if: matrix.python == '3.12'
+        run: uv build && uv tool install dist/*.whl && emhub-tomo-mcp --version

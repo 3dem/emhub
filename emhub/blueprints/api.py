@@ -100,6 +100,31 @@ def _em_image_preview_meta(file_path):
     return preview_meta, preview_kind
 
 
+def _preview_max_size(value):
+    """ Requested preview size in pixels (64 to 1024), or None. """
+    if value in (None, ''):
+        return None
+    return min(1024, max(64, int(value)))
+
+
+def _is_mrc_file(path):
+    return path.lower().endswith(('.mrc', '.mrcs', '.st', '.ali', '.rec'))
+
+
+def _central_section_preview(file_path, max_size):
+    """ The central Z section of an MRC volume or stack (a tomogram's middle
+    slice, a tilt series' middle image) as a base64 PNG, and its description. """
+    import mrcfile
+    with mrcfile.mmap(file_path, permissive=True) as mrc:
+        data = mrc.data
+        depth = data.shape[0] if data.ndim == 3 else 1
+        index = depth // 2
+        section = data[index] if data.ndim == 3 else data
+        thumb = Thumbnail(max_size=(max_size, max_size), output_format='base64',
+                          contrast_factor=1.5)
+        return thumb.from_array(section), f'z={index} of {depth}'
+
+
 api_bp = flask.Blueprint('api', __name__)
 
 
@@ -767,12 +792,23 @@ def get_file_preview():
             elif Path.isImage(path) or Path.isEmImage(path):
                 preview_meta, preview_kind = _em_image_preview_meta(full_path)
                 info['meta'].update(preview_meta)
+                # Optional: 'max_size' (pixels) and, for MRC files, 'slice': 'center'
+                # for the central section instead of a montage (e.g. a tomogram).
+                max_size = _preview_max_size(attrs.get('max_size'))
+                if attrs.get('slice') == 'center' and _is_mrc_file(path):
+                    data, section = _central_section_preview(full_path, max_size or 512)
+                    info['meta']['slice'] = section
+                elif max_size and Path.isImage(path):
+                    data = Thumbnail(max_size=(max_size, max_size),
+                                     output_format='base64').from_path(full_path)
+                else:
+                    data = Thumbnail.Preview(full_path)
                 info.update({
                     "mime": "image/png",
                     "kind": preview_kind or "image",
                     "source": {
                         "sourceType": "base64",
-                        "dataBase64": Thumbnail.Preview(full_path)
+                        "dataBase64": data
                     }
                 })
         except Exception as e:
@@ -1123,6 +1159,47 @@ def handle_workflow(handle_func=None, reload=False):
     return _handle_item(_handle, 'workflow')
 
 
+@api_bp.route('/get_workflows', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_workflows():
+    """ List the processing workflow templates available on this server
+    (id, title, description, file), so clients can pick one to load via
+    'load_workflow' (or run in one step via the MCP 'run_workflow' tool).
+    """
+    from emwrap.base import ProcessingConfig
+    workflows = ProcessingConfig.get_workflows()
+    # Also list each template's jobs (id and type), so clients can tell what
+    # loading it adds, and whether a project already has these jobs.
+    for workflow in workflows:
+        try:
+            jobs = ProcessingConfig.get_workflow(workflow['id']).get('jobs', [])
+            workflow['jobs'] = [{'jobid': j.get('jobid'), 'jobtype': j.get('jobtype')}
+                                for j in jobs]
+        except Exception:
+            workflow['jobs'] = []
+    return send_json_data(workflows)
+
+
+@api_bp.route('/get_job_types', methods=['GET', 'POST'])
+@flask_login.login_required
+def get_job_types():
+    """ List the job types registered in emwrap (id, label, output folder
+    type, whether it appears in the processing menu, whether it has a form),
+    so clients can tell which job types exist on this server.
+    """
+    from emwrap.base import ProcessingConfig
+    job_types = []
+    for job_type, conf in ProcessingConfig.get_jobs().items():
+        job_types.append({
+            'id': job_type,
+            'label': conf.get('label', job_type),
+            'output': conf.get('output', ''),
+            'visible': ProcessingConfig.is_job_visible(job_type),
+            'has_form': os.path.exists(ProcessingConfig.get_job_form_file(job_type))
+        })
+    return send_json_data(job_types)
+
+
 @api_bp.route('/get_session_workflow', methods=['POST'])
 @flask_login.login_required
 def get_session_workflow():
@@ -1274,9 +1351,43 @@ def load_workflow():
             'workflow_id': workflow_id,
             'workflow_file': os.path.basename(workflow_file),
             'loaded_jobs': len(id_map),
+            # Template job id -> new job id, so clients know which jobs were created
+            'job_ids': id_map,
         }
 
     return handle_workflow(_load_workflow)
+
+
+@api_bp.route('/validate_job', methods=['POST'])
+@flask_login.login_required
+def validate_job():
+    """ Validate job params against the job type's form, without saving or
+    running anything. For an existing job (run_id), the given params are
+    merged into its current ones; for a new job, job_type is required.
+    With for_schedule, inputs produced by parent jobs may not exist yet.
+    """
+    def _validate_job(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        params = attrs.get('params') or {}
+        run = pp.get('run')
+        job = None
+        if run:
+            job = pm._getJob(run.id)
+            job_type = job['jobtype']
+            job_params = pm._readJobParams(job, extraParams=params)
+        else:
+            job_type = attrs.get('job_type')
+            if not job_type:
+                raise Exception("Provide run_id for an existing job, or job_type.")
+            job_params = params
+        try:
+            pm._validateJobInputs(job_type, job_params, job=job,
+                                  for_schedule=bool(attrs.get('for_schedule')))
+        except JobValidationError as e:
+            return {'valid': False, 'errors': list(e.errors)}
+        return {'valid': True, 'errors': []}
+
+    return _handle_item(_validate_job, 'validation')
 
 
 @api_bp.route('/export_workflow', methods=['POST'])

@@ -1,0 +1,327 @@
+{
+  "endpoint": "/api/get_session_run",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "run_id": null,
+      "job_type": "emw-warp-mctf",
+      "output": [
+        "form"
+      ]
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "run": {
+      "form": {
+        "package": "",
+        "name": "emw-warp-mctf",
+        "logo": "",
+        "sections": [
+          {
+            "label": "Motion",
+            "params": [
+              {
+                "name": "input_tiltseries",
+                "label": "Input tilt series:",
+                "pattern": "",
+                "help": "STAR file with input tilt-series",
+                "paramClass": "PathParam",
+                "pointerClass": "TiltSeriesMovies",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "create_settings.bin_angpix",
+                "label": "Target pixel size",
+                "help": "--bin_angpix in create_settings: Choose the binning exponent automatically to match this target pixel size in Angstrom. \n0 = No binning, 1 = Bin 2x, etc. ",
+                "default": 0,
+                "paramClass": "StringParam",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "create_settings.eer_ngroups",
+                "label": "EER groups",
+                "help": "(--eer_ngroups) EER grouping.",
+                "paramClass": "StringParam",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "eerSampling",
+                "label": "EER upsampling factor",
+                "paramClass": "EnumParam",
+                "choices": {
+                  "1": "Native (4k \u00d7 4k)",
+                  "2": "Super-Res (8k \u00d7 8k)",
+                  "4": "Ultra-Res (16k \u00d7 16k)"
+                },
+                "default": "1",
+                "help": "Render EER movies in super-resolution (EER only, ignored for other formats). Directly determines the maximum achievable resolution.\n\nHow it works: Warp decides the rendering size from the size of the gain reference, so the wrapper upsamples the 4k gain by pixel replication into the job folder (e.g. <gain>_eer2x.gain) and runs create_settings with --angpix = input pixel size / factor. A gain that already matches the upsampled size is used as is. A gain reference is required.\n\n'Target pixel size' (binning) is applied after upsampling, e.g. with an input of 4k at 1.19 A/px:\n- Upsample 2x, no target -> 8k at 0.595 A/px\n- Upsample 2x, target 1.19 -> 8k at 0.595 A/px, binned to 4k at 1.19 A/px\n- Upsample 4x, target 0.595 -> 16k at 0.2975 A/px, binned to 8k at 0.595 A/px\n\nThe output STAR files contain the final tilt image pixel size (rlnTomoTiltSeriesPixelSize) and point to the upsampled gain, so downstream Warp jobs use the same gain. rlnMicrographOriginalPixelSize keeps the input pixel size.\n\nDownstream tilt series alignment and reconstruction:\n- The Warp tilt series settings always use the input (physical) pixel size as --angpix, because Warp reads the image size from the EER header (always 4k). Give --tomo_dimensions in input pixels whatever the upsampling, e.g. 4096x4096x2000 at 1.19 A/px.\n- Alignment and reconstruction pixel sizes are absolute, so the binning is relative to the tilt images: 4.76 A/px is bin 8 for 0.595 A/px tilt images and bin 4 for 1.19 A/px ones.\n\nIMPORTANT: Use Warp version 2.0.0dev33 for motion correction with upsampling (set the WARP launcher to warp_launcher_vdev33.sh). Newer development versions (e.g. 2.0.0dev40) have a bug that randomly writes about half of the averages as a 4k image packed into the top quarter of the 8k frame.",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "paramClass": "Line",
+                "label": "Resolution range:",
+                "params": [
+                  {
+                    "name": "fs_motion_and_ctf.m_range_min",
+                    "label": "min",
+                    "default": 500,
+                    "paramClass": "FloatParam",
+                    "help": "(--m_range_min) Default: 500. Minimum resolution in Angstrom to consider in fit",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "fs_motion_and_ctf.m_range_max",
+                    "label": "max",
+                    "default": 10,
+                    "paramClass": "FloatParam",
+                    "help": "(--m_range_max) Default: 10. Maximum resolution in Angstrom to consider in fit",
+                    "important": false,
+                    "expertLevel": 0
+                  }
+                ]
+              },
+              {
+                "name": "fs_motion_and_ctf.m_bfac",
+                "label": "Bfactor (A\u02c62)",
+                "default": -500,
+                "paramClass": "FloatParam",
+                "help": "(--m_bfac)  Default: -500. Downweight higher spatial frequencies using a B-factor, in Angstrom^2",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "fs_motion_and_ctf.m_grid",
+                "label": "Grid (XxYxN):",
+                "default": "1x1",
+                "paramClass": "StringParam",
+                "help": "(--m_grid) Default: 1x1xN. Resolution of the motion model grid in X, Y, and temporal dimensions, separated by 'x': e.g. 5x5x40; empty = auto",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "extra_create_settings",
+                "label": "create_settings extra arguments",
+                "paramClass": "StringParam",
+                "help": "Extra arguments to pass to create_settings",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "acq.gain",
+                "label": "Gain reference",
+                "paramClass": "PathParam",
+                "pattern": "*.{mrc,gain}",
+                "allowsEmpty": true,
+                "help": "Optional gain reference file for motion correction. If set, overrides the value from the emw-import-ts job stored in the input tilt-series STAR file.",
+                "important": false,
+                "expertLevel": 0
+              }
+            ]
+          },
+          {
+            "label": "CTF",
+            "params": [
+              {
+                "paramClass": "Line",
+                "label": "Resolution range:",
+                "params": [
+                  {
+                    "name": "fs_motion_and_ctf.c_range_min",
+                    "label": "min",
+                    "default": 30,
+                    "paramClass": "FloatParam",
+                    "help": "(--c_range_min) Default: 500. Minimum resolution in Angstrom to consider in fit",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "fs_motion_and_ctf.c_range_max",
+                    "label": "max",
+                    "default": 4,
+                    "paramClass": "FloatParam",
+                    "help": "(--c_range_max) Default: 10. Maximum resolution in Angstrom to consider in fit",
+                    "important": false,
+                    "expertLevel": 0
+                  }
+                ]
+              },
+              {
+                "paramClass": "Line",
+                "label": "Defocus range:",
+                "params": [
+                  {
+                    "name": "fs_motion_and_ctf.c_defocus_min",
+                    "label": "min",
+                    "default": 0.5,
+                    "paramClass": "FloatParam",
+                    "help": "(--c_defocus_min) Default: 500. Minimum resolution in Angstrom to consider in fit",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "fs_motion_and_ctf.c_defocus_max",
+                    "label": "max",
+                    "default": 5,
+                    "paramClass": "FloatParam",
+                    "help": "(--c_defocus_max) Default: 10. Maximum resolution in Angstrom to consider in fit",
+                    "important": false,
+                    "expertLevel": 0
+                  }
+                ]
+              },
+              {
+                "name": "fs_motion_and_ctf.c_window",
+                "label": "Window (px)",
+                "default": 512,
+                "paramClass": "FloatParam",
+                "help": "(--c_window) Default: 512. Patch size for CTF estimation in binned pixels",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "fs_motion_and_ctf.c_grid",
+                "label": "Grid (XxYxN):",
+                "default": "2x2",
+                "paramClass": "StringParam",
+                "help": "(--c_grid) Resolution of the defocus model grid in X, Y, and temporal dimensions, separated by 'x': e.g. 5x5x40; empty = auto; Z > 1 is purely experimental",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "fs_motion_and_ctf.c_use_sum",
+                "label": "Use sum",
+                "paramClass": "BooleanParam",
+                "help": "(--c_use_sum) Use the movie average spectrum instead of the average of individual frames spectra. Can help in the absence of an energy filter, or when signal is low.",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "fs_motion_and_ctf.out_average_halves",
+                "label": "Output averages halves",
+                "paramClass": "BooleanParam",
+                "help": "(--out_average_halves) Export aligned averages of odd and even frames separately, e.g. for denoiser training",
+                "important": false,
+                "expertLevel": 0
+              }
+            ]
+          },
+          {
+            "label": "Compute",
+            "params": [
+              {
+                "name": "gpus",
+                "label": "GPUs",
+                "help": "If it is a single number (N), it will represent the total number of GPUs (0..N-1). It there are multiple values, it will be the specific GPUs ID.",
+                "paramClass": "StringParam",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "name": "fs_motion_and_ctf.perdevice",
+                "label": "Processes per device",
+                "default": 2,
+                "paramClass": "IntParam",
+                "help": "(--perdevice in fs_motion_and_ctf)",
+                "important": false,
+                "expertLevel": 0
+              },
+              {
+                "label": "Launchers",
+                "paramClass": "Group",
+                "help": "Launchers to use for the different programs",
+                "collapsed": true,
+                "params": [
+                  {
+                    "name": "register_output_only",
+                    "label": "Register output only",
+                    "paramClass": "BooleanParam",
+                    "help": "Register output only, without running the job. Output files (e.g. STAR files) will be re-generated, but the the underlying programs will not be executed.",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "launcher_warp",
+                    "label": "WARP",
+                    "paramClass": "StringParam",
+                    "help": "Launcher to use for Warp",
+                    "important": false,
+                    "expertLevel": 0
+                  }
+                ]
+              },
+              {
+                "label": "Queue",
+                "paramClass": "Group",
+                "params": [
+                  {
+                    "name": "queue.name",
+                    "label": "Queue",
+                    "help": "Select the queue to use for this job.",
+                    "paramClass": "EnumParam",
+                    "choices": {
+                      "None": "None",
+                      "cryo": "cryo",
+                      "cryo_core": "cryo_core",
+                      "rtx5000": "rtx5000"
+                    },
+                    "default": "None",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "queue.param.cryo.queue_name",
+                    "default": "cryo",
+                    "condition": "false and queue.name == 'cryo'",
+                    "paramClass": "StringParam",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "queue.param.cryo.gpu_type",
+                    "label": "GPU type",
+                    "help": "Select the GPU type if you need an specific one for this job.",
+                    "default": "any",
+                    "paramClass": "EnumParam",
+                    "choices": [
+                      "any",
+                      "V100",
+                      "A100"
+                    ],
+                    "condition": "queue.name == 'cryo'",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "queue.param.cryo_core.queue_name",
+                    "default": "cryo_core",
+                    "condition": "false and queue.name == 'cryo_core'",
+                    "paramClass": "StringParam",
+                    "important": false,
+                    "expertLevel": 0
+                  },
+                  {
+                    "name": "queue.param.rtx5000.queue_name",
+                    "default": "rtx5000",
+                    "condition": "false and queue.name == 'rtx5000'",
+                    "paramClass": "StringParam",
+                    "important": false,
+                    "expertLevel": 0
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "help": "Warp wrapper to run the motion correction and CTF estimation. It will run the following programs:\n\n[[https://warpem.github.io/warp/reference/warptools/api/frame_series/?h=fs_motion_and_ctf][fs_motion_and_ctf]]"
+      }
+    }
+  }
+}

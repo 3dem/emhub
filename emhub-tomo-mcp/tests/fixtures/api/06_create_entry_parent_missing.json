@@ -1,0 +1,25 @@
+{
+  "endpoint": "/api/create_entry",
+  "request": {
+    "attrs": {
+      "project_id": 5,
+      "type": "tomo_processing",
+      "title": "bad path",
+      "description": "",
+      "date": "2026-10-20T15:13:24Z",
+      "extra": {
+        "data": {
+          "processing_path": "<ROOT>/missing/p",
+          "data_path": "<ROOT>/data",
+          "share_table": []
+        }
+      }
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "error": "ERROR from Server: Parent path '<ROOT>/missing' does not exist!. Traceback: Traceback (most recent call last):\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/blueprints/api.py\", line 1749, in _handle_item\n    result = handle_func(**attrs)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/blueprints/api.py\", line 1600, in handle\n    entry = app.dm.create_entry(**attrs)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/data/data_manager.py\", line 1088, in create_entry\n    return self.__create_item(self.Entry, **attrs)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/data/data_manager.py\", line 1218, in __create_item\n    new_item = special_create(attrs) if special_create else ModelClass(**attrs)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/data/data_manager.py\", line 1065, in __create\n    return self.__validate_entry(validate_func, attrs)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/data/data_manager.py\", line 1055, in __validate_entry\n    validate_func(entry)\n  File \"<EMHUB_TOMO_HOME>/source/emhub/emhub/data/content/dc_tomo.py\", line 439, in entry_tomo_processing_validate\n    raise Exception(f\"Parent path '{parent_path}' does not exist!\")\nException: Parent path '<ROOT>/missing' does not exist!\n"
+  }
+}

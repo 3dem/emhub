@@ -1,0 +1,59 @@
+{
+  "endpoint": "/api/get_projects",
+  "request": {},
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": [
+    {
+      "id": 3,
+      "date": "2026-10-20T15:13:22.545994+00:00",
+      "status": "special:news",
+      "title": "Special Project for News",
+      "description": null,
+      "user_id": 1,
+      "creation_date": "2026-10-20T15:13:22.545994+00:00",
+      "creation_user_id": 1,
+      "last_update_date": "2026-10-20T15:13:22.545994+00:00",
+      "last_update_user_id": 1,
+      "extra": {
+        "user_can_edit": true,
+        "is_confidential": false,
+        "collaborators_ids": []
+      }
+    },
+    {
+      "id": 4,
+      "date": "2026-10-20T15:13:22.525004+00:00",
+      "status": "active",
+      "title": "Project 4 Title",
+      "description": null,
+      "user_id": 1,
+      "creation_date": "2026-10-20T15:13:22.525004+00:00",
+      "creation_user_id": 1,
+      "last_update_date": "2026-10-20T15:13:22.525004+00:00",
+      "last_update_user_id": 1,
+      "extra": {
+        "user_can_edit": true,
+        "is_confidential": false,
+        "collaborators_ids": []
+      }
+    },
+    {
+      "id": 5,
+      "date": "2026-10-20T15:13:24.550100+00:00",
+      "status": "special:processing_tomo",
+      "title": "Default Project for tomo_processing entries",
+      "description": "",
+      "user_id": 1,
+      "creation_date": "2026-10-20T15:13:24.550100+00:00",
+      "creation_user_id": 1,
+      "last_update_date": "2026-10-20T15:13:24.550100+00:00",
+      "last_update_user_id": 1,
+      "extra": {
+        "user_can_edit": true,
+        "is_confidential": false
+      }
+    }
+  ]
+}

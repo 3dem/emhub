@@ -1,0 +1,23 @@
+{
+  "endpoint": "/api/list_project_dir",
+  "request": {
+    "attrs": {
+      "root": "<ROOT>/projects/spike_project",
+      "path": "EMwrap/job001"
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "items": [
+      {
+        "name": "job.star",
+        "path": "EMwrap/job001/job.star",
+        "isDir": false,
+        "size": 972,
+        "mime": "text"
+      }
+    ]
+  }
+}
