@@ -1,0 +1,4 @@
+/* Mimics the EMhub page around the viewer (project_widget_shell.html) */
+body { background: #efeff6; }
+.dev-toolbar { display: flex; gap: 1rem; align-items: center; margin: 0.75rem 0; }
+#emflow-host { height: 80vh; }

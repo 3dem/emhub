@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>emflow dev (built UMD)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/dev/host.css" />
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="dev-toolbar">
+        <h5 class="mb-0">emflow dev page (dist/emflow.js, run <code>npm run build</code> first)</h5>
+        <a href="/">from source &rarr;</a>
+      </div>
+      <div class="card col-12">
+        <div class="card-body">
+          <div id="emflow-host"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Same two files that build_and_copy.sh copies into EMhub -->
+    <script>
+      // Cache-busting, so a fresh `npm run build` is always picked up
+      const v = Date.now();
+      document.write(`<link rel="stylesheet" href="/dist/emflow.css?v=${v}" />`);
+      document.write(`<script src="/dist/emflow.js?v=${v}"><\/script>`);
+    </script>
+    <script type="module">
+      import { createFakeService } from "/dev/fakeService.js";
+
+      window.EMFlow.mountProjectPage({
+        container: "#emflow-host",
+        service: createFakeService(),
+        projectName: "43",
+      });
+    </script>
+  </body>
+</html>

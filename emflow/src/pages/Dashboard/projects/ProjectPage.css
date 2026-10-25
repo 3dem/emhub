@@ -1,0 +1,1815 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source("../../..");
+
+/* dark: utilities follow the "dark" class set on the widget root (ThemeContext),
+   never the OS preference of the host page */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@font-face {
+  font-family: "Outfit";
+  src: url("../../../assets/fonts/Outfit-Variable.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+/* ─────────────────────────────────────────────
+   themeTokensScopedToWidgetRoot
+   ───────────────────────────────────────────── */
+
+.emflow-root {
+  /* coreRadiusToken */
+  --radius: 0.625rem;
+
+  /* derivedRadiusTokens */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* lightThemeBase */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* colorAliasesUsedByShadcnTailwind */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* darkModeVariantInsideWidgetOnly */
+.emflow-root.dark {
+  --background: #111827;
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* ─────────────────────────────────────────────
+   rootWrapperBaseLookAndLayout
+   ───────────────────────────────────────────── */
+
+.emflow-root {
+  font-family: "Outfit", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+
+  /* projectPageBrandTokens */
+  --ppBrand: #3b82f6;
+  --ppBrandHover: #2563eb;
+  --ppRing: rgba(59, 130, 246, 0.35);
+  --ppShadowSm: 0 1px 2px rgba(15, 23, 42, 0.10);
+  --ppShadowMd: 0 10px 26px rgba(15, 23, 42, 0.18);
+
+  /* strongGrayInk */
+  --ppInk: #374151;
+  --ppInkMuted: #4b5563;
+
+  /* flowControlSizing */
+  --ppFlowBtnSize: 28px;
+  --ppFlowIconSize: 14px;
+
+  /* headerControlSizing */
+  --ppHeaderControlHeight: 34px;
+  --ppHeaderControlFontSize: 0.82rem;
+}
+
+.emflow-root.dark {
+  --ppShadowSm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --ppShadowMd: 0 12px 30px rgba(0, 0, 0, 0.45);
+
+  --ppInk: #d1d5db;
+  --ppInkMuted: #9ca3af;
+}
+
+/* isolateBoxSizingInsideWidget */
+.emflow-root *,
+.emflow-root *::before,
+.emflow-root *::after {
+  box-sizing: border-box;
+  border-color: var(--color-border, #e4e7ec);
+}
+
+/* buttonCursorBehaviorInsideWidget */
+.emflow-root button:not(:disabled),
+.emflow-root [role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+/* mainPageWrapper */
+.emflow-root .h-app {
+  height: 90vh;
+  min-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* safetyForMinH0 */
+.emflow-root .h-app.min-h-0 {
+  min-height: 0;
+}
+
+/* ─────────────────────────────────────────────
+   multiFormDockRightSide
+   ───────────────────────────────────────────── */
+
+.emflow-root .dock-wrapper {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  pointer-events: none;
+}
+
+.emflow-root .dock-scroll {
+  display: flex;
+  /*flex-direction: row-reverse;*/
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0.5rem;
+
+  max-width: min(1450px, 100vw);
+  width: auto;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  pointer-events: auto;
+
+  background: transparent;
+  border: none;
+}
+
+.emflow-root .dock-panel {
+  flex: 0 0 700px;
+  min-width: 700px;
+  max-width: 700px;
+  height: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+
+  pointer-events: auto;
+}
+
+.emflow-root .dock-panel>* {
+  width: 100%;
+  height: 100%;
+}
+
+/* ─────────────────────────────────────────────
+   refreshButton
+   ───────────────────────────────────────────── */
+
+.emflow-root .refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  width: 32px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border, #e4e7ec);
+  background-color: var(--card);
+  color: var(--foreground);
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.emflow-root .refresh-btn:hover:not(:disabled) {
+  background-color: oklch(0.97 0 0);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  transform: translateY(-0.5px);
+}
+
+.emflow-root .refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* ─────────────────────────────────────────────
+   scrollHelpers
+   ───────────────────────────────────────────── */
+
+.emflow-root .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.emflow-root .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.emflow-root .custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.emflow-root .custom-scrollbar::-webkit-scrollbar-track {
+  border-radius: 9999px;
+}
+
+.emflow-root .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #e4e7ec;
+  border-radius: 9999px;
+}
+
+/* ─────────────────────────────────────────────
+   pulsingTableHalo
+   ───────────────────────────────────────────── */
+
+.emflow-root .pulsing-table {
+  position: relative;
+  isolation: isolate;
+  animation: none !important;
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+  backface-visibility: hidden;
+}
+
+.emflow-root .pulsing-table::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  z-index: -1;
+
+  transform: scale(1);
+  opacity: 1;
+  will-change: transform, opacity, filter;
+
+  animation: emflow-badgePulse 1.35s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+@keyframes emflow-badgePulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.92;
+    filter: drop-shadow(0 0 0 rgba(252, 206, 98, 0.0));
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+    filter: drop-shadow(0 0 10px rgba(252, 206, 98, 0.35));
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 0.92;
+    filter: drop-shadow(0 0 0 rgba(252, 206, 98, 0.0));
+  }
+}
+
+/* ─────────────────────────────────────────────
+   headerLayout
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-headerRow {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: 12px;
+}
+
+/* doNotStretchHeaderControls */
+.emflow-root .pp-headerLeft,
+.emflow-root .pp-headerCenter,
+.emflow-root .pp-headerRight {
+  align-items: center;
+}
+
+.emflow-root .pp-headerLeft {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.emflow-root .pp-headerCenter {
+  justify-self: center;
+  display: flex;
+}
+
+.emflow-root .pp-headerRight {
+  justify-self: end;
+  display: flex;
+}
+
+/* ─────────────────────────────────────────────
+   searchBox
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-searchBox {
+  width: clamp(280px, 26vw, 420px);
+  min-width: 260px;
+  margin-left: 3px;
+  position: relative;
+}
+
+.emflow-root .pp-searchIconWrap {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  padding-inline-start: 0.75rem;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  color: var(--ppInkMuted);
+  margin-bottom: 0;
+}
+
+.emflow-root .pp-searchIcon {
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+  stroke: currentColor;
+}
+
+.emflow-root .pp-searchInput {
+  width: 100%;
+  height: var(--ppHeaderControlHeight);
+  padding: 0 0.75rem 0 2.5rem;
+  border-radius: 0.625rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  background-color: var(--card) !important;
+  color: var(--ppInk) !important;
+  box-shadow: var(--ppShadowSm);
+  outline: none;
+  font-size: var(--ppHeaderControlFontSize);
+  line-height: 1.2;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.emflow-root .pp-searchInput::placeholder {
+  color: rgba(75, 85, 99, 0.78);
+}
+
+.emflow-root.dark .pp-searchInput::placeholder {
+  color: rgba(156, 163, 175, 0.80);
+}
+
+.emflow-root .pp-searchInput:focus {
+  border-color: var(--ppBrand);
+  box-shadow: 0 0 0 3px var(--ppRing), var(--ppShadowSm);
+}
+
+/* ─────────────────────────────────────────────
+   headerCards
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-headerCard {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.75rem;
+  background-color: var(--card) !important;
+  box-shadow: var(--ppShadowSm);
+  color: var(--ppInk) !important;
+  margin-bottom: 0.2rem;
+}
+
+.emflow-root .pp-viewLabel {
+  font-size: 0.8rem;
+  color: var(--ppInk) !important;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────
+   buttonsBase
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-chipBtn,
+.emflow-root .pp-toggleBtn,
+.emflow-root .pp-flowControlBtn,
+.emflow-root .pp-protocolsTrigger :where(button, [role="button"]) {
+  -webkit-appearance: none;
+  appearance: none;
+  font: inherit;
+  line-height: 1.1;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.625rem;
+  background-color: rgba(148, 163, 184, 0.14) !important;
+  color: var(--ppInk) !important;
+  box-shadow: none;
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.emflow-root.dark .pp-chipBtn,
+.emflow-root.dark .pp-toggleBtn,
+.emflow-root.dark .pp-flowControlBtn,
+.emflow-root.dark .pp-protocolsTrigger :where(button, [role="button"]) {
+  background-color: rgba(148, 163, 184, 0.16) !important;
+}
+
+.emflow-root .pp-chipBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.emflow-root .pp-toggleGroup {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.emflow-root .pp-toggleBtn {
+  width: 34px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--ppInk) !important;
+}
+
+/* iconColorFollowsText */
+.emflow-root .pp-chipBtn svg,
+.emflow-root .pp-toggleBtn svg,
+.emflow-root .pp-flowControlBtn svg,
+.emflow-root .pp-btnIcon {
+  color: currentColor;
+  stroke: currentColor;
+}
+
+/* activeToggle */
+.emflow-root .pp-toggleBtn[data-active="true"] {
+  background-color: var(--ppBrand) !important;
+  border-color: var(--ppBrandHover) !important;
+  color: #ffffff !important;
+  box-shadow: none;
+}
+
+/* hoverOnlyBorder */
+.emflow-root .pp-chipBtn:hover:not(:disabled),
+.emflow-root .pp-flowControlBtn:hover:not(:disabled),
+.emflow-root .pp-protocolsTrigger :where(button, [role="button"]):hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  box-shadow: none;
+}
+
+.emflow-root .pp-toggleBtn:hover:not(:disabled):not([data-active="true"]) {
+  border-color: rgba(59, 130, 246, 0.45) !important;
+  background-color: rgba(148, 163, 184, 0.14) !important;
+  color: var(--ppInk) !important;
+  box-shadow: none;
+}
+
+.emflow-root .pp-toggleBtn[data-active="true"]:hover:not(:disabled) {
+  background-color: #60a5fa !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: none;
+}
+
+.emflow-root .pp-chipBtn:disabled,
+.emflow-root .pp-toggleBtn:disabled,
+.emflow-root .pp-flowControlBtn:disabled,
+.emflow-root .pp-protocolsTrigger :where(button, [role="button"]):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.emflow-root .pp-btnIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.emflow-root .pp-rotateLeft {
+  transform: rotate(-90deg);
+}
+
+/* ─────────────────────────────────────────────
+   responsiveHeader
+   ───────────────────────────────────────────── */
+
+@media (max-width: 1550px) {
+  .emflow-root .pp-headerRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "left left"
+      "center right";
+    column-gap: 8px;
+    row-gap: 8px;
+  }
+
+  .emflow-root .pp-headerLeft {
+    grid-area: left;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .emflow-root .pp-headerCenter {
+    grid-area: center;
+    justify-self: start;
+    min-width: 0;
+  }
+
+  .emflow-root .pp-headerRight {
+    grid-area: right;
+    justify-self: end;
+    min-width: 0;
+  }
+
+  .emflow-root .pp-searchBox {
+    flex: 1 1 280px;
+    width: auto;
+    min-width: 240px;
+    max-width: 420px;
+    margin-left: 0;
+  }
+
+  .emflow-root .pp-tagsCard {
+    flex: 1 1 320px;
+    min-width: 280px;
+    max-width: 480px;
+  }
+
+  .emflow-root .pp-tagsActions {
+    flex: 0 0 auto;
+  }
+
+  .emflow-root .pp-tagsPicker {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .emflow-root .pp-tagsPicker .tag-picker-root {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .emflow-root .pp-headerCard {
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .emflow-root .pp-headerRow {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "left"
+      "center"
+      "right";
+    row-gap: 6px;
+  }
+
+  .emflow-root .pp-headerLeft {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .emflow-root .pp-searchBox {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .emflow-root .pp-tagsCard {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .emflow-root .pp-headerCenter,
+  .emflow-root .pp-headerRight {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .emflow-root .pp-actionsCard,
+  .emflow-root .pp-viewCard {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .emflow-root .pp-actionsCard {
+    justify-content: center;
+  }
+
+  .emflow-root .pp-viewCard {
+    justify-content: space-between;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   reactFlowControls
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-flowControlsWrap {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+}
+
+.emflow-root .pp-flowControls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  background-color: var(--card) !important;
+  box-shadow: var(--ppShadowMd);
+}
+
+.emflow-root .pp-flowControlBtn {
+  width: var(--ppFlowBtnSize);
+  height: var(--ppFlowBtnSize);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ppInk) !important;
+  position: relative;
+}
+
+.emflow-root .pp-flowControlBtn svg {
+  width: var(--ppFlowIconSize);
+  height: var(--ppFlowIconSize);
+}
+
+.emflow-root .pp-flowControlBtn[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.55);
+}
+
+/* ─────────────────────────────────────────────
+   tableViewShell
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-hidden {
+  display: none !important;
+}
+
+.emflow-root .pp-tableShell {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: auto;
+  padding: 0.75rem;
+  background: transparent;
+}
+
+.emflow-root .pp-tableToolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin: 0 0 0.75rem 0;
+  padding-right: 0.25rem;
+}
+
+/* iconButton */
+.emflow-root .pp-iconBtn {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  background: var(--card);
+  color: var(--ppInk);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--ppShadowSm, 0 1px 2px rgba(15, 23, 42, 0.10));
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.emflow-root.dark .pp-iconBtn {
+  color: var(--ppInk);
+}
+
+.emflow-root .pp-iconBtn:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.10), var(--ppShadowSm, 0 1px 2px rgba(15, 23, 42, 0.10));
+}
+
+.emflow-root .pp-iconBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.emflow-root .pp-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.emflow-root .pp-spin {
+  animation: ppSpin 900ms linear infinite;
+}
+
+@keyframes ppSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* tableCard */
+.emflow-root .pp-tableCard {
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.85rem;
+  background: var(--card);
+  box-shadow: var(--ppShadowMd, 0 10px 26px rgba(15, 23, 42, 0.18));
+  overflow: hidden;
+}
+
+/* tableBase */
+.emflow-root .pp-table {
+  width: 100%;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--ppInk);
+}
+
+.emflow-root.dark .pp-table {
+  color: var(--ppInk);
+}
+
+.emflow-root .pp-table .pp-td,
+.emflow-root .pp-table .pp-th {
+  background-color: transparent !important;
+}
+
+/* head */
+.emflow-root .pp-thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #e5e7eb;
+}
+
+.emflow-root.dark .pp-thead {
+  background: #111827;
+}
+
+.emflow-root .pp-trHead {
+  background: transparent;
+}
+
+.emflow-root .pp-th {
+  text-align: left;
+  font-weight: 500;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  color: var(--ppInk);
+  white-space: nowrap;
+}
+
+.emflow-root.dark .pp-th {
+  color: var(--ppInk);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* bodyRows */
+.emflow-root .pp-tr {
+  background: transparent !important;
+}
+
+.emflow-root .pp-tr+.pp-tr .pp-td {
+  border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+.emflow-root.dark .pp-tr+.pp-tr .pp-td {
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.emflow-root .pp-tr:hover,
+.emflow-root .pp-tr:hover>.pp-td,
+.emflow-root .pp-tr:hover>* {
+  background: rgba(59, 130, 246, 0.05) !important;
+}
+
+.emflow-root.dark .pp-tr:hover,
+.emflow-root.dark .pp-tr:hover>.pp-td,
+.emflow-root.dark .pp-tr:hover>* {
+  background: rgba(59, 130, 246, 0.10) !important;
+}
+
+/* highlightedRow */
+.emflow-root .pp-trHighlighted,
+.emflow-root .pp-trHighlighted>.pp-td,
+.emflow-root .pp-trHighlighted>*,
+.emflow-root .pp-trHighlighted:hover,
+.emflow-root .pp-trHighlighted:hover>.pp-td,
+.emflow-root .pp-trHighlighted:hover>* {
+  background: rgba(252, 206, 98, 0.25) !important;
+}
+
+.emflow-root.dark .pp-trHighlighted,
+.emflow-root.dark .pp-trHighlighted>.pp-td,
+.emflow-root.dark .pp-trHighlighted>*,
+.emflow-root.dark .pp-trHighlighted:hover,
+.emflow-root.dark .pp-trHighlighted:hover>.pp-td,
+.emflow-root.dark .pp-trHighlighted:hover>* {
+  background: rgba(252, 206, 98, 0.18) !important;
+}
+
+/* cells */
+.emflow-root .pp-td {
+  padding: 0.7rem 0.9rem;
+  vertical-align: middle;
+}
+
+.emflow-root .pp-protocolCell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 520px;
+}
+
+/* idPill */
+.emflow-root .pp-idPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.22);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: var(--ppInk);
+  font-size: 0.75rem;
+}
+
+.emflow-root.dark .pp-idPill {
+  color: var(--ppInk);
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+/* stateCell */
+.emflow-root .pp-stateCell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* statusBadge */
+.emflow-root .pp-statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.55rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  color: #1f2937;
+  white-space: nowrap;
+}
+
+.emflow-root.dark .pp-statusBadge {
+  color: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* statusPulse */
+.emflow-root .pp-statusPulse {
+  position: relative;
+  isolation: isolate;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.emflow-root .pp-statusPulse::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: calc(0.55rem + 6px);
+  background: radial-gradient(closest-side,
+      rgba(252, 206, 98, 0.38),
+      rgba(252, 206, 98, 0.18) 55%,
+      rgba(252, 206, 98, 0.00) 78%);
+  opacity: 0.85;
+  z-index: -2;
+  filter: blur(0.2px);
+  animation: ppRunningHalo 1400ms cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.emflow-root .pp-statusPulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0.55rem;
+  background: linear-gradient(120deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.35) 28%,
+      rgba(255, 255, 255, 0.00) 56%);
+  opacity: 0.55;
+  z-index: -1;
+  transform: translateX(-70%);
+  animation: ppRunningSheen 1800ms ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ppRunningHalo {
+  0% {
+    transform: scale(0.98);
+    opacity: 0.55;
+  }
+
+  45% {
+    transform: scale(1.05);
+    opacity: 0.95;
+  }
+
+  100% {
+    transform: scale(0.98);
+    opacity: 0.55;
+  }
+}
+
+@keyframes ppRunningSheen {
+  0% {
+    transform: translateX(-70%);
+    opacity: 0.00;
+  }
+
+  35% {
+    opacity: 0.55;
+  }
+
+  70% {
+    transform: translateX(70%);
+    opacity: 0.00;
+  }
+
+  100% {
+    transform: translateX(70%);
+    opacity: 0.00;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .emflow-root .pp-statusPulse::before,
+  .emflow-root .pp-statusPulse::after {
+    animation: none !important;
+  }
+}
+
+/* progress */
+.emflow-root .pp-progressWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 140px;
+}
+
+.emflow-root .pp-progressTrack {
+  width: 72px;
+  height: 10px;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.35);
+  overflow: hidden;
+}
+
+.emflow-root .pp-progressFill {
+  height: 100%;
+  width: 0%;
+  border-radius: 9999px;
+  transition: width 220ms ease;
+  background: rgba(156, 163, 175, 0.9);
+}
+
+.emflow-root .pp-progressWrap[data-status="running"] .pp-progressFill {
+  background: rgba(252, 206, 98, 0.95);
+}
+
+.emflow-root .pp-progressWrap[data-status="failed"] .pp-progressFill,
+.emflow-root .pp-progressWrap[data-status="aborted"] .pp-progressFill {
+  background: rgba(239, 68, 68, 0.92);
+}
+
+.emflow-root .pp-progressText {
+  font-size: 0.8rem;
+  opacity: 0.85;
+  color: var(--ppInk);
+}
+
+.emflow-root.dark .pp-progressText {
+  color: var(--ppInk);
+}
+
+/* elapsed */
+.emflow-root .pp-elapsedText {
+  opacity: 0.9;
+}
+
+/* dependencies */
+.emflow-root .pp-deps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+}
+
+.emflow-root .pp-linkBtn {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #2563eb;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.emflow-root .pp-linkBtn:hover {
+  border-color: rgba(37, 99, 235, 0.25);
+  text-decoration-thickness: 2px;
+}
+
+.emflow-root.dark .pp-linkBtn {
+  color: #60a5fa;
+}
+
+/* ─────────────────────────────────────────────
+   portalAndDialogIsolation
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-portalRoot {
+  position: relative;
+  z-index: 9999;
+}
+
+/* Overlay */
+.emflow-root .pp-dialogOverlay {
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+}
+
+.emflow-root.dark .pp-dialogOverlay {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* ContentShell */
+.emflow-root .pp-dialogContent {
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--color-border, #e5e7eb) !important;
+  border-radius: 1rem !important;
+  box-shadow: var(--ppShadowMd, 0 10px 26px rgba(15, 23, 42, 0.18)) !important;
+}
+
+.emflow-root.dark .pp-dialogContent {
+  background: #111827 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* CloseButton */
+.emflow-root .pp-dialogClose {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid var(--color-border, #e5e7eb);
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--ppInk, #374151);
+  border-radius: 9999px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emflow-root.dark .pp-dialogClose {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--ppInk, #d1d5db);
+}
+
+.emflow-root .pp-dialogContent :where(button, input, select, textarea) {
+  font: inherit;
+}
+
+/* dialogFooterButtons */
+.emflow-root .pp-dialogBtn {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+
+  font: inherit !important;
+  font-size: 0.875rem !important;
+  line-height: 1.1 !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.4rem !important;
+
+  min-height: 36px !important;
+  padding: 0.5rem 0.9rem !important;
+
+  border-radius: 0.625rem !important;
+  border: 1px solid var(--color-border, #e5e7eb) !important;
+
+  background: rgba(148, 163, 184, 0.14) !important;
+  color: var(--ppInk, #374151) !important;
+
+  box-shadow: none !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+
+  transition: background-color 140ms ease, border-color 140ms ease !important;
+}
+
+.emflow-root .pp-dialogBtn:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+.emflow-root .pp-dialogBtn:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+.emflow-root .pp-dialogBtnPrimary {
+  background: #2563eb !important;
+  border-color: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+.emflow-root .pp-dialogBtnPrimary:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  border-color: #1e40af !important;
+}
+
+.emflow-root.dark .pp-dialogBtn {
+  background: rgba(148, 163, 184, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--ppInk, #d1d5db) !important;
+}
+
+/* dialogTitleReset */
+.emflow-root .pp-dialogContent h1,
+.emflow-root .pp-dialogContent h2,
+.emflow-root .pp-dialogContent h3 {
+  margin: 0 !important;
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
+  color: inherit !important;
+}
+
+.emflow-root .pp-dialogContent p {
+  margin: 0 !important;
+}
+
+.emflow-root .pp-dialogTitle {
+  margin: 0 !important;
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
+}
+
+/* ─────────────────────────────────────────────
+   canvasContextMenuIsolation
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-canvasMenu {
+  position: absolute;
+  z-index: 100;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  background: var(--card);
+  color: var(--ppInk, #374151);
+  box-shadow: var(--ppShadowMd, 0 10px 26px rgba(15, 23, 42, 0.18));
+}
+
+.emflow-root.dark .pp-canvasMenu {
+  background: #111827;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--ppInk, #d1d5db);
+}
+
+.emflow-root .pp-canvasMenuItem {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.emflow-root .pp-canvasMenuItem:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.emflow-root.dark .pp-canvasMenuItem:hover {
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.emflow-root .pp-canvasMenuItem:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ppRing, rgba(59, 130, 246, 0.35));
+}
+
+.emflow-root .pp-canvasMenuSep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--color-border, #e5e7eb);
+}
+
+.emflow-root.dark .pp-canvasMenuSep {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.emflow-root .pp-canvasMenuIcon {
+  width: 16px;
+  height: 16px;
+  color: gray;
+  stroke: currentColor;
+  flex: 0 0 auto;
+}
+
+.emflow-root #canvas-context-menu button {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0 !important;
+  background: transparent !important;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+}
+
+/* ─────────────────────────────────────────────
+   searchDropdownUi
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-searchDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 120;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
+}
+
+.emflow-root.dark .pp-searchDropdown {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(2, 6, 23, 0.92);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.emflow-root .pp-searchEmpty {
+  padding: 8px 10px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.emflow-root .pp-searchItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.emflow-root .pp-searchItem.is-active {
+  background: rgba(0, 112, 243, 0.10);
+}
+
+.emflow-root.dark .pp-searchItem.is-active {
+  background: rgba(56, 189, 248, 0.14);
+}
+
+.emflow-root .pp-searchItemMain {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.emflow-root .pp-searchItemId,
+.emflow-root .pp-searchItemLabel {
+  font-size: 11.5px;
+  line-height: 1.15;
+}
+
+.emflow-root .pp-searchItemId {
+  font-weight: 600;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.emflow-root .pp-searchItemLabel {
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.emflow-root .pp-searchItemStatus {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────
+   protocolFormHeaderInDialog
+   ───────────────────────────────────────────── */
+
+.emflow-root .pp-formHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #333d49;
+  color: white;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+
+.emflow-root .pp-helpDialog>button[aria-label="Close"] {
+  color: #fff !important;
+}
+
+.emflow-root .pp-helpDialog>button[aria-label="Close"]:hover {
+  background-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ─────────────────────────────────────────────
+   tagPickerSizingAndDropdownCompact
+   ───────────────────────────────────────────── */
+
+/* tagsPickerShell */
+.emflow-root .pp-tagsPicker {
+  width: 300px;
+  min-width: 200px;
+  max-width: 560px;
+}
+
+/* inputRootCompact (avoid stretching and reduce height) */
+.emflow-root .pp-tagsPicker .MuiInputBase-root {
+  width: 100%;
+  padding: 0 0.6rem;
+  min-height: var(--ppHeaderControlHeight);
+  border-radius: 0.625rem;
+  border: 1px solid var(--color-border, #e5e7eb);
+  background-color: var(--card) !important;
+  color: var(--ppInk) !important;
+  box-shadow: var(--ppShadowSm);
+}
+
+/* muiAutocompleteInputRootCompact */
+.emflow-root .pp-tagsPicker .MuiAutocomplete-inputRoot {
+  min-height: var(--ppHeaderControlHeight);
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* chipCompact */
+.emflow-root .pp-tagsPicker .MuiChip-root {
+  height: 22px;
+  font-size: 0.78rem;
+}
+
+.emflow-root .pp-tagsPicker .MuiChip-label {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* tagPickerDropdownCompact (this is the annoying "Filter tags" dropdown height) */
+.emflow-root .pp-tagsPicker .MuiAutocomplete-popper .MuiPaper-root {
+  max-height: 200px;
+  overflow: hidden;
+}
+
+.emflow-root .pp-tagsPicker .MuiAutocomplete-listbox {
+  max-height: 200px;
+  padding: 4px;
+  overflow-y: auto;
+}
+
+.emflow-root .pp-tagsPicker .MuiAutocomplete-option {
+  min-height: 28px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  line-height: 1.15;
+}
+
+/* tagPickerDropdownUltraCompact */
+.emflow-root {
+  --ppTagDropdownMaxHeight: 100px;
+  /* reduce this: 120px looks even tighter */
+  --ppTagOptionMinHeight: 24px;
+  --ppTagOptionFontSize: 0.78rem;
+}
+
+/* A) make the "Filter tags" dropdown shorter */
+.emflow-root .pp-tagsPicker .MuiAutocomplete-popper .MuiPaper-root {
+  max-height: calc(var(--ppTagDropdownMaxHeight) + 36px) !important;
+  /* paper cap */
+  overflow: hidden !important;
+  /* listbox handles scrolling */
+}
+
+.emflow-root .pp-tagsPicker .MuiAutocomplete-listbox {
+  max-height: var(--ppTagDropdownMaxHeight) !important;
+  padding: 2px !important;
+  /* less vertical padding */
+  overflow-y: auto !important;
+}
+
+.emflow-root .pp-tagsPicker .MuiAutocomplete-option {
+  min-height: var(--ppTagOptionMinHeight) !important;
+  padding: 4px 10px !important;
+  /* tighter rows */
+  font-size: var(--ppTagOptionFontSize) !important;
+  line-height: 1.1 !important;
+}
+
+/* optional: reduce the "no options" / loading paddings inside dropdown */
+.emflow-root .pp-tagsPicker .MuiAutocomplete-noOptions,
+.emflow-root .pp-tagsPicker .MuiAutocomplete-loading {
+  padding: 6px 10px !important;
+  font-size: 0.75rem !important;
+}
+
+/* B) keep the header panel from growing taller when multiple tags are selected */
+.emflow-root .pp-tagsPicker .MuiAutocomplete-inputRoot {
+  flex-wrap: nowrap !important;
+  /* do not wrap chips into new rows */
+  overflow: hidden !important;
+  /* hide extra chips instead of growing height */
+  align-items: center !important;
+}
+
+/* shrink chips even more (helps keep everything short) */
+.emflow-root .pp-tagsPicker .MuiChip-root {
+  height: 20px !important;
+  font-size: 0.76rem !important;
+  max-width: 140px;
+  /* prevent huge chips from expanding */
+}
+
+.emflow-root .pp-tagsPicker .MuiChip-label {
+  padding-left: 7px !important;
+  padding-right: 7px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.emflow-root .pp-annotateDialog {
+  max-width: 42rem;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 0.9rem;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
+}
+
+.emflow-root .pp-annotateHeader {
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  background: #333d49;
+  color: #ffffff;
+  padding: 16px 20px;
+  box-sizing: border-box;
+}
+
+.emflow-root .pp-annotateHeaderTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #ffffff;
+}
+
+.emflow-root .pp-annotateHeaderDescription {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.emflow-root .pp-annotateBody {
+  padding: 20px;
+}
+
+.emflow-root .pp-annotateMetaBox {
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+  padding: 12px 16px;
+}
+
+.emflow-root.dark .pp-annotateMetaBox {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.emflow-root .pp-annotateMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.emflow-root.dark .pp-annotateMetaRow {
+  color: #cbd5e1;
+}
+
+.emflow-root .pp-annotateIdBadge {
+  border-radius: 9999px;
+  background: #ffffff;
+  padding: 0.25rem 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+.emflow-root.dark .pp-annotateIdBadge {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.emflow-root .pp-annotateInternalLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: #334155;
+}
+
+.emflow-root.dark .pp-annotateInternalLabel {
+  color: #e2e8f0;
+}
+
+.emflow-root .pp-annotateFields {
+  display: grid;
+  gap: 20px;
+}
+
+.emflow-root .pp-annotateField {
+  display: grid;
+  gap: 8px;
+}
+
+.emflow-root .pp-annotateLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.emflow-root.dark .pp-annotateLabel {
+  color: #e2e8f0;
+}
+
+.emflow-root .pp-annotateFooter {
+  border-top: 1px solid var(--color-border, #e5e7eb);
+  background: #f8fafc;
+  padding: 16px 20px;
+}
+
+.emflow-root.dark .pp-annotateFooter {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.emflow-root .pp-annotateInput,
+.emflow-root .pp-annotateTextarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  outline: none;
+  box-shadow: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
+}
+
+.emflow-root .pp-annotateInput {
+  height: 38px;
+  padding: 0 12px;
+}
+
+.emflow-root .pp-annotateTextarea {
+  min-height: 104px;
+  resize: vertical;
+  padding: 10px 12px;
+}
+
+.emflow-root .pp-annotateInput::placeholder,
+.emflow-root .pp-annotateTextarea::placeholder {
+  color: #94a3b8;
+}
+
+.emflow-root .pp-annotateInput:focus,
+.emflow-root .pp-annotateTextarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+.emflow-root .pp-annotateInputError {
+  border-color: #ef4444;
+}
+
+.emflow-root .pp-annotateInputError:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
+
+.emflow-root .pp-annotateHelper {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.emflow-root .pp-annotateHelperError {
+  color: #dc2626;
+}
+
+.emflow-root.dark .pp-annotateInput,
+.emflow-root.dark .pp-annotateTextarea {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
+.emflow-root.dark .pp-annotateInput::placeholder,
+.emflow-root.dark .pp-annotateTextarea::placeholder {
+  color: #64748b;
+}
+
+.emflow-root.dark .pp-annotateHelper {
+  color: #94a3b8;
+}
+
+.emflow-root.dark .pp-annotateHelperError {
+  color: #f87171;
+}
+
+.pp-canvasMenuItem:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.pp-canvasMenuItem:disabled:hover {
+  background: transparent;
+}
+
+.pp-canvasMenuItem:disabled .pp-canvasMenuIcon {
+  opacity: 0.55;
+}
