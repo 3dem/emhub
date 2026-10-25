@@ -32,6 +32,17 @@ The dev server also serves `/dev/umd.html`, which loads the *built* bundle
 viewer to catch style collisions, and a fake in-memory service
 ([`dev/fakeService.js`](dev/fakeService.js)) with EMhub's fake project 43.
 
+### Version
+
+The version is the `version` field of `package.json` (single source of truth).
+It is injected at build time and shown in the viewer's *Build info* dialog,
+in the browser console and as `EMFlow.version`. Bump it before building a
+release for EMhub, e.g.:
+
+```bash
+npm version patch --no-git-tag-version   # 0.1.0 -> 0.1.1 (or minor / major)
+```
+
 ### Build and copy into EMhub
 
 ```bash
@@ -108,6 +119,14 @@ src/
   context/ThemeContext.tsx  widget-scoped light/dark theme
 dev/                        dev pages' fake service and fake project data
 ```
+
+## Component reference
+
+[`.claude/skills/emflow-components/`](.claude/skills/emflow-components/SKILL.md)
+describes every component and its expected behavior, the ProjectService
+contract with EMhub (analyze decisions, table viewer protocol) and the
+embedding/style rules. It is also a Claude Code skill (`emflow-components`).
+Update it in the same change when modifying or adding components.
 
 ## Main dependencies
 

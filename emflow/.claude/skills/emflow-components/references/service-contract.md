@@ -1,0 +1,111 @@
+# ProjectService contract (emflow <-> host)
+
+The full TypeScript interface is `src/services/ProjectService.ts`. The host
+object goes through `src/widget/normalizeService.ts`, which maps alternative
+names and fills defaults, so **only a few methods are strictly required**.
+EMhub implements the service in three templates:
+
+| Template | Used by | Notes |
+| --- | --- | --- |
+| `templates/project_widget_svc.html` | `project_widget.html` (processing projects, tomo sessions) | Real implementation over EMhub's API (`Api.urls.*`) |
+| `templates/project_widget_svc_workflow.html` | `project_widget_workflow.html` (workflow template editor) | Edits a workflow JSON in memory; launch is disabled |
+| `templates/project_widget_svc_fake.html` | `project_widget_fake.html` (fake project 43) | Static data, for UI testing |
+
+The dev pages use `dev/fakeService.js` (same fake project). Update it when the
+contract changes.
+
+## Methods by area
+
+Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
+(EMhub's project/entry id), `protocolId` is the node id.
+
+| Area | Method | Default if missing | Called from |
+| --- | --- | --- | --- |
+| Project | `fetchProject(projectId)` -> `{id, name, path, protocols}` | demo project | ProjectPage (load + auto refresh) |
+| | `fetchProjectEffectiveSettings(projectId)` | not used | ProjectPage |
+| | `getContextMenuVisibilityPolicy(projectId)` -> `NodeMenuVisibility` | `{}` | ProjectPage |
+| Protocol | `fetchProtocolDetails(projectId, protocolId)` -> `{info, form, values}` | demo | ProjectPage |
+| | `fetchNewProtocolDetails(projectId, protocolClass)` | demo | ProjectPage |
+| | `executeProtocol(projectId, protocolId, className, params, mode)` (`launch` / `restart` / `schedule` / `stop`) -> `{status, errors, workflow}` | throws "missing method" | ProtocolForm |
+| | `saveProtocol(projectId, protocolId, className, params)` | throws | ProtocolForm |
+| | `stopProtocol`, `deleteProtocol(projectId, ids)`, `duplicateProtocol(projectId, items)` -> `{status, errors, workflow, duplicated}`, `renameProtocol(projectId, protocolId, {runName, comment})` | - | ProjectPage |
+| | `restartAll`, `continueAll`, `resetFrom` | - | ProjectPage (menu shortcuts) |
+| Catalog | `loadProtocols(projectId)` (protocol tree for the drawer) | `[]` | ProtocolsDrawer |
+| | `fetchWorkflows()`, `loadWorkflow(projectId, {workflowId})` | `[]`, success | ProjectPage, workflows panel |
+| | `exportProtocols(projectId, {protocolIds, directoryPath, filename})` | - | ProtocolNodeCard |
+| | `getNextProtocolSuggestions(projectId, protocolId)` | `[]` | ProtocolNodeCard |
+| Files | `resolveBrowserPaths(projectId, protocolId)` -> `{rootAbs, startPath, protocolRoot}`; `listRemoteDirectory(projectId, protocolId, path)` -> `[{name, path, isDir, size, mime}]`; `previewRemoteEntry(projectId, protocolId, path)` -> `{kind: text\|table\|image\|none, ...}` | - | RemoteFileDialog, ProtocolForm, ProjectPage |
+| Logs | `fetchProtocolLogChannels(projectId, protocolId)` -> `{channels: [{id, label, order}]}`; `fetchProtocolLogsChunk(projectId, protocolId, offsets)` -> `{chunks: [{channel, content, offset, resetOffset?, truncated?}]}` | empty | useProtocolLogs |
+| Tags | `listProjectTags`, `createProjectTag`, `updateProjectTag`, `deleteProjectTag`, `listProtocolTagIds`, `setProtocolTagIds` | `[]` / throws for writes | TagManager, ProtocolNodeCard, ProjectPage |
+| Outputs | `resolveAnalyzeViewer(ctx)` (see below) | `{handled:false}` | ProtocolNodeCard, ProtocolOutputsPanel |
+| | `fetchOutputPreview` | - | ProtocolOutputsPanel |
+| Table viewer | `resolveTableViewerAction`, `executeTableViewerEditAction`, `resolveTableViewerChildren` (see below) | empty pane / failure / no children | table-viewer-pane |
+| Wizards | `executeProtocolWizard`, `resolveBackendUrl` | - | use_protocol_wizards |
+| Scipion viewers | `listOutputVolumes`, `getVolume*`, `listOutputTiltSeries`, `fetchTiltSeries*`, `listOutputCTFTomoSeries`, `listCoords3dTomograms`, `fetchOutputMetadataTables`, `fetchFscRows`, ... | mostly `[]` | analyze/* (only reached when the host does not handle the output) |
+
+When adding a method: declare it in `ProjectService.ts`, add a default in
+`normalizeService.ts` if it is optional, implement it in EMhub's svc template
+(and `dev/fakeService.js`), and add a row here.
+
+## Analyze decision
+
+When the user clicks an output (eye icon on a node, or "Analyze results" in
+the Outputs tab), emflow calls `svc.resolveAnalyzeViewer(ctx)`:
+
+```ts
+ctx = { projectId, protocolId, protocolLabel, outputName, pointerClass,
+        paramClass?, info?, value?,   // from the node card
+        outputRaw? }                  // from the Outputs tab
+```
+
+Return one of (`AnalyzeViewerResolveDecision`):
+
+- `{handled: false}` -> emflow opens `AnalyzeOutputDialog` (Scipion viewers).
+- `{handled: true, viewer: "external", url, target?: "_self"|"_blank"}` (the
+  `viewer` field may be omitted) -> navigates / opens the url. EMhub uses
+  `url: "#__external_viewer__", target: "_self"` after opening its own viewer
+  (`visualizeOutput`), and an OTF dashboard url for `TiltSeriesAnalysis`.
+- `{handled: true, viewer: "table", title?, context, table}` -> `TableViewerDialog`.
+
+EMhub (`project_widget_svc.html`) returns `viewer: "table"` for
+`TiltSeriesMovies`, `TiltSeries`, `TiltSeriesAligned`, `Tomograms`,
+`TomoCoordinates`, `TomoParticles`, `Movies`, `Micrographs`,
+`MultiClasses2D`, `Particles` (table built by the server:
+`get_table_view_data`).
+
+## Table viewer protocol
+
+```ts
+context: TableViewerContext = { projectId, protocolId, outputName, pointerClass?, tableKey?,
+                                ...extra }   // extra fields are passed back untouched
+table: TableViewerData = {
+  title?, columns: [{id, label, align?, width?, actions?}],
+  rows: [{id, cells: {colId: value}, data?, actions?, defaultAction?,
+          cellContexts?: {colId: {edit?: {type: "boolean", field}, actions?, children?}},
+          children?}],
+  actions?, editActions?: [{id, label, requiresChanges?}], page? }
+```
+
+- Cell/column/row action -> `resolveTableViewerAction(context, {actionId, rowId, columnId, rowData: row.data, cellContext})`
+  -> `TableViewerPaneContent` (`empty`, `text`, `html`, `iframe`, `image`,
+  `plotly`, `imageSlider`, `coords3d`, `tiltSeries`, `volume`, `ctfTomo`).
+  Note: only `row.data` is sent back, not `row.cells`.
+- Action id **`metadata` is handled by emflow** (opens `MetadataViewer`) and
+  never reaches the host.
+- Edit action button -> `executeTableViewerEditAction(context, {actionId, edits: [{rowId, columnId, field, value}]})`
+  (only the changed cells) -> `{success, message?, clearEdits?}`; the message
+  is shown as a toast.
+- Expanding child rows -> `resolveTableViewerChildren(context, {rowId, childrenId, rowData, cellContext})`.
+
+EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
+
+- copies `row.cells` to `row.data` (sent back to `resolve_table_view_pane`
+  as `row.cells`);
+- renames the server's `metadata` action to `star-metadata` and maps it back;
+- for tilt-series / tomogram tables adds an **Include** boolean column and a
+  **Create subset** edit action, executed with `create_tomo_subset`
+  (rows left checked); keeps the row ids per output path.
+
+History: before ScipionWeb `d4d9c01` the protocol was `viewer:
+"table-viewer-pane"` with `tableViewContext`/`tableViewData`,
+`resolveTableViewPane(request)` and `createTableViewSubset(request)`.

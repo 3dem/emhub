@@ -9201,7 +9201,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
                 <DialogTitle className="text-base font-semibold leading-6">
                   Build info
                 </DialogTitle>
-                <DialogDescription>Project page widget</DialogDescription>
+                <DialogDescription>emflow {APP_VERSION ? `v${APP_VERSION}` : ""}</DialogDescription>
               </DialogHeader>
 
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 px-5 py-4 text-sm">
