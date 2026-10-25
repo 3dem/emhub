@@ -37,8 +37,6 @@ export type MountProjectPageOptions = {
   theme?: ThemeMode;
   /** Optional stylesheet URL injected once in <head> (if not already linked). */
   cssHref?: string;
-  /** Accepted for backwards compatibility with ScipionWeb mount calls; unused. */
-  props?: Record<string, unknown>;
 };
 
 export type MountedProjectPage = {
@@ -156,11 +154,6 @@ export const buildTimestamp = WIDGET_BUILD_TIMESTAMP;
 export const rootClass = ROOT_CLASS;
 
 if (typeof window !== "undefined") {
-  // Backwards compatibility with the ScipionWeb widget global used by EMhub's
-  // project_widget_bootstrap.html (window.MyProjectsWidget.mountProjectPageWidget)
-  const w = window as unknown as Record<string, any>;
-  w.MyProjectsWidget = { ...(w.MyProjectsWidget || {}), mountProjectPageWidget: mountProjectPage };
-
   // eslint-disable-next-line no-console
   console.log(
     `[emflow] ready under window.EMFlow (v${APP_VERSION ?? "?"}${

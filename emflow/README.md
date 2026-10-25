@@ -60,11 +60,9 @@ The bundle is a UMD library that includes React, exposed as `window.EMFlow`:
 </script>
 ```
 
-For a drop-in replacement of the ScipionWeb bundle, the entry also registers
-`window.MyProjectsWidget.mountProjectPageWidget` (same options), so EMhub's
-current `project_widget_bootstrap.html` works unchanged: only the `<link>` and
-`<script>` paths in `project_widget_shell.html` need to point to
-`emflow.css` / `emflow.js`.
+In EMhub, the bundle is loaded once per page and mounted by
+`templates/project_widget_bootstrap.html`, with `svc` defined by one of the
+`templates/project_widget_svc*.html` templates.
 
 ## Style isolation
 
