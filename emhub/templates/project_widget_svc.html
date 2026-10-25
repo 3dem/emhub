@@ -282,24 +282,76 @@ async function loadTableViewData(starPath, pointerClass) {
   return tableViewData || { columns: [], rows: [] };
 }
 
+// Table viewer (emflow TableViewerPane), see TableViewerData in emflow's
+// src/services/ProjectService.ts. The server builds the table (rows with
+// cells and actions); here it is adapted to what the viewer expects.
+
+// Tables of tilt series / tomograms (rows are tomograms) from which a
+// subset can be created (create_tomo_subset, emw-subset-ts job)
+var TABLE_SUBSET_CLASSES = ['TiltSeriesMovies', 'TiltSeries', 'TiltSeriesAligned', 'Tomograms'];
+var TABLE_INCLUDE_COL = 'include';
+var TABLE_SUBSET_ACTION = 'create-subset';
+
+// emflow handles the 'metadata' action id itself (Scipion metadata viewer),
+// the server one (STAR file metadata) is renamed for the viewer
+var TABLE_METADATA_ACTION = 'star-metadata';
+
+// Row ids of the loaded tables, by output path (to build subsets)
+var tableViewRowIds = {};
+
+function renameTableActions(actions) {
+  return (actions || []).map(function (action) {
+    return action.id === 'metadata' ? { ...action, id: TABLE_METADATA_ACTION } : action;
+  });
+}
+
+function adaptTableViewData(tableViewData, outputPath, pointerClass) {
+  var withSubset = TABLE_SUBSET_CLASSES.includes(pointerClass);
+  var columns = (tableViewData.columns || []).map(function (column) {
+    return { ...column, actions: renameTableActions(column.actions) };
+  });
+  var rows = (tableViewData.rows || []).map(function (row) {
+    // The viewer sends row.data back with the row actions (resolve_table_view_pane)
+    var adapted = { ...row, data: row.cells, actions: renameTableActions(row.actions) };
+    if (withSubset) {
+      adapted.cells = { ...row.cells, [TABLE_INCLUDE_COL]: true };
+      adapted.cellContexts = {
+        [TABLE_INCLUDE_COL]: { edit: { type: 'boolean', field: TABLE_INCLUDE_COL } }
+      };
+    }
+    return adapted;
+  });
+
+  var table = { ...tableViewData, columns: columns, rows: rows };
+  if (withSubset) {
+    table.columns = [{ id: TABLE_INCLUDE_COL, label: 'Include', align: 'center', width: 70 }]
+        .concat(columns);
+    table.editActions = [{
+      id: TABLE_SUBSET_ACTION, label: 'Create subset', requiresChanges: true
+    }];
+    tableViewRowIds[outputPath] = rows.map(function (row) { return String(row.id); });
+  }
+  return table;
+}
+
 async function buildTableViewerAnalyzeDecision(ctx, pointerClass) {
   var outputPath = ctx.value || ctx.outputRaw?.value || '';
   var tableViewData = await loadTableViewData(outputPath, pointerClass);
   return {
     handled: true,
-    viewer: 'table-viewer-pane',
+    viewer: 'table',
     title: ctx.outputName,
-    emptyPaneMessage: 'Select a row and click an action to view metadata or plots.',
-    tableViewContext: {
+    context: {
       projectId: ctx.projectId,
       protocolId: ctx.protocolId,
       outputName: ctx.outputName,
-      outputPath: outputPath,
       pointerClass: pointerClass,
       tableKey: 'global',
+      // Extra fields, passed back in the table viewer requests
+      outputPath: outputPath,
       protocolLabel: ctx.protocolLabel,
     },
-    tableViewData: tableViewData,
+    table: adaptTableViewData(tableViewData, outputPath, pointerClass),
   };
 }
 
@@ -626,11 +678,19 @@ var svc = {
   },
 
   /**
-   * Return right-pane content when a row action is triggered.
-   * request: { ...context, rowId, actionId, row }
+   * Return right-pane content when a row (or cell) action is triggered.
+   * context: the decision context (see buildTableViewerAnalyzeDecision)
+   * request: { actionId, rowId, columnId, rowData (row cells) }
    */
-  async resolveTableViewPane(request) {
-    var columnId = request.columnId || request.column_id || '';
+  async resolveTableViewerAction(context, request) {
+    request = {
+      ...context,
+      rowId: request.rowId,
+      columnId: request.columnId,
+      actionId: request.actionId === TABLE_METADATA_ACTION ? 'metadata' : request.actionId,
+      row: { cells: request.rowData || {} },
+    };
+    var columnId = request.columnId || '';
     var pathCellFields = {
       starFile: 'starFilePath',
       alignedStack: 'alignedStackPath',
@@ -694,10 +754,26 @@ var svc = {
   },
 
   /**
-   * Create a subset from selected table-view items.
-   * request: { ...context, subsetItems: string[] }
+   * Create a subset with the rows left checked in the 'Include' column.
+   * request: { actionId, edits: [{ rowId, columnId, value }] } (changed cells)
    */
-  async createTableViewSubset(request) {
+  async executeTableViewerEditAction(context, request) {
+    if (request.actionId !== TABLE_SUBSET_ACTION)
+      return { success: false, message: 'Unknown action: ' + request.actionId };
+
+    var included = {};
+    (tableViewRowIds[context.outputPath] || []).forEach(function (id) { included[id] = true; });
+    request.edits.forEach(function (edit) {
+      if (edit.columnId === TABLE_INCLUDE_COL)
+        included[String(edit.rowId)] = Boolean(edit.value);
+    });
+    request = {
+      ...context,
+      subsetItems: Object.keys(included).filter(function (id) { return included[id]; }),
+    };
+    if (request.subsetItems.length === 0)
+      return { success: false, message: 'Select at least one item for the subset.' };
+
     var subsetResult = null;
     var sourcePath = request.outputPath || request.starPath || '';
     await handleRequestData(
@@ -718,7 +794,10 @@ var svc = {
       },
     );
 
-    return subsetResult || {
+    if (subsetResult)
+      return { ...subsetResult, clearEdits: Boolean(subsetResult.success) };
+
+    return {
       success: false,
       message: 'Could not create subset.',
     };
