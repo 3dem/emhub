@@ -316,6 +316,7 @@ function adaptTableViewData(tableViewData, outputPath, pointerClass) {
     if (withSubset) {
       adapted.cells = { ...row.cells, [TABLE_INCLUDE_COL]: true };
       adapted.cellContexts = {
+        ...row.cellContexts,
         [TABLE_INCLUDE_COL]: { edit: { type: 'boolean', field: TABLE_INCLUDE_COL } }
       };
     }

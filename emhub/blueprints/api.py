@@ -959,6 +959,22 @@ def resolve_table_view_pane():
             or os.path.basename(type_hint_path or '')
         )
 
+        # Icon actions of the 'TS / Tomogram' column: a grid with the tilt
+        # series slices and plots; the tomogram slices as a volume
+        if action_id in ('ts-view', 'tomo-view'):
+            if not action_allowed_for_series(type_key, action_id, None):
+                raise Exception(
+                    f'Action {action_id!r} is not supported for {type_key}'
+                )
+            if action_id == 'tomo-view':
+                tomo_rel = resolve_row_tomogram_path(row_cells)
+                if not tomo_rel:
+                    raise Exception('Missing tomogram path')
+                return build_tomogram_volume_slider_pane_content(
+                    root, tomo_rel, title=f'Tomogram — {row_label}')
+            return build_tilt_series_grid_pane_content(
+                root, row_cells, resolve_row_star_path(attrs, row_cells), row_label)
+
         if action_id == 'aligned-slices':
             stack_rel = resolve_row_aligned_stack_path(row_cells, column_id)
             if not stack_rel:
