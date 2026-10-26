@@ -49,8 +49,9 @@ npm version patch --no-git-tag-version   # 0.1.0 -> 0.1.1 (or minor / major)
 ./build_and_copy.sh
 ```
 
-Builds and copies `dist/emflow.js` and `dist/emflow.css` to
-`../emhub/emhub/static/libs/{js,css}/` (set `EMHUB_LIBS` to use another EMhub
+Type checks, builds the UMD bundle and copies `dist/emflow.js` and
+`dist/emflow.css` to `../emhub/static/libs/{js,css}/` (emflow is a folder at
+the root of the EMhub repository; set `EMHUB_LIBS` to use another EMhub
 checkout).
 
 ### Mounting in a page
