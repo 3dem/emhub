@@ -11,7 +11,10 @@ EMhub implements the service in three templates:
 | `templates/project_widget_svc_workflow.html` | `project_widget_workflow.html` (workflow template editor) | Edits a workflow JSON in memory; launch is disabled |
 | `templates/project_widget_svc_fake.html` | `project_widget_fake.html` (fake project 43) | Static data, for UI testing |
 
-The dev pages use `dev/fakeService.js` (same fake project). Update it when the
+The dev pages use `dev/fakeService.js` (same fake project; open any output
+with `?tomoTable` in the url to get a fake Tomograms table viewer with the
+TS / Tomogram icon column; its tilt-series icon opens a fake `2x2`
+grid, with `&gridLayout=<layout>` for the other layouts). Update it when the
 contract changes.
 
 ## Methods by area
@@ -79,7 +82,7 @@ EMhub (`project_widget_svc.html`) returns `viewer: "table"` for
 context: TableViewerContext = { projectId, protocolId, outputName, pointerClass?, tableKey?,
                                 ...extra }   // extra fields are passed back untouched
 table: TableViewerData = {
-  title?, columns: [{id, label, align?, width?, actions?}],
+  title?, columns: [{id, label, align?, width?, actions?}],   // action: {id, label, icon?, disabled?}
   rows: [{id, cells: {colId: value}, data?, actions?, defaultAction?,
           cellContexts?: {colId: {edit?: {type: "boolean", field}, actions?, children?}},
           children?}],
@@ -88,8 +91,26 @@ table: TableViewerData = {
 
 - Cell/column/row action -> `resolveTableViewerAction(context, {actionId, rowId, columnId, rowData: row.data, cellContext})`
   -> `TableViewerPaneContent` (`empty`, `text`, `html`, `iframe`, `image`,
-  `plotly`, `imageSlider`, `coords3d`, `tiltSeries`, `volume`, `ctfTomo`).
+  `plotly`, `imageSlider`, `grid`, `coords3d`, `tiltSeries`, `volume`, `ctfTomo`).
+- `grid` (`table-viewer-grid.tsx`) shows up to 4 panes in a 2 x 2 grid:
+  `{kind: "grid", title?, layout, cells: {slot: paneContent}}`. The layout
+  names the slots: `2x2` (topLeft, topRight, bottomLeft, bottomRight),
+  `cols` (left, right), `rows` (top, bottom), `span-top` (top over both
+  columns, bottomLeft, bottomRight), `span-bottom` (topLeft, topRight,
+  bottom), `span-left` (left over both rows, topRight, bottomRight),
+  `span-right` (topLeft, bottomLeft, right). Cells take the generic kinds
+  (text, html, iframe, image, plotly, imageSlider; single-axis sliders are
+  fitted to the cell) or `empty` with a message (a cell that failed); the
+  content title becomes the cell header. Missing slots stay empty.
   Note: only `row.data` is sent back, not `row.cells`.
+- Action `icon` names an icon of `components/analyze/table-viewer-action-icons.tsx`
+  (`tilt-series`, `tomogram`): drawn as an icon button with the label as
+  tooltip (highlighted while its result is shown), and never taken as the
+  cell's link (a single text action makes the cell value a link). Unknown
+  names show the label. Several icon actions in one column, set per row in
+  `cellContexts[colId].actions`, give an icon column whose icons vary by row.
+  Text action buttons never break inside a label; a cell with several
+  actions wraps them onto more lines (e.g. a column of plot actions).
 - Action id **`metadata` is handled by emflow** (opens `MetadataViewer`) and
   never reaches the host.
 - Edit action button -> `executeTableViewerEditAction(context, {actionId, edits: [{rowId, columnId, field, value}]})`
@@ -102,7 +123,17 @@ EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
 - copies `row.cells` to `row.data` (sent back to `resolve_table_view_pane`
   as `row.cells`);
 - renames the server's `metadata` action to `star-metadata` and maps it back;
-- for tilt-series / tomogram tables adds an **Include** boolean column and a
+- for `TiltSeries`, `TiltSeriesAligned` and `Tomograms` the server sends the
+  columns Tomo name, Metadata, **TS / Tomogram** (`tsTomo`) and **Plots**
+  (`plots`). `tsTomo` has per-row icon actions: `ts-view` (`tilt-series`:
+  a `2x2` grid: slices of the aligned stack, or of the tilt images of the
+  series STAR sorted by tilt angle, | tilt angles (dose vs tilt angle);
+  motion | defocus (µm) plots; each cell an `empty` message if it fails) and `tomo-view` (`tomogram`, only rows with a tomogram: X/Y/Z volume
+  slices). `plots` holds the row actions (tilt angles, motion, defocus...),
+  so these rows have no `...` menu (spec `row_actions_column` in
+  `api_viewers.py`);
+- for tilt-series / tomogram tables adds an **Include** boolean column (merged
+  into the row's `cellContexts`) and a
   **Create subset** edit action, executed with `create_tomo_subset`
   (rows left checked); keeps the row ids per output path.
 

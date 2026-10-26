@@ -682,8 +682,11 @@ function VolumeSliderLayout({
 
 export default function TableViewerImageSlider({
   content,
+  fit = false,
 }: {
   content: TableViewerImageSliderContent;
+  /** Shrink a single-axis slider to its container (e.g. a grid cell). */
+  fit?: boolean;
 }) {
   const axisEntries = useMemo(() => {
     if (content.axes && Object.keys(content.axes).length > 0) {
@@ -704,6 +707,7 @@ export default function TableViewerImageSlider({
       axisEntries.some(([axis]) => axis === "y") &&
       axisEntries.some(([axis]) => axis === "z"));
 
+  const fitSingle = fit && !useVolumeLayout && axisEntries.length === 1;
   const hasParticles = (content.coordinates?.x.length ?? 0) > 0;
   const [showParticles, setShowParticles] = useState(true);
 
@@ -724,14 +728,14 @@ export default function TableViewerImageSlider({
   return (
     <Box
       sx={{
-        p: 2,
+        p: fitSingle ? 1 : 2,
         height: "100%",
         minHeight: 0,
-        overflow: useVolumeLayout ? "hidden" : "auto",
+        overflow: useVolumeLayout || fitSingle ? "hidden" : "auto",
         display: "flex",
         flexDirection: "column",
-        alignItems: useVolumeLayout ? "stretch" : "flex-start",
-        gap: 2,
+        alignItems: useVolumeLayout || fitSingle ? "stretch" : "flex-start",
+        gap: fitSingle ? 1 : 2,
       }}
     >
       {content.dimensions ? (
@@ -811,6 +815,7 @@ export default function TableViewerImageSlider({
             sliderPrefix={axisContent.sliderPrefix}
             sliceLabelOffset={content.sliceLabelOffset ?? 0}
             initialSlice={content.initialSlice}
+            fillAvailable={fitSingle}
           />
         ))
       )}

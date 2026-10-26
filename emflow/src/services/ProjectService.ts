@@ -593,6 +593,8 @@ export type TableViewerCell =
 export type TableViewerAction = {
   id: string;
   label: string;
+  /** Named icon ("tilt-series", "tomogram"): drawn as an icon button with the
+   * label as tooltip, never used as the cell's link; unknown names show the label. */
   icon?: string;
   disabled?: boolean;
 };
@@ -804,7 +806,47 @@ export type TableViewerPaneContent =
     title?: string;
     figure: Record<string, unknown>;
   }
-  | TableViewerImageSliderContent;
+  | TableViewerImageSliderContent
+  | TableViewerGridContent;
+
+/**
+ * Grid of up to 4 panes (2 x 2). The layout names the slots that are used:
+ *   "2x2":         topLeft, topRight, bottomLeft, bottomRight
+ *   "cols":        left, right
+ *   "rows":        top, bottom
+ *   "span-top":    top (both columns), bottomLeft, bottomRight
+ *   "span-bottom": topLeft, topRight, bottom (both columns)
+ *   "span-left":   left (both rows), topRight, bottomRight
+ *   "span-right":  topLeft, bottomLeft, right (both rows)
+ * A missing slot is left empty. Cells take the generic kinds (text, html,
+ * iframe, image, plotly, imageSlider) or "empty" (e.g. an error message).
+ */
+export type TableViewerGridLayout =
+  | "2x2"
+  | "cols"
+  | "rows"
+  | "span-top"
+  | "span-bottom"
+  | "span-left"
+  | "span-right";
+
+export type TableViewerGridSlot =
+  | "topLeft"
+  | "topRight"
+  | "bottomLeft"
+  | "bottomRight"
+  | "top"
+  | "bottom"
+  | "left"
+  | "right";
+
+export type TableViewerGridContent = {
+  kind: "grid";
+  title?: string;
+  layout: TableViewerGridLayout;
+  /** Cell title defaults to the content title. */
+  cells: Partial<Record<TableViewerGridSlot, TableViewerPaneContent>>;
+};
 
 export type TableViewerImageSliderAxis = {
   slices: Record<string, string>;

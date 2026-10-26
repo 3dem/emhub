@@ -21,6 +21,70 @@ let tags = [
 ];
 const protocolTags = {};
 
+// Fake Tomograms table (as EMhub's get_table_view_data builds it), opened on
+// outputs with pointerClass "Tomograms" (none in the fake project) or on any
+// output when the page url has ?tomoTable
+const fakeTomogramsTable = () => ({
+  title: "Tomograms (3 items)",
+  columns: [
+    { id: "tomoName", label: "Tomo name" },
+    { id: "starFile", label: "Metadata", actions: [{ id: "metadata", label: "metadata" }] },
+    { id: "tsTomo", label: "TS / Tomogram", width: 110 },
+    { id: "plots", label: "Plots" },
+  ],
+  rows: ["TS_0001", "TS_0002", "TS_0003"].map((name, i) => ({
+    id: name,
+    cells: { tomoName: name, starFile: `${name}.star` },
+    data: { tomoName: name },
+    cellContexts: {
+      plots: {
+        actions: [
+          { id: "tilt-angles", label: "tilt angles" },
+          { id: "motion", label: "motion" },
+          { id: "defocus", label: "defocus" },
+        ],
+      },
+      tsTomo: {
+        actions: [
+          { id: "ts-view", label: "Tilt series", icon: "tilt-series" },
+          // TS_0003 has no tomogram yet
+          ...(i < 2 ? [{ id: "tomo-view", label: "Tomogram", icon: "tomogram" }] : []),
+        ],
+      },
+    },
+  })),
+});
+
+// Base64 PNG slices (no data: prefix) with the slice number drawn on them
+const fakeSlices = (count, label) => {
+  const slices = {};
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  for (let i = 0; i < count; i++) {
+    ctx.fillStyle = `hsl(210, 15%, ${20 + (50 * i) / count}%)`;
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = "#fff";
+    ctx.font = "20px sans-serif";
+    ctx.fillText(`${label} ${i + 1}`, 20, 40);
+    slices[String(i)] = canvas.toDataURL("image/png").split(",")[1];
+  }
+  return slices;
+};
+
+// Plotly pane content of a value per tilt angle (-60..60)
+const fakePlot = (title, yTitle, f, type = "scatter") => {
+  const x = Array.from({ length: 41 }, (_, i) => -60 + 3 * i);
+  return {
+    kind: "plotly",
+    title,
+    figure: {
+      data: [{ type, mode: "lines+markers", x, y: x.map(f) }],
+      layout: { xaxis: { title: { text: "Tilt angle (°)" } }, yaxis: { title: { text: yTitle } } },
+    },
+  };
+};
+
 export function createFakeService() {
   return {
     fetchList: async () => [],
@@ -65,7 +129,55 @@ export function createFakeService() {
 
     resolveAnalyzeViewer: async (ctx) => {
       log("resolveAnalyzeViewer", ctx);
+      if (ctx.pointerClass === "Tomograms" || new URLSearchParams(location.search).has("tomoTable")) {
+        return {
+          handled: true,
+          viewer: "table",
+          title: ctx.outputName,
+          context: { projectId: ctx.projectId, protocolId: ctx.protocolId, outputName: ctx.outputName },
+          table: fakeTomogramsTable(),
+        };
+      }
       return { handled: false };
+    },
+
+    resolveTableViewerAction: async (context, request) => {
+      log("resolveTableViewerAction", request);
+      const name = request.rowData?.tomoName ?? request.rowId;
+      if (request.actionId === "ts-view") {
+        // Other grid layouts with ?gridLayout=cols|rows|span-top|span-bottom|span-left|span-right
+        const layout = new URLSearchParams(location.search).get("gridLayout") ?? "2x2";
+        const contents = [
+          { kind: "imageSlider", title: "Slices", sliderPrefix: "Tilt: ",
+            sliceLabelOffset: 1, slices: fakeSlices(41, `${name} tilt`) },
+          fakePlot("Tilt angles", "Dose (e-/Å²)", (a) => 3.1 * Math.abs(a) / 3),
+          fakePlot("Motion", "Accumulated motion (Å)", (a) => 2 + Math.abs(a) / 20),
+          // TS_0003: a cell that failed on the host
+          name === "TS_0003"
+            ? { kind: "empty", title: "Defocus", message: "STAR file is missing columns: rlnDefocusU, rlnDefocusV" }
+            : fakePlot("Defocus", "Defocus (µm)", (a) => 3 + Math.abs(a) / 60),
+        ];
+        const slots = {
+          "2x2": ["topLeft", "topRight", "bottomLeft", "bottomRight"],
+          cols: ["left", "right"],
+          rows: ["top", "bottom"],
+          "span-top": ["top", "bottomLeft", "bottomRight"],
+          "span-bottom": ["topLeft", "topRight", "bottom"],
+          "span-left": ["left", "topRight", "bottomRight"],
+          "span-right": ["topLeft", "bottomLeft", "right"],
+        }[layout] ?? [];
+        return {
+          kind: "grid",
+          title: `Tilt series — ${name}`,
+          layout,
+          cells: Object.fromEntries(slots.map((slot, i) => [slot, contents[i]])),
+        };
+      }
+      if (request.actionId === "tomo-view") {
+        return { kind: "imageSlider", title: `Tomogram — ${name}`, sliderPrefix: "Slice: ",
+                 slices: fakeSlices(32, `${name} slice`) };
+      }
+      return { kind: "text", title: request.actionId, text: `Fake ${request.actionId} of ${name}` };
     },
 
     resolveBrowserPaths: async (projectId, protocolId) => ({

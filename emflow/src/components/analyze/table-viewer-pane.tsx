@@ -15,6 +15,7 @@ import {
     TableHead,
     TableRow,
     TextField,
+    Tooltip,
     Typography,
 } from "@mui/material";
 import { ChevronDown, ChevronRight, MoreHorizontal, Search } from "lucide-react";
@@ -37,6 +38,8 @@ import Coords3dViewer from "./coords3d-viewer";
 import TiltSeriesViewer from "./tiltseries-viewer";
 import CTFTomoViewer from "./ctftomo-viewer";
 import VolumeViewer from "./volume-viewer";
+import { getTableViewerActionIcon } from "./table-viewer-action-icons";
+import TableViewerGrid from "./table-viewer-grid";
 import TableViewerGenericContentView, {
     isGenericTableViewerContent,
 } from "./table-viewer-generic-content";
@@ -784,6 +787,94 @@ export default function TableViewerPane({
         });
     };
 
+    // Actions naming a known icon are drawn as icon buttons, the others as text
+    const renderActionButton = (
+        action: TableViewerAction,
+        row: TableViewerRow,
+        columnId: string,
+        cellContext?: TableViewerCellContext,
+    ) => {
+        const onClick = (event: MouseEvent) => {
+            event.stopPropagation();
+
+            void handleAction(
+                action,
+                row,
+                columnId,
+                cellContext,
+            );
+        };
+
+        const ActionIcon =
+            getTableViewerActionIcon(action.icon);
+
+        if (ActionIcon) {
+            const active =
+                activePane?.kind === "action" &&
+                activePane.action.id === action.id &&
+                activePane.row?.id === row.id;
+
+            return (
+                <Tooltip
+                    key={action.id}
+                    title={action.label}
+                >
+                    <IconButton
+                        size="small"
+                        aria-label={action.label}
+                        onClick={onClick}
+                        sx={{
+                            width: 24,
+                            height: 24,
+                            p: 0.25,
+                            flexShrink: 0,
+                            color: active
+                                ? "#2563eb"
+                                : "#475569",
+                            backgroundColor: active
+                                ? "#e0e7ff"
+                                : "transparent",
+
+                            "&:hover": {
+                                backgroundColor: "#eef2f7",
+                                color: "#2563eb",
+                            },
+
+                            "& svg": {
+                                width: 18,
+                                height: 18,
+                            },
+                        }}
+                    >
+                        <ActionIcon />
+                    </IconButton>
+                </Tooltip>
+            );
+        }
+
+        return (
+            <Button
+                key={action.id}
+                size="small"
+                variant="text"
+                onClick={onClick}
+                sx={{
+                    minWidth: 0,
+                    px: 0.5,
+                    py: 0,
+                    textTransform:
+                        "none",
+                    fontSize:
+                        "0.68rem",
+                    whiteSpace:
+                        "nowrap",
+                }}
+            >
+                {action.label}
+            </Button>
+        );
+    };
+
     const renderCell = (
         row: TableViewerRow,
         columnId: string,
@@ -926,7 +1017,10 @@ export default function TableViewerPane({
             explicitDefaultAction &&
                 !explicitDefaultAction.disabled
                 ? explicitDefaultAction
-                : enabledActions.length === 1
+                : enabledActions.length === 1 &&
+                    !getTableViewerActionIcon(
+                        enabledActions[0].icon,
+                    )
                     ? enabledActions[0]
                     : undefined;
 
@@ -995,34 +1089,12 @@ export default function TableViewerPane({
 
                     {secondaryActions.map(
                         (action) => (
-                            <Button
-                                key={action.id}
-                                size="small"
-                                variant="text"
-                                onClick={(
-                                    event,
-                                ) => {
-                                    event.stopPropagation();
-
-                                    void handleAction(
-                                        action,
-                                        row,
-                                        columnId,
-                                        cellContext,
-                                    );
-                                }}
-                                sx={{
-                                    minWidth: 0,
-                                    px: 0.5,
-                                    py: 0,
-                                    textTransform:
-                                        "none",
-                                    fontSize:
-                                        "0.68rem",
-                                }}
-                            >
-                                {action.label}
-                            </Button>
+                            renderActionButton(
+                                action,
+                                row,
+                                columnId,
+                                cellContext,
+                            )
                         ),
                     )}
                 </Box>
@@ -1036,58 +1108,40 @@ export default function TableViewerPane({
                 <Box
                     sx={{
                         display: "flex",
+                        flexWrap: "wrap",
                         alignItems: "center",
-                        gap: 0.75,
+                        columnGap: 0.75,
+                        rowGap: 0.25,
                         minWidth: 0,
                     }}
                 >
                     {childrenToggle}
-                    <Typography
-                        component="span"
-                        sx={{
-                            fontSize:
-                                "0.76rem",
-                            overflow:
-                                "hidden",
-                            textOverflow:
-                                "ellipsis",
-                            whiteSpace:
-                                "nowrap",
-                        }}
-                    >
-                        {text}
-                    </Typography>
+                    {text && (
+                        <Typography
+                            component="span"
+                            sx={{
+                                fontSize:
+                                    "0.76rem",
+                                overflow:
+                                    "hidden",
+                                textOverflow:
+                                    "ellipsis",
+                                whiteSpace:
+                                    "nowrap",
+                            }}
+                        >
+                            {text}
+                        </Typography>
+                    )}
 
                     {enabledActions.map(
                         (action) => (
-                            <Button
-                                key={action.id}
-                                size="small"
-                                variant="text"
-                                onClick={(
-                                    event,
-                                ) => {
-                                    event.stopPropagation();
-
-                                    void handleAction(
-                                        action,
-                                        row,
-                                        columnId,
-                                        cellContext,
-                                    );
-                                }}
-                                sx={{
-                                    minWidth: 0,
-                                    px: 0.5,
-                                    py: 0,
-                                    textTransform:
-                                        "none",
-                                    fontSize:
-                                        "0.68rem",
-                                }}
-                            >
-                                {action.label}
-                            </Button>
+                            renderActionButton(
+                                action,
+                                row,
+                                columnId,
+                                cellContext,
+                            )
                         ),
                     )}
                 </Box>
@@ -2119,6 +2173,10 @@ export default function TableViewerPane({
                                 }
                                 hideVolumeList
                                 hideMetadataAction
+                            />
+                        ) : activePane.content.kind === "grid" ? (
+                            <TableViewerGrid
+                                content={activePane.content}
                             />
                         ) : isGenericTableViewerContent(activePane.content) ? (
                             <TableViewerGenericContentView
