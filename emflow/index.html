@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>emflow dev (source)</title>
+    <!-- EMhub uses Bootstrap 4: load it to catch style collisions while developing -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/dev/host.css" />
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="dev-toolbar">
+        <h5 class="mb-0">emflow dev page (from source)</h5>
+        <a href="/dev/umd.html">built UMD bundle &rarr;</a>
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.documentElement.classList.toggle('dark')">toggle host dark</button>
+      </div>
+      <div class="card col-12">
+        <div class="card-body">
+          <div id="emflow-host"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/dev/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,130 @@
+{
+  "134": {
+     "form": {},
+    "info": {
+      "protocolId": 134,
+      "label": "protNonUniform3DRefinement_1",
+      "status": "finished",
+      "expertLevel": true,
+      "packageLogo": "/home/yunior/ScipionUserData/projects/TestCryosparc3DClassification/cryosparc2_logo.png",
+      "color": "#D2F5CB",
+      "hosts": [
+        "localhost"
+      ],
+      "projectId": 44,
+      "protocolClassName": "ProtCryoSparcNewNonUniformRefine3D",
+      "inputs": [
+        {
+          "inputName": "inputParticles",
+          "pointerClass": "SetOfParticles",
+          "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+          "value": "pwem - import particles.outputParticles",
+          "parentId": 2
+        },
+        {
+          "inputName": "referenceVolume",
+          "pointerClass": "Volume",
+          "info": "Volume (64 x 64 x 64, 4.00 Å/px)",
+          "value": "pwem - import volumes.outputVolume",
+          "parentId": 79
+        }
+      ],
+      "outputs": [
+        {
+          "outputName": "outputVolume",
+          "pointerClass": "Volume",
+          "info": "Volume (140 x 140 x 140, 4.00 Å/px) - w/halves",
+          "value": "protNonUniform3DRefinement_1.outputVolume",
+          "parentId": 134
+        },
+        {
+          "outputName": "outputParticles",
+          "pointerClass": "SetOfParticles",
+          "info": "Particles (373 items, 140 x 140, 4.00 Å/px)",
+          "value": "protNonUniform3DRefinement_1.outputParticles",
+          "parentId": 134
+        },
+        {
+          "outputName": "outputFSC",
+          "pointerClass": "SetOfFSCs",
+          "info": "SetOfFSCs            (5 items)",
+          "value": "protNonUniform3DRefinement_1.outputFSC",
+          "parentId": 134
+        }
+      ],
+      "executeMode": {
+        "launch": {
+          "label": "Launch",
+          "help": "Start the protocol from its current configuration"
+        },
+        "restart": {
+          "label": "Restart",
+          "help": "Restart the protocol execution from scratch (keeps current params)."
+        }
+      }
+    },
+    "values": {
+      "runName": "protNonUniform3DRefinement_1",
+      "_objComment": "",
+      "_useQueue": false,
+      "_prerequisites": [],
+      "gpuList": "0",
+      "expertLevel": 0,
+      "inputParticles": "2.outputParticles",
+      "referenceVolume": "79.outputVolume",
+      "refMask": "",
+      "symmetryGroup": 0,
+      "symmetryOrder": 1,
+      "refine_symmetry_do_align": true,
+      "refine_do_init_scale_est": true,
+      "refine_num_final_iterations": 0,
+      "refine_res_init": 30,
+      "refine_res_gsfsc_split": 20,
+      "refine_highpass_res": null,
+      "refine_clip": false,
+      "refine_window": true,
+      "refine_skip_premult": true,
+      "refine_ignore_dc": true,
+      "refine_batchsize_init": 0,
+      "refine_batchsize_epsilon": 0.001,
+      "refine_batchsize_snrfactor": 40,
+      "refine_scale_min": false,
+      "refine_scale_start_iter": 0,
+      "refine_noise_model": 0,
+      "refine_noise_priorw": 50,
+      "refine_noise_initw": 200,
+      "refine_noise_init_sigmascale": 3,
+      "refine_mask": 0,
+      "refine_dynamic_mask_thresh_factor": 0.2,
+      "refine_dynamic_mask_near_ang": 6,
+      "refine_dynamic_mask_far_ang": 14,
+      "refine_dynamic_mask_start_res": 12,
+      "refine_dynamic_mask_use_abs": false,
+      "refine_compute_batch_size": null,
+      "refine_defocus_refine": false,
+      "crl_num_plots": 3,
+      "crl_min_res_A": 20,
+      "crl_df_range": 2000,
+      "crl_compute_batch_size": null,
+      "refine_ctf_global_refine": false,
+      "crg_num_plots": 3,
+      "crg_min_res_A": 10,
+      "crg_do_tilt": true,
+      "crg_do_trefoil": true,
+      "crg_do_spherical": true,
+      "crg_do_tetrafoil": true,
+      "crg_compute_batch_size": null,
+      "refine_do_ews_correct": false,
+      "refine_do_ews_correct_align": false,
+      "refine_ews_zsign": 0,
+      "refine_ews_simple": 0,
+      "compute_use_ssd": false,
+      "compute_lane": "default",
+      "refine_do_marg": true,
+      "refine_nu_enable": true,
+      "refine_nu_filtertype": 0,
+      "refine_nu_order": 8,
+      "refine_nu_awf": 3
+    }
+  }
+}

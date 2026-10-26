@@ -7,3 +7,7 @@ include requirements.txt
 graft emhub/static
 graft emhub/templates
 global-exclude *.pyc
+
+# emflow (the React viewer at the repository root) is not part of the
+# Python package: only its built bundle in emhub/static/libs is shipped
+prune emflow

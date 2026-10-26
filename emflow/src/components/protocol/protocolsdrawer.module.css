@@ -1,0 +1,309 @@
+.drawerRoot {
+  font: inherit;
+
+  /* defaultVarsOnRoot */
+  --pdInk: #374151;
+  --pdInkMuted: #4b5563;
+  --pdBorder: rgba(229, 231, 235, 1);
+
+  --pdCard: #ffffff;
+  --pdCardMuted: rgba(148, 163, 184, 0.10);
+
+  --pdShadow: 0 18px 42px rgba(15, 23, 42, 0.22);
+  --pdShadowSm: 0 1px 2px rgba(15, 23, 42, 0.12);
+
+  --pdBrand: #3b82f6;
+
+  color: var(--pdInk);
+}
+
+.drawerVars {
+  --pdInk: #374151;
+  --pdInkMuted: #4b5563;
+  --pdBorder: rgba(229, 231, 235, 1);
+
+  --pdCard: #ffffff;
+  --pdCardMuted: rgba(148, 163, 184, 0.10);
+
+  --pdShadow: 0 18px 42px rgba(15, 23, 42, 0.22);
+  --pdShadowSm: 0 1px 2px rgba(15, 23, 42, 0.12);
+
+  --pdBrand: #3b82f6;
+
+  color: var(--pdInk);
+}
+
+.dark {
+  --pdInk: #e5e7eb;
+  --pdInkMuted: #9ca3af;
+  --pdBorder: rgba(55, 65, 81, 1);
+
+  --pdCard: #111827;
+  --pdCardMuted: rgba(255, 255, 255, 0.06);
+
+  --pdShadow: 0 18px 44px rgba(0, 0, 0, 0.50);
+  --pdShadowSm: 0 1px 2px rgba(0, 0, 0, 0.40);
+}
+
+/* Trigger icon */
+.triggerIcon {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  stroke: currentColor;
+}
+
+/* =========================================================
+   Portal overlay layer (NEVER affects layout)
+   - fixed full-screen overlay
+   - pointer-events none so it never blocks the app
+   - drawer itself enables pointer-events
+   ========================================================= */
+.portalLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+
+  /* CSS vars used to keep the drawer visually inside the widget bounds */
+  --pdInsetTop: 0px;
+  --pdInsetRight: 0px;
+  --pdInsetBottom: 0px;
+  --pdInsetLeft: 0px;
+}
+
+/* Drawer shell (fixed; constrained to widget bounds via insets) */
+.drawer {
+  pointer-events: auto;
+
+  position: fixed;
+
+  top: calc(var(--pdInsetTop) + 5px);
+  right: calc(var(--pdInsetRight) + 0px);
+  bottom: calc(var(--pdInsetBottom) + 6px);
+
+  width: 520px;
+
+  /* Keep it inside the widget horizontally */
+  max-width: calc(
+    100vw - (var(--pdInsetLeft) + var(--pdInsetRight) + 16px)
+  );
+
+  border-radius: 16px;
+  border: 1px solid var(--pdBorder, rgba(229, 231, 235, 1));
+
+  background: var(--pdCard, #ffffff);
+  background-color: var(--pdCard, #ffffff);
+
+  color: var(--pdInk, #374151);
+  box-shadow: var(--pdShadow, 0 18px 42px rgba(15, 23, 42, 0.22));
+
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+  transform: translateX(110%);
+  opacity: 0;
+
+  transition: transform 260ms ease, opacity 260ms ease;
+
+  color-scheme: light;
+}
+
+.drawerRoot.dark .drawer {
+  background: var(--pdCard, #111827);
+  background-color: var(--pdCard, #111827);
+  color: var(--pdInk, #e5e7eb);
+  color-scheme: dark;
+}
+
+.drawerOpen {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.drawerClosed {
+  transform: translateX(110%);
+  opacity: 0;
+}
+
+/* Header */
+.header {
+  position: relative;
+  padding: 14px 14px 12px 14px;
+
+  background: linear-gradient(90deg, #111827, #1f2937);
+  background-color: #111827;
+
+  color: #f3f4f6;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.headerTitle {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0.2px;
+  color: inherit;
+}
+
+button.closeButton {
+  -webkit-appearance: none;
+  appearance: none;
+  font: inherit;
+
+  position: absolute;
+  top: 10px;
+  right: 10px;
+
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  line-height: 0;
+
+  border-radius: 9999px;
+
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.10);
+  color: #f3f4f6;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+button.closeButton:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.closeIcon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  color: currentColor;
+  stroke: currentColor;
+}
+
+/* Root selector */
+.rootSelectWrap {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--pdBorder, rgba(229, 231, 235, 1));
+}
+
+select.rootSelect {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--pdBorder, rgba(229, 231, 235, 1));
+
+  background: var(--pdCardMuted, rgba(148, 163, 184, 0.10));
+  color: var(--pdInk, #374151);
+
+  padding: 0 10px;
+  outline: none;
+  font: inherit;
+
+  color-scheme: light;
+}
+
+.drawerRoot.dark select.rootSelect {
+  color-scheme: dark;
+}
+
+select.rootSelect:focus {
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+select.rootSelect option {
+  background: #ffffff;
+  color: #111827;
+}
+
+.drawerRoot.dark select.rootSelect option {
+  background: #0b1220;
+  color: #e5e7eb;
+}
+
+/* Search */
+.searchWrap {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--pdBorder, rgba(229, 231, 235, 1));
+}
+
+.searchField {
+  position: relative;
+}
+
+.searchIconWrap {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pdInkMuted, #4b5563);
+  pointer-events: none;
+}
+
+.searchIcon {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  stroke: currentColor;
+}
+
+input.searchInput {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+
+  border: 1px solid var(--pdBorder, rgba(229, 231, 235, 1));
+  background: var(--pdCardMuted, rgba(148, 163, 184, 0.10));
+  color: var(--pdInk, #374151);
+
+  padding: 0 10px 0 38px;
+  outline: none;
+  font: inherit;
+
+  color-scheme: light;
+}
+
+.drawerRoot.dark input.searchInput {
+  color-scheme: dark;
+}
+
+input.searchInput::placeholder {
+  color: rgba(75, 85, 99, 0.78);
+}
+
+.drawerRoot.dark input.searchInput::placeholder {
+  color: rgba(156, 163, 175, 0.80);
+}
+
+input.searchInput:focus {
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+
+/* Tree area */
+.treeArea {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 6px 10px 6px;
+}
+
+/* Empty state */
+.emptyState {
+  padding: 12px 14px;
+  color: var(--pdInkMuted, #4b5563);
+  font-size: 13px;
+}

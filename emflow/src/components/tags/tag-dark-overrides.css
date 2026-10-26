@@ -1,0 +1,4 @@
+/*
+ * Tag dark mode styles are implemented directly in TagManager.tsx and TagPicker.tsx.
+ * This file is intentionally kept empty to avoid fragile global MUI selectors in tests.
+ */
