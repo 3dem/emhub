@@ -18,6 +18,7 @@ import { ReactComponent as TableIcon } from "./table.svg?react";
 import { ReactComponent as BoxCubeIcon } from "./box-cube.svg?react";
 import { ReactComponent as DocsIcon } from "./docs.svg?react";
 import { ReactComponent as ChevronUpIcon } from "./chevron-up.svg?react";
+import { ReactComponent as TiltSeriesIcon } from "./tilt-series.svg?react";
 
 export {
   FitViewIcon,
@@ -39,4 +40,5 @@ export {
   BoxCubeIcon,
   DocsIcon,
   ChevronUpIcon,
+  TiltSeriesIcon,
 };

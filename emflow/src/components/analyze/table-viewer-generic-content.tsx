@@ -31,8 +31,11 @@ export function isGenericTableViewerContent(
 
 export default function TableViewerGenericContentView({
     content,
+    fit = false,
 }: {
     content: TableViewerGenericContent;
+    /** Fit image sliders to the container (grid cells). */
+    fit?: boolean;
 }) {
     switch (content.kind) {
         case "text":
@@ -123,7 +126,7 @@ export default function TableViewerGenericContentView({
         case "imageSlider":
             return (
                 <Box sx={{ height: "100%", minHeight: 0 }}>
-                    <TableViewerImageSlider content={content} />
+                    <TableViewerImageSlider content={content} fit={fit} />
                 </Box>
             );
     }
