@@ -45,6 +45,8 @@ _TS_PIXEL_SIZE_COL = {'id': 'tsPixelSize', 'label': 'TS pixel size (Å/px)', 'al
 _ALIGNED_STACK_COL = {'id': 'alignedStack', 'label': 'Aligned stack', 'align': 'left'}
 _TOMOGRAM_COL = {'id': 'tomogram', 'label': 'Tomogram', 'align': 'left'}
 _NCOORDS_COL = {'id': 'nCoords', 'label': 'Coordinates', 'align': 'right'}
+_TS_TOMO_COL = {'id': 'tsTomo', 'label': 'TS / Tomogram', 'align': 'left', 'width': 110}
+_PLOTS_COL = {'id': 'plots', 'label': 'Plots', 'align': 'left'}
 
 _TILT_SERIES_GLOBAL_CELL_FIELDS = {
     'tomoName': 'rlnTomoName',
@@ -60,6 +62,12 @@ _ACTION_TILT_ANGLES = {'id': 'tilt-angles', 'label': 'tilt angles'}
 _ACTION_MOTION = {'id': 'motion', 'label': 'motion'}
 _ACTION_ALIGNED_SLICES = {'id': 'aligned-slices', 'label': 'slices', 'column': 'alignedStack'}
 _ACTION_VOLUME_SLICES = {'id': 'volume-slices', 'label': 'slices', 'column': 'tomogram'}
+# Icon actions of the 'TS / Tomogram' column, set per row in cellContexts
+# (the tomogram one only for rows with a tomogram)
+_ACTION_TS_VIEW = {'id': 'ts-view', 'label': 'Tilt series', 'icon': 'tilt-series',
+                   'column': 'tsTomo', 'per_row': True}
+_ACTION_TOMO_VIEW = {'id': 'tomo-view', 'label': 'Tomogram', 'icon': 'tomogram',
+                     'column': 'tsTomo', 'per_row': True, 'requires_cell': 'tomogramPath'}
 
 _TILT_SERIES_STAR_OPTIONAL_ACTIONS = [
     {
@@ -119,12 +127,18 @@ def _tilt_series_table_spec(
     with_ts_pixel_size=False,
     with_aligned_stack=False,
     with_tomogram=False,
+    with_ts_tomo=False,
     computed_cell_fields=None,
 ):
     """Build a table-view spec for global tilt-series / tomogram STAR outputs."""
     columns = [_TOMO_NAME_COL, _STAR_FILE_COL]
     cell_fields = dict(_TILT_SERIES_GLOBAL_CELL_FIELDS)
     actions = [_ACTION_METADATA]
+
+    if with_ts_tomo:
+        actions.append(_ACTION_TS_VIEW)
+        if with_tomogram:
+            actions.append(_ACTION_TOMO_VIEW)
 
     if with_tomogram:
         columns.append(_TOMOGRAM_COL)
@@ -151,6 +165,12 @@ def _tilt_series_table_spec(
     }
     if computed_cell_fields:
         spec['computed_cell_fields'] = computed_cell_fields
+    if with_ts_tomo:
+        # The stack, tomogram and pixel size cells are still read (for the
+        # icon actions), but only shown through the 'TS / Tomogram' icons;
+        # the row actions (plots) get their own column
+        spec['columns'] = [_TOMO_NAME_COL, _STAR_FILE_COL, _TS_TOMO_COL, _PLOTS_COL]
+        spec['row_actions_column'] = _PLOTS_COL['id']
     return spec
 
 
@@ -181,17 +201,23 @@ TABLE_VIEW_SPECS = {
             _ACTION_TILT_ANGLES,
         ],
     },
-    'tiltseries': _tilt_series_table_spec('Tilt series', with_ts_pixel_size=True),
+    'tiltseries': _tilt_series_table_spec(
+        'Tilt series',
+        with_ts_pixel_size=True,
+        with_ts_tomo=True,
+    ),
     'tiltseriesaligned': _tilt_series_table_spec(
         'Aligned tilt series',
         with_ts_pixel_size=True,
         with_aligned_stack=True,
+        with_ts_tomo=True,
     ),
     'tomograms': _tilt_series_table_spec(
         'Tomograms',
         with_ts_pixel_size=True,
         with_aligned_stack=True,
         with_tomogram=True,
+        with_ts_tomo=True,
         computed_cell_fields={'pixelSize': _format_tomo_pixel_size},
     ),
     'tomocoordinates': _tomocoordinates_table_spec(),
@@ -312,7 +338,10 @@ def action_allowed_for_series(type_key, action_id, series_star_path):
 
 
 def _table_view_action_payload(action):
-    return {'id': action['id'], 'label': action['label']}
+    payload = {'id': action['id'], 'label': action['label']}
+    if action.get('icon'):
+        payload['icon'] = action['icon']
+    return payload
 
 
 def _table_view_column_actions(spec):
@@ -323,7 +352,7 @@ def _table_view_column_actions(spec):
         col_actions = [
             _table_view_action_payload(action)
             for action in spec['actions']
-            if action.get('column') == col['id']
+            if action.get('column') == col['id'] and not action.get('per_row')
         ]
         if col_actions:
             col_def['actions'] = col_actions
@@ -348,6 +377,33 @@ def _table_view_row_actions(spec, type_key, row_cells, root=None):
     return actions
 
 
+def _table_view_cell_contexts(spec, row_cells):
+    """Return the row cellContexts with the per-row column actions."""
+    contexts = {}
+    for action in spec['actions']:
+        if not action.get('per_row'):
+            continue
+        required = action.get('requires_cell')
+        if required and not row_cells.get(required):
+            continue
+        cell_context = contexts.setdefault(action['column'], {'actions': []})
+        cell_context['actions'].append(_table_view_action_payload(action))
+    return contexts
+
+
+def _table_view_row(spec, type_key, row_id, row_cells, root=None):
+    actions = _table_view_row_actions(spec, type_key, row_cells, root)
+    cell_contexts = _table_view_cell_contexts(spec, row_cells)
+    # Row actions shown in a column instead of the row '...' menu
+    if (actions_column := spec.get('row_actions_column')) and actions:
+        cell_contexts[actions_column] = {'actions': actions}
+        actions = []
+    row = {'id': row_id, 'cells': row_cells, 'actions': actions}
+    if cell_contexts:
+        row['cellContexts'] = cell_contexts
+    return row
+
+
 def build_global_tilt_series_table(full_path, type_key, root=None):
     """Build TableViewerPane rows from a global tilt-series STAR file."""
     spec = TABLE_VIEW_SPECS[type_key]
@@ -365,11 +421,8 @@ def build_global_tilt_series_table(full_path, type_key, root=None):
             row_cells = _table_view_row_cells(spec, star_cells)
             tomo_name = row_cells.get('tomoName', '')
 
-            rows.append({
-                'id': tomo_name or idx,
-                'cells': row_cells,
-                'actions': _table_view_row_actions(spec, type_key, row_cells, root),
-            })
+            rows.append(_table_view_row(spec, type_key, tomo_name or idx,
+                                        row_cells, root))
 
         return {
             'title': f"{spec['title']} ({len(rows)} items)",
@@ -410,11 +463,8 @@ def build_tomocoordinates_table(optimisation_set_path, root=None):
                 tomo_name,
             )
 
-            rows.append({
-                'id': tomo_name or idx,
-                'cells': row_cells,
-                'actions': _table_view_row_actions(spec, type_key, row_cells, root),
-            })
+            rows.append(_table_view_row(spec, type_key, tomo_name or idx,
+                                        row_cells, root))
 
         return {
             'title': f"{spec['title']} ({len(rows)} items)",
@@ -477,7 +527,7 @@ def _build_plotly_scatter_figure(traces, xaxis_title, yaxis_title, show_legend=F
 
 
 def build_tilt_angles_plot_content(full_path, title=None):
-    """Plot pre-exposure vs nominal stage tilt angle from a per-series STAR file."""
+    """Plot the dose (pre-exposure) vs nominal stage tilt angle from a per-series STAR file."""
     y_col = 'rlnMicrographPreExposure'
     points = _collect_series_points_by_tilt(full_path, [y_col])
     xs = [p[0] for p in points]
@@ -495,16 +545,16 @@ def build_tilt_angles_plot_content(full_path, title=None):
                 'y': ys,
                 'marker': {'size': 7},
                 'line': {'width': 1.5},
-                'name': 'Pre-exposure',
+                'name': 'Dose',
             }],
             xaxis_title='Nominal stage tilt angle (°)',
-            yaxis_title='Pre-exposure (e-/Å²)',
+            yaxis_title='Dose (e-/Å²)',
         ),
     }
 
 
 def build_defocus_plot_content(full_path, title=None):
-    """Plot defocus U/V vs nominal stage tilt angle from a per-series STAR file."""
+    """Plot defocus U/V (µm) vs nominal stage tilt angle from a per-series STAR file."""
     defocus_series = [
         ('rlnDefocusU', 'Defocus U'),
         ('rlnDefocusV', 'Defocus V'),
@@ -518,7 +568,7 @@ def build_defocus_plot_content(full_path, title=None):
             'type': 'scatter',
             'mode': 'lines+markers',
             'x': xs,
-            'y': [p[1][col] for p in points],
+            'y': [p[1][col] / 10000 for p in points],  # Å -> µm
             'marker': {'size': 7},
             'line': {'width': 1.5},
             'name': label,
@@ -531,7 +581,7 @@ def build_defocus_plot_content(full_path, title=None):
         'figure': _build_plotly_scatter_figure(
             traces,
             xaxis_title='Nominal stage tilt angle (°)',
-            yaxis_title='Defocus (Å)',
+            yaxis_title='Defocus (µm)',
             show_legend=True,
         ),
     }
@@ -801,6 +851,110 @@ def build_aligned_stack_slider_pane_content(root, stack_rel, title=None):
         all_slices=True,
         slice_label_offset=1,
     )
+
+
+def _read_tilt_image(root, image_rel):
+    """Return the 2D array of a tilt image, given as 'path' or 'N@stack' (1-based)."""
+    import mrcfile
+
+    index = None
+    if '@' in image_rel:
+        index_str, image_rel = image_rel.split('@', 1)
+        index = int(index_str) - 1
+    image_path = _resolve_data_path(root, image_rel)
+    if not image_path or not os.path.exists(image_path):
+        raise Exception(f'Tilt image not found: {image_rel}')
+
+    with mrcfile.mmap(image_path, permissive=True) as mrc:
+        data = mrc.data
+        if data.ndim == 3:
+            data = data[index or 0]
+        return data.copy()
+
+
+def build_tilt_images_slider_pane_content(root, star_rel, title=None):
+    """Build image-slider pane content from the tilt images of a series STAR,
+    sorted by tilt angle (for tilt series without an aligned stack)."""
+    from emtools.image import Thumbnail
+
+    full_path = project_file_path(root, star_rel)
+    if not os.path.exists(full_path):
+        raise Exception(f'STAR file not found: {star_rel}')
+
+    with StarFile(full_path) as sf:
+        table_name = _resolve_series_star_table_name(sf)
+        if not table_name:
+            raise Exception('STAR file has no tables')
+        tilts = [row._asdict() for row in sf.iterTable(table_name, guessType=False)]
+
+    tilts = [t for t in tilts if t.get('rlnMicrographName')]
+    if not tilts:
+        raise Exception(f'No tilt images (rlnMicrographName) in {star_rel}')
+
+    def _tilt_angle(tilt):
+        try:
+            return float(tilt.get(TILT_ANGLE_X_COL))
+        except (TypeError, ValueError):
+            return 0.0
+
+    tilts.sort(key=_tilt_angle)
+    size = 512
+    thumb = Thumbnail.Tilt(max_size=(size, size), output_format='base64')
+    slices = {
+        str(i): thumb.from_array(Thumbnail.bin_array(
+            _read_tilt_image(root, tilt['rlnMicrographName']), size))
+        for i, tilt in enumerate(tilts)
+    }
+    return {
+        'kind': 'imageSlider',
+        'title': title or star_rel,
+        'slices': slices,
+        'sliderPrefix': 'Tilt: ',
+        'sliceLabelOffset': 1,
+    }
+
+
+def _grid_cell(title, build, *args, **kwargs):
+    """Pane content of a grid cell, or an 'empty' cell with the error."""
+    try:
+        return build(*args, title=title, **kwargs)
+    except Exception as e:
+        return {'kind': 'empty', 'title': title, 'message': str(e)}
+
+
+def build_tilt_series_grid_pane_content(root, row_cells, star_rel, row_label):
+    """2 x 2 grid for a tilt series: slices (aligned stack, else the tilt
+    images) | tilt angles (dose vs tilt angle); motion | defocus plots."""
+    if stack_rel := resolve_row_aligned_stack_path(row_cells):
+        slices = _grid_cell('Slices', build_aligned_stack_slider_pane_content,
+                            root, stack_rel)
+    elif star_rel:
+        slices = _grid_cell('Slices', build_tilt_images_slider_pane_content,
+                            root, star_rel)
+    else:
+        slices = {'kind': 'empty', 'title': 'Slices',
+                  'message': 'Missing tilt series stack or STAR file'}
+
+    def _plot(title, build):
+        if not star_rel:
+            return {'kind': 'empty', 'title': title, 'message': 'Missing star file path'}
+        full_path = project_file_path(root, star_rel)
+        if not os.path.exists(full_path):
+            return {'kind': 'empty', 'title': title,
+                    'message': f'STAR file not found: {star_rel}'}
+        return _grid_cell(title, build, full_path)
+
+    return {
+        'kind': 'grid',
+        'title': f'Tilt series — {row_label}',
+        'layout': '2x2',
+        'cells': {
+            'topLeft': slices,
+            'topRight': _plot('Tilt angles', build_tilt_angles_plot_content),
+            'bottomLeft': _plot('Motion', build_motion_plot_content),
+            'bottomRight': _plot('Defocus', build_defocus_plot_content),
+        },
+    }
 
 
 def build_tomogram_volume_slider_pane_content(

@@ -1,0 +1,503 @@
+/* src/components/protocolform.module.css */
+
+.protocolForm {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+
+  width: calc(38% - 12px);
+
+  display: flex;
+  flex-direction: column;
+
+  background-color: #fff;
+  border: 1px solid #ddd;
+  box-shadow: -6px 6px 16px rgba(0, 0, 0, 0.12);
+  font-family: "Segoe UI", sans-serif;
+
+  z-index: 100;
+  height: auto;
+  max-height: calc(100vh - 24px);
+
+  border-radius: 12px;
+  overflow: hidden;
+
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.formHeader {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: space-between;
+  align-items: center;
+
+  background-color: #333d49;
+  color: white;
+
+  padding: 16px;
+  height: 60px;
+  box-sizing: border-box;
+}
+
+.formTitleWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nodeStatusPill {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: black;
+  white-space: nowrap;
+}
+
+.formBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.topTabContent {
+  padding: 0;
+}
+
+.bottomTabContent {
+  padding: 16px 0;
+}
+
+.formFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+
+  padding: 8px 16px;
+  border-top: 1px solid #ddd;
+  background-color: #f5f5f5;
+
+  bottom: 0;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+/* Enter / Exit animations (scoped) */
+.protocolForm.slideInRight {
+  animation: slideInFromRight 420ms ease-out both;
+}
+
+.protocolForm.slideOutRight {
+  animation: slideOutToRight 420ms ease-in both;
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0.001;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0.001;
+  }
+}
+
+/* Docked variant (fills parent panel) */
+.asDocked {
+  position: absolute;
+  inset: 0;
+  width: auto;
+}
+
+.asDocked.slideInRight {
+  animation: slideInFromRight 320ms ease-out both;
+}
+
+.asDocked.slideOutRight {
+  animation: slideOutToRight 320ms ease-in both;
+}
+
+/* ------------------------------------------------------------------
+   Global legacy selectors kept as global on purpose (to avoid regressions)
+   These existed in ProtocolForm.css and may be used by sibling components.
+------------------------------------------------------------------- */
+
+:global(.param-row-label) {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Multi-Form Dock container (right side) */
+:global(.form-dock) {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+
+  padding-left: 8px;
+  z-index: 70;
+  pointer-events: none;
+}
+
+:global(.dock-scroll) {
+  pointer-events: auto;
+  height: 100%;
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  max-width: 95vw;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+
+  scrollbar-width: thin;
+}
+
+:global(.dock-scroll::-webkit-scrollbar) {
+  height: 10px;
+}
+
+:global(.dock-scroll::-webkit-scrollbar-thumb) {
+  border-radius: 8px;
+}
+
+:global(.dock-panel) {
+  position: relative;
+  height: 100%;
+
+  flex: 0 0 auto;
+
+  width: clamp(340px, 38vw, 720px);
+  min-width: 320px;
+  max-width: 85vw;
+
+  box-sizing: border-box;
+  background: transparent;
+
+  overflow: hidden;
+  resize: horizontal;
+  pointer-events: auto;
+}
+
+/* When a ProtocolForm is placed inside a global .dock-panel, detach absolute layout */
+:global(.dock-panel) .protocolForm {
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+
+  height: 100%;
+  max-height: 100%;
+  overflow: auto;
+
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
+  border-left: 1px solid #ddd;
+}
+
+/* Optional legacy styles kept global */
+:global(.node-tabs) {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+:global(.node-tab) {
+  padding: 8px 14px;
+  background-color: #e0e0e0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+:global(.node-tab:hover) {
+  background-color: #d0d0d0;
+}
+
+:global(.node-tab.active) {
+  background-color: #0078d4;
+  color: white;
+}
+
+:global(.status-running) {
+  background-color: #fcce62;
+}
+
+:global(.status-saved) {
+  background-color: #d9f1fa;
+}
+
+:global(.status-failed) {
+  background-color: #f5cccb;
+}
+
+:global(.status-finished) {
+  background-color: #d2f5cb;
+}
+
+:global(.status-unknown) {
+  background-color: #ccc;
+  color: #333;
+}
+
+/* Dark mode */
+:global(.dark) .protocolForm {
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.10), transparent 30%),
+    linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.98));
+  border-color: rgba(148, 163, 184, 0.24);
+  color: #e5e7eb;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    -14px 18px 48px rgba(0, 0, 0, 0.42);
+}
+
+:global(.dark) .formHeader {
+  background:
+    linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  color: #f8fafc;
+}
+
+:global(.dark) .formBody {
+  background: transparent;
+  color: #e5e7eb;
+}
+
+:global(.dark) .formFooter {
+  background: rgba(15, 23, 42, 0.92);
+  border-top-color: rgba(148, 163, 184, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+:global(.dark) .nodeStatusPill {
+  color: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+:global(.dark) .topTabContent,
+:global(.dark) .bottomTabContent {
+  color: #e5e7eb;
+}
+
+:global(.dark) :global(.dock-panel) .protocolForm {
+  border-left-color: rgba(148, 163, 184, 0.24);
+  box-shadow: -10px 0 34px rgba(0, 0, 0, 0.36);
+}
+
+:global(.dark) :global(.dock-scroll) {
+  scrollbar-color: rgba(148, 163, 184, 0.45) rgba(15, 23, 42, 0.55);
+}
+
+:global(.dark) :global(.dock-scroll::-webkit-scrollbar-thumb) {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+:global(.dark) :global(.node-tab) {
+  background-color: rgba(30, 41, 59, 0.92);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+:global(.dark) :global(.node-tab:hover) {
+  background-color: rgba(51, 65, 85, 0.92);
+}
+
+:global(.dark) :global(.node-tab.active) {
+  background-color: rgba(59, 130, 246, 0.22);
+  color: #f8fafc;
+  border-color: rgba(96, 165, 250, 0.42);
+}
+
+:global(.dark) :global(.status-running) {
+  background-color: #b68b1d;
+}
+
+:global(.dark) :global(.status-saved) {
+  background-color: #256d85;
+}
+
+:global(.dark) :global(.status-failed) {
+  background-color: #b45353;
+}
+
+:global(.dark) :global(.status-finished) {
+  background-color: #3f8a4b;
+}
+
+:global(.dark) :global(.status-unknown) {
+  background-color: #64748b;
+  color: #f8fafc;
+}
+
+/* MUI overrides for ProtocolForm internals */
+:global(.dark) .protocolForm :global(.MuiBox-root) {
+  scrollbar-color: rgba(148, 163, 184, 0.45) rgba(15, 23, 42, 0.45);
+}
+
+:global(.dark) .protocolForm :global(.MuiTabs-root) {
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+:global(.dark) .protocolForm :global(.MuiTabs-indicator) {
+  background-color: #60a5fa;
+}
+
+:global(.dark) .protocolForm :global(.MuiTab-root) {
+  color: #94a3b8;
+}
+
+:global(.dark) .protocolForm :global(.MuiTab-root:hover) {
+  color: #e5e7eb;
+  background-color: rgba(148, 163, 184, 0.08);
+}
+
+:global(.dark) .protocolForm :global(.MuiTab-root.Mui-selected) {
+  background-color: rgba(59, 130, 246, 0.18) !important;
+  color: #f8fafc !important;
+  border-radius: 8px;
+}
+
+:global(.dark) .protocolForm :global(.MuiButtonBase-root.MuiTabScrollButton-root) {
+  color: #cbd5e1;
+}
+
+:global(.dark) .protocolForm :global(.MuiPaper-root) {
+  background-color: #111827;
+  color: #e5e7eb;
+}
+
+:global(.dark) .protocolForm :global(.MuiTypography-root) {
+  color: inherit;
+}
+
+:global(.dark) .protocolForm :global(.MuiIconButton-root) {
+  color: #cbd5e1;
+}
+
+:global(.dark) .protocolForm :global(.MuiIconButton-root:hover) {
+  background-color: rgba(148, 163, 184, 0.12);
+  color: #f8fafc;
+}
+
+:global(.dark) .protocolForm :global(.MuiInputBase-root),
+:global(.dark) .protocolForm :global(.MuiOutlinedInput-root),
+:global(.dark) .protocolForm :global(.MuiSelect-select) {
+  background-color: rgba(15, 23, 42, 0.38);
+  color: #e5e7eb;
+}
+
+:global(.dark) .protocolForm :global(.MuiInputBase-input),
+:global(.dark) .protocolForm :global(.MuiOutlinedInput-input),
+:global(.dark) .protocolForm :global(.MuiSelect-select) {
+  color: #e5e7eb;
+}
+
+:global(.dark) .protocolForm :global(.MuiInputBase-input::placeholder) {
+  color: rgba(203, 213, 225, 0.62);
+  opacity: 1;
+}
+
+:global(.dark) .protocolForm :global(.MuiOutlinedInput-notchedOutline) {
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+:global(.dark) .protocolForm :global(.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline) {
+  border-color: rgba(147, 197, 253, 0.44);
+}
+
+:global(.dark) .protocolForm :global(.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline) {
+  border-color: rgba(96, 165, 250, 0.82);
+}
+
+:global(.dark) .protocolForm :global(.MuiInputLabel-root) {
+  color: #94a3b8;
+}
+
+:global(.dark) .protocolForm :global(.MuiInputLabel-root.Mui-focused) {
+  color: #bfdbfe;
+}
+
+:global(.dark) .protocolForm :global(.MuiFormHelperText-root) {
+  color: #94a3b8;
+}
+
+:global(.dark) .protocolForm :global(.MuiDivider-root) {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+:global(.dark) .protocolForm :global(.MuiTable-root) {
+  color: #e5e7eb;
+}
+
+:global(.dark) .protocolForm :global(.MuiTableCell-root) {
+  color: #e5e7eb;
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+:global(.dark) .protocolForm :global(.MuiDialog-paper) {
+  background-color: #111827;
+  color: #e5e7eb;
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+:global(.dark) .protocolForm :global(.MuiDialogContent-root),
+:global(.dark) .protocolForm :global(.MuiDialogActions-root) {
+  background-color: #111827;
+  color: #e5e7eb;
+}
+
+:global(.dark) .protocolForm > .formBody > :global(.MuiBox-root) {
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.10), transparent 30%),
+    linear-gradient(145deg, rgba(30, 41, 59, 0.78), rgba(15, 23, 42, 0.84)) !important;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 46px rgba(0, 0, 0, 0.22) !important;
+}
+
+:global(.dark) .protocolForm .topTabContent > :global(.MuiBox-root) {
+  color: #e5e7eb;
+}
+
+:global(.dark) .protocolForm :global(.MuiButton-outlined) {
+  border-color: rgba(148, 163, 184, 0.34);
+  color: #dbeafe;
+}
+
+:global(.dark) .protocolForm :global(.MuiButton-outlined:hover) {
+  border-color: rgba(147, 197, 253, 0.56);
+  background-color: rgba(59, 130, 246, 0.10);
+}

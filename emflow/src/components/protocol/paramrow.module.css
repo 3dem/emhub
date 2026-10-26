@@ -1,0 +1,25 @@
+/* src/components/paramrow.module.css */
+
+.paramRowLabel {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Used by DialogTitle to mimic the ProtocolForm header look */
+.formHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #333d49;
+  color: white;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+
+.paramRowFullWidth {
+  grid-template-columns: 1fr;
+}
+
+.paramControlFullWidth {
+  grid-column: 1 / -1;
+}
