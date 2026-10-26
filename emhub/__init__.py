@@ -425,6 +425,14 @@ def create_app(test_config=None):
     def url_for_content(contentId, **kwargs):
         return flask.url_for('main', _external=emhub_url_external, content_id=contentId, **kwargs)
 
+    def url_for_static(filename):
+        """ Static file URL with its modification time as version,
+        so browsers reload it when the file changes (e.g. emflow bundle).
+        """
+        path = os.path.join(app.static_folder, filename)
+        version = int(os.path.getmtime(path)) if os.path.exists(path) else 0
+        return flask.url_for('static', filename=filename, v=version)
+
     def booking_cost(b):
         """ Calculate the cost of a booking.
         By default, it will be calculated based on the number of days
@@ -462,7 +470,8 @@ def create_app(test_config=None):
 
         return ldap_username
 
-    app.jinja_env.globals.update(url_for_content=url_for_content)
+    app.jinja_env.globals.update(url_for_content=url_for_content,
+                                 url_for_static=url_for_static)
     app.jinja_env.add_extension('jinja2.ext.do')
     app.jinja_env.filters['basename'] = basename
 
