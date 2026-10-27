@@ -2027,7 +2027,9 @@ class DataManager(DbManager):
     def get_workers(self):
         return self.get_hosts()
 
-    def connect_worker(self, worker, specs):
+    def connect_worker(self, worker, specs, python=None):
+        """ Register the worker connection, with its specs and Python
+        environment rows (see emhub.utils.python_env), if reported. """
         now = self.now()
         self.get_worker_stream(worker, update=True).connect()
         hosts = self.get_hosts()
@@ -2035,6 +2037,10 @@ class DataManager(DbManager):
         w.pop('updated', None)  # last request time is kept in Redis (worker_seen)
         w.update({'specs': specs,
                   'connected': Pretty.datetime(now)})
+        if python:
+            w['python'] = python
+        else:  # older workers do not report it
+            w.pop('python', None)
         self.update_config('hosts', hosts, cache=True)
 
     def get_worker_stream(self, worker, update=False):

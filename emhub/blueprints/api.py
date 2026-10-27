@@ -1415,7 +1415,7 @@ def connect_worker():
     def _connect_worker(**attrs):
         worker = attrs['worker']
         specs = attrs['specs']
-        app.dm.connect_worker(worker, specs)
+        app.dm.connect_worker(worker, specs, python=attrs.get('python'))
         return get_worker_token(worker)
 
     return _handle_item(_connect_worker, 'token')
