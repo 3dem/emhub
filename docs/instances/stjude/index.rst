@@ -330,7 +330,8 @@ the OTF is running). The OTF folder is ``extra.otf.path`` or, by default,
     The session page (admins) can send ``otf_restart`` (``mode``: ``clean`` to
     create the project again, or ``continue``) and ``otf_stop`` tasks to the
     OTF worker host. Stop also kills the OTF runner and the running jobs, that
-    are marked as aborted so they can be continued.
+    are marked as aborted so they can be continued. Restarting a session
+    created without OTF (workflow ``None``) uses ``otf.workflow_default``.
 
 **Stopping the worker**
     When the worker is stopped (``systemctl stop``/``restart``: SIGTERM,
