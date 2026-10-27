@@ -685,7 +685,7 @@ export default function TableViewerImageSlider({
   fit = false,
 }: {
   content: TableViewerImageSliderContent;
-  /** Shrink a single-axis slider to its container (e.g. a grid cell). */
+  /** Shrink a single-axis slider to its container (right pane, grid cell). */
   fit?: boolean;
 }) {
   const axisEntries = useMemo(() => {

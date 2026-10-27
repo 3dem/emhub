@@ -286,9 +286,10 @@ async function loadTableViewData(starPath, pointerClass) {
 // src/services/ProjectService.ts. The server builds the table (rows with
 // cells and actions); here it is adapted to what the viewer expects.
 
-// Tables of tilt series / tomograms (rows are tomograms) from which a
-// subset can be created (create_tomo_subset, emw-subset-ts job)
-var TABLE_SUBSET_CLASSES = ['TiltSeriesMovies', 'TiltSeries', 'TiltSeriesAligned', 'Tomograms'];
+// Tables of tilt series / tomograms / coordinates (rows are tomograms) from
+// which a subset can be created (create_tomo_subset, emw-subset-ts job)
+var TABLE_SUBSET_CLASSES = ['TiltSeriesMovies', 'TiltSeries', 'TiltSeriesAligned', 'Tomograms',
+                            'TomoCoordinates', 'TomoParticles'];
 var TABLE_INCLUDE_COL = 'include';
 var TABLE_SUBSET_ACTION = 'create-subset';
 
@@ -325,7 +326,7 @@ function adaptTableViewData(tableViewData, outputPath, pointerClass) {
 
   var table = { ...tableViewData, columns: columns, rows: rows };
   if (withSubset) {
-    table.columns = [{ id: TABLE_INCLUDE_COL, label: 'Include', align: 'center', width: 70 }]
+    table.columns = [{ id: TABLE_INCLUDE_COL, label: 'Selected', align: 'center', width: 70 }]
         .concat(columns);
     table.editActions = [{
       id: TABLE_SUBSET_ACTION, label: 'Create subset', requiresChanges: true
@@ -755,7 +756,7 @@ var svc = {
   },
 
   /**
-   * Create a subset with the rows left checked in the 'Include' column.
+   * Create a subset with the rows left checked in the 'Selected' column.
    * request: { actionId, edits: [{ rowId, columnId, value }] } (changed cells)
    */
   async executeTableViewerEditAction(context, request) {
