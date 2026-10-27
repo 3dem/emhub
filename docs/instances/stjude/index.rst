@@ -241,13 +241,24 @@ Transfer and delivery
       movies with ``rsync --remove-source-files``, metadata files are copied.
     * After each batch it updates ``extra.raw`` (movies count, last creation
       times) and logs the transfer size and speed.
-    * It finishes when no new files arrived for 3 days, removing the frames
-      folder if it is empty.
+    * It finishes when the last file of the frames or raw folder is older
+      than 24 hours (``TRANSFER_STOP_WAIT``), removing the frames folder if
+      it is empty.
 
 **deliver** (transfer worker)
     Rsync of the raw folder to the lab storage (``raw.jude_group_folder``,
     with ``raw.jude_group_mapping``), every 1 to 10 minutes, updating
-    ``extra.jude.last_delivered``. It finishes after 3 idle days.
+    ``extra.jude.last_delivered``. It finishes 24 hours after the last rsync
+    that delivered files (task arg ``wait`` in seconds), but not while
+    rsync is failing.
+
+Both tasks add a ``summary`` (JSON) to their log events: total files and
+size, average speed, last transfer, idle minutes, pending files, rsync
+errors, the estimated closing time and a state (``active``, ``waiting``, or
+``stalled`` with pending files or rsync errors and no transfer for 30
+minutes). It is sent with the events of each rsync and, when idle, at most
+every 10 minutes; the Workers > Sessions page shows it in the Progress
+column.
 
 **monitor** (only when an existing raw folder is given)
     Scans the raw folder and updates ``extra.raw``, without transfer.
