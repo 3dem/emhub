@@ -221,6 +221,16 @@ export function normalizeServiceAPI(srv: any): ProjectService {
   ensureFn("saveProtocol", async () => { throw createMissingServiceMethodError("saveProtocol"); });
   ensureFn("resolveAnalyzeViewer", async () => ({ handled: false } as any));
   ensureFn("getNextProtocolSuggestions", async () => []);
+  // Without host support no confirmation is needed: continue/restart go through executeProtocol
+  ensureFn("getProtocolWorkflowExecutionPreflight", async (_projectId: any, protocolId: any, mode: any) => ({
+    protocolId: String(protocolId),
+    mode,
+    requiresConfirmation: false,
+    selectedProtocol: null,
+    affectedProtocols: [],
+    activeProtocolIds: [],
+  }));
+  ensureFn("executeProtocolWorkflow", async () => { throw createMissingServiceMethodError("executeProtocolWorkflow"); });
   ensureFn("getContextMenuVisibilityPolicy", async () => ({}));
   ensureFn("fetchProjectThumbnailItems", async () => []);
   ensureFn("fetchWorkflows", async () => []);

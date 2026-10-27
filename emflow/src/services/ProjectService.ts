@@ -671,6 +671,7 @@ export type TableViewerCellContext =
 export type TableViewerColumn = {
   id: string;
   label: string;
+  /** Ignored: the TableViewer aligns every header and cell left. */
   align?: "left" | "center" | "right";
   width?: number | string;
   sortable?: boolean;
