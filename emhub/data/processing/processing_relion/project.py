@@ -20,6 +20,7 @@ from glob import glob
 import numpy as np
 import base64
 from collections import defaultdict
+from functools import cached_property
 from datetime import datetime, timedelta
 
 import mrcfile
@@ -45,9 +46,10 @@ STATUS_MAP = {
     'Saved': 'saved',
 }
 
-# Volume of each class of a Relion 3D classification (e.g. run_it025_class003.mrc)
+# Volume of each class of a Relion 3D classification or initial model (e.g. run_it025_class003.mrc)
 _CLASS_VOLUME = re.compile(r'_class(\d+)\.mrc$')
-_CLASS3D_JOBTYPES = ('relion.class3d', 'relion.class3d.tomo')
+_CLASS3D_JOBTYPES = ('relion.class3d', 'relion.class3d.tomo',
+                     'relion.initialmodel', 'relion.initialmodel.tomo')
 
 
 def _output_prefix(job, output_id):
@@ -77,26 +79,52 @@ class RelionSessionData(SessionData):
         # Workflow is now accessed via the project
         # self.workflow = RelionStar.pipeline_to_workflow(self.join('default_pipeline.star'))
         self._load_project()
-        self.movDataTable = None
-        self.micDataTable = None
 
-        def _session_path(key):
-            if key in self.session:
-                sp = self.join(self.session[key])
-                if os.path.exists(sp):
-                    return sp
-            return None
+    def _session_path(self, key):
+        if key in self.session:
+            sp = self.join(self.session[key])
+            if os.path.exists(sp):
+                return sp
+        return None
 
-        if movies := _session_path('movies'):
+    # The session movies and micrographs (OTF projects with session.json) are
+    # read when used (e.g. stats), not on every load: they are big STAR files
+    @cached_property
+    def _sessionMovies(self):
+        table = None
+        if movies := self._session_path('movies'):
             with StarFile(movies) as sf:
-                self.movDataTable = sf.getTable('movies')
-                self.movDataDict = {r.rlnImageId: r for r in self.movDataTable} if self.movDataTable else {}
+                table = sf.getTable('movies')
+        return table, {r.rlnImageId: r for r in table} if table else {}
 
-        if micrographs := _session_path('micrographs'):
+    @cached_property
+    def _sessionMicrographs(self):
+        optics = table = None
+        if micrographs := self._session_path('micrographs'):
             with StarFile(micrographs) as sf:
-                self.micOpticsTable = sf.getTable('optics')
-                self.micDataTable = sf.getTable('micrographs')
-                self.micDataDict = {r.rlnImageId: r for r in self.micDataTable} if self.micDataTable else {}
+                optics = sf.getTable('optics')
+                table = sf.getTable('micrographs')
+        return optics, table, {r.rlnImageId: r for r in table} if table else {}
+
+    @property
+    def movDataTable(self):
+        return self._sessionMovies[0]
+
+    @property
+    def movDataDict(self):
+        return self._sessionMovies[1]
+
+    @property
+    def micOpticsTable(self):
+        return self._sessionMicrographs[0]
+
+    @property
+    def micDataTable(self):
+        return self._sessionMicrographs[1]
+
+    @property
+    def micDataDict(self):
+        return self._sessionMicrographs[2]
 
     def __str__(self):
         return f"RelionSessionData(path={self.path}, session={self.session})"

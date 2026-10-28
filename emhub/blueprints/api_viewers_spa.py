@@ -755,6 +755,9 @@ def build_classes3d_table(full_path):
 
     spec = SPA_TABLE_VIEW_SPECS['classes3d']
     model_star = _iteration_star(full_path, '_model.star')
+    # Refine3D iterations only have the models of the half sets
+    if not os.path.exists(model_star):
+        model_star = _iteration_star(full_path, '_half1_model.star')
     data_star = _iteration_star(full_path, '_data.star')
 
     with StarFile(model_star) as sf:
