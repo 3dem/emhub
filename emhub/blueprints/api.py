@@ -60,7 +60,7 @@ from emhub.data.processing import (resolve_project_root, resolve_processing_path
                                    project_file_path)
 from .api_viewers import *
 from .api_viewers_spa import (resolve_spa_table_view_type, build_spa_table,
-                              build_spa_pane_content)
+                              build_spa_pane_content, create_classes_subset)
 
 
 def _em_image_listing_fields(file_path):
@@ -879,6 +879,27 @@ def create_tomo_subset():
             subset_items,
             attrs=attrs,
         )
+
+    return _handle_item(_handle, 'subsetResult')
+
+
+@api_bp.route('/create_classes_subset', methods=['POST'])
+@flask_login.login_required
+def create_classes_subset_job():
+    """ Launch an emw-subset-classes job with the particles of the given
+    classes (subsetItems, class ids) of a 3D classification iteration
+    (starPath, its optimiser STAR), if the current user may change the
+    project (see _check_can_edit_processing). """
+    def _handle(**attrs):
+        root = resolve_project_root(attrs['root'])
+        _check_can_edit_processing(root, attrs.get('entry_id'), attrs.get('session_id'))
+        star_path = attrs.get('starPath') or attrs.get('outputPath')
+        if not star_path:
+            raise Exception('Missing starPath / outputPath for the classes file')
+        subset_items = attrs.get('subsetItems') or []
+        if not isinstance(subset_items, list):
+            raise Exception('subsetItems must be a list')
+        return create_classes_subset(root, star_path, subset_items)
 
     return _handle_item(_handle, 'subsetResult')
 
