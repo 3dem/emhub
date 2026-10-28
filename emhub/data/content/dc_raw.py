@@ -270,6 +270,16 @@ def register_content(dc):
     def test_widget(**kwargs):
         return {}
 
+    def _get_project_widget_processing(**kwargs):
+        """ Same as processing_content, but without its workflow list, not
+        used by the widget (it uses the protocols from get_workflow(widget=True))
+        and slow to build for large projects (info.json of every job). """
+        ppDict = dc.app.dm.get_processing_project(**kwargs)
+        return {
+            'processing_project': ppDict['project'],
+            'get_project_args': ppDict['args']
+        }
+
     def _get_project_widget_data(data, project_id, project_path, entry_extra=None):
         """ Add the data needed by the project widget (project_widget.html)
         to the processing content data of a project. """
@@ -309,7 +319,7 @@ def register_content(dc):
         if entry is None:
             raise Exception(f"Unexisting tomo project with id: {project_id}")
         project_path = entry.extra['data'].get('processing_path', '')
-        data = dc.get_data('processing_content', **kwargs)
+        data = _get_project_widget_processing(**kwargs)
         pm = data['processing_project'].project
         # Labels (tags) are stored in the project folder (.emhub/labels.json).
         # Migrate old labels stored in the entry's extra (DB) if needed.
@@ -336,7 +346,7 @@ def register_content(dc):
         if not path or get_processing_type(path) == 'unknown':
             raise Exception(f"No processing project found in the session "
                             f"OTF folder: '{session.data_path}'")
-        data = dc.get_data('processing_content', session_id=session_id)
+        data = _get_project_widget_processing(session_id=session_id)
         project_path = data['processing_project'].path
         data['session'] = session
         data = _get_project_widget_data(data, session_id, project_path)

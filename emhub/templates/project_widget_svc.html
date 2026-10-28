@@ -290,6 +290,10 @@ async function loadTableViewData(starPath, pointerClass) {
 // which a subset can be created (create_tomo_subset, emw-subset-ts job)
 var TABLE_SUBSET_CLASSES = ['TiltSeriesMovies', 'TiltSeries', 'TiltSeriesAligned', 'Tomograms',
                             'TomoCoordinates', 'TomoParticles'];
+// Tables of classes (rows are classes) from which a subset with the particles
+// of the selected classes can be created (create_classes_subset,
+// emw-subset-classes job)
+var TABLE_CLASSES_SUBSET_CLASSES = ['Classes3D'];
 var TABLE_INCLUDE_COL = 'include';
 var TABLE_SUBSET_ACTION = 'create-subset';
 
@@ -299,6 +303,8 @@ var TABLE_METADATA_ACTION = 'star-metadata';
 
 // Row ids of the loaded tables, by output path (to build subsets)
 var tableViewRowIds = {};
+// Particles of each class (row id) of the loaded classes tables, by output path
+var tableViewRowParticles = {};
 
 function renameTableActions(actions) {
   return (actions || []).map(function (action) {
@@ -307,7 +313,8 @@ function renameTableActions(actions) {
 }
 
 function adaptTableViewData(tableViewData, outputPath, pointerClass) {
-  var withSubset = TABLE_SUBSET_CLASSES.includes(pointerClass);
+  var withSubset = TABLE_SUBSET_CLASSES.includes(pointerClass)
+      || TABLE_CLASSES_SUBSET_CLASSES.includes(pointerClass);
   var columns = (tableViewData.columns || []).map(function (column) {
     return { ...column, actions: renameTableActions(column.actions) };
   });
@@ -332,6 +339,10 @@ function adaptTableViewData(tableViewData, outputPath, pointerClass) {
       id: TABLE_SUBSET_ACTION, label: 'Create subset', requiresChanges: true
     }];
     tableViewRowIds[outputPath] = rows.map(function (row) { return String(row.id); });
+    tableViewRowParticles[outputPath] = {};
+    rows.forEach(function (row) {
+      tableViewRowParticles[outputPath][String(row.id)] = Number(row.cells.particles) || 0;
+    });
   }
   return table;
 }
@@ -354,6 +365,38 @@ async function buildTableViewerAnalyzeDecision(ctx, pointerClass) {
       protocolLabel: ctx.protocolLabel,
     },
     table: adaptTableViewData(tableViewData, outputPath, pointerClass),
+  };
+}
+
+// Launch an emw-subset-classes job with the particles of the selected classes
+// (request.subsetItems, the class ids)
+async function createClassesSubset(request) {
+  var particles = tableViewRowParticles[request.outputPath] || {};
+  var n = request.subsetItems.reduce(function (total, id) {
+    return total + (particles[id] || 0);
+  }, 0);
+
+  var subsetResult = null;
+  await handleRequestData(
+    Api.urls.create_classes_subset,
+    {
+      root: project_details.path,
+      entry_id: project_details.id,   // whose project the user must be able to edit
+      starPath: request.outputPath,
+      subsetItems: request.subsetItems,
+    },
+    function (data) {
+      subsetResult = data.subsetResult;
+    },
+  );
+
+  if (!subsetResult)
+    return { success: false, message: 'Could not create subset.' };
+
+  return {
+    ...subsetResult,
+    message: subsetResult.message + ': ' + n.toLocaleString() + ' particles',
+    clearEdits: Boolean(subsetResult.success),
   };
 }
 
@@ -486,7 +529,7 @@ var svc = {
 
     if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles' ||
         pointerClass === 'Movies' || pointerClass === 'Micrographs' || pointerClass === 'MultiClasses2D' ||
-        pointerClass === 'Particles') {
+        pointerClass === 'Particles' || pointerClass === 'Classes3D') {
       return buildTableViewerAnalyzeDecision(ctx, pointerClass);
     }
 
@@ -697,6 +740,7 @@ var svc = {
       starFile: 'starFilePath',
       alignedStack: 'alignedStackPath',
       tomogram: 'tomogramPath',
+      volume: 'volumePath',
     };
     var pathRel = '';
 
@@ -775,6 +819,9 @@ var svc = {
     };
     if (request.subsetItems.length === 0)
       return { success: false, message: 'Select at least one item for the subset.' };
+
+    if (TABLE_CLASSES_SUBSET_CLASSES.includes(request.pointerClass))
+      return await createClassesSubset(request);
 
     var subsetResult = null;
     var sourcePath = request.outputPath || request.starPath || '';
