@@ -13,9 +13,11 @@ EMhub implements the service in three templates:
 
 The dev pages use `dev/fakeService.js` (same fake project; open any output
 with `?tomoTable` in the url to get a fake Tomograms table viewer with the
-TS / Tomogram icon column; its tilt-series icon opens a fake `2x2`
-grid, with `&gridLayout=<layout>` for the other layouts). Update it when the
-contract changes.
+Selected column, Create subset and the TS / Tomogram icon column; its tilt-series icon opens a fake `2x2`
+grid, with `&gridLayout=<layout>` for the other layouts; `?tomoTable=coords`
+gives a TomoCoordinates table whose tomogram icon shows particles on the
+slices). Actions take 0.7 s there, to show the pane's loading state. Update
+it when the contract changes.
 
 ## Methods by area
 
@@ -30,6 +32,8 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | Protocol | `fetchProtocolDetails(projectId, protocolId)` -> `{info, form, values}` | demo | ProjectPage |
 | | `fetchNewProtocolDetails(projectId, protocolClass)` | demo | ProjectPage |
 | | `executeProtocol(projectId, protocolId, className, params, mode)` (`launch` / `restart` / `schedule` / `stop`) -> `{status, errors, workflow}` | throws "missing method" | ProtocolForm |
+| | `getProtocolWorkflowExecutionPreflight(projectId, protocolId, mode)` (`continue` / `restart`) -> `{protocolId, mode, requiresConfirmation, affectedProtocols, activeProtocolIds}`; asks whether to run only this protocol or its downstream workflow | `requiresConfirmation: false` (falls back to `executeProtocol`) | ProtocolForm |
+| | `executeProtocolWorkflow(projectId, protocolId, className, params, mode, scope)` (`single` / `all`), only called after a preflight with `requiresConfirmation` | throws "missing method" | ProtocolForm |
 | | `saveProtocol(projectId, protocolId, className, params)` | throws | ProtocolForm |
 | | `stopProtocol`, `deleteProtocol(projectId, ids)`, `duplicateProtocol(projectId, items)` -> `{status, errors, workflow, duplicated}`, `renameProtocol(projectId, protocolId, {runName, comment})` | - | ProjectPage |
 | | `restartAll`, `continueAll`, `resetFrom` | - | ProjectPage (menu shortcuts) |
@@ -82,7 +86,7 @@ EMhub (`project_widget_svc.html`) returns `viewer: "table"` for
 context: TableViewerContext = { projectId, protocolId, outputName, pointerClass?, tableKey?,
                                 ...extra }   // extra fields are passed back untouched
 table: TableViewerData = {
-  title?, columns: [{id, label, align?, width?, actions?}],   // action: {id, label, icon?, disabled?}
+  title?, columns: [{id, label, align?, width?, sortable?, actions?}],   // action: {id, label, icon?, disabled?}
   rows: [{id, cells: {colId: value}, data?, actions?, defaultAction?,
           cellContexts?: {colId: {edit?: {type: "boolean", field}, actions?, children?}},
           children?}],
@@ -123,19 +127,23 @@ EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
 - copies `row.cells` to `row.data` (sent back to `resolve_table_view_pane`
   as `row.cells`);
 - renames the server's `metadata` action to `star-metadata` and maps it back;
-- for `TiltSeries`, `TiltSeriesAligned` and `Tomograms` the server sends the
-  columns Tomo name, Metadata, **TS / Tomogram** (`tsTomo`) and **Plots**
-  (`plots`). `tsTomo` has per-row icon actions: `ts-view` (`tilt-series`:
+- for `TiltSeries`, `TiltSeriesAligned`, `Tomograms` and `TomoCoordinates`
+  the server sends the columns Tomo name, Metadata, (TomoCoordinates only:
+  **Coordinates**, `nCoords`) and **TS / Tomogram** (`tsTomo`); Tomo name
+  and Coordinates are `sortable`. `tsTomo`
+  has per-row icon actions: `ts-view` (`tilt-series`:
   a `2x2` grid: slices of the aligned stack, or of the tilt images of the
   series STAR sorted by tilt angle, | tilt angles (dose vs tilt angle);
   motion | defocus (µm) plots; each cell an `empty` message if it fails) and `tomo-view` (`tomogram`, only rows with a tomogram: X/Y/Z volume
-  slices). `plots` holds the row actions (tilt angles, motion, defocus...),
-  so these rows have no `...` menu (spec `row_actions_column` in
-  `api_viewers.py`);
-- for tilt-series / tomogram tables adds an **Include** boolean column (merged
-  into the row's `cellContexts`) and a
-  **Create subset** edit action, executed with `create_tomo_subset`
-  (rows left checked); keeps the row ids per output path.
+  slices, with the row's particle `coordinates` for TomoCoordinates). The
+  plots are in the grid, so these rows have no row actions (spec
+  `hide_row_actions` in `api_viewers.py`);
+- for tilt-series / tomogram / TomoCoordinates / TomoParticles tables adds a
+  **Selected** boolean column (id `include`, merged into the row's
+  `cellContexts`) and a **Create subset** edit action, executed with
+  `create_tomo_subset` (rows left checked; an `emw-subset-ts` job, which for
+  an `optimisation_set.star` writes the tomograms and their particles, both
+  registered as outputs); keeps the row ids per output path.
 
 History: before ScipionWeb `d4d9c01` the protocol was `viewer:
 "table-viewer-pane"` with `tableViewContext`/`tableViewData`,

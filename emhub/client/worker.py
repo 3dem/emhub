@@ -34,6 +34,7 @@ from emtools.utils import Pretty, Process, Path, Color, System
 from emtools.metadata import EPU
 
 from emhub.client import open_client, config, DataClient
+from emhub.utils.python_env import python_env_rows
 
 
 def create_logger(self, logsFolder, logName, debug=True, toFile=True):
@@ -380,11 +381,14 @@ class Worker:
         """ Login and connect this worker to the server, retrying until the
         server is available (e.g. if it is down when the worker starts). """
         wait = 5  # seconds, doubled until max 60
+        # Python environment, shown in the Workers page (Config)
+        python = python_env_rows()
         while True:
             try:
                 self._login()
                 self.token = self.request('connect_worker',
-                                          {'worker': self.name, 'specs': System.specs()},
+                                          {'worker': self.name, 'specs': System.specs(),
+                                           'python': python},
                                           key='token')
                 if self.token is not None:
                     self.info("Connected to EMhub.")

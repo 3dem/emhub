@@ -13,8 +13,49 @@
 
 </div>
 
+<!-- Python environment of a worker (filled by showWorkerConfig) -->
+<div class="modal fade" id="worker-config-modal" tabindex="-1" role="dialog" aria-labelledby="worker-config-title" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="worker-config-title">Python Environment</h4>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered" style="width:100%">
+                        <thead>
+                        <tr><th>Option</th><th>Value</th><th>Status</th><th>Details</th></tr>
+                        </thead>
+                        <tbody id="worker-config-rows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <script>
+    // Same badges as the EMhub Configuration page (emwrap_config.html)
+    var configBadges = {ok: 'success', warning: 'warning', error: 'danger'};
+
+    function showWorkerConfig(button) {
+        var rows = JSON.parse(button.dataset.python);
+        var tbody = $('#worker-config-rows').empty();
+        rows.forEach(function(row) {
+            var badge = $('<span class="badge">').addClass('badge-' + (configBadges[row.status] || 'secondary')).text(row.status);
+            $('<tr>').append(
+                $('<td>').append($('<strong>').text(row.label)),
+                $('<td>').append($('<code>').text(row.value)),
+                $('<td>').append(badge),
+                $('<td>').text(row.details)
+            ).appendTo(tbody);
+        });
+        $('#worker-config-title').text('Python Environment: ' + button.dataset.hostname);
+        $('#worker-config-modal').modal('show');
+    }
+
     var reload = 30;
     var reload_counter = reload;  // 60 seconds to reload
     var timeOutId = null;

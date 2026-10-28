@@ -38,15 +38,17 @@ from emhub.data.processing import (get_processing_project, resolve_project_root,
 
 # --- Shared table column / field / action definitions ---
 
-_TOMO_NAME_COL = {'id': 'tomoName', 'label': 'Tomo name', 'align': 'left'}
+# 'sortable' columns can be sorted (over the loaded rows) in the TableViewer
+_TOMO_NAME_COL = {'id': 'tomoName', 'label': 'Tomo name', 'align': 'left',
+                  'sortable': True}
 _STAR_FILE_COL = {'id': 'starFile', 'label': 'Metadata', 'align': 'left'}
 _PIXEL_SIZE_COL = {'id': 'pixelSize', 'label': 'Pixel size (Å/px)', 'align': 'right'}
 _TS_PIXEL_SIZE_COL = {'id': 'tsPixelSize', 'label': 'TS pixel size (Å/px)', 'align': 'right'}
 _ALIGNED_STACK_COL = {'id': 'alignedStack', 'label': 'Aligned stack', 'align': 'left'}
 _TOMOGRAM_COL = {'id': 'tomogram', 'label': 'Tomogram', 'align': 'left'}
-_NCOORDS_COL = {'id': 'nCoords', 'label': 'Coordinates', 'align': 'right'}
+_NCOORDS_COL = {'id': 'nCoords', 'label': 'Coordinates', 'align': 'right',
+                'sortable': True}
 _TS_TOMO_COL = {'id': 'tsTomo', 'label': 'TS / Tomogram', 'align': 'left', 'width': 110}
-_PLOTS_COL = {'id': 'plots', 'label': 'Plots', 'align': 'left'}
 
 _TILT_SERIES_GLOBAL_CELL_FIELDS = {
     'tomoName': 'rlnTomoName',
@@ -168,22 +170,25 @@ def _tilt_series_table_spec(
     if with_ts_tomo:
         # The stack, tomogram and pixel size cells are still read (for the
         # icon actions), but only shown through the 'TS / Tomogram' icons;
-        # the row actions (plots) get their own column
-        spec['columns'] = [_TOMO_NAME_COL, _STAR_FILE_COL, _TS_TOMO_COL, _PLOTS_COL]
-        spec['row_actions_column'] = _PLOTS_COL['id']
+        # the plots are in the tilt series grid, so no row actions
+        spec['columns'] = [_TOMO_NAME_COL, _STAR_FILE_COL, _TS_TOMO_COL]
+        spec['hide_row_actions'] = True
     return spec
 
 
 def _tomocoordinates_table_spec():
-    """Table spec for optimisation_set.star (tomograms + particles coordinates)."""
+    """Table spec for optimisation_set.star (tomograms + particles coordinates),
+    as the Tomograms one plus the number of coordinates; its tomogram icon
+    shows the coordinates on the slices."""
     spec = _tilt_series_table_spec(
         'Tomo coordinates',
         with_ts_pixel_size=True,
         with_aligned_stack=True,
         with_tomogram=True,
+        with_ts_tomo=True,
         computed_cell_fields={'pixelSize': _format_tomo_pixel_size},
     )
-    spec['columns'].insert(1, _NCOORDS_COL)
+    spec['columns'].insert(2, _NCOORDS_COL)
     return spec
 
 
@@ -392,12 +397,9 @@ def _table_view_cell_contexts(spec, row_cells):
 
 
 def _table_view_row(spec, type_key, row_id, row_cells, root=None):
-    actions = _table_view_row_actions(spec, type_key, row_cells, root)
+    actions = ([] if spec.get('hide_row_actions')
+               else _table_view_row_actions(spec, type_key, row_cells, root))
     cell_contexts = _table_view_cell_contexts(spec, row_cells)
-    # Row actions shown in a column instead of the row '...' menu
-    if (actions_column := spec.get('row_actions_column')) and actions:
-        cell_contexts[actions_column] = {'actions': actions}
-        actions = []
     row = {'id': row_id, 'cells': row_cells, 'actions': actions}
     if cell_contexts:
         row['cellContexts'] = cell_contexts

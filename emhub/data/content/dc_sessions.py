@@ -113,6 +113,10 @@ def register_content(dc):
     def session_live(**kwargs):
         session = dc.app.dm.get_session_by(id=kwargs['session_id'])
         otf = session.extra['otf']
+        if not session.data_path:
+            raise Exception(f"Session '{session.name}' has no OTF project yet "
+                            f"(OTF workflow: {otf.get('workflow', 'None')}, "
+                            f"status: {otf.get('status') or 'not created'}).")
         data = {'s': session}
 
         if 'tomo' in otf:

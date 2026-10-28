@@ -1,4 +1,7 @@
-import { Box, Typography } from "@mui/material";
+import { useState } from "react";
+import { Box, IconButton, Tooltip, Typography } from "@mui/material";
+import CloseFullscreenIcon from "@mui/icons-material/CloseFullscreen";
+import OpenInFullIcon from "@mui/icons-material/OpenInFull";
 
 import type {
     TableViewerGridContent,
@@ -73,11 +76,16 @@ function GridCellMessage({ message }: { message: string }) {
 function GridCell({
     slot,
     content,
+    expanded,
+    onToggleExpand,
 }: {
     slot: TableViewerGridSlot;
     content?: TableViewerPaneContent;
+    expanded: boolean;
+    onToggleExpand: () => void;
 }) {
     const title = content?.title;
+    const expandLabel = expanded ? "Collapse" : "Expand";
 
     return (
         <Box
@@ -93,24 +101,46 @@ function GridCell({
                 overflow: "hidden",
             }}
         >
-            {title && (
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    pl: 1.25,
+                    pr: 0.25,
+                    minHeight: 26,
+                    borderBottom: "1px solid #eef2f7",
+                    flexShrink: 0,
+                }}
+            >
                 <Typography
                     sx={{
-                        px: 1.25,
-                        py: 0.5,
+                        flex: 1,
+                        minWidth: 0,
                         fontSize: "0.72rem",
                         fontWeight: 600,
                         color: "#334155",
-                        borderBottom: "1px solid #eef2f7",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        flexShrink: 0,
                     }}
                 >
                     {title}
                 </Typography>
-            )}
+                <Tooltip title={expandLabel}>
+                    <IconButton
+                        size="small"
+                        aria-label={expandLabel}
+                        onClick={onToggleExpand}
+                        sx={{ p: 0.4, color: "#64748b" }}
+                    >
+                        {expanded ? (
+                            <CloseFullscreenIcon sx={{ fontSize: 14 }} />
+                        ) : (
+                            <OpenInFullIcon sx={{ fontSize: 14 }} />
+                        )}
+                    </IconButton>
+                </Tooltip>
+            </Box>
 
             <Box sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
                 {!content ? null : isGenericTableViewerContent(content) ? (
@@ -135,14 +165,36 @@ function GridCell({
 
 /**
  * Up to 4 panes in a 2 x 2 grid, a pane may span two columns or two rows
- * (see TableViewerGridLayout).
+ * (see TableViewerGridLayout). Each pane can be expanded to the whole grid.
+ * Pass expandedSlot / onExpandedSlotChange to keep the expanded pane when the
+ * grid content changes (e.g. another row); otherwise it is kept internally.
  */
 export default function TableViewerGrid({
     content,
+    expandedSlot,
+    onExpandedSlotChange,
 }: {
     content: TableViewerGridContent;
+    expandedSlot?: TableViewerGridSlot | null;
+    onExpandedSlotChange?: (slot: TableViewerGridSlot | null) => void;
 }) {
-    const layout = GRID_LAYOUTS[content.layout] ?? GRID_LAYOUTS["2x2"];
+    const [ownExpandedSlot, setOwnExpandedSlot] =
+        useState<TableViewerGridSlot | null>(null);
+    const isControlled = onExpandedSlotChange !== undefined;
+    const requestedSlot = isControlled ? expandedSlot ?? null : ownExpandedSlot;
+    const setExpandedSlot = isControlled
+        ? onExpandedSlotChange
+        : setOwnExpandedSlot;
+
+    const fullLayout = GRID_LAYOUTS[content.layout] ?? GRID_LAYOUTS["2x2"];
+    // A slot not in this layout (another grid) shows the whole grid
+    const expanded =
+        requestedSlot && fullLayout.slots.includes(requestedSlot)
+            ? requestedSlot
+            : null;
+    const layout = expanded
+        ? { areas: [expanded], slots: [expanded] }
+        : fullLayout;
     const nCols = layout.areas[0].split(" ").length;
 
     return (
@@ -163,9 +215,14 @@ export default function TableViewerGrid({
         >
             {layout.slots.map((slot) => (
                 <GridCell
-                    key={slot}
+                    // Remount when expanding/collapsing so plots fit the new size
+                    key={`${slot}-${expanded ? "expanded" : "grid"}`}
                     slot={slot}
                     content={content.cells[slot]}
+                    expanded={expanded === slot}
+                    onToggleExpand={() =>
+                        setExpandedSlot(expanded === slot ? null : slot)
+                    }
                 />
             ))}
         </Box>

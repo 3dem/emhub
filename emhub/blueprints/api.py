@@ -809,7 +809,7 @@ def get_table_view_data():
         if spa_key := resolve_spa_table_view_type(pointer_class, full_path):
             return build_spa_table(full_path, spa_key)
 
-        type_key = resolve_table_view_type(pointer_class, star_path)
+        type_key = resolve_table_view_type(pointer_class, full_path)
         if type_key == 'tomocoordinates':
             return build_tomocoordinates_table(star_path, root=root)
         if type_key:
@@ -960,6 +960,24 @@ def tomo_otf_save_selection():
     return _handle_item(_handle, 'selection')
 
 
+def _table_view_tomo_coordinates(attrs, root, type_key, row_cells, row_label):
+    """ Coordinates of a TomoCoordinates row's tomogram, to show on its
+    slices; None for the other tables. """
+    if type_key != 'tomocoordinates':
+        return None
+    from emhub.data.coords3d import load_tomogram_card_coordinates
+
+    output_path = (
+        attrs.get('outputPath')
+        or attrs.get('path')
+        or attrs.get('starPath')
+    )
+    if not output_path:
+        raise Exception('Missing optimisation_set.star output path')
+    tomo_name = row_cells.get('tomoName') or row_label
+    return load_tomogram_card_coordinates(root, output_path, tomo_name)
+
+
 @api_bp.route('/resolve_table_view_pane', methods=['POST'])
 @flask_login.login_required
 def resolve_table_view_pane():
@@ -980,7 +998,11 @@ def resolve_table_view_pane():
                                           row_label=attrs.get('rowLabel'))
 
         type_hint_path = resolve_table_view_type_hint(attrs, row_cells)
-        type_key = resolve_table_view_type(pointer_class, type_hint_path)
+        # The full path, to detect the type from the file content
+        # (e.g. an optimisation_set.star of TomoParticles)
+        type_key = resolve_table_view_type(
+            pointer_class,
+            project_file_path(root, type_hint_path) if type_hint_path else None)
         if not type_key:
             raise Exception(f'Unsupported table view type: {pointer_class or type_hint_path}')
 
@@ -1003,7 +1025,9 @@ def resolve_table_view_pane():
                 if not tomo_rel:
                     raise Exception('Missing tomogram path')
                 return build_tomogram_volume_slider_pane_content(
-                    root, tomo_rel, title=f'Tomogram — {row_label}')
+                    root, tomo_rel, title=f'Tomogram — {row_label}',
+                    coordinates=_table_view_tomo_coordinates(
+                        attrs, root, type_key, row_cells, row_label))
             return build_tilt_series_grid_pane_content(
                 root, row_cells, resolve_row_star_path(attrs, row_cells), row_label)
 
@@ -1029,28 +1053,12 @@ def resolve_table_view_pane():
                 raise Exception(
                     f'Action {action_id!r} is not supported for {type_key}'
                 )
-            coordinates = None
-            if type_key == 'tomocoordinates':
-                from emhub.data.coords3d import load_tomogram_card_coordinates
-
-                output_path = (
-                    attrs.get('outputPath')
-                    or attrs.get('path')
-                    or attrs.get('starPath')
-                )
-                if not output_path:
-                    raise Exception('Missing optimisation_set.star output path')
-                tomo_name = row_cells.get('tomoName') or row_label
-                coordinates = load_tomogram_card_coordinates(
-                    root,
-                    output_path,
-                    tomo_name,
-                )
             return build_tomogram_volume_slider_pane_content(
                 root,
                 tomo_rel,
                 title=tomo_rel,
-                coordinates=coordinates,
+                coordinates=_table_view_tomo_coordinates(
+                    attrs, root, type_key, row_cells, row_label),
                 ortho=bool(attrs.get('ortho')),
             )
 
@@ -1594,7 +1602,7 @@ def connect_worker():
     def _connect_worker(**attrs):
         worker = attrs['worker']
         specs = attrs['specs']
-        app.dm.connect_worker(worker, specs)
+        app.dm.connect_worker(worker, specs, python=attrs.get('python'))
         return get_worker_token(worker)
 
     return _handle_item(_connect_worker, 'token')

@@ -34,7 +34,8 @@ export default function TableViewerGenericContentView({
     fit = false,
 }: {
     content: TableViewerGenericContent;
-    /** Fit image sliders to the container (grid cells). */
+    /** Fit to the container (right pane, grid cells): image sliders shrink
+     * to it, plots use compact margins. */
     fit?: boolean;
 }) {
     switch (content.kind) {
@@ -104,12 +105,22 @@ export default function TableViewerGenericContentView({
                         layout={{
                             ...backendLayout,
                             autosize: true,
-                            margin: {
-                                l: backendMargin.l ?? 72,
-                                r: backendMargin.r ?? 16,
-                                t: content.title ? 40 : (backendMargin.t ?? 16),
-                                b: backendMargin.b ?? 56,
-                            },
+                            // Fitted (grid cells): small margins and font,
+                            // so the plot area is not squeezed
+                            margin: fit
+                                ? {
+                                    l: 52,
+                                    r: 8,
+                                    t: content.title ? 32 : 8,
+                                    b: 40,
+                                }
+                                : {
+                                    l: backendMargin.l ?? 72,
+                                    r: backendMargin.r ?? 16,
+                                    t: content.title ? 40 : (backendMargin.t ?? 16),
+                                    b: backendMargin.b ?? 56,
+                                },
+                            ...(fit ? { font: { size: 10 } } : {}),
                             title: content.title ?? backendLayout.title,
                         }}
                         config={{
