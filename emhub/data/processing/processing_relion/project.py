@@ -183,28 +183,62 @@ class RelionSessionData(SessionData):
             return ''
         return '/'.join(micrographs.split('/')[:-1])
 
-    def _job_info(self, job):
-        # Only the runs are used (elapsed time), cached in project.json
-        return {'runs': self.project.getJobRuns(job)}
+    def _job_timing(self, job):
+        """ Elapsed time of the job runs (cached in project.json from the job
+        info.json), with the total of all runs in seconds, and the time each
+        run waited since it was launched (queued). A run without elapsed is
+        still running if it is the last one of an active job, otherwise its
+        time is unknown (None), e.g. the job was killed. The pending launch
+        is the one that did not start a run yet.
+        """
+        timing = self.project.getJobTiming(job)
+        runs = timing['runs']
+        launched = timing.get('launched') or ''
+        lastStart = (runs[-1].get('start') or '') if runs else ''
+        # Times have the same sortable format. Before runs stored their own
+        # launch time, the last launch was kept after the run started.
+        if launched and lastStart >= launched:
+            if not runs[-1].get('launched'):
+                runs = runs[:-1] + [dict(runs[-1], launched=launched)]
+            launched = ''
+        status = job['status']
+        # While Launched, the last run is the current one if no launch is pending
+        active = status == 'Running' or (status == 'Launched' and not launched)
+        now = datetime.now()
 
-    def _job_elapsed(self, jobInfo):
-        elapsed = ''
-        if runs := jobInfo.get('runs', None):
-            if e := runs[-1].get('elapsed', ''):
-                elapsed = e.split('.')[0]
-            elif s := runs[-1].get('start', ''):
-                started = Pretty.parse_datetime(s)
-                e = str(datetime.now() - started)
-                elapsed = e.split('.')[0]
+        def _seconds(t1, t2):
+            """ Seconds between two time strings (now if t2 is empty). """
+            t2 = Pretty.parse_datetime(t2) if t2 else now
+            return max(0, int((t2 - Pretty.parse_datetime(t1)).total_seconds()))
 
-        return elapsed
+        def _run_info(run, last):
+            start, end = run.get('start') or '', run.get('end') or ''
+            runLaunched = run.get('launched') or ''
+            info = {'launched': runLaunched, 'start': start, 'end': end,
+                    'queued': _seconds(runLaunched, start) if runLaunched and start else None,
+                    'elapsed': None,
+                    # Only successful runs stored the elapsed before 'status'
+                    'status': run.get('status') or ''}
+            if e := run.get('elapsed'):
+                info['elapsed'] = int(Pretty.parse_timedelta(e).total_seconds())
+                info['status'] = info['status'] or 'finished'
+            elif start and (end or (last and active)):
+                info['elapsed'] = _seconds(start, end)
+                info['status'] = info['status'] or ('' if end else 'running')
+            return info
 
-    def _job_elapsed_seconds(self, jobInfo):
-        seconds = 0
-        if jobElapsed := self._job_elapsed(jobInfo):
-            td = Pretty.parse_timedelta(jobElapsed)
-            seconds = td.days * 24 * 60 * 60 + td.seconds
-        return seconds
+        runsInfo = [_run_info(run, i == len(runs) - 1) for i, run in enumerate(runs)]
+
+        return {
+            'runs': runsInfo,
+            'launched': launched,
+            # Waiting time of the pending launch, up to now. Jobs not run by
+            # emwrap pipelines (e.g. Relion ones) never move it to a run.
+            'queued': _seconds(launched, '') if launched and status == 'Launched' else None,
+            'elapsed': sum(r['elapsed'] or 0 for r in runsInfo),
+            # Changes with every new run, so the UI restarts its local timer
+            'session': runsInfo[-1]['start'] if runsInfo else ''
+        }
 
     def _load_project(self):
         print(f"{Pretty.now()} >>>>>> Loading workflow from {self.path}", flush=True)
@@ -231,7 +265,8 @@ class RelionSessionData(SessionData):
         protList = []
 
         for job in wf.jobs():
-            jobInfo = self._job_info(job)
+            timing = self._job_timing(job)
+            elapsed = Pretty.delta(timedelta(seconds=timing['elapsed'])) if timing['runs'] else ''
             links = []
             for o in job.outputs:
                 for c in o.childs:
@@ -239,7 +274,7 @@ class RelionSessionData(SessionData):
 
             protList.append({
                 'id': job.id,
-                'label': RelionRun.jobAlias(job) + ' ' + self._job_elapsed(jobInfo),
+                'label': RelionRun.jobAlias(job) + ' ' + elapsed,
                 'links': links,
                 'status': STATUS_MAP.get(job['status'], job['status']),
                 'type': job['jobtype']
@@ -275,7 +310,7 @@ class RelionSessionData(SessionData):
             parents = [i.parent.id for i in job.inputs]
             children = []
             outputs = []
-            jobInfo = self._job_info(job)
+            timing = self._job_timing(job)
 
             # FIXME: Find a better way to store the outputs' info without reading many files
             # filesDict = defaultdict(lambda : {'type': 'File', 'info': 'No-info'})
@@ -311,7 +346,11 @@ class RelionSessionData(SessionData):
                 'status': STATUS_MAP.get(job['status'], job['status']),
                 'type': job['jobtype'],
                 "cpuTime": "0",
-                "elapsedTime": self._job_elapsed_seconds(jobInfo),
+                "elapsedTime": timing['elapsed'],
+                "elapsedSessionId": timing['session'],
+                "elapsedRuns": timing['runs'],
+                "launched": timing['launched'],
+                "queued": timing['queued'],
                 "isInteractive": False,
                 "numberOfSteps": 1,
                 "stepsDone": 1,
