@@ -106,6 +106,7 @@ import WizardDialogHost from "./wizards/wizard-dialog-host";
 import { useProtocolWizards } from "./wizards/use_protocol_wizards";
 import { buildWizardUiProps } from "./wizards/protocol_wizard_meta";
 import WizardLoadingDialog from "./wizards/WizardLoadingDialog";
+import { withOutputPrefix } from "@/utils/output_label";
 
 
 type ProtocolFormProps = {
@@ -1243,7 +1244,7 @@ export default function ProtocolForm({
         outputs.push({
           protocol: prot.label ?? prot.protocolName ?? prot.id ?? "Unknown",
           key,
-          info: out?.info ?? "",
+          info: withOutputPrefix(out?.info, out?.prefix),
           paramClass: String(out?.paramClass ?? "PointerParam"),
           pointerClass: String(out?.pointerClass ?? ""),
           value: String(out?.value ?? ""),

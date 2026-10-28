@@ -92,6 +92,7 @@ import { useTagStore } from "@/stores/tag_store";
 import { useProjectService } from "@/ProjectServiceContext";
 import { CloseIcon } from "@/icons";
 import type { NodeMenuItemId, NodeMenuVisibility } from "@/types/protocol-node-menu-items";
+import { withOutputPrefix } from "@/utils/output_label";
 
 const statusColors: Record<string, string> = {
   running: "#FCCE62",
@@ -224,6 +225,7 @@ type NextProtocolSuggestion = {
 type NormalizedOutput = {
   name?: string; // outputKeyNameUsedByBackend
   info?: string;
+  prefix?: string; // shown before the info, see withOutputPrefix
   paramClass: string;
   pointerClass?: string;
   value?: string;
@@ -267,6 +269,7 @@ const normalizeOutputItem = (outputObj: unknown): NormalizedOutput | null => {
             ? flatCandidate.name
             : undefined,
       info: typeof flatCandidate.info === "string" ? flatCandidate.info : undefined,
+      prefix: typeof flatCandidate.prefix === "string" ? flatCandidate.prefix : undefined,
       paramClass: inferredParamClass,
       pointerClass,
       value: typeof flatCandidate.value === "string" ? flatCandidate.value : undefined,
@@ -302,6 +305,7 @@ const normalizeOutputItem = (outputObj: unknown): NormalizedOutput | null => {
         const normalized: NormalizedOutput = {
           name: wrappedName,
           info: typeof wrappedDef.info === "string" ? wrappedDef.info : undefined,
+          prefix: typeof wrappedDef.prefix === "string" ? wrappedDef.prefix : undefined,
           paramClass: inferredParamClass,
           pointerClass,
           value: typeof wrappedDef.value === "string" ? wrappedDef.value : undefined,
@@ -2489,7 +2493,10 @@ export default function ProtocolNodeCard({
 
                           const isDragging = draggingIdx === idx;
 
-                          const labelText = value.info ?? value.name ?? value.pointerClass ?? value.paramClass ?? "Output";
+                          const labelText = withOutputPrefix(
+                            value.info ?? value.name ?? value.pointerClass ?? value.paramClass ?? "Output",
+                            value.prefix,
+                          );
                           const pillKey = value.value ?? `${String(value.parentId ?? "")}:${String(value.name ?? idx)}`;
 
                           const outputName = String(value.name ?? "");
@@ -2554,7 +2561,7 @@ export default function ProtocolNodeCard({
                               pointerClass: value.pointerClass ?? "",
                               _expectedClass: value.pointerClass ?? "",
                               value: value.value ?? "",
-                              info: value.info ?? "",
+                              info: labelText,
                               parentId: value.parentId ?? "",
                               name: value.name ?? "",
                             };

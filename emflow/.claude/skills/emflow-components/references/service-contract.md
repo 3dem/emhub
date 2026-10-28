@@ -16,7 +16,8 @@ with `?tomoTable` in the url to get a fake Tomograms table viewer with the
 Selected column, Create subset and the TS / Tomogram icon column; its tilt-series icon opens a fake `2x2`
 grid, with `&gridLayout=<layout>` for the other layouts; `?tomoTable=coords`
 gives a TomoCoordinates table whose tomogram icon shows particles on the
-slices). Actions take 0.7 s there, to show the pane's loading state. Update
+slices; `?outputPrefix` gives the outputs a label prefix, `Out01`... for
+all but the first output of each protocol). Actions take 0.7 s there, to show the pane's loading state. Update
 it when the contract changes.
 
 ## Methods by area
@@ -54,6 +55,22 @@ When adding a method: declare it in `ProjectService.ts`, add a default in
 `normalizeService.ts` if it is optional, implement it in EMhub's svc template
 (and `dev/fakeService.js`), and add a row here.
 
+## Protocol outputs
+
+Each protocol (in `fetchProject` and in `fetchProtocolDetails` `info`) has
+`outputs: [{outputName, pointerClass, info, value, parentId, prefix?}]`.
+`info` is the output label (e.g. `Volume (112 x 112 x 112)`). `prefix`,
+optional and possibly empty, tells apart outputs of the same kind of a
+protocol: if not empty it is shown before the label,
+`<prefix> - <info>` (`withOutputPrefix` in `src/utils/output_label.ts`):
+in the node card outputs, the Outputs tab (`ProtocolOutputsPanel`), the
+output selector and the selected input of a form (`gatherAllOutputs` in
+`ProtocolForm`), and the dragged output's `info`. EMhub
+(`processing_relion/project.py`, `_output_prefix`) sends `ClassNN` for the
+class volumes of Relion 3D classifications (`relion.class3d`,
+`relion.class3d.tomo`), e.g. `Class01 - Volume (112 x 112 x 112)`, and `''`
+for the other outputs.
+
 ## Analyze decision
 
 When the user clicks an output (eye icon on a node, or "Analyze results" in
@@ -77,7 +94,7 @@ Return one of (`AnalyzeViewerResolveDecision`):
 EMhub (`project_widget_svc.html`) returns `viewer: "table"` for
 `TiltSeriesMovies`, `TiltSeries`, `TiltSeriesAligned`, `Tomograms`,
 `TomoCoordinates`, `TomoParticles`, `Movies`, `Micrographs`,
-`MultiClasses2D`, `Particles` (table built by the server:
+`MultiClasses2D`, `Classes3D`, `Particles` (table built by the server:
 `get_table_view_data`).
 
 ## Table viewer protocol
@@ -144,6 +161,16 @@ EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
   `create_tomo_subset` (rows left checked; an `emw-subset-ts` job, which for
   an `optimisation_set.star` writes the tomograms and their particles, both
   registered as outputs); keeps the row ids per output path.
+- for `Classes3D` (a Relion `run_itNNN_optimiser.star`; rows from the
+  iteration's `_model.star` and particles counted from its `_data.star`) the
+  server sends Class (id from the volume filename), **Volume** (column and
+  default action `volume`: X/Y/Z slices of the class map, `layout: "volume"`)
+  Particles and % Particles (of the total; Class, Particles and % are
+  `sortable`); the adapter adds the same **Selected** column and **Create
+  subset**, executed with `create_classes_subset` (`createClassesSubset`:
+  an `emw-subset-classes` job with the checked class ids, from the
+  iteration's `_optimisation_set.star` if there is one, else its
+  `_data.star`; the toast adds the number of particles of those classes).
 
 History: before ScipionWeb `d4d9c01` the protocol was `viewer:
 "table-viewer-pane"` with `tableViewContext`/`tableViewData`,
