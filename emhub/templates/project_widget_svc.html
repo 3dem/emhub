@@ -19,6 +19,12 @@ var cache = {
     this.lastUpdated = Date.now();
   },
 
+  // Fetch the workflow in the next refresh, e.g. after launching a job
+  // from a viewer (not in project_details until the workflow is fetched)
+  invalidate: function () {
+    this.lastUpdated = 0;
+  },
+
   getAge: function () {
     return Date.now() - this.lastUpdated;
   }
@@ -393,10 +399,15 @@ async function createClassesSubset(request) {
   if (!subsetResult)
     return { success: false, message: 'Could not create subset.' };
 
+  // The new job is shown by the project refresh (refreshProject)
+  if (subsetResult.success)
+    cache.invalidate();
+
   return {
     ...subsetResult,
     message: subsetResult.message + ': ' + n.toLocaleString() + ' particles',
     clearEdits: Boolean(subsetResult.success),
+    refreshProject: Boolean(subsetResult.success),
   };
 }
 
@@ -843,8 +854,13 @@ var svc = {
       },
     );
 
-    if (subsetResult)
-      return { ...subsetResult, clearEdits: Boolean(subsetResult.success) };
+    if (subsetResult) {
+      if (subsetResult.success)
+        cache.invalidate();
+      return { ...subsetResult,
+               clearEdits: Boolean(subsetResult.success),
+               refreshProject: Boolean(subsetResult.success) };
+    }
 
     return {
       success: false,
