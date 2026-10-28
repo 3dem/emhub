@@ -106,7 +106,10 @@ export function createFakeService() {
   return {
     fetchList: async () => [],
 
-    fetchProject: async () => withFakeOutputPrefixes(structuredClone(workflow)),
+    fetchProject: async () => {
+      log("fetchProject");
+      return withFakeOutputPrefixes(structuredClone(workflow));
+    },
 
     fetchProtocolDetails: async (projectId, protocolId) => {
       const data = { info: {}, values: {}, form: {} };
@@ -166,6 +169,7 @@ export function createFakeService() {
         success: true,
         message: `Fake subset without: ${deselected.join(", ") || "none"}`,
         clearEdits: true,
+        refreshProject: true,
       };
     },
     resolveTableViewerAction: async (context, request) => {

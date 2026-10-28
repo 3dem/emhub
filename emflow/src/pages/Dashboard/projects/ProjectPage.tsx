@@ -89,6 +89,7 @@ import TagManager from "@/components/tags/TagManager";
 import type { ProtocolTag } from "@/components/tags/tagTypes";
 import TagsDialog from "@/components/tags/TagsDialog";
 import { NodeMenuVisibility } from "@/types/protocol-node-menu-items";
+import { ProjectRefreshProvider } from "@/context/ProjectRefreshContext";
 
 
 /* --------------------- Types --------------------- */
@@ -128,8 +129,9 @@ interface StatusNodeData {
   tagIds?: string[];
 }
 
+// Launched jobs are waiting (e.g. in the queue), their elapsed time only
+// counts once they are running
 const ELAPSED_TIMER_STATUSES = new Set([
-  "launched",
   "running",
 ]);
 
@@ -424,7 +426,14 @@ type NodeActions = {
   onStop?: (id: string) => void;
   onManageTags?: () => void;
   onOpenProtocolClass?: (protocolClass: string) => void;
+  onToggleOutputsCard?: (id: string) => void;
 };
+
+// "All outputs" cards are extra React Flow nodes placed right of their protocol node
+const OUTPUTS_CARD_NODE_SUFFIX = "::outputs";
+const OUTPUTS_CARD_GAP = 60;
+
+const isOutputsCardNode = (node: { id: string }) => String(node.id).endsWith(OUTPUTS_CARD_NODE_SUFFIX);
 
 type OpenForm = { key: string; id: string; details: any; isClosing?: boolean };
 
@@ -1650,6 +1659,10 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [outputsCardIds, setOutputsCardIds] = useState<string[]>([]);
+  // Measured sizes of the outputs card nodes: they are derived (not in `nodes`), and React Flow
+  // keeps a node hidden until its width/height are known
+  const [outputsCardSizes, setOutputsCardSizes] = useState<Record<string, { width: number; height: number }>>({});
   const [graphDirection, setGraphDirection] = useState<"TB" | "LR">("TB");
 
   const [_, setHideGraphDuringCenter] = useState(false);
@@ -3140,6 +3153,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       onOpenProtocolClass: (protocolClass) => {
         void openFormForProtocolClass(protocolClass);
       },
+      onToggleOutputsCard: (id) => {
+        setOutputsCardIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+      },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleSelectFrom, handleSelectTo, handleNodeDoubleClick, openFormForProtocolClass, workflowClipboard?.workflow,]);
@@ -3411,7 +3427,25 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   };
 
 
-  const handleNodesChangeWithPersistence = (changes: NodeChange[]) => {
+  const handleNodesChangeWithPersistence = (allChanges: NodeChange[]) => {
+    const cardChanges = allChanges.filter((c) => "id" in c && isOutputsCardNode({ id: String(c.id) }));
+    if (cardChanges.length) {
+      setOutputsCardSizes((prev) => {
+        let next = prev;
+        for (const c of cardChanges) {
+          if (c.type !== "dimensions" || !c.dimensions) continue;
+          const { width, height } = c.dimensions;
+          if (prev[c.id]?.width === width && prev[c.id]?.height === height) continue;
+          if (next === prev) next = { ...prev };
+          next[c.id] = { width, height };
+        }
+        return next;
+      });
+    }
+
+    const changes = cardChanges.length ? allChanges.filter((c) => !cardChanges.includes(c)) : allChanges;
+    if (!changes.length) return;
+
     if (disablePersistenceRef.current || viewMode !== "hierarchical") {
       return onNodesChange(changes);
     }
@@ -4478,6 +4512,11 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
 
   const handleRefreshRef = useRef(handleRefresh);
   useEffect(() => { handleRefreshRef.current = handleRefresh; }, [handleRefresh]);
+  // Stable callback for the components that change the workflow (e.g. a
+  // table viewer action launching a job), they refresh it with useProjectRefresh
+  const refreshProject = useCallback(() => {
+    void handleRefreshRef.current?.();
+  }, []);
 
 
   // Refresh only active protocols without rebuilding the workflow graph.
@@ -8218,8 +8257,36 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       return { ...n, style: nextStyle, data: nextData };
     });
 
-    return anyChanged ? next : nodes;
-  }, [nodes, focusActive, unifiedSelectedIdsState, tagFilterIds, tagAssignments, tagById]);
+    const baseNodes = anyChanged ? next : nodes;
+    if (!outputsCardIds.length) return baseNodes;
+
+    // appendOutputsCardNodes: follow the protocol node position, above other nodes
+    const outputsCards = outputsCardIds.flatMap((id) => {
+      const node = baseNodes.find((n) => String(n.id) === id);
+      if (!node) return [];
+
+      const width = Number((node as any).width) || 950;
+      const cardId = `${id}${OUTPUTS_CARD_NODE_SUFFIX}`;
+      return [{
+        id: cardId,
+        ...outputsCardSizes[cardId],
+        type: node.type,
+        position: { x: node.position.x + width + OUTPUTS_CARD_GAP, y: node.position.y },
+        data: { ...node.data, outputsCard: true },
+        // React Flow only marks draggable nodes "nopan"; without it a press on the card pans the
+        // graph and cancels the HTML5 drag of its outputs
+        className: "nopan",
+        style: { opacity: (node as any).style?.opacity ?? 1 },
+        draggable: false,
+        selectable: false,
+        connectable: false,
+        focusable: false,
+        zIndex: 1000,
+      } as Node<StatusNodeData>];
+    });
+
+    return [...baseNodes, ...outputsCards];
+  }, [nodes, focusActive, unifiedSelectedIdsState, tagFilterIds, tagAssignments, tagById, outputsCardIds, outputsCardSizes]);
 
 
   const renderEdges = useMemo(() => {
@@ -8270,6 +8337,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const canSelectAllWorkflow = getAllWorkflowProtocolIds().size > 0;
 
   return (
+    <ProjectRefreshProvider value={refreshProject}>
     <div className={`${ROOT_CLASS} ${hostIsDark ? "dark" : ""}`}>
       <div className="h-app min-h-0 flex flex-col relative overflow-hidden bg-background text-foreground">
 
@@ -8826,8 +8894,12 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
                   style: { stroke: "#999", strokeWidth: 2 },
                   markerEnd: { type: MarkerType.ArrowClosed },
                 }}
-                onNodeDoubleClick={(_, node) => handleNodeDoubleClick(node)}
-                onNodeClick={(evt, node) => handleNodeClick(node, evt)}
+                onNodeDoubleClick={(_, node) => {
+                  if (!isOutputsCardNode(node)) handleNodeDoubleClick(node);
+                }}
+                onNodeClick={(evt, node) => {
+                  if (!isOutputsCardNode(node)) handleNodeClick(node, evt);
+                }}
                 multiSelectionKeyCode={isMac ? "Meta" : "Control"}
                 selectionKeyCode="Shift"
                 selectionOnDrag
@@ -9869,5 +9941,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       {/* portalRootInsideWidgetSoDialogsInheritWidgetStyles */}
       <div ref={portalRootRef} id={PORTAL_ROOT_ID} className="pp-portalRoot" />
     </div>
+    </ProjectRefreshProvider>
   );
 }

@@ -20,6 +20,7 @@ import {
     Typography,
 } from "@mui/material";
 import { ChevronDown, ChevronRight, MoreHorizontal, Search } from "lucide-react";
+import { useProjectRefresh } from "@/context/ProjectRefreshContext";
 import {
     TableViewerSelectionMenu,
     type TableViewerSelectionCommand,
@@ -124,6 +125,7 @@ export default function TableViewerPane({
     table,
 }: TableViewerPaneProps) {
     const svc = useProjectService();
+    const refreshProject = useProjectRefresh();
     const [searchValue, setSearchValue] = useState("");
     const [selectedRowId, setSelectedRowId] = useState<string | number | null>(
         null,
@@ -435,6 +437,13 @@ export default function TableViewerPane({
                 result.clearEdits
             ) {
                 setDraftEdits({});
+            }
+
+            // E.g. a new job launched with the selected items
+            if (
+                result.refreshProject
+            ) {
+                refreshProject();
             }
 
             toast.success(

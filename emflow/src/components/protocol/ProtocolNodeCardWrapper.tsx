@@ -33,6 +33,8 @@ type NodeActions = {
     sourceProtocolId?: string,
     sourceProtocolLabel?: string
   ) => void;
+
+  onToggleOutputsCard?: (protocolId: string) => void;
 };
 
 export const createStatusNodeWrapper = (
@@ -118,6 +120,7 @@ export const createStatusNodeWrapper = (
           onStop={actions.onStop}
           onManageTags={actions.onManageTags}
           onOpenProtocolClass={actions.onOpenProtocolClass}
+          onToggleOutputsCard={actions.onToggleOutputsCard}
           inPathSelection={inPathSelection}
           pathSelectionActive={pathSelectionActive}
           onBrowse={onBrowse}

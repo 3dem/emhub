@@ -628,6 +628,8 @@ export type TableViewerEditActionResult = {
   success: boolean;
   message?: string;
   clearEdits?: boolean;
+  // The workflow changed (e.g. a job was launched), refresh the project page
+  refreshProject?: boolean;
   data?: unknown;
 };
 

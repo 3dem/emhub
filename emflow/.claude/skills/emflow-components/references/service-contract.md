@@ -28,6 +28,7 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | Area | Method | Default if missing | Called from |
 | --- | --- | --- | --- |
 | Project | `fetchProject(projectId)` -> `{id, name, path, protocols}` | demo project | ProjectPage (load + auto refresh) |
+| | Protocol timing fields (optional): `elapsedTime` (total seconds of all runs), `elapsedSessionId` (changes with each new run, e.g. its start), `elapsedRuns` (`[{launched, queued, start, end, elapsed, status}]`, queued = launched to start and elapsed in seconds, null if unknown), `launched` (pending launch, not started yet) and `queued` (its waiting seconds, only while Launched) | - | ProtocolNodeCard (time row + hover), ProjectPage (local timer) |
 | | `fetchProjectEffectiveSettings(projectId)` | not used | ProjectPage |
 | | `getContextMenuVisibilityPolicy(projectId)` -> `NodeMenuVisibility` | `{}` | ProjectPage |
 | Protocol | `fetchProtocolDetails(projectId, protocolId)` -> `{info, form, values}` | demo | ProjectPage |
@@ -135,8 +136,12 @@ table: TableViewerData = {
 - Action id **`metadata` is handled by emflow** (opens `MetadataViewer`) and
   never reaches the host.
 - Edit action button -> `executeTableViewerEditAction(context, {actionId, edits: [{rowId, columnId, field, value}]})`
-  (only the changed cells) -> `{success, message?, clearEdits?}`; the message
-  is shown as a toast.
+  (only the changed cells) -> `{success, message?, clearEdits?, refreshProject?}`;
+  the message is shown as a toast. `refreshProject` (e.g. the action launched
+  a job) refreshes the project page (`useProjectRefresh`, from
+  `context/ProjectRefreshContext.tsx`, calls ProjectPage's refresh ->
+  `fetchProject`); EMhub sets it for the subset actions and invalidates its
+  project cache, so `fetchProject` gets the workflow with the new job.
 - Expanding child rows -> `resolveTableViewerChildren(context, {rowId, childrenId, rowData, cellContext})`.
 
 EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
