@@ -1,0 +1,25 @@
+{
+  "endpoint": "/api/launch_job",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "run_id": "EMwrap/job001",
+      "clean": false,
+      "params": {
+        "acq.voltage": "not-a-number",
+        "mdoc_files": "data/mdoc/none_*.mdoc"
+      }
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "errors": [
+      "Mdoc files: no files match pattern 'data/mdoc/none_*.mdoc'.",
+      "Gain file: file or directory 'data/gain_ref.mrc' does not exist.",
+      "Voltage (kV): invalid float value 'not-a-number'."
+    ],
+    "status": 1
+  }
+}

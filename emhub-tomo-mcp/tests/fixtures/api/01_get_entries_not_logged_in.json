@@ -1,0 +1,8 @@
+{
+  "endpoint": "/api/get_entries",
+  "request": {},
+  "status": 401,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": "<!doctype html>\n<html lang=en>\n<title>401 Unauthorized</title>\n<h1>Unauthorized</h1>\n<p>The server could not verify that you are authorized to access the URL requested. You either supplied the wrong credentials (e.g. a bad password), or your browser doesn&#39;t understand how to supply the credentials required.</p>\n"
+}

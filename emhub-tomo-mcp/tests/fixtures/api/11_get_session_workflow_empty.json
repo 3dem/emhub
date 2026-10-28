@@ -1,0 +1,15 @@
+{
+  "endpoint": "/api/get_session_workflow",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "widget": false
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "workflow": []
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "endpoint": "/api/get_project_labels",
+  "request": {
+    "attrs": {
+      "entry_id": 1
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "labels": {
+      "labels": [
+        {
+          "name": "spike",
+          "color": "#1f77b4",
+          "id": "5f29868d-996c-49cc-8ce7-515d4bbe3040"
+        }
+      ],
+      "jobs": {
+        "EMwrap/job001": [
+          "5f29868d-996c-49cc-8ce7-515d4bbe3040"
+        ]
+      }
+    }
+  }
+}

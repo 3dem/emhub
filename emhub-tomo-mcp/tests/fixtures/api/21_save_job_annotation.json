@@ -1,0 +1,21 @@
+{
+  "endpoint": "/api/save_job_annotation",
+  "request": {
+    "attrs": {
+      "entry_id": 1,
+      "run_id": "EMwrap/job001",
+      "runName": "Import (API spike)",
+      "comment": "recorded by record_api_samples.py"
+    }
+  },
+  "status": 200,
+  "content_type": "text/html; charset=utf-8",
+  "location": null,
+  "response": {
+    "protocol": {
+      "id": "EMwrap/job001",
+      "runName": "Import (API spike)",
+      "comment": "recorded by record_api_samples.py"
+    }
+  }
+}
