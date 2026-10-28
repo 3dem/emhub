@@ -33,6 +33,27 @@ Expected behavior:
   tree left-right (`treeLr`), grid, table. Minimap, fit view, focus mode
   (only the selected path), zoom controls. Node positions/viewport are
   stored in localStorage under `emflow:project-<name>-node-positions...`.
+- **Graph layouts** (`utils/graph_layout/`): the tree node placement is a
+  named layout, `GRAPH_LAYOUTS` in `index.ts` (`(GraphLayoutParams) =>
+  positions`, shared size helpers in `common.ts`): `current` (`current.ts`,
+  subtree-aligned with collision passes) and `ylevel` (the default,
+  `ylevel.ts`, Scipion's `LevelTreeLayout`: one layout parent per node,
+  subtrees packed by their per-level contours and centered under the parent).
+  Chosen per direction with the page URL arguments `wtb=<name>` (top-bottom)
+  and `wlr=<name>` (left-right); unknown names warn and fall back to
+  `ylevel`. Saved positions use the key suffix `-hier-<name>`, except
+  `current`, which keeps the old `-hier` key. ProjectPage still centers
+  `PROJECT` over the whole graph afterwards, whatever the layout.
+  Levels (`buildGraphElements`) are the longest path from `PROJECT`, computed
+  in one topological pass (nodes in a cycle go one level below their deepest
+  parent). After a duplicate, paste or add from the form (`pendingNewNodesRef`)
+  with `ylevel`, `placePendingNewNodesWithYLevel` applies the whole layout
+  again if no node was moved by hand (no manual origins); otherwise existing
+  nodes keep their positions and only the new ones are placed, at their
+  layout offset from their closest placed parent and shifted sideways out of
+  overlaps (the manual origins are kept for the new topology). The `current`
+  layout keeps its own placement (`placePendingNewNodesAtCanonicalTbPositions`,
+  `tryResolveNewNodesCollisions`).
 - **Auto refresh**: only while some protocol is active (running/launched/
   scheduled), every `workflowsAutoRefreshSec` (default 15 s from
   `config/settingsDefaults.ts`), refetching the project without rebuilding the

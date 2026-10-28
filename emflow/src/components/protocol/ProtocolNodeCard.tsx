@@ -1,5 +1,5 @@
 // src/components/protocol/ProtocolNodeCard.tsx
-import { useCallback, useEffect, useMemo, useRef, useState, JSX } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, JSX } from "react";
 import toast from "react-hot-toast";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Typography, Link, Tooltip } from "@mui/material";
 import type {
@@ -749,6 +749,18 @@ export default function ProtocolNodeCard({
     </div>
   );
 
+  // Shared by the job id pill and the annotation title
+  const jobInfoTooltipProps = {
+    title: jobInfoTooltip,
+    placement: "top-start" as const,
+    arrow: true,
+    enterDelay: 300,
+    slotProps: {
+      popper: { sx: { zIndex: 26000 } },
+      tooltip: { sx: { maxWidth: 560, fontSize: "0.95rem", lineHeight: 1.35 } },
+    },
+  };
+
   // Elapsed time: total of all runs, the hover shows each run (with its launch
   // time and time in the queue) and the pending launch
   const elapsedSeconds = data.tick ?? (Number(data.elapsedTime) || 0);
@@ -766,8 +778,23 @@ export default function ProtocolNodeCard({
     return run.elapsed == null ? "unknown" : formatCpuTime(Number(run.elapsed));
   };
 
-  const launchLabel = (launched?: string, queued?: number | null): string =>
-    `launched ${launched}` + (queued == null ? "" : `, queued ${formatCpuTime(Number(queued))}`);
+  // launched / queued / started, one per line with the values aligned
+  const runDetail = (launched?: string, queued?: number | null, start?: string) => {
+    const rows: [string, string][] = [];
+    if (launched) rows.push(["launched", launched]);
+    if (queued != null) rows.push(["queued", formatCpuTime(Number(queued))]);
+    if (start) rows.push(["started", start]);
+    return rows.length ? (
+      <div className={styles.elapsedRunDetail}>
+        {rows.map(([label, value]) => (
+          <Fragment key={label}>
+            <span>{label}</span>
+            <span>{value}</span>
+          </Fragment>
+        ))}
+      </div>
+    ) : null;
+  };
 
   const elapsedTooltip = elapsedRuns.length || launchedAt ? (
     <div className={styles.elapsedTooltip}>
@@ -775,19 +802,14 @@ export default function ProtocolNodeCard({
         <div key={`${run.start ?? ""}-${idx}`}>
           Run {idx + 1}: {runElapsedLabel(run, idx)}
           {run.status ? <span className={styles.elapsedRunStatus}> ({run.status})</span> : null}
-          <div className={styles.elapsedRunDetail}>
-            {run.launched ? `${launchLabel(run.launched, run.queued)}, ` : ""}
-            {run.start ? `started ${run.start}` : ""}
-          </div>
+          {runDetail(run.launched, run.queued, run.start)}
         </div>
       ))}
       {launchedAt ? (
         <div>
           {/* queued is only reported while the job is still waiting to run */}
-          {data.queued == null ? "Launched: " : "Waiting: "}
-          <span className={styles.elapsedRunDetail}>
-            {data.queued == null ? launchedAt : launchLabel(launchedAt, data.queued)}
-          </span>
+          {data.queued == null ? "Last launch" : "Waiting"}
+          {runDetail(launchedAt, data.queued)}
         </div>
       ) : null}
       {elapsedRuns.length > 1 ? (
@@ -2498,16 +2520,7 @@ export default function ProtocolNodeCard({
           <div className={[styles.header, isProjectNode ? styles.headerProject : styles.headerProtocol].join(" ")}>
             <div className={styles.headerLeft}>
               {!isProjectNode && (
-                <Tooltip
-                  title={jobInfoTooltip}
-                  placement="top-start"
-                  arrow
-                  enterDelay={300}
-                  slotProps={{
-                    popper: { sx: { zIndex: 26000 } },
-                    tooltip: { sx: { maxWidth: 560, fontSize: "0.95rem", lineHeight: 1.35 } },
-                  }}
-                >
+                <Tooltip {...jobInfoTooltipProps}>
                   <div
                     className={[styles.nodeIdBadge, data.status === "running" ? styles.glowBadge : ""].filter(Boolean).join(" ")}
                     style={isCompactView ? { fontSize: "2.4rem" } : { fontSize: "2.3rem" }}
@@ -2522,13 +2535,15 @@ export default function ProtocolNodeCard({
                   <div title={data.label}>{truncateLabel(data.label, 150)}</div>
                 </div>
               ) : protocolRunName ? (
-                <div
-                  className={[styles.label, isCompactView ? styles.labelCompact : "", styles.annotationTitle]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  {protocolRunName}
-                </div>
+                <Tooltip {...jobInfoTooltipProps}>
+                  <div
+                    className={[styles.label, isCompactView ? styles.labelCompact : "", styles.annotationTitle]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    {protocolRunName}
+                  </div>
+                </Tooltip>
               ) : null}
             </div>
 

@@ -228,7 +228,12 @@
   opacity: 0.8;
 }
 
-div.elapsedRunDetail {
+/* label | value rows, the values aligned in one column */
+.elapsedRunDetail {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  column-gap: 0.75em;
   padding-left: 1.5em;
   font-size: 0.9em;
 }

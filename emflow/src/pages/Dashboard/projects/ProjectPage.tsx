@@ -16,6 +16,7 @@ import React, {
 import ProtocolForm from "@/components/protocol/ProtocolForm";
 import ProtocolStepsDeveloperDialog from "@/components/protocol/ProtocolStepsDeveloperDialog";
 import { buildGraphElements, getGraphTopologySignature } from "@/utils/graph_utils";
+import { getGraphLayoutName, getGraphLayoutStorageSuffix } from "@/utils/graph_layout";
 
 import ReactFlow, {
   Background,
@@ -1664,6 +1665,8 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   // keeps a node hidden until its width/height are known
   const [outputsCardSizes, setOutputsCardSizes] = useState<Record<string, { width: number; height: number }>>({});
   const [graphDirection, setGraphDirection] = useState<"TB" | "LR">("TB");
+  // Node placement of the hierarchical view, from the page URL (wtb / wlr arguments)
+  const graphLayout = getGraphLayoutName(graphDirection);
 
   const [_, setHideGraphDuringCenter] = useState(false);
   const [, startTransition] = useTransition();
@@ -3217,7 +3220,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const nodePositionsVersion = 6;
   const graphTopologySignatureRef = useRef("");
 
-  const storageKeyHier = `${localStorageKey}-${graphDirection}-hier`;
+  const storageKeyHier = `${localStorageKey}-${graphDirection}-hier${getGraphLayoutStorageSuffix(graphLayout)}`;
   const manualNodeOriginsStorageKey = `${storageKeyHier}-manual-origins`;
   const viewportStorageKey = `${localStorageKey}-${viewMode}-${graphDirection}-viewport`;
 
@@ -4105,7 +4108,8 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
         const effectiveZoom = mode === "grid" ? GRID_ZOOM : viewportRef.current.zoom;
 
         const { nodes: loadedNodes, edges: loadedEdges, table } = buildGraphElements(
-          data.shortName, data.protocols, mode, dir, width, effectiveZoom
+          data.shortName, data.protocols, mode, dir, width, effectiveZoom,
+          undefined, { layout: getGraphLayoutName(dir) }
         );
 
         const tableWithTick = (
@@ -4236,7 +4240,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           gridWidth || flowWrapperRef.current?.clientWidth,
           getEffectiveZoom(),
           undefined,
-          preferredChildOrder ? { preferredChildOrder } : undefined
+          { preferredChildOrder, layout: graphLayout }
         );
 
         const freshTableRows = table ?? [];
@@ -4284,7 +4288,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           const pendingNewNodes =
             pendingNewNodesRef.current;
 
-          if (
+          if (pendingNewNodes && graphLayout === "ylevel") {
+            hierarchicalNodes = placePendingNewNodesWithYLevel(loadedNodes, loadedEdges, data.protocols);
+          } else if (
             pendingNewNodes?.reflowWholeGraph
           ) {
             hierarchicalNodes =
@@ -4886,7 +4892,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           gridWidth || flowWrapperRef.current?.clientWidth,
           getEffectiveZoom(),
           undefined,
-          preferredChildOrder ? { preferredChildOrder } : undefined
+          { preferredChildOrder, layout: graphLayout }
         );
 
         const currentNodesById =
@@ -5203,7 +5209,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
         viewMode,
         graphDirection,
         gridWidth || flowWrapperRef.current?.clientWidth,
-        getEffectiveZoom()
+        getEffectiveZoom(),
+        undefined,
+        { layout: graphLayout }
       );
 
     const nodesWithPositions =
@@ -6010,6 +6018,126 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     }
 
     return preferredDelta;
+  };
+
+  // ylevel layout after a duplicate/paste/add (pendingNewNodesRef): if no node
+  // was moved by hand, the whole layout is applied again. Otherwise existing
+  // nodes keep their positions and only the new ones are placed, as Scipion
+  // does: at their layout offset from their closest placed parent, shifted on
+  // the cross axis if they overlap another node.
+  const placePendingNewNodesWithYLevel = (
+    loadedNodes: Node<any>[],
+    loadedEdges: Edge[],
+    protocols: Record<string, any>
+  ): Node<any>[] => {
+    const pending = pendingNewNodesRef.current;
+    pendingNewNodesRef.current = null;
+
+    // Read before loadNodesWithPositions, which sets the new topology signature
+    const manualOrigins = readManualNodeOrigins();
+    const layoutNodes = loadNodesWithPositions(loadedNodes, protocols, { ignoreSaved: true });
+
+    if (!pending?.beforePositions || manualOrigins.size === 0) {
+      return layoutNodes;
+    }
+
+    const dir = graphDirection;
+    const isTB = dir === "TB";
+    const crossOf = (p: { x: number; y: number }) => (isTB ? p.x : p.y);
+    const mainOf = (p: { x: number; y: number }) => (isTB ? p.y : p.x);
+    const toPos = (cross: number, main: number) => (isTB ? { x: cross, y: main } : { x: main, y: cross });
+
+    const layoutPos = new Map(layoutNodes.map((n) => [String(n.id), n.position]));
+    const currentById = new Map(nodesRef.current.map((n) => [String(n.id), n as any]));
+
+    // Cross size of a node (measured if it was already rendered) and gaps
+    const defaultCrossSize = isTB ? 950 : 520;
+    const crossSize = (id: string) => {
+      const n = currentById.get(id);
+      const measured = Number(isTB ? n?.width : n?.height);
+      return Number.isFinite(measured) && measured > 0 ? measured : defaultCrossSize;
+    };
+    const gap = isTB ? 200 : 120;
+    const sameRowDistance = getLevelStep(dir) / 2;
+
+    const parentsById = new Map<string, string[]>();
+    for (const edge of loadedEdges) {
+      const parents = parentsById.get(String(edge.target)) ?? [];
+      parents.push(String(edge.source));
+      parentsById.set(String(edge.target), parents);
+    }
+
+    // Existing nodes keep their positions
+    const placed = new Map<string, { x: number; y: number }>();
+    for (const node of layoutNodes) {
+      const id = String(node.id);
+      const before = pending.beforePositions.get(id);
+      if (pending.beforeIds.has(id)) placed.set(id, before ?? node.position);
+    }
+
+    const newIds = layoutNodes
+      .map((n) => String(n.id))
+      .filter((id) => id !== "PROJECT" && !pending.beforeIds.has(id))
+      .sort((a, b) => mainOf(layoutPos.get(a)!) - mainOf(layoutPos.get(b)!));
+
+    for (const id of newIds) {
+      const target = layoutPos.get(id)!;
+
+      // Closest placed parent (deepest level), the project only if there is no other
+      const anchor = (parentsById.get(id) ?? [])
+        .filter((parentId) => placed.has(parentId) && layoutPos.has(parentId))
+        .sort((a, b) => {
+          if ((a === "PROJECT") !== (b === "PROJECT")) return a === "PROJECT" ? 1 : -1;
+          return mainOf(layoutPos.get(b)!) - mainOf(layoutPos.get(a)!);
+        })[0];
+
+      let cross = crossOf(target);
+      let main = mainOf(target);
+      if (anchor) {
+        cross += crossOf(placed.get(anchor)!) - crossOf(layoutPos.get(anchor)!);
+        main += mainOf(placed.get(anchor)!) - mainOf(layoutPos.get(anchor)!);
+      }
+
+      // Shift away from overlapped nodes in the same row
+      const size = crossSize(id);
+      for (let attempt = 0; attempt < placed.size; attempt++) {
+        const obstacle = Array.from(placed.entries()).find(([otherId, p]) => {
+          if (otherId === "PROJECT") return false;
+          const minDistance = (size + crossSize(otherId)) / 2 + gap;
+          return Math.abs(mainOf(p) - main) < sameRowDistance && Math.abs(crossOf(p) - cross) < minDistance;
+        });
+        if (!obstacle) break;
+
+        const [otherId, p] = obstacle;
+        const side = cross >= crossOf(p) ? 1 : -1;
+        cross = crossOf(p) + side * ((size + crossSize(otherId)) / 2 + gap);
+      }
+
+      placed.set(id, toPos(cross, main));
+    }
+
+    const resolvedNodes = centerProjectOverGraphBranches(
+      layoutNodes.map((node) => ({ ...node, position: placed.get(String(node.id)) ?? node.position })),
+      dir
+    );
+
+    const topologySignature = graphTopologySignatureRef.current;
+    if (topologySignature) {
+      try {
+        writePersistedPositions(
+          storageKeyHier,
+          dir,
+          topologySignature,
+          resolvedNodes.map((node) => ({ id: String(node.id), position: node.position }))
+        );
+      } catch {
+        // noOp
+      }
+    }
+    // Still moved by hand, now for the new topology
+    writeManualNodeOrigins(manualOrigins);
+
+    return resolvedNodes;
   };
 
   const placePendingNewNodesAtCanonicalTbPositions = (
@@ -8338,7 +8466,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
 
   return (
     <ProjectRefreshProvider value={refreshProject}>
-    <div className={`${ROOT_CLASS} ${hostIsDark ? "dark" : ""}`}>
+    <div className={`${ROOT_CLASS} ${hostIsDark ? "dark" : ""}`} style={{ flex: "1 1 auto", minHeight: 0 }}>
       <div className="h-app min-h-0 flex flex-col relative overflow-hidden bg-background text-foreground">
 
         {/* Header */}
