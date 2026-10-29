@@ -955,12 +955,14 @@ class DataManager(DbManager):
             args['path'] = processing_path
         elif 'entry_id' in kwargs:
             entry_id = int(kwargs['entry_id'])
-            entry = self.get_entry_by(id=entry_id)
+            if not (entry := self.get_entry_by(id=entry_id)):
+                raise Exception(f"Invalid entry id: {entry_id}")
             processing_path = entry.extra['data']['processing_path']
             args = {'entry_id': entry_id}
         elif 'session_id' in kwargs:
             session_id = int(kwargs['session_id'])
-            session = self.get_session_by(id=session_id)
+            if not (session := self.get_session_by(id=session_id)):
+                raise Exception(f"Invalid session id: {session_id}")
             processing_path = session.data_path
             args = {'session_id': session_id}
         else:
