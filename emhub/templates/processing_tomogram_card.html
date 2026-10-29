@@ -20,19 +20,34 @@
     var basename = "{{ file_path|basename }}";
     var slices = {{ slices|tojson }};
     var slice_dim = {{ slice_dim|tojson }};
+    var dimensions = {{ dimensions|default(none)|tojson }};
+    var slice_prefix = {{ slice_prefix|default('')|tojson }};
     var coordinates = {{ coordinates|tojson }};
+    var voxelSize = {{ voxel_size|default(none)|tojson }};
 
     (function(window, document, $, undefined) {
     "use strict";
     $(function() {
         //$('#{{ card_id }}_header').text(coordinates.x.length)
         var volSlider = "{{ card_id }}_volSlider";
+        var hasAxes = slices && ['x', 'y', 'z'].every(function(a) {
+            return nonEmpty(slices[a]) && Object.keys(slices[a]).length > 0;
+        });
 
-        var vs = new VolumeSliderCard(volSlider, slices,
-            {
-                slice_dim: 512,
-                coordinates: coordinates
+        if (hasAxes) {
+            // Same viewer as the OTF dashboard
+            createVolumeViewer($('#' + volSlider), {
+                dimensions: dimensions,
+                axes: slices,
+                voxelSize: voxelSize,
+                coordinates: coordinates,
+                idPrefix: "{{ card_id }}_ortho"
             });
+        }
+        else {
+            // Aligned tilt-series stack: one slider, as in the OTF dashboard
+            new ImageSliderCard(volSlider, slices, {slider_prefix: slice_prefix});
+        }
 
 
 });
