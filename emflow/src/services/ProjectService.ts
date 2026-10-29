@@ -628,6 +628,8 @@ export type TableViewerEditActionResult = {
   success: boolean;
   message?: string;
   clearEdits?: boolean;
+  // The workflow changed (e.g. a job was launched), refresh the project page
+  refreshProject?: boolean;
   data?: unknown;
 };
 
@@ -896,7 +898,8 @@ export type AnalyzeViewerResolveDecision =
   | {
     handled: true;
     viewer: "external";
-    url: string;
+    // Omitted when the host opened its own viewer (nothing to navigate to)
+    url?: string;
     target?: "_self" | "_blank";
     kind?: "redirect" | "iframe";
     title?: string;
@@ -1312,6 +1315,8 @@ export type ContextMenuVisibilityPolicy = {
   restart: boolean,
   selectFrom: boolean,
   selectTo: boolean,
+  // Collapse a subtree into a group node (shown unless false)
+  collapse?: boolean,
   stop: boolean,
   upload: boolean,
 };

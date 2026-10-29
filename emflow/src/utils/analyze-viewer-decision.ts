@@ -22,7 +22,8 @@ export function openExternalAnalyzeDecision(
   // Legacy hosts may omit `viewer: "external"` and only send a url.
   const external = decision as Extract<AnalyzeViewerResolveDecision, { viewer: "external" }>;
   const url = external.url;
-  if (!url) return false;
+  // No url: the host already opened its own viewer
+  if (!url) return true;
 
   const target = external.target ?? defaultTarget;
 

@@ -21,6 +21,22 @@ let tags = [
 ];
 const protocolTags = {};
 
+// With ?outputPrefix in the page url, outputs get a label prefix (as EMhub
+// sends "Class01", "Class02"... for 3D classes): all but the first output of
+// each protocol (to show both), in the graph and in the protocol details
+const hasFakeOutputPrefixes = () => new URLSearchParams(location.search).has("outputPrefix");
+const setFakeOutputPrefixes = (outputs) => {
+  (outputs ?? []).forEach((output, i) => {
+    output.prefix = i ? `Out${String(i).padStart(2, "0")}` : "";
+  });
+};
+const withFakeOutputPrefixes = (project) => {
+  if (hasFakeOutputPrefixes()) {
+    Object.values(project.protocols ?? {}).forEach((prot) => setFakeOutputPrefixes(prot.outputs));
+  }
+  return project;
+};
+
 // Fake Tomograms table (as EMhub's get_table_view_data builds it), opened on
 // outputs with pointerClass "Tomograms" (none in the fake project) or on any
 // output when the page url has ?tomoTable; ?tomoTable=coords gives a
@@ -90,13 +106,17 @@ export function createFakeService() {
   return {
     fetchList: async () => [],
 
-    fetchProject: async () => structuredClone(workflow),
+    fetchProject: async () => {
+      log("fetchProject");
+      return withFakeOutputPrefixes(structuredClone(workflow));
+    },
 
     fetchProtocolDetails: async (projectId, protocolId) => {
       const data = { info: {}, values: {}, form: {} };
       const prot = protocols[protocolId];
       if (prot) {
-        data.info = prot.info;
+        data.info = structuredClone(prot.info);
+        if (hasFakeOutputPrefixes()) setFakeOutputPrefixes(data.info.outputs);
         data.values = prot.values;
         data.form = forms[prot.info.protocolClassName] ?? {};
       }
@@ -149,6 +169,7 @@ export function createFakeService() {
         success: true,
         message: `Fake subset without: ${deselected.join(", ") || "none"}`,
         clearEdits: true,
+        refreshProject: true,
       };
     },
     resolveTableViewerAction: async (context, request) => {

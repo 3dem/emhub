@@ -43,6 +43,44 @@
 
   var host = document.getElementById("project-page-host");
 
+  // The viewer fills the host, so give the host the height left in the
+  // window (below the page header, above the card padding and the footer),
+  // so the page itself does not scroll. Inside a modal, use a fixed height.
+  var MIN_HEIGHT = 450;
+  var inModal = $(host).closest(".modal").length > 0;
+
+  function fitHost() {
+    if (!document.contains(host))
+      return stopFitting();
+
+    if (inModal) {
+      host.style.height = "85vh";
+      return;
+    }
+    var rect = host.getBoundingClientRect();
+    var footer = document.querySelector(".dashboard-wrapper > .footer");
+    var below = footer ? footer.getBoundingClientRect().bottom - rect.bottom : 0;
+    var height = Math.max(MIN_HEIGHT,
+                          Math.floor(window.innerHeight - (rect.top + window.scrollY) - below));
+    if (Math.abs(height - rect.height) > 1)
+      host.style.height = height + "px";
+  }
+
+  // Content above the host may change (e.g. headers, tabs), so also refit
+  // when the page content is resized
+  var resizeObserver = window.ResizeObserver ? new ResizeObserver(fitHost) : null;
+  if (resizeObserver)
+    resizeObserver.observe(document.body);
+  window.addEventListener("resize", fitHost);
+
+  function stopFitting() {
+    if (resizeObserver)
+      resizeObserver.disconnect();
+    window.removeEventListener("resize", fitHost);
+  }
+
+  fitHost();
+
   loadEmflow().then(function (EMFlow) {
     var viewer = EMFlow.mountProjectPage({
       container: host,
@@ -54,6 +92,7 @@
     // Otherwise it is unmounted when the host leaves the page.
     $(host).closest(".modal").one("hidden.bs.modal", function () {
       viewer.unmount();
+      stopFitting();
     });
   }).catch(function (err) {
     showError(host, err);
