@@ -119,7 +119,9 @@
             "isInteractive": false,
             "numberOfSteps": 3,
             "stepsDone": 3,
-            "tags": ["63e79476-23b7-4299-8542-b167b8b1d22e"]
+            "tags": [
+                "63e79476-23b7-4299-8542-b167b8b1d22e"
+            ]
         },
         "265": {
             "id": "265",
@@ -369,13 +371,42 @@
                         "_objValue": "cryosparc2 - 3D Classification6.solventMask",
                         "_parentId": 622
                     }
+                },
+                {
+                    "outputVolume001": {
+                        "_class": "Volume",
+                        "prefix": "Class01",
+                        "info": "Volume (140 x 140 x 140, 4.00 Å/px)",
+                        "_objValue": "cryosparc2 - 3D Classification6.outputVolume001",
+                        "_parentId": 622
+                    }
+                },
+                {
+                    "outputVolume002": {
+                        "_class": "Volume",
+                        "prefix": "Class02",
+                        "info": "Volume (140 x 140 x 140, 4.00 Å/px)",
+                        "_objValue": "cryosparc2 - 3D Classification6.outputVolume002",
+                        "_parentId": 622
+                    }
+                },
+                {
+                    "outputVolume003": {
+                        "_class": "Volume",
+                        "prefix": "Class03",
+                        "info": "Volume (140 x 140 x 140, 4.00 Å/px)",
+                        "_objValue": "cryosparc2 - 3D Classification6.outputVolume003",
+                        "_parentId": 622
+                    }
                 }
             ],
             "cpuTime": "98",
             "elapsedTime": "99",
             "isInteractive": false,
             "numberOfSteps": 3,
-            "stepsDone": 3
+            "stepsDone": 3,
+            "runName": "Bgal 3 classes from NU-refine maps, 4.00 Å/px",
+            "comment": "Seeded with the three NU-refinement volumes.\nClass 2 looks best, use it for the next refinement."
         },
         "870": {
             "id": "870",

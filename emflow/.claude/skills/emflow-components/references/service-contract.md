@@ -16,7 +16,8 @@ with `?tomoTable` in the url to get a fake Tomograms table viewer with the
 Selected column, Create subset and the TS / Tomogram icon column; its tilt-series icon opens a fake `2x2`
 grid, with `&gridLayout=<layout>` for the other layouts; `?tomoTable=coords`
 gives a TomoCoordinates table whose tomogram icon shows particles on the
-slices). Actions take 0.7 s there, to show the pane's loading state. Update
+slices; `?outputPrefix` gives the outputs a label prefix, `Out01`... for
+all but the first output of each protocol). Actions take 0.7 s there, to show the pane's loading state. Update
 it when the contract changes.
 
 ## Methods by area
@@ -27,6 +28,7 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | Area | Method | Default if missing | Called from |
 | --- | --- | --- | --- |
 | Project | `fetchProject(projectId)` -> `{id, name, path, protocols}` | demo project | ProjectPage (load + auto refresh) |
+| | Protocol timing fields (optional): `elapsedTime` (total seconds of all runs), `elapsedSessionId` (changes with each new run, e.g. its start), `elapsedRuns` (`[{launched, queued, start, end, elapsed, status}]`, queued = launched to start and elapsed in seconds, null if unknown), `launched` (pending launch, not started yet) and `queued` (its waiting seconds, only while Launched) | - | ProtocolNodeCard (time row + hover), ProjectPage (local timer) |
 | | `fetchProjectEffectiveSettings(projectId)` | not used | ProjectPage |
 | | `getContextMenuVisibilityPolicy(projectId)` -> `NodeMenuVisibility` | `{}` | ProjectPage |
 | Protocol | `fetchProtocolDetails(projectId, protocolId)` -> `{info, form, values}` | demo | ProjectPage |
@@ -54,6 +56,22 @@ When adding a method: declare it in `ProjectService.ts`, add a default in
 `normalizeService.ts` if it is optional, implement it in EMhub's svc template
 (and `dev/fakeService.js`), and add a row here.
 
+## Protocol outputs
+
+Each protocol (in `fetchProject` and in `fetchProtocolDetails` `info`) has
+`outputs: [{outputName, pointerClass, info, value, parentId, prefix?}]`.
+`info` is the output label (e.g. `Volume (112 x 112 x 112)`). `prefix`,
+optional and possibly empty, tells apart outputs of the same kind of a
+protocol: if not empty it is shown before the label,
+`<prefix> - <info>` (`withOutputPrefix` in `src/utils/output_label.ts`):
+in the node card outputs, the Outputs tab (`ProtocolOutputsPanel`), the
+output selector and the selected input of a form (`gatherAllOutputs` in
+`ProtocolForm`), and the dragged output's `info`. EMhub
+(`processing_relion/project.py`, `_output_prefix`) sends `ClassNN` for the
+class volumes of Relion 3D classifications (`relion.class3d`,
+`relion.class3d.tomo`), e.g. `Class01 - Volume (112 x 112 x 112)`, and `''`
+for the other outputs.
+
 ## Analyze decision
 
 When the user clicks an output (eye icon on a node, or "Analyze results" in
@@ -68,16 +86,17 @@ ctx = { projectId, protocolId, protocolLabel, outputName, pointerClass,
 Return one of (`AnalyzeViewerResolveDecision`):
 
 - `{handled: false}` -> emflow opens `AnalyzeOutputDialog` (Scipion viewers).
-- `{handled: true, viewer: "external", url, target?: "_self"|"_blank"}` (the
-  `viewer` field may be omitted) -> navigates / opens the url. EMhub uses
-  `url: "#__external_viewer__", target: "_self"` after opening its own viewer
-  (`visualizeOutput`), and an OTF dashboard url for `TiltSeriesAnalysis`.
+- `{handled: true, viewer: "external", url?, target?: "_self"|"_blank"}` (the
+  `viewer` field may be omitted) -> navigates / opens the url; without `url`
+  emflow does nothing (the host already opened its own viewer). EMhub returns
+  no url after opening its own viewer (`visualizeOutput`), and an OTF
+  dashboard url for `TiltSeriesAnalysis`.
 - `{handled: true, viewer: "table", title?, context, table}` -> `TableViewerDialog`.
 
 EMhub (`project_widget_svc.html`) returns `viewer: "table"` for
 `TiltSeriesMovies`, `TiltSeries`, `TiltSeriesAligned`, `Tomograms`,
 `TomoCoordinates`, `TomoParticles`, `Movies`, `Micrographs`,
-`MultiClasses2D`, `Particles` (table built by the server:
+`MultiClasses2D`, `Classes3D`, `Particles` (table built by the server:
 `get_table_view_data`).
 
 ## Table viewer protocol
@@ -118,8 +137,12 @@ table: TableViewerData = {
 - Action id **`metadata` is handled by emflow** (opens `MetadataViewer`) and
   never reaches the host.
 - Edit action button -> `executeTableViewerEditAction(context, {actionId, edits: [{rowId, columnId, field, value}]})`
-  (only the changed cells) -> `{success, message?, clearEdits?}`; the message
-  is shown as a toast.
+  (only the changed cells) -> `{success, message?, clearEdits?, refreshProject?}`;
+  the message is shown as a toast. `refreshProject` (e.g. the action launched
+  a job) refreshes the project page (`useProjectRefresh`, from
+  `context/ProjectRefreshContext.tsx`, calls ProjectPage's refresh ->
+  `fetchProject`); EMhub sets it for the subset actions and invalidates its
+  project cache, so `fetchProject` gets the workflow with the new job.
 - Expanding child rows -> `resolveTableViewerChildren(context, {rowId, childrenId, rowData, cellContext})`.
 
 EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
@@ -144,6 +167,16 @@ EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
   `create_tomo_subset` (rows left checked; an `emw-subset-ts` job, which for
   an `optimisation_set.star` writes the tomograms and their particles, both
   registered as outputs); keeps the row ids per output path.
+- for `Classes3D` (a Relion `run_itNNN_optimiser.star`; rows from the
+  iteration's `_model.star` and particles counted from its `_data.star`) the
+  server sends Class (id from the volume filename), **Volume** (column and
+  default action `volume`: X/Y/Z slices of the class map, `layout: "volume"`)
+  Particles and % Particles (of the total; Class, Particles and % are
+  `sortable`); the adapter adds the same **Selected** column and **Create
+  subset**, executed with `create_classes_subset` (`createClassesSubset`:
+  an `emw-subset-classes` job with the checked class ids, from the
+  iteration's `_optimisation_set.star` if there is one, else its
+  `_data.star`; the toast adds the number of particles of those classes).
 
 History: before ScipionWeb `d4d9c01` the protocol was `viewer:
 "table-viewer-pane"` with `tableViewContext`/`tableViewData`,

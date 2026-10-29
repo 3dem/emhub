@@ -1,5 +1,5 @@
 // src/components/protocol/ProtocolNodeCard.tsx
-import { useCallback, useEffect, useMemo, useRef, useState, JSX } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, JSX } from "react";
 import toast from "react-hot-toast";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Typography, Link, Tooltip } from "@mui/material";
 import type {
@@ -47,6 +47,7 @@ import {
 import {
   MoreHorizontal,
   Pencil,
+  X,
   FolderOpen,
   Copy,
   Trash2,
@@ -61,6 +62,7 @@ import {
   ArrowDown,
   ArrowUp,
   Scan,
+  Layers,
   Eye,
   Tags,
   HelpCircle,
@@ -88,10 +90,12 @@ import type {
 } from "@/services/ProjectService";
 
 import type { ProtocolTag } from "@/components/tags/tagTypes";
+import type { ProtocolRunTiming } from "@/types/protocolNode";
 import { useTagStore } from "@/stores/tag_store";
 import { useProjectService } from "@/ProjectServiceContext";
 import { CloseIcon } from "@/icons";
 import type { NodeMenuItemId, NodeMenuVisibility } from "@/types/protocol-node-menu-items";
+import { withOutputPrefix } from "@/utils/output_label";
 
 const statusColors: Record<string, string> = {
   running: "#FCCE62",
@@ -134,6 +138,9 @@ type StatusNodeProps = {
     color?: string;
     cpuTime?: string;
     elapsedTime?: string;
+    elapsedRuns?: ProtocolRunTiming[];
+    launched?: string;
+    queued?: number | null;
     tick?: number;
     numberOfSteps?: number;
     stepsDone?: number;
@@ -151,9 +158,14 @@ type StatusNodeProps = {
     __pathVer?: number;
     projectId?: string | number;
 
+    // render only the "all outputs" card (extra React Flow node next to the protocol node)
+    outputsCard?: boolean;
+
     // tags assigned to this protocol (backend provides this)
     // can be ids or objects; normalized later
     tags?: any[];
+    // Has children in the tree view, so it can be collapsed
+    canCollapse?: boolean;
   };
 
   selectedNodeId?: string;
@@ -177,6 +189,7 @@ type StatusNodeProps = {
   onContinueAll?: (id: string) => void;
   onResetFrom?: (id: string) => void;
   onSelectFrom?: (id: string) => void;
+  onCollapse?: (id: string) => void;
   onSelectTo?: (id: string) => void;
   onStop?: (id: string) => void;
   onBrowse?: (protocolId: string, projectId?: string | number, protocolLabel?: string) => void;
@@ -190,6 +203,7 @@ type StatusNodeProps = {
     sourceProtocolId?: string,
     sourceProtocolLabel?: string,
   ) => void;
+  onToggleOutputsCard?: (protocolId: string) => void;
 
   inPathSelection?: boolean;
   pathSelectionActive?: boolean;
@@ -203,7 +217,8 @@ type StatusNodeProps = {
   contextMenuVisibility?: NodeMenuVisibility;
 };
 
-
+// Output rows that fit in the card (matches --swOutputVisibleRows in the CSS)
+const OUTPUT_ROWS = 3;
 
 const formatCpuTime = (seconds: number): string => {
   const hours = Math.floor(seconds / 3600);
@@ -224,6 +239,7 @@ type NextProtocolSuggestion = {
 type NormalizedOutput = {
   name?: string; // outputKeyNameUsedByBackend
   info?: string;
+  prefix?: string; // shown before the info, see withOutputPrefix
   paramClass: string;
   pointerClass?: string;
   value?: string;
@@ -267,6 +283,7 @@ const normalizeOutputItem = (outputObj: unknown): NormalizedOutput | null => {
             ? flatCandidate.name
             : undefined,
       info: typeof flatCandidate.info === "string" ? flatCandidate.info : undefined,
+      prefix: typeof flatCandidate.prefix === "string" ? flatCandidate.prefix : undefined,
       paramClass: inferredParamClass,
       pointerClass,
       value: typeof flatCandidate.value === "string" ? flatCandidate.value : undefined,
@@ -302,6 +319,7 @@ const normalizeOutputItem = (outputObj: unknown): NormalizedOutput | null => {
         const normalized: NormalizedOutput = {
           name: wrappedName,
           info: typeof wrappedDef.info === "string" ? wrappedDef.info : undefined,
+          prefix: typeof wrappedDef.prefix === "string" ? wrappedDef.prefix : undefined,
           paramClass: inferredParamClass,
           pointerClass,
           value: typeof wrappedDef.value === "string" ? wrappedDef.value : undefined,
@@ -676,11 +694,13 @@ export default function ProtocolNodeCard({
   onContinueAll,
   onResetFrom,
   onSelectFrom,
+  onCollapse,
   onSelectTo,
   onStop,
   onBrowse,
   onManageTags,
   onOpenProtocolClass, // addThis
+  onToggleOutputsCard,
   inPathSelection = false,
   pathSelectionActive = false,
   showHandles = true,
@@ -723,13 +743,85 @@ export default function ProtocolNodeCard({
     ? protocolLabel
     : protocolRunName || protocolLabel || String(data.title ?? data.id ?? "").trim();
 
-  const normalizeDisplayText = (value: string) =>
-    String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+  const protocolComment = String(data.comment ?? "").trim();
 
-  const shouldShowProtocolSubtitle =
-    !isProjectNode &&
-    protocolLabel.length > 0 &&
-    normalizeDisplayText(protocolLabel) !== normalizeDisplayText(headerDisplayName);
+  // Job id pill hover: job type, then the annotation (title and message)
+  const jobInfoTooltip = (
+    <div className={styles.jobInfoTooltip}>
+      <div className={styles.jobInfoType}>{protocolLabel || String(data.title ?? "")}</div>
+      {protocolRunName ? <div className={styles.jobInfoTitle}>{protocolRunName}</div> : null}
+      {protocolComment ? <div className={styles.jobInfoMessage}>{protocolComment}</div> : null}
+    </div>
+  );
+
+  // Shared by the job id pill and the annotation title
+  const jobInfoTooltipProps = {
+    title: jobInfoTooltip,
+    placement: "top-start" as const,
+    arrow: true,
+    enterDelay: 300,
+    slotProps: {
+      popper: { sx: { zIndex: 26000 } },
+      tooltip: { sx: { maxWidth: 560, fontSize: "0.95rem", lineHeight: 1.35 } },
+    },
+  };
+
+  // Elapsed time: total of all runs, the hover shows each run (with its launch
+  // time and time in the queue) and the pending launch
+  const elapsedSeconds = data.tick ?? (Number(data.elapsedTime) || 0);
+  const elapsedRuns = Array.isArray(data.elapsedRuns) ? data.elapsedRuns : [];
+  const launchedAt = String(data.launched ?? "").trim();
+
+  const runElapsedLabel = (run: ProtocolRunTiming, idx: number): string => {
+    // The running (last) run is the part of the live total not done by previous runs
+    if (run.status === "running" && idx === elapsedRuns.length - 1) {
+      const previous = elapsedRuns
+        .slice(0, idx)
+        .reduce((sum, r) => sum + (Number(r.elapsed) || 0), 0);
+      return formatCpuTime(Math.max(0, elapsedSeconds - previous));
+    }
+    return run.elapsed == null ? "unknown" : formatCpuTime(Number(run.elapsed));
+  };
+
+  // launched / queued / started, one per line with the values aligned
+  const runDetail = (launched?: string, queued?: number | null, start?: string) => {
+    const rows: [string, string][] = [];
+    if (launched) rows.push(["launched", launched]);
+    if (queued != null) rows.push(["queued", formatCpuTime(Number(queued))]);
+    if (start) rows.push(["started", start]);
+    return rows.length ? (
+      <div className={styles.elapsedRunDetail}>
+        {rows.map(([label, value]) => (
+          <Fragment key={label}>
+            <span>{label}</span>
+            <span>{value}</span>
+          </Fragment>
+        ))}
+      </div>
+    ) : null;
+  };
+
+  const elapsedTooltip = elapsedRuns.length || launchedAt ? (
+    <div className={styles.elapsedTooltip}>
+      {elapsedRuns.map((run, idx) => (
+        <div key={`${run.start ?? ""}-${idx}`}>
+          Run {idx + 1}: {runElapsedLabel(run, idx)}
+          {run.status ? <span className={styles.elapsedRunStatus}> ({run.status})</span> : null}
+          {runDetail(run.launched, run.queued, run.start)}
+        </div>
+      ))}
+      {launchedAt ? (
+        <div>
+          {/* queued is only reported while the job is still waiting to run */}
+          {data.queued == null ? "Last launch" : "Waiting"}
+          {runDetail(launchedAt, data.queued)}
+        </div>
+      ) : null}
+      {elapsedRuns.length > 1 ? (
+        <div className={styles.elapsedTotal}>Total: {formatCpuTime(elapsedSeconds)}</div>
+      ) : null}
+    </div>
+  ) : "";
 
   const normalizedStatus = String(data.status ?? "finished").trim().toLowerCase();
   const bgColor = statusColors[normalizedStatus] ?? statusColors.root;
@@ -1339,6 +1431,12 @@ export default function ProtocolNodeCard({
     if (!isProjectNode) onSelectTo?.(data.id);
   };
 
+  // Collapse the subtree (the jobs of "Select from") into a group node
+  const canCollapse = !isProjectNode && Boolean(data.canCollapse) && Boolean(onCollapse);
+  const handleCollapse = () => {
+    if (canCollapse) onCollapse?.(data.id);
+  };
+
   const handleStop = () => {
     if (!isProjectNode) onStop?.(data.id);
   };
@@ -1481,6 +1579,24 @@ export default function ProtocolNodeCard({
   }, [outputsArray, outputThumbnails]);
 
   const shouldUseOutputTiles = outputThumbnailsEnabled && hasOutputs;
+
+  // The card holds OUTPUT_ROWS rows; with more outputs the last row opens the "More" card
+  const hasMoreOutputs = !shouldUseOutputTiles && outputsArray.length > OUTPUT_ROWS;
+  const visibleOutputs = hasMoreOutputs ? outputsArray.slice(0, OUTPUT_ROWS - 1) : outputsArray;
+
+  const isOutputsCard = data.outputsCard === true;
+  const toggleOutputsCard = useCallback(() => onToggleOutputsCard?.(String(data.id)), [onToggleOutputsCard, data.id]);
+
+  useEffect(() => {
+    // closeOutputsCardOnEscape
+    if (!isOutputsCard) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") toggleOutputsCard();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOutputsCard, toggleOutputsCard]);
 
   const outputThumbnailLayoutCount = shouldUseOutputTiles
     ? outputsArray.length
@@ -1995,27 +2111,390 @@ export default function ProtocolNodeCard({
     [canOpenViewer, data.projectId, data.id, headerDisplayName, service],
   );
 
-  const stepsDone = Number(data.stepsDone ?? 0);
-  const numberOfSteps = Number(data.numberOfSteps ?? 0);
+  const renderOutputItem = (outputObj: any, idx: number, inMoreCard = false) => {
+    const useTiles = shouldUseOutputTiles && !inMoreCard;
+    const value = normalizeOutputItem(outputObj);
+    if (!value) return null;
 
-  const hasStepProgress =
-    Number.isFinite(stepsDone) &&
-    Number.isFinite(numberOfSteps) &&
-    numberOfSteps > 0;
+    const isDragging = draggingIdx === idx;
 
-  const progressPct = hasStepProgress
-    ? Math.max(0, Math.min(100, (stepsDone / numberOfSteps) * 100))
-    : 0;
+    const labelText = withOutputPrefix(
+      value.info ?? value.name ?? value.pointerClass ?? value.paramClass ?? "Output",
+      value.prefix,
+    );
+    const pillKey = value.value ?? `${String(value.parentId ?? "")}:${String(value.name ?? idx)}`;
 
-  const showProgressBar =
-    data.status === "running" ||
-    data.status === "failed" ||
-    data.status === "aborted";
+    const outputName = String(value.name ?? "");
+    const isViewerEnabled = canOpenViewer && !!outputName;
 
-  const showIndeterminateProgress =
-    data.status === "running" &&
-    numberOfSteps > 0 &&
-    stepsDone <= 0;
+    const thumbnail = outputName ? outputThumbnails[outputName] : null;
+    const thumbnailSrc =
+      typeof thumbnail?.thumbnailDataUrl === "string" && thumbnail.thumbnailDataUrl
+        ? thumbnail.thumbnailDataUrl
+        : "";
+
+    const labelTextValue = String(labelText).trim();
+    const labelMatch = labelTextValue.match(/^(.+?)\s*\((.*)\)\s*$/);
+
+    const inlineCount = labelTextValue.match(/\b\d+\s+items?\b/i)?.[0] ?? "";
+    const inlineSampling = labelTextValue.match(/\d+(?:\.\d+)?\s*(?:Å|Å|A)\s*\/?\s*px/i)?.[0] ?? "";
+    const inlineSize = labelTextValue.match(/\d+\s*x\s*\d+(?:\s*x\s*\d+)?/i)?.[0] ?? "";
+
+    const removeInlineDetail = (text: string, detail: string) =>
+      detail ? text.replace(detail, "") : text;
+
+    const overlayTitle = [
+      inlineCount,
+      inlineSampling,
+      inlineSize,
+    ].reduce(removeInlineDetail, labelMatch?.[1] ?? labelTextValue)
+      .replace(/[(),]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || labelTextValue;
+
+    const overlayDetails = labelMatch?.[2]
+      ? labelMatch[2].split(",").map((part) => part.trim()).filter(Boolean)
+      : [inlineCount, inlineSize, inlineSampling].filter(Boolean);
+
+    const rawOverlaySampling = overlayDetails.find((part) =>
+      /\d+(?:\.\d+)?\s*(?:Å|Å|A)\s*\/?\s*px/i.test(part)
+    ) ?? "";
+
+    const overlaySampling = rawOverlaySampling
+      ? rawOverlaySampling.replace(/\s*(?:Å|Å|A)\s*\/?\s*px/i, " Å/px")
+      : "";
+
+    const rawOverlayCount = overlayDetails.find((part) => /\b\d+\s+items?\b/i.test(part)) ?? "";
+    const overlayCount = rawOverlayCount.replace(/\b1\s+items\b/i, "1 item");
+
+    const overlaySize = overlayDetails.find((part) => {
+      if (part === rawOverlaySampling) return false;
+      if (part === rawOverlayCount) return false;
+      return /\d+\s*x\s*\d+/i.test(part);
+    }) ?? "";
+
+    const overlayTopLeft = overlayTitle;
+    const overlayTopRight = overlaySampling;
+    const overlayBottomLeft = overlaySize;
+    const overlayBottomRight = overlayCount;
+
+    const buildDragPayload = () => {
+      const inferredParamClass = value.paramClass || (value.pointerClass ? "PointerParam" : "");
+
+      return {
+        paramClass: inferredParamClass,
+        pointerClass: value.pointerClass ?? "",
+        _expectedClass: value.pointerClass ?? "",
+        value: value.value ?? "",
+        info: labelText,
+        parentId: value.parentId ?? "",
+        name: value.name ?? "",
+      };
+    };
+
+    const isMultiSelectionGesture = (e: ReactMouseEvent) =>
+      e.ctrlKey || e.metaKey || e.shiftKey;
+
+    const handleOutputMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
+      if (isMultiSelectionGesture(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const handleOutputDragStart = (e: ReactDragEvent<HTMLDivElement>) => {
+      e.stopPropagation();
+      setDraggingIdx(idx);
+
+      const output = buildDragPayload();
+
+      setCurrentDraggedOutput(output);
+      e.dataTransfer.setData("application/scipion-output", JSON.stringify(output));
+
+      const ghost = document.createElement("div");
+      ghost.style.position = "absolute";
+      ghost.style.top = "-1000px";
+      ghost.style.left = "-1000px";
+      ghost.style.padding = "6px 12px";
+      ghost.style.background = "white";
+      ghost.style.border = "1px solid #ccc";
+      ghost.style.color = "black";
+      ghost.style.borderRadius = "0.5rem";
+      ghost.innerText = `(${labelText})`;
+      document.body.appendChild(ghost);
+      e.dataTransfer.setDragImage(ghost, 0, 15);
+      setTimeout(() => document.body.removeChild(ghost), 0);
+    };
+
+    const handleOutputDragEnd = () => {
+      setDraggingIdx(null);
+      setCurrentDraggedOutput(null);
+    };
+
+    const handleOpenOutput = (e: ReactMouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (isMultiSelectionGesture(e)) {
+        forwardClickToRFNode(e);
+        return;
+      }
+
+      if (!isViewerEnabled) return;
+
+      void openOutputViewer(outputName, outputObj, value);
+    };
+
+    const outputInfoTooltipText = labelTextValue;
+    const shouldShowOutputInfoTooltip =
+      outputInfoTooltipText.length >= 48 ||
+      outputInfoTooltipText.includes("\n") ||
+      (useTiles && outputInfoTooltipText !== overlayTitle);
+
+    const outputInfoTooltipProps = shouldShowOutputInfoTooltip
+      ? {
+          title: outputInfoTooltipText,
+          placement: "top" as const,
+          arrow: true,
+          enterDelay: 300,
+          slotProps: {
+            popper: { sx: { zIndex: 26000 } },
+            tooltip: {
+              sx: {
+                maxWidth: 560,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                fontSize: "0.95rem",
+                lineHeight: 1.35,
+              },
+            },
+          },
+        }
+      : null;
+
+    if (useTiles) {
+      const hasThumbnail = Boolean(thumbnailSrc);
+
+      const outputThumbSizeClassName =
+        outputThumbnailLayoutCount <= 1
+          ? styles.outputThumbTileSingle
+          : outputThumbnailLayoutCount === 2
+            ? styles.outputThumbTileDouble
+            : outputThumbnailLayoutCount === 3
+              ? styles.outputThumbTileTriple
+              : styles.outputThumbTileMany;
+
+      const thumbTile = (
+        <div
+          key={pillKey}
+          className={[
+            styles.outputThumbTile,
+            outputThumbSizeClassName,
+            !hasThumbnail ? styles.outputThumbTileMissing : "",
+            isDragging ? styles.outputPillDragging : "",
+            "nodrag",
+          ].filter(Boolean).join(" ")}
+          draggable
+          onMouseDown={handleOutputMouseDown}
+          onClick={handleOpenOutput}
+          onDragStart={handleOutputDragStart}
+          onDragEnd={handleOutputDragEnd}
+        >
+          <div className={styles.outputThumbImageWrap}>
+            <div
+              className={[
+                styles.outputThumbImageFrame,
+                !hasThumbnail ? styles.outputThumbImageFrameEmpty : "",
+              ].filter(Boolean).join(" ")}
+            >
+              {hasThumbnail ? (
+                <img
+                  src={thumbnailSrc}
+                  alt={labelText}
+                  className={styles.outputThumbImage}
+                  draggable={false}
+                />
+              ) : (
+                <div className={styles.outputThumbPlaceholder}>
+                  No preview
+                </div>
+              )}
+
+              {overlayTopLeft ? (
+                <OverflowTooltipText
+                  as="div"
+                  text={overlayTopLeft}
+                  className={`${styles.outputThumbBadge} ${styles.outputThumbBadgeTopLeft}`}
+                />
+              ) : null}
+
+              {overlayTopRight ? (
+                <OverflowTooltipText
+                  as="div"
+                  text={overlayTopRight}
+                  className={`${styles.outputThumbBadge} ${styles.outputThumbBadgeTopRight}`}
+                />
+              ) : null}
+
+              {overlayBottomLeft ? (
+                <OverflowTooltipText
+                  as="div"
+                  text={overlayBottomLeft}
+                  className={`${styles.outputThumbBadge} ${styles.outputThumbBadgeBottomLeft}`}
+                />
+              ) : null}
+
+              {overlayBottomRight ? (
+                <OverflowTooltipText
+                  as="div"
+                  text={overlayBottomRight}
+                  className={`${styles.outputThumbBadge} ${styles.outputThumbBadgeBottomRight}`}
+                />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      );
+
+      if (!outputInfoTooltipProps) return thumbTile;
+
+      return (
+        <Tooltip key={pillKey} {...outputInfoTooltipProps}>
+          {thumbTile}
+        </Tooltip>
+      );
+    }
+
+    return (
+      <div
+        key={pillKey}
+        className={[styles.outputPill, isDragging ? styles.outputPillDragging : "", "nodrag"]
+          .filter(Boolean)
+          .join(" ")}
+        draggable
+        onMouseDown={handleOutputMouseDown}
+        onClick={(e: ReactMouseEvent<HTMLDivElement>) => {
+          e.preventDefault();
+          e.stopPropagation();
+          forwardClickToRFNode(e);
+        }}
+        onDragStart={handleOutputDragStart}
+        onDragEnd={handleOutputDragEnd}
+      >
+        <ArrowUpRight className={styles.outputIcon} />
+        <OverflowTooltipText
+          text={outputInfoTooltipText}
+          className={styles.outputText}
+        />
+
+        <button
+          type="button"
+          className={`${styles.outputActionBtn} nodrag`}
+          draggable={false}
+          data-nodrag
+          aria-label="View output"
+          title={isViewerEnabled ? "View output" : "Viewer not available"}
+          onPointerDown={(e) => {
+            // preventDragStartFromViewerButton
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onMouseDown={(e) => {
+            // preventDragStartFromViewerButtonMouse
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={handleOpenOutput}
+          disabled={!isViewerEnabled}
+        >
+          <Eye className={styles.outputEyeIcon} />
+        </button>
+      </div>
+    );
+  };
+
+  const MORE_OUTPUTS_ROW = (
+    <div
+      key="__moreOutputs"
+      className={[styles.outputPill, styles.outputMorePill, "nodrag"].join(" ")}
+      role="button"
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleOutputsCard();
+      }}
+    >
+      <span className={styles.outputIcon} aria-hidden="true" />
+      <span className={styles.outputText}>More</span>
+      <span className={styles.outputActionBtn} aria-hidden="true">
+        <MoreHorizontal className={styles.outputEyeIcon} />
+      </span>
+    </div>
+  );
+
+  const outputViewerDialogs = (
+    <>
+      {canOpenViewer && analyzeOpen && analyzeTarget ? (
+        <AnalyzeOutputDialog
+          open
+          onClose={() => {
+            // closeAnalyzeDialog
+            setAnalyzeOpen(false);
+            setAnalyzeTarget(null);
+          }}
+          projectId={analyzeProjectId}
+          protocolId={analyzeProtocolId}
+          protocolLabel={headerDisplayName}
+          outputName={analyzeTarget.outputName}
+          outputRaw={analyzeTarget.outputRaw}
+        />
+      ) : null}
+
+      {tableViewerState ? (
+        <TableViewerDialog
+          open
+          onClose={() => setTableViewerState(null)}
+          context={tableViewerState.context}
+          table={tableViewerState.table}
+          title={tableViewerState.title}
+          protocolLabel={headerDisplayName}
+        />
+      ) : null}
+    </>
+  );
+
+  // All outputs card: its own React Flow node, so it pans/zooms with the graph
+  if (isOutputsCard) {
+    return (
+      <>
+        <div ref={rootRef} className={styles.moreOutputsCard}>
+          <div className={styles.moreOutputsHeader}>
+            <span className={styles.moreOutputsTitle}>
+              {data.id} outputs ({outputsArray.length})
+            </span>
+            <button
+              type="button"
+              className={`${styles.moreOutputsClose} nodrag`}
+              aria-label="Close outputs"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleOutputsCard();
+              }}
+            >
+              <X className={styles.moreOutputsCloseIcon} />
+            </button>
+          </div>
+          <div className={styles.moreOutputsList}>
+            {outputsArray.map((outputObj, idx) => renderOutputItem(outputObj, idx, true))}
+          </div>
+        </div>
+        {outputViewerDialogs}
+      </>
+    );
+  }
 
   return (
     <ContextMenu modal={false}>
@@ -2052,34 +2531,31 @@ export default function ProtocolNodeCard({
           <div className={[styles.header, isProjectNode ? styles.headerProject : styles.headerProtocol].join(" ")}>
             <div className={styles.headerLeft}>
               {!isProjectNode && (
-                <div
-                  className={[styles.nodeIdBadge, data.status === "running" ? styles.glowBadge : ""].filter(Boolean).join(" ")}
-                  style={isCompactView ? { fontSize: "2.4rem" } : { fontSize: "2.3rem" }}
-                >
-                  <span>{data.id}</span>
-                </div>
+                <Tooltip {...jobInfoTooltipProps}>
+                  <div
+                    className={[styles.nodeIdBadge, data.status === "running" ? styles.glowBadge : ""].filter(Boolean).join(" ")}
+                    style={isCompactView ? { fontSize: "2.4rem" } : { fontSize: "2.3rem" }}
+                  >
+                    <span>{data.id}</span>
+                  </div>
+                </Tooltip>
               )}
 
               {isProjectNode ? (
                 <div className={styles.projectLabelWrapper} style={isCompactView ? { fontSize: "2.8rem" } : {}}>
                   <div title={data.label}>{truncateLabel(data.label, 150)}</div>
                 </div>
-              ) : (
-                <div className={styles.protocolTitleBlock}>
-                  <OverflowTooltipText
-                    as="div"
-                    text={protocolLabel}
-                    className={[styles.label, isCompactView ? styles.labelCompact : ""].filter(Boolean).join(" ")}
-                  />
-
-                  {shouldShowProtocolSubtitle ? (
-                    <div className={styles.protocolSubtitle} title={headerDisplayName}>
-                      {truncateLabel(headerDisplayName, 150)}
-                    </div>
-                  ) : null}
-                </div>
-
-              )}
+              ) : protocolRunName ? (
+                <Tooltip {...jobInfoTooltipProps}>
+                  <div
+                    className={[styles.label, isCompactView ? styles.labelCompact : "", styles.annotationTitle]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    {protocolRunName}
+                  </div>
+                </Tooltip>
+              ) : null}
             </div>
 
             {!isProjectNode && (
@@ -2165,6 +2641,16 @@ export default function ProtocolNodeCard({
                                 <span>Select to</span>
                               </span>
                               <ShortcutHint text={shortcuts.selectTo} />
+                            </div>
+                          </DropdownMenuItem>)}
+
+                        {isMenuItemVisible("collapse") && canCollapse && (
+                          <DropdownMenuItem onSelect={() => handleCollapse()}>
+                            <div className={styles.menuRow}>
+                              <span className={styles.menuLeft}>
+                                <Layers className={styles.menuItemIcon} />
+                                <span>Collapse</span>
+                              </span>
                             </div>
                           </DropdownMenuItem>)}
 
@@ -2483,303 +2969,8 @@ export default function ProtocolNodeCard({
                         ].filter(Boolean).join(" ")}
                         data-has-scroll
                       >
-                        {outputsArray.map((outputObj, idx) => {
-                          const value = normalizeOutputItem(outputObj);
-                          if (!value) return null;
-
-                          const isDragging = draggingIdx === idx;
-
-                          const labelText = value.info ?? value.name ?? value.pointerClass ?? value.paramClass ?? "Output";
-                          const pillKey = value.value ?? `${String(value.parentId ?? "")}:${String(value.name ?? idx)}`;
-
-                          const outputName = String(value.name ?? "");
-                          const isViewerEnabled = canOpenViewer && !!outputName;
-
-                          const thumbnail = outputName ? outputThumbnails[outputName] : null;
-                          const thumbnailSrc =
-                            typeof thumbnail?.thumbnailDataUrl === "string" && thumbnail.thumbnailDataUrl
-                              ? thumbnail.thumbnailDataUrl
-                              : "";
-
-                          const labelTextValue = String(labelText).trim();
-                          const labelMatch = labelTextValue.match(/^(.+?)\s*\((.*)\)\s*$/);
-
-                          const inlineCount = labelTextValue.match(/\b\d+\s+items?\b/i)?.[0] ?? "";
-                          const inlineSampling = labelTextValue.match(/\d+(?:\.\d+)?\s*(?:Å|Å|A)\s*\/?\s*px/i)?.[0] ?? "";
-                          const inlineSize = labelTextValue.match(/\d+\s*x\s*\d+(?:\s*x\s*\d+)?/i)?.[0] ?? "";
-
-                          const removeInlineDetail = (text: string, detail: string) =>
-                            detail ? text.replace(detail, "") : text;
-
-                          const overlayTitle = [
-                            inlineCount,
-                            inlineSampling,
-                            inlineSize,
-                          ].reduce(removeInlineDetail, labelMatch?.[1] ?? labelTextValue)
-                            .replace(/[(),]+/g, " ")
-                            .replace(/\s+/g, " ")
-                            .trim() || labelTextValue;
-
-                          const overlayDetails = labelMatch?.[2]
-                            ? labelMatch[2].split(",").map((part) => part.trim()).filter(Boolean)
-                            : [inlineCount, inlineSize, inlineSampling].filter(Boolean);
-
-                          const rawOverlaySampling = overlayDetails.find((part) =>
-                            /\d+(?:\.\d+)?\s*(?:Å|Å|A)\s*\/?\s*px/i.test(part)
-                          ) ?? "";
-
-                          const overlaySampling = rawOverlaySampling
-                            ? rawOverlaySampling.replace(/\s*(?:Å|Å|A)\s*\/?\s*px/i, " Å/px")
-                            : "";
-
-                          const rawOverlayCount = overlayDetails.find((part) => /\b\d+\s+items?\b/i.test(part)) ?? "";
-                          const overlayCount = rawOverlayCount.replace(/\b1\s+items\b/i, "1 item");
-
-                          const overlaySize = overlayDetails.find((part) => {
-                            if (part === rawOverlaySampling) return false;
-                            if (part === rawOverlayCount) return false;
-                            return /\d+\s*x\s*\d+/i.test(part);
-                          }) ?? "";
-
-                          const overlayTopLeft = overlayTitle;
-                          const overlayTopRight = overlaySampling;
-                          const overlayBottomLeft = overlaySize;
-                          const overlayBottomRight = overlayCount;
-
-                          const buildDragPayload = () => {
-                            const inferredParamClass = value.paramClass || (value.pointerClass ? "PointerParam" : "");
-
-                            return {
-                              paramClass: inferredParamClass,
-                              pointerClass: value.pointerClass ?? "",
-                              _expectedClass: value.pointerClass ?? "",
-                              value: value.value ?? "",
-                              info: value.info ?? "",
-                              parentId: value.parentId ?? "",
-                              name: value.name ?? "",
-                            };
-                          };
-
-                          const isMultiSelectionGesture = (e: ReactMouseEvent) =>
-                            e.ctrlKey || e.metaKey || e.shiftKey;
-
-                          const handleOutputMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
-                            if (isMultiSelectionGesture(e)) {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }
-                          };
-
-                          const handleOutputDragStart = (e: ReactDragEvent<HTMLDivElement>) => {
-                            e.stopPropagation();
-                            setDraggingIdx(idx);
-
-                            const output = buildDragPayload();
-
-                            setCurrentDraggedOutput(output);
-                            e.dataTransfer.setData("application/scipion-output", JSON.stringify(output));
-
-                            const ghost = document.createElement("div");
-                            ghost.style.position = "absolute";
-                            ghost.style.top = "-1000px";
-                            ghost.style.left = "-1000px";
-                            ghost.style.padding = "6px 12px";
-                            ghost.style.background = "white";
-                            ghost.style.border = "1px solid #ccc";
-                            ghost.style.color = "black";
-                            ghost.style.borderRadius = "0.5rem";
-                            ghost.innerText = `(${labelText})`;
-                            document.body.appendChild(ghost);
-                            e.dataTransfer.setDragImage(ghost, 0, 15);
-                            setTimeout(() => document.body.removeChild(ghost), 0);
-                          };
-
-                          const handleOutputDragEnd = () => {
-                            setDraggingIdx(null);
-                            setCurrentDraggedOutput(null);
-                          };
-
-                          const handleOpenOutput = (e: ReactMouseEvent) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-
-                            if (isMultiSelectionGesture(e)) {
-                              forwardClickToRFNode(e);
-                              return;
-                            }
-
-                            if (!isViewerEnabled) return;
-
-                            void openOutputViewer(outputName, outputObj, value);
-                          };
-
-                          const outputInfoTooltipText = labelTextValue;
-                          const shouldShowOutputInfoTooltip =
-                            outputInfoTooltipText.length >= 48 ||
-                            outputInfoTooltipText.includes("\n") ||
-                            (shouldUseOutputTiles && outputInfoTooltipText !== overlayTitle);
-
-                          const outputInfoTooltipProps = shouldShowOutputInfoTooltip
-                            ? {
-                                title: outputInfoTooltipText,
-                                placement: "top" as const,
-                                arrow: true,
-                                enterDelay: 300,
-                                slotProps: {
-                                  popper: { sx: { zIndex: 26000 } },
-                                  tooltip: {
-                                    sx: {
-                                      maxWidth: 560,
-                                      whiteSpace: "pre-wrap",
-                                      wordBreak: "break-word",
-                                      fontSize: "0.95rem",
-                                      lineHeight: 1.35,
-                                    },
-                                  },
-                                },
-                              }
-                            : null;
-
-                          if (shouldUseOutputTiles) {
-                            const hasThumbnail = Boolean(thumbnailSrc);
-
-                            const outputThumbSizeClassName =
-                              outputThumbnailLayoutCount <= 1
-                                ? styles.outputThumbTileSingle
-                                : outputThumbnailLayoutCount === 2
-                                  ? styles.outputThumbTileDouble
-                                  : outputThumbnailLayoutCount === 3
-                                    ? styles.outputThumbTileTriple
-                                    : styles.outputThumbTileMany;
-
-                            const thumbTile = (
-                              <div
-                                key={pillKey}
-                                className={[
-                                  styles.outputThumbTile,
-                                  outputThumbSizeClassName,
-                                  !hasThumbnail ? styles.outputThumbTileMissing : "",
-                                  isDragging ? styles.outputPillDragging : "",
-                                  "nodrag",
-                                ].filter(Boolean).join(" ")}
-                                draggable
-                                onMouseDown={handleOutputMouseDown}
-                                onClick={handleOpenOutput}
-                                onDragStart={handleOutputDragStart}
-                                onDragEnd={handleOutputDragEnd}
-                              >
-                                <div className={styles.outputThumbImageWrap}>
-                                  <div
-                                    className={[
-                                      styles.outputThumbImageFrame,
-                                      !hasThumbnail ? styles.outputThumbImageFrameEmpty : "",
-                                    ].filter(Boolean).join(" ")}
-                                  >
-                                    {hasThumbnail ? (
-                                      <img
-                                        src={thumbnailSrc}
-                                        alt={labelText}
-                                        className={styles.outputThumbImage}
-                                        draggable={false}
-                                      />
-                                    ) : (
-                                      <div className={styles.outputThumbPlaceholder}>
-                                        No preview
-                                      </div>
-                                    )}
-
-                                    {overlayTopLeft ? (
-                                      <OverflowTooltipText
-                                        as="div"
-                                        text={overlayTopLeft}
-                                        className={`${styles.outputThumbBadge} ${styles.outputThumbBadgeTopLeft}`}
-                                      />
-                                    ) : null}
-
-                                    {overlayTopRight ? (
-                                      <OverflowTooltipText
-                                        as="div"
-                                        text={overlayTopRight}
-                                        className={`${styles.outputThumbBadge} ${styles.outputThumbBadgeTopRight}`}
-                                      />
-                                    ) : null}
-
-                                    {overlayBottomLeft ? (
-                                      <OverflowTooltipText
-                                        as="div"
-                                        text={overlayBottomLeft}
-                                        className={`${styles.outputThumbBadge} ${styles.outputThumbBadgeBottomLeft}`}
-                                      />
-                                    ) : null}
-
-                                    {overlayBottomRight ? (
-                                      <OverflowTooltipText
-                                        as="div"
-                                        text={overlayBottomRight}
-                                        className={`${styles.outputThumbBadge} ${styles.outputThumbBadgeBottomRight}`}
-                                      />
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-
-                            if (!outputInfoTooltipProps) return thumbTile;
-
-                            return (
-                              <Tooltip key={pillKey} {...outputInfoTooltipProps}>
-                                {thumbTile}
-                              </Tooltip>
-                            );
-                          }
-
-                          return (
-                            <div
-                              key={pillKey}
-                              className={[styles.outputPill, isDragging ? styles.outputPillDragging : "", "nodrag"]
-                                .filter(Boolean)
-                                .join(" ")}
-                              draggable
-                              onMouseDown={handleOutputMouseDown}
-                              onClick={(e: ReactMouseEvent<HTMLDivElement>) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                forwardClickToRFNode(e);
-                              }}
-                              onDragStart={handleOutputDragStart}
-                              onDragEnd={handleOutputDragEnd}
-                            >
-                              <ArrowUpRight className={styles.outputIcon} />
-                              <OverflowTooltipText
-                                text={outputInfoTooltipText}
-                                className={styles.outputText}
-                              />
-
-                              <button
-                                type="button"
-                                className={`${styles.outputActionBtn} nodrag`}
-                                draggable={false}
-                                data-nodrag
-                                aria-label="View output"
-                                title={isViewerEnabled ? "View output" : "Viewer not available"}
-                                onPointerDown={(e) => {
-                                  // preventDragStartFromViewerButton
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }}
-                                onMouseDown={(e) => {
-                                  // preventDragStartFromViewerButtonMouse
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }}
-                                onClick={handleOpenOutput}
-                                disabled={!isViewerEnabled}
-                              >
-                                <Eye className={styles.outputEyeIcon} />
-                              </button>
-                            </div>
-                          );
-                        })}
+                        {visibleOutputs.map((outputObj, idx) => renderOutputItem(outputObj, idx))}
+                        {hasMoreOutputs ? MORE_OUTPUTS_ROW : null}
                       </div>
                     </div>
                   ) : (
@@ -2798,50 +2989,36 @@ export default function ProtocolNodeCard({
                       }}
                     >
                       {data.status}
-
-                      {showProgressBar && (
-                        <span className={styles.progress}>
-                          <span className={styles.progressTrack}>
-                            <span
-                              className={[
-                                styles.progressFill,
-                                showIndeterminateProgress ? styles.progressFillIndeterminate : "",
-                              ]
-                                .filter(Boolean)
-                                .join(" ")}
-                              style={
-                                showIndeterminateProgress
-                                  ? undefined
-                                  : {
-                                    width: `${progressPct}%`,
-                                  }
-                              }
-                            />
-                          </span>
-                          <span className={styles.progressText}>
-                            {stepsDone}/{numberOfSteps}
-                          </span>
-                        </span>
-                      )}
                     </span>
 
-                    <span className={styles.timeRow}>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className={styles.timeIcon}
-                        fill="none"
-                        viewBox="0 0 22 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span>{formatCpuTime(data.tick ?? Number(data.elapsedTime) ?? 0)}</span>
-                    </span>
+                    <Tooltip
+                      title={elapsedTooltip}
+                      placement="top"
+                      arrow
+                      enterDelay={300}
+                      slotProps={{
+                        popper: { sx: { zIndex: 26000 } },
+                        tooltip: { sx: { maxWidth: 560, fontSize: "0.95rem", lineHeight: 1.35 } },
+                      }}
+                    >
+                      <span className={styles.timeRow}>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className={styles.timeIcon}
+                          fill="none"
+                          viewBox="0 0 22 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span>{formatCpuTime(elapsedSeconds)}</span>
+                      </span>
+                    </Tooltip>
                   </div>
                 </div>
               )}
@@ -2933,6 +3110,16 @@ export default function ProtocolNodeCard({
                     <span>Select to</span>
                   </span>
                   <ShortcutHint text={shortcuts.selectTo} />
+                </div>
+              </ContextMenuItem>)}
+
+            {isMenuItemVisible("collapse") && canCollapse && (
+              <ContextMenuItem onClick={handleCollapse}>
+                <div className={styles.menuRow}>
+                  <span className={styles.menuLeft}>
+                    <Layers className={styles.menuItemIcon} />
+                    <span>Collapse</span>
+                  </span>
                 </div>
               </ContextMenuItem>)}
 
@@ -3181,32 +3368,7 @@ export default function ProtocolNodeCard({
 
       </ContextMenuContent>
 
-      {canOpenViewer && analyzeOpen && analyzeTarget ? (
-        <AnalyzeOutputDialog
-          open
-          onClose={() => {
-            // closeAnalyzeDialog
-            setAnalyzeOpen(false);
-            setAnalyzeTarget(null);
-          }}
-          projectId={analyzeProjectId}
-          protocolId={analyzeProtocolId}
-          protocolLabel={headerDisplayName}
-          outputName={analyzeTarget.outputName}
-          outputRaw={analyzeTarget.outputRaw}
-        />
-      ) : null}
-
-      {tableViewerState ? (
-        <TableViewerDialog
-          open
-          onClose={() => setTableViewerState(null)}
-          context={tableViewerState.context}
-          table={tableViewerState.table}
-          title={tableViewerState.title}
-          protocolLabel={headerDisplayName}
-        />
-      ) : null}
+      {outputViewerDialogs}
 
       {nextStepHelpOpen && nextStepHelpTarget ? (
         <Dialog

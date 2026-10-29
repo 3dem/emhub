@@ -13,6 +13,10 @@ const viewer = EMFlow.mountProjectPage({
 viewer.unmount();                   // also automatic when the container leaves the DOM
 ```
 
+The viewer fills the container (`.h-app` is `height: 100%`), so the host
+must give the container a height (the dev pages use `80vh`; EMhub fits it to
+the window, see below).
+
 Each mount creates: the shell `div.emflow-root` inside the container, an
 overlay root `div.emflow-root.emflow-overlays` on `<body>`, an emotion cache
 (key `emflow`) inside the shell, and a React root. `unmount()` removes all of
@@ -28,7 +32,11 @@ single `#emflow-portal-root`, so keep one viewer per page.
   workflow editor modal) and the bundle is ~8 MB. URLs come from
   `url_for_static()` (file mtime as `?v=`), so a rebuilt bundle is always
   reloaded. It mounts with `svc` and `project_id` from the svc template, and
-  unmounts when a containing Bootstrap modal is hidden.
+  unmounts when a containing Bootstrap modal is hidden. It sets the height
+  of `#project-page-host` to what is left of the window below it (minus the
+  card padding and footer), refitted on window/content resize, so the EMhub
+  page does not scroll (`85vh` inside a modal). The shell template removes
+  the `.dashboard-wrapper` min-height while the viewer is shown.
 - Built files live in EMhub's `emhub/static/libs/js/emflow.js` and
   `emhub/static/libs/css/emflow.css` (committed); `./build_and_copy.sh`
   updates them (`EMHUB_LIBS` to override the target).

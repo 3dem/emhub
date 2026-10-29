@@ -1110,6 +1110,20 @@ def build_series_star_pane_content(action_id, root, star_rel, row_label, type_ke
     raise Exception(f'Unsupported table view action: {action_id}')
 
 
+def processing_project_manager(root_abs):
+    """ The emwrap ProjectManager of the processing project at root_abs,
+    to launch jobs in it. """
+    processing = get_processing_project(root_abs)
+    if processing is None:
+        raise Exception(f'Not a valid processing project: {root_abs}')
+
+    pm = getattr(processing, 'project', None)
+    if pm is None:
+        from emwrap.base import ProjectManager
+        pm = ProjectManager(root_abs)
+    return pm
+
+
 class ApiViewerHelper:
     @staticmethod
     def create_tomo_subset(root, pointer_class, star_path, subset_items, attrs=None):
@@ -1133,14 +1147,7 @@ class ApiViewerHelper:
             input_set = input_star
         input_set = Path.rmslash(input_set)
 
-        processing = get_processing_project(root_abs)
-        if processing is None:
-            raise Exception(f'Not a valid processing project: {root}')
-
-        pm = getattr(processing, 'project', None)
-        if pm is None:
-            from emwrap.base import ProjectManager
-            pm = ProjectManager(root_abs)
+        pm = processing_project_manager(root_abs)
 
         params = {
             'input_set': input_set,

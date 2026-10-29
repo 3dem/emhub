@@ -15,10 +15,12 @@
 # **************************************************************************
 import json
 import os
+import re
 from glob import glob
 import numpy as np
 import base64
 from collections import defaultdict
+from functools import cached_property
 from datetime import datetime, timedelta
 
 import mrcfile
@@ -44,6 +46,22 @@ STATUS_MAP = {
     'Saved': 'saved',
 }
 
+# Volume of each class of a Relion 3D classification or initial model (e.g. run_it025_class003.mrc)
+_CLASS_VOLUME = re.compile(r'_class(\d+)\.mrc$')
+_CLASS3D_JOBTYPES = ('relion.class3d', 'relion.class3d.tomo',
+                     'relion.initialmodel', 'relion.initialmodel.tomo')
+
+
+def _output_prefix(job, output_id):
+    """ Prefix of the output label in the widget, to tell apart outputs of
+    the same kind of a job (e.g. 'Class03' for the volume of class 3 of a 3D
+    classification), or '' if none. """
+    if job['jobtype'] in _CLASS3D_JOBTYPES:
+        if m := _CLASS_VOLUME.search(output_id):
+            return f'Class{int(m.group(1)):02d}'
+    return ''
+
+
 class RelionSessionData(SessionData):
     """
     Adapter class for reading Session data from Relion OTF
@@ -61,26 +79,52 @@ class RelionSessionData(SessionData):
         # Workflow is now accessed via the project
         # self.workflow = RelionStar.pipeline_to_workflow(self.join('default_pipeline.star'))
         self._load_project()
-        self.movDataTable = None
-        self.micDataTable = None
 
-        def _session_path(key):
-            if key in self.session:
-                sp = self.join(self.session[key])
-                if os.path.exists(sp):
-                    return sp
-            return None
+    def _session_path(self, key):
+        if key in self.session:
+            sp = self.join(self.session[key])
+            if os.path.exists(sp):
+                return sp
+        return None
 
-        if movies := _session_path('movies'):
+    # The session movies and micrographs (OTF projects with session.json) are
+    # read when used (e.g. stats), not on every load: they are big STAR files
+    @cached_property
+    def _sessionMovies(self):
+        table = None
+        if movies := self._session_path('movies'):
             with StarFile(movies) as sf:
-                self.movDataTable = sf.getTable('movies')
-                self.movDataDict = {r.rlnImageId: r for r in self.movDataTable} if self.movDataTable else {}
+                table = sf.getTable('movies')
+        return table, {r.rlnImageId: r for r in table} if table else {}
 
-        if micrographs := _session_path('micrographs'):
+    @cached_property
+    def _sessionMicrographs(self):
+        optics = table = None
+        if micrographs := self._session_path('micrographs'):
             with StarFile(micrographs) as sf:
-                self.micOpticsTable = sf.getTable('optics')
-                self.micDataTable = sf.getTable('micrographs')
-                self.micDataDict = {r.rlnImageId: r for r in self.micDataTable} if self.micDataTable else {}
+                optics = sf.getTable('optics')
+                table = sf.getTable('micrographs')
+        return optics, table, {r.rlnImageId: r for r in table} if table else {}
+
+    @property
+    def movDataTable(self):
+        return self._sessionMovies[0]
+
+    @property
+    def movDataDict(self):
+        return self._sessionMovies[1]
+
+    @property
+    def micOpticsTable(self):
+        return self._sessionMicrographs[0]
+
+    @property
+    def micDataTable(self):
+        return self._sessionMicrographs[1]
+
+    @property
+    def micDataDict(self):
+        return self._sessionMicrographs[2]
 
     def __str__(self):
         return f"RelionSessionData(path={self.path}, session={self.session})"
@@ -167,27 +211,62 @@ class RelionSessionData(SessionData):
             return ''
         return '/'.join(micrographs.split('/')[:-1])
 
-    def _job_info(self, job):
-        return self.project.readJobInfo(job, default={})
+    def _job_timing(self, job):
+        """ Elapsed time of the job runs (cached in project.json from the job
+        info.json), with the total of all runs in seconds, and the time each
+        run waited since it was launched (queued). A run without elapsed is
+        still running if it is the last one of an active job, otherwise its
+        time is unknown (None), e.g. the job was killed. The pending launch
+        is the one that did not start a run yet.
+        """
+        timing = self.project.getJobTiming(job)
+        runs = timing['runs']
+        launched = timing.get('launched') or ''
+        lastStart = (runs[-1].get('start') or '') if runs else ''
+        # Times have the same sortable format. Before runs stored their own
+        # launch time, the last launch was kept after the run started.
+        if launched and lastStart >= launched:
+            if not runs[-1].get('launched'):
+                runs = runs[:-1] + [dict(runs[-1], launched=launched)]
+            launched = ''
+        status = job['status']
+        # While Launched, the last run is the current one if no launch is pending
+        active = status == 'Running' or (status == 'Launched' and not launched)
+        now = datetime.now()
 
-    def _job_elapsed(self, jobInfo):
-        elapsed = ''
-        if runs := jobInfo.get('runs', None):
-            if e := runs[-1].get('elapsed', ''):
-                elapsed = e.split('.')[0]
-            elif s := runs[-1].get('start', ''):
-                started = Pretty.parse_datetime(s)
-                e = str(datetime.now() - started)
-                elapsed = e.split('.')[0]
+        def _seconds(t1, t2):
+            """ Seconds between two time strings (now if t2 is empty). """
+            t2 = Pretty.parse_datetime(t2) if t2 else now
+            return max(0, int((t2 - Pretty.parse_datetime(t1)).total_seconds()))
 
-        return elapsed
+        def _run_info(run, last):
+            start, end = run.get('start') or '', run.get('end') or ''
+            runLaunched = run.get('launched') or ''
+            info = {'launched': runLaunched, 'start': start, 'end': end,
+                    'queued': _seconds(runLaunched, start) if runLaunched and start else None,
+                    'elapsed': None,
+                    # Only successful runs stored the elapsed before 'status'
+                    'status': run.get('status') or ''}
+            if e := run.get('elapsed'):
+                info['elapsed'] = int(Pretty.parse_timedelta(e).total_seconds())
+                info['status'] = info['status'] or 'finished'
+            elif start and (end or (last and active)):
+                info['elapsed'] = _seconds(start, end)
+                info['status'] = info['status'] or ('' if end else 'running')
+            return info
 
-    def _job_elapsed_seconds(self, jobInfo):
-        seconds = 0
-        if jobElapsed := self._job_elapsed(jobInfo):
-            td = Pretty.parse_timedelta(jobElapsed)
-            seconds = td.days * 24 * 60 * 60 + td.seconds
-        return seconds
+        runsInfo = [_run_info(run, i == len(runs) - 1) for i, run in enumerate(runs)]
+
+        return {
+            'runs': runsInfo,
+            'launched': launched,
+            # Waiting time of the pending launch, up to now. Jobs not run by
+            # emwrap pipelines (e.g. Relion ones) never move it to a run.
+            'queued': _seconds(launched, '') if launched and status == 'Launched' else None,
+            'elapsed': sum(r['elapsed'] or 0 for r in runsInfo),
+            # Changes with every new run, so the UI restarts its local timer
+            'session': runsInfo[-1]['start'] if runsInfo else ''
+        }
 
     def _load_project(self):
         print(f"{Pretty.now()} >>>>>> Loading workflow from {self.path}", flush=True)
@@ -214,7 +293,8 @@ class RelionSessionData(SessionData):
         protList = []
 
         for job in wf.jobs():
-            jobInfo = self._job_info(job)
+            timing = self._job_timing(job)
+            elapsed = Pretty.delta(timedelta(seconds=timing['elapsed'])) if timing['runs'] else ''
             links = []
             for o in job.outputs:
                 for c in o.childs:
@@ -222,7 +302,7 @@ class RelionSessionData(SessionData):
 
             protList.append({
                 'id': job.id,
-                'label': RelionRun.jobAlias(job) + ' ' + self._job_elapsed(jobInfo),
+                'label': RelionRun.jobAlias(job) + ' ' + elapsed,
                 'links': links,
                 'status': STATUS_MAP.get(job['status'], job['status']),
                 'type': job['jobtype']
@@ -258,7 +338,7 @@ class RelionSessionData(SessionData):
             parents = [i.parent.id for i in job.inputs]
             children = []
             outputs = []
-            jobInfo = self._job_info(job)
+            timing = self._job_timing(job)
 
             # FIXME: Find a better way to store the outputs' info without reading many files
             # filesDict = defaultdict(lambda : {'type': 'File', 'info': 'No-info'})
@@ -269,16 +349,20 @@ class RelionSessionData(SessionData):
                 cached = self.project._data.getOutputInfo(o.id)
                 dt = o.get('datatype') or cached.get('type', 'No-type')
                 di = o.get('info') or cached.get('info', o.id)
+                for c in o.childs:
+                    children.append(c.id)
+                # Do not report outputs whose file does not exist
+                if str(di).startswith('Missing:'):
+                    continue
                 label = o.get('label', dt)
                 outputs.append({
                     "outputName": label,
                     "pointerClass": dt,
                     "info": f"{dt} ({di})",
+                    "prefix": _output_prefix(job, o.id),
                     "value": o.id,
                     "parentId": job.id
                 })
-                for c in o.childs:
-                    children.append(c.id)
 
             prot = {
                 'id': job.id,
@@ -290,7 +374,11 @@ class RelionSessionData(SessionData):
                 'status': STATUS_MAP.get(job['status'], job['status']),
                 'type': job['jobtype'],
                 "cpuTime": "0",
-                "elapsedTime": self._job_elapsed_seconds(jobInfo),
+                "elapsedTime": timing['elapsed'],
+                "elapsedSessionId": timing['session'],
+                "elapsedRuns": timing['runs'],
+                "launched": timing['launched'],
+                "queued": timing['queued'],
                 "isInteractive": False,
                 "numberOfSteps": 1,
                 "stepsDone": 1,

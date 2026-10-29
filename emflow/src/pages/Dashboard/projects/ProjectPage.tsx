@@ -16,6 +16,7 @@ import React, {
 import ProtocolForm from "@/components/protocol/ProtocolForm";
 import ProtocolStepsDeveloperDialog from "@/components/protocol/ProtocolStepsDeveloperDialog";
 import { buildGraphElements, getGraphTopologySignature } from "@/utils/graph_utils";
+import { getGraphLayoutName, getGraphLayoutStorageSuffix } from "@/utils/graph_layout";
 
 import ReactFlow, {
   Background,
@@ -89,6 +90,7 @@ import TagManager from "@/components/tags/TagManager";
 import type { ProtocolTag } from "@/components/tags/tagTypes";
 import TagsDialog from "@/components/tags/TagsDialog";
 import { NodeMenuVisibility } from "@/types/protocol-node-menu-items";
+import { ProjectRefreshProvider } from "@/context/ProjectRefreshContext";
 
 
 /* --------------------- Types --------------------- */
@@ -128,8 +130,9 @@ interface StatusNodeData {
   tagIds?: string[];
 }
 
+// Launched jobs are waiting (e.g. in the queue), their elapsed time only
+// counts once they are running
 const ELAPSED_TIMER_STATUSES = new Set([
-  "launched",
   "running",
 ]);
 
@@ -421,10 +424,19 @@ type NodeActions = {
   onResetFrom?: (id: string) => void;
   onSelectFrom?: (id: string) => void;
   onSelectTo?: (id: string) => void;
+  onCollapse?: (id: string) => void;
+  onExpand?: (id: string) => void;
   onStop?: (id: string) => void;
   onManageTags?: () => void;
   onOpenProtocolClass?: (protocolClass: string) => void;
+  onToggleOutputsCard?: (id: string) => void;
 };
+
+// "All outputs" cards are extra React Flow nodes placed right of their protocol node
+const OUTPUTS_CARD_NODE_SUFFIX = "::outputs";
+const OUTPUTS_CARD_GAP = 60;
+
+const isOutputsCardNode = (node: { id: string }) => String(node.id).endsWith(OUTPUTS_CARD_NODE_SUFFIX);
 
 type OpenForm = { key: string; id: string; details: any; isClosing?: boolean };
 
@@ -1321,6 +1333,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     restart: true,
     selectFrom: true,
     selectTo: true,
+    collapse: true,
     stop: true,
     upload: true,
   });
@@ -1410,6 +1423,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           restart: Boolean(remotePolicy.restart),
           selectFrom: Boolean(remotePolicy.selectFrom),
           selectTo: Boolean(remotePolicy.selectTo),
+          collapse: remotePolicy.collapse !== false,
           stop: Boolean(remotePolicy.stop),
           upload: Boolean(remotePolicy.upload),
         };
@@ -1650,7 +1664,13 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [outputsCardIds, setOutputsCardIds] = useState<string[]>([]);
+  // Measured sizes of the outputs card nodes: they are derived (not in `nodes`), and React Flow
+  // keeps a node hidden until its width/height are known
+  const [outputsCardSizes, setOutputsCardSizes] = useState<Record<string, { width: number; height: number }>>({});
   const [graphDirection, setGraphDirection] = useState<"TB" | "LR">("TB");
+  // Node placement of the hierarchical view, from the page URL (wtb / wlr arguments)
+  const graphLayout = getGraphLayoutName(graphDirection);
 
   const [_, setHideGraphDuringCenter] = useState(false);
   const [, startTransition] = useTransition();
@@ -1831,6 +1851,21 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const PROTOCOL_OUTPUT_THUMBNAIL_CHUNK_DELAY_MS = 50;
   const PROTOCOL_OUTPUT_THUMBNAIL_RETRY_DELAY_MS = 30_000;
   const localStorageKey = `emflow:project-${projectName}-node-positions`;
+
+  // Roots of the collapsed groups of the tree views (graph_utils collapseProtocols),
+  // saved per project. Read when the project changes, before building the graph.
+  const collapsedStorageKey = `emflow:project-${projectName}-collapsed`;
+  const collapsedIdsRef = useRef<string[]>([]);
+  const collapsedKeyRef = useRef<string | null>(null);
+  if (collapsedKeyRef.current !== collapsedStorageKey) {
+    collapsedKeyRef.current = collapsedStorageKey;
+    try {
+      const saved = JSON.parse(localStorage.getItem(collapsedStorageKey) ?? "[]");
+      collapsedIdsRef.current = Array.isArray(saved) ? saved.map(String) : [];
+    } catch {
+      collapsedIdsRef.current = [];
+    }
+  }
 
   const [, setIsSwitchingLayout] = useState(false);
   const [nodesLoadedOnce, setNodesLoadedOnce] = useState(false);
@@ -2968,6 +3003,10 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const handleNodeDoubleClick = useCallback(
     async (nodeData: any) => {
       if (!projectName) return;
+      if (nodeData?.collapsedCount || nodeData?.data?.collapsedCount) {
+        expandGroup(String(nodeData.id));
+        return;
+      }
       await openFormForNode(String(nodeData.id), () =>
         svc.fetchProtocolDetails(projectName, nodeData.id)
       );
@@ -3081,6 +3120,52 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     applyPathSelection(Array.from(nodesSet), edgeIds);
   }, [collectDescendants, computeOutgoingEdgesFromSet, applyPathSelection]);
 
+  /* ------------------------ Collapsed groups ------------------------ */
+  const isCollapsedGroupId = (id: string) =>
+    Boolean((nodesRef.current.find((n) => String(n.id) === String(id))?.data as any)?.collapsedCount);
+
+  // Rebuild the graph with the new groups, keeping `anchorId` (the collapsed
+  // or expanded node, same id before and after) at the same place on screen
+  const setCollapsedIds = async (ids: string[], anchorId: string) => {
+    const before = nodesRef.current.find((n) => String(n.id) === anchorId)?.position;
+
+    collapsedIdsRef.current = ids;
+    try {
+      localStorage.setItem(collapsedStorageKey, JSON.stringify(ids));
+    } catch {
+      // noOp
+    }
+    clearAllSelectionHard();
+    await handleRefreshRef.current?.();
+    if (!before) return;
+
+    // Wait for the new nodes to be rendered
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const inst = reactFlowInstanceRef.current ?? (window as any).reactFlowInstance;
+      const after = nodesRef.current.find((n) => String(n.id) === anchorId)?.position;
+      if (!inst || !after) return;
+
+      const vp = inst.getViewport();
+      const next = {
+        x: vp.x + (before.x - after.x) * vp.zoom,
+        y: vp.y + (before.y - after.y) * vp.zoom,
+        zoom: vp.zoom,
+      };
+      inst.setViewport(next);
+      setViewport(next);
+    }));
+  };
+
+  // Jobs already in other groups stay there (graph_utils collapseProtocols)
+  const collapseGroup = (id: string) => {
+    if (collapsedIdsRef.current.includes(String(id))) return;
+    void setCollapsedIds([...collapsedIdsRef.current, String(id)], String(id));
+  };
+
+  const expandGroup = (id: string) => {
+    void setCollapsedIds(collapsedIdsRef.current.filter((x) => x !== String(id)), String(id));
+  };
+
   const handleSelectTo = useCallback((id: string) => {
     const nodesSet = collectAncestors(id);
     if (id !== "PROJECT") nodesSet.add(String(id));
@@ -3133,12 +3218,17 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       onContinueAll: openContinueAll,
       onSelectFrom: handleSelectFrom,
       onSelectTo: handleSelectTo,
+      onCollapse: collapseGroup,
+      onExpand: expandGroup,
       onStop: openStop,
       onResetFrom: openResetFrom,
       onManageTags: () => setTagManagerOpen(true),
 
       onOpenProtocolClass: (protocolClass) => {
         void openFormForProtocolClass(protocolClass);
+      },
+      onToggleOutputsCard: (id) => {
+        setOutputsCardIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
       },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3201,7 +3291,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const nodePositionsVersion = 6;
   const graphTopologySignatureRef = useRef("");
 
-  const storageKeyHier = `${localStorageKey}-${graphDirection}-hier`;
+  const storageKeyHier = `${localStorageKey}-${graphDirection}-hier${getGraphLayoutStorageSuffix(graphLayout)}`;
   const manualNodeOriginsStorageKey = `${storageKeyHier}-manual-origins`;
   const viewportStorageKey = `${localStorageKey}-${viewMode}-${graphDirection}-viewport`;
 
@@ -3411,7 +3501,25 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   };
 
 
-  const handleNodesChangeWithPersistence = (changes: NodeChange[]) => {
+  const handleNodesChangeWithPersistence = (allChanges: NodeChange[]) => {
+    const cardChanges = allChanges.filter((c) => "id" in c && isOutputsCardNode({ id: String(c.id) }));
+    if (cardChanges.length) {
+      setOutputsCardSizes((prev) => {
+        let next = prev;
+        for (const c of cardChanges) {
+          if (c.type !== "dimensions" || !c.dimensions) continue;
+          const { width, height } = c.dimensions;
+          if (prev[c.id]?.width === width && prev[c.id]?.height === height) continue;
+          if (next === prev) next = { ...prev };
+          next[c.id] = { width, height };
+        }
+        return next;
+      });
+    }
+
+    const changes = cardChanges.length ? allChanges.filter((c) => !cardChanges.includes(c)) : allChanges;
+    if (!changes.length) return;
+
     if (disablePersistenceRef.current || viewMode !== "hierarchical") {
       return onNodesChange(changes);
     }
@@ -3598,7 +3706,10 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     protocols: Record<string, any>,
     options?: { ignoreSaved?: boolean }
   ): Node[] => {
-    const topologySignature = getGraphTopologySignature(protocols);
+    // Positions are saved per collapse state (the visible graph changes)
+    const collapsedIds = [...collapsedIdsRef.current].sort();
+    const topologySignature = getGraphTopologySignature(protocols) +
+      (collapsedIds.length ? `#collapsed:${collapsedIds.join(",")}` : "");
     graphTopologySignatureRef.current = topologySignature;
 
     const saved = options?.ignoreSaved
@@ -4071,7 +4182,8 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
         const effectiveZoom = mode === "grid" ? GRID_ZOOM : viewportRef.current.zoom;
 
         const { nodes: loadedNodes, edges: loadedEdges, table } = buildGraphElements(
-          data.shortName, data.protocols, mode, dir, width, effectiveZoom
+          data.shortName, data.protocols, mode, dir, width, effectiveZoom,
+          undefined, { layout: getGraphLayoutName(dir), collapsed: collapsedIdsRef.current }
         );
 
         const tableWithTick = (
@@ -4202,7 +4314,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           gridWidth || flowWrapperRef.current?.clientWidth,
           getEffectiveZoom(),
           undefined,
-          preferredChildOrder ? { preferredChildOrder } : undefined
+          { preferredChildOrder, layout: graphLayout, collapsed: collapsedIdsRef.current }
         );
 
         const freshTableRows = table ?? [];
@@ -4250,7 +4362,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           const pendingNewNodes =
             pendingNewNodesRef.current;
 
-          if (
+          if (pendingNewNodes && graphLayout === "ylevel") {
+            hierarchicalNodes = placePendingNewNodesWithYLevel(loadedNodes, loadedEdges, data.protocols);
+          } else if (
             pendingNewNodes?.reflowWholeGraph
           ) {
             hierarchicalNodes =
@@ -4478,6 +4592,11 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
 
   const handleRefreshRef = useRef(handleRefresh);
   useEffect(() => { handleRefreshRef.current = handleRefresh; }, [handleRefresh]);
+  // Stable callback for the components that change the workflow (e.g. a
+  // table viewer action launching a job), they refresh it with useProjectRefresh
+  const refreshProject = useCallback(() => {
+    void handleRefreshRef.current?.();
+  }, []);
 
 
   // Refresh only active protocols without rebuilding the workflow graph.
@@ -4847,7 +4966,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           gridWidth || flowWrapperRef.current?.clientWidth,
           getEffectiveZoom(),
           undefined,
-          preferredChildOrder ? { preferredChildOrder } : undefined
+          { preferredChildOrder, layout: graphLayout, collapsed: collapsedIdsRef.current }
         );
 
         const currentNodesById =
@@ -5164,7 +5283,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
         viewMode,
         graphDirection,
         gridWidth || flowWrapperRef.current?.clientWidth,
-        getEffectiveZoom()
+        getEffectiveZoom(),
+        undefined,
+        { layout: graphLayout, collapsed: collapsedIdsRef.current }
       );
 
     const nodesWithPositions =
@@ -5971,6 +6092,126 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     }
 
     return preferredDelta;
+  };
+
+  // ylevel layout after a duplicate/paste/add (pendingNewNodesRef): if no node
+  // was moved by hand, the whole layout is applied again. Otherwise existing
+  // nodes keep their positions and only the new ones are placed, as Scipion
+  // does: at their layout offset from their closest placed parent, shifted on
+  // the cross axis if they overlap another node.
+  const placePendingNewNodesWithYLevel = (
+    loadedNodes: Node<any>[],
+    loadedEdges: Edge[],
+    protocols: Record<string, any>
+  ): Node<any>[] => {
+    const pending = pendingNewNodesRef.current;
+    pendingNewNodesRef.current = null;
+
+    // Read before loadNodesWithPositions, which sets the new topology signature
+    const manualOrigins = readManualNodeOrigins();
+    const layoutNodes = loadNodesWithPositions(loadedNodes, protocols, { ignoreSaved: true });
+
+    if (!pending?.beforePositions || manualOrigins.size === 0) {
+      return layoutNodes;
+    }
+
+    const dir = graphDirection;
+    const isTB = dir === "TB";
+    const crossOf = (p: { x: number; y: number }) => (isTB ? p.x : p.y);
+    const mainOf = (p: { x: number; y: number }) => (isTB ? p.y : p.x);
+    const toPos = (cross: number, main: number) => (isTB ? { x: cross, y: main } : { x: main, y: cross });
+
+    const layoutPos = new Map(layoutNodes.map((n) => [String(n.id), n.position]));
+    const currentById = new Map(nodesRef.current.map((n) => [String(n.id), n as any]));
+
+    // Cross size of a node (measured if it was already rendered) and gaps
+    const defaultCrossSize = isTB ? 950 : 520;
+    const crossSize = (id: string) => {
+      const n = currentById.get(id);
+      const measured = Number(isTB ? n?.width : n?.height);
+      return Number.isFinite(measured) && measured > 0 ? measured : defaultCrossSize;
+    };
+    const gap = isTB ? 200 : 120;
+    const sameRowDistance = getLevelStep(dir) / 2;
+
+    const parentsById = new Map<string, string[]>();
+    for (const edge of loadedEdges) {
+      const parents = parentsById.get(String(edge.target)) ?? [];
+      parents.push(String(edge.source));
+      parentsById.set(String(edge.target), parents);
+    }
+
+    // Existing nodes keep their positions
+    const placed = new Map<string, { x: number; y: number }>();
+    for (const node of layoutNodes) {
+      const id = String(node.id);
+      const before = pending.beforePositions.get(id);
+      if (pending.beforeIds.has(id)) placed.set(id, before ?? node.position);
+    }
+
+    const newIds = layoutNodes
+      .map((n) => String(n.id))
+      .filter((id) => id !== "PROJECT" && !pending.beforeIds.has(id))
+      .sort((a, b) => mainOf(layoutPos.get(a)!) - mainOf(layoutPos.get(b)!));
+
+    for (const id of newIds) {
+      const target = layoutPos.get(id)!;
+
+      // Closest placed parent (deepest level), the project only if there is no other
+      const anchor = (parentsById.get(id) ?? [])
+        .filter((parentId) => placed.has(parentId) && layoutPos.has(parentId))
+        .sort((a, b) => {
+          if ((a === "PROJECT") !== (b === "PROJECT")) return a === "PROJECT" ? 1 : -1;
+          return mainOf(layoutPos.get(b)!) - mainOf(layoutPos.get(a)!);
+        })[0];
+
+      let cross = crossOf(target);
+      let main = mainOf(target);
+      if (anchor) {
+        cross += crossOf(placed.get(anchor)!) - crossOf(layoutPos.get(anchor)!);
+        main += mainOf(placed.get(anchor)!) - mainOf(layoutPos.get(anchor)!);
+      }
+
+      // Shift away from overlapped nodes in the same row
+      const size = crossSize(id);
+      for (let attempt = 0; attempt < placed.size; attempt++) {
+        const obstacle = Array.from(placed.entries()).find(([otherId, p]) => {
+          if (otherId === "PROJECT") return false;
+          const minDistance = (size + crossSize(otherId)) / 2 + gap;
+          return Math.abs(mainOf(p) - main) < sameRowDistance && Math.abs(crossOf(p) - cross) < minDistance;
+        });
+        if (!obstacle) break;
+
+        const [otherId, p] = obstacle;
+        const side = cross >= crossOf(p) ? 1 : -1;
+        cross = crossOf(p) + side * ((size + crossSize(otherId)) / 2 + gap);
+      }
+
+      placed.set(id, toPos(cross, main));
+    }
+
+    const resolvedNodes = centerProjectOverGraphBranches(
+      layoutNodes.map((node) => ({ ...node, position: placed.get(String(node.id)) ?? node.position })),
+      dir
+    );
+
+    const topologySignature = graphTopologySignatureRef.current;
+    if (topologySignature) {
+      try {
+        writePersistedPositions(
+          storageKeyHier,
+          dir,
+          topologySignature,
+          resolvedNodes.map((node) => ({ id: String(node.id), position: node.position }))
+        );
+      } catch {
+        // noOp
+      }
+    }
+    // Still moved by hand, now for the new topology
+    writeManualNodeOrigins(manualOrigins);
+
+    return resolvedNodes;
   };
 
   const placePendingNewNodesAtCanonicalTbPositions = (
@@ -7963,6 +8204,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
         return;
       }
 
+      // Collapsed group nodes only expand (double-click or [ ]): no shortcuts
+      if (e.key !== "Escape" && getSelectedIds().some(isCollapsedGroupId)) return;
+
       if (modPressed(e) && e.shiftKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
         e.stopPropagation();
@@ -8218,8 +8462,36 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       return { ...n, style: nextStyle, data: nextData };
     });
 
-    return anyChanged ? next : nodes;
-  }, [nodes, focusActive, unifiedSelectedIdsState, tagFilterIds, tagAssignments, tagById]);
+    const baseNodes = anyChanged ? next : nodes;
+    if (!outputsCardIds.length) return baseNodes;
+
+    // appendOutputsCardNodes: follow the protocol node position, above other nodes
+    const outputsCards = outputsCardIds.flatMap((id) => {
+      const node = baseNodes.find((n) => String(n.id) === id);
+      if (!node) return [];
+
+      const width = Number((node as any).width) || 950;
+      const cardId = `${id}${OUTPUTS_CARD_NODE_SUFFIX}`;
+      return [{
+        id: cardId,
+        ...outputsCardSizes[cardId],
+        type: node.type,
+        position: { x: node.position.x + width + OUTPUTS_CARD_GAP, y: node.position.y },
+        data: { ...node.data, outputsCard: true },
+        // React Flow only marks draggable nodes "nopan"; without it a press on the card pans the
+        // graph and cancels the HTML5 drag of its outputs
+        className: "nopan",
+        style: { opacity: (node as any).style?.opacity ?? 1 },
+        draggable: false,
+        selectable: false,
+        connectable: false,
+        focusable: false,
+        zIndex: 1000,
+      } as Node<StatusNodeData>];
+    });
+
+    return [...baseNodes, ...outputsCards];
+  }, [nodes, focusActive, unifiedSelectedIdsState, tagFilterIds, tagAssignments, tagById, outputsCardIds, outputsCardSizes]);
 
 
   const renderEdges = useMemo(() => {
@@ -8270,7 +8542,8 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const canSelectAllWorkflow = getAllWorkflowProtocolIds().size > 0;
 
   return (
-    <div className={`${ROOT_CLASS} ${hostIsDark ? "dark" : ""}`}>
+    <ProjectRefreshProvider value={refreshProject}>
+    <div className={`${ROOT_CLASS} ${hostIsDark ? "dark" : ""}`} style={{ flex: "1 1 auto", minHeight: 0 }}>
       <div className="h-app min-h-0 flex flex-col relative overflow-hidden bg-background text-foreground">
 
         {/* Header */}
@@ -8826,8 +9099,12 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
                   style: { stroke: "#999", strokeWidth: 2 },
                   markerEnd: { type: MarkerType.ArrowClosed },
                 }}
-                onNodeDoubleClick={(_, node) => handleNodeDoubleClick(node)}
-                onNodeClick={(evt, node) => handleNodeClick(node, evt)}
+                onNodeDoubleClick={(_, node) => {
+                  if (!isOutputsCardNode(node)) handleNodeDoubleClick(node);
+                }}
+                onNodeClick={(evt, node) => {
+                  if (!isOutputsCardNode(node)) handleNodeClick(node, evt);
+                }}
                 multiSelectionKeyCode={isMac ? "Meta" : "Control"}
                 selectionKeyCode="Shift"
                 selectionOnDrag
@@ -9869,5 +10146,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       {/* portalRootInsideWidgetSoDialogsInheritWidgetStyles */}
       <div ref={portalRootRef} id={PORTAL_ROOT_ID} className="pp-portalRoot" />
     </div>
+    </ProjectRefreshProvider>
   );
 }

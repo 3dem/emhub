@@ -149,8 +149,7 @@ def load_benchmark_run_jobs(processing_path):
     pm = ProjectManager(path, verbose=0)
     jobs = []
     for job in pm.get_workflow().jobs():
-        info = pm.readJobInfo(job, default={}) or {}
-        runs = info.get('runs') or []
+        runs = pm.getJobRuns(job)
         last = runs[-1] if runs else {}
         seconds, running = _job_run_seconds(last)
         alias = job['alias']
