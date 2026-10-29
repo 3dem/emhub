@@ -1,10 +1,17 @@
 """Load Relion 5 tomography coordinates and convert them for display."""
 
 import os
+import re
+from functools import lru_cache
 
 from emtools.metadata import StarFile, RelionStar
 
 from emhub.data.processing import resolve_project_root
+
+ANGLE_COLUMNS = ('rlnAngleRot', 'rlnAngleTilt', 'rlnAnglePsi')
+TEMPLATE_MAX_GRID = 40
+# job.star option holding the template map, e.g. "pytom.template  PyTom/job023/x_template.mrc"
+_TEMPLATE_OPTION = re.compile(r'^\s*(\S*template\S*)\s+(\S+\.mrc)\s*$', re.IGNORECASE | re.MULTILINE)
 
 SCORE_COLUMNS = (
     'rlnLCCmax',
@@ -241,6 +248,8 @@ def load_coords3d_for_tomogram(root, output_path, tomo_id):
         }
         if score := _particle_score(row):
             point['score'] = score
+        if hasattr(row, 'rlnAngleRot'):
+            point['angles'] = [float(getattr(row, c, 0) or 0) for c in ANGLE_COLUMNS]
         coords.append(point)
 
     result = {
@@ -266,18 +275,28 @@ def load_tomogram_coordinates(root, output_path, tomo_name):
     """Load display coordinates for one tomogram from a coordinates set."""
     payload = load_coords3d_for_tomogram(root, output_path, tomo_name)
     x, y, z = [], [], []
+    angles = []
     for point in payload['coords']:
         x.append(point['x'])
         y.append(point['y'])
         z.append(point['z'])
-    return {'x': x, 'y': y, 'z': z}
+        angles.append(point.get('angles'))
+    result = {'x': x, 'y': y, 'z': z}
+    if angles and all(angles):
+        result['angles'] = angles
+    return result
 
 
 def load_tomogram_card_coordinates(root, output_path, tomo_name):
     """Load x/y/z arrays for the tomogram volume slider card."""
     if not output_path or not tomo_name:
         return {'x': [], 'y': [], 'z': []}
-    return load_tomogram_coordinates(root, output_path, tomo_name)
+    result = load_tomogram_coordinates(root, output_path, tomo_name)
+    if result['x']:
+        template = load_particles_template(root, output_path)
+        if template:
+            result['template'] = template
+    return result
 
 def load_coords3d_tomogram_slice(root, output_path, tomo_id, slice_index, axis='z'):
     """Render one tomogram slice as a base64 PNG for the coords3d viewer."""
@@ -331,3 +350,69 @@ def load_coords3d_tomogram_slice(root, output_path, tomo_id, slice_index, axis='
         'axis': axis,
         'index': index,
     }
+
+
+def _find_template_path(root, output_path):
+    """ Template map of the job that produced the particles: the 'template'
+    option of the job.star found going up from the output file. """
+    from emhub.data.processing import project_file_path
+
+    project = resolve_project_root(root)
+    folder = os.path.dirname(_resolve_star_path(root, output_path))
+    while folder.startswith(project) and folder != project:
+        job_star = os.path.join(folder, 'job.star')
+        if os.path.exists(job_star):
+            with open(job_star) as f:
+                for name, value in _TEMPLATE_OPTION.findall(f.read()):
+                    if 'mask' in name.lower():
+                        continue
+                    try:
+                        path = project_file_path(root, value)
+                    except ValueError:
+                        continue
+                    if path and os.path.exists(path):
+                        return path
+            return None
+        folder = os.path.dirname(folder)
+    return None
+
+
+@lru_cache(maxsize=8)
+def _template_mesh(path, mtime):
+    """ Iso-surface of a template map, centered, in Å (x, y, z order). """
+    import mrcfile
+    import numpy as np
+    from scipy import ndimage
+    from skimage import measure
+
+    with mrcfile.open(path, permissive=True) as mrc:
+        data = np.asarray(mrc.data, dtype=np.float32)
+        voxel = float(mrc.voxel_size.x)
+    if data.ndim != 3 or voxel <= 0:
+        return None
+    if abs(data.min()) > abs(data.max()):
+        data = -data
+    if data.max() <= 0:
+        return None
+    factor = min(1.0, TEMPLATE_MAX_GRID / max(data.shape))
+    if factor < 1:
+        data = ndimage.zoom(data, factor, order=1)
+        voxel /= factor
+    # The padding closes the surface of a map that touches the box
+    verts, faces, _, _ = measure.marching_cubes(np.pad(data, 1), 0.3 * float(data.max()))
+    verts = (verts - 1 - (np.array(data.shape) - 1) / 2.0) * voxel
+    verts = verts[:, ::-1]  # (z, y, x) -> (x, y, z), which flips the winding
+    faces = faces[:, ::-1]
+    return {
+        'vertices': [round(float(v), 2) for v in verts.ravel()],
+        'faces': [int(i) for i in faces.ravel()],
+    }
+
+
+def load_particles_template(root, output_path):
+    """ Surface of the template map used to pick the particles, or None. """
+    try:
+        path = _find_template_path(root, output_path)
+        return _template_mesh(path, os.path.getmtime(path)) if path else None
+    except Exception:
+        return None

@@ -141,6 +141,8 @@ function createVolumeViewer($body, config) {
     const P = config.coordinates;
     const nPart = (P && P.x && P.y && P.z) ? Math.min(P.x.length, P.y.length, P.z.length) : 0;
     const hasParticles = nPart > 0 && toolsCfg.particles !== false;
+    // Template map surface (vertices in Å) drawn at every particle in the 3D view
+    const tmplData = (hasParticles && P.template && P.template.faces && P.template.faces.length) ? P.template : null;
 
     // Section axes: horizontal and vertical voxel axis of each view
     const HV = {z: ['x', 'y'], y: ['x', 'z'], x: ['z', 'y']};
@@ -240,11 +242,14 @@ function createVolumeViewer($body, config) {
             .append(icon.charAt(0) === '<' ? icon : '<i class="fas fa-' + icon + '"></i>');
     }
     const ICON_VOLUME = SVG('<path d="M8 1.5l6 3v7l-6 3-6-3v-7z" stroke-dasharray="2 2"/><path d="M2 4.5l6 3 6-3M8 7.5v7"/>');
-    function addParticleTools($t) {
+    const ICON_TEMPLATE = SVG('<path d="M8 1.5l5.5 3.2v6.6L8 14.5l-5.5-3.2V4.7z"/><path d="M8 8.2l5.5-3.5M8 8.2L2.5 4.7M8 8.2v6.3"/>');
+    function addParticleTools($t, is3d) {
         if (!hasParticles) return;
         $t.append(toolButton('particles', ICON_PARTICLES, 'Show and inspect picked particles'));
         $t.append(toolButton('prev', 'chevron-left', 'Previous particle'));
         $t.append(toolButton('next', 'chevron-right', 'Next particle'));
+        if (is3d && tmplData && vs)
+            $t.append(toolButton('template', ICON_TEMPLATE, 'Show the picking template at every particle, with its orientation'));
     }
     function buildToolbar(kind) {
         const $t = $('<div class="vv-toolbar"></div>');
@@ -267,7 +272,7 @@ function createVolumeViewer($body, config) {
             if (toolsCfg.volume) $t.append(toolButton('volume', ICON_VOLUME, 'Show the whole tomogram as a faint volume'));
             if (toolsCfg.invert) $t.append(toolButton('invert', 'adjust', 'Invert the contrast'));
             if (toolsCfg.pan) $t.append(toolButton('pan', 'arrows-alt', 'Move the volume: drag it in any direction (or right-drag / shift+drag)'));
-            addParticleTools($t);
+            addParticleTools($t, true);
             $t.append(toolButton('reset3d', 'sync-alt', 'Reset the 3D view'));
         }
         return $t;
@@ -282,6 +287,7 @@ function createVolumeViewer($body, config) {
                 if (t === 'particles') $(this).toggleClass('active', partsOn);
                 if (t === 'prev' || t === 'next') $(this).toggle(partsOn);
                 if (t === 'volume') $(this).toggleClass('active', volOn);
+                if (t === 'template') $(this).toggleClass('active', tmplOn);
                 if (t === 'invert') $(this).toggleClass('active', inverted);
                 if (t === 'lines') $(this).toggleClass('active', hideLines);
             });
@@ -333,6 +339,7 @@ function createVolumeViewer($body, config) {
             else if (t === 'particles') { partsOn = !partsOn; syncToolbars(); refresh(); }
             else if (t === 'clean') clean();
             else if (t === 'volume') toggleVolume();
+            else if (t === 'template') { tmplOn = !tmplOn; syncToolbars(); sync3D(); }
             else if (t === 'invert') toggleInvert(false);
             else if (t === 'lines') {
                 history.push({type: 'lines'});
@@ -649,7 +656,7 @@ function createVolumeViewer($body, config) {
     /* ---------- 3D tab ---------- */
     let T = null, three = null;       // THREE module, scene state
     let built3d = false;
-    let volOn = false, inverted = false;
+    let volOn = false, inverted = false, tmplOn = false;
     const VOL_OPACITY = 0.35;         // opacity of each plane of the faint volume
     let volOpacity = VOL_OPACITY;
 
@@ -733,7 +740,8 @@ function createVolumeViewer($body, config) {
         });
         three.marker.position.copy(toWorld(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5));
         if (hasParticles) {
-            three.points.visible = partsOn;
+            three.points.visible = partsOn && !tmplOn;
+            if (three.tmpl) three.tmpl.visible = partsOn && tmplOn;
             three.selMark.visible = partsOn && sel >= 0;
             if (sel >= 0)
                 three.selMark.position.copy(toWorld(P.x[sel] + 0.5, P.y[sel] + 0.5, P.z[sel] + 0.5));
@@ -745,6 +753,47 @@ function createVolumeViewer($body, config) {
     /* The whole tomogram as a faint ray-marched volume. The Z sections are
        packed in a 3D texture and each pixel integrates the haze along its
        line of sight, so it reads as a continuous volume, not as slices. */
+    /* One instanced mesh of the template surface (Å) scaled to voxels. Each
+       particle is rotated by the transpose of its RELION Euler matrix
+       (rot, tilt, psi), in the viewer's world (y is flipped). */
+    function buildTemplate(scene) {
+        const g = new T.BufferGeometry();
+        g.setAttribute('position', new T.BufferAttribute(new Float32Array(tmplData.vertices), 3));
+        g.setIndex(tmplData.faces);
+        g.computeVertexNormals();
+        const mat = new T.MeshLambertMaterial({color: 0x4dabf7, side: T.DoubleSide});
+        const mesh = new T.InstancedMesh(g, mat, nPart);
+        const k = 1 / vs.x, sg = [1, -1, 1], d2r = Math.PI / 180;
+        const m4 = new T.Matrix4();
+        for (let i = 0; i < nPart; i++) {
+            const ang = P.angles && P.angles[i] ? P.angles[i] : [0, 0, 0];
+            const cr = Math.cos(ang[0] * d2r), sr = Math.sin(ang[0] * d2r);
+            const ct = Math.cos(ang[1] * d2r), st = Math.sin(ang[1] * d2r);
+            const cp = Math.cos(ang[2] * d2r), sp = Math.sin(ang[2] * d2r);
+            const A = [[cp * ct * cr - sp * sr, cp * ct * sr + sp * cr, -cp * st],
+                       [-sp * ct * cr - cp * sr, -sp * ct * sr + cp * cr, sp * st],
+                       [st * cr, st * sr, ct]];
+            const e = [];
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) e.push(sg[r] * sg[c] * A[c][r] * k);
+            }
+            const w = toWorld(P.x[i] + 0.5, P.y[i] + 0.5, P.z[i] + 0.5);
+            m4.set(e[0], e[1], e[2], w.x,
+                   e[3], e[4], e[5], w.y,
+                   e[6], e[7], e[8], w.z,
+                   0, 0, 0, 1);
+            mesh.setMatrixAt(i, m4);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.visible = false;
+        mesh.frustumCulled = false;
+        scene.add(mesh);
+        scene.add(new T.AmbientLight(0xffffff, 0.7));
+        const sun = new T.DirectionalLight(0xffffff, 0.8);
+        sun.position.set(1, 1, 2);
+        scene.add(sun);
+        three.tmpl = mesh;
+    }
     function buildVolume() {
         if (three.vol || three.volLoading) return;
         const zk = keys.z;
@@ -970,6 +1019,7 @@ function createVolumeViewer($body, config) {
             pg.setAttribute('position', new T.BufferAttribute(arr, 3));
             three.points = new T.Points(pg, new T.PointsMaterial({color: 0xffa500, size: 3.5, sizeAttenuation: false}));
             scene.add(three.points);
+            if (tmplData && vs) buildTemplate(scene);
             three.selMark = new T.Mesh(new T.SphereGeometry(m / 70, 12, 12),
                                        new T.MeshBasicMaterial({color: 0xff3b30}));
             three.selMark.visible = false;
