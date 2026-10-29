@@ -39,7 +39,6 @@ import RemoteFileDialog from "@/components/files/RemoteFileDialog";
 import ExecuteModeButton from "./ExecuteModeButton";
 import { useProtocolLogs } from "@/hooks/useProtocolLogs";
 import ProtocolLogsPanel from "./ProtocolLogsPanel";
-import ProtocolOutputsPanel from "./ProtocolOutputsPanel";
 import ProtocolMetadataPanel from "./ProtocolMetadataPanel";
 import ProtocolHelpDialog from "./ProtocolHelpDialog";
 import ExecErrorDialog from "./ExecErrorDialog";
@@ -106,6 +105,7 @@ import WizardDialogHost from "./wizards/wizard-dialog-host";
 import { useProtocolWizards } from "./wizards/use_protocol_wizards";
 import { buildWizardUiProps } from "./wizards/protocol_wizard_meta";
 import WizardLoadingDialog from "./wizards/WizardLoadingDialog";
+import { withOutputPrefix } from "@/utils/output_label";
 
 
 type ProtocolFormProps = {
@@ -258,15 +258,6 @@ export default function ProtocolForm({
     info?.protocolClassName ?? (form as any)?.protocolClassName ?? null;
 
 
-  const outputsFromApi = useMemo(() => {
-    const arr =
-      Array.isArray(info?.outputs) ? info.outputs :
-        Array.isArray((form as any)?.outputs) ? (form as any).outputs :
-          [];
-    return arr;
-  }, [info, form]);
-
-
   const executeModeMap = useMemo(() => {
     const raw = (info as any)?.executeMode ?? null;
     if (!raw || typeof raw !== "object") return null;
@@ -347,26 +338,6 @@ export default function ProtocolForm({
   const [sectionTab, setSectionTab] = useState(0);
   const [protocolDetails, setProtocolDetails] = useState<any>({});
   const effectiveProtocolId = String(protocolDetails?.id ?? protocolId ?? "").trim();
-  const protocolDisplayName = useMemo(() => {
-    const candidates = [
-      protocolDetails?.runName,
-      info?.runName,
-      (form as any)?.runName,
-      protocolDetails?.label,
-      info?.protocolName,
-      info?.label,
-      (form as any)?.protocolName,
-      protocolId,
-    ];
-
-    for (const candidate of candidates) {
-      const value = String(candidate ?? "").trim();
-      if (value) return value;
-    }
-
-    return "";
-  }, [protocolDetails?.runName, protocolDetails?.label, info, form, protocolId]);
-
   const [expandedGroups, setExpandedGroups] = useState<{ [key: string]: boolean }>({});
 
   // actionLoadingState
@@ -374,6 +345,9 @@ export default function ProtocolForm({
   const isSaving = actionLoading === "save";
   const isExecuting = actionLoading === "execute";
   const isBusy = actionLoading !== null;
+  const isProtocolActive = ["launched", "running", "scheduled"].includes(
+    String(protocolDetails.status ?? "").trim().toLowerCase()
+  );
 
   // Exit animation state
   const [isClosing, setIsClosing] = useState(false);
@@ -393,7 +367,7 @@ export default function ProtocolForm({
     updateStickToBottom,
   } = useProtocolLogs({
     svc,
-    enabled: topTab === 2,
+    enabled: topTab === 1,
     projectId,
     protocolId: effectiveProtocolId,
     protocolStatus: protocolDetails.status,
@@ -1243,7 +1217,7 @@ export default function ProtocolForm({
         outputs.push({
           protocol: prot.label ?? prot.protocolName ?? prot.id ?? "Unknown",
           key,
-          info: out?.info ?? "",
+          info: withOutputPrefix(out?.info, out?.prefix),
           paramClass: String(out?.paramClass ?? "PointerParam"),
           pointerClass: String(out?.pointerClass ?? ""),
           value: String(out?.value ?? ""),
@@ -2636,8 +2610,7 @@ export default function ProtocolForm({
               },
             }}
           >
-            <Tab label="Inputs and Parameters" />
-            <Tab label="Outputs" />
+            <Tab label="Parameters" />
             <Tab label="Logs" />
             <Tab label="Metadata" />
           </Tabs>
@@ -2652,7 +2625,7 @@ export default function ProtocolForm({
               flexDirection: "column",
             }}
           >
-            {/*Input and parameters */}
+            {/* Parameters */}
             {topTab === 0 && (
               <>
                 <Tabs
@@ -2695,11 +2668,8 @@ export default function ProtocolForm({
               </>
             )}
 
-            {/* Outputs */}
-
-
             {/* Logs */}
-            {topTab === 2 && (
+            {topTab === 1 && (
               <ProtocolLogsPanel
                 sortedLogChannels={sortedLogChannels}
                 activeLogChannelId={activeLogChannelId}
@@ -2711,17 +2681,8 @@ export default function ProtocolForm({
               />
             )}
 
-            {topTab === 1 && (
-              <ProtocolOutputsPanel
-                projectId={projectId}
-                protocolId={effectiveProtocolId}
-                protocolLabel={protocolDisplayName}
-                outputsFromApi={outputsFromApi}
-              />
-            )}
-
             {/* Metadata */}
-            {topTab === 3 && (
+            {topTab === 2 && (
               <ProtocolMetadataPanel metadataSnapshot={metadataSnapshot} />
             )}
           </Box>
@@ -2767,11 +2728,7 @@ export default function ProtocolForm({
             selectedMode={selectedExecuteMode}
             onSelectedModeChange={setSelectedExecuteMode}
             onExecute={handleExecute}
-            disabled={
-              isBusy //||
-              //protocolDetails.status === "running" ||
-              //protocolDetails.status === "scheduled"
-            }
+            disabled={isBusy || isProtocolActive}
             loading={isExecuting}
           />
 
@@ -2781,11 +2738,7 @@ export default function ProtocolForm({
             startIcon={isExecuting ? <CircularProgress size={16} color="inherit" /> : <ExecuteIcon />}
             color="success"
             onClick={() => handleExecute("launch")}
-            disabled={
-              isBusy //||
-              //protocolDetails.status === "running" ||
-              // protocolDetails.status === "scheduled"
-            }
+            disabled={isBusy || isProtocolActive}
             sx={{ textTransform: "none" }}
           >
             {isExecuting ? "Processing..." : "Launch"}

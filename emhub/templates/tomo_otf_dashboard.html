@@ -337,7 +337,7 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
     {% set workflow_step = ('Workflow', url_for_content('session_workflow', session_id=otf_session.id)) %}
     {% else %}
     {% set root_step = ('Tomo Processing', url_for_content('processing_tomo_list')) %}
-    {% set project_step = (title, url_for_content('tomo_session', tomo_session_id=source.entry_id, mode='widget')) %}
+    {% set project_step = (title, url_for_content('tomo_session', tomo_session_id=source.entry_id)) %}
     {% set workflow_step = None %}
     {% endif %}
     {% with title = "On-the-fly CryoET" %}

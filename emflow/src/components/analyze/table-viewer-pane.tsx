@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type MouseEvent } from "react";
+import { Fragment, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
     Box,
     Button,
@@ -14,11 +14,17 @@ import {
     TableContainer,
     TableHead,
     TableRow,
+    TableSortLabel,
     TextField,
     Tooltip,
     Typography,
 } from "@mui/material";
 import { ChevronDown, ChevronRight, MoreHorizontal, Search } from "lucide-react";
+import { useProjectRefresh } from "@/context/ProjectRefreshContext";
+import {
+    TableViewerSelectionMenu,
+    type TableViewerSelectionCommand,
+} from "./table-viewer-selection-menu";
 
 import type {
     TableViewerAction,
@@ -32,6 +38,7 @@ import type {
     TableViewerRowChildren,
     TableViewerEdit,
     TableViewerEditAction,
+    TableViewerGridSlot,
 } from "@/services/ProjectService";
 import { MetadataViewer } from "./metadata-viewer";
 import Coords3dViewer from "./coords3d-viewer";
@@ -89,16 +96,47 @@ function formatCellValue(value: TableViewerCell): string {
     return value;
 }
 
+/** Numbers compare by value and text in natural order (TS_2 before TS_10);
+ * empty cells always go last. */
+function compareCellValues(
+    a: TableViewerCell,
+    b: TableViewerCell,
+    sign: number,
+): number {
+    const aEmpty = a === null || a === undefined || a === "";
+    const bEmpty = b === null || b === undefined || b === "";
+
+    if (aEmpty || bEmpty) {
+        return aEmpty === bEmpty ? 0 : aEmpty ? 1 : -1;
+    }
+
+    if (typeof a === "number" && typeof b === "number") {
+        return sign * (a - b);
+    }
+
+    return sign * String(a).localeCompare(String(b), undefined, {
+        numeric: true,
+        sensitivity: "base",
+    });
+}
+
 export default function TableViewerPane({
     context,
     table,
 }: TableViewerPaneProps) {
     const svc = useProjectService();
+    const refreshProject = useProjectRefresh();
     const [searchValue, setSearchValue] = useState("");
     const [selectedRowId, setSelectedRowId] = useState<string | number | null>(
         null,
     );
     const [activePane, setActivePane] = useState<ActivePane>(null);
+    // Kept across rows, so the same grid pane stays expanded
+    const [gridExpandedSlot, setGridExpandedSlot] =
+        useState<TableViewerGridSlot | null>(null);
+    // The viewer being resolved; only the last request updates the pane
+    const [paneLoading, setPaneLoading] = useState(false);
+    const paneRequestRef = useRef(0);
 
     const [draftEdits, setDraftEdits] = useState<
         Record<string, TableViewerEdit>
@@ -146,22 +184,60 @@ export default function TableViewerPane({
     const [rowMenuRow, setRowMenuRow] =
         useState<TableViewerRow | null>(null);
 
+    // Sorts the loaded rows by a column the backend marked sortable
+    const [sortState, setSortState] = useState<{
+        columnId: string;
+        direction: "asc" | "desc";
+    } | null>(null);
+
+    const handleSortClick = (columnId: string) => {
+        setSortState((current) =>
+            current?.columnId === columnId
+                ? {
+                    columnId,
+                    direction:
+                        current.direction === "asc" ? "desc" : "asc",
+                }
+                : { columnId, direction: "asc" },
+        );
+    };
+
     const filteredRows = useMemo(() => {
         const query = searchValue.trim().toLowerCase();
 
-        if (!query) {
-            return table.rows;
+        const rows = !query
+            ? table.rows
+            : table.rows.filter((row) =>
+                table.columns.some((column) => {
+                    const value = row.cells[column.id];
+                    return formatCellValue(value)
+                        .toLowerCase()
+                        .includes(query);
+                }),
+            );
+
+        const sortColumn = sortState
+            ? table.columns.find(
+                (column) =>
+                    column.id === sortState.columnId &&
+                    column.sortable,
+            )
+            : undefined;
+
+        if (!sortState || !sortColumn) {
+            return rows;
         }
 
-        return table.rows.filter((row) =>
-            table.columns.some((column) => {
-                const value = row.cells[column.id];
-                return formatCellValue(value)
-                    .toLowerCase()
-                    .includes(query);
-            }),
+        const sign = sortState.direction === "asc" ? 1 : -1;
+
+        return [...rows].sort((a, b) =>
+            compareCellValues(
+                a.cells[sortColumn.id],
+                b.cells[sortColumn.id],
+                sign,
+            ),
         );
-    }, [searchValue, table.columns, table.rows]);
+    }, [searchValue, sortState, table.columns, table.rows]);
 
     const hasRowActions = useMemo(
         () =>
@@ -254,13 +330,17 @@ export default function TableViewerPane({
     ) => {
         if (action.disabled) return;
 
+        const requestId = ++paneRequestRef.current;
+
         if (action.id === "metadata") {
+            setPaneLoading(false);
             setActivePane({
                 kind: "metadata",
             });
             return;
         }
 
+        setPaneLoading(true);
         try {
             const content =
                 await svc.resolveTableViewerAction(
@@ -281,6 +361,7 @@ export default function TableViewerPane({
                     },
                 );
 
+            if (requestId !== paneRequestRef.current) return;
             setActivePane({
                 kind: "action",
                 action,
@@ -289,6 +370,7 @@ export default function TableViewerPane({
                 content,
             });
         } catch (error) {
+            if (requestId !== paneRequestRef.current) return;
             setActivePane({
                 kind: "action",
                 action,
@@ -302,6 +384,10 @@ export default function TableViewerPane({
                             : "Failed to load viewer.",
                 },
             });
+        } finally {
+            if (requestId === paneRequestRef.current) {
+                setPaneLoading(false);
+            }
         }
     };
 
@@ -351,6 +437,13 @@ export default function TableViewerPane({
                 result.clearEdits
             ) {
                 setDraftEdits({});
+            }
+
+            // E.g. a new job launched with the selected items
+            if (
+                result.refreshProject
+            ) {
+                refreshProject();
             }
 
             toast.success(
@@ -525,6 +618,43 @@ export default function TableViewerPane({
     const handleRowMenuClose = () => {
         setRowMenuAnchor(null);
         setRowMenuRow(null);
+    };
+
+    // The first boolean edit column (e.g. the host's "Selected") is the one
+    // the row's right-click menu changes
+    const selectionColumnId = useMemo(
+        () =>
+            table.columns.find((column) =>
+                table.rows.some(
+                    (row) =>
+                        row.cellContexts?.[column.id]?.edit?.type ===
+                        "boolean",
+                ),
+            )?.id ?? null,
+        [table.columns, table.rows],
+    );
+
+    const [selectionMenu, setSelectionMenu] = useState<{
+        row: TableViewerRow;
+        top: number;
+        left: number;
+    } | null>(null);
+
+    const handleRowContextMenu = (
+        event: MouseEvent<HTMLTableRowElement>,
+        row: TableViewerRow,
+    ) => {
+        if (!selectionColumnId) {
+            return;
+        }
+
+        event.preventDefault();
+        setSelectedRowId(row.id);
+        setSelectionMenu({
+            row,
+            top: event.clientY,
+            left: event.clientX,
+        });
     };
 
     const buildEditKey = (
@@ -782,6 +912,77 @@ export default function TableViewerPane({
                 rowData:
                     row.data,
             };
+
+            return next;
+        });
+    };
+
+    // Sets the selection column of the shown rows (search and sort apply),
+    // as draft edits like the checkbox clicks
+    const handleSelectionCommand = (
+        command: TableViewerSelectionCommand,
+    ) => {
+        const columnId = selectionColumnId;
+        const clickedRow = selectionMenu?.row;
+
+        if (!columnId || !clickedRow) {
+            return;
+        }
+
+        const clickedIndex = filteredRows.findIndex(
+            (row) => row.id === clickedRow.id,
+        );
+        const [action, range] = command.split("-") as [
+            "select" | "deselect" | "invert",
+            "all" | "to" | "from" | undefined,
+        ];
+        const targetRows =
+            range === "to"
+                ? filteredRows.slice(0, clickedIndex + 1)
+                : range === "from"
+                    ? filteredRows.slice(Math.max(clickedIndex, 0))
+                    : filteredRows;
+
+        setDraftEdits((prev) => {
+            const next = { ...prev };
+
+            for (const row of targetRows) {
+                const cellEdit = row.cellContexts?.[columnId]?.edit;
+
+                if (
+                    cellEdit?.type !== "boolean" ||
+                    cellEdit.disabled
+                ) {
+                    continue;
+                }
+
+                const editKey = buildEditKey(row, columnId);
+                const originalValue = getOriginalBooleanValue(
+                    row,
+                    columnId,
+                );
+                const currentValue =
+                    next[editKey] !== undefined
+                        ? Boolean(next[editKey].value)
+                        : originalValue;
+                const nextValue =
+                    action === "invert"
+                        ? !currentValue
+                        : action === "select";
+
+                if (nextValue === originalValue) {
+                    delete next[editKey];
+                    continue;
+                }
+
+                next[editKey] = {
+                    rowId: row.id,
+                    columnId,
+                    field: cellEdit.field,
+                    value: nextValue,
+                    rowData: row.data,
+                };
+            }
 
             return next;
         });
@@ -1482,10 +1683,7 @@ export default function TableViewerPane({
                                     (column) => (
                                         <TableCell
                                             key={column.id}
-                                            align={
-                                                column.align ??
-                                                "left"
-                                            }
+                                            align="left"
                                             sx={{
                                                 width:
                                                     column.width,
@@ -1500,7 +1698,39 @@ export default function TableViewerPane({
                                                 whiteSpace: "nowrap",
                                             }}
                                         >
-                                            {column.label}
+                                            {column.sortable ? (
+                                                <TableSortLabel
+                                                    active={
+                                                        sortState?.columnId ===
+                                                        column.id
+                                                    }
+                                                    direction={
+                                                        sortState?.columnId ===
+                                                            column.id
+                                                            ? sortState.direction
+                                                            : "asc"
+                                                    }
+                                                    onClick={() =>
+                                                        handleSortClick(
+                                                            column.id,
+                                                        )
+                                                    }
+                                                    sx={{
+                                                        color: "inherit",
+                                                        "&.Mui-active": {
+                                                            color: "inherit",
+                                                        },
+                                                        "& .MuiTableSortLabel-icon":
+                                                        {
+                                                            fontSize: "0.9rem",
+                                                        },
+                                                    }}
+                                                >
+                                                    {column.label}
+                                                </TableSortLabel>
+                                            ) : (
+                                                column.label
+                                            )}
                                         </TableCell>
                                     ),
                                 )}
@@ -1554,6 +1784,12 @@ export default function TableViewerPane({
                                                 hover
                                                 selected={
                                                     selected
+                                                }
+                                                onContextMenu={(event) =>
+                                                    handleRowContextMenu(
+                                                        event,
+                                                        row,
+                                                    )
                                                 }
                                                 onClick={() => {
                                                     setSelectedRowId(
@@ -1655,10 +1891,7 @@ export default function TableViewerPane({
                                                             key={
                                                                 column.id
                                                             }
-                                                            align={
-                                                                column.align ??
-                                                                "left"
-                                                            }
+                                                            align="left"
                                                             sx={{
                                                                 px: 1.25,
                                                                 py: 0.75,
@@ -1809,10 +2042,7 @@ export default function TableViewerPane({
                                                                                                 key={
                                                                                                     column.id
                                                                                                 }
-                                                                                                align={
-                                                                                                    column.align ??
-                                                                                                    "left"
-                                                                                                }
+                                                                                                align="left"
                                                                                                 sx={{
                                                                                                     width:
                                                                                                         column.width,
@@ -1897,10 +2127,7 @@ export default function TableViewerPane({
                                                                                                             key={
                                                                                                                 column.id
                                                                                                             }
-                                                                                                            align={
-                                                                                                                column.align ??
-                                                                                                                "left"
-                                                                                                            }
+                                                                                                            align="left"
                                                                                                             sx={{
                                                                                                                 px: 1,
                                                                                                                 py: 0.5,
@@ -2072,6 +2299,7 @@ export default function TableViewerPane({
 
                 <Box
                     sx={{
+                        position: "relative",
                         flex: 1,
                         minHeight: 0,
                         minWidth: 0,
@@ -2177,10 +2405,14 @@ export default function TableViewerPane({
                         ) : activePane.content.kind === "grid" ? (
                             <TableViewerGrid
                                 content={activePane.content}
+                                expandedSlot={gridExpandedSlot}
+                                onExpandedSlotChange={setGridExpandedSlot}
                             />
                         ) : isGenericTableViewerContent(activePane.content) ? (
                             <TableViewerGenericContentView
                                 content={activePane.content}
+                                // Sliders and plots fit the pane, without scrolling
+                                fit
                             />
                         ) : (
                             <Box
@@ -2255,6 +2487,38 @@ export default function TableViewerPane({
                             </Box>
                         </Box>
                     )}
+
+                    {paneLoading && (
+                        // Over the previous viewer, until the new one is resolved
+                        <Box
+                            sx={{
+                                position: "absolute",
+                                inset: 0,
+                                zIndex: 2,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 1.25,
+                                backgroundColor:
+                                    "rgba(248,250,252,0.75)",
+                            }}
+                        >
+                            <CircularProgress
+                                size={22}
+                                thickness={4.5}
+                                sx={{ color: "#3f7f8a" }}
+                            />
+                            <Typography
+                                sx={{
+                                    fontSize: "0.8rem",
+                                    fontWeight: 600,
+                                    color: "#475569",
+                                }}
+                            >
+                                Loading...
+                            </Typography>
+                        </Box>
+                    )}
                 </Box>
             </Box>
 
@@ -2302,6 +2566,19 @@ export default function TableViewerPane({
                         </MenuItem>
                     ))}
             </Menu>
+
+            <TableViewerSelectionMenu
+                anchorPosition={
+                    selectionMenu
+                        ? {
+                            top: selectionMenu.top,
+                            left: selectionMenu.left,
+                        }
+                        : null
+                }
+                onClose={() => setSelectionMenu(null)}
+                onCommand={handleSelectionCommand}
+            />
         </Box >
     );
 }

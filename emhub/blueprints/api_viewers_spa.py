@@ -14,8 +14,8 @@
 # *
 # **************************************************************************
 
-"""Table-viewer panes for SPA outputs (Movies, Micrographs, MultiClasses2D
-and Particles).
+"""Table-viewer panes for SPA outputs (Movies, Micrographs, MultiClasses2D,
+Classes3D and Particles).
 
 Same table view API used for tilt series (see api_viewers.py), returning
 pane contents that are rendered generically by the viewer (text, image,
@@ -27,6 +27,9 @@ html and plotly), so no viewer specific code is needed:
       the CTF profile, the motion and the row metadata.
     - MultiClasses2D: table of 2D classification batches, and the 2D class
       averages of each batch (as in the session dashboard).
+    - Classes3D: table of the 3D classes of a Relion iteration (optimiser
+      STAR), with the class volume and its number of particles, and the
+      X/Y/Z slices of the volume.
     - Particles: table of micrographs with their number of particles, and
       the particles coordinates over the micrograph and a grid with some of
       the particles images.
@@ -34,13 +37,18 @@ html and plotly), so no viewer specific code is needed:
 
 import html
 import os
+import re
 
 from emtools.metadata import StarFile
 from emtools.utils import Path
 
+from emhub.data.processing import resolve_project_root
+
 from .api_viewers import (
     _resolve_data_path,
     _build_plotly_scatter_figure,
+    processing_project_manager,
+    build_tomogram_volume_slider_pane_content,
     _table_view_action_payload,
     _table_view_column_actions,
 )
@@ -53,6 +61,7 @@ _ACTION_ROW_METADATA = {'id': 'metadata', 'label': 'metadata'}
 _ACTION_CLASSES2D = {'id': 'classes2d', 'label': 'classes'}
 _ACTION_COORDINATES = {'id': 'coordinates', 'label': 'coordinates', 'column': 'micrograph'}
 _ACTION_PARTICLES = {'id': 'particles', 'label': 'particles', 'column': 'stack'}
+_ACTION_VOLUME = {'id': 'volume', 'label': 'volume', 'column': 'volume'}
 
 # Particles preview grid (columns x rows)
 PARTICLES_GRID = (5, 5)
@@ -131,6 +140,21 @@ SPA_TABLE_VIEW_SPECS = {
         ],
         'actions': [_ACTION_COORDINATES, _ACTION_PARTICLES],
     },
+    # 3D classes of a Relion iteration (from its optimiser STAR file), one
+    # row per class (see build_classes3d_table)
+    'classes3d': {
+        'title': '3D classes',
+        'table': None,  # only from the output datatype
+        'columns': [
+            {'id': 'classId', 'label': 'Class', 'align': 'right', 'sortable': True},
+            {'id': 'volume', 'label': 'Volume', 'align': 'left'},
+            {'id': 'particles', 'label': 'Particles', 'align': 'right', 'sortable': True},
+            {'id': 'percent', 'label': '% Particles', 'align': 'right', 'sortable': True},
+        ],
+        'actions': [_ACTION_VOLUME],
+        # Show the volume when clicking on a class row
+        'default_action': _ACTION_VOLUME,
+    },
 }
 
 # STAR columns that are kept in the row cells, to build the panes
@@ -198,6 +222,8 @@ def build_spa_table(full_path, type_key):
     """Build TableViewerPane rows from a SPA STAR file."""
     if type_key == 'particles':
         return build_particles_table(full_path)
+    if type_key == 'classes3d':
+        return build_classes3d_table(full_path)
 
     spec = SPA_TABLE_VIEW_SPECS[type_key]
     columns = _table_view_column_actions(spec)
@@ -246,7 +272,7 @@ def build_spa_pane_content(action_id, root, type_key, row_cells, output_path=Non
 
     # row_label is usually the row id (index), use the item name if possible
     label = (row_cells.get('batch') or row_cells.get('micrograph')
-             or row_cells.get('movie') or row_label or '')
+             or row_cells.get('movie') or row_cells.get('volume') or row_label or '')
 
     if action_id == 'metadata':
         return build_row_metadata_pane_content(root, row_cells, output_path, label)
@@ -262,6 +288,8 @@ def build_spa_pane_content(action_id, root, type_key, row_cells, output_path=Non
         return build_particles_coordinates_pane_content(root, row_cells, output_path)
     if action_id == 'particles':
         return build_particles_grid_pane_content(root, row_cells, output_path)
+    if action_id == 'volume':
+        return build_class3d_volume_pane_content(root, row_cells)
 
     raise Exception(f'Unsupported table view action: {action_id}')
 
@@ -703,4 +731,114 @@ def build_particles_grid_pane_content(root, row_cells, output_path, grid=PARTICL
         'title': f'{row_cells.get("stack")} — {len(images)} of {len(particles)} particles',
         'src': f'data:image/png;base64,{thumb.from_pil(montage)}',
         'alt': row_cells.get('stack') or 'Particles',
+    }
+
+
+# ----------------------- 3D classes ----------------------------------
+# Class id from the class volume filename (e.g. run_it025_class003.mrc)
+_CLASS_VOLUME_ID = re.compile(r'_class(\d+)\.mrc$')
+
+
+def _iteration_star(optimiser_star, suffix):
+    """STAR file of the same Relion iteration (e.g. _model.star)."""
+    if not optimiser_star.endswith('_optimiser.star'):
+        raise Exception(f'Expected a Relion optimiser STAR file: {optimiser_star}')
+    return optimiser_star.replace('_optimiser.star', suffix)
+
+
+def build_classes3d_table(full_path):
+    """Table with one row per 3D class of a Relion iteration: the class id
+    (from the volume filename), the class volume, its number of particles
+    (counted from the data STAR of the iteration) and their percentage of
+    the total. """
+    from collections import Counter
+
+    spec = SPA_TABLE_VIEW_SPECS['classes3d']
+    model_star = _iteration_star(full_path, '_model.star')
+    # Refine3D iterations only have the models of the half sets
+    if not os.path.exists(model_star):
+        model_star = _iteration_star(full_path, '_half1_model.star')
+    data_star = _iteration_star(full_path, '_data.star')
+
+    with StarFile(model_star) as sf:
+        ps = sf.getTable('model_general', guessType=False)[0].rlnPixelSize
+        volumes = [row.rlnReferenceImage
+                   for row in sf.iterTable('model_classes', guessType=False)]
+
+    counts = Counter()
+    if os.path.exists(data_star):
+        with StarFile(data_star) as sf:
+            counts = Counter(int(row.rlnClassNumber)
+                             for row in sf.iterTable('particles', guessType=False))
+
+    total = sum(counts.values())
+    rows = []
+    for i, volume in enumerate(volumes, 1):
+        m = _CLASS_VOLUME_ID.search(volume)
+        class_id = int(m.group(1)) if m else i
+        cells = {
+            'classId': class_id,
+            'volume': os.path.basename(volume),
+            'volumePath': volume,
+            'particles': counts.get(class_id, 0),
+            'percent': round(100 * counts.get(class_id, 0) / total, 2) if total else 0,
+        }
+        rows.append({'id': class_id, 'cells': cells, 'actions': [],
+                     'defaultAction': _table_view_action_payload(spec['default_action'])})
+
+    title = (f"{spec['title']} ({len(rows)} classes, "
+             f"{total} particles, {float(ps):0.3f} Å/px)")
+    return {'title': title,
+            'columns': _table_view_column_actions(spec),
+            'rows': rows}
+
+
+def build_class3d_volume_pane_content(root, row_cells):
+    """X/Y/Z slices of the volume of a 3D class (from its middle half, the
+    box edges are usually empty)."""
+    volume = row_cells.get('volumePath')
+    if not volume:
+        raise Exception('Missing class volume path')
+    title = f"Class {row_cells.get('classId')} — {row_cells.get('particles')} particles"
+    return build_tomogram_volume_slider_pane_content(root, volume, title=title)
+
+
+def create_classes_subset(root, star_path, classes):
+    """ Launch an emw-subset-classes job with the particles of the given 3D
+    classes (ids) of a Relion iteration (its optimiser STAR, star_path).
+    The input is the optimisation set of the iteration if there is one
+    (tomography), so the subset is also an optimisation set, or its data STAR. """
+    try:
+        classes = sorted({int(c) for c in classes or []})
+    except (TypeError, ValueError):
+        raise Exception(f'Invalid class ids: {classes}')
+    if not classes:
+        raise Exception('Select at least one class for the subset')
+
+    root_abs = resolve_project_root(root)
+    optimiser_star = _resolve_data_path(root, star_path)
+    if not optimiser_star or not os.path.isfile(optimiser_star):
+        raise Exception(f'Input STAR file not found: {star_path}')
+
+    input_star = _iteration_star(optimiser_star, '_optimisation_set.star')
+    if not os.path.exists(input_star):
+        input_star = _iteration_star(optimiser_star, '_data.star')
+    if not os.path.exists(input_star):
+        raise Exception(f'No particles found for: {star_path}')
+    input_set = Path.rmslash(os.path.relpath(input_star, root_abs))
+
+    pm = processing_project_manager(root_abs)
+    job = pm.runJob('emw-subset-classes', {
+        'input_set': input_set,
+        'classes': ','.join(str(c) for c in classes),
+    })
+    n = len(classes)
+    return {
+        'success': True,
+        'count': n,
+        'jobId': job.id,
+        'sourceFile': input_set,
+        'message': (f"Launched {job.id} job to create a subset of the particles "
+                    f"of {n} {'class' if n == 1 else 'classes'} "
+                    f"({', '.join(str(c) for c in classes)})"),
     }

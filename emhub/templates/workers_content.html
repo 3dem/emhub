@@ -34,6 +34,7 @@
                     <th class="border-0">Connected (uptime)</th>
                     <th class="border-0">Last request</th>
                     <th class="border-0" style="width: 30%">Specs</th>
+                    <th class="border-0">Config</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -45,6 +46,17 @@
                                 <td>{{ worker.get('connected', '')}} {{worker.get('connected_elapsed', '')}}</td>
                                 <td>{{ worker.get('updated', '') }} {{worker.get('updated_elapsed', '')}}</td>
                                 <td>{{ worker.get('specs', '') }}</td>
+                                <td>
+                                {% if worker.get('python') %}
+                                    {% set issues = worker['python']|selectattr('status', 'ne', 'ok')|list %}
+                                    <button type="button" class="btn btn-sm btn-outline-{{ 'warning' if issues else 'primary' }}"
+                                            data-hostname="{{ hostname }}" data-python="{{ worker['python']|tojson|forceescape }}"
+                                            onclick="showWorkerConfig(this)" title="Python environment of the worker">
+                                        <i class="fas fa-sliders-h"></i> Config</button>
+                                {% else %}
+                                    <small class="text-muted">not reported</small>
+                                {% endif %}
+                                </td>
                                 </tr>
                         {% endfor %}
 
@@ -57,7 +69,8 @@
 
     <small class="text-muted">
         Status from the last connection or request of each worker: active (in the last hour),
-        inactive (in the last week) or not connected.
+        inactive (in the last week) or not connected. The Python environment (Config) is
+        reported when the worker connects.
     </small>
 
 </div>

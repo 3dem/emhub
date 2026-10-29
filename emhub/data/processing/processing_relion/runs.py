@@ -79,7 +79,8 @@ class RelionRun(SessionRun):
             'label': self.id,
             'name': self.name,
             'alias': self.alias,
-            'jobtype': self.jobtype
+            'jobtype': self.jobtype,
+            'status': self.job['status']  # e.g. 'Succeeded', 'Failed'
         }
 
     def getValues(self):

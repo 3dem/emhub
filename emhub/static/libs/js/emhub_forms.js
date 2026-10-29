@@ -1031,14 +1031,15 @@ class ProcessingDashboard {
                 'Cancel', 'Delete',
                 function () {
                     var reqRun = self.request(
-                        Api.urls.delete_job,
-                        self.getArgs()
+                        Api.urls.delete_jobs,
+                        self.getArgs({run_ids: [jobId]})
                     );
                     reqRun.done(function(data) {
-                        if ('id' in data) {
+                        if ('workflow' in data) {
                             self.workflow = data.workflow;
-                            this.selected_node.id = null;
+                            self.selected_node = {id: null, type: ''};
                             self.flowchart.update(self.workflow);
+                            self.clearRunInfo(false);
                         }
                         else if ('error' in data) {
                             showError(data['error'])

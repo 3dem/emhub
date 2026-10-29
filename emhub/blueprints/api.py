@@ -60,7 +60,7 @@ from emhub.data.processing import (resolve_project_root, resolve_processing_path
                                    project_file_path)
 from .api_viewers import *
 from .api_viewers_spa import (resolve_spa_table_view_type, build_spa_table,
-                              build_spa_pane_content)
+                              build_spa_pane_content, create_classes_subset)
 
 
 def _em_image_listing_fields(file_path):
@@ -660,6 +660,9 @@ def get_session_run():
         if 'stderr' in outputs:
             results['stderr'] = _loadFileLines(run.getStdError())
 
+        if 'joblog' in outputs:  # scheduling and cluster submission
+            results['joblog'] = _loadFileLines(run.join('job.log'))
+
         if 'form' in outputs:
             values = run.values if run else None
             # Pass runId so get_form_definition can read job.star when there
@@ -806,7 +809,7 @@ def get_table_view_data():
         if spa_key := resolve_spa_table_view_type(pointer_class, full_path):
             return build_spa_table(full_path, spa_key)
 
-        type_key = resolve_table_view_type(pointer_class, star_path)
+        type_key = resolve_table_view_type(pointer_class, full_path)
         if type_key == 'tomocoordinates':
             return build_tomocoordinates_table(star_path, root=root)
         if type_key:
@@ -855,6 +858,35 @@ def _check_can_edit_processing(root, entry_id=None, session_id=None):
                         'can launch jobs in this project')
 
 
+def _check_can_edit_project(attrs):
+    """ Raise unless the current user may change the processing project
+    selected in attrs, checking the selectors in the same order as
+    DataManager.get_processing_project does (path, entry_id, session_id):
+    the session owner lab, the editors of the session or entry project and
+    managers. A path is checked as in _check_can_edit_processing. """
+    if 'path' in attrs:
+        _check_can_edit_processing(resolve_project_root(attrs['path']))
+
+    elif 'entry_id' in attrs:
+        entry = app.dm.get_entry_by(id=int(attrs['entry_id']))
+        if entry is None:
+            raise Exception(f"Invalid entry id: {attrs['entry_id']}")
+        project = app.dm.get_project_by(id=entry.project_id)
+        if not (project and app.user.can_edit_project(project)):
+            raise Exception('Only the project owner, its collaborators and '
+                            'managers can change this processing project')
+
+    elif 'session_id' in attrs:
+        session = app.dm.get_session_by(id=int(attrs['session_id']))
+        if session is None:
+            raise Exception(f"Invalid session id: {attrs['session_id']}")
+        project = session.project
+        if not (app.user.is_manager or app.user.same_pi(session.owner)
+                or (project is not None and app.user.can_edit_project(project))):
+            raise Exception('Only the session owner lab, the project editors '
+                            'and managers can change this processing project')
+
+
 @api_bp.route('/create_tomo_subset', methods=['POST'])
 @flask_login.login_required
 def create_tomo_subset():
@@ -879,6 +911,27 @@ def create_tomo_subset():
             subset_items,
             attrs=attrs,
         )
+
+    return _handle_item(_handle, 'subsetResult')
+
+
+@api_bp.route('/create_classes_subset', methods=['POST'])
+@flask_login.login_required
+def create_classes_subset_job():
+    """ Launch an emw-subset-classes job with the particles of the given
+    classes (subsetItems, class ids) of a 3D classification iteration
+    (starPath, its optimiser STAR), if the current user may change the
+    project (see _check_can_edit_processing). """
+    def _handle(**attrs):
+        root = resolve_project_root(attrs['root'])
+        _check_can_edit_processing(root, attrs.get('entry_id'), attrs.get('session_id'))
+        star_path = attrs.get('starPath') or attrs.get('outputPath')
+        if not star_path:
+            raise Exception('Missing starPath / outputPath for the classes file')
+        subset_items = attrs.get('subsetItems') or []
+        if not isinstance(subset_items, list):
+            raise Exception('subsetItems must be a list')
+        return create_classes_subset(root, star_path, subset_items)
 
     return _handle_item(_handle, 'subsetResult')
 
@@ -928,6 +981,24 @@ def tomo_otf_save_selection():
     return _handle_item(_handle, 'selection')
 
 
+def _table_view_tomo_coordinates(attrs, root, type_key, row_cells, row_label):
+    """ Coordinates of a TomoCoordinates row's tomogram, to show on its
+    slices; None for the other tables. """
+    if type_key != 'tomocoordinates':
+        return None
+    from emhub.data.coords3d import load_tomogram_card_coordinates
+
+    output_path = (
+        attrs.get('outputPath')
+        or attrs.get('path')
+        or attrs.get('starPath')
+    )
+    if not output_path:
+        raise Exception('Missing optimisation_set.star output path')
+    tomo_name = row_cells.get('tomoName') or row_label
+    return load_tomogram_card_coordinates(root, output_path, tomo_name)
+
+
 @api_bp.route('/resolve_table_view_pane', methods=['POST'])
 @flask_login.login_required
 def resolve_table_view_pane():
@@ -948,7 +1019,11 @@ def resolve_table_view_pane():
                                           row_label=attrs.get('rowLabel'))
 
         type_hint_path = resolve_table_view_type_hint(attrs, row_cells)
-        type_key = resolve_table_view_type(pointer_class, type_hint_path)
+        # The full path, to detect the type from the file content
+        # (e.g. an optimisation_set.star of TomoParticles)
+        type_key = resolve_table_view_type(
+            pointer_class,
+            project_file_path(root, type_hint_path) if type_hint_path else None)
         if not type_key:
             raise Exception(f'Unsupported table view type: {pointer_class or type_hint_path}')
 
@@ -971,7 +1046,9 @@ def resolve_table_view_pane():
                 if not tomo_rel:
                     raise Exception('Missing tomogram path')
                 return build_tomogram_volume_slider_pane_content(
-                    root, tomo_rel, title=f'Tomogram — {row_label}')
+                    root, tomo_rel, title=f'Tomogram — {row_label}',
+                    coordinates=_table_view_tomo_coordinates(
+                        attrs, root, type_key, row_cells, row_label))
             return build_tilt_series_grid_pane_content(
                 root, row_cells, resolve_row_star_path(attrs, row_cells), row_label)
 
@@ -997,28 +1074,12 @@ def resolve_table_view_pane():
                 raise Exception(
                     f'Action {action_id!r} is not supported for {type_key}'
                 )
-            coordinates = None
-            if type_key == 'tomocoordinates':
-                from emhub.data.coords3d import load_tomogram_card_coordinates
-
-                output_path = (
-                    attrs.get('outputPath')
-                    or attrs.get('path')
-                    or attrs.get('starPath')
-                )
-                if not output_path:
-                    raise Exception('Missing optimisation_set.star output path')
-                tomo_name = row_cells.get('tomoName') or row_label
-                coordinates = load_tomogram_card_coordinates(
-                    root,
-                    output_path,
-                    tomo_name,
-                )
             return build_tomogram_volume_slider_pane_content(
                 root,
                 tomo_rel,
                 title=tomo_rel,
-                coordinates=coordinates,
+                coordinates=_table_view_tomo_coordinates(
+                    attrs, root, type_key, row_cells, row_label),
             )
 
         star_rel = resolve_row_star_path(attrs, row_cells, column_id)
@@ -1124,8 +1185,12 @@ def get_file_chunks():
         return chunks
     return _handle_item(_handle, 'chunks')    
 
-def handle_workflow(handle_func=None, reload=False):
+def handle_workflow(handle_func=None, reload=False, edit=False):
+    """ Handle a request on the workflow of a processing project. With edit,
+    the current user must be able to change the project. """
     def _handle(**attrs):
+        if edit:
+            _check_can_edit_project(attrs)
         pp, pm = get_project_manager(**attrs)
         result = None
         if handle_func:
@@ -1149,6 +1214,7 @@ def get_session_workflow():
 def save_job_annotation():
     """Save run name and comment for a processing job."""
     def _handle(**attrs):
+        _check_can_edit_project(attrs)
         _, pm = get_project_manager(**attrs)
         run_id = (
             attrs.get('run_id')
@@ -1190,6 +1256,7 @@ def get_project_labels():
 def save_project_label():
     """ Create (no id) or update a project label. """
     def _handle(**attrs):
+        _check_can_edit_project(attrs)
         _, pm = get_project_manager(**attrs)
         label = attrs.get('label')
         if not isinstance(label, dict):
@@ -1204,6 +1271,7 @@ def save_project_label():
 def delete_project_label():
     """ Delete a project label and unassign it from all jobs. """
     def _handle(**attrs):
+        _check_can_edit_project(attrs)
         _, pm = get_project_manager(**attrs)
         label_id = attrs.get('label_id')
         if not label_id:
@@ -1218,6 +1286,7 @@ def delete_project_label():
 def set_job_labels():
     """ Set the labels assigned to a job. """
     def _handle(**attrs):
+        _check_can_edit_project(attrs)
         _, pm = get_project_manager(**attrs)
         run_id = attrs.get('run_id')
         if not run_id:
@@ -1239,7 +1308,7 @@ def save_job():
     def _save_job(pp, pm, **attrs):
         pm.saveJob(_resolve_job_type_or_id(pp, attrs), attrs['params'])
 
-    return handle_workflow(_save_job)
+    return handle_workflow(_save_job, edit=True)
 
 
 @api_bp.route('/duplicate_jobs', methods=['POST'])
@@ -1255,7 +1324,7 @@ def duplicate_jobs():
         ]
         return {'protocols': protocols, 'duplicated': duplicated}
 
-    return handle_workflow(_duplicate_jobs)
+    return handle_workflow(_duplicate_jobs, edit=True)
 
 
 @api_bp.route('/load_workflow', methods=['POST'])
@@ -1269,17 +1338,29 @@ def load_workflow():
     def _load_workflow(pp, pm, **attrs):
         from emwrap.base import ProcessingConfig
 
-        workflow_id = attrs['workflow_id']
-        workflow_file = ProcessingConfig.get_workflow_file(workflow_id)
-        if not os.path.exists(workflow_file):
-            raise Exception(f"Workflow file not found: {workflow_file}")
+        workflow_id = attrs.get('workflow_id')
+        if project_file := attrs.get('workflow_file'):
+            # A workflow JSON in the project (e.g. from /api/export_workflow)
+            workflow_file = project_file_path(pp['project'].path, project_file)
+            if not workflow_file.endswith('.json'):
+                raise Exception(f"Expecting a .json workflow file: {project_file}")
+            if not os.path.exists(workflow_file):
+                raise Exception(f"Workflow file not found: {project_file}")
+            with open(workflow_file) as f:
+                workflow = json.load(f)
+        elif workflow_id:
+            workflow_file = ProcessingConfig.get_workflow_file(workflow_id)
+            if not os.path.exists(workflow_file):
+                raise Exception(f"Workflow file not found: {workflow_file}")
+            workflow = ProcessingConfig.get_workflow(workflow_id)
+        else:
+            raise Exception("Missing 'workflow_id' or 'workflow_file'")
 
-        workflow = ProcessingConfig.get_workflow(workflow_id)
         expected_jobs = len(workflow.get('jobs', []))
-        id_map = pm.loadWorkflow(workflow_id=workflow_id)
+        id_map = pm.loadWorkflow(workflow=workflow)
         if len(id_map) != expected_jobs:
             raise Exception(
-                f"Workflow load mismatch for {workflow_id}: "
+                f"Workflow load mismatch for {workflow_id or project_file}: "
                 f"expected {expected_jobs} jobs from {workflow_file}, "
                 f"created {len(id_map)}"
             )
@@ -1289,9 +1370,63 @@ def load_workflow():
             'workflow_id': workflow_id,
             'workflow_file': os.path.basename(workflow_file),
             'loaded_jobs': len(id_map),
+            'id_map': id_map,
         }
 
-    return handle_workflow(_load_workflow)
+    return handle_workflow(_load_workflow, edit=True)
+
+
+@api_bp.route('/create_tomo_project', methods=['POST'])
+@flask_login.login_required
+def create_tomo_project():
+    """ Create a tomography processing project: a 'tomo_processing' entry,
+    as the 'Tomography Processing' form does. A new processing_path is
+    created (its parent must exist) with a 'data' link to data_path; an
+    existing one must already be a project (default_pipeline.star) not
+    registered by another entry.
+
+    The entry goes to project_id, or to the default tomo project of the
+    current user (created if needed), as in the processing_tomo_list page.
+    """
+    def _handle(**attrs):
+        processing_path = (attrs.get('processing_path') or '').strip()
+        if not processing_path:
+            raise Exception("Missing 'processing_path'")
+
+        root = resolve_project_root(processing_path)
+        for e in app.dm.get_entries(condition="type='tomo_processing'"):
+            path = e.extra.get('data', {}).get('processing_path', '')
+            if path and resolve_project_root(path) == root:
+                raise Exception(f"There is already a tomo project (entry {e.id}) "
+                                f"for '{processing_path}'")
+
+        if project_id := attrs.get('project_id'):
+            project = app.dm.get_project_by(id=int(project_id))
+            if project is None:
+                raise Exception(f"Project {project_id} does not exist")
+            if not app.user.can_edit_project(project):
+                raise Exception(f"You can not add entries to project {project_id}")
+        else:
+            project_id = app.dc.get_data('pseudo_projects',
+                                         entry_type='tomo_processing',
+                                         project_type='processing_tomo'
+                                         )['default_project_id']
+
+        entry_attrs = {
+            'type': 'tomo_processing',
+            'project_id': int(project_id),
+            'title': attrs.get('title') or '',
+            'description': attrs.get('description') or '',
+            'extra': {'data': {
+                'processing_path': processing_path,
+                'data_path': (attrs.get('data_path') or '').strip(),
+                'share_table': attrs.get('share_table') or []
+            }}
+        }
+        load_validate_func(entry_attrs)
+        return app.dm.create_entry(**entry_attrs).json()
+
+    return _handle_item(_handle, 'entry')
 
 
 @api_bp.route('/export_workflow', methods=['POST'])
@@ -1301,9 +1436,82 @@ def export_workflow():
     Export a workflow from a set of jobs ids.
     """
     def _export_workflow(pp, pm, **attrs):
-        pm.exportWorkflow(attrs['run_ids'], attrs['output_path'])
+        # The file is written in the project folder, with the output_path name
+        output_path = attrs['output_path']
+        if not output_path.endswith('.json'):
+            raise Exception(f"Expecting a .json output file: {output_path}")
+        workflow_file = pm.exportWorkflow(attrs['run_ids'], output_path)
+        return {
+            'protocols': pp['project'].get_workflow(widget=True),
+            'workflow_file': os.path.basename(workflow_file),
+            'exported_jobs': len(attrs['run_ids']),
+        }
 
-    return handle_workflow(_export_workflow)
+    return handle_workflow(_export_workflow, edit=True)
+
+
+@api_bp.route('/get_workflow_templates', methods=['POST'])
+@flask_login.login_required
+def get_workflow_templates():
+    """ Return the workflow templates (id, file, title and description)
+    that can be loaded in a project with /api/load_workflow. """
+    def _handle(**attrs):
+        from emwrap.base import ProcessingConfig
+        return ProcessingConfig.get_workflows()
+
+    return _handle_item(_handle, 'workflows')
+
+
+@api_bp.route('/get_job_types', methods=['POST'])
+@flask_login.login_required
+def get_job_types():
+    """ Return the job types registered in emwrap (id, label, output folder,
+    whether it is shown in the processing menu and whether it has a form). """
+    def _handle(**attrs):
+        from emwrap.base import ProcessingConfig
+        return [{
+            'id': job_type,
+            'label': conf.get('label', job_type),
+            'output': conf.get('output', ''),
+            'visible': ProcessingConfig.is_job_visible(job_type),
+            'has_form': os.path.exists(
+                ProcessingConfig.get_job_form_file(job_type))
+        } for job_type, conf in ProcessingConfig.get_jobs().items()]
+
+    return _handle_item(_handle, 'job_types')
+
+
+@api_bp.route('/validate_job', methods=['POST'])
+@flask_login.login_required
+def validate_job():
+    """ Validate job params against the job type's form, without saving or
+    running anything. For an existing job (run_id) the given params are
+    merged into its current ones; a new job needs job_type. With
+    for_schedule, inputs produced by parent jobs may not exist yet.
+    """
+    def _validate_job(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        params = attrs.get('params') or {}
+        run = pp.get('run')
+        job = None
+        if run:
+            job = pm._getJob(run.id)
+            job_type = job['jobtype']
+            job_params = pm._readJobParams(job, extraParams=params)
+        else:
+            job_type = attrs.get('job_type')
+            if not job_type:
+                raise Exception("Provide run_id for an existing job, "
+                                "or job_type for a new one.")
+            job_params = params
+        try:
+            pm._validateJobInputs(job_type, job_params, job=job,
+                                  for_schedule=bool(attrs.get('for_schedule')))
+        except JobValidationError as e:
+            return {'valid': False, 'errors': list(e.errors)}
+        return {'valid': True, 'errors': []}
+
+    return _handle_item(_validate_job, 'validation')
 
 
 @api_bp.route('/launch_job', methods=['POST'])
@@ -1321,7 +1529,7 @@ def launch_job():
             clean=attrs['clean'],
         )
 
-    return handle_workflow(_launch_job)
+    return handle_workflow(_launch_job, edit=True)
 
 
 @api_bp.route('/schedule_job', methods=['POST'])
@@ -1345,7 +1553,7 @@ def schedule_job():
                 "Missing run_id for scheduling. Save the job first, or provide "
                 "job_type/protocolClassName to create and schedule it.")
 
-    return handle_workflow(_schedule_job)
+    return handle_workflow(_schedule_job, edit=True)
 
 
 @api_bp.route('/delete_jobs', methods=['POST'])
@@ -1359,7 +1567,7 @@ def delete_jobs():
     def _delete_job(pp, pm, **attrs):
         pm.deleteJobs(attrs['run_ids'])
 
-    return handle_workflow(_delete_job)
+    return handle_workflow(_delete_job, edit=True)
 
 
 @api_bp.route('/stop_jobs', methods=['POST'])
@@ -1370,7 +1578,7 @@ def stop_jobs():
         for run_id in attrs['run_ids']:
             pm.stopJob(run_id)
 
-    return handle_workflow(_stop_jobs)
+    return handle_workflow(_stop_jobs, edit=True)
 
 
 @api_bp.route("/get_classes2d", methods=['POST'])
@@ -1414,7 +1622,7 @@ def connect_worker():
     def _connect_worker(**attrs):
         worker = attrs['worker']
         specs = attrs['specs']
-        app.dm.connect_worker(worker, specs)
+        app.dm.connect_worker(worker, specs, python=attrs.get('python'))
         return get_worker_token(worker)
 
     return _handle_item(_connect_worker, 'token')

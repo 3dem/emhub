@@ -21,29 +21,44 @@ let tags = [
 ];
 const protocolTags = {};
 
+// With ?outputPrefix in the page url, outputs get a label prefix (as EMhub
+// sends "Class01", "Class02"... for 3D classes): all but the first output of
+// each protocol (to show both), in the graph and in the protocol details
+const hasFakeOutputPrefixes = () => new URLSearchParams(location.search).has("outputPrefix");
+const setFakeOutputPrefixes = (outputs) => {
+  (outputs ?? []).forEach((output, i) => {
+    output.prefix = i ? `Out${String(i).padStart(2, "0")}` : "";
+  });
+};
+const withFakeOutputPrefixes = (project) => {
+  if (hasFakeOutputPrefixes()) {
+    Object.values(project.protocols ?? {}).forEach((prot) => setFakeOutputPrefixes(prot.outputs));
+  }
+  return project;
+};
+
 // Fake Tomograms table (as EMhub's get_table_view_data builds it), opened on
 // outputs with pointerClass "Tomograms" (none in the fake project) or on any
-// output when the page url has ?tomoTable
+// output when the page url has ?tomoTable; ?tomoTable=coords gives a
+// TomoCoordinates table (Coordinates column, particles on the tomogram slices)
+const isCoordsTable = () => new URLSearchParams(location.search).get("tomoTable") === "coords";
+const FAKE_NCOORDS = [12, 7, 0];
 const fakeTomogramsTable = () => ({
-  title: "Tomograms (3 items)",
+  title: isCoordsTable() ? "Tomo coordinates (3 items)" : "Tomograms (3 items)",
+  // "Selected" and "Create subset" as EMhub adds them (project_widget_svc.html)
   columns: [
-    { id: "tomoName", label: "Tomo name" },
+    { id: "selected", label: "Selected", align: "center", width: 70 },
+    { id: "tomoName", label: "Tomo name", sortable: true },
     { id: "starFile", label: "Metadata", actions: [{ id: "metadata", label: "metadata" }] },
+    ...(isCoordsTable() ? [{ id: "nCoords", label: "Coordinates", align: "right", sortable: true }] : []),
     { id: "tsTomo", label: "TS / Tomogram", width: 110 },
-    { id: "plots", label: "Plots" },
   ],
   rows: ["TS_0001", "TS_0002", "TS_0003"].map((name, i) => ({
     id: name,
-    cells: { tomoName: name, starFile: `${name}.star` },
+    cells: { selected: true, tomoName: name, starFile: `${name}.star`, nCoords: FAKE_NCOORDS[i] },
     data: { tomoName: name },
     cellContexts: {
-      plots: {
-        actions: [
-          { id: "tilt-angles", label: "tilt angles" },
-          { id: "motion", label: "motion" },
-          { id: "defocus", label: "defocus" },
-        ],
-      },
+      selected: { edit: { type: "boolean", field: "selected" } },
       tsTomo: {
         actions: [
           { id: "ts-view", label: "Tilt series", icon: "tilt-series" },
@@ -53,17 +68,19 @@ const fakeTomogramsTable = () => ({
       },
     },
   })),
+  editActions: [{ id: "create-subset", label: "Create subset", requiresChanges: true }],
 });
 
 // Base64 PNG slices (no data: prefix) with the slice number drawn on them
-const fakeSlices = (count, label) => {
+const fakeSlices = (count, label, width = 256, height = 256) => {
   const slices = {};
   const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 256;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   for (let i = 0; i < count; i++) {
     ctx.fillStyle = `hsl(210, 15%, ${20 + (50 * i) / count}%)`;
-    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = "#fff";
     ctx.font = "20px sans-serif";
     ctx.fillText(`${label} ${i + 1}`, 20, 40);
@@ -89,13 +106,17 @@ export function createFakeService() {
   return {
     fetchList: async () => [],
 
-    fetchProject: async () => structuredClone(workflow),
+    fetchProject: async () => {
+      log("fetchProject");
+      return withFakeOutputPrefixes(structuredClone(workflow));
+    },
 
     fetchProtocolDetails: async (projectId, protocolId) => {
       const data = { info: {}, values: {}, form: {} };
       const prot = protocols[protocolId];
       if (prot) {
-        data.info = prot.info;
+        data.info = structuredClone(prot.info);
+        if (hasFakeOutputPrefixes()) setFakeOutputPrefixes(data.info.outputs);
         data.values = prot.values;
         data.form = forms[prot.info.protocolClassName] ?? {};
       }
@@ -141,15 +162,27 @@ export function createFakeService() {
       return { handled: false };
     },
 
+    executeTableViewerEditAction: async (context, request) => {
+      log("executeTableViewerEditAction", request);
+      const deselected = request.edits.filter((edit) => !edit.value).map((edit) => edit.rowId);
+      return {
+        success: true,
+        message: `Fake subset without: ${deselected.join(", ") || "none"}`,
+        clearEdits: true,
+        refreshProject: true,
+      };
+    },
     resolveTableViewerAction: async (context, request) => {
       log("resolveTableViewerAction", request);
+      // A host round trip, so the pane shows its loading state
+      await new Promise((resolve) => setTimeout(resolve, 700));
       const name = request.rowData?.tomoName ?? request.rowId;
       if (request.actionId === "ts-view") {
         // Other grid layouts with ?gridLayout=cols|rows|span-top|span-bottom|span-left|span-right
         const layout = new URLSearchParams(location.search).get("gridLayout") ?? "2x2";
         const contents = [
           { kind: "imageSlider", title: "Slices", sliderPrefix: "Tilt: ",
-            sliceLabelOffset: 1, slices: fakeSlices(41, `${name} tilt`) },
+            sliceLabelOffset: 1, slices: fakeSlices(41, `${name} tilt`, 360, 256) },
           fakePlot("Tilt angles", "Dose (e-/Å²)", (a) => 3.1 * Math.abs(a) / 3),
           fakePlot("Motion", "Accumulated motion (Å)", (a) => 2 + Math.abs(a) / 20),
           // TS_0003: a cell that failed on the host
@@ -174,8 +207,24 @@ export function createFakeService() {
         };
       }
       if (request.actionId === "tomo-view") {
+        if (isCoordsTable()) {
+          // X/Y/Z volume slices with the particles of this tomogram
+          const n = FAKE_NCOORDS[["TS_0001", "TS_0002"].indexOf(name)] ?? 0;
+          const coordinates = { x: [], y: [], z: [] };
+          for (let i = 0; i < n; i++) {
+            coordinates.x.push(40 + ((i * 37) % 180));
+            coordinates.y.push(20 + ((i * 71) % 140));
+            coordinates.z.push(20 + ((i * 5) % 24));
+          }
+          // Slices with the volume aspect: Z is X x Y, Y is X x Z, X is Y x Z
+          const axis = (count, label, w, h) => ({ sliderPrefix: `${label}: `, slices: fakeSlices(count, `${name} ${label}`, w, h) });
+          return { kind: "imageSlider", title: `Tomogram — ${name}`, layout: "volume",
+                   dimensions: [256, 180, 64], initialSlice: 32,
+                   axes: { x: axis(256, "X", 180, 64), y: axis(180, "Y", 256, 64), z: axis(64, "Z", 256, 180) },
+                   coordinates };
+        }
         return { kind: "imageSlider", title: `Tomogram — ${name}`, sliderPrefix: "Slice: ",
-                 slices: fakeSlices(32, `${name} slice`) };
+                 slices: fakeSlices(32, `${name} slice`, 360, 256) };
       }
       return { kind: "text", title: request.actionId, text: `Fake ${request.actionId} of ${name}` };
     },

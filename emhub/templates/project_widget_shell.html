@@ -1,4 +1,10 @@
-<div class="card {{ card_extra_class | default('') }} col-12">
+<style>
+  /* The viewer fits the window (project_widget_bootstrap.html), so the page
+     min-height (style.css) must not add a scroll while it is shown */
+  .dashboard-wrapper:has(#project-page-host) { min-height: 0 !important; }
+</style>
+
+<div class="card {{ card_extra_class | default('') }} col-12 mb-0">
   <div class="card-body">
     <!-- The emflow viewer (React) is mounted here by project_widget_bootstrap.html -->
     <div id="project-page-host"></div>

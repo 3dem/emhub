@@ -2,6 +2,9 @@
 node_modules
 dist
 
+# Vite dependency cache
+.vite
+
 # Logs
 *.log
 npm-debug.log*

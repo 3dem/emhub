@@ -29,8 +29,6 @@ Content function to visualize tomography results
 import os
 import sys
 import json
-import platform
-import subprocess
 from uuid import uuid4
 import shutil
 import random
@@ -43,6 +41,7 @@ from emtools.metadata import StarFile, RelionStar, WarpXml
 
 from emwrap.base import ProcessingConfig
 from emhub.data.processing import resolve_processing_path
+from emhub.utils.python_env import python_env_rows
 
 
 DEFAULT_SESSION = {
@@ -150,8 +149,7 @@ def load_benchmark_run_jobs(processing_path):
     pm = ProjectManager(path, verbose=0)
     jobs = []
     for job in pm.get_workflow().jobs():
-        info = pm.readJobInfo(job, default={}) or {}
-        runs = info.get('runs') or []
+        runs = pm.getJobRuns(job)
         last = runs[-1] if runs else {}
         seconds, running = _job_run_seconds(last)
         alias = job['alias']
@@ -166,88 +164,6 @@ def load_benchmark_run_jobs(processing_path):
             'running': running,
         })
     return jobs
-
-
-def _get_git_info(path):
-    """ Return 'branch @ commit' (plus tag and modified flag) for PATH if it
-    is inside a git checkout (i.e. installed from sources), or None. """
-    def _git(*args):
-        try:
-            r = subprocess.run(['git', '-C', path, *args], capture_output=True,
-                               text=True, timeout=5)
-            return r.stdout.strip() if r.returncode == 0 else None
-        except (OSError, subprocess.SubprocessError):
-            return None
-
-    commit = _git('rev-parse', '--short', 'HEAD')
-    if not commit:
-        return None
-    info = f"{_git('rev-parse', '--abbrev-ref', 'HEAD')} @ {commit}"
-    if tag := _git('describe', '--tags', '--exact-match'):
-        info += f" (tag {tag})"
-    if _git('status', '--porcelain', '--untracked-files=no'):
-        info += ", modified"
-    return info
-
-
-def _get_library_row(module):
-    """ Row with the path, version and git info (when installed from
-    sources) of one of the core libraries. """
-    path = os.path.dirname(module.__file__)
-    details = [f"Version: {getattr(module, '__version__', 'unknown')}"]
-    if git_info := _get_git_info(path):
-        details.append(f"Git: {git_info}")
-    return {'label': module.__name__, 'value': path, 'status': 'ok',
-            'details': ' | '.join(details)}
-
-
-def _get_python_env_rows(instance_path):
-    """ Return rows describing the Python environment running the server,
-    to quickly spot when it is not the expected one (e.g. an old conda env
-    picked up from PATH).
-    """
-    import emtools
-    import emhub
-    import emwrap
-
-    prefix = sys.prefix
-    conda_prefix = os.environ.get('CONDA_PREFIX')
-    if os.path.exists(os.path.join(prefix, 'conda-meta')):
-        env_type = 'conda'
-    elif prefix != sys.base_prefix:
-        env_type = 'venv'
-    else:
-        env_type = 'system'
-
-    def _row(label, value, status='ok', details=''):
-        return {'label': label, 'value': value, 'status': status,
-                'details': details}
-
-    prefix_row = _row('Environment Prefix', prefix)
-    if (conda_prefix and
-            os.path.realpath(conda_prefix) != os.path.realpath(prefix)):
-        prefix_row['status'] = 'warning'
-        prefix_row['details'] = (f"Differs from the active CONDA_PREFIX "
-                                 f"({conda_prefix}), the server Python likely "
-                                 f"comes from another environment in PATH.")
-
-    env_instance = os.environ.get('EMHUB_INSTANCE', '')
-    instance_row = _row('EMHUB_INSTANCE', env_instance or instance_path)
-    if not env_instance:
-        instance_row['status'] = 'warning'
-        instance_row['details'] = 'Not set, showing the Flask instance path.'
-
-    return [
-        _row('Environment Type', env_type),
-        _row('Environment Name', os.path.basename(prefix)),
-        prefix_row,
-        _row('Python Executable', sys.executable),
-        _row('Python Version', platform.python_version()),
-        _get_library_row(emtools),
-        _get_library_row(emwrap),
-        _get_library_row(emhub),
-        instance_row,
-    ]
 
 
 def register_content(dc):
@@ -289,7 +205,7 @@ def register_content(dc):
         report = ProcessingConfig.get_config_report()
 
         return {
-            'python_env_rows': _get_python_env_rows(dc.app.instance_path),
+            'python_env_rows': python_env_rows(dc.app.instance_path),
             'config_summary': report['summary'],
             'workflow_rows': report['workflow_rows'],
             'job_rows': report['job_rows'],

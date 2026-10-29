@@ -7,6 +7,7 @@ import AnalyzeOutputDialog from "@/components/analyze/analyze-output-dialog";
 import TableViewerDialog from "@/components/analyze/table-viewer-dialog";
 import type { AnalyzeViewerResolveDecision } from "@/services/ProjectService";
 import { openExternalAnalyzeDecision } from "@/utils/analyze-viewer-decision";
+import { withOutputPrefix } from "@/utils/output_label";
 
 
 type ProtocolOutputsPanelProps = {
@@ -59,7 +60,7 @@ export default function ProtocolOutputsPanel({
         const arr = Array.isArray(outputsFromApi) ? outputsFromApi : [];
         return arr.map((entry: any, idx: number) => {
             const outputName = String(entry?.outputName ?? entry?.name ?? entry?._key ?? idx);
-            const infoText = entry?.info ?? entry?.pointerClass ?? "";
+            const infoText = withOutputPrefix(entry?.info ?? entry?.pointerClass, entry?.prefix);
             return { name: outputName, infoText, raw: entry };
         });
     }, [outputsFromApi]);
