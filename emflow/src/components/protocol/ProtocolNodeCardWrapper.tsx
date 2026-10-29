@@ -5,6 +5,7 @@ import type { NodeProps } from "reactflow";
 import { useReactFlow } from "reactflow";
 
 import ProtocolNodeCard, { type ExternalAnalyzeViewerService } from "./ProtocolNodeCard";
+import CollapsedGroupNodeCard from "./CollapsedGroupNodeCard";
 import type { NodeMenuVisibility } from "@/types/protocol-node-menu-items";
 
 type NodeActions = {
@@ -20,6 +21,8 @@ type NodeActions = {
   onSelectFrom?: (id: string) => void;
   onSelectTo?: (id: string) => void;
   onStop?: (id: string) => void;
+  onCollapse?: (id: string) => void;
+  onExpand?: (id: string) => void;
 
   onManageTags?: (
     protocolId: string,
@@ -88,6 +91,28 @@ export const createStatusNodeWrapper = (
       };
     }, [data, resolvedProjectId, protocolOutputThumbnailsEnabled]);
 
+    // Collapsed group (graph_utils collapseProtocols): only expand
+    if (mergedData.collapsedCount) {
+      return (
+        <div
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          style={{ display: "inline-block" }}
+        >
+          <CollapsedGroupNodeCard
+            data={mergedData}
+            isSelected={selectedNodeId === String(id)}
+            isHovered={typeof hoveredNodeId === "string" && String(id) === String(hoveredNodeId)}
+            inPathSelection={inPathSelection}
+            graphDirection={graphDirection}
+            showHandles={viewMode !== "grid"}
+            onClick={(evt?: React.MouseEvent) => onClick(mergedData, evt)}
+            onExpand={actions.onExpand}
+          />
+        </div>
+      );
+    }
+
     return (
       <div
         onMouseEnter={handleMouseEnter}
@@ -118,6 +143,7 @@ export const createStatusNodeWrapper = (
           onSelectFrom={actions.onSelectFrom}
           onSelectTo={actions.onSelectTo}
           onStop={actions.onStop}
+          onCollapse={actions.onCollapse}
           onManageTags={actions.onManageTags}
           onOpenProtocolClass={actions.onOpenProtocolClass}
           onToggleOutputsCard={actions.onToggleOutputsCard}

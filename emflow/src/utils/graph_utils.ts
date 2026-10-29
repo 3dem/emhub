@@ -14,6 +14,139 @@ import {
 
 export type { NodeSizeMap } from "./graph_layout";
 
+/* ------------------------ Collapsed groups ------------------------ */
+// A collapsed node hides its subtree (the jobs highlighted by "Select from"),
+// except the jobs already in another group:
+// - a group whose root is in the subtree is nested: it is hidden too (its jobs
+//   stay in it) and shows again, still collapsed, when the parent is expanded;
+// - the jobs of any other group stay in it, the two groups are separate.
+// The node is shown as a group node; edges into hidden jobs go to the group
+// node that shows them, also between groups.
+
+/** Ids of the subtree of `rootId`, the root included. */
+function getSubtreeIds(protocols: Record<string, ProtocolNode>, rootId: string): Set<string> {
+  const ids = new Set<string>();
+  const pending = [String(rootId)];
+
+  while (pending.length > 0) {
+    const id = pending.pop()!;
+    if (ids.has(id) || id === "PROJECT" || !protocols[id]) continue;
+    ids.add(id);
+    for (const childId of protocols[id]?.children ?? []) pending.push(String(childId));
+  }
+  return ids;
+}
+
+/**
+ * Members of each collapsed group (its root included). Groups take their
+ * jobs in collapse order, but a group nested in another one always goes
+ * before it.
+ */
+function getCollapsedGroups(
+  protocols: Record<string, ProtocolNode>,
+  collapsedIds: Iterable<string>
+): Map<string, Set<string>> {
+  const subtrees = new Map(
+    uniqStable([...collapsedIds].map(String))
+      .filter((id) => Boolean(protocols[id]))
+      .map((id) => [id, getSubtreeIds(protocols, id)] as const)
+  );
+
+  const roots: string[] = [];
+  const addRoot = (root: string) => {
+    if (roots.includes(root)) return;
+    for (const other of subtrees.keys()) {
+      if (other !== root && subtrees.get(root)!.has(other)) addRoot(other);
+    }
+    roots.push(root);
+  };
+  for (const root of subtrees.keys()) addRoot(root);
+
+  const members = new Map<string, Set<string>>();
+  const groupOf = new Map<string, string>();  // job -> group that holds it
+
+  for (const root of roots) {
+    const subtree = subtrees.get(root)!;
+    const ids = new Set<string>();
+    const pending = [root];
+
+    while (pending.length > 0) {
+      const id = pending.pop()!;
+      if (ids.has(id) || id === "PROJECT" || !protocols[id]) continue;
+
+      const group = groupOf.get(id);
+      if (group !== undefined) {
+        // The root of a nested group comes in this group, other jobs stay in theirs
+        if (id === group && subtree.has(group)) ids.add(id);
+        continue;
+      }
+      ids.add(id);
+      for (const childId of protocols[id]?.children ?? []) pending.push(String(childId));
+    }
+
+    // Nested group roots now belong to this group (another one can not take them)
+    for (const id of ids) groupOf.set(id, root);
+    members.set(root, ids);
+  }
+  return members;
+}
+
+/**
+ * Protocols with each collapsed group replaced by its root, which gets
+ * `collapsedCount` (all the jobs it hides, nested groups included, plus the
+ * root) and, as children, the other group nodes its jobs feed. Groups
+ * nested in a collapsed group are hidden too. Missing roots are ignored.
+ */
+export function collapseProtocols(
+  protocols: Record<string, ProtocolNode>,
+  collapsedIds?: Iterable<string> | null
+): Record<string, ProtocolNode> {
+  const members = getCollapsedGroups(protocols, collapsedIds ?? []);
+  if (members.size === 0) return protocols;
+
+  // Group of each hidden job, then the visible group that shows it
+  const groupOf = new Map<string, string>();
+  for (const [root, ids] of members) {
+    for (const id of ids) if (id !== root) groupOf.set(id, root);
+  }
+  const visibleGroupOf = (id: string): string => {
+    let group = groupOf.get(id) ?? id;
+    while (groupOf.has(group)) group = groupOf.get(group)!;
+    return group;
+  };
+
+  const counts = new Map<string, number>();
+  const hiddenByGroup = new Map<string, string[]>();
+  for (const id of groupOf.keys()) {
+    const group = visibleGroupOf(id);
+    counts.set(group, (counts.get(group) ?? 1) + 1);
+    hiddenByGroup.set(group, [...(hiddenByGroup.get(group) ?? []), id]);
+  }
+
+  const visibleChildren = (ids: string[], self: string) =>
+    uniqStable(
+      ids.flatMap((id) => (protocols[id]?.children ?? []).map((childId) => visibleGroupOf(String(childId))))
+    ).filter((childId) => childId !== self);
+
+  const visible: Record<string, ProtocolNode> = {};
+  for (const [id, prot] of Object.entries(protocols)) {
+    if (groupOf.has(id)) continue;
+
+    if (members.has(id)) {
+      visible[id] = {
+        ...prot,
+        children: visibleChildren([id, ...(hiddenByGroup.get(id) ?? [])], id),
+        collapsedCount: counts.get(id) ?? 1,
+      } as ProtocolNode;
+      continue;
+    }
+
+    // Edges into a hidden job go to the group node that shows it
+    visible[id] = { ...prot, children: visibleChildren([id], id) } as ProtocolNode;
+  }
+  return visible;
+}
+
 export function getGraphTopologySignature(protocols: Record<string, ProtocolNode>): string {
   return Object.keys(protocols)
     .sort(stableIdCompare)
@@ -87,6 +220,8 @@ export function buildGraphElements(
   layoutOptions?: {
     preferredChildOrder?: Record<string, string[]> | null;
     layout?: GraphLayoutName | null;
+    // Roots of the collapsed groups (hierarchical view only)
+    collapsed?: Iterable<string> | null;
   }
 ) {
   const spacingX = direction === "TB" ? 480 : 1250;
@@ -226,7 +361,10 @@ export function buildGraphElements(
     return { nodes, edges: [] };
   }
 
-  // HIERARCHICAL view -> named layout (graph_layout/) with all real edges preserved
+  // HIERARCHICAL view -> named layout (graph_layout/) with all real edges preserved.
+  // The jobs of collapsed groups are removed first, so nothing below sees them.
+  protocols = collapseProtocols(protocols, layoutOptions?.collapsed);
+
   const getChildren = (id: string): string[] =>
     uniqStable(Array.isArray(protocols[id]?.children) ? protocols[id].children.map(String) : []);
 
@@ -334,6 +472,8 @@ export function buildGraphElements(
         inputs: prot?.inputs,
         tick: Number(prot?.elapsedTime) || 0,
         tags: Array.isArray(prot?.tags) ? prot.tags : [],
+        collapsedCount: (prot as any)?.collapsedCount,
+        canCollapse: id !== "PROJECT" && getChildren(id).length > 0,
       },
       position,
       draggable: true,

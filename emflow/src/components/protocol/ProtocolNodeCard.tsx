@@ -62,6 +62,7 @@ import {
   ArrowDown,
   ArrowUp,
   Scan,
+  Layers,
   Eye,
   Tags,
   HelpCircle,
@@ -163,6 +164,8 @@ type StatusNodeProps = {
     // tags assigned to this protocol (backend provides this)
     // can be ids or objects; normalized later
     tags?: any[];
+    // Has children in the tree view, so it can be collapsed
+    canCollapse?: boolean;
   };
 
   selectedNodeId?: string;
@@ -186,6 +189,7 @@ type StatusNodeProps = {
   onContinueAll?: (id: string) => void;
   onResetFrom?: (id: string) => void;
   onSelectFrom?: (id: string) => void;
+  onCollapse?: (id: string) => void;
   onSelectTo?: (id: string) => void;
   onStop?: (id: string) => void;
   onBrowse?: (protocolId: string, projectId?: string | number, protocolLabel?: string) => void;
@@ -690,6 +694,7 @@ export default function ProtocolNodeCard({
   onContinueAll,
   onResetFrom,
   onSelectFrom,
+  onCollapse,
   onSelectTo,
   onStop,
   onBrowse,
@@ -1424,6 +1429,12 @@ export default function ProtocolNodeCard({
 
   const handleSelectTo = () => {
     if (!isProjectNode) onSelectTo?.(data.id);
+  };
+
+  // Collapse the subtree (the jobs of "Select from") into a group node
+  const canCollapse = !isProjectNode && Boolean(data.canCollapse) && Boolean(onCollapse);
+  const handleCollapse = () => {
+    if (canCollapse) onCollapse?.(data.id);
   };
 
   const handleStop = () => {
@@ -2633,6 +2644,16 @@ export default function ProtocolNodeCard({
                             </div>
                           </DropdownMenuItem>)}
 
+                        {isMenuItemVisible("collapse") && canCollapse && (
+                          <DropdownMenuItem onSelect={() => handleCollapse()}>
+                            <div className={styles.menuRow}>
+                              <span className={styles.menuLeft}>
+                                <Layers className={styles.menuItemIcon} />
+                                <span>Collapse</span>
+                              </span>
+                            </div>
+                          </DropdownMenuItem>)}
+
                         {(isMenuItemVisible("selectFrom") || isMenuItemVisible("selectTo")) && (
                           <DropdownMenuSeparator />)}
 
@@ -3089,6 +3110,16 @@ export default function ProtocolNodeCard({
                     <span>Select to</span>
                   </span>
                   <ShortcutHint text={shortcuts.selectTo} />
+                </div>
+              </ContextMenuItem>)}
+
+            {isMenuItemVisible("collapse") && canCollapse && (
+              <ContextMenuItem onClick={handleCollapse}>
+                <div className={styles.menuRow}>
+                  <span className={styles.menuLeft}>
+                    <Layers className={styles.menuItemIcon} />
+                    <span>Collapse</span>
+                  </span>
                 </div>
               </ContextMenuItem>)}
 

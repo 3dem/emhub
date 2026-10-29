@@ -564,8 +564,7 @@ var svc = {
 
     return {
       handled: true,
-      url: "#__external_viewer__",
-      target: "_self"
+      viewer: "external"
     };
   },
 
@@ -696,6 +695,7 @@ var svc = {
       stop: true,
       selectFrom: true,
       selectTo: true,
+      collapse: true,
       manageTags: true,
       openProtocolClass: true,
       export: true,

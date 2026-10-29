@@ -14,6 +14,7 @@ export type NodeMenuItemId =
   | "stop"
   | "selectFrom"
   | "selectTo"
+  | "collapse"
   | "manageTags"
   | "export"
   | "upload"

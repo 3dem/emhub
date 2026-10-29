@@ -67,9 +67,33 @@ Expected behavior:
   continue all, Mod+Shift+S stop, Alt+Down/Up select from/to.
 - **Node menu** items (`types/protocol-node-menu-items.ts`): open, browse,
   rename, duplicate, copyWorkflow, pasteWorkflow, delete, restart, continue,
-  reset, stop, selectFrom, selectTo, manageTags, export, upload, nextSteps.
-  Visibility comes from `svc.getContextMenuVisibilityPolicy()`; hidden items
-  must not be reachable by shortcut either.
+  reset, stop, selectFrom, selectTo, collapse, manageTags, export, upload,
+  nextSteps. Visibility comes from `svc.getContextMenuVisibilityPolicy()`
+  (`collapse` is shown unless `false`); hidden items must not be reachable by
+  shortcut either.
+- **Collapsed groups** (tree views only): "Collapse" (jobs with children,
+  `data.canCollapse`) hides the subtree of a job, the jobs of "Select from".
+  `collapseProtocols` (`graph_utils.ts`) removes them at the start of the
+  hierarchical `buildGraphElements` (option `collapsed`), before levels and
+  layout: the root keeps its id, gets `collapsedCount` (jobs in the group) and
+  as children the other group nodes its jobs feed; edges into hidden jobs
+  go to the group node that shows them. It is drawn by
+  `CollapsedGroupNodeCard` (same size, darker green, id pill with the
+  title/comment tooltip, an "N jobs" row); its only action is expand
+  (double-click or the [ ] button): no menu, and shortcuts are ignored while
+  a group is selected. Jobs already in a group are left out of a new one:
+  if the new root is an ancestor of the other group's root, that group is
+  nested (hidden with it, shown again still collapsed on expand,
+  `collapsedCount` includes its jobs); otherwise the two groups stay
+  separate, with an edge from one group node to the other when its jobs feed
+  the other's. Groups take their jobs in collapse order (nested ones first),
+  so expanding a group can give its shared jobs to a separate group. Collapse and
+  expand keep that node at the same place on screen (the viewport is shifted
+  by its position change).
+  Collapsed roots are saved in localStorage (`emflow:project-<name>-collapsed`)
+  and the node positions are saved per collapse state (the topology signature
+  includes the collapsed roots), so hand-moved positions are not kept across
+  collapse/expand. Grid and table views show all jobs.
 - **Protocol panel**: opening a node (or a new protocol from the drawer)
   loads `svc.fetchProtocolDetails` / `fetchNewProtocolDetails` ->
   `{info, form, values}` and shows `ProtocolForm` docked on the right.

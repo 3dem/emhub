@@ -1485,3 +1485,15 @@
 :global(.dark) .moreOutputsClose:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* Collapsed group node (CollapsedGroupNodeCard): darker green than a finished job */
+.collapsedGroup {
+  background-color: #a9e39e;
+  border-color: #5fb653;
+}
+
+:global(.dark) .collapsedGroup {
+  background-color: #1d3d2c !important;
+  background-image: linear-gradient(135deg, #21452f, #142821) !important;
+  border-color: rgba(34, 197, 94, 0.45);
+}

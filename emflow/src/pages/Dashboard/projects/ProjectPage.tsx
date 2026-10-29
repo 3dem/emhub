@@ -424,6 +424,8 @@ type NodeActions = {
   onResetFrom?: (id: string) => void;
   onSelectFrom?: (id: string) => void;
   onSelectTo?: (id: string) => void;
+  onCollapse?: (id: string) => void;
+  onExpand?: (id: string) => void;
   onStop?: (id: string) => void;
   onManageTags?: () => void;
   onOpenProtocolClass?: (protocolClass: string) => void;
@@ -1331,6 +1333,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     restart: true,
     selectFrom: true,
     selectTo: true,
+    collapse: true,
     stop: true,
     upload: true,
   });
@@ -1420,6 +1423,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           restart: Boolean(remotePolicy.restart),
           selectFrom: Boolean(remotePolicy.selectFrom),
           selectTo: Boolean(remotePolicy.selectTo),
+          collapse: remotePolicy.collapse !== false,
           stop: Boolean(remotePolicy.stop),
           upload: Boolean(remotePolicy.upload),
         };
@@ -1847,6 +1851,21 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const PROTOCOL_OUTPUT_THUMBNAIL_CHUNK_DELAY_MS = 50;
   const PROTOCOL_OUTPUT_THUMBNAIL_RETRY_DELAY_MS = 30_000;
   const localStorageKey = `emflow:project-${projectName}-node-positions`;
+
+  // Roots of the collapsed groups of the tree views (graph_utils collapseProtocols),
+  // saved per project. Read when the project changes, before building the graph.
+  const collapsedStorageKey = `emflow:project-${projectName}-collapsed`;
+  const collapsedIdsRef = useRef<string[]>([]);
+  const collapsedKeyRef = useRef<string | null>(null);
+  if (collapsedKeyRef.current !== collapsedStorageKey) {
+    collapsedKeyRef.current = collapsedStorageKey;
+    try {
+      const saved = JSON.parse(localStorage.getItem(collapsedStorageKey) ?? "[]");
+      collapsedIdsRef.current = Array.isArray(saved) ? saved.map(String) : [];
+    } catch {
+      collapsedIdsRef.current = [];
+    }
+  }
 
   const [, setIsSwitchingLayout] = useState(false);
   const [nodesLoadedOnce, setNodesLoadedOnce] = useState(false);
@@ -2984,6 +3003,10 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const handleNodeDoubleClick = useCallback(
     async (nodeData: any) => {
       if (!projectName) return;
+      if (nodeData?.collapsedCount || nodeData?.data?.collapsedCount) {
+        expandGroup(String(nodeData.id));
+        return;
+      }
       await openFormForNode(String(nodeData.id), () =>
         svc.fetchProtocolDetails(projectName, nodeData.id)
       );
@@ -3097,6 +3120,52 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     applyPathSelection(Array.from(nodesSet), edgeIds);
   }, [collectDescendants, computeOutgoingEdgesFromSet, applyPathSelection]);
 
+  /* ------------------------ Collapsed groups ------------------------ */
+  const isCollapsedGroupId = (id: string) =>
+    Boolean((nodesRef.current.find((n) => String(n.id) === String(id))?.data as any)?.collapsedCount);
+
+  // Rebuild the graph with the new groups, keeping `anchorId` (the collapsed
+  // or expanded node, same id before and after) at the same place on screen
+  const setCollapsedIds = async (ids: string[], anchorId: string) => {
+    const before = nodesRef.current.find((n) => String(n.id) === anchorId)?.position;
+
+    collapsedIdsRef.current = ids;
+    try {
+      localStorage.setItem(collapsedStorageKey, JSON.stringify(ids));
+    } catch {
+      // noOp
+    }
+    clearAllSelectionHard();
+    await handleRefreshRef.current?.();
+    if (!before) return;
+
+    // Wait for the new nodes to be rendered
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const inst = reactFlowInstanceRef.current ?? (window as any).reactFlowInstance;
+      const after = nodesRef.current.find((n) => String(n.id) === anchorId)?.position;
+      if (!inst || !after) return;
+
+      const vp = inst.getViewport();
+      const next = {
+        x: vp.x + (before.x - after.x) * vp.zoom,
+        y: vp.y + (before.y - after.y) * vp.zoom,
+        zoom: vp.zoom,
+      };
+      inst.setViewport(next);
+      setViewport(next);
+    }));
+  };
+
+  // Jobs already in other groups stay there (graph_utils collapseProtocols)
+  const collapseGroup = (id: string) => {
+    if (collapsedIdsRef.current.includes(String(id))) return;
+    void setCollapsedIds([...collapsedIdsRef.current, String(id)], String(id));
+  };
+
+  const expandGroup = (id: string) => {
+    void setCollapsedIds(collapsedIdsRef.current.filter((x) => x !== String(id)), String(id));
+  };
+
   const handleSelectTo = useCallback((id: string) => {
     const nodesSet = collectAncestors(id);
     if (id !== "PROJECT") nodesSet.add(String(id));
@@ -3149,6 +3218,8 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       onContinueAll: openContinueAll,
       onSelectFrom: handleSelectFrom,
       onSelectTo: handleSelectTo,
+      onCollapse: collapseGroup,
+      onExpand: expandGroup,
       onStop: openStop,
       onResetFrom: openResetFrom,
       onManageTags: () => setTagManagerOpen(true),
@@ -3635,7 +3706,10 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     protocols: Record<string, any>,
     options?: { ignoreSaved?: boolean }
   ): Node[] => {
-    const topologySignature = getGraphTopologySignature(protocols);
+    // Positions are saved per collapse state (the visible graph changes)
+    const collapsedIds = [...collapsedIdsRef.current].sort();
+    const topologySignature = getGraphTopologySignature(protocols) +
+      (collapsedIds.length ? `#collapsed:${collapsedIds.join(",")}` : "");
     graphTopologySignatureRef.current = topologySignature;
 
     const saved = options?.ignoreSaved
@@ -4109,7 +4183,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
 
         const { nodes: loadedNodes, edges: loadedEdges, table } = buildGraphElements(
           data.shortName, data.protocols, mode, dir, width, effectiveZoom,
-          undefined, { layout: getGraphLayoutName(dir) }
+          undefined, { layout: getGraphLayoutName(dir), collapsed: collapsedIdsRef.current }
         );
 
         const tableWithTick = (
@@ -4240,7 +4314,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           gridWidth || flowWrapperRef.current?.clientWidth,
           getEffectiveZoom(),
           undefined,
-          { preferredChildOrder, layout: graphLayout }
+          { preferredChildOrder, layout: graphLayout, collapsed: collapsedIdsRef.current }
         );
 
         const freshTableRows = table ?? [];
@@ -4892,7 +4966,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           gridWidth || flowWrapperRef.current?.clientWidth,
           getEffectiveZoom(),
           undefined,
-          { preferredChildOrder, layout: graphLayout }
+          { preferredChildOrder, layout: graphLayout, collapsed: collapsedIdsRef.current }
         );
 
         const currentNodesById =
@@ -5211,7 +5285,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
         gridWidth || flowWrapperRef.current?.clientWidth,
         getEffectiveZoom(),
         undefined,
-        { layout: graphLayout }
+        { layout: graphLayout, collapsed: collapsedIdsRef.current }
       );
 
     const nodesWithPositions =
@@ -8129,6 +8203,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       ) {
         return;
       }
+
+      // Collapsed group nodes only expand (double-click or [ ]): no shortcuts
+      if (e.key !== "Escape" && getSelectedIds().some(isCollapsedGroupId)) return;
 
       if (modPressed(e) && e.shiftKey && e.key.toLowerCase() === "d") {
         e.preventDefault();

@@ -86,10 +86,11 @@ ctx = { projectId, protocolId, protocolLabel, outputName, pointerClass,
 Return one of (`AnalyzeViewerResolveDecision`):
 
 - `{handled: false}` -> emflow opens `AnalyzeOutputDialog` (Scipion viewers).
-- `{handled: true, viewer: "external", url, target?: "_self"|"_blank"}` (the
-  `viewer` field may be omitted) -> navigates / opens the url. EMhub uses
-  `url: "#__external_viewer__", target: "_self"` after opening its own viewer
-  (`visualizeOutput`), and an OTF dashboard url for `TiltSeriesAnalysis`.
+- `{handled: true, viewer: "external", url?, target?: "_self"|"_blank"}` (the
+  `viewer` field may be omitted) -> navigates / opens the url; without `url`
+  emflow does nothing (the host already opened its own viewer). EMhub returns
+  no url after opening its own viewer (`visualizeOutput`), and an OTF
+  dashboard url for `TiltSeriesAnalysis`.
 - `{handled: true, viewer: "table", title?, context, table}` -> `TableViewerDialog`.
 
 EMhub (`project_widget_svc.html`) returns `viewer: "table"` for

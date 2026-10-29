@@ -52,7 +52,7 @@
                             {% for run in runs %}
                                 <th>
                                     {% if run['tomo_entry_id'] %}
-                                        <a href="{{ url_for_content('tomo_session', tomo_session_id=run['tomo_entry_id'], mode='widget') }}">{{ run['label'] }}</a>
+                                        <a href="{{ url_for_content('tomo_session', tomo_session_id=run['tomo_entry_id']) }}">{{ run['label'] }}</a>
                                     {% else %}
                                         {{ run['label'] }}
                                     {% endif %}
