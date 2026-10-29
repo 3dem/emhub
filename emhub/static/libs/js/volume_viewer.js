@@ -240,6 +240,12 @@ function createVolumeViewer($body, config) {
             .append(icon.charAt(0) === '<' ? icon : '<i class="fas fa-' + icon + '"></i>');
     }
     const ICON_VOLUME = SVG('<path d="M8 1.5l6 3v7l-6 3-6-3v-7z" stroke-dasharray="2 2"/><path d="M2 4.5l6 3 6-3M8 7.5v7"/>');
+    function addParticleTools($t) {
+        if (!hasParticles) return;
+        $t.append(toolButton('particles', ICON_PARTICLES, 'Show and inspect picked particles'));
+        $t.append(toolButton('prev', 'chevron-left', 'Previous particle'));
+        $t.append(toolButton('next', 'chevron-right', 'Next particle'));
+    }
     function buildToolbar(kind) {
         const $t = $('<div class="vv-toolbar"></div>');
         const slices = kind === 'slices';
@@ -253,19 +259,15 @@ function createVolumeViewer($body, config) {
         }
         if (slices && toolsCfg.invert) $t.append(toolButton('invert', 'adjust', 'Invert the contrast'));
         if (slices && toolsCfg.lines) $t.append(toolButton('lines', 'eye-slash', 'Hide the slice lines (crosshair)'));
+        if (slices) addParticleTools($t);
         if (slices && (toolsCfg.ruler || toolsCfg.zoom || toolsCfg.pan || toolsCfg.invert))
             $t.append(toolButton('clean', 'undo', 'Clean: reset the zoom, remove measurements, restore the contrast and deactivate the tool'));
-        if (hasParticles) {
-            $t.append('<span class="vv-sep"></span>');
-            $t.append(toolButton('particles', ICON_PARTICLES, 'Show and inspect picked particles'));
-            $t.append(toolButton('prev', 'chevron-left', 'Previous particle'));
-            $t.append(toolButton('next', 'chevron-right', 'Next particle'));
-        }
         if (!slices) {
             $t.append('<span class="vv-sep"></span>');
             if (toolsCfg.volume) $t.append(toolButton('volume', ICON_VOLUME, 'Show the whole tomogram as a faint volume'));
             if (toolsCfg.invert) $t.append(toolButton('invert', 'adjust', 'Invert the contrast'));
             if (toolsCfg.pan) $t.append(toolButton('pan', 'arrows-alt', 'Move the volume: drag it in any direction (or right-drag / shift+drag)'));
+            addParticleTools($t);
             $t.append(toolButton('reset3d', 'sync-alt', 'Reset the 3D view'));
         }
         return $t;
@@ -530,9 +532,11 @@ function createVolumeViewer($body, config) {
                 const p = toPx(a, P[ha][i] + 0.5, P[va][i] + 0.5);
                 if (p[0] < -8 || p[1] < -8 || p[0] > v.cw + 8 || p[1] > v.ch + 8) continue;
                 ctx.beginPath();
-                ctx.arc(p[0], p[1], i === sel ? 8 : 6, 0, 2 * Math.PI);
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = i === sel ? '#ff3b30' : '#ffa500';
+                ctx.arc(p[0], p[1], i === sel ? 4 : 2.5, 0, 2 * Math.PI);
+                ctx.fillStyle = i === sel ? '#ff3b30' : '#ffa500';
+                ctx.fill();
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = 'rgba(0,0,0,.6)';
                 ctx.stroke();
             }
         }
@@ -964,7 +968,7 @@ function createVolumeViewer($body, config) {
             }
             const pg = new T.BufferGeometry();
             pg.setAttribute('position', new T.BufferAttribute(arr, 3));
-            three.points = new T.Points(pg, new T.PointsMaterial({color: 0xffa500, size: 6, sizeAttenuation: false}));
+            three.points = new T.Points(pg, new T.PointsMaterial({color: 0xffa500, size: 3.5, sizeAttenuation: false}));
             scene.add(three.points);
             three.selMark = new T.Mesh(new T.SphereGeometry(m / 70, 12, 12),
                                        new T.MeshBasicMaterial({color: 0xff3b30}));
