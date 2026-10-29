@@ -242,7 +242,7 @@ function createVolumeViewer($body, config) {
             .append(icon.charAt(0) === '<' ? icon : '<i class="fas fa-' + icon + '"></i>');
     }
     const ICON_VOLUME = SVG('<path d="M8 1.5l6 3v7l-6 3-6-3v-7z" stroke-dasharray="2 2"/><path d="M2 4.5l6 3 6-3M8 7.5v7"/>');
-    const ICON_TEMPLATE = SVG('<path d="M8 1.5l5.5 3.2v6.6L8 14.5l-5.5-3.2V4.7z"/><path d="M8 8.2l5.5-3.5M8 8.2L2.5 4.7M8 8.2v6.3"/>');
+    const ICON_TEMPLATE = SVG('<ellipse cx="8" cy="10.5" rx="6" ry="3.5"/><ellipse cx="8" cy="5.5" rx="3.6" ry="2.6"/>');
     function addParticleTools($t, is3d) {
         if (!hasParticles) return;
         $t.append(toolButton('particles', ICON_PARTICLES, 'Show and inspect picked particles'));

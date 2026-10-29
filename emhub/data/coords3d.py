@@ -377,13 +377,68 @@ def _find_template_path(root, output_path):
     return None
 
 
+def _surface_nets(f):
+    """ Triangle mesh of the surface f == 0 (inside is f > 0) of a 3D array,
+    with numpy only. Returns (vertices in grid units, triangles). """
+    import numpy as np
+
+    n = f.shape
+    cells = tuple(i - 1 for i in n)
+
+    def corner(d):
+        return f[d[0]:n[0] - 1 + d[0], d[1]:n[1] - 1 + d[1], d[2]:n[2] - 1 + d[2]]
+
+    corners = [(i, j, k) for i in (0, 1) for j in (0, 1) for k in (0, 1)]
+    edges = [(c, tuple(c[x] + (1 if x == a else 0) for x in range(3)))
+             for c in corners for a in range(3) if c[a] == 0]
+    total = np.zeros(cells + (3,))
+    count = np.zeros(cells)
+    for c0, c1 in edges:
+        f0, f1 = corner(c0), corner(c1)
+        cross = (f0 > 0) != (f1 > 0)
+        t = np.divide(f0, f0 - f1, out=np.zeros_like(f0), where=cross)
+        point = np.array(c0, dtype=float) + t[..., None] * (np.array(c1) - np.array(c0))
+        total += cross[..., None] * point
+        count += cross
+    has = count > 0
+    vid = -np.ones(cells, dtype=np.int64)
+    vid[has] = np.arange(int(has.sum()))
+    verts = total[has] / count[has][:, None] + np.argwhere(has)
+
+    tris = []
+    for a in range(3):
+        b, c = (a + 1) % 3, (a + 2) % 3
+        lo = [slice(1, n[x] - 1) for x in range(3)]
+        lo[a] = slice(0, n[a] - 1)
+        hi = list(lo)
+        hi[a] = slice(1, n[a])
+        f0, f1 = f[tuple(lo)], f[tuple(hi)]
+        cross = (f0 > 0) != (f1 > 0)
+        p = np.argwhere(cross)
+        if not len(p):
+            continue
+        p[:, b] += 1
+        p[:, c] += 1
+        flip = ~(f0[cross] > 0)
+        quad = []
+        for db, dc in ((0, 0), (1, 0), (1, 1), (0, 1)):
+            q = p.copy()
+            q[:, b] -= db
+            q[:, c] -= dc
+            quad.append(vid[q[:, 0], q[:, 1], q[:, 2]])
+        quad = np.stack(quad, axis=1)
+        quad[flip] = quad[flip][:, ::-1]
+        tris.append(quad[:, [0, 1, 2]])
+        tris.append(quad[:, [0, 2, 3]])
+    faces = np.concatenate(tris) if tris else np.zeros((0, 3), dtype=np.int64)
+    return verts, faces[(faces >= 0).all(axis=1)]
+
+
 @lru_cache(maxsize=8)
 def _template_mesh(path, mtime):
     """ Iso-surface of a template map, centered, in Å (x, y, z order). """
     import mrcfile
     import numpy as np
-    from scipy import ndimage
-    from skimage import measure
 
     with mrcfile.open(path, permissive=True) as mrc:
         data = np.asarray(mrc.data, dtype=np.float32)
@@ -394,13 +449,18 @@ def _template_mesh(path, mtime):
         data = -data
     if data.max() <= 0:
         return None
-    factor = min(1.0, TEMPLATE_MAX_GRID / max(data.shape))
-    if factor < 1:
-        data = ndimage.zoom(data, factor, order=1)
-        voxel /= factor
+    k = -(-max(data.shape) // TEMPLATE_MAX_GRID)
+    if k > 1:
+        crop = tuple(s - s % k for s in data.shape)
+        data = data[:crop[0], :crop[1], :crop[2]]
+        data = data.reshape(crop[0] // k, k, crop[1] // k, k, crop[2] // k, k).mean(axis=(1, 3, 5))
+        voxel *= k
     # The padding closes the surface of a map that touches the box
-    verts, faces, _, _ = measure.marching_cubes(np.pad(data, 1), 0.3 * float(data.max()))
-    verts = (verts - 1 - (np.array(data.shape) - 1) / 2.0) * voxel
+    data = np.pad(data, 1)
+    verts, faces = _surface_nets(data - 0.3 * float(data.max()))
+    if not len(faces):
+        return None
+    verts = (verts - 1 - (np.array(data.shape) - 3) / 2.0) * voxel
     verts = verts[:, ::-1]  # (z, y, x) -> (x, y, z), which flips the winding
     faces = faces[:, ::-1]
     return {
