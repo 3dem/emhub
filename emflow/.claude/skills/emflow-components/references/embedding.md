@@ -77,7 +77,9 @@ shared default (fetch, no base url). VolumeViewer and Plot take a
   mount `VolumeViewer`.
 - Built files live in EMhub's `emhub/static/libs/js/emflow.js` and
   `emhub/static/libs/css/emflow.css` (committed); `./build_and_copy.sh`
-  updates them (`EMHUB_LIBS` to override the target).
+  updates them (`EMHUB_LIBS` to override the target). `./track.sh off`
+  marks them `assume-unchanged`, so local builds stay out of commits;
+  `./track.sh on` before committing a new bundle.
 
 ## Plotly
 
