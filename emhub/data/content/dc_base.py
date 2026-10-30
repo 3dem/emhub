@@ -1326,6 +1326,12 @@ def register_content(dc):
     def puck_details(**kwargs):
         return pucks(**kwargs)
 
+    def _cane_role_options(cane):
+        """ Roles that can be granted access to a cane's pucks (managers
+        and admins already have full access), plus the ones already set. """
+        roles = [r for r in app.dm.USER_ROLES if r not in ('admin', 'manager')]
+        return roles + [r for r in cane.get('roles') or [] if r not in roles]
+
     @dc.content
     def cane_form(**kwargs):
         dc.check_user_access('pucks')
@@ -1373,6 +1379,11 @@ def register_content(dc):
             'form_id': config_form.id,
             'color_value': cane.get('color') or '#d3d3d3',
             'cane_pucks': cane_pucks,
+            # Roles granted access to the pucks of this cane
+            'cane_roles': cane.get('roles') or [],
+            'roles_level': cane.get('roles_level') or dm.Puck.ACCESS_READ,
+            'role_options': _cane_role_options(cane),
+            'access_levels': dm.Puck.ACCESS_LEVELS,
         }
         if not is_new:
             result['location_value'] = location_value
@@ -1451,6 +1462,13 @@ def register_content(dc):
             'pis': pis,
         }
 
+    def _gridbox_modified_date(gridbox):
+        """ Local date-time string when the gridbox was last modified. """
+        if not gridbox or not gridbox.get('modified_date'):
+            return ''
+        modified = datetime_from_isoformat(gridbox['modified_date'])
+        return app.dm.dt_as_local(modified).strftime('%Y-%m-%d %H:%M')
+
     @dc.content
     def puck_gridbox_form(**kwargs):
         dc.check_user_access('pucks')
@@ -1474,6 +1492,8 @@ def register_content(dc):
             'puck_id': puck_id,
             'position': position,
             'has_gridbox': gridbox is not None,
+            'gridbox': gridbox,
+            'modified_date': _gridbox_modified_date(gridbox),
             'gridboxes_snapshot': gridboxes_snapshot,
             'can_edit': puck.can_edit_occupancy(app.user),
         })

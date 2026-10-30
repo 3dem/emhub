@@ -39,6 +39,33 @@
                     </div>
                 </div>
 
+                <!-- Users with any of these roles get access to the pucks in this cane -->
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label text-sm-right" for="cane-roles-select">Roles access</label>
+                    <div class="col-sm-6">
+                        <select id="cane-roles-select" class="selectpicker form-control" multiple
+                                data-width="100%" title="No roles (only labs access)">
+                            {% for role in role_options %}
+                                <option value="{{ role }}" {% if role in cane_roles %}selected{% endif %}>{{ role }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-sm-3">
+                        {% set level_help = {
+                            'read': 'only see content',
+                            'occupancy': 'also change gridboxes',
+                            'edit': 'also change label'
+                        } %}
+                        <select id="cane-roles-level" class="selectpicker form-control" data-width="100%"
+                                title="Access level">
+                            {% for lvl in access_levels %}
+                                <option value="{{ lvl }}" data-subtext="{{ level_help.get(lvl, '') }}"
+                                        {% if lvl == roles_level %}selected{% endif %}>{{ lvl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
                 {% if not is_new %}
                 <div class="form-group row">
                     <label class="col-sm-3 col-form-label text-sm-right" for="cane-location-select">Location</label>
@@ -96,6 +123,13 @@
             theme: 'bootstrap',
             control: 'hue',
             position: 'bottom left'
+        });
+
+        $('#cane-roles-select, #cane-roles-level').each(function () {
+            if ($(this).parent().hasClass('bootstrap-select')) {
+                $(this).selectpicker('destroy');
+            }
+            $(this).selectpicker({width: '100%'});
         });
 
         var $loc = $('#cane-location-select');

@@ -471,7 +471,7 @@
             });
     }
 
-    function updateCaneInConfig(definition, dewarId, oldCaneId, newCaneId, label, color) {
+    function updateCaneInConfig(definition, dewarId, oldCaneId, newCaneId, label, color, rolesAccess) {
         var dewar = findDewarInConfig(definition, dewarId);
         if (!dewar) {
             return false;
@@ -482,6 +482,7 @@
                 canes[j].id = newCaneId;
                 canes[j].label = label;
                 canes[j].color = color;
+                $.extend(canes[j], rolesAccess);
                 return true;
             }
         }
@@ -500,6 +501,14 @@
         return true;
     }
 
+    /* Roles granted access to the pucks in the cane (and their level) */
+    function getCaneRolesAccess() {
+        return {
+            roles: $('#cane-roles-select').val() || [],
+            roles_level: $('#cane-roles-level').val() || 'read'
+        };
+    }
+
     function saveCane() {
         var label = $('#cane-label-input').val().trim();
         if (!label) {
@@ -513,6 +522,7 @@
         }
 
         var color = $('#cane-color-input').val();
+        var rolesAccess = getCaneRolesAccess();
         var dewarId = caneEditDialog.dewarId;
         var oldCaneId = caneEditDialog.caneId;
         var formId = caneEditDialog.formId;
@@ -536,11 +546,11 @@
                     showError('Cane ID ' + newCaneId + ' is already used in this dewar.');
                     return;
                 }
-                if (!addCaneToConfig(definition, dewarId, {
+                if (!addCaneToConfig(definition, dewarId, $.extend({
                     id: newCaneId,
                     label: label,
                     color: color
-                })) {
+                }, rolesAccess))) {
                     showError('Dewar not found in dewars configuration.');
                     return;
                 }
@@ -582,11 +592,11 @@
                         showError('Cane not found in dewars configuration.');
                         return;
                     }
-                    if (!addCaneToConfig(definition, targetDewar, {
+                    if (!addCaneToConfig(definition, targetDewar, $.extend({
                         id: targetCane,
                         label: label,
                         color: color
-                    })) {
+                    }, rolesAccess))) {
                         showError('Dewar not found in dewars configuration.');
                         return;
                     }
@@ -606,7 +616,8 @@
             }
 
             function commitCaneConfig() {
-                if (!updateCaneInConfig(definition, dewarId, oldCaneId, newCaneId, label, color)) {
+                if (!updateCaneInConfig(definition, dewarId, oldCaneId, newCaneId,
+                                        label, color, rolesAccess)) {
                     showError('Cane not found in dewars configuration.');
                     return;
                 }
@@ -1072,6 +1083,14 @@
 
         function savePuckGridbox() {
             var values = getFormAsJson('dynamic-form');
+            if (!String(values.sample || '').trim()) {
+                showError('Sample is required, please enter a value.');
+                return;
+            }
+            if (!String(values.storage_date || '').trim()) {
+                showError('Storage date is required, please select a date.');
+                return;
+            }
             var puckId = puckGridboxDialog.puckId;
             var position = parseInt(puckGridboxDialog.position, 10);
 

@@ -2,6 +2,22 @@
 <!-- JavaScript libraries -->
 <script src="{{ url_for('static', filename='vendor/jquery/jquery-3.3.1.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.js') }}"></script>
+<script>
+    /* When a modal hides the page scrollbar, Bootstrap 4 adds its width as
+       padding-right, measured on a test element. In Firefox it may differ from
+       the page scrollbar and the page moves. Use the real page scrollbar width,
+       as Bootstrap 5 does. */
+    (function () {
+        var Modal = $.fn.modal.Constructor;
+        Modal.prototype._getScrollbarWidth = function () {
+            return Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+        };
+        Modal.prototype._checkScrollbar = function () {
+            this._scrollbarWidth = this._getScrollbarWidth();
+            this._isBodyOverflowing = this._scrollbarWidth > 0;
+        };
+    })();
+</script>
 <script src="{{ url_for('static', filename='vendor/slimscroll/jquery.slimscroll.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/bootstrap-select/js/bootstrap-select.js') }}"></script>
 

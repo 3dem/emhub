@@ -18,6 +18,12 @@
                 <fieldset {% if not can_edit %}disabled{% endif %}>
                 {% include "dynamic_form.html" %}
                 </fieldset>
+                {% if gridbox and gridbox.modified_by %}
+                <p id="gridbox-modified-label" class="text-muted small text-right mb-2">
+                    <i class="fas fa-user-edit"></i> Last modified by <strong>{{ gridbox.modified_by }}</strong>
+                    {% if modified_date %}on {{ modified_date }}{% endif %}
+                </p>
+                {% endif %}
             </div>
 
         </div>
