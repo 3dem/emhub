@@ -68,7 +68,7 @@ function injectStyle() {
         '.vv-toolbar button:hover { background: #f1f3f5; }',
         '.vv-toolbar button.active { background: #1f77b4; border-color: #1f77b4; color: #fff; }',
         '.vv-toolbar .vv-sep { width: 1px; height: 20px; background: #dee2e6; margin: 0 4px; }',
-        '.vv-grid { display: grid; grid-template-columns: max-content max-content;',
+        '.vv-grid { display: inline-grid; grid-template-columns: max-content max-content;',
         ' gap: 6px 14px; align-items: start; }',
         '.vv-fig { position: relative; margin: 0; }',
         '.vv-fig canvas { display: block; }',
@@ -90,7 +90,7 @@ function injectStyle() {
         '.vv:fullscreen, .vv.vv-fixed { background: #fff; padding: 12px 16px; overflow: auto; }',
         '.vv.vv-fixed { position: fixed; inset: 0; z-index: 3000; }',
         '.vv-fig canvas.vv-img { background: #000; }',
-                '.vv-3d-wrap { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }',
+                '.vv-3d-wrap { display: inline-flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }',
         '.vv-3d-canvas { position: relative; }',
         '.vv-3d-canvas canvas { display: block; cursor: grab; border-radius: 4px; }',
         '.vv-3d-ctrl { font-size: .8rem; width: 170px; }',
@@ -1073,6 +1073,14 @@ function createVolumeViewer($body, config) {
         updateReadout();
     }
 
+    /* The output bar spans exactly the width of the visible pane content. */
+    function fitOut() {
+        if (destroyed) return;
+        const $c = $slices.is(':visible') ? $slices.find('.vv-grid') : $p3.find('.vv-3d-wrap');
+        const w = $c.length ? $c.outerWidth() : 0;
+        $out.css({width: w > 0 ? w : '', boxSizing: 'border-box'});
+    }
+
     /* ---------- size and full screen ---------- */
     function relayout() {
         if (destroyed) return;
@@ -1099,6 +1107,7 @@ function createVolumeViewer($body, config) {
             render3d();
         }
         if ($slices.is(':visible')) drawAll();
+        fitOut();
     }
     function setFull(on) {
         full = on;
@@ -1135,6 +1144,8 @@ function createVolumeViewer($body, config) {
         } else {
             drawAll();
         }
+        fitOut();
+        requestAnimationFrame(fitOut);
     }
     $tabs.on('click', 'button', function() { showTab($(this).attr('data-tab')); });
 
