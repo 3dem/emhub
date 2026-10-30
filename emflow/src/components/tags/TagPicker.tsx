@@ -4,7 +4,7 @@ import { Autocomplete, Box, Chip, Paper, TextField, Typography } from "@mui/mate
 import Popper, { type PopperProps } from "@mui/material/Popper";
 import { useTheme as useAppTheme } from "@/context/ThemeContext";
 import type { ProtocolTag } from "./tagTypes";
-import "./tag-dark-overrides.css";
+import "./tags.css";
 
 type TagPickerProps = {
   allTags?: ProtocolTag[];

@@ -8,12 +8,12 @@ import {
     Typography,
 } from "@mui/material";
 
-import { CloseIcon } from "@/icons";
+import { CloseIcon } from "@/icons/index";
 import type {
     TableViewerContext,
     TableViewerData,
 } from "@/services/ProjectService";
-import TableViewerPane from "./table-viewer-pane";
+import TableViewerPane from "./TableViewerPane";
 
 type TableViewerDialogProps = {
     open: boolean;

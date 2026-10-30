@@ -1,6 +1,6 @@
 import type { ComponentType, SVGProps } from "react";
 
-import { BoxCubeIcon, TiltSeriesIcon } from "@/icons";
+import { BoxCubeIcon, TiltSeriesIcon } from "@/icons/index";
 
 /**
  * Icons that the host can name in TableViewerAction.icon.  An action with a

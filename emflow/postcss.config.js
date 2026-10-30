@@ -79,6 +79,10 @@ function emflowIsolation() {
   return {
     postcssPlugin: "emflow-isolation",
     OnceExit(root) {
+      // The dev pages' own CSS (dev/host.css) plays the host: not scoped
+      const file = root.source?.input?.file ?? "";
+      if (/[\\/]dev[\\/][^\\/]+\.css$/.test(file)) return;
+
       // markTailwindUtilities
       root.walkAtRules("layer", (at) => {
         if (at.params.trim() !== "utilities") return;

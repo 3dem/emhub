@@ -35,13 +35,11 @@
         });
 
         if (hasAxes) {
-            // Same viewer as the OTF dashboard
-            createVolumeViewer($('#' + volSlider), {
-                dimensions: dimensions,
-                axes: slices,
-                voxelSize: voxelSize,
-                coordinates: coordinates,
-                idPrefix: "{{ card_id }}_ortho"
+            // Same viewer as the OTF dashboard (emflow VolumeViewer)
+            EMFlow.mount('VolumeViewer', {
+                container: '#' + volSlider,
+                props: {data: {dimensions: dimensions, axes: slices,
+                               voxelSize: voxelSize, coordinates: coordinates}}
             });
         }
         else {

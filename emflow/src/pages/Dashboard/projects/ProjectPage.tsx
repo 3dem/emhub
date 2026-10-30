@@ -14,7 +14,6 @@ import React, {
 } from "react";
 
 import ProtocolForm from "@/components/protocol/ProtocolForm";
-import ProtocolStepsDeveloperDialog from "@/components/protocol/ProtocolStepsDeveloperDialog";
 import { buildGraphElements, getGraphTopologySignature } from "@/utils/graph_utils";
 import { getGraphLayoutName, getGraphLayoutStorageSuffix } from "@/utils/graph_layout";
 
@@ -34,7 +33,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { createStatusNodeWrapper } from "@/components/protocol/ProtocolNodeCardWrapper";
 import { ProtocolsDrawer } from "@/components/protocol/ProtocolsDrawer";
-import { ProjectWorkflowsPanel, ProjectWorkflow } from "@/components/projects/workflows-panel";
+import { ProjectWorkflowsPanel, ProjectWorkflow } from "@/components/projects/ProjectWorkflowsPanel";
 
 import {
   Dialog,
@@ -43,9 +42,9 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog/dialog";
+} from "@/components/ui/Dialog";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 
 import {
   MinusIcon,
@@ -1601,15 +1600,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const portalRootRef = useRef<HTMLDivElement | null>(null);
   const [dialogContainer, setDialogContainer] = useState<HTMLElement | null>(null);
 
-  const [protocolStepsDialog, setProtocolStepsDialog] = useState<{
-    open: boolean;
-    protocolId: string | null;
-    protocolLabel: string;
-  }>({
-    open: false,
-    protocolId: null,
-    protocolLabel: "",
-  });
 
   useEffect(() => {
     setDialogContainer(portalRootRef.current);
@@ -5865,16 +5855,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     return String(data.runName ?? data.label ?? id);
   };
 
-  const openProtocolStepsDialog = useCallback((id: string) => {
-    const protocolId = String(id ?? "").trim();
-    if (!protocolId || protocolId === "PROJECT") return;
-
-    setProtocolStepsDialog({
-      open: true,
-      protocolId,
-      protocolLabel: findNodeRunName(protocolId),
-    });
-  }, []);
 
   const findNodeEditableRunName = (id: string) => {
     const n = nodesRef.current.find((m) => m.id === id);
@@ -8195,7 +8175,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
         dlgRename.open ||
         anyActionDialogOpen ||
         dlgResetFrom.open ||
-        protocolStepsDialog.open ||
         fileDialogOpen ||
         drawerOpen ||
         contextMenu.visible ||
@@ -8206,22 +8185,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
 
       // Collapsed group nodes only expand (double-click or [ ]): no shortcuts
       if (e.key !== "Escape" && getSelectedIds().some(isCollapsedGroupId)) return;
-
-      if (modPressed(e) && e.shiftKey && e.key.toLowerCase() === "d") {
-        e.preventDefault();
-        e.stopPropagation();
-        (e as any).stopImmediatePropagation?.();
-
-        const ids = getSelectedIds();
-
-        if (ids.length !== 1) {
-          toast.error(ids.length > 1 ? "Select only one protocol." : "Select a protocol first.");
-          return;
-        }
-
-        openProtocolStepsDialog(ids[0]);
-        return;
-      }
 
       if (modPressed(e) && !e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
@@ -8374,8 +8337,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     handleOpenWorkflows,
     handleCopyWorkflow,
     handlePasteWorkflow,
-    protocolStepsDialog.open,
-    openProtocolStepsDialog,
   ]);
 
 
@@ -10107,23 +10068,6 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
             />
           </div>
         </TagsDialog>
-
-        {/* ================= ProtocolSteps ================= */}
-        <ProtocolStepsDeveloperDialog
-          open={protocolStepsDialog.open}
-          projectId={getProjectId()}
-          protocolId={protocolStepsDialog.protocolId}
-          protocolLabel={protocolStepsDialog.protocolLabel}
-          container={dialogContainer}
-          onOpenChange={(open) =>
-            setProtocolStepsDialog((prev) => ({
-              ...prev,
-              open,
-              protocolId: open ? prev.protocolId : null,
-              protocolLabel: open ? prev.protocolLabel : "",
-            }))
-          }
-        />
 
         {/* ================= RemoteFileDialog ================= */}
         {canOpenFileDialog && (

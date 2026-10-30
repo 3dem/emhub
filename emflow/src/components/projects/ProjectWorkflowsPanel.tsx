@@ -12,7 +12,7 @@ import toast from "react-hot-toast";
 
 import { useProjectService } from "@/ProjectServiceContext";
 
-import styles from "./workflows-panel.module.css";
+import styles from "./ProjectWorkflowsPanel.module.css";
 
 export interface ProjectWorkflow {
   id: string;

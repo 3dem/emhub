@@ -988,7 +988,7 @@ def build_tomogram_volume_slider_pane_content(
 ):
     """Build three-axis volume sliders for a reconstructed tomogram.
 
-    The slices are for the volume viewer (createVolumeViewer): spread
+    The slices are for emflow's VolumeViewer: spread
     over the whole volume, with X slices upright.
     """
     tomo_path = _resolve_data_path(root, tomo_rel)

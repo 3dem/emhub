@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>emflow dev (mountable components)</title>
+    <!-- As in EMhub: Bootstrap 4 and jQuery around the built bundle -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/dev/host.css" />
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+      // Cache-busting, so a fresh `npm run build` is always picked up
+      const v = Date.now();
+      document.write(`<link rel="stylesheet" href="/dist/emflow.css?v=${v}" />`);
+      document.write(`<script src="/dist/emflow.js?v=${v}"><\/script>`);
+    </script>
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="dev-toolbar">
+        <h5 class="mb-0">EMFlow.mount(...) from the built bundle (run <code>npm run build</code> first)</h5>
+        <a href="/">project page &rarr;</a>
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.documentElement.classList.toggle('dark')">toggle host dark</button>
+      </div>
+      <div class="row">
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>VolumeViewer, inline data</h6><div id="vol-inline"></div>
+          <button class="btn btn-sm btn-outline-secondary mt-2" id="replace">replace with $.html()</button>
+        </div></div></div>
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>VolumeViewer, loaded with a DataLoader (<code>source</code>)</h6><div id="vol-source"></div>
+        </div></div></div>
+      </div>
+      <div class="card mt-3"><div class="card-body">
+        <h6>Plot (bundled plotly.js <span id="plotly-version"></span>)</h6><div id="plot"></div>
+      </div></div>
+    </div>
+
+    <script>
+      // Base64 PNG slices (no data: prefix) with their label drawn on them
+      function slices(count, label, w, h) {
+        const out = {}, c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        const g = c.getContext("2d");
+        for (let i = 0; i < count; i += 2) {
+          g.fillStyle = `hsl(210, 15%, ${20 + (50 * i) / count}%)`;
+          g.fillRect(0, 0, w, h);
+          g.fillStyle = "#fff";
+          g.font = "18px sans-serif";
+          g.fillText(`${label} ${i}`, 12, 30);
+          out[String(i)] = c.toDataURL("image/png").split(",")[1];
+        }
+        return out;
+      }
+      // X sections are upright (Y rows, Z columns), as EMhub sends them
+      function volume(X, Y, Z, n) {
+        const coordinates = { x: [], y: [], z: [] };
+        for (let i = 0; i < n; i++) {
+          coordinates.x.push(20 + ((i * 37) % (X - 40)));
+          coordinates.y.push(20 + ((i * 71) % (Y - 40)));
+          coordinates.z.push(10 + ((i * 5) % (Z - 20)));
+        }
+        return { kind: "imageSlider", layout: "volume", dimensions: [X, Y, Z], voxelSize: 13.48,
+                 axes: { x: { slices: slices(X, "X", Z, Y) }, y: { slices: slices(Y, "Y", X, Z) },
+                         z: { slices: slices(Z, "Z", X, Y) } },
+                 coordinates };
+      }
+
+      const inline = EMFlow.mount("VolumeViewer", {
+        container: "#vol-inline",
+        props: { data: volume(200, 160, 50, 15), info: "200 × 160 × 50 voxels",
+                 onSelect: (p) => console.log("[dev] select", p) },
+      });
+      window.devInline = inline;
+
+      // A host transport answering like EMhub's resolve_table_view_pane
+      const loader = new EMFlow.DataLoader({
+        request: (path, payload) => new Promise((resolve) =>
+          setTimeout(() => resolve({ paneContent: volume(120, 120, 40, 0), echo: { path, payload } }), 500)),
+      });
+      window.devSource = EMFlow.mount("VolumeViewer", {
+        container: "#vol-source",
+        loader,
+        props: { source: { path: "/api/resolve_table_view_pane", payload: { actionId: "volume-slices" } },
+                 tools: { ruler: false } },
+      });
+
+      document.getElementById("plotly-version").textContent = EMFlow.Plotly.version;
+      window.devPlot = EMFlow.mount("Plot", {
+        container: "#plot",
+        props: {
+          height: 260,
+          data: [{ x: [1, 2, 3, 4], y: [3, 1, 4, 2], mode: "lines+markers", type: "scatter" }],
+          layout: { title: "String title (normalized)", xaxis: { title: "x" }, margin: { t: 40 } },
+          onClick: (e) => console.log("[dev] plot click", e.points[0].x),
+        },
+      });
+
+      $("#replace").on("click", () => $("#vol-inline").parent().html("<p>replaced: the viewer unmounted itself</p>"));
+    </script>
+  </body>
+</html>

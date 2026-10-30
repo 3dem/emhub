@@ -493,13 +493,14 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
        two are. */
     function otfOrthoViewer($body, pane, voxel) {
         var d = pane.dimensions;
-        var axes = {};
-        ['x', 'y', 'z'].forEach(function(a) { axes[a] = pane.axes[a].slices; });
-        createVolumeViewer($body, {
-            dimensions: d, axes: axes, idPrefix: 'otf-vol',
-            voxelSize: voxel || pane.voxelSize || null,
-            info: 'Volume dimensions (X × Y × Z): ' + d.join(' × ') + ' voxels' +
-                  (voxel ? ' at ' + voxel.toFixed(2) + ' Å' : '') + '.'
+        // emflow VolumeViewer; it unmounts by itself when the panel is replaced
+        EMFlow.mount('VolumeViewer', {
+            container: $body[0],
+            props: {
+                data: $.extend({}, pane, {voxelSize: voxel || pane.voxelSize || null}),
+                info: 'Volume dimensions (X × Y × Z): ' + d.join(' × ') + ' voxels' +
+                      (voxel ? ' at ' + voxel.toFixed(2) + ' Å' : '') + '.'
+            }
         });
     }
 

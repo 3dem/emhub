@@ -9,9 +9,9 @@ import type {
     TableViewerGridSlot,
     TableViewerPaneContent,
 } from "@/services/ProjectService";
-import TableViewerGenericContentView, {
+import TableViewerContent, {
     isGenericTableViewerContent,
-} from "./table-viewer-generic-content";
+} from "./TableViewerContent";
 
 // CSS grid areas of each layout (slot names are the area names)
 const GRID_LAYOUTS: Record<
@@ -145,7 +145,7 @@ function GridCell({
             <Box sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
                 {!content ? null : isGenericTableViewerContent(content) ? (
                     // The title is shown in the cell header
-                    <TableViewerGenericContentView
+                    <TableViewerContent
                         content={{ ...content, title: undefined }}
                         fit
                     />

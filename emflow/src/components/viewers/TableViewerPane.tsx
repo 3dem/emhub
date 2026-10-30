@@ -24,7 +24,7 @@ import { useProjectRefresh } from "@/context/ProjectRefreshContext";
 import {
     TableViewerSelectionMenu,
     type TableViewerSelectionCommand,
-} from "./table-viewer-selection-menu";
+} from "./TableViewerSelectionMenu";
 
 import type {
     TableViewerAction,
@@ -40,16 +40,11 @@ import type {
     TableViewerEditAction,
     TableViewerGridSlot,
 } from "@/services/ProjectService";
-import { MetadataViewer } from "./metadata-viewer";
-import Coords3dViewer from "./coords3d-viewer";
-import TiltSeriesViewer from "./tiltseries-viewer";
-import CTFTomoViewer from "./ctftomo-viewer";
-import VolumeViewer from "./volume-viewer";
-import { getTableViewerActionIcon } from "./table-viewer-action-icons";
-import TableViewerGrid from "./table-viewer-grid";
-import TableViewerGenericContentView, {
+import { getTableViewerActionIcon } from "./TableViewerActionIcons";
+import TableViewerGrid from "./TableViewerGrid";
+import TableViewerContent, {
     isGenericTableViewerContent,
-} from "./table-viewer-generic-content";
+} from "./TableViewerContent";
 import { useProjectService } from "@/ProjectServiceContext";
 import toast from "react-hot-toast";
 
@@ -59,9 +54,6 @@ type TableViewerPaneProps = {
 };
 
 type ActivePane =
-    | {
-        kind: "metadata";
-    }
     | {
         kind: "action";
         action: TableViewerAction;
@@ -331,14 +323,6 @@ export default function TableViewerPane({
         if (action.disabled) return;
 
         const requestId = ++paneRequestRef.current;
-
-        if (action.id === "metadata") {
-            setPaneLoading(false);
-            setActivePane({
-                kind: "metadata",
-            });
-            return;
-        }
 
         setPaneLoading(true);
         try {
@@ -2288,11 +2272,9 @@ export default function TableViewerPane({
                             color: "#334155",
                         }}
                     >
-                        {activePane?.kind === "metadata"
-                            ? "Metadata"
-                            : activePane?.kind === "action"
-                                ? activePane.content.title ?? activePane.action.label
-                                : "Viewer"}
+                        {activePane?.kind === "action"
+                            ? activePane.content.title ?? activePane.action.label
+                            : "Viewer"}
                     </Typography>
 
                 </Box>
@@ -2304,112 +2286,18 @@ export default function TableViewerPane({
                         minHeight: 0,
                         minWidth: 0,
                         overflow: "hidden",
-                        p:
-                            activePane?.kind === "metadata"
-                                ? 1
-                                : activePane?.kind === "action"
-                                    ? 0
-                                    : 2,
+                        p: activePane?.kind === "action" ? 0 : 2,
                     }}
                 >
-                    {activePane?.kind ===
-                        "metadata" ? (
-                        <MetadataViewer
-                            projectId={Number(
-                                context.projectId,
-                            )}
-                            protocolId={Number(
-                                context.protocolId,
-                            )}
-                            outputName={
-                                context.outputName
-                            }
-                            embedded
-                        />
-                    ) : activePane?.kind === "action" ? (
-                        activePane.content.kind === "coords3d" ? (
-                            <Coords3dViewer
-                                projectId={
-                                    activePane.content.projectId
-                                }
-                                protocolId={
-                                    activePane.content.protocolId
-                                }
-                                outputName={
-                                    activePane.content.outputName
-                                }
-                                selectedTomogramId={
-                                    activePane.content.tomogramId
-                                }
-                                hideMetadataAction
-                                hideTomogramList
-                            />
-                        ) : activePane.content.kind === "tiltSeries" ? (
-                            <TiltSeriesViewer
-                                projectId={
-                                    activePane.content.projectId
-                                }
-                                protocolId={
-                                    activePane.content.protocolId
-                                }
-                                outputName={
-                                    activePane.content.outputName
-                                }
-                                selectedTiltSeriesId={
-                                    activePane.content.tiltSeriesId
-                                }
-                                selectedTiltImageIndex={
-                                    activePane.content.frameIndex
-                                }
-                                hideSeriesTable
-                                hideMetadataAction
-                            />
-                        ) : activePane.content.kind === "ctfTomo" ? (
-                            <CTFTomoViewer
-                                projectId={
-                                    activePane.content.projectId
-                                }
-                                protocolId={
-                                    activePane.content.protocolId
-                                }
-                                outputName={
-                                    activePane.content.outputName
-                                }
-                                selectedCtfSeriesId={
-                                    activePane.content.ctfSeriesId
-                                }
-                                selectedViewId={
-                                    activePane.content.viewId
-                                }
-                                hideSeriesTable
-                                hideMetadataAction
-                                readOnly
-                            />
-                        ) : activePane.content.kind === "volume" ? (
-                            <VolumeViewer
-                                projectId={
-                                    activePane.content.projectId
-                                }
-                                protocolId={
-                                    activePane.content.protocolId
-                                }
-                                outputName={
-                                    activePane.content.outputName
-                                }
-                                selectedVolumeId={
-                                    activePane.content.volumeId
-                                }
-                                hideVolumeList
-                                hideMetadataAction
-                            />
-                        ) : activePane.content.kind === "grid" ? (
+                    {activePane?.kind === "action" ? (
+                        activePane.content.kind === "grid" ? (
                             <TableViewerGrid
                                 content={activePane.content}
                                 expandedSlot={gridExpandedSlot}
                                 onExpandedSlotChange={setGridExpandedSlot}
                             />
                         ) : isGenericTableViewerContent(activePane.content) ? (
-                            <TableViewerGenericContentView
+                            <TableViewerContent
                                 content={activePane.content}
                                 // Sliders and plots fit the pane, without scrolling
                                 fit

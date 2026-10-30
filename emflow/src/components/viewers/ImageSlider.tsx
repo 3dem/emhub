@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, FormControlLabel, Slider, Switch, Typography } from "@mui/material";
+import VolumeViewer from "./VolumeViewer";
 import type {
   TableViewerImageSliderAxis,
   TableViewerImageSliderContent,
@@ -348,69 +349,7 @@ function ImageSliderPanel({
   );
 }
 
-type VolumeViewerGlobal = (
-  $body: unknown,
-  config: Record<string, unknown>,
-) => { destroy?: () => void } | undefined;
-
-/**
- * Tomogram viewer with a Slices tab (linked sections, select/ruler/zoom/
- * particle tools) and a 3D tab. It is the viewer of the EMhub dashboard,
- * shared through createVolumeViewer (volume_viewer.js), so there is one
- * implementation. `viewerConfig` enables or disables its tabs and tools.
- */
-function VolumeViewerHost({
-  axes,
-  dimensions,
-  voxelSize,
-  coordinates,
-  info,
-  viewerConfig,
-}: {
-  axes: Record<string, Record<string, string>>;
-  dimensions: [number, number, number];
-  voxelSize?: number | number[] | null;
-  coordinates?: VolumeCoordinates;
-  info: string;
-  viewerConfig?: Record<string, unknown>;
-}) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const win = window as unknown as {
-    createVolumeViewer?: VolumeViewerGlobal;
-    jQuery?: (el: unknown) => unknown;
-  };
-  const available = Boolean(win.createVolumeViewer && win.jQuery);
-
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host || !win.createVolumeViewer || !win.jQuery) return undefined;
-    host.innerHTML = "";
-    const viewer = win.createVolumeViewer(win.jQuery(host), {
-      dimensions,
-      axes,
-      voxelSize: voxelSize ?? null,
-      coordinates: coordinates && coordinates.x.length > 0 ? coordinates : null,
-      idPrefix: `emflow-vol-${Math.random().toString(36).slice(2, 8)}`,
-      info,
-      ...viewerConfig,
-    });
-    return () => {
-      viewer?.destroy?.();
-      host.innerHTML = "";
-    };
-  }, [axes, dimensions, voxelSize, coordinates, info, viewerConfig, win.createVolumeViewer, win.jQuery]);
-
-  if (!available) {
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-        The volume viewer is provided by EMhub (volume_viewer.js) and is not loaded on this page.
-      </Typography>
-    );
-  }
-  return <Box ref={hostRef} sx={{ flex: 1, minHeight: 0, overflow: "auto", p: 1 }} />;
-}
-
-export default function TableViewerImageSlider({
+export default function ImageSlider({
   content,
   fit = false,
 }: {
@@ -436,12 +375,6 @@ export default function TableViewerImageSlider({
       axisEntries.some(([axis]) => axis === "x") &&
       axisEntries.some(([axis]) => axis === "y") &&
       axisEntries.some(([axis]) => axis === "z"));
-
-  const orthoAxes = useMemo(
-    () =>
-      Object.fromEntries(axisEntries.map(([axis, axisContent]) => [axis, axisContent.slices ?? {}])),
-    [axisEntries],
-  );
 
   const fitSingle = fit && !useVolumeLayout && axisEntries.length === 1;
   const hasParticles = (content.coordinates?.x.length ?? 0) > 0;
@@ -534,14 +467,8 @@ export default function TableViewerImageSlider({
             flexDirection: "column",
           }}
         >
-          <VolumeViewerHost
-            axes={orthoAxes}
-            dimensions={content.dimensions!}
-            voxelSize={content.voxelSize}
-            coordinates={content.coordinates}
-            viewerConfig={content.viewerConfig}
-            info=""
-          />
+          {/* Linked X/Y/Z sections and 3D view, fitted to the pane */}
+          <VolumeViewer data={content as any} height="fill" {...content.viewerConfig} />
         </Box>
       ) : (
         axisEntries.map(([axis, axisContent]) => (

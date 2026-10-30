@@ -49,8 +49,6 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | Outputs | `resolveAnalyzeViewer(ctx)` (see below) | `{handled:false}` | ProtocolNodeCard, ProtocolOutputsPanel |
 | | `fetchOutputPreview` | - | ProtocolOutputsPanel |
 | Table viewer | `resolveTableViewerAction`, `executeTableViewerEditAction`, `resolveTableViewerChildren` (see below) | empty pane / failure / no children | table-viewer-pane |
-| Wizards | `executeProtocolWizard`, `resolveBackendUrl` | - | use_protocol_wizards |
-| Scipion viewers | `listOutputVolumes`, `getVolume*`, `listOutputTiltSeries`, `fetchTiltSeries*`, `listOutputCTFTomoSeries`, `listCoords3dTomograms`, `fetchOutputMetadataTables`, `fetchFscRows`, ... | mostly `[]` | analyze/* (only reached when the host does not handle the output) |
 
 When adding a method: declare it in `ProjectService.ts`, add a default in
 `normalizeService.ts` if it is optional, implement it in EMhub's svc template
@@ -85,7 +83,8 @@ ctx = { projectId, protocolId, protocolLabel, outputName, pointerClass,
 
 Return one of (`AnalyzeViewerResolveDecision`):
 
-- `{handled: false}` -> emflow opens `AnalyzeOutputDialog` (Scipion viewers).
+- `{handled: false}` -> emflow shows a "There is no viewer for this output"
+  toast (the Scipion viewers that used to open here were removed).
 - `{handled: true, viewer: "external", url?, target?: "_self"|"_blank"}` (the
   `viewer` field may be omitted) -> navigates / opens the url; without `url`
   emflow does nothing (the host already opened its own viewer). EMhub returns
@@ -114,7 +113,10 @@ table: TableViewerData = {
 
 - Cell/column/row action -> `resolveTableViewerAction(context, {actionId, rowId, columnId, rowData: row.data, cellContext})`
   -> `TableViewerPaneContent` (`empty`, `text`, `html`, `iframe`, `image`,
-  `plotly`, `imageSlider`, `grid`, `coords3d`, `tiltSeries`, `volume`, `ctfTomo`).
+  `plotly`, `imageSlider`, `grid`). An `imageSlider` with `layout: "volume"`
+  (dimensions and X, Y, Z slices, optional `voxelSize`, `coordinates` with
+  `angles` / `template`, and `viewerConfig` for the VolumeViewer tabs/tools)
+  is shown by `VolumeViewer`. Plot titles may be strings or `{text}`.
 - `grid` (`table-viewer-grid.tsx`) shows up to 4 panes in a 2 x 2 grid:
   `{kind: "grid", title?, layout, cells: {slot: paneContent}}`. The layout
   names the slots: `2x2` (topLeft, topRight, bottomLeft, bottomRight),
@@ -134,8 +136,7 @@ table: TableViewerData = {
   `cellContexts[colId].actions`, give an icon column whose icons vary by row.
   Text action buttons never break inside a label; a cell with several
   actions wraps them onto more lines (e.g. a column of plot actions).
-- Action id **`metadata` is handled by emflow** (opens `MetadataViewer`) and
-  never reaches the host.
+- Every action id goes to the host (`metadata` is no longer reserved).
 - Edit action button -> `executeTableViewerEditAction(context, {actionId, edits: [{rowId, columnId, field, value}]})`
   (only the changed cells) -> `{success, message?, clearEdits?, refreshProject?}`;
   the message is shown as a toast. `refreshProject` (e.g. the action launched
@@ -149,7 +150,8 @@ EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
 
 - copies `row.cells` to `row.data` (sent back to `resolve_table_view_pane`
   as `row.cells`);
-- renames the server's `metadata` action to `star-metadata` and maps it back;
+- renames the server's `metadata` action to `star-metadata` and maps it back
+  (from when emflow reserved `metadata`; no longer needed, but harmless);
 - for `TiltSeries`, `TiltSeriesAligned`, `Tomograms` and `TomoCoordinates`
   the server sends the columns Tomo name, Metadata, (TomoCoordinates only:
   **Coordinates**, `nCoords`) and **TS / Tomogram** (`tsTomo`); Tomo name

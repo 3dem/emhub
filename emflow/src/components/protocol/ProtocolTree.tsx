@@ -7,7 +7,7 @@ import {
   ChevronUpIcon,
 } from "@/icons";
 import { HelpCircle } from "lucide-react";
-import styles from "./protocoltree.module.css";
+import styles from "./ProtocolTree.module.css";
 
 // --- Icon components ---
 export const BetaIcon: FC<{ className?: string }> = ({ className }) => (
