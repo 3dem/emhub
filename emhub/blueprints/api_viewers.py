@@ -28,6 +28,7 @@
 """Helpers for table-viewer panes and Plotly plot content in the REST API."""
 
 import os
+import contextlib
 
 from emtools.metadata import StarFile, RelionStar
 from emtools.utils import Path
@@ -711,19 +712,25 @@ def _volume_axis_slices(
     all_slices=False,
     full_range=False,
     upright=False,
+    step=None,
 ):
     """ Thumbnails of slices along one axis, keyed by slice index.
 
     By default slice_number slices are taken from the middle half of the
-    axis.  full_range spreads them over the whole axis instead, first and
-    last slice included.  upright turns X slices from (Z, Y) to (Y, Z), so
-    they line up with the rows of a Z slice in an orthogonal view.
+    axis. full_range spreads them over the whole axis instead, first and
+    last slice included.  step takes every step-th slice of the whole axis
+    instead.  upright turns X slices from (Z, Y) to (Y, Z), so they line up
+    with the rows of a Z slice in an orthogonal view.
     """
     import mrcfile
     import numpy as np
     from emtools.image import Thumbnail
 
-    with mrcfile.open(volume_data, permissive=True) as mrc:
+    # volume_data is a path, or an open MRC to read several axes from one load
+    opened = (mrcfile.open(volume_data, permissive=True)
+              if isinstance(volume_data, (str, os.PathLike))
+              else contextlib.nullcontext(volume_data))
+    with opened as mrc:
         zdim, ydim, xdim = mrc.data.shape
         vol_thumb = Thumbnail(
             max_size=(slice_dim, slice_dim),
@@ -747,6 +754,8 @@ def _volume_axis_slices(
 
         if all_slices:
             indices = list(range(dim))
+        elif step:
+            indices = list(range(0, dim, step))
         elif dim <= 1:
             indices = [0]
         elif full_range:
@@ -764,6 +773,17 @@ def _volume_axis_slices(
 
         slices = {str(int(i)): vol_thumb.from_array(getter(i)) for i in indices}
         return slices, prefix, [xdim, ydim, zdim]
+
+
+def _volume_voxel_size(path):
+    """Voxel size in Å as [x, y, z] from the MRC header, or None if unknown."""
+    import mrcfile
+    try:
+        with mrcfile.mmap(path, permissive=True) as mrc:
+            v = [float(mrc.voxel_size.x), float(mrc.voxel_size.y), float(mrc.voxel_size.z)]
+    except Exception:
+        return None
+    return v if all(x > 0 for x in v) else None
 
 
 def build_volume_image_slider_pane_content(
@@ -965,12 +985,11 @@ def build_tomogram_volume_slider_pane_content(
     title=None,
     *,
     coordinates=None,
-    ortho=False,
 ):
     """Build three-axis volume sliders for a reconstructed tomogram.
 
-    ortho is for an orthogonal view: slices over the whole volume rather
-    than its middle half, and X slices upright.
+    The slices are for emflow's VolumeViewer: spread
+    over the whole volume, with X slices upright.
     """
     tomo_path = _resolve_data_path(root, tomo_rel)
     if not tomo_path or not os.path.exists(tomo_path):
@@ -980,10 +999,11 @@ def build_tomogram_volume_slider_pane_content(
         tomo_path,
         title=title or tomo_rel,
         axes=('x', 'y', 'z'),
-        full_range=ortho,
-        upright=ortho,
+        full_range=True,
+        upright=True,
     )
     content['layout'] = 'volume'
+    content['voxelSize'] = _volume_voxel_size(tomo_path)
     if coordinates:
         content['coordinates'] = coordinates
     return content

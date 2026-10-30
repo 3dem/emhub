@@ -1,0 +1,218 @@
+/* VolumeViewer and its Slices tab (volume/VolumeSlices.tsx). Colors come
+   from the theme tokens, so the viewer follows the emflow dark mode. */
+.root {
+  --vv-accent: #1f77b4;
+  --vv-muted: var(--muted-foreground);
+  --vv-border: var(--border);
+  --vv-surface: var(--muted);
+  min-width: 0;
+  overflow: auto;
+  color: var(--foreground);
+}
+
+.full {
+  background: var(--background);
+  padding: 12px 16px;
+}
+
+.fixed {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+}
+
+.info {
+  font-size: 0.8rem;
+  color: var(--vv-muted);
+  margin: 0 0 8px;
+}
+
+.msg {
+  color: var(--vv-muted);
+  font-size: 0.9rem;
+  padding: 12px 0;
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.tabs {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  margin: 0 0 6px;
+  border-bottom: 1px solid var(--vv-border);
+}
+
+.tabs button {
+  border: 0;
+  background: none;
+  padding: 5px 14px;
+  font-size: 0.9rem;
+  color: var(--vv-muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  color: var(--vv-accent);
+  border-bottom-color: var(--vv-accent);
+}
+
+.fullBtn {
+  border: 0;
+  background: none;
+  color: var(--vv-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+}
+
+.fullBtn:hover {
+  color: var(--vv-accent);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 6px;
+  align-items: center;
+}
+
+.toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.toolbar button:hover {
+  background: var(--vv-surface);
+}
+
+.toolbar button.active {
+  background: var(--vv-accent);
+  border-color: var(--vv-accent);
+  color: #fff;
+}
+
+.sep {
+  width: 1px;
+  height: 20px;
+  background: var(--vv-border);
+  margin: 0 4px;
+}
+
+.grid {
+  display: inline-grid;
+  grid-template-columns: max-content max-content;
+  gap: 6px 14px;
+  align-items: start;
+}
+
+.fig {
+  position: relative;
+  margin: 0;
+}
+
+.fig canvas {
+  display: block;
+}
+
+.img {
+  background: #000;
+}
+
+.ov {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.slider {
+  font-size: 0.85em;
+}
+
+.slider input {
+  display: block;
+  margin: 0;
+}
+
+.lbl {
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.wrap3d {
+  display: inline-flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.canvas3d {
+  position: relative;
+}
+
+.canvas3d canvas {
+  display: block;
+  border-radius: 4px;
+}
+
+.ctrl3d {
+  font-size: 0.8rem;
+  width: 170px;
+}
+
+.row {
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+
+.row label {
+  margin: 0;
+}
+
+.row input[type="range"] {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
+
+.out {
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--vv-border);
+  border-radius: 4px;
+  background: var(--vv-surface);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  min-height: 28px;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.out b {
+  margin-left: 8px;
+}
+
+.out b:first-child {
+  margin-left: 0;
+}
+
+.content {
+  display: inline-block;
+}

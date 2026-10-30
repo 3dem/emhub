@@ -15,7 +15,7 @@ import RemoteFileDialog, {
   RemoteEntry,
   RemotePreview,
 } from "@/components/files/RemoteFileDialog";
-import OverflowTooltipText from "@/components/ui/overflow-tooltip-text";
+import OverflowTooltipText from "@/components/ui/OverflowTooltipText";
 
 import { Handle, Position, useReactFlow } from "reactflow";
 import styles from "./ProtocolNodeCard.module.css";
@@ -31,7 +31,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-} from "../ui/dropdown-menu";
+} from "../ui/DropdownMenu";
 
 import {
   ContextMenu,
@@ -42,7 +42,7 @@ import {
   ContextMenuSub,
   ContextMenuSubContent,
   ContextMenuSubTrigger,
-} from "../ui/context-menu";
+} from "../ui/ContextMenu";
 
 import {
   MoreHorizontal,
@@ -73,8 +73,7 @@ import {
   ClipboardCopy,
 } from "lucide-react";
 
-import AnalyzeOutputDialog from "@/components/analyze/analyze-output-dialog";
-import TableViewerDialog from "@/components/analyze/table-viewer-dialog";
+import TableViewerDialog from "@/components/viewers/TableViewerDialog";
 import {
   isTableViewerAnalyzeDecision,
   openExternalAnalyzeDecision,
@@ -1766,22 +1765,7 @@ export default function ProtocolNodeCard({
     willChange: "max-height, opacity",
   };
 
-  const [analyzeOpen, setAnalyzeOpen] = useState(false);
-  const [analyzeTarget, setAnalyzeTarget] = useState<{
-    outputName: string;
-    outputRaw: any;
-  } | null>(null);
   const [tableViewerState, setTableViewerState] = useState<TableViewerDecision | null>(null);
-
-  const analyzeProjectId = useMemo(() => {
-    const n = Number(data.projectId);
-    return Number.isFinite(n) ? n : 0;
-  }, [data.projectId]);
-
-  const analyzeProtocolId = useMemo(() => {
-    const n = Number(data.id);
-    return Number.isFinite(n) ? n : 0;
-  }, [data.id]);
 
   const canOpenViewer = !isProjectNode && data.projectId != null;
 
@@ -2105,8 +2089,7 @@ export default function ProtocolNodeCard({
         }
       }
 
-      setAnalyzeTarget({ outputName, outputRaw });
-      setAnalyzeOpen(true);
+      toast("There is no viewer for this output.");
     },
     [canOpenViewer, data.projectId, data.id, headerDisplayName, service],
   );
@@ -2437,21 +2420,6 @@ export default function ProtocolNodeCard({
 
   const outputViewerDialogs = (
     <>
-      {canOpenViewer && analyzeOpen && analyzeTarget ? (
-        <AnalyzeOutputDialog
-          open
-          onClose={() => {
-            // closeAnalyzeDialog
-            setAnalyzeOpen(false);
-            setAnalyzeTarget(null);
-          }}
-          projectId={analyzeProjectId}
-          protocolId={analyzeProtocolId}
-          protocolLabel={headerDisplayName}
-          outputName={analyzeTarget.outputName}
-          outputRaw={analyzeTarget.outputRaw}
-        />
-      ) : null}
 
       {tableViewerState ? (
         <TableViewerDialog

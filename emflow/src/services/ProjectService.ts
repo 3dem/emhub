@@ -1,7 +1,5 @@
 // src/services/ProjectService.ts
 
-
-
 export interface loadWorkflowPayload {
   workflowId: string;
 }
@@ -99,26 +97,6 @@ export type ProtocolOutputThumbnailsOptions =
     outputs: ProtocolOutputThumbnailRequestItem[];
   };
 
-
-/** Protocol steps. */
-export type ProtocolStep = {
-  index: number;
-  name: string;
-  status: string;
-  prerequisites?: number[];
-  args?: unknown;
-  initTime?: string | null;
-  endTime?: string | null;
-  elapsedSeconds?: number | null;
-  error?: string | null;
-  interactive?: boolean;
-  needsGpu?: boolean;
-  event?: string | null;
-  updatedAt?: string | null;
-};
-
-export type ProtocolStepStatus = "new" | "finished";
-
 export type ProtocolRuntimeSummary = {
   protocolId: string;
   status: string;
@@ -147,437 +125,25 @@ export type ImportProjectPayload = {
   projectName?: string;
 };
 
-/** Volume list item used by Analyze Results. */
-export type VolumeListItem = {
-  /** Unique id for the volume (index, db id, or filename). */
-  id: string;
-  /** Human-friendly label to display in the left panel list. */
-  name: string;
-};
-
-/** Minimal volume metadata for the slice viewer. */
-export type VolumeInfo = {
-  /** Total number of slices along the chosen axis (UI uses 1-based index). */
-  slices: number;
-  /** Optional raw shape [Z, Y, X] or [depth, height, width]. */
-  shape?: [number, number, number];
-  /** Optional voxel size tuple. Units depend on backend (e.g., Å/px or nm/px). */
-  voxelSize?: [number, number, number];
-  /** Optional dtype string (e.g., "float32", "uint16"). */
-  dtype?: string;
-};
-
-/** Extra options when building the slice image URL. */
-export type VolumeSliceOptions = {
-  axis?: "x" | "y" | "z";
-  cmap?: string;
-  normalize?: "minmax" | "zscore" | "none";
-  windowMin?: number;
-  windowMax?: number;
-  scale?: number;
-  inline?: boolean;
-  signal?: AbortSignal;
-  format?: "png" | "webp" | "jpeg";
-  thumb?: number;
-  fast?: boolean;
-  quality?: number;
-};
-
-export type VolumeSliceObjectUrl = {
-  url: string;
-  revoke: () => void;
-};
-
-/** Histogram data for a volume, already aggregated in bins. */
-export type VolumeHistogram = {
-  // Normalized fields for the viewer
-  bins?: number[];
-  counts?: number[];
-
-  // Raw backend variants (keep them optional)
-  binEdges?: number[];
-  bin_edges?: number[];
-  values?: number[];
-
-  range?: [number, number];
-  totalVoxels?: number;
-};
-
-/** Optional parameters to control histogram generation in the backend. */
-export type VolumeHistogramOptions = {
-  /** Desired number of bins. Backend may clamp this value. */
-  bins?: number;
-  /** Optional minimum of the value range. */
-  rangeMin?: number;
-  /** Optional maximum of the value range. */
-  rangeMax?: number;
-};
-
-export type VolumeData3dOptions = {
-  /** Maximum size for the longest dimension after downsampling. */
-  maxDim?: number; // default backend: 160
-  /** Downsampling method. */
-  method?: "binning" | "stride" | "none"; // default backend: "binning"
-  /** Optional abort signal to cancel the request. */
-  signal?: AbortSignal;
-};
-
-/**
- * Normalized 3D volume payload for Plotly.
- * Backend is expected to return a downsampled cube and metadata.
- * `data` is a flat array; `order` tells how to reshape.
- */
-export type VolumeData3d = {
-  id?: string | number;
-  name?: string;
-
-  /** Dimensions in (x, y, z). */
-  dims: [number, number, number];
-
-  /** Flattened voxel values, X varying fastest for order="zyx". */
-  values: number[] | Float32Array;
-
-  /** Legacy compatibility payload. */
-  data?: number[];
-
-  order?: "zyx" | "xyz";
-  voxelSize?: [number, number, number];
-
-  min?: number;
-  max?: number;
-  mean?: number;
-  std?: number;
-};
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Coordinates3D + linked tomograms (SetOfCoordinates3D support)
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Single 3D coordinate in tomogram space.
- * Extra fields (label, score, etc.) can be attached by the backend.
- */
-export type Coordinates3dPoint = {
-  x: number;
-  y: number;
-  z: number;
-  id?: number | string;
-  label?: number | string;
-  score?: number;
-  [key: string]: unknown;
-  matrix?: any | [];
-};
-
-/**
- * One tomogram entry associated with a SetOfCoordinates3D.
- * It can optionally reference the tomogram volume output so the UI can
- * jump into a slice/3D viewer for the same volume.
- */
-export type Coordinates3dTomogram = {
-  /** Tomogram identifier (index, db id, etc.). */
-  id: Id;
-  /** Human-friendly label for the tomogram. */
-  label?: string;
-
-  /** Optional output name where the tomogram volume lives. */
-  tomogramOutputName?: string;
-  /** Optional volume id within the tomogram output. */
-  tomogramVolumeId?: Id;
-
-  /** Optional tomogram dimensions [X, Y, Z]. */
-  dims?: [number, number, number];
-  /** Optional voxel size [sx, sy, sz]. Units depend on backend. */
-  voxelSize?: [number, number, number];
-
-  /** Optional count of coordinates for quick overview. */
-  count?: number;
-};
-
-/**
- * Coordinates payload for a single tomogram.
- */
-export type Coordinates3dTomogramPoints = {
-  tomoId: Id;
-  /** Optional tomogram dimensions [X, Y, Z]. */
-  dims?: [number, number, number];
-  /** Optional voxel size [sx, sy, sz]. */
-  voxelSize?: [number, number, number];
-  /** List of coordinates in tomogram space. */
-  coords: Coordinates3dPoint[];
-};
-
-/**
- * Payload to create a new SetOfCoordinates3D output from an edited list of points.
- * The backend should interpret `coords` as a full replacement for the selected tomogram.
- */
-export type CreateCoords3dOutputFromPointsPayload = {
-  /** Name for the newly created output. */
-  newOutputName: string;
-
-  /** Tomogram identifier within the source SetOfCoordinates3D. */
-  tomoId: Id;
-
-  /**
-   * Full coordinates list for this tomogram.
-   * Each item is expected to keep x/y/z and may include score/radius/classId/id/tomoId.
-   */
-  coords: Array<
-    Coordinates3dPoint & {
-      /** Optional class id used by the UI. */
-      classId?: string | number | null;
-      /** Optional radius used by the UI. */
-      radius?: number;
-      /** Optional tomo id per point (kept for round-tripping). */
-      tomoId?: Id;
-    }
-  >;
-
-  /** Optional tomogram dimensions [X, Y, Z] for backend validation. */
-  dims?: [number, number, number];
-
-  /** Optional voxel size [sx, sy, sz] for backend bookkeeping. */
-  voxelSize?: [number, number, number];
-};
-
-export type CreateCoords3dOutputFromPointsResult = {
-  success: boolean;
-  outputName: string;
-  message?: string;
-  data?: unknown;
-};
-
-export type CreateCoords3dOutputFromPointsOptions = {
-  signal?: AbortSignal;
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Metadata table basic types (en paralelo a los de api/projects.ts)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type MetadataRendererType = "int" | "float" | "bool" | "matrix" | "image" | "str";
-
-export interface MetadataColumn {
-  name: string;
-  alias: string;
-  index: number;
-  sortable: boolean;
-  visible: boolean;
-  rendererType: MetadataRendererType;
-  decimals: number | null;
-  hasTransformation: boolean;
-}
-
-export interface MetadataTableInfo {
-  name: string;
-  alias: string;
-  rowCount: number;
-  hasColumnId: boolean;
-}
-
-export interface MetadataTableSchema {
-  name: string;
-  alias: string;
-  hasColumnId: boolean;
-  columns: MetadataColumn[];
-
-  /** Optional actions advertised by the backend for this table. */
-  actions?: string[];
-
-  /** Optional column names advertised by the backend as gallery metadata. */
-  additionalInfoColumns?: string[];
-}
-
-export type MetadataTableActionPayload = {
-  /** Action label as provided by schema.actions */
-  action: string;
-
-  /** Subset name or action-specific label */
-  subsetName?: string;
-
-  /** Selected row ids */
-  ids: Array<number | string>;
-};
-
-export type MetadataTableActionResult = {
-  success: boolean;
-  message?: string;
-
-  /** Optional backend payload for caller-specific follow-ups */
-  data?: unknown;
-};
-
-export type MetadataCell =
-  | number
-  | string
-  | boolean
-  | { kind: "image"; path: string }
-  | { kind: "matrix"; value: any };
-
-export interface MetadataRow {
-  id: number;
-  values: MetadataCell[];
-}
-
-export interface MetadataPage {
-  pageNumber: number;
-  pageSize: number;
-  totalRows: number;
-  rows: MetadataRow[];
-}
 // ─────────────────────────────────────────────────────────────────────────────
 // Analyze Results (FSCs)
 // ─────────────────────────────────────────────────────────────────────────────
-export type FscPoint = {
-  x: number;
-  y: number;
-  label?: string;
-  xKind?: "frequency" | "resolution";
-};
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Analyze Results (Tilt series)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Basic item for a tilt series in a SetOfTiltSeries output. */
-export type TiltSeriesListItem = {
-  /** Tilt series identifier (index, db id, etc.). */
-  id: Id;
-  /** Human-friendly label to display in the list. */
-  label: string;
-  /** Optional number of tilt images in this series. */
-  nTilts?: number;
-  /** Optional image dimensions [width, height] in pixels. */
-  dims?: [number, number];
-  /** Optional pixel size (for example Å/px). */
-  pixelSize?: number;
-};
-
-/** Extra options when requesting a single tilt image. */
-export type TiltImageOptions = {
-  /** Target size in pixels for the longest side. */
-  size?: number;
-  /** Output format for the rendered image. */
-  format?: "png" | "webp" | "jpeg";
-  /** Whether to apply alignment or contrast corrections in backend. */
-  applyTransform?: boolean;
-  /** AbortSignal to cancel in-flight HTTP requests. */
-  signal?: AbortSignal;
-};
-
-export type TiltSeriesBatchPreviewItem = {
-  index: number;
-  contentType?: string | null;
-  dataUrl: string;
-  cache?: string | null;
-};
-
-export type TiltSeriesBatchPreviewResult = {
-  tiltSeriesId: string;
-  size: number;
-  fmt: string;
-  applyTransform: boolean;
-  items: TiltSeriesBatchPreviewItem[];
-  errors?: Array<{
-    index: number;
-    error: string;
-  }>;
-};
-
-export type TiltSeriesBatchPreviewOptions = {
-  indices: number[];
-  size?: number;
-  format?: "png" | "webp" | "jpeg";
-  applyTransform?: boolean;
-  signal?: AbortSignal;
-};
-
-export type TiltExclusionsPayload = Record<
-  string,
-  {
-    excluded: boolean;
-    tiltimages: number[];
-  }
->;
-
-export type CTFTomoExclusionsPayload = TiltExclusionsPayload;
-
 // Shared object-url result type used by image viewers
-export type ObjectUrlResult = {
-  url: string;
-  revoke: () => void;
-};
 
 // Generic options for fetching 2D image slices / previews from the API
-export type FetchImageSliceOptions = {
-  // Common sampling / slicing options
-  index?: number; // slice index along the chosen axis
-  axis?: "x" | "y" | "z";
-
-  // Color / normalization
-  cmap?: string;
-  colormap?: string;
-  format?: "png" | "webp" | "jpeg";
-  fmt?: string;
-  normalize?: string; // e.g. "minmax", "zscore", etc.
-
-  // Geometry / scaling
-  scale?: number;
-  thumb?: number;
-  fast?: boolean;
-  quality?: number;
-
-  // Tilt / metadata specific
-  size?: number;
-  applyTransform?: boolean;
-
-  // Abort support for fetch
-  signal?: AbortSignal;
-};
-
-export type VolumeSurfaceMethod =
-  | "binning"
-  | "stride"
-  | "linear"
-  | "fourier"
-  | "none";
-
-export interface VolumeSurfaceMesh {
-  kind: "surfaceMesh";
-  level: number;
-  rangeMin?: number;
-  rangeMax?: number;
-  dims: [number, number, number];
-  sourceDims?: [number, number, number];
-  order: "zyx" | "xyz";
-  vertexCount: number;
-  triangleCount: number;
-  marchingCubesStep?: number;
-  minComponentTriangles?: number;
-  smoothingIterations?: number;
-  removedComponents?: number;
-  vertices: number[];
-  normals: number[];
-  indices: number[];
-  values?: number[];
-  center?: number[];
-  scale?: number;
-  maxDim?: number;
-  method?: VolumeSurfaceMethod;
-  volumeId?: string;
-  outputName?: string;
-}
-
-export interface VolumeSurfaceMeshOptions {
-  level?: number | null;
-  maxDim?: number;
-  method?: VolumeSurfaceMethod;
-  maxTriangles?: number;
-  minComponentTriangles?: number;
-  smoothingIterations?: number;
-  signal?: AbortSignal;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Integrated table viewer
@@ -750,40 +316,6 @@ export type TableViewerPaneContent =
     message?: string;
   }
   | {
-    kind: "coords3d";
-    title?: string;
-    projectId: NonNullable<Id>;
-    protocolId: NonNullable<Id>;
-    outputName: string;
-    tomogramId?: NonNullable<Id>;
-  }
-  | {
-    kind: "tiltSeries";
-    title?: string;
-    projectId: NonNullable<Id>;
-    protocolId: NonNullable<Id>;
-    outputName: string;
-    tiltSeriesId: NonNullable<Id>;
-    frameIndex?: number;
-  }
-  | {
-    kind: "volume";
-    title?: string;
-    projectId: NonNullable<Id>;
-    protocolId: NonNullable<Id>;
-    outputName: string;
-    volumeId: NonNullable<Id>;
-  }
-  | {
-    kind: "ctfTomo";
-    title?: string;
-    projectId: NonNullable<Id>;
-    protocolId: NonNullable<Id>;
-    outputName: string;
-    ctfSeriesId: NonNullable<Id>;
-    viewId?: NonNullable<Id>;
-  }
-  | {
     kind: "text";
     title?: string;
     text: string;
@@ -868,10 +400,24 @@ export type TableViewerImageSliderContent = {
   axes?: Record<string, TableViewerImageSliderAxis>;
   initialSlice?: string | number;
   dimensions?: [number, number, number];
-  /** Volume layout: four quadrants — Y (top-left), schematic (top-right), Z (bottom-left), X (bottom-right). */
+  /** Å per voxel of a volume ([x, y, z] or a single number); needed for correct measurements. */
+  voxelSize?: number | number[] | null;
+  /** VolumeViewer config (tabs, tools, initialTool, viewSize, particleTolerance),
+   * see VolumeViewerConfig in components/viewers/VolumeViewer.tsx. */
+  viewerConfig?: Record<string, unknown>;
+  /** "volume": X, Y and Z slices shown by VolumeViewer (Slices and 3D tabs);
+   * "stack": one slider per axis. */
   layout?: "volume" | "stack";
   /** Picking coordinates overlaid on the Z-axis slider. */
-  coordinates?: { x: number[]; y: number[]; z: number[] };
+  coordinates?: {
+    x: number[];
+    y: number[];
+    z: number[];
+    /** [rot, tilt, psi] in degrees per particle (RELION convention). */
+    angles?: number[][];
+    /** Surface of the picking template: flat vertices (Å) and triangle indices. */
+    template?: { vertices: number[]; faces: number[] };
+  };
 };
 
 export type AnalyzeViewerResolveContext = {
@@ -912,59 +458,6 @@ export type AnalyzeViewerResolveDecision =
     table: TableViewerData;
   };
 
-
-export type IntegratedContextStatus =
-  | "available"
-  | "related"
-  | "derived"
-  | "missing"
-  | "unknown"
-  | "inferred";
-
-export type IntegratedContextLink = {
-  protocolId?: Id;
-  publicProtocolId?: Id;
-  outputName?: string | null;
-  itemId?: Id;
-  label?: string | null;
-  status?: IntegratedContextStatus | null;
-};
-
-export type IntegratedContextItemRelation = {
-  key: string;
-  label?: string | null;
-
-  tiltSeriesId?: Id;
-  ctfSeriesId?: Id;
-  tomogramId?: Id;
-  tomogramVolumeId?: Id;
-  coordinatesTomogramId?: Id;
-};
-
-export type IntegratedAnalyzeContext = {
-  root?: {
-    projectId?: Id;
-    protocolId?: Id;
-    outputName?: string | null;
-    outputClass?: string | null;
-  };
-  links?: {
-    tiltSeries?: IntegratedContextLink | null;
-    ctf?: IntegratedContextLink | null;
-    tomogram?: IntegratedContextLink | null;
-    coordinates3d?: IntegratedContextLink | null;
-  };
-  summaries?: {
-    tiltSeries?: Record<string, unknown> | null;
-    ctf?: Record<string, unknown> | null;
-    tomogram?: Record<string, unknown> | null;
-    coordinates3d?: Record<string, unknown> | null;
-  };
-  relations?: {
-    items?: IntegratedContextItemRelation[];
-  };
-};
-
 // ─────────────────────────────────────────────────────────────────────────────
 // User (sharing / collaboration)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -974,7 +467,6 @@ export type ShareableUser = {
   name: string;
   email?: string;
 };
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Project workflows / templates (predefined pipelines)
@@ -988,7 +480,6 @@ export type WorkflowDescriptor = {
   /** Short description explaining what this workflow does. */
   description?: string;
 };
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings
@@ -1036,7 +527,6 @@ export type InstanceSettings = {
   defaultQueueName: string;
   maxConcurrentRunsPerUser: number;
 };
-
 
 export type InstanceGpuResource = {
   index: number;
@@ -1156,7 +646,6 @@ export type HostSettings = {
 
 export type HostSettingsPatch = Partial<HostSettings>;
 
-
 export type ProjectRuntimeHostQueueParam = {
   variableName: string;
   value: string;
@@ -1207,7 +696,6 @@ export function hasProjectEffectiveSettingsService(
 } {
   return typeof (svc as any)?.fetchProjectEffectiveSettings === "function";
 }
-
 
 //-────────────────────────────────────────────────────────────────────────────
 // Protocol actions payloads
@@ -1321,376 +809,18 @@ export type ContextMenuVisibilityPolicy = {
   upload: boolean,
 };
 
-
 //-────────────────────────────────────────────────────────────────────────────
 // 2D Coordinates picking (for CTF, particle picking, etc.)
 //-────────────────────────────────────────────────────────────────────────────
-export type Coords2dMicrograph = {
-  id: Id;
-  index: number;
-  fileName: string;
-  label?: string;
-  particles: number;
-  updated?: boolean;
-  width?: number | null;
-  height?: number | null;
-  thumbnailUrl?: string | null;
-};
-
-export type Coords2dPoint = {
-  id: Id;
-  x: number;
-  y: number;
-  micId: Id;
-  score?: number | null;
-  classLabel?: string | null;
-};
-
-export type Coords2dMicrographsResult = {
-  micrographs: Coords2dMicrograph[];
-  totalMicrographs: number;
-  totalPicks: number;
-  boxSize?: number | null;
-};
-
-export type CreateCoords2dOutputPoint = {
-  id?: Id;
-  micId?: Id;
-  x: number;
-  y: number;
-};
-
-export type CreateCoords2dOutputMicrograph = {
-  id: Id;
-  coordinates: CreateCoords2dOutputPoint[];
-};
-
-export type CreateCoords2dOutputPayload = {
-  boxSize?: number | null;
-  outputName?: string | null;
-  micrographs: CreateCoords2dOutputMicrograph[];
-};
-
-export type CreateCoords2dOutputResult = {
-  success: boolean;
-  outputName: string;
-  totalCoordinates?: number;
-  message?: string;
-};
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Wizards support (protocols that can launch a multi-step form instead of the regular parameter form)
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type ExecuteProtocolWizardInputField = {
-  name: string;
-  label?: string;
-  kind: "number" | "text" | "select";
-  value?: string | number | null;
-  min?: number;
-  max?: number;
-  step?: number;
-  options?: Array<{ value: string; label: string }>;
-};
-
-export type ExecuteProtocolWizardInputSchema =
-  | {
-    type: "select";
-    paramName: string;
-    title?: string;
-    options: Array<{ value: string; label: string }>;
-  }
-  | {
-    type: "mask_radius";
-    paramName: string;
-    title?: string;
-    fields: Array<{
-      name: string;
-      label: string;
-      kind: "number";
-      value: number;
-      min?: number;
-      max?: number;
-      step?: number;
-    }>;
-  }
-  | {
-    type: "mask_radii";
-    paramName: string;
-    title?: string;
-    fields: Array<{
-      name: string;
-      label: string;
-      kind: "number";
-      value: number;
-      min?: number;
-      max?: number;
-      step?: number;
-    }>;
-  }
-  | {
-    type: "ctf_preview";
-    paramName: string;
-    title?: string;
-    fields: Array<{
-      name: string;
-      label: string;
-      kind: "number";
-      value: number;
-      min?: number;
-      max?: number;
-      step?: number;
-    }>;
-  }
-  | {
-    type: "downsample_preview";
-    paramName: string;
-    title?: string;
-    fields: Array<{
-      name: string;
-      label: string;
-      kind: "number";
-      value: number;
-      min?: number;
-      max?: number;
-      step?: number;
-    }>;
-  }
-  | {
-    type: "filter_preview";
-    paramName: string;
-    title?: string;
-    fields: Array<{
-      name: string;
-      label: string;
-      kind: "number";
-      value: number;
-      min?: number;
-      max?: number;
-      step?: number;
-    }>;
-  }
-  | {
-    type: "gaussian_preview";
-    paramName: string;
-    title?: string;
-    fields: Array<{
-      name: string;
-      label: string;
-      kind: "number";
-      value: number;
-      min?: number;
-      max?: number;
-      step?: number;
-    }>;
-  }
-  | {
-    type: "point_in_volume";
-    paramName: string;
-    title?: string;
-    fields: [];
-  };
-
-export type ExecuteProtocolWizardPreview = {
-  imageUrl?: string | null;
-  width?: number | null;
-  height?: number | null;
-};
-
-export type ExecuteProtocolWizardViewerItem = {
-  id: string;
-  label: string;
-  index: number;
-};
-
-export type ExecuteProtocolWizardViewerState = {
-  items: ExecuteProtocolWizardViewerItem[];
-  selectedIndex: number;
-
-  radius?: number;
-  radiusMin?: number | null;
-  radiusMax?: number | null;
-  radiusStep?: number | null;
-  radiusAngstrom?: number | null;
-
-  innerRadius?: number;
-  outerRadius?: number;
-  innerRadiusMin?: number | null;
-  outerRadiusMin?: number | null;
-  innerRadiusAngstrom?: number | null;
-  outerRadiusAngstrom?: number | null;
-  primaryParam?: string | null;
-  secondaryParam?: string | null;
-
-  downsample?: number | null;
-  downsampleMin?: number | null;
-  downsampleMax?: number | null;
-  downsampleStep?: number | null;
-
-  lowFreq?: number | null;
-  lowFreqMin?: number | null;
-  lowFreqMax?: number | null;
-
-  highFreq?: number | null;
-  highFreqMin?: number | null;
-  highFreqMax?: number | null;
-
-  freqStep?: number | null;
-  showInAngstroms?: boolean | null;
-
-  downsampleParam?: string | null;
-  lowFreqParam?: string | null;
-  highFreqParam?: string | null;
-
-  autoDownsampling?: boolean | null;
-  autoDownsampleValue?: number | null;
-
-  samplingRate?: number | null;
-  preview?: {
-    imageUrl?: string | null;
-    width?: number | null;
-    height?: number | null;
-    caption?: string | null;
-    sourceWidth?: number | null;
-    sourceHeight?: number | null;
-  } | null;
-
-  micrographPreview?: {
-    imageUrl?: string | null;
-    width?: number | null;
-    height?: number | null;
-    caption?: string | null;
-    sourceWidth?: number | null;
-    sourceHeight?: number | null;
-  } | null;
-
-  psdPreview?: {
-    imageUrl?: string | null;
-    width?: number | null;
-    height?: number | null;
-    caption?: string | null;
-    sourceWidth?: number | null;
-    sourceHeight?: number | null;
-  } | null;
-
-  decay?: number | null;
-  decayMin?: number | null;
-  decayMax?: number | null;
-
-  freqInAngstrom?: boolean | null;
-  unitLabel?: string | null;
-  filterMode?: string | null;
-  decayParam?: string | null;
-
-  originalPreview?: {
-    imageUrl?: string | null;
-    width?: number | null;
-    height?: number | null;
-    caption?: string | null;
-    sourceWidth?: number | null;
-    sourceHeight?: number | null;
-  } | null;
-
-  filteredPreview?: {
-    imageUrl?: string | null;
-    width?: number | null;
-    height?: number | null;
-    caption?: string | null;
-    sourceWidth?: number | null;
-    sourceHeight?: number | null;
-  } | null;
-  point?: {
-    x: number;
-    y: number;
-    z: number;
-  } | null;
-
-  pointVoxel?: {
-    x: number;
-    y: number;
-    z: number;
-  } | null;
-
-  dims?: [number, number, number] | number[];
-  previewDims?: [number, number, number] | number[];
-  previewValues?: number[];
-  axisOrder?: string[];
-
-  bounds?: {
-    xMin: number;
-    xMax: number;
-    yMin: number;
-    yMax: number;
-    zMin: number;
-    zMax: number;
-  } | null;
-
-};
-
-export type ExecuteProtocolWizardPayload = {
-  protocolId?: string | number | null;
-  protocolClassName: string;
-  paramName: string;
-  wizardId: string;
-  formValues: Record<string, any>;
-  wizardInputs?: Record<string, any>;
-};
-
-export type ExecuteProtocolWizardResult = {
-  success: boolean;
-  wizardId: string;
-  kind: string;
-  paramUpdates: Record<string, any>;
-  message?: string | null;
-
-  availableValues?: Array<string | { value: string; label: string }> | null;
-
-  requiresUserInput?: boolean;
-  inputSchema?: ExecuteProtocolWizardInputSchema | null;
-
-  preview?: {
-    imageUrl?: string | null;
-    width?: number | null;
-    height?: number | null;
-  } | null;
-
-  viewerState?: ExecuteProtocolWizardViewerState | null;
-};
-
-
 //─────────────────────────────────────────────────────────────────────────────
 // External viewers support (e.g., Imod, ChimeraX, etc.) — launched from 
 // protocol actions or output previews
 //─────────────────────────────────────────────────────────────────────────────
-
-export type ExternalViewerDescriptor = {
-  id: string;
-  label: string;
-  className?: string | null;
-  moduleName?: string | null;
-  available: boolean;
-  reason?: string | null;
-};
-
-export type ExternalViewerListOptions = AuthenticatedRequestOptions & {
-  objectId?: Id;
-  objectKind?: string;
-};
-
-export type ExternalViewerLaunchPayload = {
-  objectId?: Id;
-  objectKind?: string;
-  params?: Record<string, unknown>;
-};
-
-export type ExternalViewerLaunchResult = {
-  success: boolean;
-  viewerId: string;
-  message?: string | null;
-  pid?: number | null;
-  data?: unknown;
-};
-
 
 //─────────────────────────────────────────────────────────────────────────────
 // Protocol export (for sharing or external analysis)
@@ -1776,7 +906,6 @@ export type WriteRemoteFileResult = {
   mimeType?: string;
 };
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Protocol workflows launch / execution options
 // ─────────────────────────────────────────────────────────────────────────────  
@@ -1801,12 +930,9 @@ export type ProtocolWorkflowExecutionPreflight = {
   activeProtocolIds: string[];
 };
 
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // ProjectService interface
 // ─────────────────────────────────────────────────────────────────────────────  
-
 
 /**
  * Optional generics to let consumers specify concrete return shapes.
@@ -1862,7 +988,6 @@ export interface ProjectService<
     opts: ProtocolOutputThumbnailsOptions,
   ) => Promise<ProtocolOutputThumbnailsResponse>;
 
-
   /**
    * List projects. It can return an array or a paginated object.
    * Components should normalize the result.
@@ -1895,17 +1020,6 @@ export interface ProjectService<
   /** Load all protocols for a project. */
   loadProtocols(projectId: Id): Promise<TProtocol[] | any>;
 
-  /** Load the protocol steps. */
-  fetchProtocolSteps(projectId: Id, protocolId: Id): Promise<ProtocolStep[]>;
-
-  /** Update one protocol step status. */
-  updateProtocolStepStatus(
-    projectId: Id,
-    protocolId: Id,
-    stepIndex: number,
-    status: ProtocolStepStatus,
-  ): Promise<ProtocolStep>;
-
   /**
   * List predefined workflows / pipelines available for a project.
   * Backend may filter them by project type, owner, or permissions.
@@ -1916,7 +1030,6 @@ export interface ProjectService<
     projectId: string | number,
     payload: loadWorkflowPayload,
   ): Promise<any>;
-
 
   /** Execute a protocol with given params. */
   executeProtocol(
@@ -1976,7 +1089,6 @@ export interface ProjectService<
     path: string,
   ): Promise<any | null>;
 
-
   getNextProtocolSuggestions(
     projectId: Id,
     protocolId: Id,
@@ -1998,7 +1110,6 @@ export interface ProjectService<
   // ─────────────────────────────────────────────────────────────────────────────
   // Analyze Results (FSCs)
   // ─────────────────────────────────────────────────────────────────────────────
-  fetchFscRows(projectId: Id, protocolId: Id, outputName: string): Promise<FscPoint[]>;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Analyze Results (Volumes) — used by the "Analyze Results" viewer.
@@ -2011,7 +1122,6 @@ export interface ProjectService<
   resolveAnalyzeViewer(
     ctx: AnalyzeViewerResolveContext
   ): Promise<AnalyzeViewerResolveDecision>;
-
 
   resolveTableViewerAction(
     context: TableViewerContext,
@@ -2028,339 +1138,31 @@ export interface ProjectService<
     request: TableViewerChildrenRequest
   ): Promise<TableViewerChildrenData>;
 
-  fetchIntegratedAnalyzeContext(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    opts?: AuthenticatedRequestOptions,
-  ): Promise<IntegratedAnalyzeContext | null>;
-
-
-  listOutputVolumes(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string
-  ): Promise<VolumeListItem[]>;
-
-  getVolumeInfo(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    volumeId: Id
-  ): Promise<VolumeInfo>;
-
-  getVolumeHistogram(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    volumeId: Id,
-    opts?: VolumeHistogramOptions
-  ): Promise<VolumeHistogram>;
-
-  buildVolumeSliceUrl(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    volumeId: Id,
-    sliceIndex: number,
-    opts?: VolumeSliceOptions
-  ): Promise<string>;
-
-  fetchVolumeSliceObjectUrl(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    volumeId: Id,
-    sliceIndex: number,
-    opts?: VolumeSliceOptions
-  ): Promise<VolumeSliceObjectUrl>;
-
-  getVolumeSurfaceMesh(
-    projectId: string | number,
-    protocolId: string | number,
-    outputName: string,
-    volumeId: string | number,
-    opts?: VolumeSurfaceMeshOptions,
-  ): Promise<VolumeSurfaceMesh>;
-
-  getVolumeData3d(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    volumeId: Id,
-    opts?: VolumeData3dOptions
-  ): Promise<VolumeData3d>;
-
   // ─────────────────────────────────────────────────────────────────────────────
   // Analyze Results (Coordinates 3D + linked tomograms)
   // ─────────────────────────────────────────────────────────────────────────────
-
-  /**
-   * List tomograms associated with a SetOfCoordinates3D output.
-   * Each entry can optionally point to the underlying tomogram volume.
-   */
-  listCoords3dTomograms(
-    projectId: Id,
-    protocolId: Id,
-    coordsOutputName: string
-  ): Promise<Coordinates3dTomogram[]>;
-
-  /**
-   * Fetch all 3D coordinates for a given tomogram within a SetOfCoordinates3D.
-   */
-  fetchCoords3dForTomogram(
-    projectId: Id,
-    protocolId: Id,
-    coordsOutputName: string,
-    tomoId: Id
-  ): Promise<Coordinates3dTomogramPoints>;
-
-  /**
-   * Fetch a tomogram slice (image) associated with a SetOfCoordinates3D tomogram.
-   * This mirrors the volume slice API but targeted to tomograms linked to coords.
-   */
-  fetchCoords3dTomogramSliceObjectUrl(
-    projectId: Id,
-    protocolId: Id,
-    coordsOutputName: string,
-    tomoId: Id,
-    sliceIndex: number,
-    opts?: {
-      axis?: "z" | "y" | "x";
-      cmap?: string;
-      normalize?: "minmax" | "zscore" | "none";
-      scale?: number;
-      format?: "png" | "webp" | "jpeg";
-      thumb?: number;
-      fast?: boolean;
-      quality?: number;
-      signal?: AbortSignal;
-    }
-  ): Promise<VolumeSliceObjectUrl>;
-
-  /**
- * Create a new SetOfCoordinates3D output from an edited point list for a given tomogram.
- * `coordsOutputName` is the source output currently being edited/viewed.
- */
-  createCoords3dOutputFromPoints(
-    projectId: Id,
-    protocolId: Id,
-    coordsOutputName: string,
-    payload: any,
-  ): Promise<CreateCoords3dOutputFromPointsResult>;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Analyze Results (Metadata tables + thumbnails)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  fetchOutputMetadataTables(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string
-  ): Promise<MetadataTableInfo[]>;
-
-  fetchMetadataTableSchema(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tableName: string
-  ): Promise<MetadataTableSchema>;
-
-  fetchMetadataTablePage(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tableName: string,
-    opts?: {
-      page?: number;
-      pageSize?: number;
-      sortBy?: string;
-      asc?: boolean;
-      selectionOnly?: boolean;
-    }
-  ): Promise<MetadataPage>;
-
-  exportMetadataTable(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tableName: string,
-    opts?: {
-      format?: "csv" | "xlsx";
-      selectionOnly?: boolean;
-      ids?: number[];
-    }
-  ): Promise<Blob>;
-
-  fetchMetadataTableWindow(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tableName: string,
-    opts?: {
-      offset?: number;
-      limit?: number;
-      selectionOnly?: boolean;
-      sortBy?: string;
-      asc?: boolean;
-    }
-  ): Promise<{
-    offset: number;
-    limit: number;
-    totalRows: number;
-    rows: MetadataRow[];
-  }>;
-
-  fetchMetadataImageCellObjectUrl(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tableName: string,
-    rowIndex: number,
-    columnName: string,
-    opts?: {
-      size?: number;
-      applyTransform?: boolean;
-      inline?: boolean;
-      format?: string;
-      signal?: AbortSignal;
-    }
-  ): Promise<{ url: string; revoke: () => void }>;
-
-  getMetadataImageCellUrl(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tableName: string,
-    rowIndex: number,
-    columnName: string,
-    opts?: {
-      size?: number;
-      applyTransform?: boolean;
-      inline?: boolean;
-      format?: string;
-    }
-  ): string;
-
-  runMetadataTableAction(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tableName: string,
-    payload: MetadataTableActionPayload,
-  ): Promise<MetadataTableActionResult>;
-
-
   // ─────────────────────────────────────────────────────────────────────────────
   // Analyze Results (Tilt series)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  /**
-   * List tilt series for a SetOfTiltSeries output.
-   */
-  listOutputTiltSeries(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-  ): Promise<any[]>;
-
   // Tilt series: fetch all views/frames for one tilt series
-  fetchTiltSeriesFrames(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tiltSeriesId: Id,
-  ): Promise<any>;
 
   // Tilt series: fetch image object URL for a single view
-  fetchTiltSeriesViewImageObjectUrl(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tiltSeriesId: Id,
-    viewIndex: number,
-    opts?: FetchImageSliceOptions,
-  ): Promise<ObjectUrlResult>;
-
-  fetchTiltSeriesViewImagesBatch(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    tiltSeriesId: Id,
-    opts: TiltSeriesBatchPreviewOptions,
-  ): Promise<TiltSeriesBatchPreviewResult>;
 
   // Tilt series: create a new SetOfTiltSeries based on current exclusions
-  createNewSetOfTiltSeries(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    exclusions: TiltExclusionsPayload,
-    restack: boolean,
-  ): Promise<void>;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Analyze Results (CTF tomography / CTF tilt series)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  /**
-   * List CTF tomo series for a SetOfCTFTomoSeries output.
-   * The concrete payload shape is left to the backend; viewers will normalize it.
-   */
-  listOutputCTFTomoSeries(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-  ): Promise<any[]>;
-
-  /**
-   * Fetch all CTF estimation views for a single CTF tomo series.
-   * This should return one entry per tilt with defocus, resolution, etc.
-   */
-  fetchCTFTomoSeriesViews(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    ctfSeriesId: Id,
-  ): Promise<any>;
-
-  /**
-   * Create a new SetOfCTFTomoSeries based on the current exclusions.
-   * The payload uses the same exclusion structure as SetOfTiltSeries.
-   */
-  createNewSetOfCTFTomoSeries(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    exclusions: CTFTomoExclusionsPayload,
-  ): Promise<void>;
-
-  fetchCTFPsdImage(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    psdPath: string,
-    opts?: AuthenticatedRequestOptions,
-  ): Promise<Blob>;
-
-
   // ─────────────────────────────────────────────────────────────────────────────
   // Analyze Results (External viewers for custom outputs)
   // ─────────────────────────────────────────────────────────────────────────────
-  listExternalViewers(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    opts?: ExternalViewerListOptions,
-  ): Promise<ExternalViewerDescriptor[]>;
-
-  launchExternalViewer(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    viewerId: string,
-    payload?: ExternalViewerLaunchPayload,
-  ): Promise<ExternalViewerLaunchResult>;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Project sharing / collaboration
@@ -2389,7 +1191,6 @@ export interface ProjectService<
     projectId: Id,
     userId: Id,
   ): Promise<void | { success: boolean }>;
-
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Settings (user + instance + host)
@@ -2442,7 +1243,6 @@ export interface ProjectService<
     },
   ): Promise<ProtocolLogsChunkResponse>;
 
-
   // ─────────────────────────────────────────────────────────────────────────────
   // Protocol tags
   // ─────────────────────────────────────────────────────────────────────────────
@@ -2465,11 +1265,6 @@ export interface ProjectService<
   // ─────────────────────────────────────────────────────────────────────────────
   // Wizards support
   // ─────────────────────────────────────────────────────────────────────────────  
-
-  executeProtocolWizard: (
-    projectId: string | number,
-    payload: ExecuteProtocolWizardPayload
-  ) => Promise<ExecuteProtocolWizardResult>;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Protocol export (for sharing or external analysis)
@@ -2498,48 +1293,5 @@ export interface ProjectService<
   //-────────────────────────────────────────────────────────────────────────────
   // 2D Coordinates picking (for CTF, particle picking, etc.)
   //-────────────────────────────────────────────────────────────────────────────
-  listCoords2dMicrographs(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-  ): Promise<Coords2dMicrographsResult>;
-
-  fetchCoords2dForMicrograph(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    micId: Id,
-  ): Promise<Coords2dPoint[]>;
-
-  fetchCoords2dMicrographImageObjectUrl(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    micId: Id,
-    opts?: {
-      size?: number;
-      format?: "png" | "webp" | "jpeg";
-      signal?: AbortSignal;
-    },
-  ): Promise<ObjectUrlResult>;
-
-  fetchCoords2dMicrographThumbnailObjectUrl(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    micId: Id,
-    opts?: {
-      size?: number;
-      format?: "png" | "webp" | "jpeg";
-      signal?: AbortSignal;
-    },
-  ): Promise<ObjectUrlResult>;
-
-  createCoords2dOutputFromCurrentCoordinates(
-    projectId: Id,
-    protocolId: Id,
-    outputName: string,
-    payload: CreateCoords2dOutputPayload,
-  ): Promise<CreateCoords2dOutputResult>;
 
 }

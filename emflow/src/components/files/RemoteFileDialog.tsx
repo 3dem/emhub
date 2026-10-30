@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog/dialog";
+} from "@/components/ui/Dialog";
 import {
   File as FileIcon,
   FolderOpen,

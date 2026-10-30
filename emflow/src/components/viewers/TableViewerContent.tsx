@@ -1,8 +1,9 @@
 import { Box } from "@mui/material";
 import Plot from "@/lib/plot";
+import { normalizeTitles } from "./Plot";
 
 import type { TableViewerPaneContent } from "@/services/ProjectService";
-import TableViewerImageSlider from "./table-viewer-image-slider";
+import ImageSlider from "./ImageSlider";
 
 /**
  * Pane content kinds that are rendered generically (not bound to a
@@ -29,7 +30,7 @@ export function isGenericTableViewerContent(
     return GENERIC_KINDS.has(content.kind);
 }
 
-export default function TableViewerGenericContentView({
+export default function TableViewerContent({
     content,
     fit = false,
 }: {
@@ -103,7 +104,7 @@ export default function TableViewerGenericContentView({
                     <Plot
                         data={(content.figure.data as any[]) ?? []}
                         layout={{
-                            ...backendLayout,
+                            ...normalizeTitles(backendLayout),
                             autosize: true,
                             // Fitted (grid cells): small margins and font,
                             // so the plot area is not squeezed
@@ -121,7 +122,7 @@ export default function TableViewerGenericContentView({
                                     b: backendMargin.b ?? 56,
                                 },
                             ...(fit ? { font: { size: 10 } } : {}),
-                            title: content.title ?? backendLayout.title,
+                            title: normalizeTitles({ title: content.title ?? backendLayout.title }).title,
                         }}
                         config={{
                             ...(content.figure.config as Record<string, unknown> | undefined),
@@ -137,7 +138,7 @@ export default function TableViewerGenericContentView({
         case "imageSlider":
             return (
                 <Box sx={{ height: "100%", minHeight: 0 }}>
-                    <TableViewerImageSlider content={content} fit={fit} />
+                    <ImageSlider content={content} fit={fit} />
                 </Box>
             );
     }

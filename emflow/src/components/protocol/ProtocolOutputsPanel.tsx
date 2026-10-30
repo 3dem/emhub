@@ -1,10 +1,10 @@
+import toast from "react-hot-toast";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Button, CircularProgress, Typography } from "@mui/material";
 
 import { useProjectService } from "@/ProjectServiceContext";
-import AnalyzeOutputDialog from "@/components/analyze/analyze-output-dialog";
 
-import TableViewerDialog from "@/components/analyze/table-viewer-dialog";
+import TableViewerDialog from "@/components/viewers/TableViewerDialog";
 import type { AnalyzeViewerResolveDecision } from "@/services/ProjectService";
 import { openExternalAnalyzeDecision } from "@/utils/analyze-viewer-decision";
 import { withOutputPrefix } from "@/utils/output_label";
@@ -42,8 +42,6 @@ export default function ProtocolOutputsPanel({
 
     const [sqliteTable, setSqliteTable] = useState<string | null>(null);
     const previewUrlRef = useRef<string | null>(null);
-
-    const [analyzeOpen, setAnalyzeOpen] = useState(false);
 
     const [tableViewerState, setTableViewerState] = useState<
         Extract<
@@ -199,7 +197,7 @@ export default function ProtocolOutputsPanel({
             }
         }
 
-        setAnalyzeOpen(true);
+        toast("There is no viewer for this output.");
     };
 
     const previewContent = useMemo(() => {
@@ -913,15 +911,6 @@ export default function ProtocolOutputsPanel({
                 </Box>
             </Box>
 
-            <AnalyzeOutputDialog
-                open={analyzeOpen}
-                onClose={() => setAnalyzeOpen(false)}
-                projectId={Number(projectId)}
-                protocolId={Number(protocolId)}
-                protocolLabel={protocolLabel}
-                outputName={activeOutput?.name || ""}
-                outputRaw={activeOutput?.raw ?? null}
-            />
             {tableViewerState && (
                 <TableViewerDialog
                     open

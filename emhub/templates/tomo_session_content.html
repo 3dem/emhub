@@ -217,35 +217,18 @@
     }
 
     function loadAlignedTs(index) {
-        var args = null;
-        
-        let ts_md = getObjectValue(tomograms[index], 'ts_md', null);
-        if (ts_md != null) {
-            args = { 
-                project_path: tomo_session_path,
-                ts_md: ts_md 
-            };
-        }
-        
         let aligned_ts = getObjectValue(tomograms[index], 'aligned_ts', null);
-        if (aligned_ts != null) {
-            var args = {
-                file_path: aligned_ts,
-                volume_data: 'slices',
-                axis: 'z',
-                slice_step: 1,
-                slice_dim: 512
-            };
-        }
-
-        if (args == null) {
+        if (aligned_ts == null) {
             showError("There is not tilt-series information. ")
+            return;
         }
-        else {
-            setLoading('tomogram-div');
-            load_html_from_ajax('tomogram-div',
-                get_ajax_content('processing_tomogram_card', args))
-        }
+        setLoading('tomogram-div');
+        load_html_from_ajax('tomogram-div',
+            get_ajax_content('processing_tomogram_card', {
+                file_path: aligned_ts,
+                aligned_stack: true,
+                project_path: tomo_session_path
+            }))
     }
 
     function onChangeEnabled(chb) {
