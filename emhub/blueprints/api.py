@@ -1080,7 +1080,6 @@ def resolve_table_view_pane():
                 title=tomo_rel,
                 coordinates=_table_view_tomo_coordinates(
                     attrs, root, type_key, row_cells, row_label),
-                ortho=bool(attrs.get('ortho')),
             )
 
         star_rel = resolve_row_star_path(attrs, row_cells, column_id)

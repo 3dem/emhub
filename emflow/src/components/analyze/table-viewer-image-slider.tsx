@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, FormControlLabel, Slider, Switch, Typography } from "@mui/material";
-import VolumeAxisSchematic, {
-  type VolumeSliceExtents,
-  type VolumeSlicePositions,
-} from "./volume-axis-schematic";
 import type {
   TableViewerImageSliderAxis,
   TableViewerImageSliderContent,
@@ -74,51 +70,6 @@ function pointsForSlice(
     }
   }
   return points;
-}
-
-function sliceDisplaySize(
-  axis: "x" | "y" | "z",
-  dimensions: [number, number, number],
-  pixelScale: number,
-): { width: number; height: number } {
-  const [dimX, dimY, dimZ] = dimensions;
-  if (axis === "z") {
-    return { width: dimX * pixelScale, height: dimY * pixelScale };
-  }
-  if (axis === "y") {
-    return { width: dimX * pixelScale, height: dimZ * pixelScale };
-  }
-  return { width: dimY * pixelScale, height: dimZ * pixelScale };
-}
-
-function computeVolumePixelScale(
-  dimensions: [number, number, number],
-  topRect: DOMRect | null,
-  bottomLeftRect: DOMRect | null,
-  bottomRightRect: DOMRect | null,
-): number {
-  const [dimX, dimY, dimZ] = dimensions;
-  const candidates: number[] = [];
-
-  const add = (available: number, voxels: number) => {
-    if (available > 0 && voxels > 0) candidates.push(available / voxels);
-  };
-
-  if (bottomLeftRect) {
-    add(bottomLeftRect.width - 8, dimX);
-    add(bottomLeftRect.height - 52, dimY);
-  }
-  if (bottomRightRect) {
-    add(bottomRightRect.width - 8, dimY);
-    add(bottomRightRect.height - 52, dimZ);
-  }
-  if (topRect) {
-    add(topRect.width - 4, dimX);
-    add(topRect.height - 40, dimZ);
-  }
-
-  if (!candidates.length) return 1;
-  return Math.max(0.25, Math.min(...candidates));
 }
 
 function SliceImage({
@@ -397,287 +348,66 @@ function ImageSliderPanel({
   );
 }
 
-function axisContentMap(
-  axisEntries: ReadonlyArray<readonly [string, ImageSliderAxisContent]>,
-): Record<string, ImageSliderAxisContent> {
-  return Object.fromEntries(axisEntries);
-}
+type VolumeViewerGlobal = (
+  $body: unknown,
+  config: Record<string, unknown>,
+) => { destroy?: () => void } | undefined;
 
-const volumeTopQuadrantSx = {
-  minWidth: 0,
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "center",
-  overflow: "hidden",
-  p: 0.5,
-} as const;
-
-const volumeBottomQuadrantSx = {
-  minWidth: 0,
-  minHeight: 0,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "stretch",
-  justifyContent: "stretch",
-  overflow: "hidden",
-  p: 1,
-} as const;
-
-function SchematicQuadrant({
-  sliceExtents,
-  slices,
-  activeAxis,
-  maxHeight,
-}: {
-  sliceExtents: VolumeSliceExtents;
-  slices: VolumeSlicePositions;
-  activeAxis: "x" | "y" | "z";
-  maxHeight?: number;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ width: 160, height: 72 });
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return undefined;
-
-    const updateSize = () => {
-      const rect = element.getBoundingClientRect();
-      setSize({
-        width: Math.max(Math.floor(rect.width), 80),
-        height: Math.max(Math.floor(rect.height), 40),
-      });
-    };
-
-    updateSize();
-    const observer = new ResizeObserver(updateSize);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [maxHeight]);
-
-  return (
-    <Box
-      ref={containerRef}
-      sx={{
-        width: "100%",
-        height: maxHeight && maxHeight > 0 ? maxHeight : "100%",
-        maxHeight: maxHeight && maxHeight > 0 ? maxHeight : "100%",
-        minHeight: 0,
-        display: "flex",
-        alignItems: "stretch",
-        justifyContent: "stretch",
-      }}
-    >
-      <VolumeAxisSchematic
-        sliceExtents={sliceExtents}
-        slices={slices}
-        activeAxis={activeAxis}
-        width={size.width}
-        height={size.height}
-      />
-    </Box>
-  );
-}
-
-function VolumeSliderLayout({
-  axisEntries,
-  initialSlice,
+/**
+ * Tomogram viewer with a Slices tab (linked sections, select/ruler/zoom/
+ * particle tools) and a 3D tab. It is the viewer of the EMhub dashboard,
+ * shared through createVolumeViewer (volume_viewer.js), so there is one
+ * implementation. `viewerConfig` enables or disables its tabs and tools.
+ */
+function VolumeViewerHost({
+  axes,
+  dimensions,
+  voxelSize,
   coordinates,
-  volumeDimensions,
-  showParticles,
+  info,
+  viewerConfig,
 }: {
-  axisEntries: ReadonlyArray<readonly [string, ImageSliderAxisContent]>;
-  initialSlice?: string | number;
+  axes: Record<string, Record<string, string>>;
+  dimensions: [number, number, number];
+  voxelSize?: number | number[] | null;
   coordinates?: VolumeCoordinates;
-  volumeDimensions?: [number, number, number];
-  showParticles: boolean;
+  info: string;
+  viewerConfig?: Record<string, unknown>;
 }) {
-  const byAxis = axisContentMap(axisEntries);
-
-  const sliceExtents = useMemo<VolumeSliceExtents>(
-    () => ({
-      x: sliceExtentsForAxis(byAxis.x?.slices),
-      y: sliceExtentsForAxis(byAxis.y?.slices),
-      z: sliceExtentsForAxis(byAxis.z?.slices),
-    }),
-    [axisEntries],
-  );
-
-  const [slicePositions, setSlicePositions] = useState<VolumeSlicePositions>(() => ({
-    x: initialSlicePosition(byAxis.x?.slices, initialSlice),
-    y: initialSlicePosition(byAxis.y?.slices, initialSlice),
-    z: initialSlicePosition(byAxis.z?.slices, initialSlice),
-  }));
-  const [activeAxis, setActiveAxis] = useState<"x" | "y" | "z">("z");
-  const topLeftRef = useRef<HTMLDivElement>(null);
-  const bottomLeftRef = useRef<HTMLDivElement>(null);
-  const bottomRightRef = useRef<HTMLDivElement>(null);
-  const [topRowHeight, setTopRowHeight] = useState(0);
-  const [pixelScale, setPixelScale] = useState(1);
-
-  const handleSlicePositionChange = useCallback((axis: "x" | "y" | "z", sliceIndex: number) => {
-    setSlicePositions((current) => ({ ...current, [axis]: sliceIndex }));
-    setActiveAxis(axis);
-  }, []);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const win = window as unknown as {
+    createVolumeViewer?: VolumeViewerGlobal;
+    jQuery?: (el: unknown) => unknown;
+  };
+  const available = Boolean(win.createVolumeViewer && win.jQuery);
 
   useEffect(() => {
-    setSlicePositions({
-      x: initialSlicePosition(byAxis.x?.slices, initialSlice),
-      y: initialSlicePosition(byAxis.y?.slices, initialSlice),
-      z: initialSlicePosition(byAxis.z?.slices, initialSlice),
+    const host = hostRef.current;
+    if (!host || !win.createVolumeViewer || !win.jQuery) return undefined;
+    host.innerHTML = "";
+    const viewer = win.createVolumeViewer(win.jQuery(host), {
+      dimensions,
+      axes,
+      voxelSize: voxelSize ?? null,
+      coordinates: coordinates && coordinates.x.length > 0 ? coordinates : null,
+      idPrefix: `emflow-vol-${Math.random().toString(36).slice(2, 8)}`,
+      info,
+      ...viewerConfig,
     });
-    setActiveAxis("z");
-  }, [axisEntries, initialSlice]);
-
-  useEffect(() => {
-    const element = topLeftRef.current;
-    if (!element) return undefined;
-
-    const updateHeight = () => {
-      setTopRowHeight(element.getBoundingClientRect().height);
+    return () => {
+      viewer?.destroy?.();
+      host.innerHTML = "";
     };
+  }, [axes, dimensions, voxelSize, coordinates, info, viewerConfig, win.createVolumeViewer, win.jQuery]);
 
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [byAxis.y?.slices]);
-
-  useEffect(() => {
-    if (!volumeDimensions) return undefined;
-
-    const measureScale = () => {
-      setPixelScale(
-        computeVolumePixelScale(
-          volumeDimensions,
-          topLeftRef.current?.getBoundingClientRect() ?? null,
-          bottomLeftRef.current?.getBoundingClientRect() ?? null,
-          bottomRightRef.current?.getBoundingClientRect() ?? null,
-        ),
-      );
-    };
-
-    measureScale();
-    const observers: ResizeObserver[] = [];
-    for (const element of [topLeftRef.current, bottomLeftRef.current, bottomRightRef.current]) {
-      if (!element) continue;
-      const observer = new ResizeObserver(measureScale);
-      observer.observe(element);
-      observers.push(observer);
-    }
-    return () => observers.forEach((observer) => observer.disconnect());
-  }, [volumeDimensions, axisEntries, topRowHeight]);
-
-  const yDisplaySize =
-    volumeDimensions && byAxis.y
-      ? sliceDisplaySize("y", volumeDimensions, pixelScale)
-      : undefined;
-  const zDisplaySize =
-    volumeDimensions && byAxis.z
-      ? sliceDisplaySize("z", volumeDimensions, pixelScale)
-      : undefined;
-  const xDisplaySize =
-    volumeDimensions && byAxis.x
-      ? sliceDisplaySize("x", volumeDimensions, pixelScale)
-      : undefined;
-
-  const gridTemplateRows = useMemo(() => {
-    if (!volumeDimensions) return "max-content 1fr";
-    const [, dimY, dimZ] = volumeDimensions;
-    const ySliceHeight = dimZ;
-    const zSliceHeight = dimY;
-    if (ySliceHeight <= 0 || zSliceHeight <= 0) return "max-content 1fr";
-    // Top row = Y slices (height dimZ); bottom row = Z slices (height dimY).
-    return `${ySliceHeight}fr ${zSliceHeight}fr`;
-  }, [volumeDimensions]);
-
-  return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gridTemplateRows,
-        gap: 1,
-        width: "100%",
-        height: "100%",
-        minHeight: 0,
-        overflow: "hidden",
-        alignSelf: "stretch",
-      }}
-    >
-      <Box ref={topLeftRef} sx={{ ...volumeTopQuadrantSx, gridColumn: 1, gridRow: 1, p: 0 }}>
-        {byAxis.y ? (
-          <ImageSliderPanel
-            label="Y axis"
-            slices={byAxis.y.slices}
-            sliderPrefix={byAxis.y.sliderPrefix}
-            initialSlice={initialSlice}
-            sliderOnTop
-            axisId="y"
-            onSlicePositionChange={handleSlicePositionChange}
-            compactTop
-            displaySize={yDisplaySize}
-          />
-        ) : null}
-      </Box>
-
-      <Box
-        sx={{
-          ...volumeTopQuadrantSx,
-          gridColumn: 2,
-          gridRow: 1,
-          p: 0.25,
-          alignItems: "stretch",
-          justifyContent: "stretch",
-          alignSelf: "start",
-          height: topRowHeight > 0 ? topRowHeight : undefined,
-          maxHeight: topRowHeight > 0 ? topRowHeight : undefined,
-          overflow: "hidden",
-        }}
-      >
-        <SchematicQuadrant
-          sliceExtents={sliceExtents}
-          slices={slicePositions}
-          activeAxis={activeAxis}
-          maxHeight={topRowHeight}
-        />
-      </Box>
-
-      <Box ref={bottomLeftRef} sx={{ ...volumeBottomQuadrantSx, gridColumn: 1, gridRow: 2 }}>
-        {byAxis.z ? (
-          <ImageSliderPanel
-            label="Z axis"
-            slices={byAxis.z.slices}
-            sliderPrefix={byAxis.z.sliderPrefix}
-            initialSlice={initialSlice}
-            coordinates={coordinates}
-            volumeAxis="z"
-            volumeDimensions={volumeDimensions}
-            showParticles={showParticles}
-            axisId="z"
-            onSlicePositionChange={handleSlicePositionChange}
-            fillAvailable
-            displaySize={zDisplaySize}
-          />
-        ) : null}
-      </Box>
-
-      <Box ref={bottomRightRef} sx={{ ...volumeBottomQuadrantSx, gridColumn: 2, gridRow: 2 }}>
-        {byAxis.x ? (
-          <ImageSliderPanel
-            label="X axis"
-            slices={byAxis.x.slices}
-            sliderPrefix={byAxis.x.sliderPrefix}
-            initialSlice={initialSlice}
-            axisId="x"
-            onSlicePositionChange={handleSlicePositionChange}
-            fillAvailable
-            displaySize={xDisplaySize}
-          />
-        ) : null}
-      </Box>
-    </Box>
-  );
+  if (!available) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+        The volume viewer is provided by EMhub (volume_viewer.js) and is not loaded on this page.
+      </Typography>
+    );
+  }
+  return <Box ref={hostRef} sx={{ flex: 1, minHeight: 0, overflow: "auto", p: 1 }} />;
 }
 
 export default function TableViewerImageSlider({
@@ -706,6 +436,12 @@ export default function TableViewerImageSlider({
       axisEntries.some(([axis]) => axis === "x") &&
       axisEntries.some(([axis]) => axis === "y") &&
       axisEntries.some(([axis]) => axis === "z"));
+
+  const orthoAxes = useMemo(
+    () =>
+      Object.fromEntries(axisEntries.map(([axis, axisContent]) => [axis, axisContent.slices ?? {}])),
+    [axisEntries],
+  );
 
   const fitSingle = fit && !useVolumeLayout && axisEntries.length === 1;
   const hasParticles = (content.coordinates?.x.length ?? 0) > 0;
@@ -752,7 +488,7 @@ export default function TableViewerImageSlider({
             Volume dimensions (X × Y × Z): {content.dimensions.join(" × ")}
             {hasParticles ? ` · ${content.coordinates!.x.length} particles` : ""}
           </Typography>
-          {hasParticles ? (
+          {hasParticles && !useVolumeLayout ? (
             <FormControlLabel
               control={
                 <Switch
@@ -770,7 +506,7 @@ export default function TableViewerImageSlider({
             />
           ) : null}
         </Box>
-      ) : hasParticles ? (
+      ) : hasParticles && !useVolumeLayout ? (
         <FormControlLabel
           control={
             <Switch
@@ -798,12 +534,13 @@ export default function TableViewerImageSlider({
             flexDirection: "column",
           }}
         >
-          <VolumeSliderLayout
-            axisEntries={axisEntries}
-            initialSlice={content.initialSlice}
+          <VolumeViewerHost
+            axes={orthoAxes}
+            dimensions={content.dimensions!}
+            voxelSize={content.voxelSize}
             coordinates={content.coordinates}
-            volumeDimensions={content.dimensions}
-            showParticles={showParticles}
+            viewerConfig={content.viewerConfig}
+            info=""
           />
         </Box>
       ) : (

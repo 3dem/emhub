@@ -868,10 +868,22 @@ export type TableViewerImageSliderContent = {
   axes?: Record<string, TableViewerImageSliderAxis>;
   initialSlice?: string | number;
   dimensions?: [number, number, number];
+  /** Å per voxel of a volume ([x, y, z] or a single number); needed for correct measurements. */
+  voxelSize?: number | number[] | null;
+  /** Volume viewer config (tabs, tools, initialTool, ...), see volume_viewer.js. */
+  viewerConfig?: Record<string, unknown>;
   /** Volume layout: four quadrants — Y (top-left), schematic (top-right), Z (bottom-left), X (bottom-right). */
   layout?: "volume" | "stack";
   /** Picking coordinates overlaid on the Z-axis slider. */
-  coordinates?: { x: number[]; y: number[]; z: number[] };
+  coordinates?: {
+    x: number[];
+    y: number[];
+    z: number[];
+    /** [rot, tilt, psi] in degrees per particle (RELION convention). */
+    angles?: number[][];
+    /** Surface of the picking template: flat vertices (Å) and triangle indices. */
+    template?: { vertices: number[]; faces: number[] };
+  };
 };
 
 export type AnalyzeViewerResolveContext = {
