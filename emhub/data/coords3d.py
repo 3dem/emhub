@@ -9,7 +9,7 @@ from emtools.metadata import StarFile, RelionStar
 from emhub.data.processing import resolve_project_root
 
 ANGLE_COLUMNS = ('rlnAngleRot', 'rlnAngleTilt', 'rlnAnglePsi')
-TEMPLATE_MAX_GRID = 40
+TEMPLATE_MAX_GRID = 64
 # job.star option holding the template map, e.g. "pytom.template  PyTom/job023/x_template.mrc"
 _TEMPLATE_OPTION = re.compile(r'^\s*(\S*template\S*)\s+(\S+\.mrc)\s*$', re.IGNORECASE | re.MULTILINE)
 
@@ -457,7 +457,10 @@ def _template_mesh(path, mtime):
         voxel *= k
     # The padding closes the surface of a map that touches the box
     data = np.pad(data, 1)
-    verts, faces = _surface_nets(data - 0.3 * float(data.max()))
+    # Relative to a high percentile and not to the maximum: a compact dense core
+    # (e.g. a nucleosome) would otherwise leave only a fragment of the template
+    level = 0.3 * float(np.percentile(data, 99.9))
+    verts, faces = _surface_nets(data - level)
     if not len(faces):
         return None
     verts = (verts - 1 - (np.array(data.shape) - 3) / 2.0) * voxel
