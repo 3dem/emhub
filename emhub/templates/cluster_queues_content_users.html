@@ -20,45 +20,58 @@
 <script>
     var users = {{ users|tojson }};
     var labs = {{ labs|tojson }};
+    // Series hidden by the user, kept between refreshes of the content
+    window.clusterHiddenSeries = window.clusterHiddenSeries || {};
 
     (function(window, document, $, undefined) {
         "use strict";
 
-        var categories = [];
-        var series = [
-            {name: 'cores', data: []},
-            {name: 'gpus', data: []},
-            {name: 'jobs', data: []}
-        ]
+        var metrics = ['cores', 'gpus', 'jobs'];
+        // Pending jobs are only known when loading from a data folder
+        if (users.length && 'pending' in users[0])
+            metrics.push('pending');
 
-        for (var i = 0; i < users.length; i++){
-            var user = users[i];
-            categories.push(user.name);
-            series[0].data.push(user.cores);
-            series[1].data.push(user.gpus);
-            series[2].data.push(user.jobs);
+        // Free the plots of the previous refresh (no longer in the page)
+        Highcharts.charts.forEach(function (chart) {
+            if (chart && !document.body.contains(chart.renderTo))
+                chart.destroy();
+        });
+
+        var charts = [];
+
+        // Show/hide the same series in both plots and remember it
+        function legendItemClick() {
+            var name = this.name;
+            var visible = !this.visible;
+            window.clusterHiddenSeries[name] = !visible;
+            charts.forEach(function (chart) {
+                chart.series.forEach(function (s) {
+                    if (s.name === name && s.visible !== visible)
+                        s.setVisible(visible, false);
+                });
+                chart.redraw();
+            });
+            return false;  // already done above
         }
 
-        create_hc_vcolumns('queues-users-plot',
-            {title: 'Usage by Users', categories: categories, series: series})
-
-        categories = [];
-        series = [
-            {name: 'cores', data: []},
-            {name: 'gpus', data: []},
-            {name: 'jobs', data: []}
-        ]
-
-        for (var j = 0; j < labs.length; j++){
-            var lab = labs[j];
-            categories.push(lab.name);
-            series[0].data.push(lab.cores);
-            series[1].data.push(lab.gpus);
-            series[2].data.push(lab.jobs);
+        function createPlot(containerId, title, rows) {
+            var series = metrics.map(function (m) {
+                return {
+                    name: m,
+                    data: rows.map(function (r) { return r[m] || 0; }),
+                    visible: !window.clusterHiddenSeries[m]
+                };
+            });
+            charts.push(create_hc_vcolumns(containerId, {
+                title: title,
+                categories: rows.map(function (r) { return r.name; }),
+                series: series,
+                legendItemClick: legendItemClick
+            }));
         }
 
-        create_hc_vcolumns('queues-labs-plot',
-            {title: 'Usage by Labs', categories: categories, series: series})
+        createPlot('queues-users-plot', 'Usage by Users', users);
+        createPlot('queues-labs-plot', 'Usage by Labs', labs);
 
     })(window, document, window.jQuery);
 

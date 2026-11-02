@@ -610,7 +610,7 @@ function create_hc_columns(containerId, config){
 
 function create_hc_vcolumns(containerId, config){
 
-    Highcharts.chart(containerId, {
+    return Highcharts.chart(containerId, {
         chart: {
             type: 'bar'
         },
@@ -640,6 +640,12 @@ function create_hc_vcolumns(containerId, config){
                     enabled: true
                 },
                 groupPadding: 0.1
+            },
+            series: {
+                events: {
+                    // Optional handler when a series is shown/hidden
+                    legendItemClick: config.legendItemClick
+                }
             }
         },
         legend: {

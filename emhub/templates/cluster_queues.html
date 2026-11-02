@@ -1,4 +1,15 @@
 
+<style>
+    /* As many queue cards per row as fit in the page width */
+    .cluster-nodes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(640px, 1fr));
+        gap: 1rem;
+        align-items: start;
+    }
+    .cluster-node-row { cursor: pointer; }
+</style>
+
 <div class="container-fluid dashboard-content">
     <!-- Header -->
     {% set title = "Cluster Queues " %}
@@ -13,6 +24,21 @@
 
 </div>
 
+<!-- Details of the jobs in a node -->
+<div class="modal fade" id="cluster-node-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title mb-0" id="cluster-node-modal-title"></h3>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="cluster-node-modal-body"></div>
+        </div>
+    </div>
+</div>
+
 <script>
     var reload = 30;
     var reload_counter = reload;  // 60 seconds to reload
@@ -20,6 +46,95 @@
     var tab = {{ tab|tojson }};
     var cluster_name = {{ cluster_name|tojson }};
     var mode = {{ mode|tojson }};
+    // Set by the content on each refresh (cluster_queues_content_nodes.html),
+    // which is included above, so it must not be initialized here
+    var clusterData;
+
+    function escHtml(value) {
+        return $('<div>').text(value == null ? '' : value).html();
+    }
+
+    function showClusterNode(host, account) {
+        var node = clusterData.jobs[host];
+        var labs = clusterData.account_labs;
+        var accounts = node.accounts || {};
+        var users = node.users || {};
+
+        function value(used, total) {
+            return '<strong>' + used + '</strong> / ' + total;
+        }
+
+        var html = '<div class="row mb-3">';
+        var items = [
+            ['Status', escHtml(node.status)],
+            ['Usage', node.usage.toFixed(2) + ' %'],
+            ['Jobs', '<strong>' + node.jobs + '</strong>'],
+            ['Cores', value(node.used_cores, node.max_cores)],
+            ['GPUs', value(node.used_gpus, node.max_gpus)]
+        ];
+        if (node.max_mem)
+            items.push(['Memory (GB)', value(node.used_mem || 0, node.max_mem)]);
+        if (node.gpu_type && node.gpu_type !== 'none')
+            items.push(['GPU type', escHtml(node.gpu_type)]);
+        items.forEach(function (item) {
+            html += '<div class="col-4 mb-2"><label class="mb-0 text-muted">' +
+                    item[0] + '</label><div>' + item[1] + '</div></div>';
+        });
+        html += '</div>';
+
+        var names = Object.keys(users);
+        if (!names.length) {
+            html += '<p class="text-muted">No jobs running in this node.</p>';
+        }
+        else if (Object.keys(accounts).length) {
+            // Data folder: only the totals of each account in the queue
+            html += '<p class="text-muted mb-2">Accounts with jobs in this node. ' +
+                    'Jobs, CPUs and GPUs are the totals of each account in queue <strong>' +
+                    escHtml(node.queue) + '</strong> (LSF does not report them per node).</p>';
+            html += '<table class="table table-sm"><thead class="bg-light"><tr>' +
+                    '<th>Account</th><th>Lab</th><th>Running</th><th>Pending</th>' +
+                    '<th>CPUs</th><th>GPUs</th><th>Nodes</th></tr></thead><tbody>';
+            names.forEach(function (name) {
+                var a = accounts[name] || {};
+                var others = (a.nodes || []).map(function (n) {
+                    return n === host ? '<strong>' + escHtml(n) + '</strong>' : escHtml(n);
+                });
+                html += '<tr class="' + (name === account ? 'table-primary' : '') + '">' +
+                        '<td>' + escHtml(name) + '</td>' +
+                        '<td>' + escHtml(labs[name] || '') + '</td>' +
+                        '<td>' + (a.jobs || 0) + '</td>' +
+                        '<td>' + (a.pending || 0) + '</td>' +
+                        '<td>' + (a.cores || 0) + '</td>' +
+                        '<td>' + (a.gpus || 0) + '</td>' +
+                        '<td><small>' + others.join(' ') + '</small></td></tr>';
+            });
+            html += '</tbody></table>';
+        }
+        else {
+            // Single JSON file: the jobs of each user in this node
+            html += '<table class="table table-sm"><thead class="bg-light"><tr>' +
+                    '<th>User</th><th>Lab</th><th>Job ID</th><th>Cores</th><th>GPUs</th>' +
+                    '</tr></thead><tbody>';
+            names.forEach(function (name) {
+                users[name].forEach(function (job) {
+                    html += '<tr class="' + (name === account ? 'table-primary' : '') + '">' +
+                            '<td>' + escHtml(name) + '</td>' +
+                            '<td>' + escHtml(labs[name] || '') + '</td>' +
+                            '<td>' + escHtml(job.jobid) + '</td>' +
+                            '<td>' + job.cores + '</td>' +
+                            '<td>' + job.gpus + '</td></tr>';
+                });
+            });
+            html += '</tbody></table>';
+        }
+
+        var title = escHtml(host);
+        if (node.queue)
+            title += ' <small class="text-muted">' + escHtml(node.queue) + '</small>';
+        $('#cluster-node-modal-title').html(title);
+        $('#cluster-node-modal-body').html(html);
+        $('#cluster-node-modal').modal('show');
+    }
 
     function selectTab(newTab){
         tab = newTab;

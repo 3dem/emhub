@@ -64,7 +64,7 @@ def index():
                                  content_id='pages',
                                  params=params,
                                  is_devel=app.is_devel,
-                                 version=app.version,
+                                 version=app.get_version(),
                                  emhub_title=app.config.get('EMHUB_TITLE', ''),
                                  **kwargs)
 
