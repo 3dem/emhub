@@ -1,11 +1,19 @@
 // src/components/viewers/volume/volumeMath.ts
 // Geometry and formatting shared by the Slices and 3D tabs of VolumeViewer.
 // Everything is in voxel coordinates of the full volume.
+import type { ParticleTemplate } from "./templateSurface";
 
 export type Axis = "x" | "y" | "z";
 export const AXES: Axis[] = ["x", "y", "z"];
 
 export type Vec3 = { x: number; y: number; z: number };
+
+/** A decoded slice: the host's image, or one drawn from the density grid. */
+export type SliceImage = HTMLImageElement | HTMLCanvasElement;
+
+export function imageSize(img: SliceImage): [number, number] {
+  return img instanceof HTMLImageElement ? [img.naturalWidth, img.naturalHeight] : [img.width, img.height];
+}
 export type VoxelSize = { x: number | null; y: number | null; z: number | null };
 
 /** Picked particles in voxels, optional RELION angles and template surface (Å). */
@@ -15,18 +23,65 @@ export type VolumeCoordinates = {
   z: number[];
   /** [rot, tilt, psi] in degrees per particle (RELION convention). */
   angles?: number[][];
-  /** Surface of the picking template: flat vertices (Å) and triangle indices. */
-  template?: { vertices: number[]; faces: number[] };
+  /** Picking template: surface (flat vertices in Å, triangle indices) and,
+   * optionally, its density to change the threshold (see templateSurface.ts). */
+  template?: ParticleTemplate;
 };
+
+/**
+ * Density for the iso-surface of the "3D volume" tab: a binned grid (block
+ * means) quantized to uint8, with the histogram and statistics computed by
+ * the host from the float values, in the units of the map (EMhub:
+ * data/volume_density.py).
+ */
+export type VolumeDensity = {
+  /** Grid (z, y, x). */
+  shape: [number, number, number];
+  /** Full-volume voxels per grid voxel (not always an integer). */
+  binning: number;
+  /** base64 uint8, x fastest; 0 and 255 are valueRange[0] and [1]. */
+  data: string;
+  /** "zlib": `data` is compressed (decoded by prepareDensity). */
+  encoding?: "zlib" | null;
+  valueRange: [number, number];
+  /** How the host scaled the volume (e.g. "Fourier ×0.776", "block mean ×3"). */
+  method?: string;
+  /** Seconds of each step on the host (`total`; `cached`: it was in memory). */
+  timing?: Record<string, number | boolean>;
+  /** Grid voxels and base64 characters sent. */
+  bytes?: { grid: number; sent: number };
+  /** Of the full-resolution volume. */
+  stats?: { min: number; max: number; mean: number; std: number };
+  histogram?: {
+    /** Bins evenly spread over this range. */
+    range: [number, number];
+    /** Voxels of the full-resolution volume per bin. */
+    counts: number[];
+    /** Voxels of the binned grid (the surface's data) per bin. */
+    shown?: number[];
+    below?: number;
+    above?: number;
+    shownBelow?: number;
+    shownAbove?: number;
+  };
+};
+
+/** Loaded with the DataLoader when the tab is opened; `maxVoxels` is added
+ * to the payload for the chosen detail. The response is VolumeDensity or
+ * {density: VolumeDensity}. */
+export type DensitySource = { path: string; payload?: Record<string, unknown> };
 
 export type VolumeData = {
   /** [X, Y, Z] voxels. */
   dimensions: [number, number, number];
-  /** Slice images (base64 PNG or url) per axis, keyed by slice number. */
-  axes: Record<Axis, Record<string, string>>;
+  /** Slice images (base64 PNG or url) per axis, keyed by slice number; if
+   * missing, the sections are drawn from the density (it must be given). */
+  axes?: Record<Axis, Record<string, string>> | null;
   /** Å per voxel: a number, [x, y, z] or null when unknown. */
   voxelSize?: number | number[] | null;
   coordinates?: VolumeCoordinates | null;
+  /** Density for the "3D volume" tab (the tab is shown only with it). */
+  density?: VolumeDensity | DensitySource | null;
 };
 
 /** Horizontal and vertical voxel axes of each section. */
@@ -46,7 +101,7 @@ export function normVoxel(v: unknown): VoxelSize | null {
 }
 
 /** Sorted slice numbers of each axis. */
-export function sliceKeys(axes: VolumeData["axes"]): Record<Axis, number[]> {
+export function sliceKeys(axes: Record<Axis, Record<string, string>>): Record<Axis, number[]> {
   const keys = {} as Record<Axis, number[]>;
   for (const a of AXES) {
     keys[a] = Object.keys(axes[a] ?? {}).map(Number).sort((p, q) => p - q);
@@ -115,27 +170,37 @@ export function particleRotation(angles: number[] | undefined, k: number): numbe
   return e;
 }
 
+export function isDensitySource(d: VolumeDensity | DensitySource | null | undefined): d is DensitySource {
+  return Boolean(d && !("data" in d && d.data) && "path" in d && d.path);
+}
+
 /**
  * VolumeData from a host response: the data itself, a table-viewer pane
  * ({kind: "imageSlider", axes: {x: {slices}}, dimensions, voxelSize,
- * coordinates}) or EMhub's {paneContent: pane}. null if it has no X, Y and Z
- * slices.
+ * coordinates, density}) or EMhub's {paneContent: pane}. null if it has
+ * neither X, Y and Z slices nor a density.
  */
 export function volumeDataFromPane(input: any): VolumeData | null {
   const pane = input && typeof input === "object" && "paneContent" in input ? input.paneContent : input;
-  if (!pane || typeof pane !== "object" || !pane.axes || !Array.isArray(pane.dimensions)) return null;
-  const axes = {} as VolumeData["axes"];
+  if (!pane || typeof pane !== "object" || !Array.isArray(pane.dimensions)) return null;
+  const density = pane.density && (pane.density.data || pane.density.path) ? pane.density : null;
+  let axes: VolumeData["axes"] = {} as Record<Axis, Record<string, string>>;
   for (const a of AXES) {
-    const ax = pane.axes[a];
+    const ax = pane.axes?.[a];
     const slices = ax && typeof ax === "object" && "slices" in ax ? ax.slices : ax;
-    if (!slices || !Object.keys(slices).length) return null;
+    if (!slices || !Object.keys(slices).length) {
+      axes = null;
+      break;
+    }
     axes[a] = slices;
   }
+  if (!axes && !density) return null;
   const c = pane.coordinates;
   return {
     dimensions: pane.dimensions as [number, number, number],
     axes,
     voxelSize: pane.voxelSize ?? pane.voxel_size ?? null,
     coordinates: c && c.x && c.x.length ? c : null,
+    density,
   };
 }

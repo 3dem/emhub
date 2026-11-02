@@ -38,8 +38,10 @@
             // Same viewer as the OTF dashboard (emflow VolumeViewer)
             EMFlow.mount('VolumeViewer', {
                 container: '#' + volSlider,
+                // The tomogram list shows no 3D volume tab (no density is sent)
                 props: {data: {dimensions: dimensions, axes: slices,
-                               voxelSize: voxelSize, coordinates: coordinates}}
+                               voxelSize: voxelSize, coordinates: coordinates},
+                        tabs: {volume3d: false}}
             });
         }
         else {

@@ -402,10 +402,14 @@ export type TableViewerImageSliderContent = {
   dimensions?: [number, number, number];
   /** Å per voxel of a volume ([x, y, z] or a single number); needed for correct measurements. */
   voxelSize?: number | number[] | null;
-  /** VolumeViewer config (tabs, tools, initialTool, viewSize, particleTolerance),
-   * see VolumeViewerConfig in components/viewers/VolumeViewer.tsx. */
+  /** VolumeViewer config (tabs, initialTab, tools, initialTool, defaults,
+   * viewSize), see VolumeViewerConfig in components/viewers/VolumeViewer.tsx. */
   viewerConfig?: Record<string, unknown>;
-  /** "volume": X, Y and Z slices shown by VolumeViewer (Slices and 3D tabs);
+  /** Density of the volume for VolumeViewer's "3D volume" tab (and its Slices
+   * when there are no `axes`): inline, or {path, payload} to load it with the
+   * DataLoader. See VolumeDensity in components/viewers/volume/volumeMath.ts. */
+  density?: Record<string, unknown> | null;
+  /** "volume": shown by VolumeViewer (X, Y and Z slices, or only a density);
    * "stack": one slider per axis. */
   layout?: "volume" | "stack";
   /** Picking coordinates overlaid on the Z-axis slider. */
@@ -415,8 +419,13 @@ export type TableViewerImageSliderContent = {
     z: number[];
     /** [rot, tilt, psi] in degrees per particle (RELION convention). */
     angles?: number[][];
-    /** Surface of the picking template: flat vertices (Å) and triangle indices. */
-    template?: { vertices: number[]; faces: number[] };
+    /** Surface of the picking template: flat vertices (Å) and triangle indices;
+     * `density` (shape z,y,x, base64 uint8, voxelSize, level) to pick the threshold. */
+    template?: {
+      vertices: number[];
+      faces: number[];
+      density?: { shape: [number, number, number]; data: string; voxelSize: number; level: number };
+    };
   };
 };
 

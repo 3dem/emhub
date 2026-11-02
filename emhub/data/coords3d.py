@@ -10,6 +10,8 @@ from emhub.data.processing import resolve_project_root
 
 ANGLE_COLUMNS = ('rlnAngleRot', 'rlnAngleTilt', 'rlnAnglePsi')
 TEMPLATE_MAX_GRID = 64
+# Grid of the template density sent to the viewer (to pick its threshold)
+TEMPLATE_DENSITY_GRID = 48
 # job.star option holding the template map, e.g. "pytom.template  PyTom/job023/x_template.mrc"
 _TEMPLATE_OPTION = re.compile(r'^\s*(\S*template\S*)\s+(\S+\.mrc)\s*$', re.IGNORECASE | re.MULTILINE)
 
@@ -434,27 +436,53 @@ def _surface_nets(f):
     return verts, faces[(faces >= 0).all(axis=1)]
 
 
-@lru_cache(maxsize=8)
-def _template_mesh(path, mtime):
-    """ Iso-surface of a template map, centered, in Å (x, y, z order). """
-    import mrcfile
-    import numpy as np
-
-    with mrcfile.open(path, permissive=True) as mrc:
-        data = np.asarray(mrc.data, dtype=np.float32)
-        voxel = float(mrc.voxel_size.x)
-    if data.ndim != 3 or voxel <= 0:
-        return None
-    if abs(data.min()) > abs(data.max()):
-        data = -data
-    if data.max() <= 0:
-        return None
-    k = -(-max(data.shape) // TEMPLATE_MAX_GRID)
+def _downsample(data, voxel, grid):
+    """ Average blocks of the map so its longest side is at most grid. """
+    k = -(-max(data.shape) // grid)
     if k > 1:
         crop = tuple(s - s % k for s in data.shape)
         data = data[:crop[0], :crop[1], :crop[2]]
         data = data.reshape(crop[0] // k, k, crop[1] // k, k, crop[2] // k, k).mean(axis=(1, 3, 5))
         voxel *= k
+    return data, voxel
+
+
+def _template_density(data, voxel, level):
+    """ The map for the viewer to pick its own threshold: padded like the mesh,
+    scaled to 0-255 of its maximum, base64 in (z, y, x) order. """
+    import base64
+    import numpy as np
+
+    data, voxel = _downsample(data, voxel, TEMPLATE_DENSITY_GRID)
+    data = np.pad(data, 1)
+    top = float(data.max())
+    u8 = np.clip(np.round(data / top * 255), 0, 255).astype(np.uint8)
+    return {
+        'shape': [int(n) for n in u8.shape],
+        'data': base64.b64encode(u8.tobytes()).decode('ascii'),
+        'voxelSize': round(voxel, 4),
+        # Default threshold of the mesh, as a fraction of the maximum
+        'level': round(level / top, 4),
+    }
+
+
+@lru_cache(maxsize=8)
+def _template_mesh(path, mtime):
+    """ Iso-surface of a template map, centered, in Å (x, y, z order), and its
+    density (see _template_density) so the viewer can change the threshold. """
+    import mrcfile
+    import numpy as np
+
+    with mrcfile.open(path, permissive=True) as mrc:
+        full = np.asarray(mrc.data, dtype=np.float32)
+        voxel0 = float(mrc.voxel_size.x)
+    if full.ndim != 3 or voxel0 <= 0:
+        return None
+    if abs(full.min()) > abs(full.max()):
+        full = -full
+    if full.max() <= 0:
+        return None
+    data, voxel = _downsample(full, voxel0, TEMPLATE_MAX_GRID)
     # The padding closes the surface of a map that touches the box
     data = np.pad(data, 1)
     # Relative to a high percentile and not to the maximum: a compact dense core
@@ -469,6 +497,7 @@ def _template_mesh(path, mtime):
     return {
         'vertices': [round(float(v), 2) for v in verts.ravel()],
         'faces': [int(i) for i in faces.ravel()],
+        'density': _template_density(full, voxel0, level),
     }
 
 

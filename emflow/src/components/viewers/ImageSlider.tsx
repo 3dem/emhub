@@ -384,7 +384,8 @@ export default function ImageSlider({
     setShowParticles(true);
   }, [content.coordinates?.x.length, content.title]);
 
-  if (!axisEntries.length) {
+  // A volume may come only as its density (VolumeViewer draws the slices)
+  if (!axisEntries.length && content.layout !== "volume") {
     return (
       <Box sx={{ p: 3 }}>
         <Typography variant="body2" color="text.secondary">

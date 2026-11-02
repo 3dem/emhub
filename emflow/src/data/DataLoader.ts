@@ -41,6 +41,8 @@ export type LoadOptions = {
 
 const DEFAULT_MAX_ENTRIES = 200;
 
+let sharedEmhub: DataLoader | null = null;
+
 function abortError() {
   return new DOMException("The request was aborted", "AbortError");
 }
@@ -73,8 +75,11 @@ export class DataLoader {
   /**
    * Loader for EMhub's API: POST `{attrs: payload}` as JSON (as
    * send_ajax_json does) and fail with the `error` of the response.
+   * Without options it is one shared loader, so the components of all the
+   * mounts of a page share its cache (e.g. a volume is loaded once).
    */
-  static emhub(options: Omit<DataLoaderOptions, "wrapPayload" | "unwrapResponse"> = {}) {
+  static emhub(options?: Omit<DataLoaderOptions, "wrapPayload" | "unwrapResponse">): DataLoader {
+    if (!options) return (sharedEmhub ??= DataLoader.emhub({}));
     return new DataLoader({
       credentials: "same-origin",
       ...options,

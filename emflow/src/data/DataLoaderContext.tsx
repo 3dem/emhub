@@ -16,7 +16,8 @@ export function useDataLoader(): DataLoader {
 
 export type LoadState<T> =
   | { status: "idle" | "loading"; data?: undefined; error?: undefined }
-  | { status: "ready"; data: T; error?: undefined }
+  /** ms: from the request to the data (about 0 when cached). */
+  | { status: "ready"; data: T; error?: undefined; ms: number }
   | { status: "error"; data?: undefined; error: Error };
 
 /**
@@ -36,9 +37,10 @@ export function useLoad<T>(path: string | null | undefined, payload?: unknown): 
     }
     const ctrl = new AbortController();
     setState({ status: "loading" });
+    const t0 = performance.now();
     loader
       .load<T>(path, JSON.parse(payloadKey), { signal: ctrl.signal })
-      .then((data) => setState({ status: "ready", data }))
+      .then((data) => setState({ status: "ready", data, ms: performance.now() - t0 }))
       .catch((error) => {
         if (!ctrl.signal.aborted) setState({ status: "error", error: error instanceof Error ? error : new Error(String(error)) });
       });

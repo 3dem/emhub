@@ -85,6 +85,8 @@
     var viewer = EMFlow.mountProjectPage({
       container: host,
       service: svc,
+      // Data the viewers load themselves (e.g. the density of a volume)
+      loader: EMFlow.DataLoader.emhub(),
       projectName: String(project_id),
     });
 

@@ -3,7 +3,7 @@
 ## Mount API
 
 Any registered component (`EMFlow.components`: `ProjectPage`, `VolumeViewer`,
-`Plot`, `ImageSlider`, `TableViewerContent`) is mounted the same way:
+`Plot`, `ImageSlider`, `TableViewerContent`, `TableViewerGrid`) is mounted the same way:
 
 ```js
 const h = EMFlow.mount("VolumeViewer", {
@@ -46,7 +46,8 @@ transport:
 ```js
 new EMFlow.DataLoader({ request: (path, payload, { signal }) => promise });  // host transport
 new EMFlow.DataLoader({ baseUrl, wrapPayload, unwrapResponse, headers });   // fetch POST JSON
-EMFlow.DataLoader.emhub();   // EMhub API: body {attrs: payload}, throws the response `error`
+EMFlow.DataLoader.emhub();   // EMhub API: body {attrs: payload}, throws the response `error`;
+                             // without options one shared loader (shared cache)
 ```
 
 `load(path, payload)` caches responses (LRU, `maxEntries` 200) and shares a

@@ -99,6 +99,10 @@ export default function TableViewerContent({
         case "plotly": {
             const backendLayout = (content.figure.layout ?? {}) as Record<string, unknown>;
             const backendMargin = (backendLayout.margin ?? {}) as Record<string, number>;
+            // A figure with its own title (e.g. the FSC plot) keeps its look:
+            // title, margins and font
+            const ownTitle = backendLayout.title != null;
+            const font = (backendLayout.font ?? {}) as Record<string, unknown>;
             return (
                 <Box sx={{ p: 1, height: "100%", minHeight: 0 }}>
                     <Plot
@@ -108,7 +112,14 @@ export default function TableViewerContent({
                             autosize: true,
                             // Fitted (grid cells): small margins and font,
                             // so the plot area is not squeezed
-                            margin: fit
+                            margin: fit && ownTitle
+                                ? {
+                                    l: backendMargin.l ?? 52,
+                                    r: backendMargin.r ?? 8,
+                                    t: backendMargin.t ?? 40,
+                                    b: backendMargin.b ?? 40,
+                                }
+                                : fit
                                 ? {
                                     l: 52,
                                     r: 8,
@@ -118,11 +129,13 @@ export default function TableViewerContent({
                                 : {
                                     l: backendMargin.l ?? 72,
                                     r: backendMargin.r ?? 16,
-                                    t: content.title ? 40 : (backendMargin.t ?? 16),
+                                    t: content.title || ownTitle ? backendMargin.t ?? 40 : (backendMargin.t ?? 16),
                                     b: backendMargin.b ?? 56,
                                 },
-                            ...(fit ? { font: { size: 10 } } : {}),
-                            title: normalizeTitles({ title: content.title ?? backendLayout.title }).title,
+                            ...(fit ? { font: { ...font, size: font.size ?? 10 } } : {}),
+                            title: ownTitle
+                                ? normalizeTitles(backendLayout).title
+                                : normalizeTitles({ title: content.title }).title,
                         }}
                         config={{
                             ...(content.figure.config as Record<string, unknown> | undefined),

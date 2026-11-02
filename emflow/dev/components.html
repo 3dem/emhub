@@ -31,6 +31,24 @@
           <h6>VolumeViewer, loaded with a DataLoader (<code>source</code>)</h6><div id="vol-source"></div>
         </div></div></div>
       </div>
+      <div class="row mt-3">
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>VolumeViewer, a 3D class: only its density (slices drawn from it; no 3D planes, crosshair nor particles)</h6>
+          <div id="vol-class"></div>
+        </div></div></div>
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>VolumeViewer, tomogram list config (no 3D volume tab)</h6><div id="vol-list"></div>
+        </div></div></div>
+      </div>
+      <div class="card mt-3"><div class="card-body">
+        <h6>WarpPopulation pane (TableViewerGrid): a species map (real data in node_modules/.dev-data, see below) over its FSC</h6>
+        <div id="warp-pane" style="height: 900px"></div>
+      </div></div>
+      <div class="card mt-3"><div class="card-body">
+        <h6>WarpPopulation panes from the sample projects (node_modules/.dev-data/panes.json, not in the repository):
+          <select id="pane-select"></select></h6>
+        <div id="pane-demo" style="height: 820px"></div>
+      </div></div>
       <div class="card mt-3"><div class="card-body">
         <h6>Plot (bundled plotly.js <span id="plotly-version"></span>)</h6><div id="plot"></div>
       </div></div>
@@ -52,31 +70,109 @@
         }
         return out;
       }
+      // Picking template as EMhub sends it (coords3d.py): a surface in Å,
+      // centered; here a cone pointing along +Z, so orientations are visible
+      function coneTemplate(radius, height, n = 16) {
+        const vertices = [0, 0, height / 2, 0, 0, -height / 2], faces = [];
+        for (let i = 0; i < n; i++) {
+          const a = (2 * Math.PI * i) / n;
+          vertices.push(radius * Math.cos(a), radius * Math.sin(a), -height / 2);
+          const v = 2 + i, w = 2 + ((i + 1) % n);
+          faces.push(0, v, w, 1, w, v);
+        }
+        return { vertices, faces };
+      }
+      // Density of the cone (z, y, x grid, uint8 base64, as EMhub's _template_density)
+      // with a denser core at its base, so the threshold changes what is drawn
+      function coneDensity(radius, height, voxel = 10, n = 34) {
+        const u8 = new Uint8Array(n * n * n), c = (n - 1) / 2;
+        for (let z = 0; z < n; z++) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+          const X = (x - c) * voxel, Y = (y - c) * voxel, Z = (z - c) * voxel;
+          const r = radius * (0.5 - Z / height), d = Math.hypot(X, Y);
+          const cone = Z >= -height / 2 && Z <= height / 2 && r > 0 ? Math.max(0, 1 - d / r) : 0;
+          const core = Math.exp(-(X * X + Y * Y + (Z + height / 3) ** 2) / (radius * radius / 3));
+          u8[(z * n + y) * n + x] = Math.round(Math.min(1, 0.5 * cone + core) * 255);
+        }
+        let bin = "";
+        for (let i = 0; i < u8.length; i += 8192) bin += String.fromCharCode(...u8.subarray(i, i + 8192));
+        return { shape: [n, n, n], data: btoa(bin), voxelSize: voxel, level: 0.2 };
+      }
       // X sections are upright (Y rows, Z columns), as EMhub sends them
-      function volume(X, Y, Z, n) {
-        const coordinates = { x: [], y: [], z: [] };
+      function volume(X, Y, Z, n, template) {
+        const coordinates = { x: [], y: [], z: [], angles: [] };
         for (let i = 0; i < n; i++) {
           coordinates.x.push(20 + ((i * 37) % (X - 40)));
           coordinates.y.push(20 + ((i * 71) % (Y - 40)));
           coordinates.z.push(10 + ((i * 5) % (Z - 20)));
+          coordinates.angles.push([(i * 47) % 360, (i * 29) % 180, (i * 13) % 360]);   // rot, tilt, psi
         }
+        if (template) coordinates.template = template;
         return { kind: "imageSlider", layout: "volume", dimensions: [X, Y, Z], voxelSize: 13.48,
                  axes: { x: { slices: slices(X, "X", Z, Y) }, y: { slices: slices(Y, "Y", X, Z) },
                          z: { slices: slices(Z, "Z", X, Y) } },
                  coordinates };
       }
 
+      // A map as EMhub's data/volume_density.py sends it: blobs + noise, binned
+      // by f (block means), histograms of the full and binned values over the
+      // 0.01-99.99 percentiles, uint8 over the binned values
+      function mapDensity(X, Y, Z, f, noise = 0.35, dark = false) {
+        let seed = 7;
+        const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+        const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+        const blobs = [];
+        for (let i = 0; i < 14; i++) blobs.push([X * (0.2 + 0.6 * rnd()), Y * (0.2 + 0.6 * rnd()), Z * (0.25 + 0.5 * rnd()),
+                                                 Math.min(X, Y, Z) * (0.05 + 0.08 * rnd())]);
+        const full = new Float32Array(X * Y * Z);
+        for (let z = 0; z < Z; z++) for (let y = 0; y < Y; y++) for (let x = 0; x < X; x++) {
+          let v = 0;
+          for (const [bx, by, bz, r] of blobs) v += Math.exp(-((x - bx) ** 2 + (y - by) ** 2 + (z - bz) ** 2) / (r * r));
+          full[(z * Y + y) * X + x] = (dark ? -1 : 1) * Math.min(v, 1.2) + noise * gauss();
+        }
+        const nx = Math.ceil(X / f), ny = Math.ceil(Y / f), nz = Math.ceil(Z / f);
+        const grid = new Float32Array(nx * ny * nz), cnt = new Float32Array(nx * ny * nz);
+        let min = Infinity, max = -Infinity, sum = 0, sum2 = 0;
+        for (let z = 0; z < Z; z++) for (let y = 0; y < Y; y++) for (let x = 0; x < X; x++) {
+          const v = full[(z * Y + y) * X + x], g = (Math.floor(z / f) * ny + Math.floor(y / f)) * nx + Math.floor(x / f);
+          grid[g] += v; cnt[g]++; min = Math.min(min, v); max = Math.max(max, v); sum += v; sum2 += v * v;
+        }
+        for (let i = 0; i < grid.length; i++) grid[i] /= cnt[i];
+        const pct = (a, q) => { const s = Float32Array.from(a).sort(); return s[Math.floor(q * (s.length - 1))]; };
+        const lo = pct(full, 1e-4), hi = pct(full, 1 - 1e-4), B = 200;
+        const hist = (a) => { const c = new Array(B).fill(0); let below = 0, above = 0;
+          for (const v of a) { if (v < lo) below++; else if (v > hi) above++; else c[Math.min(B - 1, Math.floor((v - lo) / (hi - lo) * B))]++; }
+          return [c, below, above]; };
+        const [counts, below, above] = hist(full), [shown, shownBelow, shownAbove] = hist(grid);
+        const q0 = pct(grid, 1e-4), q1 = pct(grid, 1 - 1e-4);
+        const u8 = new Uint8Array(grid.length);
+        for (let i = 0; i < grid.length; i++) u8[i] = Math.max(0, Math.min(255, Math.round((grid[i] - q0) * 255 / (q1 - q0))));
+        let bin = "";
+        for (let i = 0; i < u8.length; i += 8192) bin += String.fromCharCode(...u8.subarray(i, i + 8192));
+        const n = X * Y * Z, mean = sum / n;
+        return { shape: [nz, ny, nx], binning: f, data: btoa(bin), valueRange: [q0, q1], dimensions: [X, Y, Z],
+                 stats: { min, max, mean, std: Math.sqrt(sum2 / n - mean * mean) },
+                 histogram: { range: [lo, hi], counts, shown, below, above, shownBelow, shownAbove } };
+      }
+
       const inline = EMFlow.mount("VolumeViewer", {
         container: "#vol-inline",
-        props: { data: volume(200, 160, 50, 15), info: "200 × 160 × 50 voxels",
+        props: { data: volume(200, 160, 50, 15, { ...coneTemplate(60, 220), density: coneDensity(60, 220) }),
+                 info: "200 × 160 × 50 voxels, 15 particles with a cone template (3D planes tab)",
                  onSelect: (p) => console.log("[dev] select", p) },
       });
       window.devInline = inline;
 
-      // A host transport answering like EMhub's resolve_table_view_pane
+      // A host transport answering like EMhub's resolve_table_view_pane and
+      // fetch_volume_density (window.devRequests counts the requests)
+      window.devRequests = [];
       const loader = new EMFlow.DataLoader({
-        request: (path, payload) => new Promise((resolve) =>
-          setTimeout(() => resolve({ paneContent: volume(120, 120, 40, 0), echo: { path, payload } }), 500)),
+        request: (path, payload) => new Promise((resolve) => {
+          window.devRequests.push({ path, payload });
+          setTimeout(() => resolve(path.endsWith("fetch_volume_density")
+            ? { density: mapDensity(120, 120, 40, (payload.maxVoxels || 2e6) < 4e5 ? 2 : 1, 0.45, true) }
+            : { paneContent: { ...volume(120, 120, 40, 0),
+                density: { path: "/api/fetch_volume_density", payload: { root: "/dev", path: "tomo.mrc" } } } }), 500);
+        }),
       });
       window.devSource = EMFlow.mount("VolumeViewer", {
         container: "#vol-source",
@@ -84,6 +180,56 @@
         props: { source: { path: "/api/resolve_table_view_pane", payload: { actionId: "volume-slices" } },
                  tools: { ruler: false } },
       });
+
+      // 3D class: as build_class3d_volume_pane_content sends it (CLASS3D_VIEWER_CONFIG)
+      window.devClass = EMFlow.mount("VolumeViewer", {
+        container: "#vol-class",
+        props: { data: { kind: "imageSlider", layout: "volume", dimensions: [64, 64, 64], voxelSize: 2.1,
+                         density: mapDensity(64, 64, 64, 1, 0.3) },
+                 tabs: { view3d: false }, initialTab: "volume3d",
+                 tools: { crosshair: false, particles: false }, defaults: { iso: { dust: 100 } } },
+      });
+      // The tomogram list (processing_tomogram_card.html)
+      window.devList = EMFlow.mount("VolumeViewer", {
+        container: "#vol-list",
+        props: { data: volume(160, 120, 40, 8), tabs: { volume3d: false } },
+      });
+
+      // WarpPopulation pane as build_warp_pane_content sends it. The density and
+      // the FSC are files written from EMPIAR-10491's apoferritin (not in the
+      // repository: node_modules/.dev-data/apof_density.json, fsc.json); the
+      // pane shows an error without them
+      fetch("/node_modules/.dev-data/fsc.json").then((r) => r.json()).catch(() => null).then((fsc) => {
+        window.devWarp = EMFlow.mount("TableViewerGrid", {
+          container: "#warp-pane",
+          loader: new EMFlow.DataLoader({
+            request: (path) => fetch("/node_modules/.dev-data/apof_density.json").then((r) => {
+              if (!r.ok) throw new Error("No node_modules/.dev-data/apof_density.json");
+              return r.json();
+            }),
+          }),
+          props: { content: { kind: "grid", title: "apoferritin — apoferritin_filtsharp.mrc", layout: "rows", cells: {
+            top: { kind: "imageSlider", layout: "volume", title: "apoferritin_filtsharp.mrc", dimensions: [330, 330, 330],
+                   voxelSize: 0.7894,
+                   density: { path: "/api/fetch_volume_density", payload: { root: "/dev", path: "m/apoferritin_filtsharp.mrc", maxSize: 256 } },
+                   viewerConfig: { tabs: { view3d: false }, initialTab: "volume3d",
+                                   tools: { crosshair: false, particles: false }, defaults: { iso: { dust: 100 } } } },
+            bottom: fsc || { kind: "empty", title: "FSC", message: "No node_modules/.dev-data/fsc.json" },
+          } } },
+        });
+      });
+
+      // Panes written by build_warp_pane_content for the Betagal (emwrap) and
+      // EMPIAR-10491 (Warp alone) populations
+      fetch("/node_modules/.dev-data/panes.json").then((r) => r.json()).then((panes) => {
+        const select = document.getElementById("pane-select");
+        select.innerHTML = Object.keys(panes).map((k) => `<option>${k}</option>`).join("");
+        select.value = "bgal_refinement";
+        window.devPanes = EMFlow.mount("TableViewerGrid", {
+          container: "#pane-demo", props: { content: panes[select.value] },
+        });
+        select.onchange = () => window.devPanes.update({ content: panes[select.value] });
+      }).catch(() => { document.getElementById("pane-demo").textContent = "No node_modules/.dev-data/panes.json"; });
 
       document.getElementById("plotly-version").textContent = EMFlow.Plotly.version;
       window.devPlot = EMFlow.mount("Plot", {

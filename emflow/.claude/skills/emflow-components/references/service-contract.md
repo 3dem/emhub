@@ -115,8 +115,49 @@ table: TableViewerData = {
   -> `TableViewerPaneContent` (`empty`, `text`, `html`, `iframe`, `image`,
   `plotly`, `imageSlider`, `grid`). An `imageSlider` with `layout: "volume"`
   (dimensions and X, Y, Z slices, optional `voxelSize`, `coordinates` with
-  `angles` / `template`, and `viewerConfig` for the VolumeViewer tabs/tools)
-  is shown by `VolumeViewer`. Plot titles may be strings or `{text}`.
+  `angles` / `template` — `{vertices, faces, density?}`, where `density` is
+  `{shape: [z, y, x], data: base64 uint8, voxelSize, level}` from
+  `coords3d.py` `_template_density`, ≤ 48³ — `density` of the volume for
+  the 3D volume tab and `viewerConfig` for the VolumeViewer tabs, tools and
+  defaults) is shown by `VolumeViewer`. The X, Y, Z slices may be missing
+  when `density` is inline (the slices are drawn from it). The volume
+  `density` is inline (`VolumeDensity`: `{shape: [z, y, x], binning, data:
+  base64 uint8, valueRange, stats {min, max, mean, std}, histogram {range,
+  counts, shown, below, above, shownBelow, shownAbove}}` from EMhub's
+  `data/volume_density.py`: block-mean binned grid ≤ maxVoxels, or Fourier
+  scaled (emtools `Image._fourier_rescale`) to a longest side ≤ maxSize for
+  maps, then `binning` is the real factor and `method` says which; `data` may
+  be zlib compressed (`encoding: "zlib"`); `timing` (seconds of each server
+  step, `cached`) and `bytes {grid, sent}` for the debug line; histogram of
+  every full-resolution voxel and of the binned grid in map units, computed
+  from the float values before the uint8 conversion) or a request `{path,
+  payload}` (EMhub: `/api/fetch_volume_density` with `{root, path,
+  maxVoxels, maxSize}`, answering `{density}`) loaded with the DataLoader when
+  needed.
+  EMhub builds these panes with `build_volume_viewer_pane_content(root, rel,
+  slices=, density='lazy' | 'inline' | None, max_voxels=, max_size=,
+  viewer_config=)`; tomograms of the table viewer (Tomograms,
+  TomoCoordinates, TomoParticles) get slices only and
+  `TOMOGRAM_VIEWER_CONFIG` (`tabs {volume3d: false}`). A WarpPopulation output (EMhub `api_viewers_warp.py`,
+  data from `data/warp_m.py`) is a table of the 3D volumes of its species
+  (sharpened map first; species, volume, box, Å/px, resolution, particles; a
+  species without maps still gets a row). Its row panes (`grid`s):
+  - volume (default, `span-top`): the volume (VolumeViewer, density request
+    with maxSize 256) above the Plotly FSC curves (`*_fsc.star`, the look of
+    the former Highcharts plot: own title, dashed 0.5 / 0.143, reversed
+    resolution, legend below) and the local resolution histogram
+    (`*_localres.star`, with its median).
+  - refinement (`span-top`): resolution and B-factor per round (a point per
+    new species version), the species summary (html) and the rounds (html:
+    job, program, options, resolution, B-factor, time, version). Rounds come
+    from the chain of emwrap jobs (job.star input population, info.json
+    time), or from the species versions Warp keeps when not in emwrap jobs.
+  - tilt series (`rows`): score gain vs particles per tilt series (colored by
+    time) and a table, lowest gain first, from the refine_*.log of the last
+    M refinement (its own logs, or an earlier job's in the chain;
+    EstimateWeights logs have no iterations and are skipped).
+  A plotly figure with its own `layout.title` keeps it, its margins and font
+  in grid cells. Plot titles may be strings or `{text}`.
 - `grid` (`table-viewer-grid.tsx`) shows up to 4 panes in a 2 x 2 grid:
   `{kind: "grid", title?, layout, cells: {slot: paneContent}}`. The layout
   names the slots: `2x2` (topLeft, topRight, bottomLeft, bottomRight),

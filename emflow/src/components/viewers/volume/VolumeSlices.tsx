@@ -14,8 +14,10 @@ import {
   nearest,
   clampVox,
   rulerLength,
+  imageSize,
   type Axis,
   type Ruler,
+  type SliceImage,
   type Vec3,
   type VolumeCoordinates,
   type VoxelSize,
@@ -49,11 +51,13 @@ type Props = {
   particles: VolumeCoordinates | null;
   tolerance: number;
   hideLines: boolean;
+  /** Color of the particle dots (the selected one is red). */
+  particleColor: string;
   inverted: boolean;
   rulers: Record<Axis, Ruler | null>;
   voxelSize: VoxelSize | null;
-  getImage: (a: Axis, key: number) => HTMLImageElement | null;
-  loadImage: (a: Axis, key: number) => Promise<HTMLImageElement>;
+  getImage: (a: Axis, key: number) => SliceImage | null;
+  loadImage: (a: Axis, key: number) => Promise<SliceImage>;
   onPosition: (p: Partial<Vec3>) => void;
   onParticle: (index: number) => void;
   onRuler: (a: Axis, ruler: Ruler | null) => void;
@@ -114,7 +118,8 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
       return;
     }
     const sz = p.current.size[a];
-    const rx = img.naturalWidth / sz[0], ry = img.naturalHeight / sz[1];
+    const [iw, ih] = imageSize(img);
+    const rx = iw / sz[0], ry = ih / sz[1];
     v.img.clearRect(0, 0, v.cw, v.ch);
     v.img.drawImage(img, w.x0 * rx, w.y0 * ry, w.w * rx, w.h * ry, 0, 0, v.cw, v.ch);
     v.drawn = stamp;
@@ -123,7 +128,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   const drawOverlay = useCallback((a: Axis) => {
     const v = views.current[a];
     if (!v) return;
-    const { pos, sel, mode, partsOn, particles: P, tolerance, hideLines, rulers, voxelSize } = p.current;
+    const { pos, sel, mode, partsOn, particles: P, tolerance, hideLines, rulers, voxelSize, particleColor } = p.current;
     const ctx = v.ov, [ha, va] = HV[a];
     ctx.clearRect(0, 0, v.cw, v.ch);
     // Crosshair lines of the other two sections
@@ -143,7 +148,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
         if (q[0] < -8 || q[1] < -8 || q[0] > v.cw + 8 || q[1] > v.ch + 8) continue;
         ctx.beginPath();
         ctx.arc(q[0], q[1], i === sel ? 4 : 2.5, 0, 2 * Math.PI);
-        ctx.fillStyle = i === sel ? "#ff3b30" : "#ffa500";
+        ctx.fillStyle = i === sel ? "#ff3b30" : particleColor;
         ctx.fill();
         ctx.lineWidth = 1;
         ctx.strokeStyle = "rgba(0,0,0,.6)";
@@ -221,7 +226,8 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   // Everything else that is drawn
   useEffect(() => {
     drawAll();
-  }, [props.pos, props.sel, props.mode, props.partsOn, props.hideLines, props.rulers, props.tolerance, drawAll]);
+  }, [props.pos, props.sel, props.mode, props.partsOn, props.hideLines, props.rulers, props.tolerance,
+      props.particleColor, drawAll]);
 
   useImperativeHandle(ref, () => ({
     setWindow(a, win) {

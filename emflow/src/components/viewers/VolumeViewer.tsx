@@ -1,15 +1,22 @@
 // src/components/viewers/VolumeViewer.tsx
 //
-// Config-driven volume (tomogram) viewer with two tabs:
+// Config-driven volume viewer (tomograms, maps) with up to three tabs:
 //   - Slices: linked X/Y/Z sections (volume/VolumeSlices.tsx) with select,
 //     ruler, zoom and pan tools, contrast, crosshair and particles.
-//   - 3D: three orthogonal planes in a rotatable scene, at most two shown,
-//     the faint whole volume and the particles or their template
+//   - 3D planes: three orthogonal planes in a rotatable scene, at most two
+//     shown, the faint whole volume and the particles or their template
 //     (volume/VolumeScene3D.ts).
-// The data is given inline (`data`) or loaded with the DataLoader (`source`,
-// e.g. EMhub's resolve_table_view_pane). Mountable from the host:
-//   EMFlow.mount("VolumeViewer", {container, props: {data | source, ...}})
+//   - 3D volume: the density as an iso-surface with its histogram, threshold
+//     and opacity (volume/IsoSurfaceView.tsx); only with a `density`.
+// The slices are the host's images (`axes`) or, without them, drawn from the
+// density grid, so a small map is sent once for both tabs. The data is given
+// inline (`data`) or loaded with the DataLoader (`source`, e.g. EMhub's
+// resolve_table_view_pane), and so is the density (loaded when needed).
+// Which tabs, tools and defaults are used is set per use (VolumeViewerConfig,
+// e.g. a pane's viewerConfig). Mountable from the host:
+//   EMFlow.mount("VolumeViewer", {container, props: {data | source, ...config}})
 // and its handle (`instance`) has getPosition / setPosition / setTool.
+// The expand button lays it over the whole browser window (Esc to go back).
 import {
   forwardRef,
   useCallback,
@@ -22,8 +29,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
   Contrast,
   Crosshair,
   EyeOff,
@@ -43,9 +48,13 @@ import VolumeSlices, {
   type VolumeSlicesHandle,
 } from "./volume/VolumeSlices";
 import { VolumeScene3D, type SceneState } from "./volume/VolumeScene3D";
+import ParticlesPanel, { type ParticleOptions } from "./volume/ParticlesPanel";
+import IsoSurfaceView, { type DensityDebug, type IsoDefaults, type IsoSurfaceHandle } from "./volume/IsoSurfaceView";
+import { densitySlice, densitySliceKeys, prepareDensity } from "./volume/densityGrid";
 import {
   AXES,
   clampVox,
+  isDensitySource,
   normVoxel,
   rulerLength,
   scaleText,
@@ -54,17 +63,49 @@ import {
   volumeDataFromPane,
   type Axis,
   type Ruler,
+  type SliceImage,
   type Vec3,
   type VolumeData,
+  type VolumeDensity,
 } from "./volume/volumeMath";
 
-export type { VolumeData } from "./volume/volumeMath";
+export type { VolumeData, VolumeDensity } from "./volume/volumeMath";
+
+export type VolumeViewerTab = "slices" | "view3d" | "volume3d";
+
+/** Initial state of the options (the user can change them). */
+export type VolumeViewerDefaults = {
+  particles?: {
+    /** Shown (true). */
+    show?: boolean;
+    /** Only those near the sections in Slices (true) / the planes in 3D planes (false). */
+    nearSlices?: boolean;
+    near3d?: boolean;
+    /** Slab half-thickness of "near", voxels (10). */
+    tolerance?: number;
+    /** CSS hex (#ffa500). */
+    color?: string;
+    /** Drawn as the oriented template (false: dots). */
+    template?: boolean;
+  };
+  /** Shown planes of 3D planes, at most two (["z", "y"]). */
+  planes?: Axis[];
+  /** Inverted contrast (false). */
+  inverted?: boolean;
+  /** 3D volume: threshold or share of voxels enclosed, dark density, opacity,
+   * color and detail of the grid (see IsoDefaults). */
+  iso?: IsoDefaults;
+};
 
 export type VolumeViewerConfig = {
-  /** Shown tabs (both by default). */
-  tabs?: { slices?: boolean; view3d?: boolean };
-  /** Tools (all on by default; particles "auto": only if there are particles).
-   * ruler and zoom exist only in Slices; volume only in 3D. */
+  /** Shown tabs: all by default; 3D volume only with a density. */
+  tabs?: { slices?: boolean; view3d?: boolean; volume3d?: boolean };
+  /** Tab shown first (the first shown tab). */
+  initialTab?: VolumeViewerTab;
+  /** Tools (all on by default; particles "auto": only if there are particles,
+   * false: neither drawn nor in the toolbar). ruler and zoom exist only in
+   * Slices; volume only in 3D planes. crosshair false: no slice lines at all
+   * (and no button to show or hide them, as with lines false). */
   tools?: {
     select?: boolean;
     ruler?: boolean;
@@ -74,12 +115,17 @@ export type VolumeViewerConfig = {
     volume?: boolean;
     invert?: boolean;
     lines?: boolean;
+    crosshair?: boolean;
   };
   initialTool?: Mode;
+  defaults?: VolumeViewerDefaults;
   /** Longest side of the Z section in px (520). */
   viewSize?: number;
-  /** Slab half-thickness (voxels) of the particles shown on a section (10). */
+  /** Same as defaults.particles.tolerance (kept for older hosts). */
   particleTolerance?: number;
+  /** A line under the viewer with how long the volume took on the host,
+   * to load and to decode (DEBUG_TIMING by default). */
+  debug?: boolean;
 };
 
 export type VolumeViewerProps = VolumeViewerConfig & {
@@ -105,6 +151,30 @@ export type VolumeViewerHandle = {
 
 const MODES: Exclude<Mode, null>[] = ["select", "ruler", "zoom", "pan"];
 const VOL_OPACITY = 0.35;
+/** Default of the `debug` line (timing of the volume); false to hide it. */
+export const DEBUG_TIMING = true;
+
+/** The debug line: host steps, request, size, decoding and filters. */
+function debugText(info: DensityDebug): string {
+  const d = info.density;
+  const parts: string[] = [];
+  const s = (sec: unknown) => `${Number(sec).toFixed(2)} s`;
+  if (d?.timing) {
+    const { total, cached, ...steps } = d.timing;
+    const detail = Object.entries(steps).map(([k, v]) => `${k} ${s(v)}`).join(", ");
+    parts.push(`server ${s(total)}${detail ? ` (${detail})` : ""}${cached ? " (in the server cache)" : ""}`);
+  }
+  if (info.from === "request" && info.requestMs !== undefined) {
+    parts.push(`request ${(info.requestMs / 1000).toFixed(2)} s${info.requestMs < 5 ? " (cached)" : ""}`);
+  } else if (info.from === "inline") {
+    parts.push("sent with the pane");
+  }
+  if (d?.bytes) parts.push(`${(d.bytes.sent / 1e6).toFixed(1)} MB${d.encoding ? ` ${d.encoding}` : ""}`);
+  if (info.decodeMs !== undefined) parts.push(`decode ${Math.round(info.decodeMs)} ms`);
+  if (d) parts.push(`grid ${[...d.shape].reverse().join("×")}${d.method ? ` (${d.method})` : ""}`);
+  if (info.filterMs !== undefined) parts.push(`dust ${Math.round(info.filterMs)} ms (${info.hidden ?? 0} blobs)`);
+  return parts.join(" · ");
+}
 
 const svg = (children: ReactNode) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
@@ -114,7 +184,6 @@ const svg = (children: ReactNode) => (
 );
 const ICON_PARTICLES = svg(<><circle cx="5" cy="5" r="2.5" /><circle cx="11" cy="6" r="2.5" /><circle cx="7" cy="11.5" r="2.5" /></>);
 const ICON_VOLUME = svg(<><path d="M8 1.5l6 3v7l-6 3-6-3v-7z" strokeDasharray="2 2" /><path d="M2 4.5l6 3 6-3M8 7.5v7" /></>);
-const ICON_TEMPLATE = svg(<><ellipse cx="8" cy="10.5" rx="6" ry="3.5" /><ellipse cx="8" cy="5.5" rx="3.6" ry="2.6" /></>);
 
 function ToolButton({ title, active, onClick, children, hidden }: {
   title: string;
@@ -131,45 +200,100 @@ function ToolButton({ title, active, onClick, children, hidden }: {
   );
 }
 
+/** The response of a density request: VolumeDensity or {density}. */
+const unwrapDensity = (r: any): VolumeDensity | null => (r && r.density ? r.density : r?.data ? r : null);
+
 const VolumeViewer = forwardRef<VolumeViewerHandle, VolumeViewerProps>(function VolumeViewer(props, ref) {
   const { data, source } = props;
   const loaded = useLoad<unknown>(data ? null : source?.path, source?.payload);
-  const volume = useMemo(
+  const parsed = useMemo(
     () => (data ? volumeDataFromPane(data) : loaded.status === "ready" ? volumeDataFromPane(loaded.data) : null),
     [data, loaded],
   );
+  // Without slice images the Slices tab draws them from the density: it is
+  // loaded once here and the 3D volume tab uses the same grid
+  const shared = parsed && !parsed.axes && isDensitySource(parsed.density) ? parsed.density : null;
+  const maxVoxels = props.defaults?.iso?.maxVoxels;
+  const sharedLoad = useLoad<unknown>(
+    shared?.path, shared ? { ...shared.payload, ...(maxVoxels ? { maxVoxels } : {}) } : undefined);
+  const loadedVolume = useMemo(() => {
+    if (!parsed || !shared) return parsed;
+    const d = sharedLoad.status === "ready" ? unwrapDensity(sharedLoad.data) : null;
+    return d ? { ...parsed, density: d } : null;
+  }, [parsed, shared, sharedLoad]);
+  // A density that draws the slices is decoded before the viewer shows
+  const gridDensity = loadedVolume && !loadedVolume.axes && !isDensitySource(loadedVolume.density)
+    ? loadedVolume.density ?? null : null;
+  const [decoded, setDecoded] = useState<{ d: VolumeDensity; debug: DensityDebug } | { error: string } | null>(null);
+  useEffect(() => {
+    if (!gridDensity) return undefined;
+    let live = true;
+    const requestMs = shared && sharedLoad.status === "ready" ? sharedLoad.ms : undefined;
+    prepareDensity(gridDensity).then(
+      (decodeMs) => live && setDecoded({
+        d: gridDensity,
+        debug: { from: shared ? "request" : "inline", requestMs, decodeMs, density: gridDensity },
+      }),
+      (e) => live && setDecoded({ error: String(e?.message ?? e) }),
+    );
+    return () => { live = false; };
+    // sharedLoad only matters with gridDensity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridDensity]);
+  const ready = decoded && "d" in decoded && decoded.d === gridDensity ? decoded : null;
+  const volume = gridDensity && !ready ? null : loadedVolume;
 
   if (!volume) {
     let msg = "No volume to show.";
-    if (!data && source) {
+    if (decoded && "error" in decoded) {
+      msg = `Could not read the volume: ${decoded.error}`;
+    } else if (gridDensity) {
+      msg = "Reading the volume…";
+    } else if (shared) {
+      msg = sharedLoad.status === "error" ? sharedLoad.error.message : "Loading the volume…";
+    } else if (!data && source) {
       if (loaded.status === "error") msg = loaded.error.message;
       else if (loaded.status !== "ready") msg = "Loading…";
-      else msg = "The response has no X, Y and Z slices of a volume.";
+      else msg = "The response has no X, Y and Z slices nor a density of a volume.";
     } else if (data) {
-      msg = "The volume needs dimensions and slices along X, Y and Z.";
+      msg = "The volume needs dimensions and slices along X, Y and Z (or a density).";
     }
     return <div className={styles.msg}>{msg}</div>;
   }
-  return <VolumeViewerCore {...props} ref={ref} volume={volume} />;
+  return <VolumeViewerCore {...props} ref={ref} volume={volume} densityDebug={ready?.debug} />;
 });
 
 export default VolumeViewer;
 
-const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { volume: VolumeData }>(
+const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
+  volume: VolumeData;
+  /** Timing of a density loaded and decoded before the viewer showed. */
+  densityDebug?: DensityDebug;
+}>(
   function VolumeViewerCore(props, ref) {
     const { volume, info, onSelect } = props;
     const [X, Y, Z] = volume.dimensions;
     const dim = useMemo<Vec3>(() => ({ x: X, y: Y, z: Z }), [X, Y, Z]);
     const size = useMemo(() => sectionSize(dim), [dim]);
-    const keys = useMemo(() => sliceKeys(volume.axes), [volume.axes]);
+    // The density grid draws the slices when the host sends no images
+    const gridSlices = !volume.axes && volume.density && !isDensitySource(volume.density) ? volume.density : null;
+    const keys = useMemo(
+      () => (volume.axes ? sliceKeys(volume.axes) : densitySliceKeys(gridSlices!, volume.dimensions)),
+      [volume.axes, gridSlices, volume.dimensions],
+    );
     const vs = useMemo(() => normVoxel(volume.voxelSize), [volume.voxelSize]);
-    const tabsCfg = { slices: true, view3d: true, ...props.tabs };
+    const tabsCfg = {
+      slices: true, view3d: true, ...props.tabs,
+      volume3d: Boolean(volume.density) && props.tabs?.volume3d !== false,
+    };
     const toolsCfg = {
       select: true, ruler: true, zoom: true, pan: true, particles: "auto" as boolean | "auto",
-      volume: true, invert: true, lines: true, ...props.tools,
+      volume: true, invert: true, lines: true, crosshair: true, ...props.tools,
     };
+    if (!toolsCfg.crosshair) toolsCfg.lines = false;
+    const defaults = props.defaults ?? {};
+    const dParts = defaults.particles ?? {};
     const viewSize = props.viewSize ?? 520;
-    const tolerance = props.particleTolerance ?? 10;
     const fillHeight = props.height === "fill";
 
     const P = volume.coordinates ?? null;
@@ -190,18 +314,41 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
       return t && allowed.includes(t) ? t : null;
     });
     const [sel, setSel] = useState(-1);
-    const [partsOn, setPartsOn] = useState(hasParticles);
+    const [partsOn, setPartsOn] = useState(hasParticles && dParts.show !== false);
     const [hideLines, setHideLines] = useState(false);
-    const [inverted, setInverted] = useState(false);
+    const [inverted, setInverted] = useState(Boolean(defaults.inverted));
     const [volOn, setVolOn] = useState(false);
-    const [tmplOn, setTmplOn] = useState(false);
-    const [active, setActive] = useState<Axis[]>(["z", "y"]);
+    const [tmplOn, setTmplOn] = useState(Boolean(dParts.template && hasTemplate));
+    // Particles: only those near the sections/planes (± tolerance) or all, per
+    // tab: near the sections in Slices, all in 3D planes by default
+    const [nearSlices, setNearSlices] = useState(dParts.nearSlices ?? true);
+    const [near3d, setNear3d] = useState(dParts.near3d ?? false);
+    const [tolerance, setTolerance] = useState(dParts.tolerance ?? props.particleTolerance ?? 10);
+    const [templateLevel, setTemplateLevel] = useState<number | null>(
+      () => volume.coordinates?.template?.density?.level ?? null);
+    // One color for the dots and the template, in both tabs
+    const [particleColor, setParticleColor] = useState(dParts.color ?? "#ffa500");
+    const [panelOpen, setPanelOpen] = useState(false);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const [active, setActive] = useState<Axis[]>(() => {
+      const p = (defaults.planes ?? []).filter((a) => AXES.includes(a)).slice(0, 2);
+      return p.length ? p : ["z", "y"];
+    });
     const [volOpacity, setVolOpacity] = useState(VOL_OPACITY);
     const [rulers, setRulers] = useState<Record<Axis, Ruler | null>>({ x: null, y: null, z: null });
-    const [tab, setTab] = useState<"slices" | "view3d">(tabsCfg.slices ? "slices" : "view3d");
+    const shownTabs = (["slices", "view3d", "volume3d"] as VolumeViewerTab[]).filter((t) => tabsCfg[t]);
+    const [tab, setTab] = useState<VolumeViewerTab>(() =>
+      props.initialTab && tabsCfg[props.initialTab] ? props.initialTab : shownTabs[0] ?? "slices");
+    // Expanded over the whole browser window (not the Fullscreen API)
     const [full, setFull] = useState(false);
-    const [fixed, setFixed] = useState(false);
     const [built3d, setBuilt3d] = useState(tab === "view3d");
+    const [builtIso, setBuiltIso] = useState(tab === "volume3d");
+    // Timing of the density (debug line)
+    const showDebug = props.debug ?? DEBUG_TIMING;
+    const [debug, setDebug] = useState<DensityDebug | null>(props.densityDebug ?? null);
+    const onDebug = useCallback((info: DensityDebug) => setDebug((cur) => ({ ...cur, ...info })), []);
+    const [isoPan, setIsoPan] = useState(false);
+    const isoRef = useRef<IsoSurfaceHandle>(null);
     const history = useRef<HistoryEntry[]>([]);
     const slicesRef = useRef<VolumeSlicesHandle>(null);
     const rootRef = useRef<HTMLDivElement>(null);
@@ -222,10 +369,6 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
       setSel(i);
       setPos({ x: clampVox(dim, "x", P.x[i]), y: clampVox(dim, "y", P.y[i]), z: clampVox(dim, "z", P.z[i]) }, true);
     }, [P, dim, setPos]);
-    const stepParticle = (dir: number) => {
-      if (!nPart) return;
-      selectParticle(sel < 0 ? (dir > 0 ? 0 : nPart - 1) : (sel + dir + nPart) % nPart);
-    };
     const setTool = useCallback((t: Mode) => {
       setMode((m) => (t && allowed.includes(t) && t !== m ? t : null));
       // allowed only changes with the config
@@ -240,17 +383,22 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
 
     /* ---------- images (decoded once, shared by both tabs) ---------- */
     const loader = useDataLoader();
-    const images = useRef(new Map<string, HTMLImageElement>());
-    useEffect(() => images.current.clear(), [volume.axes]);
+    const images = useRef(new Map<string, SliceImage>());
+    useEffect(() => images.current.clear(), [volume.axes, gridSlices]);
     const getImage = useCallback((a: Axis, key: number) => images.current.get(`${a}:${key}`) ?? null, []);
-    const loadImage = useCallback((a: Axis, key: number) => {
-      const src = volume.axes[a][String(key)];
+    const loadImage = useCallback((a: Axis, key: number): Promise<SliceImage> => {
+      if (gridSlices) {
+        const img = densitySlice(gridSlices, a, key);
+        images.current.set(`${a}:${key}`, img);
+        return Promise.resolve(img);
+      }
+      const src = volume.axes?.[a][String(key)];
       if (!src) return Promise.reject(new Error(`No ${a} slice ${key}`));
       return loader.image(src).then((img) => {
         images.current.set(`${a}:${key}`, img);
         return img;
       });
-    }, [loader, volume.axes]);
+    }, [loader, volume.axes, gridSlices]);
 
     /* ---------- undo, invert, lines ---------- */
     const pushHistory = useCallback((e: HistoryEntry) => history.current.push(e), []);
@@ -321,37 +469,53 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
       return [Math.round(w), Math.round(h)] as [number, number];
     }, [box, full]);
 
-    /* ---------- full screen ---------- */
+    // The 3D volume tab has a wider panel beside the scene; with no room for
+    // it there, the panel goes below and the scene takes the width
+    const sizeIso = useMemo<[number, number]>(() => {
+      const room = box.width - 290;
+      if (room >= 320) return [Math.min(size3d[0], room), size3d[1]];
+      const w = Math.max(240, Math.min(box.width - 24, size3d[1] * 1.2));
+      return [Math.round(w), Math.round(Math.min(size3d[1], w))];
+    }, [size3d, box.width]);
+
+    /* ---------- expand to the browser window ---------- */
     useEffect(() => {
-      const onChange = () => {
-        if (document.fullscreenElement === rootRef.current) setFull(true);
-        else if (!fixed) setFull(false);
-      };
+      if (!full && !panelOpen) return undefined;
+      // Captured: Esc closes the particles panel, then collapses the viewer,
+      // and does not reach a dialog around it
       const onKey = (e: KeyboardEvent) => {
-        if (e.key === "Escape" && fixed) {
-          setFixed(false);
-          setFull(false);
-        }
+        if (e.key !== "Escape") return;
+        e.stopPropagation();
+        e.preventDefault();
+        if (panelOpen) setPanelOpen(false);
+        else setFull(false);
       };
-      document.addEventListener("fullscreenchange", onChange);
-      document.addEventListener("keydown", onKey);
-      return () => {
-        document.removeEventListener("fullscreenchange", onChange);
-        document.removeEventListener("keydown", onKey);
-        if (document.fullscreenElement === rootRef.current) document.exitFullscreen().catch(() => undefined);
+      document.addEventListener("keydown", onKey, true);
+      return () => document.removeEventListener("keydown", onKey, true);
+    }, [full, panelOpen]);
+
+    /* ---------- particles panel ---------- */
+    // A click outside the panel (and its button) closes it
+    useEffect(() => {
+      if (!panelOpen) return undefined;
+      const onDown = (e: MouseEvent) => {
+        const t = e.target as Node;
+        if (panelRef.current?.contains(t)) return;
+        if ((t as Element).closest?.("[data-particles-button]")) return;
+        setPanelOpen(false);
       };
-    }, [fixed]);
-    const toggleFull = () => {
-      const el = rootRef.current;
-      if (!el) return;
-      if (el.requestFullscreen && !fixed) {
-        if (document.fullscreenElement === el) document.exitFullscreen();
-        else el.requestFullscreen().catch(() => { setFixed(true); setFull(true); });
-      } else {
-        setFixed(!fixed);
-        setFull(!fixed);
-      }
+      document.addEventListener("mousedown", onDown);
+      return () => document.removeEventListener("mousedown", onDown);
+    }, [panelOpen]);
+    const setParticleOptions = (o: Partial<ParticleOptions>) => {
+      if (o.partsOn !== undefined) setPartsOn(o.partsOn);
+      if (o.nearOnly !== undefined) (tab === "view3d" ? setNear3d : setNearSlices)(o.nearOnly);
+      if (o.tolerance !== undefined) setTolerance(o.tolerance);
+      if (o.tmplOn !== undefined) setTmplOn(o.tmplOn);
+      if (o.templateLevel !== undefined) setTemplateLevel(o.templateLevel);
+      if (o.color !== undefined) setParticleColor(o.color);
     };
+    const toggleFull = () => setFull((v) => !v);
 
     /* ---------- readout ---------- */
     // One thing at a time, depending on the active tool
@@ -368,24 +532,32 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
     }
 
     /* ---------- toolbars ---------- */
-    const particleTools = (is3d: boolean) => hasParticles && (
-      <>
-        <ToolButton title="Show and inspect picked particles" active={partsOn} onClick={() => setPartsOn((v) => !v)}>
+    // All the particle options are in one panel, opened from the toolbar
+    const particlesButton = (is3d: boolean) => hasParticles && (
+      <span className={styles.panelAnchor} data-particles-button>
+        <ToolButton title="Particles: show, filter, select, draw as dots or template"
+                    active={panelOpen || partsOn} onClick={() => setPanelOpen((v) => !v)}>
           {ICON_PARTICLES}
         </ToolButton>
-        <ToolButton title="Previous particle" hidden={!partsOn} onClick={() => stepParticle(-1)}>
-          <ChevronLeft size={16} />
-        </ToolButton>
-        <ToolButton title="Next particle" hidden={!partsOn} onClick={() => stepParticle(1)}>
-          <ChevronRight size={16} />
-        </ToolButton>
-        {is3d && hasTemplate && (
-          <ToolButton title="Show the picking template at every particle, with its orientation"
-                      active={tmplOn} onClick={() => setTmplOn((v) => !v)}>
-            {ICON_TEMPLATE}
-          </ToolButton>
+        {/* One panel, in the toolbar of the visible tab */}
+        {panelOpen && is3d === (tab === "view3d") && (
+          <div ref={panelRef}>
+            <ParticlesPanel
+              count={nPart}
+              partsOn={partsOn}
+              nearOnly={is3d ? near3d : nearSlices}
+              tolerance={tolerance}
+              tmplOn={tmplOn}
+              templateLevel={templateLevel}
+              color={particleColor}
+              hasTemplate={hasTemplate}
+              hasDensity={Boolean(P?.template?.density)}
+              is3d={is3d}
+              onChange={setParticleOptions}
+            />
+          </div>
         )}
-      </>
+      </span>
     );
     const modeButton = (t: Exclude<Mode, null>, title: string, icon: ReactNode) =>
       toolsCfg[t] && <ToolButton title={title} active={mode === t} onClick={() => setTool(t)}>{icon}</ToolButton>;
@@ -406,7 +578,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
             <EyeOff size={16} />
           </ToolButton>
         )}
-        {particleTools(false)}
+        {particlesButton(false)}
         {(toolsCfg.ruler || toolsCfg.zoom || toolsCfg.pan || toolsCfg.invert) && (
           <ToolButton title="Clean: undo the last zoom, measurement or contrast change, or deactivate the tool"
                       onClick={clean}>
@@ -430,7 +602,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
           </ToolButton>
         )}
         {modeButton("pan", "Move the volume: drag it in any direction (or right-drag / shift+drag)", <Move size={16} />)}
-        {particleTools(true)}
+        {particlesButton(true)}
         <ToolButton title="Reset the 3D view" onClick={() => sceneRef.current?.reset()}>
           <RefreshCw size={16} />
         </ToolButton>
@@ -443,7 +615,10 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
     size3dRef.current = size3d;
     const sceneHost = useRef<HTMLDivElement>(null);
     const [sceneError, setSceneError] = useState<string | null>(null);
-    const sceneState: SceneState = { pos, sel, partsOn, tmplOn, volOn, inverted, active, volOpacity, mode };
+    const sceneState: SceneState = {
+      pos, sel, partsOn, tmplOn, volOn, inverted, active, volOpacity, mode, nearOnly: near3d, tolerance, templateLevel,
+      particleColor,
+    };
     const sceneStateRef = useRef(sceneState);
     sceneStateRef.current = sceneState;
     const pickRef = useRef({ selectParticle, setPos, setSel });
@@ -451,6 +626,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
 
     useEffect(() => {
       if (tab === "view3d") setBuilt3d(true);
+      if (tab === "volume3d") setBuiltIso(true);
     }, [tab]);
     useEffect(() => {
       if (!built3d || !sceneHost.current) return undefined;
@@ -485,7 +661,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
       sceneRef.current?.setState(sceneState);
       // the fields are the dependencies
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pos, sel, partsOn, tmplOn, volOn, inverted, active, volOpacity, mode]);
+    }, [pos, sel, partsOn, tmplOn, volOn, inverted, active, volOpacity, mode, near3d, tolerance, templateLevel,
+        particleColor]);
     useEffect(() => {
       sceneRef.current?.resize(size3d[0], size3d[1]);
     }, [size3d]);
@@ -501,9 +678,10 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
     /* The output bar spans exactly the width of the visible pane content */
     const slicesBox = useRef<HTMLDivElement>(null);
     const view3dBox = useRef<HTMLDivElement>(null);
+    const isoBox = useRef<HTMLDivElement>(null);
     const [outWidth, setOutWidth] = useState<number | undefined>(undefined);
     useLayoutEffect(() => {
-      const el = tab === "slices" ? slicesBox.current : view3dBox.current;
+      const el = { slices: slicesBox, view3d: view3dBox, volume3d: isoBox }[tab].current;
       if (!el) return undefined;
       const fit = () => setOutWidth(el.offsetWidth || undefined);
       fit();
@@ -513,10 +691,9 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
     }, [tab, sceneError]);
 
     /* ---------- layout ---------- */
-    const rootClass = [styles.root, fixed ? styles.fixed : "", full ? styles.full : ""].join(" ");
-    const tabs: ["slices" | "view3d", string][] = [];
-    if (tabsCfg.slices) tabs.push(["slices", "Slices"]);
-    if (tabsCfg.view3d) tabs.push(["view3d", "3D"]);
+    const rootClass = full ? `${styles.root} ${styles.full}` : styles.root;
+    const TAB_LABELS: Record<VolumeViewerTab, string> = { slices: "Slices", view3d: "3D planes", volume3d: "3D volume" };
+    const tabs = shownTabs.map((t) => [t, TAB_LABELS[t]] as const);
 
     return (
       <div ref={rootRef} className={rootClass} style={fillHeight && !full ? { height: "100%" } : undefined}>
@@ -532,7 +709,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
               ))}
             </div>
           ) : <div style={{ flex: 1 }} />}
-          <button type="button" className={styles.fullBtn} title={full ? "Exit full screen" : "Full screen"}
+          <button type="button" className={styles.fullBtn}
+                  title={full ? "Back to the page (Esc)" : "Expand to the browser window"}
                   onClick={toggleFull}>
             {full ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
@@ -553,8 +731,9 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
               mode={mode}
               partsOn={partsOn}
               particles={particles}
-              tolerance={tolerance}
-              hideLines={hideLines}
+              tolerance={nearSlices ? tolerance : Infinity}
+              hideLines={hideLines || !toolsCfg.crosshair}
+              particleColor={particleColor}
               inverted={inverted}
               rulers={rulers}
               voxelSize={vs}
@@ -607,7 +786,38 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & { vo
           </div>
         )}
 
-        <div className={styles.out} style={{ width: outWidth }}>{readout}</div>
+        {tabsCfg.volume3d && (
+          <div style={{ display: tab === "volume3d" ? undefined : "none" }}>
+            <div className={styles.toolbar}>
+              {toolsCfg.pan && (
+                <ToolButton title="Move the volume: drag it in any direction (or right-drag / shift+drag)"
+                            active={isoPan} onClick={() => setIsoPan((v) => !v)}>
+                  <Move size={16} />
+                </ToolButton>
+              )}
+              <ToolButton title="Reset the 3D view" onClick={() => isoRef.current?.reset()}>
+                <RefreshCw size={16} />
+              </ToolButton>
+            </div>
+            <div ref={isoBox} className={styles.content}>
+              {builtIso && volume.density && (
+                <IsoSurfaceView ref={isoRef} density={volume.density} dim={dim} onDebug={onDebug}
+                                width={sizeIso[0]} height={sizeIso[1]} pan={isoPan} defaults={defaults.iso} />
+              )}
+            </div>
+          </div>
+        )}
+
+        {showDebug && debug && (
+          <div className={styles.debug} style={{ width: outWidth }} title="Timing of the volume (debug)">
+            {debugText(debug)}
+          </div>
+        )}
+        <div className={styles.out} style={{ width: outWidth }}>
+          {tab === "volume3d"
+            ? <>Drag to rotate, right-drag or shift+drag to move, wheel to zoom &nbsp;·&nbsp; {scaleText(vs)}</>
+            : readout}
+        </div>
       </div>
     );
   },

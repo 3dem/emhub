@@ -19,6 +19,7 @@ import VolumeViewer from "./components/viewers/VolumeViewer";
 import Plot from "./components/viewers/Plot";
 import ImageSlider from "./components/viewers/ImageSlider";
 import TableViewerContent from "./components/viewers/TableViewerContent";
+import TableViewerGrid from "./components/viewers/TableViewerGrid";
 import { mountComponent, type MountableComponent, type MountOptions, type Mounted } from "./widget/mount";
 import { ROOT_CLASS } from "./widget/constants";
 import { DataLoader } from "./data/DataLoader";
@@ -57,6 +58,8 @@ const COMPONENTS: Record<string, MountableComponent> = {
   ImageSlider: { component: ImageSlider },
   /** Any table-viewer pane content ({kind: "imageSlider" | "plotly" | "text" ...}). */
   TableViewerContent: { component: TableViewerContent },
+  /** A grid pane ({kind: "grid", layout, cells}), filling the container. */
+  TableViewerGrid: { component: TableViewerGrid, fill: true },
 };
 
 export const components = Object.keys(COMPONENTS);

@@ -6,12 +6,16 @@
 // optional faint ray-marched volume. Renders on demand (no animation loop).
 // The world is the voxel space with y flipped (three.js y goes up).
 import * as THREE from "three";
+import { templateMesh, type ParticleTemplate } from "./templateSurface";
+import { Trackball } from "./trackball";
 import {
   AXES,
   clampVox,
+  imageSize,
   nearest,
   particleRotation,
   type Axis,
+  type SliceImage,
   type Vec3,
   type VolumeCoordinates,
   type VoxelSize,
@@ -22,6 +26,13 @@ export type SceneState = {
   sel: number;
   partsOn: boolean;
   tmplOn: boolean;
+  /** Only the particles within `tolerance` voxels of a shown plane. */
+  nearOnly: boolean;
+  tolerance: number;
+  /** Template threshold (fraction of its maximum), null: the host's surface. */
+  templateLevel: number | null;
+  /** Color of the points and the template (CSS hex). */
+  particleColor: string;
   volOn: boolean;
   inverted: boolean;
   /** Shown planes (at most two). */
@@ -37,8 +48,8 @@ export type SceneOptions = {
   particles: VolumeCoordinates | null;
   voxelSize: VoxelSize | null;
   /** The decoded slice image, or null while it loads (then onImage is called). */
-  getImage: (a: Axis, key: number) => HTMLImageElement | null;
-  loadImage: (a: Axis, key: number) => Promise<HTMLImageElement>;
+  getImage: (a: Axis, key: number) => SliceImage | null;
+  loadImage: (a: Axis, key: number) => Promise<SliceImage>;
   onPickParticle: (index: number) => void;
   onPickPoint: (p: Vec3) => void;
 };
@@ -86,14 +97,16 @@ export class VolumeScene3D {
   private readonly tex = new Map<string, THREE.Texture>();
   private readonly pending = new Set<string>();
   private readonly ray = new THREE.Raycaster();
-  private readonly target: THREE.Vector3;
+  private readonly ball: Trackball;
   private points: THREE.Points | null = null;
   private selMark: THREE.Mesh | null = null;
   private tmpl: THREE.InstancedMesh | null = null;
+  private tmplMatrices: THREE.Matrix4[] = [];
+  private tmplLevel: number | null = null;
+  /** Indices of the particles shown (all, or near the shown planes). */
+  private shown: number[] = [];
   private vol: THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial> | null = null;
   private volLoading = false;
-  private orbitR = 1;
-  private quat = new THREE.Quaternion();
   private raf = 0;
   private syncQueued = false;
   private disposed = false;
@@ -112,7 +125,12 @@ export class VolumeScene3D {
     this.renderer.setClearColor(0x111418);
     this.canvas = this.renderer.domElement;
     this.camera = new THREE.PerspectiveCamera(40, width / height, 1, 100 * m);
-    this.target = new THREE.Vector3(X / 2, -Y / 2, Z / 2);
+    this.ball = new Trackball(this.canvas, {
+      onChange: () => this.render(),
+      onClick: (e) => this.onClick(e),
+      isPan: () => this.state.mode === "pan",
+      maxRadius: 50 * m,
+    });
 
     const geo: Record<Axis, THREE.PlaneGeometry> = {
       z: new THREE.PlaneGeometry(X, Y),
@@ -157,10 +175,10 @@ export class VolumeScene3D {
       pg.setAttribute("position", new THREE.BufferAttribute(arr, 3));
       this.points = new THREE.Points(
         pg,
-        new THREE.PointsMaterial({ color: 0xffa500, size: 3.5, sizeAttenuation: false }),
+        new THREE.PointsMaterial({ color: state.particleColor, size: 3.5, sizeAttenuation: false }),
       );
       this.scene.add(this.points);
-      if (P.template?.faces?.length && options.voxelSize?.x) this.buildTemplate(P);
+      if (P.template?.faces?.length && options.voxelSize?.x) this.buildTemplate(P, state.templateLevel);
       this.selMark = new THREE.Mesh(
         new THREE.SphereGeometry(m / 70, 12, 12),
         new THREE.MeshBasicMaterial({ color: 0xff3b30 }),
@@ -169,7 +187,6 @@ export class VolumeScene3D {
       this.scene.add(this.selMark);
     }
 
-    this.setupControls();
     this.reset();
     this.sync();
   }
@@ -194,14 +211,8 @@ export class VolumeScene3D {
   /** Back to the initial oblique view. */
   reset() {
     const { x: X, y: Y, z: Z } = this.o.dim;
-    this.orbitR = 2.3 * Math.max(X, Y, Z);
-    this.target.set(X / 2, -Y / 2, Z / 2);
     // Start from an oblique view; from here the rotation is unrestricted
-    const th = 0.7, ph = 1.1;
-    const c = new THREE.PerspectiveCamera();
-    c.position.set(Math.sin(ph) * Math.sin(th), Math.cos(ph), Math.sin(ph) * Math.cos(th));
-    c.lookAt(0, 0, 0);
-    this.quat = c.quaternion.clone();
+    this.ball.reset(new THREE.Vector3(X / 2, -Y / 2, Z / 2), 2.3 * Math.max(X, Y, Z));
     this.render();
   }
 
@@ -226,8 +237,7 @@ export class VolumeScene3D {
     this.raf = requestAnimationFrame(() => {
       this.raf = 0;
       if (this.disposed) return;
-      this.camera.quaternion.copy(this.quat);
-      this.camera.position.copy(this.target).add(new THREE.Vector3(0, 0, this.orbitR).applyQuaternion(this.quat));
+      this.ball.apply(this.camera);
       if (this.vol) {
         this.vol.material.uniforms.uCam.value.copy(this.vol.worldToLocal(this.camera.position.clone()));
       }
@@ -252,11 +262,10 @@ export class VolumeScene3D {
       }
       return null;
     }
-    let src: HTMLImageElement | HTMLCanvasElement = img;
+    let src: SliceImage = img;
     if (inverted) {
       const c = document.createElement("canvas");
-      c.width = img.naturalWidth;
-      c.height = img.naturalHeight;
+      [c.width, c.height] = imageSize(img);
       const g = c.getContext("2d")!;
       g.drawImage(img, 0, 0);
       g.globalCompositeOperation = "difference";
@@ -303,8 +312,14 @@ export class VolumeScene3D {
     this.marker.position.copy(toWorld(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5));
     const P = this.o.particles;
     if (P && this.points && this.selMark) {
+      this.updateShown(P);
       this.points.visible = partsOn && !(tmplOn && this.tmpl);
-      if (this.tmpl) this.tmpl.visible = partsOn && tmplOn;
+      (this.points.material as THREE.PointsMaterial).color.set(this.state.particleColor);
+      if (this.tmpl) (this.tmpl.material as THREE.MeshLambertMaterial).color.set(this.state.particleColor);
+      if (this.tmpl) {
+        if (tmplOn && this.state.templateLevel !== this.tmplLevel) this.setTemplateGeometry(P, this.state.templateLevel);
+        this.tmpl.visible = partsOn && tmplOn;
+      }
       this.selMark.visible = partsOn && sel >= 0;
       if (sel >= 0) this.selMark.position.copy(toWorld(P.x[sel] + 0.5, P.y[sel] + 0.5, P.z[sel] + 0.5));
     }
@@ -312,29 +327,47 @@ export class VolumeScene3D {
     this.render();
   }
 
+  /** Particles within `tolerance` of a shown plane (or all), as points and templates. */
+  private updateShown(P: VolumeCoordinates) {
+    const { nearOnly, tolerance, active, pos } = this.state;
+    const n = Math.min(P.x.length, P.y.length, P.z.length);
+    const shown: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (!nearOnly || active.some((a) => Math.abs(P[a][i] - pos[a]) <= tolerance)) shown.push(i);
+    }
+    this.shown = shown;
+    const attr = this.points!.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const arr = attr.array as Float32Array;
+    shown.forEach((i, k) => {
+      arr[3 * k] = P.x[i] + 0.5;
+      arr[3 * k + 1] = -(P.y[i] + 0.5);
+      arr[3 * k + 2] = P.z[i] + 0.5;
+    });
+    attr.needsUpdate = true;
+    this.points!.geometry.setDrawRange(0, shown.length);
+    if (this.tmpl) {
+      shown.forEach((i, k) => this.tmpl!.setMatrixAt(k, this.tmplMatrices[i]));
+      this.tmpl.count = shown.length;
+      this.tmpl.instanceMatrix.needsUpdate = true;
+    }
+  }
+
   /* One instanced mesh of the template surface (Å) scaled to voxels, rotated
      at each particle by its RELION angles. */
-  private buildTemplate(P: VolumeCoordinates) {
-    const t = P.template!;
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(t.vertices), 3));
-    g.setIndex(t.faces);
-    g.computeVertexNormals();
+  private buildTemplate(P: VolumeCoordinates, level: number | null) {
     const n = P.x.length;
     const mesh = new THREE.InstancedMesh(
-      g,
-      new THREE.MeshLambertMaterial({ color: 0x4dabf7, side: THREE.DoubleSide }),
+      new THREE.BufferGeometry(),
+      new THREE.MeshLambertMaterial({ color: this.state.particleColor, side: THREE.DoubleSide }),
       n,
     );
     const k = 1 / this.o.voxelSize!.x!;
-    const m4 = new THREE.Matrix4();
     for (let i = 0; i < n; i++) {
       const e = particleRotation(P.angles?.[i], k);
       const w = toWorld(P.x[i] + 0.5, P.y[i] + 0.5, P.z[i] + 0.5);
-      m4.set(e[0], e[1], e[2], w.x, e[3], e[4], e[5], w.y, e[6], e[7], e[8], w.z, 0, 0, 0, 1);
-      mesh.setMatrixAt(i, m4);
+      this.tmplMatrices.push(new THREE.Matrix4().set(
+        e[0], e[1], e[2], w.x, e[3], e[4], e[5], w.y, e[6], e[7], e[8], w.z, 0, 0, 0, 1));
     }
-    mesh.instanceMatrix.needsUpdate = true;
     mesh.visible = false;
     mesh.frustumCulled = false;
     this.scene.add(mesh);
@@ -343,6 +376,19 @@ export class VolumeScene3D {
     sun.position.set(1, 1, 2);
     this.scene.add(sun);
     this.tmpl = mesh;
+    this.setTemplateGeometry(P, level);
+  }
+
+  /** The template surface at `level` (the host's surface when null). */
+  private setTemplateGeometry(P: VolumeCoordinates, level: number | null) {
+    const { positions, indices } = templateMesh(P.template as ParticleTemplate, level);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    g.setIndex(new THREE.BufferAttribute(indices, 1));
+    g.computeVertexNormals();
+    this.tmpl!.geometry.dispose();
+    this.tmpl!.geometry = g;
+    this.tmplLevel = level;
   }
 
   private buildVolume() {
@@ -362,7 +408,8 @@ export class VolumeScene3D {
       return;
     }
     const { x: X, y: Y, z: Z } = this.o.dim;
-    const w = imgs[0]!.naturalWidth, h = imgs[0]!.naturalHeight, d = zk.length;
+    const [w, h] = imageSize(imgs[0]!);
+    const d = zk.length;
     const data = new Uint8Array(w * h * d);
     const c = document.createElement("canvas");
     c.width = w;
@@ -421,7 +468,8 @@ export class VolumeScene3D {
     if (P && partsOn) {
       let best = -1, bd = 10;
       const v = new THREE.Vector3();
-      for (let i = 0; i < P.x.length; i++) {
+      // Only the particles shown
+      for (const i of this.shown) {
         v.copy(toWorld(P.x[i] + 0.5, P.y[i] + 0.5, P.z[i] + 0.5)).project(this.camera);
         if (v.z > 1) continue;
         const dd = Math.hypot(((v.x + 1) / 2) * rect.width - px, ((1 - v.y) / 2) * rect.height - py);
@@ -439,56 +487,5 @@ export class VolumeScene3D {
     if (!hits.length) return;
     const p = hits[0].point, dim = this.o.dim;
     this.o.onPickPoint({ x: clampVox(dim, "x", p.x), y: clampVox(dim, "y", -p.y), z: clampVox(dim, "z", p.z) });
-  }
-
-  private setupControls() {
-    const el = this.canvas;
-    el.style.cursor = "grab";
-    let drag: { x: number; y: number; sx: number; sy: number; moved: number } | null = null;
-    el.addEventListener("contextmenu", (e) => e.preventDefault());
-    el.addEventListener("pointerdown", (e) => {
-      el.setPointerCapture(e.pointerId);
-      drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: 0 };
-      el.style.cursor = "grabbing";
-    });
-    el.addEventListener("pointermove", (e) => {
-      if (!drag) return;
-      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-      drag.x = e.clientX;
-      drag.y = e.clientY;
-      drag.moved = Math.max(drag.moved, Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy));
-      if (e.buttons & 2 || e.shiftKey || this.state.mode === "pan") {
-        // Pan along the camera plane
-        const k = this.orbitR * 0.0015;
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.quat);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.quat);
-        this.target.addScaledVector(right, -dx * k).addScaledVector(up, dy * k);
-      } else {
-        // Free trackball rotation around the camera axes, with no limits
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.quat);
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.quat);
-        const q = new THREE.Quaternion()
-          .setFromAxisAngle(up, -dx * 0.008)
-          .multiply(new THREE.Quaternion().setFromAxisAngle(right, -dy * 0.008));
-        this.quat.premultiply(q).normalize();
-      }
-      this.render();
-    });
-    el.addEventListener("pointerup", (e) => {
-      el.style.cursor = "grab";
-      const was = drag;
-      drag = null;
-      if (was && was.moved < 4 && e.button === 0) this.onClick(e);
-    });
-    el.addEventListener(
-      "wheel",
-      (e) => {
-        e.preventDefault();
-        const { x: X, y: Y, z: Z } = this.o.dim;
-        this.orbitR = Math.max(10, Math.min(50 * Math.max(X, Y, Z), this.orbitR * Math.exp(e.deltaY * 0.001)));
-        this.render();
-      },
-      { passive: false },
-    );
   }
 }
