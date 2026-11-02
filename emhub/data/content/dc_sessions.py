@@ -397,16 +397,19 @@ def register_content(dc):
 
         t = Timer()
         t.tic()
-        mrc = mrcfile.open(volPath, permissive=True)
+        # Memory-mapped: the header gives the dimensions without reading the data
+        mrc = mrcfile.mmap(volPath, permissive=True)
         t.toc("Loaded MRC file")
         
         zdim, ydim, xdim = mrc.data.shape
+        vox = [float(mrc.voxel_size.x), float(mrc.voxel_size.y), float(mrc.voxel_size.z)]
         slice_dim = int(kwargs.get('slice_dim', 128))
         slice_step = int(kwargs.get('slice_step', 1))
 
         data = {
             'file_path': volPath,
             'dimensions': [xdim, ydim, zdim],
+            'voxel_size': vox if all(v > 0 for v in vox) else None,
             'slice_dim': slice_dim,
             'card_view': kwargs.get('card_view', 'cards')
         }
@@ -520,46 +523,38 @@ def register_content(dc):
             'default_mrc': default_mrc
         }
 
-    def load_data_from_md(**kwargs):
-        project_path = kwargs['project_path']
-        ts_md = kwargs['ts_md']
-        data = {
-            'slices': {'z': []},
-            'file_path': ts_md,
-            'slice_step': 1,
-            'slice_dim': 512,
-            'coordinates': {'x': [], 'y': [], 'z': []},
-            'axis': 'z'
-        }
-
-        micThumb = Thumbnail.Micrograph(contrast_factor=0.1)
-        micThumb = Thumbnail(max_size=(data['slice_dim'], data['slice_dim']),
-                             output_format='base64',
-                             contrast_factor=0.5)
-        psdThumb = Thumbnail.Psd(contrast_factor=0.5)
-
-        starPath = os.path.join(project_path, ts_md)
-        print(">>> Star path", starPath, flush=True)
-
-        if os.path.exists(starPath):
-            with StarFile(starPath) as sf:
-                tableName = sf.getTableNames()[0]
-                zslices = data['slices']['z']
-                for row in sf.iterTable(tableName):
-                    micPath = os.path.join(project_path, row.rlnMicrographName)
-                    psdPath = os.path.join(project_path, row.rlnCtfPowerSpectrum)
-                    # zslices.append(micThumb.from_mrc(micPath))
-                    zslices.append(psdThumb.from_mrc(psdPath))
-                    break
-
-        return data
-
     @dc.content
     def processing_tomogram_card(**kwargs):
-        if 'ts_md' in kwargs:
-            data = load_data_from_md(**kwargs)
+        if kwargs.get('aligned_stack'):
+            # Same stack viewer content as the OTF dashboard
+            from emhub.blueprints.api_viewers import build_aligned_stack_slider_pane_content
+            pane = build_aligned_stack_slider_pane_content(
+                kwargs['project_path'], kwargs['file_path'])
+            data = {
+                'file_path': kwargs['file_path'],
+                'slices': pane['slices'],
+                'slice_prefix': pane['sliderPrefix'],
+                'dimensions': pane['dimensions'],
+                'slice_dim': 512,
+                'coordinates': {'x': [], 'y': [], 'z': []}
+            }
         else:
-            data = processing_volume_card(**kwargs)
+            # Same slice builder as the OTF dashboard viewer, so both
+            # show identical images; this view keeps its slice step.
+            from emhub.blueprints.api_viewers import _volume_axis_slices
+            info_kwargs = dict(kwargs, volume_data='info')
+            data = processing_volume_card(**info_kwargs)
+
+            if 'slices' in kwargs.get('volume_data', 'info'):
+                axis = kwargs.get('axis', 'z')
+                step = int(kwargs.get('slice_step', 1))
+                with mrcfile.open(data['file_path'], permissive=True) as mrc:
+                    data['slices'] = {
+                        a: _volume_axis_slices(
+                            mrc, a, 0, int(data['slice_dim']),
+                            step=step, upright=True)[0]
+                        for a in 'xyz' if a in axis}
+                data['axis'] = axis
 
             data['coordinates'] = {'x': [], 'y': [], 'z': []}
 

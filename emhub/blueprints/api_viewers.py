@@ -28,6 +28,9 @@
 """Helpers for table-viewer panes and Plotly plot content in the REST API."""
 
 import os
+import contextlib
+
+import flask
 
 from emtools.metadata import StarFile, RelionStar
 from emtools.utils import Path
@@ -711,19 +714,25 @@ def _volume_axis_slices(
     all_slices=False,
     full_range=False,
     upright=False,
+    step=None,
 ):
     """ Thumbnails of slices along one axis, keyed by slice index.
 
     By default slice_number slices are taken from the middle half of the
-    axis.  full_range spreads them over the whole axis instead, first and
-    last slice included.  upright turns X slices from (Z, Y) to (Y, Z), so
-    they line up with the rows of a Z slice in an orthogonal view.
+    axis. full_range spreads them over the whole axis instead, first and
+    last slice included.  step takes every step-th slice of the whole axis
+    instead.  upright turns X slices from (Z, Y) to (Y, Z), so they line up
+    with the rows of a Z slice in an orthogonal view.
     """
     import mrcfile
     import numpy as np
     from emtools.image import Thumbnail
 
-    with mrcfile.open(volume_data, permissive=True) as mrc:
+    # volume_data is a path, or an open MRC to read several axes from one load
+    opened = (mrcfile.open(volume_data, permissive=True)
+              if isinstance(volume_data, (str, os.PathLike))
+              else contextlib.nullcontext(volume_data))
+    with opened as mrc:
         zdim, ydim, xdim = mrc.data.shape
         vol_thumb = Thumbnail(
             max_size=(slice_dim, slice_dim),
@@ -747,6 +756,8 @@ def _volume_axis_slices(
 
         if all_slices:
             indices = list(range(dim))
+        elif step:
+            indices = list(range(0, dim, step))
         elif dim <= 1:
             indices = [0]
         elif full_range:
@@ -764,6 +775,40 @@ def _volume_axis_slices(
 
         slices = {str(int(i)): vol_thumb.from_array(getter(i)) for i in indices}
         return slices, prefix, [xdim, ydim, zdim]
+
+
+def volume_density_source(root, rel_path, max_size=None):
+    """ Request of the density of a volume (scaled grid and histogram, see
+    emhub.data.volume_density) for emflow's VolumeViewer, which loads it
+    when it needs it (3D volume tab, or the slices of a volume without
+    slice images). max_size: longest side of the grid. """
+    try:
+        url = flask.url_for('api.fetch_volume_density')
+    except RuntimeError:  # outside a request
+        url = '/api/fetch_volume_density'
+    payload = {'root': root, 'path': rel_path}
+    if max_size:
+        payload['maxSize'] = int(max_size)
+    return {'path': url, 'payload': payload}
+
+
+def _volume_dimensions(path):
+    """[X, Y, Z] of a volume from its MRC header."""
+    import mrcfile
+    with mrcfile.mmap(path, permissive=True) as mrc:
+        zdim, ydim, xdim = mrc.data.shape[-3:]
+    return [int(xdim), int(ydim), int(zdim)]
+
+
+def _volume_voxel_size(path):
+    """Voxel size in Å as [x, y, z] from the MRC header, or None if unknown."""
+    import mrcfile
+    try:
+        with mrcfile.mmap(path, permissive=True) as mrc:
+            v = [float(mrc.voxel_size.x), float(mrc.voxel_size.y), float(mrc.voxel_size.z)]
+    except Exception:
+        return None
+    return v if all(x > 0 for x in v) else None
 
 
 def build_volume_image_slider_pane_content(
@@ -959,34 +1004,91 @@ def build_tilt_series_grid_pane_content(root, row_cells, star_rel, row_label):
     }
 
 
+# VolumeViewer of a map (3D classes, species of a population): its iso-surface
+# first and the slices drawn from the same density; no 3D planes, crosshair
+# nor particles. Small blobs of noise ("dust") are hidden
+MAP_VIEWER_CONFIG = {
+    'tabs': {'view3d': False},
+    'initialTab': 'volume3d',
+    'tools': {'crosshair': False, 'particles': False},
+    'defaults': {'iso': {'dust': 100}},
+}
+
+# Tomograms in the TableViewer (Tomograms, TomoCoordinates, TomoParticles):
+# slices and 3D planes, no 3D volume tab
+TOMOGRAM_VIEWER_CONFIG = {
+    'tabs': {'volume3d': False},
+}
+
+
+def build_volume_viewer_pane_content(
+    root,
+    vol_rel,
+    title=None,
+    *,
+    slices=True,
+    density='lazy',
+    max_voxels=None,
+    max_size=None,
+    viewer_config=None,
+    coordinates=None,
+):
+    """ Pane content of a volume of the project for emflow's VolumeViewer.
+
+    slices: X/Y/Z slice images (over the whole volume, X slices upright) for
+        its Slices and 3D planes tabs. Without them, the viewer draws the
+        slices from the density grid (fine for small maps, e.g. 3D classes).
+    density: for its "3D volume" tab (iso-surface and histogram, see
+        emhub.data.volume_density): 'lazy' sends the request, that the viewer
+        loads when it needs it; 'inline' computes it now (the volume is
+        then sent once, for all the tabs); None: no 3D volume tab.
+    max_voxels: of the binned grid of an inline density.
+    max_size: longest side of the grid (maps are Fourier scaled to it).
+    viewer_config: VolumeViewerConfig (tabs, tools, defaults...).
+    """
+    vol_path = _resolve_data_path(root, vol_rel)
+    if not vol_path or not os.path.exists(vol_path):
+        raise Exception(f'Volume not found: {vol_rel}')
+    if not slices and not density:
+        raise Exception('A volume pane needs slices or its density')
+
+    if slices:
+        content = build_volume_image_slider_pane_content(
+            vol_path,
+            title=title or vol_rel,
+            axes=('x', 'y', 'z'),
+            full_range=True,
+            upright=True,
+        )
+    else:
+        content = {'kind': 'imageSlider', 'title': title or vol_rel,
+                   'dimensions': _volume_dimensions(vol_path)}
+    content['layout'] = 'volume'
+    content['voxelSize'] = _volume_voxel_size(vol_path)
+    if density == 'inline':
+        from emhub.data.volume_density import load_volume_density
+        content['density'] = load_volume_density(vol_path, max_voxels, max_size)
+    elif density:
+        content['density'] = volume_density_source(root, vol_rel, max_size)
+    if viewer_config:
+        content['viewerConfig'] = viewer_config
+    if coordinates:
+        content['coordinates'] = coordinates
+    return content
+
+
 def build_tomogram_volume_slider_pane_content(
     root,
     tomo_rel,
     title=None,
     *,
     coordinates=None,
-    ortho=False,
 ):
-    """Build three-axis volume sliders for a reconstructed tomogram.
-
-    ortho is for an orthogonal view: slices over the whole volume rather
-    than its middle half, and X slices upright.
-    """
-    tomo_path = _resolve_data_path(root, tomo_rel)
-    if not tomo_path or not os.path.exists(tomo_path):
-        raise Exception(f'Tomogram not found: {tomo_rel}')
-
-    content = build_volume_image_slider_pane_content(
-        tomo_path,
-        title=title or tomo_rel,
-        axes=('x', 'y', 'z'),
-        full_range=ortho,
-        upright=ortho,
-    )
-    content['layout'] = 'volume'
-    if coordinates:
-        content['coordinates'] = coordinates
-    return content
+    """ VolumeViewer pane of a reconstructed tomogram: its slices and 3D
+    planes, without the 3D volume tab (no density is sent). """
+    return build_volume_viewer_pane_content(
+        root, tomo_rel, title=title, density=None,
+        viewer_config=TOMOGRAM_VIEWER_CONFIG, coordinates=coordinates)
 
 
 def resolve_table_view_type_hint(attrs, row_cells):

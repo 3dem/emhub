@@ -48,7 +48,8 @@ from .api_viewers import (
     _resolve_data_path,
     _build_plotly_scatter_figure,
     processing_project_manager,
-    build_tomogram_volume_slider_pane_content,
+    build_volume_viewer_pane_content,
+    MAP_VIEWER_CONFIG,
     _table_view_action_payload,
     _table_view_column_actions,
 )
@@ -793,14 +794,20 @@ def build_classes3d_table(full_path):
             'rows': rows}
 
 
+# Most voxels of the density grid of a 3D class (e.g. 158^3 at full size)
+CLASS3D_MAX_VOXELS = 4_000_000
+
+
 def build_class3d_volume_pane_content(root, row_cells):
-    """X/Y/Z slices of the volume of a 3D class (from its middle half, the
-    box edges are usually empty)."""
+    """VolumeViewer of the volume of a 3D class: iso-surface and slices from
+    one density grid, sent once with the pane (see MAP_VIEWER_CONFIG)."""
     volume = row_cells.get('volumePath')
     if not volume:
         raise Exception('Missing class volume path')
     title = f"Class {row_cells.get('classId')} — {row_cells.get('particles')} particles"
-    return build_tomogram_volume_slider_pane_content(root, volume, title=title)
+    return build_volume_viewer_pane_content(
+        root, volume, title=title, slices=False, density='inline',
+        max_voxels=CLASS3D_MAX_VOXELS, viewer_config=MAP_VIEWER_CONFIG)
 
 
 def create_classes_subset(root, star_path, classes):

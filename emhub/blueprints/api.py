@@ -61,6 +61,8 @@ from emhub.data.processing import (resolve_project_root, resolve_processing_path
 from .api_viewers import *
 from .api_viewers_spa import (resolve_spa_table_view_type, build_spa_table,
                               build_spa_pane_content, create_classes_subset)
+from .api_viewers_warp import (resolve_warp_table_view_type,
+                               build_warp_population_table, build_warp_pane_content)
 
 
 def _em_image_listing_fields(file_path):
@@ -805,6 +807,10 @@ def get_table_view_data():
         if not os.path.exists(full_path):
             raise Exception(f'STAR file not found: {star_path}')
 
+        # Warp/M population: its species volumes
+        if resolve_warp_table_view_type(pointer_class, full_path):
+            return build_warp_population_table(full_path, root)
+
         # SPA outputs (Movies, Micrographs)
         if spa_key := resolve_spa_table_view_type(pointer_class, full_path):
             return build_spa_table(full_path, spa_key)
@@ -1010,9 +1016,13 @@ def resolve_table_view_pane():
         row = attrs.get('row') or {}
         row_cells = row.get('cells') or {}
 
-        # SPA outputs (Movies, Micrographs)
         output_path = attrs.get('outputPath') or attrs.get('starPath') or attrs.get('path')
         output_full = project_file_path(root, output_path) if output_path else None
+        # Warp/M population
+        if resolve_warp_table_view_type(pointer_class, output_full):
+            return build_warp_pane_content(action_id, root, row_cells)
+
+        # SPA outputs (Movies, Micrographs)
         if spa_key := resolve_spa_table_view_type(pointer_class, output_full):
             return build_spa_pane_content(action_id, root, spa_key, row_cells,
                                           output_path=output_path,
@@ -1080,7 +1090,6 @@ def resolve_table_view_pane():
                 title=tomo_rel,
                 coordinates=_table_view_tomo_coordinates(
                     attrs, root, type_key, row_cells, row_label),
-                ortho=bool(attrs.get('ortho')),
             )
 
         star_rel = resolve_row_star_path(attrs, row_cells, column_id)
@@ -1165,6 +1174,25 @@ def fetch_coords3d_tomogram_slice():
             root, output_path, tomo_id, slice_index, axis=axis)
 
     return _handle_item(_handle, 'slice')
+
+
+@api_bp.route('/fetch_volume_density', methods=['POST'])
+@flask_login.login_required
+def fetch_volume_density():
+    """ Binned density, histogram and statistics of a volume of a project,
+    for the iso-surface view of emflow's VolumeViewer (see
+    emhub.data.volume_density). attrs: root, path and, optional, maxVoxels
+    and maxSize (longest side). """
+    def _handle(**attrs):
+        from emhub.data.volume_density import load_volume_density
+
+        root = resolve_project_root(attrs['root'])
+        path = project_file_path(root, attrs['path'])
+        if not os.path.exists(path):
+            raise Exception(f"Volume not found: {attrs['path']}")
+        return load_volume_density(path, attrs.get('maxVoxels'), attrs.get('maxSize'))
+
+    return _handle_item(_handle, 'density')
 
 
 @api_bp.route('/get_file_chunks', methods=['POST'])

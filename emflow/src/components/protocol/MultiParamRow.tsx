@@ -13,7 +13,7 @@ import {
 } from "@mui/material";
 import { TrashBinIcon, FindIcon } from "../../icons";
 import { useDrag } from "./DragContext";
-import OutputSelectorDialog from "./outputSelectorDialog";
+import OutputSelectorDialog from "./OutputSelectorDialog";
 
 type MultiParamRowProps = {
   label: string;
