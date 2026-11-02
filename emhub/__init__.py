@@ -31,7 +31,7 @@ import sys
 from glob import glob
 
 
-__version__ = '2.0.0-rc261027'
+__version__ = '2.0.0-rc261102'
 
 
 def create_app(test_config=None):
@@ -145,7 +145,7 @@ def create_app(test_config=None):
     def register_basic_params(kwargs):
         kwargs['current_app'] = app
         kwargs['is_devel'] = app.is_devel
-        kwargs['version'] = __version__
+        kwargs['version'] = app.get_version()
         kwargs['emhub_title'] = app.config.get('EMHUB_TITLE', '')
 
         kwargs['possible_booking_owners'] = app.dc.get_pi_labs()
@@ -499,6 +499,15 @@ def create_app(test_config=None):
 
     app.is_devel = (os.environ.get('FLASK_ENV', None) == 'development')
     app.version = __version__
+    # Instance-specific code (e.g. extra/app_setup.py) can set a suffix
+    # to track its own release along with the EMhub base version
+    app.version_suffix = ''
+
+    def get_version():
+        """ EMhub base version followed by the instance version suffix. """
+        return app.version + (app.version_suffix or '')
+
+    app.get_version = get_version
 
     login_manager = flask_login.LoginManager()
     login_manager.init_app(app)
@@ -527,9 +536,12 @@ def create_app(test_config=None):
                 elif parts[0] == 'port':
                     port = int(parts[1])
         import redis
+        # No socket read timeout (redis-py >= 8 defaults to 5s), the workers
+        # requests block in XREADGROUP for longer (e.g. 30s) waiting for tasks
         app.r = redis.StrictRedis(host, port,
                                   encoding="utf-8", decode_responses=True,
-                                  socket_connect_timeout=5)
+                                  socket_connect_timeout=5,
+                                  socket_timeout=None)
         try:
             app.r.ping()
         except redis.exceptions.RedisError as e:

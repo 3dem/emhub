@@ -1444,14 +1444,39 @@ def create_data_models(dm):
             return {int(k): v for k, v in self.__getExtra('access', {}).items()
                     if v in self.ACCESS_LEVELS}
 
+        @classmethod
+        def cane_roles_level(cls, cane, user):
+            """ Return the access level granted by the cane (dict from
+            config:dewars) to the user through its 'roles', or None.
+            """
+            cane = cane or {}
+            roles = cane.get('roles') or []
+            level = cane.get('roles_level') or cls.ACCESS_READ
+            if level in cls.ACCESS_LEVELS and any(r in user.roles for r in roles):
+                return level
+            return None
+
+        def get_cane(self):
+            """ Return the cane dict (from config:dewars) of this puck. """
+            for d in dm.get_config('dewars').get('dewars', []):
+                if d['id'] == self.dewar:
+                    return next((c for c in d.get('canes', [])
+                                 if c['id'] == self.cane), {})
+            return {}
+
         def get_access_level(self, user):
             """ Return the access level of the given user to this puck,
             or None if the user has no access. Managers have full access.
+            Labs access is set in the puck and roles access in its cane,
+            the highest level of both is returned.
             """
             if user.is_manager:
                 return self.ACCESS_FULL
             pi = user.get_pi()
-            return None if pi is None else self.access().get(pi.id, None)
+            levels = [None if pi is None else self.access().get(pi.id, None),
+                      self.cane_roles_level(self.get_cane(), user)]
+            levels = [lvl for lvl in levels if lvl in self.ACCESS_LEVELS]
+            return max(levels, key=self.ACCESS_LEVELS.index, default=None)
 
         def _has_level(self, user, levels):
             return self.get_access_level(user) in levels + [self.ACCESS_FULL]

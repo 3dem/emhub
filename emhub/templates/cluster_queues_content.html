@@ -12,6 +12,9 @@
             <div class="d-flex justify-content-between">
                 <span>Users: <strong>{{ overall.users }}</strong></span>
                 <span>Jobs: <strong>{{ overall.jobs }}</strong></span>
+                {% if overall.pending is not none %}
+                <span>Pending: <strong>{{ overall.pending }}</strong></span>
+                {% endif %}
                 <span>CPUs: <strong>{{ overall.cpus }}</strong></span>
                 <span>GPUs: <strong>{{ overall.gpus }}</strong></span>
             </div>
@@ -56,7 +59,7 @@
 
 </div>
 
-<div class="pills-outline">
+<div class="pills-outline col-12 px-0">
     <ul class="nav nav-pills mb-2" id="tabTomoNav" role="tablist">
 
         <li class="nav-item">

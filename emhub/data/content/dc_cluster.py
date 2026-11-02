@@ -92,6 +92,211 @@ def _iter_cluster_jobs_old(jsonfile, jobsJson):
         yield jobid, user, cores, gpus, host
 
 
+# Default name of the JSON files (per queue) in the cluster data folder
+DATA_FILES_PATTERN = '{queue}_lsf_{kind}_infor.json'
+
+
+def _new_host(status='ok', used_cores=0, max_cores=0, used_gpus=0,
+              max_gpus=0, jobs=0, **kwargs):
+    """ Host dict as used in the cluster_queues templates. """
+    host = {
+        "status": status,
+        "used_cores": used_cores,
+        "max_cores": max_cores,
+        "used_gpus": used_gpus,
+        "max_gpus": max_gpus,
+        "usage": 0,
+        "users": defaultdict(lambda: []),
+        "color": "transparent",
+        "jobs": jobs
+    }
+    host.update(kwargs)
+    return host
+
+
+def _update_host_usage(hostJson):
+    """ Compute the host usage (max of cores and gpus usage) and its color. """
+    usageCores = (hostJson['used_cores'] / hostJson['max_cores']
+                  if hostJson['max_cores'] else 0)
+    usageGpu = (hostJson['used_gpus'] / hostJson['max_gpus']
+                if hostJson['max_gpus'] else 0)
+    usage = max(usageGpu, usageCores) * 100
+    hostJson['usage'] = usage
+    if usage >= 100:
+        hostJson['status'] = 'closed_FULL'
+        hostJson['color'] = '#eec2c8' #c53648'
+    elif usage >= 50:
+        hostJson['color'] = '#fcd7bf'  #'#f57b2a'
+    elif usage > 0 or hostJson['jobs']:
+        hostJson['color'] = '#fcf6ec'  # '#f4e1c1'
+
+    if hostJson['status'] != 'ok' and usage < 100:
+        hostJson['color'] = '#fbd9d3'  # closed or unavailable
+
+
+def _load_cluster_folder(queuesConf):
+    """ Load nodes and accounts usage from the JSON files (one set per
+    queue) in the configured 'data_folder'. Each layout group defines
+    the 'queues' whose nodes are shown in it.
+
+    Returns: (layout, jobsJson, usersData, files)
+    """
+    folder = queuesConf['data_folder']
+    pattern = queuesConf.get('data_files', DATA_FILES_PATTERN)
+
+    def _load(queue, kind):
+        fn = os.path.join(folder, pattern.format(queue=queue, kind=kind))
+        if not os.path.exists(fn):
+            return fn, []
+        with open(fn) as f:
+            return fn, json.load(f)
+
+    files = []
+    jobsJson = {}
+    usersData = defaultdict(lambda: {'jobs': 0, 'pending': 0,
+                                     'cores': 0, 'gpus': 0})
+    layout = []
+
+    for group in queuesConf['layout']:
+        group = dict(group)
+        nodes = []
+        nodeQueues = {}
+        gpuTypes = []
+
+        for queue in group.get('queues', []):
+            fn, nodesInfo = _load(queue, 'nodes')
+            fnj, nodesJobs = _load(queue, 'nodes_with_jobs')
+            fna, accounts = _load(queue, 'accounts')
+            files.extend(fn for fn in [fn, fnj, fna] if os.path.exists(fn))
+
+            # Nodes usage, from nodes_with_jobs, or nodes if not there
+            queueNodes = {}
+            for n in nodesInfo:
+                queueNodes[n['name']] = _new_host(
+                    status=n.get('status', 'ok'),
+                    max_cores=n.get('ncpus', 0),
+                    max_gpus=max(n.get('ngpus', 0), 0),
+                    max_mem=n.get('mem_in_gb', 0),
+                    gpu_type=n.get('gpu_type', 'none'))
+            for n in nodesJobs:
+                queueNodes[n['node_name']] = _new_host(
+                    status=n.get('status', 'ok'),
+                    used_cores=n.get('ncpus_in_use', 0),
+                    max_cores=n.get('total_cpus', 0),
+                    used_gpus=n.get('ngpus_in_use', 0),
+                    max_gpus=max(n.get('total_gpus', 0), 0),
+                    used_mem=n.get('memory_in_use', 0),
+                    max_mem=n.get('total_mem_in_gb', 0),
+                    gpu_type=n.get('gpu_type', 'none'),
+                    jobs=n.get('njobs', 0))
+
+            for name in sorted(queueNodes):
+                if name in nodeQueues:
+                    continue
+                hostJson = queueNodes[name]
+                _update_host_usage(hostJson)
+                hostJson['queue'] = queue
+                hostJson['accounts'] = {}
+                jobsJson[name] = hostJson
+                nodes.append(name)
+                nodeQueues[name] = queue
+                if hostJson['gpu_type'] not in gpuTypes:
+                    gpuTypes.append(hostJson['gpu_type'])
+
+            # Accounts (users) usage, the jobs per node are not known
+            # but only the nodes where the account has jobs running
+            for a in accounts:
+                account = a['account_name']
+                accountNodes = (a.get('compute_nodes_list') or '').split()
+                accountJson = {
+                    'queue': queue,
+                    'jobs': a.get('n_running_jobs', 0),
+                    'pending': a.get('n_pending_jobs', 0),
+                    'cores': a.get('n_cpus_used', 0),
+                    'gpus': a.get('n_gpus_used', 0),
+                    'parent': a.get('parent_account', ''),
+                    'nodes': accountNodes
+                }
+                userJson = usersData[account]
+                for k in ['jobs', 'pending', 'cores', 'gpus']:
+                    userJson[k] += accountJson[k]
+                for host in accountNodes:
+                    if nodeQueues.get(host) == queue:
+                        hostJson = jobsJson[host]
+                        hostJson['users'].setdefault(account, [])
+                        hostJson['accounts'][account] = accountJson
+
+        hosts = [jobsJson[n] for n in nodes]
+        usage = sum(h['usage'] for h in hosts)
+        group.update({
+            'nodes': nodes,
+            'node_queues': nodeQueues,
+            'usage': f"{usage / len(nodes) if nodes else 0:0.2f}",
+            'gpu_types': [t for t in gpuTypes if t != 'none'],
+            'total_cores': sum(h['max_cores'] for h in hosts),
+            'total_gpus': sum(h['max_gpus'] for h in hosts)
+        })
+        layout.append(group)
+
+    return layout, jobsJson, usersData, files
+
+
+def _load_cluster_json(queuesConf, kwargs):
+    """ Load the jobs from a single JSON file for the nodes defined in
+    the layout of the cluster config.
+
+    Returns: (layout, jobsJson, usersData, jsonfile)
+    """
+    queuesLayout = queuesConf['layout']
+
+    # Initialize jobs dict based on the Layout
+    jobsJson = {}
+    for layout in queuesLayout:
+        specs = layout['specs']
+        max_cores = specs['CPUs']
+        max_gpus = 0
+        for gpu in specs['GPUs'].values():
+            max_gpus = gpu['count']
+
+        for node in layout['nodes']:
+            jobsJson[node] = _new_host(max_cores=max_cores, max_gpus=max_gpus)
+
+    usersData = defaultdict(lambda : {'jobs': 0, 'cores': 0, 'gpus': 0, 'usage': 0})
+
+    if 'old' in kwargs:
+        jsonfile = '/Users/jdela80/work/development/emhub-otf/sample_scripts/emgoat-data/OLD_cryoem_jobs.json'
+        iter_cluster_jobs = _iter_cluster_jobs_old(jsonfile, jobsJson)
+    else:
+        jsonfile = queuesConf['json']
+        queues_data = _load_cluster_queues(jsonfile)
+        queue_names = {layout['queue'] for layout in queuesLayout
+                       if layout.get('queue')} or None
+        iter_cluster_jobs = _iter_cluster_jobs(
+            queues_data, jobsJson, queue_names)
+
+    for jobid, user, cores, gpus, host in iter_cluster_jobs:
+        hostJson = jobsJson[host]
+        hostJson['jobs'] += 1
+        hostJson['users'][user].append({
+            "jobid": jobid,
+            "cores": cores,
+            "gpus": gpus})
+        hostJson['used_cores'] += cores
+        hostJson['used_gpus'] += gpus
+        userJson = usersData[user]
+        userJson['jobs'] += 1
+        userJson['cores'] += cores
+        userJson['gpus'] += gpus
+        _update_host_usage(hostJson)
+
+    # Let's update some stats for each group
+    for layout in queuesLayout:
+        usage = sum(jobsJson[node]['usage'] for node in layout['nodes'])
+        layout['usage'] = f"{usage / len(layout['nodes']):0.2f}"
+
+    return queuesLayout, jobsJson, usersData, jsonfile
+
+
 SPARC_SUFFIX = '_sparc'
 
 
@@ -151,6 +356,8 @@ def _aggregate_labs_usage(usersData, dm):
         lab['jobs'] += stats['jobs']
         lab['cores'] += stats['cores']
         lab['gpus'] += stats['gpus']
+        if 'pending' in stats:
+            lab['pending'] = lab.get('pending', 0) + stats['pending']
 
     labs = []
     for name, stats in labsData.items():
@@ -171,6 +378,10 @@ def _compute_overall_stats(jobsJson, usersData):
         'cpus': sum(h['used_cores'] for h in jobsJson.values()),
         'gpus': sum(h['used_gpus'] for h in jobsJson.values()),
         'usage': f"{avg_usage:0.2f}",
+        # Pending jobs are only known when loading from a data folder
+        'pending': (sum(u['pending'] for u in usersData.values())
+                    if any('pending' in u for u in usersData.values())
+                    else None)
     }
 
 
@@ -179,93 +390,19 @@ def register_content(dc):
     @dc.content
     def cluster_queues(**kwargs):
         dm = dc.app.dm
-        clusterName = kwargs['cluster_name']
-        queuesConf = dm.get_config('queues')[clusterName]
-        queuesLayout = queuesConf['layout']
+        queuesConfig = dm.get_config('queues')
+        clusterName = kwargs.get('cluster_name') or next(iter(queuesConfig))
+        queuesConf = queuesConfig[clusterName]
 
-        # Initialize jobs dict based on the Layout
-        jobsJson = {}
-        for layout in queuesLayout:
-            specs = layout['specs']
-            max_cores = specs['CPUs']
-            for gpu in specs['GPUs'].values():
-                max_gpus = gpu['count']
-
-            for node in layout['nodes']:
-                jobsJson[node] = {
-                    "status": "ok",
-                    "used_cores": 0,
-                    "max_cores": max_cores,
-                    "used_gpus": 0,
-                    "max_gpus": max_gpus,
-                    "usage": 0,
-                    "users": defaultdict(lambda: []),
-                    "color": "transparent",
-                    "jobs": 0
-                }
-
-        queueWorker = queuesConf['worker']
-
-        usersData = defaultdict(lambda : {'jobs': 0, 'cores': 0, 'gpus': 0, 'usage': 0})
-
-        # FIXME: this is just for debugging purposes,
-        # get real data from the worker task results
-        # jobsJson = queuesConf['sample_json']
-
-        #jsonfile = '/Volumes/cryo_facility/appdpcryoem/cryoem_jobs.json'
-
-        if 'old' in kwargs:
-            jsonfile = '/Users/jdela80/work/development/emhub-otf/sample_scripts/emgoat-data/OLD_cryoem_jobs.json'
-            iter_cluster_jobs = _iter_cluster_jobs_old(jsonfile, jobsJson)
+        if 'data_folder' in queuesConf:
+            queuesLayout, jobsJson, usersData, files = \
+                _load_cluster_folder(queuesConf)
+            updated = (Pretty.modified(max(files, key=os.path.getmtime))
+                       if files else 'never')
         else:
-            jsonfile = queuesConf['json']
-            queues_data = _load_cluster_queues(jsonfile)
-            queue_names = {layout['queue'] for layout in queuesLayout
-                           if layout.get('queue')} or None
-            iter_cluster_jobs = _iter_cluster_jobs(
-                queues_data, jobsJson, queue_names)
-
-        for jobid, user, cores, gpus, host in iter_cluster_jobs:
-            hostJson = jobsJson[host]
-            hostJson['jobs'] += 1
-            hostJson['users'][user].append({
-                "jobid": jobid,
-                "cores": cores,
-                "gpus": gpus})
-            hostJson['used_cores'] += cores
-            hostJson['used_gpus'] += gpus
-            userJson = usersData[user]
-            userJson['jobs'] += 1
-            userJson['cores'] += cores
-            userJson['gpus'] += gpus
-            usageCores = hostJson['used_cores'] / hostJson['max_cores']
-            if hostJson['max_gpus']:
-                usageGpu = hostJson['used_gpus'] / hostJson['max_gpus']
-            else:
-                usageGpu = 0
-            usage = max(usageGpu, usageCores) * 100
-            hostJson['usage'] = usage
-            if usage >= 100:
-                hostJson['status'] = 'closed_FULL'
-                hostJson['color'] = '#eec2c8' #c53648'
-            elif usage >= 50:
-                hostJson['color'] = '#fcd7bf'  #'#f57b2a'
-            elif usage >= 0:
-                hostJson['color'] = '#fcf6ec'  # '#f4e1c1'
-
-        # Let's update some stats for each group
-        for layout in queuesLayout:
-            specs = layout['specs']
-            max_cores = specs['CPUs']
-            for gpu in specs['GPUs'].values():
-                max_gpus = gpu['count']
-
-            usage = 0
-            for node in layout['nodes']:
-                hostJson = jobsJson[node]
-                usage += hostJson['usage']
-
-            layout['usage'] = f"{usage / len(layout['nodes']):0.2f}"
+            queuesLayout, jobsJson, usersData, jsonfile = \
+                _load_cluster_json(queuesConf, kwargs)
+            updated = Pretty.modified(jsonfile)
 
         users = []
         for k, u in usersData.items():
@@ -273,17 +410,21 @@ def register_content(dc):
             users.append(u)
 
         users.sort(key=lambda u: u['cores'], reverse=True)
+        labMaps = _build_cluster_lab_maps(dm)
         labs = _aggregate_labs_usage(usersData, dm)
         overall = _compute_overall_stats(jobsJson, usersData)
+        accountLabs = {u['name']: _lab_label_for_account(u['name'], *labMaps)
+                       for u in users}
 
         return {
             'queues': queuesLayout,
             'jobs': jobsJson,
-            'updated': Pretty.modified(jsonfile),
+            'updated': updated,
             'tab': kwargs.get('tab', 'nodes'),
             'users': users,
             'labs': labs,
             'overall': overall,
+            'account_labs': accountLabs,
             'mode': kwargs.get('mode', 'compact'),
             'cluster_name': clusterName
         }

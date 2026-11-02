@@ -1334,6 +1334,8 @@ class DataManager(DbManager):
         return self.__create_item(self.Puck, **attrs)
 
     def update_puck(self, **attrs):
+        if 'gridboxes' in attrs.get('extra', {}):
+            self.check_puck_gridboxes(attrs)
         return self.__update_item(self.Puck, **attrs)
 
     def delete_puck(self, **attrs):
@@ -1373,6 +1375,48 @@ class DataManager(DbManager):
         if denied:
             raise Exception("Invalid access: not allowed to update "
                             "puck's %s" % ', '.join(sorted(denied)))
+
+    GRIDBOX_MODIFIED_KEYS = ['modified_by', 'modified_by_id', 'modified_date']
+
+    def check_puck_gridboxes(self, attrs):
+        """ Validate the gridboxes in attrs['extra'] that changed with
+        respect to the stored puck (a storage date is required) and record
+        who modified them and when. Unchanged gridboxes keep their stored
+        modification info.
+        """
+        puck = self.get_puck_by(id=attrs['id'])
+        if puck is None:
+            raise Exception("Puck %s not found" % attrs['id'])
+
+        def _content(gb):
+            return {k: v for k, v in (gb or {}).items()
+                    if k not in self.GRIDBOX_MODIFIED_KEYS}
+
+        old_gridboxes = {str(k): v for k, v in puck.gridboxes().items()}
+        gridboxes = {}
+        for pos, gb in attrs['extra']['gridboxes'].items():
+            gb = dict(gb)
+            old_gb = old_gridboxes.get(str(int(pos)))
+            if old_gb is not None and _content(gb) == _content(old_gb):
+                for k in self.GRIDBOX_MODIFIED_KEYS:
+                    gb.pop(k, None)
+                    if k in old_gb:
+                        gb[k] = old_gb[k]
+            else:
+                for key, label in [('sample', 'Sample'),
+                                   ('storage_date', 'Storage date')]:
+                    if not str(gb.get(key) or '').strip():
+                        raise Exception("%s is required for the gridbox "
+                                        "at position %s" % (label, pos))
+                gb.update({
+                    'modified_by': None if self._user is None else self._user.name,
+                    'modified_by_id': None if self._user is None else self._user.id,
+                    'modified_date': datetime_to_isoformat(
+                        self.now().astimezone(dt.timezone.utc))
+                })
+            gridboxes[pos] = gb
+
+        attrs['extra'] = dict(attrs['extra'], gridboxes=gridboxes)
 
     # --------------- Internal implementation methods -------------------------
     def get_universities_dict(self):
@@ -1525,7 +1569,18 @@ class DataManager(DbManager):
             return True
         perms = self.get_config('permissions').get('content', {})
         roles = perms.get(permissionKey) or defaultRoles or []
-        return self._user.has_any_role(roles)
+        if self._user.has_any_role(roles):
+            return True
+        # Roles granted in canes (config:dewars) also give access to pucks
+        return permissionKey == 'pucks' and self.has_cane_roles_access()
+
+    def has_cane_roles_access(self):
+        """ Return True if the current user has any of the roles
+        granted access to the pucks of a cane (see Puck.cane_roles_level).
+        """
+        return any(self.Puck.cane_roles_level(c, self._user)
+                   for d in self.get_config('dewars').get('dewars', [])
+                   for c in d.get('canes', []))
 
     def check_page_access(self, page_id):
         """ Return True if the current user (logged or not) can see the page.
