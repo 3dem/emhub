@@ -2,20 +2,24 @@
 // DOM helpers to host the viewer inside an arbitrary element of the host page.
 import { ROOT_CLASS } from "./constants";
 
-/** Create the `.emflow-root` shell element (CSS scope) inside `target`. */
-export function createWidgetShell(target: HTMLElement) {
+/**
+ * Create the `.emflow-root` shell element (CSS scope) inside `target`. With
+ * `fill` it takes the whole height of the target (the project page);
+ * otherwise it is as high as its content (a viewer inside a host panel).
+ */
+export function createWidgetShell(target: HTMLElement, { fill = true }: { fill?: boolean } = {}) {
   const shell = document.createElement("div");
   shell.className = ROOT_CLASS;
   shell.style.display = "flex";
   shell.style.flexDirection = "column";
-  shell.style.height = "100%";
   shell.style.minHeight = "0";
+  if (fill) shell.style.height = "100%";
 
   const mountPoint = document.createElement("div");
-  mountPoint.style.flex = "1";
   mountPoint.style.minHeight = "0";
   mountPoint.style.display = "flex";
   mountPoint.style.flexDirection = "column";
+  if (fill) mountPoint.style.flex = "1";
 
   shell.appendChild(mountPoint);
   target.appendChild(shell);

@@ -2,7 +2,7 @@
 import React, { useMemo } from "react";
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button } from "@mui/material";
 import { useTheme as useAppTheme } from "@/context/ThemeContext";
-import "./tag-dark-overrides.css";
+import "./tags.css";
 
 type TagsDialogProps = {
   open: boolean;

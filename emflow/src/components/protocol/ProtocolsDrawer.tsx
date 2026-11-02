@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 
 import { ProtocolsTree, type ProtocolNode } from "./ProtocolTree";
 import { BoxCubeIcon } from "@/icons";
-import styles from "./protocolsdrawer.module.css";
+import styles from "./ProtocolsDrawer.module.css";
 import { useProjectService } from "@/ProjectServiceContext";
 
 interface ProtocolsDrawerProps {

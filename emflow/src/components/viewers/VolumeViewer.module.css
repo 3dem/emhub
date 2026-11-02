@@ -1,0 +1,445 @@
+/* VolumeViewer and its Slices tab (volume/VolumeSlices.tsx). Colors come
+   from the theme tokens, so the viewer follows the emflow dark mode. */
+.root {
+  --vv-accent: #1f77b4;
+  --vv-muted: var(--muted-foreground);
+  --vv-border: var(--border);
+  --vv-surface: var(--muted);
+  min-width: 0;
+  overflow: auto;
+  color: var(--foreground);
+}
+
+/* Expanded: over the whole browser window, above the host page and dialogs */
+.full {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: var(--background);
+  padding: 12px 16px;
+}
+
+.info {
+  font-size: 0.8rem;
+  color: var(--vv-muted);
+  margin: 0 0 8px;
+}
+
+.msg {
+  color: var(--vv-muted);
+  font-size: 0.9rem;
+  padding: 12px 0;
+}
+
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.tabs {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  margin: 0 0 6px;
+  border-bottom: 1px solid var(--vv-border);
+}
+
+.tabs button {
+  border: 0;
+  background: none;
+  padding: 5px 14px;
+  font-size: 0.9rem;
+  color: var(--vv-muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  color: var(--vv-accent);
+  border-bottom-color: var(--vv-accent);
+}
+
+.fullBtn {
+  border: 0;
+  background: none;
+  color: var(--vv-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+}
+
+.fullBtn:hover {
+  color: var(--vv-accent);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 6px;
+  align-items: center;
+}
+
+.toolbar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.toolbar button:hover {
+  background: var(--vv-surface);
+}
+
+.toolbar button.active {
+  background: var(--vv-accent);
+  border-color: var(--vv-accent);
+  color: #fff;
+}
+
+.sep {
+  width: 1px;
+  height: 20px;
+  background: var(--vv-border);
+  margin: 0 4px;
+}
+
+.grid {
+  display: inline-grid;
+  grid-template-columns: max-content max-content;
+  gap: 6px 14px;
+  align-items: start;
+}
+
+.fig {
+  position: relative;
+  margin: 0;
+}
+
+.fig canvas {
+  display: block;
+}
+
+.img {
+  background: #000;
+}
+
+.ov {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.slider {
+  font-size: 0.85em;
+}
+
+.slider input {
+  display: block;
+  margin: 0;
+}
+
+.lbl {
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.wrap3d {
+  display: inline-flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.canvas3d {
+  position: relative;
+}
+
+.canvas3d canvas {
+  display: block;
+  border-radius: 4px;
+}
+
+.ctrl3d {
+  font-size: 0.8rem;
+  width: 170px;
+}
+
+.row {
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+
+.row label {
+  margin: 0;
+}
+
+.row input[type="range"] {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
+
+.out {
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--vv-border);
+  border-radius: 4px;
+  background: var(--vv-surface);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  min-height: 28px;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.out b {
+  margin-left: 8px;
+}
+
+.out b:first-child {
+  margin-left: 0;
+}
+
+.content {
+  display: inline-block;
+}
+
+/* Particles panel (volume/ParticlesPanel.tsx), under its toolbar button */
+.panelAnchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: 250px;
+  padding: 10px 12px;
+  border: 1px solid var(--vv-border);
+  border-radius: 6px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  font-size: 0.82rem;
+}
+
+.panelRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-weight: normal;
+}
+
+.panelRow button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.panelGroup {
+  margin: 4px 0 8px;
+  padding: 0;
+  border: 0;
+}
+
+.panelGroup legend {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--vv-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.panelGroup:disabled {
+  opacity: 0.5;
+}
+
+.panelSub {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: -2px 0 6px 22px;
+  color: var(--vv-muted);
+}
+
+.panelSub input[type="range"] {
+  width: 100%;
+  margin: 0;
+}
+
+.panelSelect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-weight: normal;
+}
+
+.panelSelect select {
+  flex: 1;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.82rem;
+}
+
+.panelColor {
+  margin-left: auto;
+  width: 28px;
+  height: 22px;
+  padding: 0 2px;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--background);
+  cursor: pointer;
+}
+
+/* "3D volume" tab (volume/IsoSurfaceView.tsx, volume/DensityPanel.tsx) */
+.isoPanel {
+  width: 250px;
+  font-size: 0.8rem;
+}
+
+.isoWait {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aab2bd;
+  background: #111418;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 12px;
+}
+
+.hist {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--vv-border);
+  border-radius: 4px;
+  background: var(--vv-surface);
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.histFull {
+  fill: var(--vv-muted);
+  opacity: 0.45;
+}
+
+.histShown {
+  fill: none;
+  stroke: var(--vv-accent);
+  stroke-width: 1.2;
+}
+
+.histThr {
+  stroke: #e8590c;
+  stroke-width: 2;
+}
+
+.histAxis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--vv-muted);
+  font-variant-numeric: tabular-nums;
+  margin: 1px 0 2px;
+}
+
+.histLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  color: var(--vv-muted);
+  margin: 0 0 8px;
+}
+
+.histLegend i {
+  display: inline-block;
+  width: 12px;
+  height: 8px;
+  margin-right: 3px;
+  vertical-align: baseline;
+}
+
+.keyFull {
+  background: var(--vv-muted);
+  opacity: 0.45;
+}
+
+.keyShown {
+  border-top: 2px solid var(--vv-accent);
+  height: 0 !important;
+  vertical-align: middle !important;
+}
+
+.isoNumber {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.isoRange {
+  display: block;
+  width: 100%;
+  margin: -2px 0 2px;
+}
+
+.isoNote {
+  color: var(--vv-muted);
+  margin: 0 0 8px;
+  line-height: 1.35;
+}
+
+.isoValue {
+  width: 34px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Timing of the volume (VolumeViewer `debug`) */
+.debug {
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  color: var(--vv-muted);
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
+}

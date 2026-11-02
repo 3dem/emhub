@@ -5,15 +5,6 @@
 // and fills harmless defaults for optional methods the host does not implement.
 import type { ProjectService } from "@/services/ProjectService";
 
-const mockSliceDataUrl = (sliceIndex: number) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
-    <rect width="100%" height="100%" fill="#eeeeee"/>
-    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
-          font-size="18" fill="#333333">Slice ${sliceIndex}</text>
-  </svg>`;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-};
-
 function createMissingServiceMethodError(methodName: string) {
   return new Error(
     `emflow: service is missing required method '${methodName}'`,
@@ -131,43 +122,10 @@ export function normalizeServiceAPI(srv: any): ProjectService {
   mapFn("fetchProtocolLogChannels", "fetchProtocolLogChannels", "getProtocolLogChannels");
   mapFn("fetchProtocolLogsChunk", "fetchProtocolLogsChunk", "getProtocolLogsChunk");
 
-  mapFn("fetchFscRows", "fetchFscRows", "getFscRows");
-  mapFn("listOutputVolumes", "listOutputVolumes");
-  mapFn("getVolumeInfo", "getVolumeInfo");
-  mapFn("getVolumeHistogram", "getVolumeHistogram");
-  mapFn("buildVolumeSliceUrl", "buildVolumeSliceUrl");
-  mapFn("fetchVolumeSliceObjectUrl", "fetchVolumeSliceObjectUrl");
-  mapFn("getVolumeData3d", "getVolumeData3d");
-
-  mapFn("listCoords3dTomograms", "listCoords3dTomograms");
-  mapFn("fetchCoords3dForTomogram", "fetchCoords3dForTomogram");
-  mapFn("fetchCoords3dTomogramSliceObjectUrl", "fetchCoords3dTomogramSliceObjectUrl");
-  mapFn("createCoords3dOutputFromPoints", "createCoords3dOutputFromPoints");
-
-  mapFn("fetchOutputMetadataTables", "fetchOutputMetadataTables");
-  mapFn("fetchMetadataTableSchema", "fetchMetadataTableSchema");
-  mapFn("fetchMetadataTablePage", "fetchMetadataTablePage");
-  mapFn("exportMetadataTable", "exportMetadataTable");
-  mapFn("fetchMetadataTableWindow", "fetchMetadataTableWindow");
-  mapFn("fetchMetadataImageCellObjectUrl", "fetchMetadataImageCellObjectUrl");
-  mapFn("getMetadataImageCellUrl", "getMetadataImageCellUrl");
-  mapFn("runMetadataTableAction", "runMetadataTableAction");
-
-  mapFn("listOutputTiltSeries", "listOutputTiltSeries");
-  mapFn("fetchTiltSeriesFrames", "fetchTiltSeriesFrames");
-  mapFn("fetchTiltSeriesViewImageObjectUrl", "fetchTiltSeriesViewImageObjectUrl");
-  mapFn("createNewSetOfTiltSeries", "createNewSetOfTiltSeries");
-
-  mapFn("listOutputCTFTomoSeries", "listOutputCTFTomoSeries");
-  mapFn("fetchCTFTomoSeriesViews", "fetchCTFTomoSeriesViews");
-  mapFn("createNewSetOfCTFTomoSeries", "createNewSetOfCTFTomoSeries");
-  mapFn("fetchCTFPsdImage", "fetchCTFPsdImage");
-
   mapFn("listUsers", "listUsers");
   mapFn("shareProject", "shareProject");
   mapFn("listProjectShares", "listProjectShares");
   mapFn("revokeProjectShare", "revokeProjectShare");
-  mapFn("executeProtocolWizard", "executeProtocolWizard");
   mapFn("exportProtocols", "exportProtocols");
   mapFn("writeRemoteFile", "writeRemoteFile");
   mapFn(
@@ -236,17 +194,6 @@ export function normalizeServiceAPI(srv: any): ProjectService {
   ensureFn("fetchWorkflows", async () => []);
   ensureFn("fetchProtocolLogChannels", async () => ({ channels: [] }));
   ensureFn("fetchProtocolLogsChunk", async () => ({ chunks: [] }));
-  ensureFn("fetchFscRows", async () => []);
-  ensureFn("listOutputVolumes", async () => []);
-  ensureFn("listCoords3dTomograms", async () => []);
-  ensureFn("fetchCoords3dForTomogram", async () => []);
-  ensureFn("fetchCoords3dTomogramSliceObjectUrl", async (_p: any, _pid: any, _o: any, _t: any, sliceIndex: number) => ({
-    url: mockSliceDataUrl(sliceIndex),
-    revoke: () => { },
-  }));
-  ensureFn("fetchOutputMetadataTables", async () => []);
-  ensureFn("listOutputTiltSeries", async () => []);
-  ensureFn("listOutputCTFTomoSeries", async () => []);
   ensureFn("listUsers", async () => []);
   ensureFn("listProjectShares", async () => []);
   ensureFn("resolveTableViewerAction", async () => ({

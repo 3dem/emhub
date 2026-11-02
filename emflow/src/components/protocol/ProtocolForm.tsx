@@ -21,7 +21,7 @@ import {
   InputLabel,
   Select,
 } from "@mui/material";
-import styles from "./protocolform.module.css";
+import styles from "./ProtocolForm.module.css";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -33,7 +33,7 @@ import {
 import MultiParamRow from "./MultiParamRow";
 import TableParamRow from "./TableParamRow";
 import ParamRow from "./ParamRow";
-import OutputSelectorDialog from "./outputSelectorDialog";
+import OutputSelectorDialog from "./OutputSelectorDialog";
 import { useProjectService } from "@/ProjectServiceContext";
 import RemoteFileDialog from "@/components/files/RemoteFileDialog";
 import ExecuteModeButton from "./ExecuteModeButton";
@@ -101,10 +101,6 @@ import {
 } from "@/utils/protocolform.protunion";
 
 import { ProjectEffectiveSettings, ProtocolWorkflowExecutionPreflight, ProtocolWorkflowExecutionScope } from "@/services/ProjectService";
-import WizardDialogHost from "./wizards/wizard-dialog-host";
-import { useProtocolWizards } from "./wizards/use_protocol_wizards";
-import { buildWizardUiProps } from "./wizards/protocol_wizard_meta";
-import WizardLoadingDialog from "./wizards/WizardLoadingDialog";
 import { withOutputPrefix } from "@/utils/output_label";
 
 
@@ -1321,79 +1317,6 @@ export default function ProtocolForm({
 
 
 
-  const applyWizardParamUpdates = useCallback(
-    (paramUpdates: Record<string, any>) => {
-      setProtocolDetails((prev: any) => {
-        const currentParams = prev?.params ?? {};
-        let nextParams = currentParams;
-
-        const ensureClone = () => {
-          if (nextParams === currentParams) {
-            nextParams = { ...currentParams };
-          }
-        };
-
-        for (const [paramName, rawValue] of Object.entries(paramUpdates ?? {})) {
-          const stateKey = findStateKeyByParamNames(currentParams, [paramName]);
-          if (!stateKey) continue;
-
-          const current = nextParams[stateKey] ?? currentParams[stateKey] ?? {};
-          const cls = resolveParamClass(current);
-          const nextParam = { ...current };
-
-          if (cls === "BooleanParam") {
-            const boolValue = coerceBooleanValue(rawValue);
-            nextParam.value = boolValue;
-            nextParam.editableValue = boolValue;
-          } else if (cls === "PointerParam") {
-            const token = normalizePointerToken(rawValue);
-            nextParam.value = token;
-            nextParam.editableValue = token;
-          } else if (cls === "PathParam") {
-            const token = rawValue == null ? "" : String(rawValue);
-            nextParam.value = token;
-            nextParam.editableValue = token;
-          } else if (cls === "MultiPointerParam") {
-            nextParam.editableValue = normalizeMultiPointerValue(rawValue);
-          } else if (cls === "TableParam") {
-            nextParam.editableValue = normalizeTableParamValue(
-              rawValue,
-              getTableColumns(current)
-            );
-          } else if (cls === "EnumParam" && current?.choices) {
-            nextParam.editableValue = normalizeEnumSelection(
-              rawValue,
-              current.choices,
-              current.default
-            );
-          } else {
-            const parsed = parseFromJSONValue(rawValue);
-            nextParam.editableValue = parsed ?? rawValue ?? "";
-          }
-
-          ensureClone();
-          nextParams[stateKey] = nextParam;
-        }
-
-        if (nextParams === currentParams) return prev;
-
-        if (protocolClassName === "ProtUnionSet") {
-          nextParams = syncProtUnionPointerClassInParams(nextParams);
-          prevSelectedInputTypeRef.current = getProtUnionDerivedPointerClass(nextParams);
-        }
-
-        return {
-          ...prev,
-          params: nextParams,
-        };
-      });
-    },
-    [
-      findStateKeyByParamNames,
-      protocolClassName,
-    ]
-  );
-
   useEffect(() => {
     // syncMetadataSnapshot
     const liveValues = getSerializedParams();
@@ -1428,53 +1351,6 @@ export default function ProtocolForm({
     setExecErrorDialogMessage(message);
     setExecErrorDialogOpen(true);
   }
-
-  const {
-    wizardState,
-    openingWizard,
-    interactivePreviewLoading,
-    openWizardForParam,
-    closeWizard,
-    confirmWizard,
-    setOptionsSelectedValue,
-    setInputFieldValue,
-    setMaskRadiusValue,
-    commitMaskRadiusValue,
-    setMaskRadiusSelectedIndex,
-    setMaskRadiiInnerValue,
-    commitMaskRadiiInnerValue,
-    setMaskRadiiOuterValue,
-    commitMaskRadiiOuterValue,
-    setMaskRadiiSelectedIndex,
-    setCtfDownsampleValue,
-    commitCtfDownsampleValue,
-    setCtfLowFreqValue,
-    commitCtfLowFreqValue,
-    setCtfHighFreqValue,
-    commitCtfHighFreqValue,
-    setCtfSelectedIndex,
-    setFilterLowFreqValue,
-    commitFilterLowFreqValue,
-    setFilterHighFreqValue,
-    commitFilterHighFreqValue,
-    setFilterDecayValue,
-    commitFilterDecayValue,
-    setFilterSelectedIndex,
-    setDownsamplePreviewValue,
-    commitDownsamplePreviewValue,
-    setDownsamplePreviewSelectedIndex,
-    setPointInVolumePoint,
-    setPointInVolumeVoxel,
-  } = useProtocolWizards({
-    projectId,
-    protocolId: effectiveProtocolId,
-    protocolClassName,
-    protocolDetails,
-    svc,
-    getSerializedParams,
-    applyWizardParamUpdates,
-    openExecErrorDialog,
-  });
 
   const adoptCreatedProtocolId = (payload: any) => {
     const returnedProtocolId = String(payload?.protocolId ?? "").trim();
@@ -1744,13 +1620,6 @@ export default function ProtocolForm({
         ...(isNonEmptyString((liveState as any)?.help) ? { help: (liveState as any).help } : {}),
       };
 
-      const wizardUi = buildWizardUiProps({
-        stateKey,
-        paramDef: rawDef,
-        paramsByStateKey: protocolDetails.params,
-        onOpenWizardForParam: openWizardForParam,
-      });
-
       const defResolved = withResolvedParamClass(rawDef);
       const defClass = resolveParamClass(defResolved);
 
@@ -1880,9 +1749,6 @@ export default function ProtocolForm({
             }
             helpText={def.help}
             rowIndex={rowIndex}
-            hasWizard={wizardUi.hasWizard}
-            onOpenWizard={wizardUi.onOpenWizard}
-            wizardTooltip={wizardUi.wizardTooltip}
           />
         );
       }
@@ -1968,9 +1834,6 @@ export default function ProtocolForm({
             }
             helpText={def.help}
             rowIndex={rowIndex}
-            hasWizard={wizardUi.hasWizard}
-            onOpenWizard={wizardUi.onOpenWizard}
-            wizardTooltip={wizardUi.wizardTooltip}
           />
         );
       }
@@ -2008,7 +1871,6 @@ export default function ProtocolForm({
           dragOverKey,
           setDragOverKey,
           onOpenFind: handleOpenFind,
-          wizardUi,
         });
       }
 
@@ -2056,7 +1918,6 @@ export default function ProtocolForm({
           setDragOverKey,
           onBrowsePath: handleBrowsePath,
           onOpenFind: handleOpenFind,
-          wizardUi,
         });
       }
 
@@ -2079,7 +1940,6 @@ export default function ProtocolForm({
           setProtocolDetails,
           def,
           value,
-          wizardUi
         });
       }
 
@@ -2122,9 +1982,6 @@ export default function ProtocolForm({
               helpText={def?.help}
               rowIndex={rowIndex}
               layoutVariant="fullWidth"
-              hasWizard={wizardUi.hasWizard}
-              onOpenWizard={wizardUi.onOpenWizard}
-              wizardTooltip={wizardUi.wizardTooltip}
             />
           );
         }
@@ -2173,9 +2030,6 @@ export default function ProtocolForm({
             helpText={def?.help}
             rowIndex={rowIndex}
             layoutVariant="standard"
-            hasWizard={wizardUi.hasWizard}
-            onOpenWizard={wizardUi.onOpenWizard}
-            wizardTooltip={wizardUi.wizardTooltip}
           />
         );
       }
@@ -2300,7 +2154,6 @@ export default function ProtocolForm({
           setProtocolDetails,
           def,
           value,
-          wizardUi,
         });
       }
 
@@ -2315,9 +2168,6 @@ export default function ProtocolForm({
             helpText={def.help}
             rowIndex={rowIndex}
             layoutVariant="fullWidth"
-            hasWizard={wizardUi.hasWizard}
-            onOpenWizard={wizardUi.onOpenWizard}
-            wizardTooltip={wizardUi.wizardTooltip}
           />
         );
       }
@@ -2340,7 +2190,6 @@ export default function ProtocolForm({
         setProtocolDetails,
         def,
         value,
-        wizardUi,
       });
     },
     [
@@ -2355,7 +2204,6 @@ export default function ProtocolForm({
       protocolId,
       variant,
       protocolClassName,
-      openWizardForParam,
     ]
   );
 
@@ -3421,51 +3269,6 @@ export default function ProtocolForm({
           </Box>
         </DialogActions>
       </Dialog>
-
-      {/* Wizard Loading Dialog */}
-      <WizardLoadingDialog
-        open={openingWizard.open}
-        title={openingWizard.title}
-        message={openingWizard.message}
-      />
-
-      {/* Wizard selector dialog */}
-      <WizardDialogHost
-        wizardState={wizardState}
-        previewLoading={interactivePreviewLoading}
-        onClose={closeWizard}
-        onConfirm={confirmWizard}
-        onOptionsSelectedValueChange={setOptionsSelectedValue}
-        onInputValueChange={setInputFieldValue}
-        onMaskRadiusChange={setMaskRadiusValue}
-        onMaskRadiusCommit={commitMaskRadiusValue}
-        onMaskRadiusSelectedIndexChange={setMaskRadiusSelectedIndex}
-        onMaskRadiiInnerChange={setMaskRadiiInnerValue}
-        onMaskRadiiInnerCommit={commitMaskRadiiInnerValue}
-        onMaskRadiiOuterChange={setMaskRadiiOuterValue}
-        onMaskRadiiOuterCommit={commitMaskRadiiOuterValue}
-        onMaskRadiiSelectedIndexChange={setMaskRadiiSelectedIndex}
-        onCtfDownsampleChange={setCtfDownsampleValue}
-        onCtfDownsampleCommit={commitCtfDownsampleValue}
-        onCtfLowFreqChange={setCtfLowFreqValue}
-        onCtfLowFreqCommit={commitCtfLowFreqValue}
-        onCtfHighFreqChange={setCtfHighFreqValue}
-        onCtfHighFreqCommit={commitCtfHighFreqValue}
-        onCtfSelectedIndexChange={setCtfSelectedIndex}
-        onFilterLowFreqChange={setFilterLowFreqValue}
-        onFilterLowFreqCommit={commitFilterLowFreqValue}
-        onFilterHighFreqChange={setFilterHighFreqValue}
-        onFilterHighFreqCommit={commitFilterHighFreqValue}
-        onFilterDecayChange={setFilterDecayValue}
-        onFilterDecayCommit={commitFilterDecayValue}
-        onFilterSelectedIndexChange={setFilterSelectedIndex}
-        onDownsamplePreviewChange={setDownsamplePreviewValue}
-        onDownsamplePreviewCommit={commitDownsamplePreviewValue}
-        onDownsamplePreviewSelectedIndexChange={setDownsamplePreviewSelectedIndex}
-        onPointInVolumeChange={setPointInVolumePoint}
-        onPointInVolumeVoxelChange={setPointInVolumeVoxel}
-
-      />
 
       {/* Generic execute/save error dialog */}
       <ExecErrorDialog

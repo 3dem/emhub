@@ -89,6 +89,35 @@ const fakeSlices = (count, label, width = 256, height = 256) => {
   return slices;
 };
 
+// Picking template as EMhub sends it (coords3d.py): a surface in Å, centered;
+// a cone pointing along +Z, so the particle orientations are visible
+const coneTemplate = (radius, height, n = 16) => {
+  const vertices = [0, 0, height / 2, 0, 0, -height / 2];
+  const faces = [];
+  for (let i = 0; i < n; i++) {
+    const a = (2 * Math.PI * i) / n;
+    vertices.push(radius * Math.cos(a), radius * Math.sin(a), -height / 2);
+    const v = 2 + i, w = 2 + ((i + 1) % n);
+    faces.push(0, v, w, 1, w, v);
+  }
+  return { vertices, faces };
+};
+
+// Density of the cone (z, y, x grid, uint8 base64, as EMhub's _template_density)
+// with a denser core at its base, so the threshold changes what is drawn
+function coneDensity(radius, height, voxel = 10, n = 34) {
+  const u8 = new Uint8Array(n * n * n), c = (n - 1) / 2;
+  for (let z = 0; z < n; z++) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const X = (x - c) * voxel, Y = (y - c) * voxel, Z = (z - c) * voxel;
+    const r = radius * (0.5 - Z / height), d = Math.hypot(X, Y);
+    const cone = Z >= -height / 2 && Z <= height / 2 && r > 0 ? Math.max(0, 1 - d / r) : 0;
+    const core = Math.exp(-(X * X + Y * Y + (Z + height / 3) ** 2) / (radius * radius / 3));
+    u8[(z * n + y) * n + x] = Math.round(Math.min(1, 0.5 * cone + core) * 255);
+  }
+  let bin = "";
+  for (let i = 0; i < u8.length; i += 8192) bin += String.fromCharCode(...u8.subarray(i, i + 8192));
+  return { shape: [n, n, n], data: btoa(bin), voxelSize: voxel, level: 0.2 };
+}
 // Plotly pane content of a value per tilt angle (-60..60)
 const fakePlot = (title, yTitle, f, type = "scatter") => {
   const x = Array.from({ length: 41 }, (_, i) => -60 + 3 * i);
@@ -210,16 +239,19 @@ export function createFakeService() {
         if (isCoordsTable()) {
           // X/Y/Z volume slices with the particles of this tomogram
           const n = FAKE_NCOORDS[["TS_0001", "TS_0002"].indexOf(name)] ?? 0;
-          const coordinates = { x: [], y: [], z: [] };
+          // RELION angles (rot, tilt, psi) and the template: the 3D tab can
+          // show the template at each particle with its orientation
+          const coordinates = { x: [], y: [], z: [], angles: [], template: { ...coneTemplate(60, 220), density: coneDensity(60, 220) } };
           for (let i = 0; i < n; i++) {
             coordinates.x.push(40 + ((i * 37) % 180));
             coordinates.y.push(20 + ((i * 71) % 140));
             coordinates.z.push(20 + ((i * 5) % 24));
+            coordinates.angles.push([(i * 47) % 360, (i * 29) % 180, (i * 13) % 360]);
           }
           // Slices with the volume aspect: Z is X x Y, Y is X x Z, X is Y x Z
           const axis = (count, label, w, h) => ({ sliderPrefix: `${label}: `, slices: fakeSlices(count, `${name} ${label}`, w, h) });
           return { kind: "imageSlider", title: `Tomogram — ${name}`, layout: "volume",
-                   dimensions: [256, 180, 64], initialSlice: 32,
+                   dimensions: [256, 180, 64], initialSlice: 32, voxelSize: 13.48,
                    axes: { x: axis(256, "X", 180, 64), y: axis(180, "Y", 256, 64), z: axis(64, "Z", 256, 180) },
                    coordinates };
         }
