@@ -536,9 +536,12 @@ def create_app(test_config=None):
                 elif parts[0] == 'port':
                     port = int(parts[1])
         import redis
+        # No socket read timeout (redis-py >= 8 defaults to 5s), the workers
+        # requests block in XREADGROUP for longer (e.g. 30s) waiting for tasks
         app.r = redis.StrictRedis(host, port,
                                   encoding="utf-8", decode_responses=True,
-                                  socket_connect_timeout=5)
+                                  socket_connect_timeout=5,
+                                  socket_timeout=None)
         try:
             app.r.ping()
         except redis.exceptions.RedisError as e:
