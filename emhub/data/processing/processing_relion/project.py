@@ -30,6 +30,7 @@ from emtools.image import Thumbnail
 
 from emwrap.base import ProcessingConfig, ProjectManager
 from emwrap.base.job_form import JobForm
+from emwrap.base.wizards import Wizards
 
 from ..base import SessionRun, SessionData, hours
 from .runs import RelionRun
@@ -462,6 +463,7 @@ class RelionSessionData(SessionData):
                 _register(paramDef)
             for sectionDef in jobForm['sections']:
                 formDef['sections'].append(sectionDef)
+            Wizards.tag_form(formDef, jobForm)
 
             # Add queue parameters if defined in the config
             if queues := ProcessingConfig.get_queues():

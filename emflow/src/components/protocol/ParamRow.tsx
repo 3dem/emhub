@@ -12,7 +12,7 @@ import {
   Link,
 } from "@mui/material";
 import { CloseIcon, FindIcon, HelpIcon, TrashBinIcon } from "../../icons";
-import { FolderOpen as FolderIcon } from "lucide-react";
+import { FolderOpen as FolderIcon, Wand2 as WizardIcon } from "lucide-react";
 import styles from "./ParamRow.module.css";
 
 type ParamRowLayoutVariant = "standard" | "inline" | "fullWidth";
@@ -32,6 +32,10 @@ type ParamRowProps = {
   // PathParam
   isPathParam?: boolean;
   onBrowsePath?: () => void;
+
+  // Wizard of the form that sets this param (see components/wizards)
+  onOpenWizard?: () => void;
+  wizardLabel?: string;
 
   // Layout
   layoutVariant?: ParamRowLayoutVariant;
@@ -243,6 +247,8 @@ const ParamRow = ({
   onOpenFind,
   isPathParam,
   onBrowsePath,
+  onOpenWizard,
+  wizardLabel,
   layoutVariant = "standard",
 }: ParamRowProps) => {
   const [openHelp, setOpenHelp] = useState(false);
@@ -365,6 +371,14 @@ const ParamRow = ({
             <Tooltip title="Browse files">
               <IconButton size="small" sx={actionIconButtonSx} onClick={onBrowsePath}>
                 <FolderIcon className="ml-0" size={18} />
+              </IconButton>
+            </Tooltip>
+          )}
+
+          {onOpenWizard && (
+            <Tooltip title={wizardLabel || "Wizard"}>
+              <IconButton size="small" sx={actionIconButtonSx} onClick={onOpenWizard}>
+                <WizardIcon className="ml-0" size={18} />
               </IconButton>
             </Tooltip>
           )}

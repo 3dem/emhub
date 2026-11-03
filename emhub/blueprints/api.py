@@ -53,6 +53,7 @@ from emtools.datatypes import VOLUME
 from emtools.image import Image, Thumbnail
 from emtools.utils import Pretty, Color, Path
 from emwrap.base.job_form import JobValidationError
+from emwrap.base.wizards import Wizards
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data.data_manager import SqlFilterError
@@ -1541,6 +1542,46 @@ def validate_job():
         return {'valid': True, 'errors': []}
 
     return _handle_item(_validate_job, 'validation')
+
+
+def _wizard_job_type(pp, attrs):
+    """ Job type of an existing job (run_id) or of a new one (job_type). """
+    run = pp.get('run')
+    job_type = run.jobtype if run else attrs.get('job_type')
+    if not job_type:
+        raise Exception("Provide run_id for an existing job, "
+                        "or job_type for a new one.")
+    return job_type
+
+
+@api_bp.route('/wizard_open', methods=['POST'])
+@flask_login.login_required
+def wizard_open():
+    """ Open a wizard of a job form (see emwrap.base.wizards). The params are
+    the current (unsaved) values of the form; the wizard validates them and
+    returns the values shown in its dialog. Nothing is saved.
+    """
+    def _wizard_open(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        return Wizards.open(pm, _wizard_job_type(pp, attrs),
+                            attrs['wizard_id'], attrs.get('params') or {})
+
+    return _handle_item(_wizard_open, 'wizard')
+
+
+@api_bp.route('/wizard_apply', methods=['POST'])
+@flask_login.login_required
+def wizard_apply():
+    """ Validate the outputs of a wizard (OK in its dialog) and return the
+    form params to update. The job is not saved: the form is only filled.
+    """
+    def _wizard_apply(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        return Wizards.apply(pm, _wizard_job_type(pp, attrs),
+                             attrs['wizard_id'], attrs.get('params') or {},
+                             attrs.get('outputs') or {})
+
+    return _handle_item(_wizard_apply, 'wizard')
 
 
 @api_bp.route('/launch_job', methods=['POST'])

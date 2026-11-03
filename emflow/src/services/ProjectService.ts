@@ -823,8 +823,34 @@ export type ContextMenuVisibilityPolicy = {
 //-────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────
-// Wizards support (protocols that can launch a multi-step form instead of the regular parameter form)
+// Wizards support: a dialog that sets some params of a protocol form
+// (form `wizards` + param `wizard: <id>`, emwrap.base.wizards on the server)
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+// Wizard declared by a form (the params that show its button)
+export type FormWizard = {
+  id: string;
+  label?: string;
+  params?: string[];
+};
+
+// Answer of openWizard; errors means the wizard can not run
+export type WizardOpenResult = {
+  errors?: string[];
+  id?: string;
+  label?: string;
+  ui?: string;                       // emflow component (components/wizards)
+  inputs?: Record<string, any>;      // initial values of the editable fields
+  data?: Record<string, any>;        // read-only values
+  warnings?: string[];
+};
+
+// Answer of applyWizard: the form params to update (nothing is saved)
+export type WizardApplyResult = {
+  errors?: string[];
+  params?: Record<string, any>;
+  warnings?: string[];
+};
 
 //─────────────────────────────────────────────────────────────────────────────
 // External viewers support (e.g., Imod, ChimeraX, etc.) — launched from 
@@ -1272,8 +1298,26 @@ export interface ProjectService<
   ): Promise<ContextMenuVisibilityPolicy>;
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Wizards support
-  // ─────────────────────────────────────────────────────────────────────────────  
+  // Wizards support (optional: without openWizard the wizard buttons are hidden,
+  // e.g. in the workflow template editor). params are the current, unsaved
+  // form values; protocolId is empty for a new protocol.
+  // ─────────────────────────────────────────────────────────────────────────────
+  openWizard?(
+    projectId: Id,
+    protocolId: Id | null,
+    protocolClassName: string,
+    wizardId: string,
+    params: Record<string, any>,
+  ): Promise<WizardOpenResult>;
+
+  applyWizard?(
+    projectId: Id,
+    protocolId: Id | null,
+    protocolClassName: string,
+    wizardId: string,
+    params: Record<string, any>,
+    outputs: Record<string, any>,
+  ): Promise<WizardApplyResult>;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Protocol export (for sharing or external analysis)

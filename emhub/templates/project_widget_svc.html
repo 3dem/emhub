@@ -186,6 +186,22 @@ async function handleRequestData(url, args, func) {
   return null;
 }
 
+// Request of the wizard endpoints: return the 'wizard' result,
+// or {errors: [...]} for validation and server errors
+async function wizardRequest(url, args) {
+  var data = null;
+  try {
+    data = await request(url, args);
+  } catch (error) {
+    return { errors: [error.responseText || error.message || "Received unknown error"] };
+  }
+  if (Array.isArray(data.errors) && data.errors.length > 0)
+    return { errors: data.errors };
+  if ('error' in data)
+    return { errors: [data.error] };
+  return data.wizard;
+}
+
 function removeProtocolsFromProjectDetails(protocolIds) {
   if (!project_details.protocols)
     return;
@@ -534,6 +550,27 @@ var svc = {
     return await loadJobDetails(null, protocolClass);
   },
 
+  // Wizards of the job forms (emwrap.base.wizards): the errors are
+  // returned (not shown here), the wizard dialog shows them
+  openWizard(projectId, protocolId, protocolClassName, wizardId, params) {
+    return wizardRequest(Api.urls.wizard_open, {
+      run_id: protocolId || null,
+      job_type: protocolClassName,
+      wizard_id: wizardId,
+      params: params
+    });
+  },
+
+  applyWizard(projectId, protocolId, protocolClassName, wizardId, params, outputs) {
+    return wizardRequest(Api.urls.wizard_apply, {
+      run_id: protocolId || null,
+      job_type: protocolClassName,
+      wizard_id: wizardId,
+      params: params,
+      outputs: outputs
+    });
+  },
+
   resolveAnalyzeViewer: async function (ctx) {
     var pointerClass = String(ctx.pointerClass || ctx.outputRaw?.pointerClass || '').replace(/\s+/g, '');
     var outputPath = ctx.value || ctx.outputRaw?.value || '';
@@ -785,26 +822,35 @@ var svc = {
       return { kind: 'empty', message: 'No path available for this row action.' };
     }
 
-    var paneContent = null;
-    await handleRequestData(
-      Api.urls.resolve_table_view_pane,
-      {
-        root: project_details.path,
-        starPath: pathRel,
-        outputPath: request.outputPath,
-        pointerClass: request.pointerClass,
-        actionId: request.actionId,
-        columnId: columnId || undefined,
-        rowId: request.rowId,
-        row: request.row,
-        rowLabel: request.row?.cells?.tomoName || request.rowId,
-      },
-      function (data) {
-        paneContent = data.paneContent;
-      },
-    );
+    // Errors (e.g. missing images) go to the right pane of the viewer,
+    // not to an EMhub dialog: the viewer shows the 'empty' message
+    var data = null;
+    try {
+      // 'request' is the parameter here: call the global helper explicitly
+      data = await window.request(
+        Api.urls.resolve_table_view_pane,
+        {
+          root: project_details.path,
+          starPath: pathRel,
+          outputPath: request.outputPath,
+          pointerClass: request.pointerClass,
+          actionId: request.actionId,
+          columnId: columnId || undefined,
+          rowId: request.rowId,
+          row: request.row,
+          rowLabel: request.row?.cells?.tomoName || request.rowId,
+        },
+      );
+    } catch (error) {
+      var msg = error.responseText || error.message || 'Received unknown error';
+      return { kind: 'empty', message: String(msg).split('Traceback:')[0].trim() };
+    }
+    if (Array.isArray(data.errors) && data.errors.length > 0)
+      return { kind: 'empty', message: data.errors.join('\n') };
+    if ('error' in data)
+      return { kind: 'empty', message: String(data.error).split('Traceback:')[0].trim() };
 
-    return paneContent || {
+    return data.paneContent || {
       kind: 'empty',
       message: 'Could not load viewer content.',
     };

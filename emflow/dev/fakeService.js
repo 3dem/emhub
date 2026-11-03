@@ -21,6 +21,34 @@ let tags = [
 ];
 const protocolTags = {};
 
+// A protocol form with a wizard (as EMhub tags emw-warp-export_particles,
+// emwrap.base.wizards): new "Warp - Export Particles" in the protocols drawer
+const WIZARD_PROTOCOL = "emw-warp-export_particles";
+const WIZARD_FORM = {
+  name: WIZARD_PROTOCOL,
+  label: "Warp - Export Particles",
+  wizards: [{ id: "export_box", label: "Box and pixel size wizard",
+              params: ["ts_export_particles.output_angpix", "ts_export_particles.box"] }],
+  sections: [{
+    label: "General",
+    params: [
+      { name: "input_tomograms", label: "Input tomograms:", paramClass: "StringParam",
+        default: "Tomograms/job001/tomograms.star", help: "Empty: the wizard refuses to open." },
+      { name: "ts_export_particles.diameter", label: "Particle diameter (A)", paramClass: "FloatParam", default: 150 },
+      { label: "Output", paramClass: "Line", params: [
+        { name: "ts_export_particles.output_angpix", label: "Pixel size", paramClass: "FloatParam", wizard: "export_box" },
+        { name: "ts_export_particles.box", label: "Box size", paramClass: "FloatParam", wizard: "export_box" },
+      ] },
+    ],
+  }],
+};
+const wizardMenu = {
+  Wizards: { text: "Wizards (dev)", value: null, icon: null, tag: null, openItem: true, visible: true,
+    childs: [{ text: "Warp - Export Particles", value: WIZARD_PROTOCOL, icon: null, tag: "protocol",
+               openItem: true, visible: true, childs: [] }] },
+};
+const FAKE_TS_ANGPIX = 1.5;
+
 // With ?outputPrefix in the page url, outputs get a label prefix (as EMhub
 // sends "Class01", "Class02"... for 3D classes): all but the first output of
 // each protocol (to show both), in the graph and in the protocol details
@@ -155,10 +183,10 @@ export function createFakeService() {
     fetchNewProtocolDetails: async (projectId, protocolClass) => ({
       info: { protocolClassName: protocolClass },
       values: {},
-      form: forms[protocolClass] ?? {},
+      form: protocolClass === WIZARD_PROTOCOL ? structuredClone(WIZARD_FORM) : forms[protocolClass] ?? {},
     }),
 
-    loadProtocols: async () => menu.protocols,
+    loadProtocols: async () => ({ ...wizardMenu, ...menu.protocols }),
     fetchWorkflows: async () => menu.workflows,
     loadWorkflow: async (projectId, info) => notImplemented("loadWorkflow", info),
 
@@ -317,6 +345,39 @@ export function createFakeService() {
     setProtocolTagIds: async (projectId, protocolId, tagIds) => {
       protocolTags[protocolId] = tagIds;
       return { tagIds };
+    },
+
+    // Fake ExportTomoParticlesWizard with the Warp adaptor
+    openWizard: async (projectId, protocolId, cls, wizardId, params) => {
+      log("openWizard", { protocolId, cls, wizardId, params });
+      if (!params.input_tomograms)
+        return { errors: ["Select the input tomograms (or an optimisation set with tomograms) before opening the wizard."] };
+      const outAngpix = parseFloat(params["ts_export_particles.output_angpix"]) || FAKE_TS_ANGPIX;
+      const outBox = parseInt(params["ts_export_particles.box"]) || 0;
+      const inBox = Math.round(outBox * outAngpix / FAKE_TS_ANGPIX);
+      return {
+        id: wizardId, label: "Box and pixel size wizard", ui: "ExportTomoParticlesWizard",
+        inputs: { in_box: inBox, out_angpix: outAngpix, out_box: outBox, binning: outAngpix / FAKE_TS_ANGPIX,
+                  // Form diameter, else half of the input box
+                  diameter: parseFloat(params["ts_export_particles.diameter"])
+                    || (inBox ? inBox * FAKE_TS_ANGPIX / 2 : null) },
+        data: { tomograms: params.input_tomograms, tomograms_count: 12, in_angpix: FAKE_TS_ANGPIX },
+        warnings: [],
+      };
+    },
+    applyWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
+      log("applyWizard", { wizardId, params, outputs });
+      const errors = [];
+      if (!(outputs.out_angpix > 0)) errors.push("The output pixel size should be a positive number.");
+      if (!(outputs.in_box > 0)) errors.push("The input box size should be a positive integer.");
+      if (!(outputs.out_box > 0)) errors.push("The output box size should be a positive integer.");
+      if (errors.length) return { errors };
+      return {
+        params: { "ts_export_particles.output_angpix": outputs.out_angpix,
+                  "ts_export_particles.box": Math.round(outputs.out_box),
+                  "ts_export_particles.diameter": outputs.diameter },
+        warnings: outputs.out_box % 2 ? [`The output box size (${outputs.out_box} px) is odd.`] : [],
+      };
     },
 
     getContextMenuVisibilityPolicy: async () => ({
