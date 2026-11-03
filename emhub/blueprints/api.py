@@ -1563,8 +1563,13 @@ def wizard_open():
     """
     def _wizard_open(**attrs):
         pp, pm = get_project_manager(**attrs)
-        return Wizards.open(pm, _wizard_job_type(pp, attrs),
-                            attrs['wizard_id'], attrs.get('params') or {})
+        result = Wizards.open(pm, _wizard_job_type(pp, attrs),
+                              attrs['wizard_id'], attrs.get('params') or {})
+        # Volumes shown by the wizard: the viewer loads their density
+        for item in result['data'].values():
+            if isinstance(item, dict) and item.get('kind') == 'volume':
+                item['density'] = volume_density_source(pm.path, item['path'])
+        return result
 
     return _handle_item(_wizard_open, 'wizard')
 

@@ -42,11 +42,51 @@ const WIZARD_FORM = {
     ],
   }],
 };
+// The mask wizard of relion.class3d.tomo (VolumeMaskWizard): with the mask
+// field empty it shows a sphere of the mask diameter, else the mask map
+const MASK_PROTOCOL = "relion.class3d.tomo";
+const MASK_FORM = {
+  name: MASK_PROTOCOL,
+  label: "Relion Tomo 3D Classification",
+  wizards: [{ id: "mask", label: "Mask wizard", params: ["fn_mask", "particle_diameter"] }],
+  sections: [{
+    label: "I/O",
+    params: [
+      { name: "fn_ref", label: "Reference map:", paramClass: "PathParam", default: "Refine3D/job010/run_class001.mrc",
+        help: "Empty: the wizard refuses to open." },
+      { name: "fn_mask", label: "Reference mask (optional):", paramClass: "PathParam", default: "", wizard: "mask",
+        help: "Any value: the wizard shows a fake ellipsoid mask map." },
+      { name: "particle_diameter", label: "Mask diameter (A):", paramClass: "FloatParam", default: 90, wizard: "mask" },
+    ],
+  }],
+};
+const DEV_FORMS = { [WIZARD_PROTOCOL]: WIZARD_FORM, [MASK_PROTOCOL]: MASK_FORM };
 const wizardMenu = {
   Wizards: { text: "Wizards (dev)", value: null, icon: null, tag: null, openItem: true, visible: true,
     childs: [{ text: "Warp - Export Particles", value: WIZARD_PROTOCOL, icon: null, tag: "protocol",
+               openItem: true, visible: true, childs: [] },
+             { text: "Relion Tomo 3D Classification", value: MASK_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] }] },
 };
+const FAKE_MAP_ANGPIX = 2;
+
+// A 0-1 grid (z, y, x, uint8 base64, as EMhub's volume_density) of n^3
+// voxels from f(x, y, z), each coordinate -1..1
+function fakeGrid(n, f) {
+  const u8 = new Uint8Array(n * n * n), c = (n - 1) / 2;
+  for (let z = 0; z < n; z++) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    u8[(z * n + y) * n + x] = Math.round(Math.max(0, Math.min(1, f((x - c) / c, (y - c) / c, (z - c) / c))) * 255);
+  }
+  let bin = "";
+  for (let i = 0; i < u8.length; i += 8192) bin += String.fromCharCode(...u8.subarray(i, i + 8192));
+  return { shape: [n, n, n], binning: 1, data: btoa(bin), valueRange: [0, 1] };
+}
+// The map: three blobs; the mask: a soft ellipsoid around them
+const fakeMap = (n) => fakeGrid(n, (x, y, z) =>
+  [[-0.25, 0, 0, 0.22], [0.2, 0.15, 0.05, 0.18], [0.05, -0.25, -0.1, 0.15]]
+    .reduce((v, [bx, by, bz, r]) => v + Math.exp(-((x - bx) ** 2 + (y - by) ** 2 + (z - bz) ** 2) / (r * r)), 0));
+const fakeEllipsoid = (n) => fakeGrid(n, (x, y, z) =>
+  Math.min(1, Math.max(0, (1.15 - Math.hypot(x / 0.6, y / 0.5, z / 0.45)) / 0.15)));
 const FAKE_TS_ANGPIX = 1.5;
 
 // With ?outputPrefix in the page url, outputs get a label prefix (as EMhub
@@ -183,7 +223,7 @@ export function createFakeService() {
     fetchNewProtocolDetails: async (projectId, protocolClass) => ({
       info: { protocolClassName: protocolClass },
       values: {},
-      form: protocolClass === WIZARD_PROTOCOL ? structuredClone(WIZARD_FORM) : forms[protocolClass] ?? {},
+      form: DEV_FORMS[protocolClass] ? structuredClone(DEV_FORMS[protocolClass]) : forms[protocolClass] ?? {},
     }),
 
     loadProtocols: async () => ({ ...wizardMenu, ...menu.protocols }),
@@ -347,9 +387,25 @@ export function createFakeService() {
       return { tagIds };
     },
 
-    // Fake ExportTomoParticlesWizard with the Warp adaptor
+    // Fake ExportTomoParticlesWizard with the Warp adaptor, and
+    // VolumeMaskWizard with the Relion Class3D one
     openWizard: async (projectId, protocolId, cls, wizardId, params) => {
       log("openWizard", { protocolId, cls, wizardId, params });
+      if (wizardId === "mask") {
+        if (!params.fn_ref) return { errors: ["Select the input map before opening the wizard."] };
+        const n = 64, dims = [n, n, n];
+        const volume = { kind: "volume", path: params.fn_ref, dimensions: dims, voxelSize: FAKE_MAP_ANGPIX,
+                         density: fakeMap(n) };
+        const mask = params.fn_mask ? { kind: "volume", path: params.fn_mask, dimensions: dims,
+                                        voxelSize: FAKE_MAP_ANGPIX, density: fakeEllipsoid(n) } : null;
+        return {
+          id: wizardId, label: "Mask wizard", ui: "VolumeMaskWizard",
+          inputs: { mask_type: mask ? "map" : "sphere",
+                    diameter: parseFloat(params.particle_diameter) || 0.8 * n * FAKE_MAP_ANGPIX },
+          data: { volume, mask, angpix: FAKE_MAP_ANGPIX, box_angst: n * FAKE_MAP_ANGPIX },
+          warnings: mask ? ["The mask map is used, the spherical mask (diameter) is not shown."] : [],
+        };
+      }
       if (!params.input_tomograms)
         return { errors: ["Select the input tomograms (or an optimisation set with tomograms) before opening the wizard."] };
       const outAngpix = parseFloat(params["ts_export_particles.output_angpix"]) || FAKE_TS_ANGPIX;
@@ -367,6 +423,11 @@ export function createFakeService() {
     },
     applyWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("applyWizard", { wizardId, params, outputs });
+      if (wizardId === "mask") {
+        if (params.fn_mask) return { params: {}, warnings: [] };
+        if (!(outputs.diameter > 0)) return { errors: ["The mask diameter should be a positive number."] };
+        return { params: { particle_diameter: Math.round(outputs.diameter * 100) / 100 }, warnings: [] };
+      }
       const errors = [];
       if (!(outputs.out_angpix > 0)) errors.push("The output pixel size should be a positive number.");
       if (!(outputs.in_box > 0)) errors.push("The input box size should be a positive integer.");

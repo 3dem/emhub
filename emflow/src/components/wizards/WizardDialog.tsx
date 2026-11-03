@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import type { WizardOpenResult } from "@/services/ProjectService";
 import ExportTomoParticlesWizard from "./ExportTomoParticlesWizard";
+import VolumeMaskWizard from "./VolumeMaskWizard";
 
 export type WizardComponentProps = {
   inputs: Record<string, any>;
@@ -26,7 +27,10 @@ export type WizardComponentProps = {
 // Wizard components by the `ui` name sent by the server
 const WIZARD_COMPONENTS: Record<string, (props: WizardComponentProps) => JSX.Element> = {
   ExportTomoParticlesWizard,
+  VolumeMaskWizard,
 };
+// Wider dialogs (md by default)
+const WIZARD_WIDTHS: Record<string, "md" | "lg"> = { VolumeMaskWizard: "lg" };
 
 type WizardDialogProps = {
   wizard: WizardOpenResult | null;
@@ -58,7 +62,8 @@ export default function WizardDialog({ wizard, onClose, onApply }: WizardDialogP
   };
 
   return (
-    <Dialog open={Boolean(wizard)} onClose={applying ? undefined : onClose} maxWidth="md" fullWidth>
+    <Dialog open={Boolean(wizard)} onClose={applying ? undefined : onClose}
+            maxWidth={WIZARD_WIDTHS[wizard?.ui ?? ""] ?? "md"} fullWidth>
       <DialogTitle sx={{ fontSize: "1.05rem", fontWeight: 600 }}>
         {wizard?.label || "Wizard"}
       </DialogTitle>

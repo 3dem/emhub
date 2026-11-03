@@ -4,8 +4,9 @@
 // base64, zlib when compressed) and shared by the "3D volume" tab (its 3D
 // texture) and, when the host sends no slice images (e.g. maps such as 3D
 // classes), the Slices tab, which draws its sections from the same grid.
-// Also the display filters of the surface: smoothing and hiding the small
-// blobs of noise ("dust") at a threshold.
+// Also the colored sections of a mask map, and the display filters of the
+// surface: smoothing and hiding the small blobs of noise ("dust") at a
+// threshold.
 import type { Axis, VolumeDensity } from "./volumeMath";
 
 const decoded = new WeakMap<VolumeDensity, Uint8Array>();
@@ -69,6 +70,33 @@ export function densitySliceKeys(d: VolumeDensity, dims: [number, number, number
  * z, X is z by y).
  */
 export function densitySlice(d: VolumeDensity, a: Axis, key: number): HTMLCanvasElement {
+  return paintSlice(d, a, key, (px, o, value) => {
+    px[o] = px[o + 1] = px[o + 2] = value;
+    px[o + 3] = 255;
+  });
+}
+
+/**
+ * The section of a mask map through voxel `key` of axis `a` (laid out as
+ * densitySlice): the voxels above `level` (0-255 of the grid) in `color`
+ * (CSS hex), the rest transparent. The opacity is set when it is drawn.
+ */
+export function maskSlice(d: VolumeDensity, a: Axis, key: number, level: number, color: string): HTMLCanvasElement {
+  const rgb = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) || 0);
+  return paintSlice(d, a, key, (px, o, value) => {
+    if (value <= level) return;
+    [px[o], px[o + 1], px[o + 2]] = rgb;
+    px[o + 3] = 255;
+  });
+}
+
+/** Canvas of a section of the grid, each pixel set by `paint` from its value. */
+function paintSlice(
+  d: VolumeDensity,
+  a: Axis,
+  key: number,
+  paint: (px: Uint8ClampedArray, offset: number, value: number) => void,
+): HTMLCanvasElement {
   const [nz, ny, nx] = d.shape;
   const f = d.binning || 1;
   const v = densityValues(d);
@@ -87,9 +115,7 @@ export function densitySlice(d: VolumeDensity, a: Axis, key: number): HTMLCanvas
       if (a === "z") idx = (i * ny + r) * nx + c;
       else if (a === "y") idx = (r * ny + i) * nx + c;
       else idx = (c * ny + r) * nx + i;
-      const o = 4 * (r * w + c);
-      px[o] = px[o + 1] = px[o + 2] = v[idx];
-      px[o + 3] = 255;
+      paint(px, 4 * (r * w + c), v[idx]);
     }
   }
   g.putImageData(img, 0, 0);

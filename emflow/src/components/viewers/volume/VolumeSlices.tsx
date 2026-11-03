@@ -7,8 +7,10 @@
 // voxels stays exact even with downsampled images. Canvases are drawn
 // imperatively; a section is only redrawn when its slice or zoom changed and
 // keeps its picture until the next image has loaded (no blank frames).
+// A mask (a sphere or a map) is drawn over the sections, translucent.
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef } from "react";
 import styles from "../VolumeViewer.module.css";
+import { maskSlice } from "./densityGrid";
 import {
   HV,
   nearest,
@@ -20,6 +22,7 @@ import {
   type SliceImage,
   type Vec3,
   type VolumeCoordinates,
+  type VolumeDensity,
   type VoxelSize,
 } from "./volumeMath";
 
@@ -32,6 +35,13 @@ export type HistoryEntry =
   | { type: "ruler"; a: Axis; prev: Ruler | null }
   | { type: "invert" }
   | { type: "lines" };
+
+/** Mask drawn over the sections: a sphere (voxels) or a map, whose voxels
+ * above `level` (0-255 of its grid) are inside. */
+export type SliceMask = (
+  | { type: "sphere"; center: Vec3; diameter: number }
+  | { type: "map"; density: VolumeDensity; level: number }
+) & { color: string; opacity: number };
 
 export type VolumeSlicesHandle = {
   setWindow: (a: Axis, win: ZoomWindow) => void;
@@ -55,6 +65,8 @@ type Props = {
   particleColor: string;
   inverted: boolean;
   rulers: Record<Axis, Ruler | null>;
+  /** Shown mask (null: none or hidden). */
+  mask?: SliceMask | null;
   voxelSize: VoxelSize | null;
   getImage: (a: Axis, key: number) => SliceImage | null;
   loadImage: (a: Axis, key: number) => Promise<SliceImage>;
@@ -92,6 +104,9 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   const pend = useRef<Record<Axis, [number, number] | null>>({ x: null, y: null, z: null });
   const drag = useRef<Drag | null>(null);
   const wins = useRef<Partial<Record<Axis, ZoomWindow>>>({});
+  // Colored sections of a map mask, by axis, slice, color and level
+  const maskImages = useRef<{ density: VolumeDensity | null; images: Map<string, HTMLCanvasElement> }>(
+    { density: null, images: new Map() });
 
   const sv = (v: View) => v.cw / v.win.w;
   const toVox = (v: View, cx: number, cy: number): [number, number] => {
@@ -131,6 +146,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     const { pos, sel, mode, partsOn, particles: P, tolerance, hideLines, rulers, voxelSize, particleColor } = p.current;
     const ctx = v.ov, [ha, va] = HV[a];
     ctx.clearRect(0, 0, v.cw, v.ch);
+    drawMask(a, v);
     // Crosshair lines of the other two sections
     if (!hideLines) {
       const c = toPx(v, pos[ha] + 0.5, pos[va] + 0.5);
@@ -194,6 +210,41 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
     }
   }, []);
 
+  // The mask at the shown slice of axis a
+  const drawMask = (a: Axis, v: View) => {
+    const m = p.current.mask;
+    if (!m) return;
+    const ctx = v.ov, [ha, va] = HV[a];
+    const key = currentKey(a);
+    ctx.save();
+    ctx.globalAlpha = m.opacity;
+    if (m.type === "sphere") {
+      // The circle where the plane through the middle of the slice cuts it
+      const R = m.diameter / 2, d = key + 0.5 - m.center[a];
+      if (Math.abs(d) < R) {
+        const c = toPx(v, m.center[ha], m.center[va]);
+        ctx.beginPath();
+        ctx.arc(c[0], c[1], Math.sqrt(R * R - d * d) * sv(v), 0, 2 * Math.PI);
+        ctx.fillStyle = m.color;
+        ctx.fill();
+      }
+    } else {
+      const cache = maskImages.current;
+      if (cache.density !== m.density) cache.images = new Map();
+      cache.density = m.density;
+      const id = `${a}:${key}:${m.color}:${m.level}`;
+      let img = cache.images.get(id);
+      if (!img) {
+        img = maskSlice(m.density, a, key, m.level, m.color);
+        cache.images.set(id, img);
+      }
+      const sz = p.current.size[a], w = v.win;
+      const rx = img.width / sz[0], ry = img.height / sz[1];
+      ctx.drawImage(img, w.x0 * rx, w.y0 * ry, w.w * rx, w.h * ry, 0, 0, v.cw, v.ch);
+    }
+    ctx.restore();
+  };
+
   const drawAll = useCallback(() => {
     for (const a of VIEW_ORDER) {
       drawImage(a);
@@ -227,7 +278,7 @@ const VolumeSlices = forwardRef<VolumeSlicesHandle, Props>(function VolumeSlices
   useEffect(() => {
     drawAll();
   }, [props.pos, props.sel, props.mode, props.partsOn, props.hideLines, props.rulers, props.tolerance,
-      props.particleColor, drawAll]);
+      props.particleColor, props.mask, drawAll]);
 
   useImperativeHandle(ref, () => ({
     setWindow(a, win) {

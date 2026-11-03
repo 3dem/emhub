@@ -4,16 +4,22 @@
 // DataLoader when the tab is first opened) and shows it as an iso-surface
 // (IsoSurfaceScene) with the histogram and options beside (DensityPanel).
 // The surface may be smoothed and its dust (small blobs of noise) hidden:
-// both filter the grid given to the GPU, not the map.
+// both filter the grid given to the GPU, not the map. An optional mask (a
+// sphere or another map, loaded like the density) is drawn over it.
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import styles from "../VolumeViewer.module.css";
 import { useLoad } from "@/data/DataLoaderContext";
-import { IsoSurfaceScene, type IsoState } from "./IsoSurfaceScene";
+import { IsoSurfaceScene, type IsoMask, type IsoState, type MaskStyle } from "./IsoSurfaceScene";
 import DensityPanel, { DETAILS, levelForFraction, type DensityOptions } from "./DensityPanel";
 import { densityValues, prepareDensity, removeDust, smoothGrid } from "./densityGrid";
 import { isDensitySource, type DensitySource, type Vec3, type VolumeDensity } from "./volumeMath";
 
 export type IsoSurfaceHandle = { reset: () => void };
+
+/** Mask of the view: a sphere (voxels) or a map, inline or to load. */
+export type IsoMaskInput =
+  | { type: "sphere"; center: Vec3; diameter: number }
+  | { type: "map"; density: VolumeDensity | DensitySource; threshold?: number };
 
 /** Timing of the density, for VolumeViewer's debug line. */
 export type DensityDebug = {
@@ -57,7 +63,18 @@ type Props = {
   defaults?: IsoDefaults;
   /** Timing of the loading and filters, as it happens. */
   onDebug?: (info: DensityDebug) => void;
+  mask?: IsoMaskInput | null;
+  maskStyle?: MaskStyle;
+  /** Loading or error of a map mask; null once it is shown. */
+  onMaskStatus?: (status: string | null) => void;
 };
+
+/** First threshold of a map mask: 0.5 for a 0-1 mask, else the middle. */
+export function maskThreshold(d: VolumeDensity, given?: number): number {
+  if (given !== undefined && isFinite(given)) return given;
+  const [v0, v1] = d.valueRange;
+  return v0 <= 0.5 && v1 >= 0.5 && v1 <= 1.001 ? 0.5 : (v0 + v1) / 2;
+}
 
 /** Share of the voxels enclosed by the first threshold (as ChimeraX does). */
 const INITIAL_ENCLOSED = 0.01;
@@ -203,6 +220,57 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
   useEffect(() => {
     sceneRef.current?.resize(width, height);
   }, [width, height]);
+
+  /* ---------- mask ---------- */
+  const mask = props.mask ?? null;
+  const maskGiven = mask?.type === "map" ? mask.density : null;
+  const maskSource = maskGiven && !isInline(maskGiven) ? maskGiven : null;
+  const maskLoaded = useLoad<unknown>(maskSource?.path, maskSource?.payload);
+  const [maskDensity, setMaskDensity] = useState<VolumeDensity | null>(null);
+  const maskStatusRef = useRef(props.onMaskStatus);
+  maskStatusRef.current = props.onMaskStatus;
+  useEffect(() => {
+    if (!maskGiven) return undefined;
+    let d: VolumeDensity | null = null;
+    if (isInline(maskGiven)) d = maskGiven;
+    else if (maskLoaded.status === "ready") {
+      const r = maskLoaded.data as { density?: VolumeDensity } & VolumeDensity;
+      d = r && r.density ? r.density : r;
+    } else {
+      maskStatusRef.current?.(maskLoaded.status === "error"
+        ? `Could not load the mask: ${maskLoaded.error.message}` : "Loading the mask…");
+      return undefined;
+    }
+    if (!d?.data) {
+      maskStatusRef.current?.("The mask has no density.");
+      return undefined;
+    }
+    let live = true;
+    const ready = d;
+    prepareDensity(ready).then(() => {
+      if (!live) return;
+      setMaskDensity(ready);
+      maskStatusRef.current?.(null);
+    }, (e) => live && maskStatusRef.current?.(`Could not read the mask: ${String(e?.message ?? e)}`));
+    return () => { live = false; };
+  }, [maskGiven, maskLoaded]);
+  const sphere = mask?.type === "sphere" ? mask : null;
+  const mapThreshold = mask?.type === "map" ? mask.threshold : undefined;
+  useEffect(() => {
+    let m: IsoMask | null = null;
+    if (sphere) m = sphere;
+    else if (maskGiven && maskDensity) {
+      m = { type: "map", density: maskDensity, threshold: maskThreshold(maskDensity, mapThreshold) };
+    }
+    sceneRef.current?.setMask(m);
+    // the sphere is compared by value
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sphere?.diameter, sphere?.center.x, sphere?.center.y, sphere?.center.z, maskGiven, maskDensity, mapThreshold,
+      error]);
+  const maskStyle = props.maskStyle;
+  useEffect(() => {
+    if (maskStyle) sceneRef.current?.setMaskStyle(maskStyle);
+  }, [maskStyle?.show, maskStyle?.color, maskStyle?.opacity]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useImperativeHandle(ref, () => ({ reset: () => sceneRef.current?.reset() }), []);
 

@@ -8,6 +8,8 @@
 //     (volume/VolumeScene3D.ts).
 //   - 3D volume: the density as an iso-surface with its histogram, threshold
 //     and opacity (volume/IsoSurfaceView.tsx); only with a `density`.
+// An optional `mask` (a sphere or another map) is drawn over the 3D volume
+// and the slices, with its options in a panel (volume/MaskPanel.tsx).
 // The slices are the host's images (`axes`) or, without them, drawn from the
 // density grid, so a small map is sent once for both tabs. The data is given
 // inline (`data`) or loaded with the DataLoader (`source`, e.g. EMhub's
@@ -45,11 +47,19 @@ import { useDataLoader, useLoad } from "@/data/DataLoaderContext";
 import VolumeSlices, {
   type HistoryEntry,
   type Mode,
+  type SliceMask,
   type VolumeSlicesHandle,
 } from "./volume/VolumeSlices";
 import { VolumeScene3D, type SceneState } from "./volume/VolumeScene3D";
 import ParticlesPanel, { type ParticleOptions } from "./volume/ParticlesPanel";
-import IsoSurfaceView, { type DensityDebug, type IsoDefaults, type IsoSurfaceHandle } from "./volume/IsoSurfaceView";
+import MaskPanel, { type MaskOptions } from "./volume/MaskPanel";
+import IsoSurfaceView, {
+  type DensityDebug,
+  type IsoDefaults,
+  type IsoMaskInput,
+  type IsoSurfaceHandle,
+  maskThreshold,
+} from "./volume/IsoSurfaceView";
 import { densitySlice, densitySliceKeys, prepareDensity } from "./volume/densityGrid";
 import {
   AXES,
@@ -62,6 +72,7 @@ import {
   sliceKeys,
   volumeDataFromPane,
   type Axis,
+  type DensitySource,
   type Ruler,
   type SliceImage,
   type Vec3,
@@ -97,6 +108,38 @@ export type VolumeViewerDefaults = {
   iso?: IsoDefaults;
 };
 
+/** Mask drawn over the 3D volume and the slices, translucent: a sphere or
+ * another map. */
+export type VolumeMask = (
+  | {
+      type: "sphere";
+      /** Diameter in Å (needs the voxel size), or `diameterPx` in voxels;
+       * by default 80% of the smallest side. */
+      diameter?: number;
+      diameterPx?: number;
+      /** Centre in voxels (the centre of the box). */
+      center?: Partial<Vec3>;
+    }
+  | {
+      type: "map";
+      /** The mask, on the same box as the volume: a density grid or a
+       * request loaded with the DataLoader (as the volume's `density`). */
+      density: VolumeDensity | DensitySource;
+      /** Threshold in map units (0.5 for a 0-1 mask, else the middle of its
+       * range). */
+      threshold?: number;
+    }
+) & {
+  /** Name shown in the mask panel. */
+  label?: string;
+  /** Shown at first (true). */
+  show?: boolean;
+  /** CSS hex (#5fd38d; another one if the volume has that color). */
+  color?: string;
+  /** 0-1 (0.3, the volume shows through). */
+  opacity?: number;
+};
+
 export type VolumeViewerConfig = {
   /** Shown tabs: all by default; 3D volume only with a density. */
   tabs?: { slices?: boolean; view3d?: boolean; volume3d?: boolean };
@@ -119,6 +162,9 @@ export type VolumeViewerConfig = {
   };
   initialTool?: Mode;
   defaults?: VolumeViewerDefaults;
+  /** Mask over the 3D volume and the slices (with a toolbar button and its
+   * options there). */
+  mask?: VolumeMask | null;
   /** Longest side of the Z section in px (520). */
   viewSize?: number;
   /** Same as defaults.particles.tolerance (kept for older hosts). */
@@ -141,6 +187,15 @@ export type VolumeViewerProps = VolumeViewerConfig & {
   height?: "fill" | "window";
   /** Called when the user changes the position (click, slider, particle). */
   onSelect?: (p: Vec3) => void;
+  /** Called with the mask options when they change (and once at first). */
+  onMaskChange?: (mask: VolumeMaskState) => void;
+};
+
+/** The mask options chosen by the user. */
+export type VolumeMaskState = MaskOptions & {
+  type: "sphere" | "map";
+  /** Sphere diameter in Å (null if the voxel size is unknown). */
+  diameter: number | null;
 };
 
 export type VolumeViewerHandle = {
@@ -151,6 +206,9 @@ export type VolumeViewerHandle = {
 
 const MODES: Exclude<Mode, null>[] = ["select", "ruler", "zoom", "pan"];
 const VOL_OPACITY = 0.35;
+const MASK_COLOR = "#5fd38d";
+const MASK_COLOR_ALT = "#ffd166";
+const MASK_OPACITY = 0.3;
 /** Default of the `debug` line (timing of the volume); false to hide it. */
 export const DEBUG_TIMING = true;
 
@@ -183,6 +241,13 @@ const svg = (children: ReactNode) => (
   </svg>
 );
 const ICON_PARTICLES = svg(<><circle cx="5" cy="5" r="2.5" /><circle cx="11" cy="6" r="2.5" /><circle cx="7" cy="11.5" r="2.5" /></>);
+// A box with the region outside the mask shaded
+const ICON_MASK = svg(<>
+  <path d="M2 2h12v12H2zM8 3.5a4.5 4.5 0 1 0 0 9a4.5 4.5 0 1 0 0-9z" fill="currentColor" fillOpacity={0.35}
+        fillRule="evenodd" stroke="none" />
+  <rect x="2" y="2" width="12" height="12" rx="1" />
+  <circle cx="8" cy="8" r="4.5" />
+</>);
 const ICON_VOLUME = svg(<><path d="M8 1.5l6 3v7l-6 3-6-3v-7z" strokeDasharray="2 2" /><path d="M2 4.5l6 3 6-3M8 7.5v7" /></>);
 
 function ToolButton({ title, active, onClick, children, hidden }: {
@@ -202,6 +267,26 @@ function ToolButton({ title, active, onClick, children, hidden }: {
 
 /** The response of a density request: VolumeDensity or {density}. */
 const unwrapDensity = (r: any): VolumeDensity | null => (r && r.density ? r.density : r?.data ? r : null);
+
+/** The grid of a map mask, inline or loaded, decoded; or why it is not. */
+function useMaskDensity(given: VolumeDensity | DensitySource | null): { density: VolumeDensity | null; status: string | null } {
+  const source = given && isDensitySource(given) ? given : null;
+  const loaded = useLoad<unknown>(source?.path, source?.payload);
+  const d = !given ? null : !source ? given as VolumeDensity : loaded.status === "ready" ? unwrapDensity(loaded.data) : null;
+  const [ready, setReady] = useState<{ d: VolumeDensity } | { error: string } | null>(null);
+  useEffect(() => {
+    if (!d) return undefined;
+    let live = true;
+    prepareDensity(d).then(() => live && setReady({ d }), (e) => live && setReady({ error: String(e?.message ?? e) }));
+    return () => { live = false; };
+  }, [d]);
+  if (!given) return { density: null, status: null };
+  if (ready && "d" in ready && ready.d === d) return { density: d, status: null };
+  if (ready && "error" in ready) return { density: null, status: `Could not read the mask: ${ready.error}` };
+  if (source && loaded.status === "error") return { density: null, status: `Could not load the mask: ${loaded.error.message}` };
+  if (source && loaded.status === "ready" && !d) return { density: null, status: "The mask has no density." };
+  return { density: null, status: "Loading the mask…" };
+}
 
 const VolumeViewer = forwardRef<VolumeViewerHandle, VolumeViewerProps>(function VolumeViewer(props, ref) {
   const { data, source } = props;
@@ -348,6 +433,68 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const [debug, setDebug] = useState<DensityDebug | null>(props.densityDebug ?? null);
     const onDebug = useCallback((info: DensityDebug) => setDebug((cur) => ({ ...cur, ...info })), []);
     const [isoPan, setIsoPan] = useState(false);
+    // Mask over the 3D volume and the slices, and its panel
+    const maskCfg = tabsCfg.volume3d || tabsCfg.slices ? props.mask ?? null : null;
+    const angpix = vs?.x ?? null;
+    const [maskOpts, setMaskOpts] = useState<MaskOptions>(() => {
+      const isoColor = (defaults.iso?.color ?? "#b2b2ff").toLowerCase();
+      let diameterPx = Math.min(X, Y, Z) * 0.8;
+      if (maskCfg?.type === "sphere") {
+        if (maskCfg.diameterPx && maskCfg.diameterPx > 0) diameterPx = maskCfg.diameterPx;
+        else if (maskCfg.diameter && maskCfg.diameter > 0 && angpix) diameterPx = maskCfg.diameter / angpix;
+      }
+      return {
+        show: maskCfg?.show !== false,
+        color: maskCfg?.color ?? (isoColor === MASK_COLOR ? MASK_COLOR_ALT : MASK_COLOR),
+        opacity: maskCfg?.opacity ?? MASK_OPACITY,
+        diameterPx,
+      };
+    });
+    // A map mask is loaded once, for both tabs
+    const maskMap = useMaskDensity(maskCfg?.type === "map" ? maskCfg.density : null);
+    const [maskOpen, setMaskOpen] = useState(false);
+    const maskPanelRef = useRef<HTMLDivElement>(null);
+    const isoMask = useMemo<IsoMaskInput | null>(() => {
+      if (!maskCfg) return null;
+      if (maskCfg.type === "map") {
+        return maskMap.density ? { type: "map", density: maskMap.density, threshold: maskCfg.threshold } : null;
+      }
+      const c = maskCfg.center ?? {};
+      return {
+        type: "sphere",
+        center: { x: c.x ?? X / 2, y: c.y ?? Y / 2, z: c.z ?? Z / 2 },
+        diameter: maskOpts.diameterPx,
+      };
+      // the config is compared by its fields
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [maskCfg?.type, maskMap.density, maskCfg?.type === "map" ? maskCfg.threshold : null,
+        maskCfg?.type === "sphere" ? maskCfg.center?.x : null, maskCfg?.type === "sphere" ? maskCfg.center?.y : null,
+        maskCfg?.type === "sphere" ? maskCfg.center?.z : null, maskOpts.diameterPx, X, Y, Z]);
+    const maskStyle = useMemo(
+      () => ({ show: maskOpts.show, color: maskOpts.color, opacity: maskOpts.opacity }),
+      [maskOpts.show, maskOpts.color, maskOpts.opacity],
+    );
+    // The same mask over the slices; a map's threshold is in its grid units
+    const sliceMask = useMemo<SliceMask | null>(() => {
+      if (!isoMask || !maskOpts.show) return null;
+      const style = { color: maskOpts.color, opacity: maskOpts.opacity };
+      if (isoMask.type === "sphere") return { ...isoMask, ...style };
+      const d = isoMask.density as VolumeDensity;
+      const [v0, v1] = d.valueRange;
+      const level = ((maskThreshold(d, isoMask.threshold) - v0) / (v1 - v0 || 1)) * 255;
+      return { type: "map", density: d, level, ...style };
+    }, [isoMask, maskOpts.show, maskOpts.color, maskOpts.opacity]);
+    // The options for the host (e.g. a wizard that sets the diameter)
+    const onMaskChangeRef = useRef(props.onMaskChange);
+    onMaskChangeRef.current = props.onMaskChange;
+    useEffect(() => {
+      if (!maskCfg) return;
+      onMaskChangeRef.current?.({
+        ...maskOpts,
+        type: maskCfg.type,
+        diameter: angpix ? maskOpts.diameterPx * angpix : null,
+      });
+    }, [maskOpts, maskCfg?.type, angpix]); // eslint-disable-line react-hooks/exhaustive-deps
     const isoRef = useRef<IsoSurfaceHandle>(null);
     const history = useRef<HistoryEntry[]>([]);
     const slicesRef = useRef<VolumeSlicesHandle>(null);
@@ -480,19 +627,20 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
 
     /* ---------- expand to the browser window ---------- */
     useEffect(() => {
-      if (!full && !panelOpen) return undefined;
-      // Captured: Esc closes the particles panel, then collapses the viewer,
-      // and does not reach a dialog around it
+      if (!full && !panelOpen && !maskOpen) return undefined;
+      // Captured: Esc closes the particles or mask panel, then collapses the
+      // viewer, and does not reach a dialog around it
       const onKey = (e: KeyboardEvent) => {
         if (e.key !== "Escape") return;
         e.stopPropagation();
         e.preventDefault();
         if (panelOpen) setPanelOpen(false);
+        else if (maskOpen) setMaskOpen(false);
         else setFull(false);
       };
       document.addEventListener("keydown", onKey, true);
       return () => document.removeEventListener("keydown", onKey, true);
-    }, [full, panelOpen]);
+    }, [full, panelOpen, maskOpen]);
 
     /* ---------- particles panel ---------- */
     // A click outside the panel (and its button) closes it
@@ -507,6 +655,18 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       document.addEventListener("mousedown", onDown);
       return () => document.removeEventListener("mousedown", onDown);
     }, [panelOpen]);
+    // The same for the mask panel
+    useEffect(() => {
+      if (!maskOpen) return undefined;
+      const onDown = (e: MouseEvent) => {
+        const t = e.target as Node;
+        if (maskPanelRef.current?.contains(t)) return;
+        if ((t as Element).closest?.("[data-mask-button]")) return;
+        setMaskOpen(false);
+      };
+      document.addEventListener("mousedown", onDown);
+      return () => document.removeEventListener("mousedown", onDown);
+    }, [maskOpen]);
     const setParticleOptions = (o: Partial<ParticleOptions>) => {
       if (o.partsOn !== undefined) setPartsOn(o.partsOn);
       if (o.nearOnly !== undefined) (tab === "view3d" ? setNear3d : setNearSlices)(o.nearOnly);
@@ -559,6 +719,28 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
         )}
       </span>
     );
+    // The mask options, in the toolbar of the visible tab
+    const maskButton = (forTab: VolumeViewerTab) => maskCfg && (
+      <span className={styles.panelAnchor} data-mask-button>
+        <ToolButton title="Mask: show, color, opacity" active={maskOpen || maskOpts.show}
+                    onClick={() => setMaskOpen((v) => !v)}>
+          {ICON_MASK}
+        </ToolButton>
+        {maskOpen && tab === forTab && (
+          <div ref={maskPanelRef}>
+            <MaskPanel
+              {...maskOpts}
+              kind={maskCfg.type}
+              label={maskCfg.label}
+              angpix={angpix}
+              maxPx={Math.max(X, Y, Z) * 1.5}
+              status={maskCfg.type === "map" ? maskMap.status : null}
+              onChange={(patch) => setMaskOpts((o) => ({ ...o, ...patch }))}
+            />
+          </div>
+        )}
+      </span>
+    );
     const modeButton = (t: Exclude<Mode, null>, title: string, icon: ReactNode) =>
       toolsCfg[t] && <ToolButton title={title} active={mode === t} onClick={() => setTool(t)}>{icon}</ToolButton>;
 
@@ -579,6 +761,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
           </ToolButton>
         )}
         {particlesButton(false)}
+        {maskButton("slices")}
         {(toolsCfg.ruler || toolsCfg.zoom || toolsCfg.pan || toolsCfg.invert) && (
           <ToolButton title="Clean: undo the last zoom, measurement or contrast change, or deactivate the tool"
                       onClick={clean}>
@@ -736,6 +919,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               particleColor={particleColor}
               inverted={inverted}
               rulers={rulers}
+              mask={sliceMask}
               voxelSize={vs}
               getImage={getImage}
               loadImage={loadImage}
@@ -795,6 +979,7 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
                   <Move size={16} />
                 </ToolButton>
               )}
+              {maskButton("volume3d")}
               <ToolButton title="Reset the 3D view" onClick={() => isoRef.current?.reset()}>
                 <RefreshCw size={16} />
               </ToolButton>
@@ -802,7 +987,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
             <div ref={isoBox} className={styles.content}>
               {builtIso && volume.density && (
                 <IsoSurfaceView ref={isoRef} density={volume.density} dim={dim} onDebug={onDebug}
-                                width={sizeIso[0]} height={sizeIso[1]} pan={isoPan} defaults={defaults.iso} />
+                                width={sizeIso[0]} height={sizeIso[1]} pan={isoPan} defaults={defaults.iso}
+                                mask={isoMask} maskStyle={maskStyle} />
               )}
             </div>
           </div>
