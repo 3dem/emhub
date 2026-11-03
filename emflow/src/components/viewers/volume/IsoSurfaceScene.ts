@@ -197,6 +197,35 @@ const level = (d: VolumeDensity, thr: number) => {
   return (thr - v0) / (v1 - v0 || 1);
 };
 
+/** Share of the canvas taken by what is framed (fit). */
+const FIT_MARGIN = 0.92;
+
+/** World bounds (x, -y, z) of the grid voxels inside the surface at the
+ * level (0-1 of the grid), or null when there are none. */
+function gridBounds(d: VolumeDensity, values: Uint8Array, lvl: number, below: boolean): THREE.Box3 | null {
+  const [nz, ny, nx] = d.shape;
+  const f = d.binning || 1;
+  const t = lvl * 255;
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -1, y1 = -1, z1 = -1;
+  for (let z = 0, i = 0; z < nz; z++) {
+    for (let y = 0; y < ny; y++) {
+      for (let x = 0; x < nx; x++, i++) {
+        const v = values[i];
+        if (below ? v >= t : v <= t) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+        if (z < z0) z0 = z;
+        if (z > z1) z1 = z;
+      }
+    }
+  }
+  if (x1 < 0) return null;
+  return new THREE.Box3(new THREE.Vector3(x0 * f, -(y1 + 1) * f, z0 * f),
+                        new THREE.Vector3((x1 + 1) * f, -y0 * f, (z1 + 1) * f));
+}
+
 function rgb(hex: string): THREE.Vector3 {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   const n = m ? parseInt(m[1], 16) : 0xb2b2ff;
@@ -212,6 +241,10 @@ export class IsoSurfaceScene {
   private readonly dim: Vec3;
   private mesh: RayMesh | null = null;
   private density: VolumeDensity | null = null;
+  /** The grid values given to the GPU (smoothed, without dust). */
+  private values: Uint8Array | null = null;
+  /** The user moved the view since it was framed (fit). */
+  touched = false;
   private state: IsoState;
   private mask: IsoMask | null = null;
   private maskMesh: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null;
@@ -238,7 +271,10 @@ export class IsoSurfaceScene {
     this.canvas = this.renderer.domElement;
     this.camera = new THREE.PerspectiveCamera(40, width / height, 1, 100 * m);
     this.ball = new Trackball(this.canvas, {
-      onChange: () => this.moved(),
+      onChange: () => {
+        this.touched = true;
+        this.moved();
+      },
       isPan: () => this.state.pan,
       maxRadius: 50 * m,
     });
@@ -256,6 +292,7 @@ export class IsoSurfaceScene {
 
   /** New values of the same grid (e.g. smoothed or without dust). */
   setValues(values: Uint8Array) {
+    this.values = values;
     if (!this.mesh) return;
     const tex = this.mesh.material.uniforms.uTex.value as THREE.Data3DTexture;
     (tex.image as unknown as { data: Uint8Array }).data = values;
@@ -268,6 +305,7 @@ export class IsoSurfaceScene {
     if (this.disposed) return;
     this.removeMesh();
     this.density = d;
+    this.values = values;
     const mesh = rayMesh(d, values, this.state.color);
     mesh.renderOrder = 1;
     this.scene.add(mesh);
@@ -324,10 +362,63 @@ export class IsoSurfaceScene {
     this.render();
   }
 
+  /** The oblique view, framing what is drawn (see fit). */
   reset() {
+    this.fit();
+  }
+
+  /**
+   * The oblique view centred on what is drawn: the voxels inside the surface
+   * at the threshold and the shown mask (the whole box without them), at the
+   * distance that makes it as large as fits the canvas, both in width and
+   * height (FIT_MARGIN).
+   */
+  fit() {
     const { x, y, z } = this.dim;
-    this.ball.reset(new THREE.Vector3(x / 2, -y / 2, z / 2), 2.1 * Math.max(x, y, z));
+    const whole = new THREE.Box3(new THREE.Vector3(0, -y, 0), new THREE.Vector3(x, 0, z));
+    let content: THREE.Box3 | null = null;
+    if (this.density && this.values) {
+      content = gridBounds(this.density, this.values, level(this.density, this.state.threshold), this.state.below);
+    }
+    const mask = this.maskStyle.show ? this.maskBounds() : null;
+    if (mask) content = content ? content.union(mask) : mask;
+    const box = content ? content.intersect(whole) : whole;
+    if (box.isEmpty()) box.copy(whole);
+
+    const center = box.getCenter(new THREE.Vector3());
+    this.ball.reset(center, 1);
+    const q = this.ball.quat;
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+    const back = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+    const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * FIT_MARGIN;
+    const tanH = tanV * this.camera.aspect;
+    // The nearest camera (along `back`) that sees every corner of the box
+    let dist = 0;
+    for (const cx of [box.min.x, box.max.x]) {
+      for (const cy of [box.min.y, box.max.y]) {
+        for (const cz of [box.min.z, box.max.z]) {
+          const c = new THREE.Vector3(cx, cy, cz).sub(center);
+          const depth = c.dot(back);
+          dist = Math.max(dist, depth + Math.abs(c.dot(right)) / tanH, depth + Math.abs(c.dot(up)) / tanV);
+        }
+      }
+    }
+    this.ball.radius = Math.max(dist, 2);
+    this.touched = false;
     this.render();
+  }
+
+  /** World bounds of the mask, or null. */
+  private maskBounds(): THREE.Box3 | null {
+    const m = this.mask;
+    if (m?.type === "sphere") {
+      const r = m.diameter / 2;
+      const c = new THREE.Vector3(m.center.x, -m.center.y, m.center.z);
+      return new THREE.Box3(c.clone().subScalar(r), c.clone().addScalar(r));
+    }
+    if (m?.type === "map") return gridBounds(m.density, densityValues(m.density), level(m.density, m.threshold), false);
+    return null;
   }
 
   dispose() {

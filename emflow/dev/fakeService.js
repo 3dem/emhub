@@ -492,7 +492,7 @@ export function createFakeService() {
     },
     previewWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("previewWizard", { wizardId, outputs });
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       if (!Number.isFinite(outputs.threshold)) return { errors: ["The initial threshold should be a number."] };
       const mask = fakeCreatedMask(64, outputs);
       const u8 = Uint8Array.from(atob(mask.data), (c) => c.charCodeAt(0));

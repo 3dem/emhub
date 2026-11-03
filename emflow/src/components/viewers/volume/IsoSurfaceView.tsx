@@ -193,6 +193,14 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
     if (density && base) sceneRef.current?.setDensity(density, base);
   }, [density, base, error]);
   const [hidden, setHidden] = useState(0);
+  // The view frames what is drawn (scene.fit) when the density, its first
+  // grid without dust or the mask comes, until the user moves it
+  const dustFramed = useRef<VolumeDensity | null>(null);
+  const framed = useRef<{ density: VolumeDensity; mask: boolean } | null>(null);
+  const autoFit = () => {
+    const scene = sceneRef.current;
+    if (scene && !scene.touched) scene.fit();
+  };
   const dust = opts?.dust ?? 0;
   const thr = opts?.threshold ?? 0;
   const below = Boolean(opts?.below);
@@ -210,6 +218,11 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
       const r = removeDust(base, density.shape, level, below, dust);
       sceneRef.current?.setValues(r.values);
       setHidden(r.hidden);
+      // The first frame without the dust (blobs of noise widen it)
+      if (dustFramed.current !== density) {
+        dustFramed.current = density;
+        autoFit();
+      }
       debugRef.current?.({ filterMs: performance.now() - t0, hidden: r.hidden });
     }, DUST_DELAY_MS);
     return () => window.clearTimeout(timer);
@@ -271,6 +284,17 @@ const IsoSurfaceView = forwardRef<IsoSurfaceHandle, Props>(function IsoSurfaceVi
   useEffect(() => {
     if (maskStyle) sceneRef.current?.setMaskStyle(maskStyle);
   }, [maskStyle?.show, maskStyle?.color, maskStyle?.opacity]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hasMask = Boolean(sphere || (maskGiven && maskDensity));
+  useEffect(() => {
+    if (!density || !opts) return;
+    const f = framed.current;
+    if (f && f.density === density && f.mask === hasMask) return;
+    framed.current = { density, mask: hasMask };
+    autoFit();
+    // after the density, state and mask effects above (same commit)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [density, opts, hasMask, error]);
 
   useImperativeHandle(ref, () => ({ reset: () => sceneRef.current?.reset() }), []);
 

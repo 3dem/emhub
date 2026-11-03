@@ -3,14 +3,14 @@
 // initial threshold, lowpass, extend, soft edge and invert on the left, and
 // the map in a VolumeViewer (3D volume first, and Slices) with a tentative
 // mask over it on the right. The tentative mask is computed by the server
-// (preview, numpy on the map downscaled to about 100 px) a moment after the
-// values stop changing; it is only a guide, the job runs relion_mask_create.
+// (preview, numpy on the map downscaled to about 100 px) when the user
+// presses Re-calculate; it is only a guide, the job runs relion_mask_create.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Box, Checkbox, FormControlLabel, Slider, TextField, Typography } from "@mui/material";
+import {
+  Alert, Box, Button, Checkbox, CircularProgress, FormControlLabel, Slider, TextField, Typography,
+} from "@mui/material";
 import VolumeViewer, { type VolumeMask } from "@/components/viewers/VolumeViewer";
 import type { WizardComponentProps } from "./WizardDialog";
-
-const PREVIEW_DELAY_MS = 400;
 
 type Values = {
   threshold: number | null;
@@ -45,34 +45,34 @@ export default function MaskCreateWizard({ inputs, data, onChange, preview }: Wi
   const [status, setStatus] = useState<{ computing: boolean; warnings: string[]; errors: string[] }>(
     { computing: false, warnings: [], errors: [] });
 
-  // A new tentative mask once the values stop changing (the first one came
-  // with the wizard); an older answer is ignored
-  const first = useRef(true);
-  const counter = useRef(0);
+  // The values of the shown mask (the first one came with the wizard)
+  const [computed, setComputed] = useState(values);
+  const outdated = JSON.stringify(computed) !== JSON.stringify(values);
   useEffect(() => {
     onChange(values);
-    if (first.current) {
-      first.current = false;
-      return undefined;
-    }
-    if (!preview || values.threshold == null) return undefined;
-    const id = ++counter.current;
-    const timer = window.setTimeout(async () => {
-      setStatus((s) => ({ ...s, computing: true }));
-      const res = await preview(values).catch((e) => ({ errors: [String(e?.message ?? e)] }) as any);
-      if (id !== counter.current) return;
-      if (res?.errors?.length) {
-        setStatus({ computing: false, warnings: [], errors: res.errors });
-        return;
-      }
-      if (res?.data?.mask) setMask(res.data.mask);
-      setFraction(res?.data?.mask_fraction ?? null);
-      setStatus({ computing: false, warnings: res?.warnings ?? [], errors: [] });
-    }, PREVIEW_DELAY_MS);
-    return () => window.clearTimeout(timer);
-    // onChange and preview are new functions on each render of the dialog
+    // onChange is a new function on each render of the dialog
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values]);
+
+  // A new tentative mask for the current values (Re-calculate); the answer
+  // of an older request is ignored
+  const counter = useRef(0);
+  const recalculate = async () => {
+    if (!preview || values.threshold == null) return;
+    const id = ++counter.current;
+    const asked = values;
+    setStatus((s) => ({ ...s, computing: true }));
+    const res = await preview(asked).catch((e) => ({ errors: [String(e?.message ?? e)] }) as any);
+    if (id !== counter.current) return;
+    if (res?.errors?.length) {
+      setStatus({ computing: false, warnings: [], errors: res.errors });
+      return;
+    }
+    if (res?.data?.mask) setMask(res.data.mask);
+    setFraction(res?.data?.mask_fraction ?? null);
+    setComputed(asked);
+    setStatus({ computing: false, warnings: res?.warnings ?? [], errors: [] });
+  };
 
   const setText = (name: keyof typeof texts, text: string, value: number | null, integer = false) => {
     setTexts((t) => ({ ...t, [name]: text }));
@@ -125,8 +125,17 @@ export default function MaskCreateWizard({ inputs, data, onChange, preview }: Wi
                           control={<Checkbox size="small" checked={values.invert}
                                              onChange={(e) => setValues((v) => ({ ...v, invert: e.target.checked }))} />} />
 
+        {/* Greyed out until a value changes; then vivid, to update the mask */}
+        <Button variant={outdated ? "contained" : "outlined"} color={outdated ? "warning" : "primary"}
+                size="small" onClick={recalculate}
+                disabled={!preview || !outdated || status.computing || values.threshold == null}
+                startIcon={status.computing ? <CircularProgress size={14} color="inherit" /> : undefined}
+                sx={{ textTransform: "none", alignSelf: "flex-start" }}>
+          {status.computing ? "Calculating…" : "Re-calculate"}
+        </Button>
         <Typography variant="body2" color="text.secondary" aria-live="polite">
           {status.computing ? "Computing the mask…"
+            : outdated ? "The values changed: Re-calculate to update the mask."
             : fraction != null ? `Tentative mask: ${(fraction * 100).toFixed(1)}% of the box` : ""}
         </Typography>
         {status.errors.map((e, i) => <Alert key={`e${i}`} severity="error">{e}</Alert>)}
@@ -138,7 +147,16 @@ export default function MaskCreateWizard({ inputs, data, onChange, preview }: Wi
         </Typography>
       </Box>
 
-      <Box sx={{ flex: "1 1 520px", minWidth: 0 }}>
+      <Box sx={{ flex: "1 1 520px", minWidth: 0, position: "relative" }}>
+        {status.computing && (
+          <Box role="status"
+               sx={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", alignItems: "center",
+                     justifyContent: "center", gap: 1.5, backgroundColor: "rgba(255,255,255,0.55)",
+                     borderRadius: 1 }}>
+            <CircularProgress size={28} />
+            <Typography variant="body2">Loading the tentative mask…</Typography>
+          </Box>
+        )}
         {viewerData.density ? (
           <VolumeViewer
             data={viewerData}
