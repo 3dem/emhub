@@ -561,6 +561,16 @@ var svc = {
     });
   },
 
+  previewWizard(projectId, protocolId, protocolClassName, wizardId, params, outputs) {
+    return wizardRequest(Api.urls.wizard_preview, {
+      run_id: protocolId || null,
+      job_type: protocolClassName,
+      wizard_id: wizardId,
+      params: params,
+      outputs: outputs
+    });
+  },
+
   applyWizard(projectId, protocolId, protocolClassName, wizardId, params, outputs) {
     return wizardRequest(Api.urls.wizard_apply, {
       run_id: protocolId || null,
@@ -574,6 +584,20 @@ var svc = {
   resolveAnalyzeViewer: async function (ctx) {
     var pointerClass = String(ctx.pointerClass || ctx.outputRaw?.pointerClass || '').replace(/\s+/g, '');
     var outputPath = ctx.value || ctx.outputRaw?.value || '';
+
+    // Maps and masks: emflow's volume viewer dialog (a mask over its map)
+    if ((pointerClass === 'Volume' || pointerClass === 'VolumeMask') && /\.mrc$/i.test(outputPath)) {
+      return {
+        handled: true,
+        viewer: "volume",
+        title: ctx.outputName || outputPath,
+        pointerClass: pointerClass,
+        source: {
+          path: Api.urls.get_volume_viewer,
+          payload: { root: project_details.path, path: outputPath, pointerClass: pointerClass }
+        }
+      };
+    }
 
     if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles' ||
         pointerClass === 'Movies' || pointerClass === 'Micrographs' || pointerClass === 'MultiClasses2D' ||

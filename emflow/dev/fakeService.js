@@ -60,12 +60,38 @@ const MASK_FORM = {
     ],
   }],
 };
-const DEV_FORMS = { [WIZARD_PROTOCOL]: WIZARD_FORM, [MASK_PROTOCOL]: MASK_FORM };
+// The mask creation wizard of emw-relion-mask_create (MaskCreateWizard):
+// a fake tentative mask of the blobs map for the threshold, extend, soft
+// edge and invert
+const MASK_CREATE_PROTOCOL = "emw-relion-mask_create";
+const MC = "relion_mask_create.volume.";
+const MASK_CREATE_PARAMS = ["ini_threshold", "extend_inimask", "width_soft_edge", "lowpass"].map((n) => MC + n);
+const MASK_CREATE_FORM = {
+  name: MASK_CREATE_PROTOCOL,
+  label: "Relion Mask Create",
+  wizards: [{ id: "mask_create", label: "Mask creation wizard", params: MASK_CREATE_PARAMS }],
+  sections: [{
+    label: "Mask creation",
+    params: [
+      { name: "relion_mask_create.denovo", label: "De novo creation:", paramClass: "BooleanParam", default: false,
+        help: "On: the wizard refuses to open." },
+      { name: MC + "i", label: "Input volume:", paramClass: "PathParam", default: "Refine3D/job020/run_class001.mrc" },
+      ...[["ini_threshold", "Initial threshold:", 0.3], ["extend_inimask", "Extend mask (px):", 0],
+          ["width_soft_edge", "Soft edge width (px):", 0], ["lowpass", "Lowpass (Å):", -1]]
+        .map(([n, label, d]) => ({ name: MC + n, label, paramClass: "FloatParam", default: d, wizard: "mask_create" })),
+      { name: MC + "invert", label: "Invert mask:", paramClass: "BooleanParam", default: false },
+    ],
+  }],
+};
+const DEV_FORMS = { [WIZARD_PROTOCOL]: WIZARD_FORM, [MASK_PROTOCOL]: MASK_FORM,
+                    [MASK_CREATE_PROTOCOL]: MASK_CREATE_FORM };
 const wizardMenu = {
   Wizards: { text: "Wizards (dev)", value: null, icon: null, tag: null, openItem: true, visible: true,
     childs: [{ text: "Warp - Export Particles", value: WIZARD_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] },
              { text: "Relion Tomo 3D Classification", value: MASK_PROTOCOL, icon: null, tag: "protocol",
+               openItem: true, visible: true, childs: [] },
+             { text: "Relion Mask Create", value: MASK_CREATE_PROTOCOL, icon: null, tag: "protocol",
                openItem: true, visible: true, childs: [] }] },
 };
 const FAKE_MAP_ANGPIX = 2;
@@ -82,9 +108,19 @@ function fakeGrid(n, f) {
   return { shape: [n, n, n], binning: 1, data: btoa(bin), valueRange: [0, 1] };
 }
 // The map: three blobs; the mask: a soft ellipsoid around them
-const fakeMap = (n) => fakeGrid(n, (x, y, z) =>
-  [[-0.25, 0, 0, 0.22], [0.2, 0.15, 0.05, 0.18], [0.05, -0.25, -0.1, 0.15]]
-    .reduce((v, [bx, by, bz, r]) => v + Math.exp(-((x - bx) ** 2 + (y - by) ** 2 + (z - bz) ** 2) / (r * r)), 0));
+const BLOBS = [[-0.25, 0, 0, 0.22], [0.2, 0.15, 0.05, 0.18], [0.05, -0.25, -0.1, 0.15]];
+const blobs = (x, y, z, grow = 0) => BLOBS.reduce(
+  (v, [bx, by, bz, r]) => v + Math.exp(-((x - bx) ** 2 + (y - by) ** 2 + (z - bz) ** 2) / ((r + grow) ** 2)), 0);
+const fakeMap = (n) => fakeGrid(n, blobs);
+// Tentative mask of the blobs map (extend and soft edge in px of an n box)
+function fakeCreatedMask(n, { threshold, extend = 0, soft_edge = 0, invert = false }) {
+  const grow = (2 * extend) / n, edge = (2 * Math.max(soft_edge, 0.5)) / n;
+  return fakeGrid(n, (x, y, z) => {
+    const v = blobs(x, y, z, grow);
+    const inside = Math.min(1, Math.max(0, 0.5 + (v - threshold) / (edge * 4)));
+    return invert ? 1 - inside : inside;
+  });
+}
 const fakeEllipsoid = (n) => fakeGrid(n, (x, y, z) =>
   Math.min(1, Math.max(0, (1.15 - Math.hypot(x / 0.6, y / 0.5, z / 0.45)) / 0.15)));
 const FAKE_TS_ANGPIX = 1.5;
@@ -247,6 +283,20 @@ export function createFakeService() {
 
     resolveAnalyzeViewer: async (ctx) => {
       log("resolveAnalyzeViewer", ctx);
+      // Volumes (and, with ?maskOutput, as masks): the volume viewer dialog,
+      // as EMhub's /api/get_volume_viewer answers (inline here)
+      if (ctx.pointerClass === "Volume" || ctx.pointerClass === "VolumeMask") {
+        const asMask = ctx.pointerClass === "VolumeMask" || new URLSearchParams(location.search).has("maskOutput");
+        const n = 64;
+        return {
+          handled: true, viewer: "volume", title: ctx.outputName, pointerClass: asMask ? "VolumeMask" : "Volume",
+          data: { kind: "imageSlider", layout: "volume", dimensions: [n, n, n], voxelSize: FAKE_MAP_ANGPIX,
+                  density: fakeMap(n), title: asMask ? "Mask MaskCreate/job011/mask.mrc over map.mrc" : "map.mrc",
+                  viewerConfig: { tabs: { view3d: false }, initialTab: "volume3d",
+                                  tools: { select: false, crosshair: false, particles: false },
+                                  ...(asMask ? { mask: { type: "map", density: fakeEllipsoid(n), label: "mask.mrc" } } : {}) } },
+        };
+      }
       if (ctx.pointerClass === "Tomograms" || new URLSearchParams(location.search).has("tomoTable")) {
         return {
           handled: true,
@@ -391,6 +441,25 @@ export function createFakeService() {
     // VolumeMaskWizard with the Relion Class3D one
     openWizard: async (projectId, protocolId, cls, wizardId, params) => {
       log("openWizard", { protocolId, cls, wizardId, params });
+      if (wizardId === "mask_create") {
+        if (params["relion_mask_create.denovo"] === true || params["relion_mask_create.denovo"] === "Yes")
+          return { errors: ["The wizard creates masks from a volume: turn off 'De novo creation'."] };
+        if (!params[MC + "i"]) return { errors: ["Select the input volume before opening the wizard."] };
+        const n = 64, lowpass = parseFloat(params[MC + "lowpass"]);
+        const inputs = { threshold: parseFloat(params[MC + "ini_threshold"]) || 0.3,
+                         lowpass: lowpass > 0 ? lowpass : null,
+                         extend: parseInt(params[MC + "extend_inimask"]) || 0,
+                         soft_edge: parseInt(params[MC + "width_soft_edge"]) || 0,
+                         invert: params[MC + "invert"] === true };
+        const mask = fakeCreatedMask(n, inputs);
+        return {
+          id: wizardId, label: "Mask creation wizard", ui: "MaskCreateWizard", inputs,
+          data: { volume: { kind: "volume", path: params[MC + "i"], dimensions: [n, n, n], voxelSize: FAKE_MAP_ANGPIX,
+                            density: fakeMap(n) },
+                  angpix: FAKE_MAP_ANGPIX, binning: 1, value_range: [0, 1], mask, mask_fraction: 0.1 },
+          warnings: [],
+        };
+      }
       if (wizardId === "mask") {
         if (!params.fn_ref) return { errors: ["Select the input map before opening the wizard."] };
         const n = 64, dims = [n, n, n];
@@ -421,8 +490,23 @@ export function createFakeService() {
         warnings: [],
       };
     },
+    previewWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
+      log("previewWizard", { wizardId, outputs });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (!Number.isFinite(outputs.threshold)) return { errors: ["The initial threshold should be a number."] };
+      const mask = fakeCreatedMask(64, outputs);
+      const u8 = Uint8Array.from(atob(mask.data), (c) => c.charCodeAt(0));
+      const fraction = u8.reduce((a, v) => a + v, 0) / (255 * u8.length);
+      return { data: { mask, mask_fraction: fraction },
+               warnings: fraction === 0 ? ["The mask is empty: lower the threshold."] : [] };
+    },
     applyWizard: async (projectId, protocolId, cls, wizardId, params, outputs) => {
       log("applyWizard", { wizardId, params, outputs });
+      if (wizardId === "mask_create") {
+        return { params: { [MC + "ini_threshold"]: outputs.threshold, [MC + "lowpass"]: outputs.lowpass ?? -1,
+                           [MC + "extend_inimask"]: outputs.extend, [MC + "width_soft_edge"]: outputs.soft_edge,
+                           [MC + "invert"]: outputs.invert }, warnings: [] };
+      }
       if (wizardId === "mask") {
         if (params.fn_mask) return { params: {}, warnings: [] };
         if (!(outputs.diameter > 0)) return { errors: ["The mask diameter should be a positive number."] };

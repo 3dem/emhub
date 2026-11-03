@@ -1196,6 +1196,20 @@ def fetch_volume_density():
     return _handle_item(_handle, 'density')
 
 
+@api_bp.route('/get_volume_viewer', methods=['POST'])
+@flask_login.login_required
+def get_volume_viewer():
+    """ VolumeViewer pane content of a Volume or VolumeMask output of a
+    project (see build_volume_output_pane_content), for emflow's volume
+    viewer dialog. attrs: root, path and pointerClass. """
+    def _handle(**attrs):
+        root = resolve_project_root(attrs['root'])
+        return build_volume_output_pane_content(
+            root, attrs['path'], attrs.get('pointerClass') or 'Volume')
+
+    return _handle_item(_handle, 'paneContent')
+
+
 @api_bp.route('/get_file_chunks', methods=['POST'])
 @flask_login.login_required
 def get_file_chunks():
@@ -1572,6 +1586,20 @@ def wizard_open():
         return result
 
     return _handle_item(_wizard_open, 'wizard')
+
+
+@api_bp.route('/wizard_preview', methods=['POST'])
+@flask_login.login_required
+def wizard_preview():
+    """ New data of an open wizard for the values being selected (outputs),
+    e.g. a tentative mask. Nothing is saved. """
+    def _wizard_preview(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        return Wizards.preview(pm, _wizard_job_type(pp, attrs),
+                               attrs['wizard_id'], attrs.get('params') or {},
+                               attrs.get('outputs') or {})
+
+    return _handle_item(_wizard_preview, 'wizard')
 
 
 @api_bp.route('/wizard_apply', methods=['POST'])

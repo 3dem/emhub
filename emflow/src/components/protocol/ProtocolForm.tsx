@@ -1344,6 +1344,14 @@ export default function ProtocolForm({
   const openWizardRef = useRef(openWizard);
   openWizardRef.current = openWizard;
 
+  // New data of the open wizard for the values being selected (e.g. a
+  // tentative mask); only for the wizards with a preview
+  const previewWizard = svc.previewWizard && openedWizard?.id
+    ? (outputs: Record<string, any>) => svc.previewWizard!(
+        projectId, effectiveProtocolId || null, protocolClassName, openedWizard.id!,
+        getSerializedParams(), outputs)
+    : undefined;
+
   // OK of the wizard: only fill the form params (nothing is saved)
   const applyWizard = async (outputs: Record<string, any>): Promise<string[] | void> => {
     if (!svc.applyWizard || !openedWizard?.id) return;
@@ -3351,6 +3359,7 @@ export default function ProtocolForm({
           wizard={openedWizard}
           onClose={() => setOpenedWizard(null)}
           onApply={applyWizard}
+          onPreview={previewWizard}
         />
       )}
 

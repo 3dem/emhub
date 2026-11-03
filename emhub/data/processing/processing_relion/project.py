@@ -56,10 +56,14 @@ _CLASS3D_JOBTYPES = ('relion.class3d', 'relion.class3d.tomo',
 def _output_prefix(job, output_id):
     """ Prefix of the output label in the widget, to tell apart outputs of
     the same kind of a job (e.g. 'Class03' for the volume of class 3 of a 3D
-    classification), or '' if none. """
+    classification, 'Template' for the template of PyTom create template),
+    or '' if none. """
     if job['jobtype'] in _CLASS3D_JOBTYPES:
         if m := _CLASS_VOLUME.search(output_id):
             return f'Class{int(m.group(1)):02d}'
+    if (job['jobtype'] == 'emw-pytom-create_template'
+            and output_id.endswith('_template.mrc')):
+        return 'Template'
     return ''
 
 

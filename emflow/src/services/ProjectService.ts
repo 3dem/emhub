@@ -465,6 +465,17 @@ export type AnalyzeViewerResolveDecision =
     title?: string;
     context: TableViewerContext;
     table: TableViewerData;
+  }
+  | {
+    // A map or a mask (VolumeViewerDialog): the VolumeViewer pane content
+    // inline (`data`) or loaded with the DataLoader (`source`); its
+    // viewerConfig sets the viewer (e.g. the mask over its map)
+    handled: true;
+    viewer: "volume";
+    title?: string;
+    pointerClass?: string;
+    data?: Record<string, any>;
+    source?: { path: string; payload?: Record<string, unknown> };
   };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -842,6 +853,14 @@ export type WizardOpenResult = {
   ui?: string;                       // emflow component (components/wizards)
   inputs?: Record<string, any>;      // initial values of the editable fields
   data?: Record<string, any>;        // read-only values
+  warnings?: string[];
+};
+
+// Answer of previewWizard: data merged into the wizard's data while it is
+// open (e.g. a tentative mask), or the errors of the values
+export type WizardPreviewResult = {
+  errors?: string[];
+  data?: Record<string, any>;
   warnings?: string[];
 };
 
@@ -1318,6 +1337,17 @@ export interface ProjectService<
     params: Record<string, any>,
     outputs: Record<string, any>,
   ): Promise<WizardApplyResult>;
+
+  // New data for the values being selected in an open wizard (optional:
+  // only the wizards with a preview, e.g. MaskCreateWizard, use it)
+  previewWizard?(
+    projectId: Id,
+    protocolId: Id | null,
+    protocolClassName: string,
+    wizardId: string,
+    params: Record<string, any>,
+    outputs: Record<string, any>,
+  ): Promise<WizardPreviewResult>;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Protocol export (for sharing or external analysis)

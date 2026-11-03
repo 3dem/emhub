@@ -14,32 +14,39 @@ import {
   DialogContent,
   DialogTitle,
 } from "@mui/material";
-import type { WizardOpenResult } from "@/services/ProjectService";
+import type { WizardOpenResult, WizardPreviewResult } from "@/services/ProjectService";
 import ExportTomoParticlesWizard from "./ExportTomoParticlesWizard";
 import VolumeMaskWizard from "./VolumeMaskWizard";
+import MaskCreateWizard from "./MaskCreateWizard";
 
 export type WizardComponentProps = {
   inputs: Record<string, any>;
   data: Record<string, any>;
   onChange: (outputs: Record<string, any>) => void;
+  /** New data for the values being selected (svc.previewWizard); only when
+   * the host has it. */
+  preview?: (outputs: Record<string, any>) => Promise<WizardPreviewResult>;
 };
 
 // Wizard components by the `ui` name sent by the server
 const WIZARD_COMPONENTS: Record<string, (props: WizardComponentProps) => JSX.Element> = {
   ExportTomoParticlesWizard,
   VolumeMaskWizard,
+  MaskCreateWizard,
 };
 // Wider dialogs (md by default)
-const WIZARD_WIDTHS: Record<string, "md" | "lg"> = { VolumeMaskWizard: "lg" };
+const WIZARD_WIDTHS: Record<string, "md" | "lg" | "xl"> = { VolumeMaskWizard: "lg", MaskCreateWizard: "xl" };
 
 type WizardDialogProps = {
   wizard: WizardOpenResult | null;
   onClose: () => void;
   // Returns the errors to show (the dialog stays open), or nothing to close
   onApply: (outputs: Record<string, any>) => Promise<string[] | void>;
+  // svc.previewWizard for the open wizard (passed to its component)
+  onPreview?: (outputs: Record<string, any>) => Promise<WizardPreviewResult>;
 };
 
-export default function WizardDialog({ wizard, onClose, onApply }: WizardDialogProps) {
+export default function WizardDialog({ wizard, onClose, onApply, onPreview }: WizardDialogProps) {
   const [outputs, setOutputs] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<string[]>([]);
   const [applying, setApplying] = useState(false);
@@ -77,7 +84,8 @@ export default function WizardDialog({ wizard, onClose, onApply }: WizardDialogP
         ))}
 
         {wizard && Component ? (
-          <Component inputs={wizard.inputs ?? {}} data={wizard.data ?? {}} onChange={setOutputs} />
+          <Component inputs={wizard.inputs ?? {}} data={wizard.data ?? {}} onChange={setOutputs}
+                     preview={onPreview} />
         ) : (
           <Box sx={{ py: 2 }}>
             <Alert severity="error">There is no wizard component '{String(wizard?.ui ?? "")}'.</Alert>
