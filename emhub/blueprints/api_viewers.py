@@ -1091,6 +1091,65 @@ def build_tomogram_volume_slider_pane_content(
         viewer_config=TOMOGRAM_VIEWER_CONFIG, coordinates=coordinates)
 
 
+# Volume and VolumeMask outputs (emflow's volume viewer dialog): 3D volume
+# first and the slices, as the mask wizard (VolumeMaskWizard) shows them
+VOLUME_OUTPUT_VIEWER_CONFIG = {
+    'tabs': {'view3d': False},
+    'initialTab': 'volume3d',
+    'tools': {'select': False, 'crosshair': False, 'particles': False},
+    'defaults': {'iso': {'dust': 100}},
+}
+# Longest side of their density grid (maps are Fourier scaled to it)
+VOLUME_OUTPUT_MAX_SIZE = 256
+
+
+def _mask_source_map(root, mask_rel):
+    """ The map a mask was created from, on the same box, or None: the input
+    volume of a Relion mask (from volume) or the template next to a PyTom
+    mask (<name>_mask.mrc -> <name>.mrc). """
+    candidates = []
+    job_star = _resolve_data_path(root, os.path.join(os.path.dirname(mask_rel), 'job.star'))
+    if job_star and os.path.exists(job_star):
+        try:
+            values = RelionStar.read_jobstar(job_star)
+        except Exception:
+            values = {}
+        if not values.get('relion_mask_create.denovo'):
+            candidates.append(values.get('relion_mask_create.volume.i'))
+    if mask_rel.endswith('_mask.mrc'):
+        candidates.append(mask_rel[:-len('_mask.mrc')] + '.mrc')
+
+    mask_dims = _volume_dimensions(_resolve_data_path(root, mask_rel))
+    for rel in candidates:
+        try:
+            path = _resolve_data_path(root, rel) if rel else None
+        except ValueError:
+            continue
+        if path and os.path.exists(path) and _volume_dimensions(path) == mask_dims:
+            return rel
+    return None
+
+
+def build_volume_output_pane_content(root, rel_path, pointer_class='Volume'):
+    """ VolumeViewer of a Volume output, or of a VolumeMask output: the map
+    it was created from with the mask over it (or the mask alone if the map
+    is not found). The density is loaded by the viewer and the slices are
+    drawn from it. """
+    vol_rel, config = rel_path, dict(VOLUME_OUTPUT_VIEWER_CONFIG)
+    title = rel_path
+    if pointer_class == 'VolumeMask' and (source := _mask_source_map(root, rel_path)):
+        vol_rel = source
+        config['mask'] = {
+            'type': 'map',
+            'density': volume_density_source(root, rel_path, VOLUME_OUTPUT_MAX_SIZE),
+            'label': os.path.basename(rel_path),
+        }
+        title = f'Mask {rel_path} over {source}'
+    return build_volume_viewer_pane_content(
+        root, vol_rel, title=title, slices=False, density='lazy',
+        max_size=VOLUME_OUTPUT_MAX_SIZE, viewer_config=config)
+
+
 def resolve_table_view_type_hint(attrs, row_cells):
     """Best-effort path for resolving the table view type from a pane request."""
     return (

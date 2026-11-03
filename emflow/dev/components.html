@@ -33,11 +33,17 @@
       </div>
       <div class="row mt-3">
         <div class="col-6"><div class="card"><div class="card-body">
-          <h6>VolumeViewer, a 3D class: only its density (slices drawn from it; no 3D planes, crosshair nor particles)</h6>
+          <h6>VolumeViewer, a 3D class: only its density (slices drawn from it; no 3D planes, crosshair nor particles), with a spherical mask (100 Å)</h6>
           <div id="vol-class"></div>
         </div></div></div>
         <div class="col-6"><div class="card"><div class="card-body">
           <h6>VolumeViewer, tomogram list config (no 3D volume tab)</h6><div id="vol-list"></div>
+        </div></div></div>
+      </div>
+      <div class="row mt-3">
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>VolumeViewer, a 3D class with a map mask (a soft 0-1 ellipsoid, loaded with the DataLoader)</h6>
+          <div id="vol-mask-map"></div>
         </div></div></div>
       </div>
       <div class="card mt-3"><div class="card-body">
@@ -187,7 +193,32 @@
         props: { data: { kind: "imageSlider", layout: "volume", dimensions: [64, 64, 64], voxelSize: 2.1,
                          density: mapDensity(64, 64, 64, 1, 0.3) },
                  tabs: { view3d: false }, initialTab: "volume3d",
-                 tools: { crosshair: false, particles: false }, defaults: { iso: { dust: 100 } } },
+                 tools: { crosshair: false, particles: false }, defaults: { iso: { dust: 100 } },
+                 mask: { type: "sphere", diameter: 100 } },
+      });
+      // A soft 0-1 mask (ellipsoid with a cosine edge) as a density grid
+      function ellipsoidMask(X, Y, Z, rx, ry, rz, edge = 0.15) {
+        const u8 = new Uint8Array(X * Y * Z);
+        for (let z = 0; z < Z; z++) for (let y = 0; y < Y; y++) for (let x = 0; x < X; x++) {
+          const r = Math.hypot((x - X / 2) / rx, (y - Y / 2) / ry, (z - Z / 2) / rz);
+          const v = r < 1 ? 1 : r > 1 + edge ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * (r - 1) / edge);
+          u8[(z * Y + y) * X + x] = Math.round(v * 255);
+        }
+        let bin = "";
+        for (let i = 0; i < u8.length; i += 8192) bin += String.fromCharCode(...u8.subarray(i, i + 8192));
+        return { shape: [Z, Y, X], binning: 1, data: btoa(bin), valueRange: [0, 1] };
+      }
+      window.devMaskMap = EMFlow.mount("VolumeViewer", {
+        container: "#vol-mask-map",
+        loader: new EMFlow.DataLoader({
+          request: () => new Promise((resolve) => setTimeout(() => resolve({ density: ellipsoidMask(64, 64, 64, 26, 20, 22) }), 400)),
+        }),
+        props: { data: { kind: "imageSlider", layout: "volume", dimensions: [64, 64, 64], voxelSize: 2.1,
+                         density: mapDensity(64, 64, 64, 1, 0.3) },
+                 tabs: { view3d: false }, initialTab: "volume3d",
+                 tools: { crosshair: false, particles: false }, defaults: { iso: { dust: 100 } },
+                 mask: { type: "map", label: "mask.mrc",
+                         density: { path: "/api/fetch_volume_density", payload: { root: "/dev", path: "mask.mrc" } } } },
       });
       // The tomogram list (processing_tomogram_card.html)
       window.devList = EMFlow.mount("VolumeViewer", {

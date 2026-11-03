@@ -453,7 +453,9 @@ export default function RemoteFileDialog({
       host.style.zIndex = "2147483647";
 
       doc.body.appendChild(host);
-    } else {
+    } else if (!host.parentElement?.closest(`.${ROOT_CLASS}`)) {
+      // The ProjectPage portal root is already inside the widget scope: the
+      // ROOT_CLASS layout (flex, min-height) would make it take page space
       host.classList.add(ROOT_CLASS);
     }
 

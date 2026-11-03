@@ -43,6 +43,7 @@ import ProtocolMetadataPanel from "./ProtocolMetadataPanel";
 import ProtocolHelpDialog from "./ProtocolHelpDialog";
 import ExecErrorDialog from "./ExecErrorDialog";
 import ValidationErrorsDialog from "./ValidationErrorsDialog";
+import WizardDialog from "@/components/wizards/WizardDialog";
 import {
   getParamClass,
   isNonEmptyString,
@@ -100,7 +101,7 @@ import {
   syncProtUnionPointerClassInParams,
 } from "@/utils/protocolform.protunion";
 
-import { ProjectEffectiveSettings, ProtocolWorkflowExecutionPreflight, ProtocolWorkflowExecutionScope } from "@/services/ProjectService";
+import { ProjectEffectiveSettings, ProtocolWorkflowExecutionPreflight, ProtocolWorkflowExecutionScope, WizardOpenResult } from "@/services/ProjectService";
 import { withOutputPrefix } from "@/utils/output_label";
 
 
@@ -371,6 +372,17 @@ export default function ProtocolForm({
 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showValidationDialog, setShowValidationDialog] = useState(false);
+
+  // Wizard dialog (form `wizards`); disabled if the host has no openWizard
+  const [openedWizard, setOpenedWizard] = useState<WizardOpenResult | null>(null);
+  const wizardsEnabled =
+    typeof svc.openWizard === "function" && typeof svc.applyWizard === "function";
+  const formWizardLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    const list = (form as any)?.wizards;
+    if (Array.isArray(list)) list.forEach((w: any) => { labels[w.id] = w.label || w.id; });
+    return labels;
+  }, [form]);
   const [execErrorDialogOpen, setExecErrorDialogOpen] = useState(false);
   const [execErrorDialogTitle, setExecErrorDialogTitle] = useState("Error");
   const [execErrorDialogMessage, setExecErrorDialogMessage] = useState<string>("");
@@ -1315,6 +1327,55 @@ export default function ProtocolForm({
     return out;
   }, [protocolDetails.params]);
 
+  // Open a wizard with the current (unsaved) form values; the server may
+  // refuse it (e.g. missing inputs), then its errors are shown
+  const openWizard = async (wizardId: string) => {
+    if (!svc.openWizard) return;
+    const res = await svc.openWizard(
+      projectId, effectiveProtocolId || null, protocolClassName, wizardId, getSerializedParams()
+    );
+    if (res?.errors?.length) {
+      setValidationErrors(res.errors);
+      setShowValidationDialog(true);
+      return;
+    }
+    setOpenedWizard({ ...res, id: res?.id ?? wizardId });
+  };
+  const openWizardRef = useRef(openWizard);
+  openWizardRef.current = openWizard;
+
+  // New data of the open wizard for the values being selected (e.g. a
+  // tentative mask); only for the wizards with a preview
+  const previewWizard = svc.previewWizard && openedWizard?.id
+    ? (outputs: Record<string, any>) => svc.previewWizard!(
+        projectId, effectiveProtocolId || null, protocolClassName, openedWizard.id!,
+        getSerializedParams(), outputs)
+    : undefined;
+
+  // OK of the wizard: only fill the form params (nothing is saved)
+  const applyWizard = async (outputs: Record<string, any>): Promise<string[] | void> => {
+    if (!svc.applyWizard || !openedWizard?.id) return;
+    const res = await svc.applyWizard(
+      projectId, effectiveProtocolId || null, protocolClassName, openedWizard.id,
+      getSerializedParams(), outputs
+    );
+    if (res?.errors?.length) return res.errors;
+
+    const newParams = res?.params ?? {};
+    setProtocolDetails((prev: any) => {
+      let next = prev;
+      Object.keys(prev.params || {}).forEach((stateKey) => {
+        const name = getParamNameFromStateKey(stateKey);
+        if (name in newParams) {
+          next = setParamValueAndEditableValue(next, stateKey, String(newParams[name] ?? ""));
+        }
+      });
+      return next;
+    });
+    (res?.warnings ?? []).forEach((w) => toast(w, { icon: "⚠️", duration: 8000 }));
+    setOpenedWizard(null);
+  };
+
 
 
   useEffect(() => {
@@ -1631,6 +1692,17 @@ export default function ProtocolForm({
 
       const isInline = layoutVariant === "inline";
 
+      // Wizard button of a param (inline params get it on their Line)
+      const wizardProps = (wizardId: any) =>
+        wizardsEnabled && wizardId
+          ? {
+            onOpenWizard: () => openWizardRef.current(String(wizardId)),
+            wizardLabel: formWizardLabels[String(wizardId)] ?? "Wizard",
+          }
+          : {};
+      const withWizard = (el: JSX.Element | null) =>
+        el && def?.wizard && !isInline ? React.cloneElement(el, wizardProps(def.wizard)) : el;
+
       // fieldWidthPx
       const inlineFieldWidth = 50;
       const standardFieldWidth = variant === "docked" ? 280 : 460;
@@ -1853,7 +1925,7 @@ export default function ProtocolForm({
           setOpenSelector(true);
         };
 
-        return renderPointerParamRow({
+        return withWizard(renderPointerParamRow({
           stableKey,
           label: def.label || name || "",
           helpText: def.help,
@@ -1871,7 +1943,7 @@ export default function ProtocolForm({
           dragOverKey,
           setDragOverKey,
           onOpenFind: handleOpenFind,
-        });
+        }));
       }
 
       // PathParam (requires stateKey)
@@ -1900,7 +1972,7 @@ export default function ProtocolForm({
           setOpenSelector(true);
         };
 
-        return renderPathParamRow({
+        return withWizard(renderPathParamRow({
           stableKey,
           label: def.label || name || "",
           helpText: def.help,
@@ -1918,14 +1990,14 @@ export default function ProtocolForm({
           setDragOverKey,
           onBrowsePath: handleBrowsePath,
           onOpenFind: handleOpenFind,
-        });
+        }));
       }
 
       // EnumParam (requires stateKey)
       if (defClass === "EnumParam" && def.choices) {
         if (!stateKey) return null;
 
-        return renderEnumParamRow({
+        return withWizard(renderEnumParamRow({
           stableKey,
           label: def.label || name || "",
           helpText: def.help,
@@ -1940,7 +2012,7 @@ export default function ProtocolForm({
           setProtocolDetails,
           def,
           value,
-        });
+        }));
       }
 
 
@@ -2030,6 +2102,7 @@ export default function ProtocolForm({
             helpText={def?.help}
             rowIndex={rowIndex}
             layoutVariant="standard"
+            {...wizardProps(lineParams.map((c: any) => unwrapParamDef(c).paramDef?.wizard).find(Boolean))}
           />
         );
       }
@@ -2139,7 +2212,7 @@ export default function ProtocolForm({
       if (defClass === "BooleanParam") {
         if (!stateKey) return null;
 
-        return renderBooleanParamRow({
+        return withWizard(renderBooleanParamRow({
           stableKey,
           label: def.label || name || "",
           helpText: def.help,
@@ -2154,7 +2227,7 @@ export default function ProtocolForm({
           setProtocolDetails,
           def,
           value,
-        });
+        }));
       }
 
 
@@ -2175,7 +2248,7 @@ export default function ProtocolForm({
       // Default text param (requires stateKey)
       if (!stateKey) return null;
 
-      return renderDefaultParamRow({
+      return withWizard(renderDefaultParamRow({
         stableKey,
         label: def.label || name || "",
         helpText: def.help,
@@ -2190,7 +2263,7 @@ export default function ProtocolForm({
         setProtocolDetails,
         def,
         value,
-      });
+      }));
     },
     [
       protocolDetails.params,
@@ -2204,6 +2277,8 @@ export default function ProtocolForm({
       protocolId,
       variant,
       protocolClassName,
+      wizardsEnabled,
+      formWizardLabels,
     ]
   );
 
@@ -3277,6 +3352,16 @@ export default function ProtocolForm({
         title={execErrorDialogTitle}
         message={execErrorDialogMessage}
       />
+
+      {/* Wizard of the form (OK fills some params) */}
+      {wizardsEnabled && (
+        <WizardDialog
+          wizard={openedWizard}
+          onClose={() => setOpenedWizard(null)}
+          onApply={applyWizard}
+          onPreview={previewWizard}
+        />
+      )}
 
       {/* Validation errors dialog */}
       <ValidationErrorsDialog

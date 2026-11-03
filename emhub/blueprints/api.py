@@ -53,6 +53,7 @@ from emtools.datatypes import VOLUME
 from emtools.image import Image, Thumbnail
 from emtools.utils import Pretty, Color, Path
 from emwrap.base.job_form import JobValidationError
+from emwrap.base.wizards import Wizards
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data.data_manager import SqlFilterError
@@ -1195,6 +1196,20 @@ def fetch_volume_density():
     return _handle_item(_handle, 'density')
 
 
+@api_bp.route('/get_volume_viewer', methods=['POST'])
+@flask_login.login_required
+def get_volume_viewer():
+    """ VolumeViewer pane content of a Volume or VolumeMask output of a
+    project (see build_volume_output_pane_content), for emflow's volume
+    viewer dialog. attrs: root, path and pointerClass. """
+    def _handle(**attrs):
+        root = resolve_project_root(attrs['root'])
+        return build_volume_output_pane_content(
+            root, attrs['path'], attrs.get('pointerClass') or 'Volume')
+
+    return _handle_item(_handle, 'paneContent')
+
+
 @api_bp.route('/get_file_chunks', methods=['POST'])
 @flask_login.login_required
 def get_file_chunks():
@@ -1541,6 +1556,65 @@ def validate_job():
         return {'valid': True, 'errors': []}
 
     return _handle_item(_validate_job, 'validation')
+
+
+def _wizard_job_type(pp, attrs):
+    """ Job type of an existing job (run_id) or of a new one (job_type). """
+    run = pp.get('run')
+    job_type = run.jobtype if run else attrs.get('job_type')
+    if not job_type:
+        raise Exception("Provide run_id for an existing job, "
+                        "or job_type for a new one.")
+    return job_type
+
+
+@api_bp.route('/wizard_open', methods=['POST'])
+@flask_login.login_required
+def wizard_open():
+    """ Open a wizard of a job form (see emwrap.base.wizards). The params are
+    the current (unsaved) values of the form; the wizard validates them and
+    returns the values shown in its dialog. Nothing is saved.
+    """
+    def _wizard_open(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        result = Wizards.open(pm, _wizard_job_type(pp, attrs),
+                              attrs['wizard_id'], attrs.get('params') or {})
+        # Volumes shown by the wizard: the viewer loads their density
+        for item in result['data'].values():
+            if isinstance(item, dict) and item.get('kind') == 'volume':
+                item['density'] = volume_density_source(pm.path, item['path'])
+        return result
+
+    return _handle_item(_wizard_open, 'wizard')
+
+
+@api_bp.route('/wizard_preview', methods=['POST'])
+@flask_login.login_required
+def wizard_preview():
+    """ New data of an open wizard for the values being selected (outputs),
+    e.g. a tentative mask. Nothing is saved. """
+    def _wizard_preview(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        return Wizards.preview(pm, _wizard_job_type(pp, attrs),
+                               attrs['wizard_id'], attrs.get('params') or {},
+                               attrs.get('outputs') or {})
+
+    return _handle_item(_wizard_preview, 'wizard')
+
+
+@api_bp.route('/wizard_apply', methods=['POST'])
+@flask_login.login_required
+def wizard_apply():
+    """ Validate the outputs of a wizard (OK in its dialog) and return the
+    form params to update. The job is not saved: the form is only filled.
+    """
+    def _wizard_apply(**attrs):
+        pp, pm = get_project_manager(**attrs)
+        return Wizards.apply(pm, _wizard_job_type(pp, attrs),
+                             attrs['wizard_id'], attrs.get('params') or {},
+                             attrs.get('outputs') or {})
+
+    return _handle_item(_wizard_apply, 'wizard')
 
 
 @api_bp.route('/launch_job', methods=['POST'])

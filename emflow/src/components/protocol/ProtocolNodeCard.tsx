@@ -74,10 +74,13 @@ import {
 } from "lucide-react";
 
 import TableViewerDialog from "@/components/viewers/TableViewerDialog";
+import VolumeViewerDialog from "@/components/viewers/VolumeViewerDialog";
 import {
   isTableViewerAnalyzeDecision,
+  isVolumeViewerAnalyzeDecision,
   openExternalAnalyzeDecision,
   type TableViewerDecision,
+  type VolumeViewerDecision,
 } from "@/utils/analyze-viewer-decision";
 import type {
   AnalyzeViewerResolveContext,
@@ -1766,6 +1769,7 @@ export default function ProtocolNodeCard({
   };
 
   const [tableViewerState, setTableViewerState] = useState<TableViewerDecision | null>(null);
+  const [volumeViewerState, setVolumeViewerState] = useState<VolumeViewerDecision | null>(null);
 
   const canOpenViewer = !isProjectNode && data.projectId != null;
 
@@ -2077,6 +2081,10 @@ export default function ProtocolNodeCard({
           if (decision?.handled === true) {
             if (isTableViewerAnalyzeDecision(decision)) {
               setTableViewerState(decision);
+              return;
+            }
+            if (isVolumeViewerAnalyzeDecision(decision)) {
+              setVolumeViewerState(decision);
               return;
             }
 
@@ -2428,6 +2436,13 @@ export default function ProtocolNodeCard({
           context={tableViewerState.context}
           table={tableViewerState.table}
           title={tableViewerState.title}
+          protocolLabel={headerDisplayName}
+        />
+      ) : null}
+      {volumeViewerState ? (
+        <VolumeViewerDialog
+          decision={volumeViewerState}
+          onClose={() => setVolumeViewerState(null)}
           protocolLabel={headerDisplayName}
         />
       ) : null}

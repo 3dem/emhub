@@ -30,6 +30,7 @@ from emtools.image import Thumbnail
 
 from emwrap.base import ProcessingConfig, ProjectManager
 from emwrap.base.job_form import JobForm
+from emwrap.base.wizards import Wizards
 
 from ..base import SessionRun, SessionData, hours
 from .runs import RelionRun
@@ -55,10 +56,15 @@ _CLASS3D_JOBTYPES = ('relion.class3d', 'relion.class3d.tomo',
 def _output_prefix(job, output_id):
     """ Prefix of the output label in the widget, to tell apart outputs of
     the same kind of a job (e.g. 'Class03' for the volume of class 3 of a 3D
-    classification), or '' if none. """
+    classification, 'Template' for the template of PyTom create template:
+    its volume that is not the mask, <name>_template.mrc or, in older runs,
+    <name>.mrc), or '' if none. """
     if job['jobtype'] in _CLASS3D_JOBTYPES:
         if m := _CLASS_VOLUME.search(output_id):
             return f'Class{int(m.group(1)):02d}'
+    if (job['jobtype'] == 'emw-pytom-create_template'
+            and output_id.endswith('.mrc') and not output_id.endswith('_mask.mrc')):
+        return 'Template'
     return ''
 
 
@@ -462,6 +468,7 @@ class RelionSessionData(SessionData):
                 _register(paramDef)
             for sectionDef in jobForm['sections']:
                 formDef['sections'].append(sectionDef)
+            Wizards.tag_form(formDef, jobForm)
 
             # Add queue parameters if defined in the config
             if queues := ProcessingConfig.get_queues():

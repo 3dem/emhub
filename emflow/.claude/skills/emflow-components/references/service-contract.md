@@ -46,6 +46,7 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | Files | `resolveBrowserPaths(projectId, protocolId)` -> `{rootAbs, startPath, protocolRoot}`; `listRemoteDirectory(projectId, protocolId, path)` -> `[{name, path, isDir, size, mime}]`; `previewRemoteEntry(projectId, protocolId, path)` -> `{kind: text\|table\|image\|none, ...}` | - | RemoteFileDialog, ProtocolForm, ProjectPage |
 | Logs | `fetchProtocolLogChannels(projectId, protocolId)` -> `{channels: [{id, label, order}]}`; `fetchProtocolLogsChunk(projectId, protocolId, offsets)` -> `{chunks: [{channel, content, offset, resetOffset?, truncated?}]}` | empty | useProtocolLogs |
 | Tags | `listProjectTags`, `createProjectTag`, `updateProjectTag`, `deleteProjectTag`, `listProtocolTagIds`, `setProtocolTagIds` | `[]` / throws for writes | TagManager, ProtocolNodeCard, ProjectPage |
+| Wizards | `openWizard(projectId, protocolId, protocolClassName, wizardId, params)` -> `WizardOpenResult` `{errors?} \| {id, label, ui, inputs, data, warnings}`; `applyWizard(..., wizardId, params, outputs)` -> `{errors?} \| {params, warnings}`. `previewWizard(..., wizardId, params, outputs)` -> `WizardPreviewResult` `{errors?} \| {data, warnings}` (optional; data for the values being chosen, e.g. a tentative mask; EMhub `/api/wizard_preview`). `protocolId` is null for a new protocol, `params` the unsaved form values. Optional: without them the wizard buttons are hidden. EMhub: `/api/wizard_open`, `/api/wizard_apply` (`emwrap.base.wizards.Wizards`), errors returned (not shown by the svc) | wand hidden | ProtocolForm |
 | Outputs | `resolveAnalyzeViewer(ctx)` (see below) | `{handled:false}` | ProtocolNodeCard, ProtocolOutputsPanel |
 | | `fetchOutputPreview` | - | ProtocolOutputsPanel |
 | Table viewer | `resolveTableViewerAction`, `executeTableViewerEditAction`, `resolveTableViewerChildren` (see below) | empty pane / failure / no children | table-viewer-pane |
@@ -91,12 +92,22 @@ Return one of (`AnalyzeViewerResolveDecision`):
   no url after opening its own viewer (`visualizeOutput`), and an OTF
   dashboard url for `TiltSeriesAnalysis`.
 - `{handled: true, viewer: "table", title?, context, table}` -> `TableViewerDialog`.
+- `{handled: true, viewer: "volume", title?, pointerClass?, data? | source?: {path, payload}}`
+  -> `VolumeViewerDialog`: the VolumeViewer pane content inline or loaded
+  with the DataLoader (its `viewerConfig` sets the viewer).
 
 EMhub (`project_widget_svc.html`) returns `viewer: "table"` for
 `TiltSeriesMovies`, `TiltSeries`, `TiltSeriesAligned`, `Tomograms`,
 `TomoCoordinates`, `TomoParticles`, `Movies`, `Micrographs`,
 `MultiClasses2D`, `Classes3D`, `Particles` (table built by the server:
-`get_table_view_data`).
+`get_table_view_data`). It returns `viewer: "volume"` for `Volume` and `VolumeMask` outputs
+(`.mrc`) with `source` = `/api/get_volume_viewer` `{root, path,
+pointerClass}` (`build_volume_output_pane_content`, `VOLUME_OUTPUT_VIEWER_CONFIG`:
+3D volume first, Slices without the select tool or crosshair, densities of
+at most 256 px; a `VolumeMask` is shown over the map it was created from: the
+input volume in the job.star of `emw-relion-mask_create`, or `<name>.mrc`
+next to `<name>_mask.mrc` (PyTom); the mask alone if not found or not on the
+same box). Other files still open EMhub's own viewer (`visualizeOutput`).
 
 ## Table viewer protocol
 

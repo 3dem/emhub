@@ -5,6 +5,17 @@ export type TableViewerDecision = Extract<
   { handled: true; viewer: "table" }
 >;
 
+export type VolumeViewerDecision = Extract<
+  AnalyzeViewerResolveDecision,
+  { handled: true; viewer: "volume" }
+>;
+
+export function isVolumeViewerAnalyzeDecision(
+  decision: AnalyzeViewerResolveDecision | null | undefined,
+): decision is VolumeViewerDecision {
+  return !!decision && decision.handled === true && decision.viewer === "volume";
+}
+
 export function isTableViewerAnalyzeDecision(
   decision: AnalyzeViewerResolveDecision | null | undefined,
 ): decision is TableViewerDecision {
@@ -15,7 +26,7 @@ export function openExternalAnalyzeDecision(
   decision: AnalyzeViewerResolveDecision | null | undefined,
   defaultTarget: "_self" | "_blank" = "_blank",
 ): boolean {
-  if (!decision || decision.handled !== true || decision.viewer === "table") {
+  if (!decision || decision.handled !== true || decision.viewer === "table" || decision.viewer === "volume") {
     return false;
   }
 

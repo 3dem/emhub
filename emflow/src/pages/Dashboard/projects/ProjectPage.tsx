@@ -2452,16 +2452,11 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       lastObservedWidthRef.current = nextWidth;
       setGridWidth(nextWidth);
 
-      requestAnimationFrame(() => {
-        const inst = reactFlowInstanceRef.current ?? (window as any).reactFlowInstance;
-        if (!inst) return;
-
-        if (viewModeRef.current === "grid") {
-          snapViewportToTopLeft(GRID_ZOOM);
-        } else if (viewModeRef.current === "hierarchical") {
-          centerLikeButton(undefined, true, viewportRef.current.zoom);
-        }
-      });
+      // Only the grid layout depends on the width. The hierarchical view
+      // keeps the user's viewport (re-centering would lose it, and it is
+      // persisted on move end)
+      if (viewModeRef.current !== "grid") return;
+      requestAnimationFrame(() => snapViewportToTopLeft(GRID_ZOOM));
     });
 
     ro.observe(el);
@@ -2469,7 +2464,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     return () => {
       try { ro.disconnect(); } catch { /* ignore */ }
     };
-  }, [centerLikeButton, snapViewportToTopLeft]);
+  }, [snapViewportToTopLeft]);
 
 
   /* --------------------- Keep latest layout params in refs to avoid refetch on view switch --------------------- */
@@ -3143,6 +3138,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       };
       inst.setViewport(next);
       setViewport(next);
+      persistCurrentViewport();
     }));
   };
 
@@ -3488,6 +3484,18 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     } catch {
       // noOp
     }
+  };
+
+  // Programmatic moves (zoom buttons, fit view, search) do not fire
+  // onMoveEnd: save the viewport after them. Through a ref, so memoized
+  // handlers write to the key of the current view mode and direction.
+  const writePersistedViewportRef = useRef(writePersistedViewport);
+  writePersistedViewportRef.current = writePersistedViewport;
+  const persistCurrentViewport = (delayMs = 0) => {
+    window.setTimeout(() => {
+      const inst = reactFlowInstanceRef.current ?? (window as any).reactFlowInstance;
+      if (inst) writePersistedViewportRef.current(inst.getViewport());
+    }, delayMs);
   };
 
 
@@ -5088,6 +5096,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           if (inst && nodesWithPositions.length > 0 && viewMode === "hierarchical") {
             const preserve = opts?.preserveZoom ?? true;
             centerLikeButton(nodesWithPositions, preserve, viewportRef.current.zoom);
+            persistCurrentViewport();
           } else if (inst) {
             snapViewportToTopLeft(GRID_ZOOM);
           }
@@ -5356,15 +5365,23 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           return;
         }
 
+        // Back to a view used before: its saved viewport (key per view mode
+        // and direction), else centered / top-left
+        const savedViewport = readPersistedViewport();
+        if (savedViewport) {
+          inst.setViewport(savedViewport);
+          setViewport(savedViewport);
+        }
+
         if (viewMode === "hierarchical") {
-          centerLikeButton(nodesWithPositions, true);
+          if (!savedViewport) centerLikeButton(nodesWithPositions, true);
 
           window.setTimeout(() => {
             if (viewModeRef.current === "hierarchical") {
               handleRefreshRef.current?.();
             }
           }, 0);
-        } else {
+        } else if (!savedViewport) {
           snapViewportToTopLeft(GRID_ZOOM);
         }
 
@@ -5583,6 +5600,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           inst.setCenter(centerX, centerY, { zoom, duration: 300 });
           const vp = inst.getViewport();
           setViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
+          persistCurrentViewport(350);
         } else {
           const clamped = { x: currentViewport.x, y: currentViewport.y, zoom: viewMode === "grid" ? GRID_ZOOM : clampZoom(currentViewport.zoom) };
           inst.setViewport(clamped);
@@ -5633,6 +5651,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       inst2.setCenter((match as any).position.x, (match as any).position.y, { zoom, duration: 500 });
       const vp = inst2.getViewport();
       setViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
+      persistCurrentViewport(550);
     }
   };
 
@@ -8105,6 +8124,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     inst.setViewport({ x: vp.x, y: vp.y, zoom: newZoom });
     const newVp = inst.getViewport();
     setViewport({ x: newVp.x, y: newVp.y, zoom: newVp.zoom });
+    persistCurrentViewport();
   }, [viewMode]);
   const handleZoomOut = useCallback(() => {
     if (viewMode === "grid") return;
@@ -8115,6 +8135,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     inst.setViewport({ x: vp.x, y: vp.y, zoom: newZoom });
     const newVp = inst.getViewport();
     setViewport({ x: newVp.x, y: newVp.y, zoom: newVp.zoom });
+    persistCurrentViewport();
   }, [viewMode]);
   const handleFitView = useCallback(() => {
     if (viewMode === "grid") {
@@ -8122,6 +8143,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       return;
     }
     centerLikeButton(undefined, true);
+    persistCurrentViewport();
   }, [viewMode, centerLikeButton, snapViewportToTopLeft]);
 
   /* ------------------------ Wrapper plumbing (unchanged) ------------------------ */

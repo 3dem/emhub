@@ -8,11 +8,27 @@
 // surface is transparent, also blends the surfaces behind. Where the enclosed
 // density touches the box, the box face caps it. Renders on demand, with
 // longer steps while the view moves.
+// An optional mask is drawn over it, translucent: a sphere (mesh) or another
+// map (ray-cast as the density, only its front surface, so it does not hide
+// the map behind it).
 // The world is the voxel space of the full volume with y flipped.
 import * as THREE from "three";
 import { Trackball } from "./trackball";
 import { densityValues } from "./densityGrid";
 import type { Vec3, VolumeDensity } from "./volumeMath";
+
+/** Mask drawn over the density: a sphere (voxels) or another map. */
+export type IsoMask =
+  | { type: "sphere"; center: Vec3; diameter: number }
+  | { type: "map"; density: VolumeDensity; threshold: number };
+
+export type MaskStyle = {
+  show: boolean;
+  /** CSS hex. */
+  color: string;
+  /** 0-1. */
+  opacity: number;
+};
 
 export type IsoState = {
   /** Threshold in the units of the map. */
@@ -39,7 +55,7 @@ const FRAGMENT = [
   "precision highp float; precision highp sampler3D;",
   "uniform sampler3D uTex;",
   "uniform vec3 uCam, uSize, uColor, uLight, uTexel;",
-  "uniform float uThr, uSign, uOpacity, uStep;",
+  "uniform float uThr, uSign, uOpacity, uStep, uFirst;",
   "uniform mat4 uMVP;",
   "varying vec3 vP;",
   "",
@@ -96,6 +112,7 @@ const FRAGMENT = [
   "      col += (1.0 - a) * uOpacity * shade(p, n, dir);",
   "      a += (1.0 - a) * uOpacity;",
   "      if (depth < -0.5) { vec4 c = uMVP * vec4(p, 1.0); depth = c.z / c.w; }",
+  "      if (uFirst > 0.5) break;",
   "    }",
   "    prev = v;",
   "    t += uStep;",
@@ -105,6 +122,109 @@ const FRAGMENT = [
   "  gl_FragColor = vec4(col / a, a);",
   "}",
 ].join("\n");
+
+// Sphere mask: shaded as the surface (headlight + key light, view space)
+const SPHERE_VERTEX = [
+  "varying vec3 vN, vV;",
+  "void main() {",
+  "  vec4 mv = modelViewMatrix * vec4(position, 1.0);",
+  "  vN = normalize(normalMatrix * normal); vV = -mv.xyz;",
+  "  gl_Position = projectionMatrix * mv;",
+  "}",
+].join("\n");
+
+const SPHERE_FRAGMENT = [
+  "uniform vec3 uColor; uniform float uOpacity;",
+  "varying vec3 vN, vV;",
+  "void main() {",
+  "  vec3 n = normalize(vN), v = normalize(vV), l = normalize(vec3(-0.35, 0.45, 1.0));",
+  "  float diff = max(dot(n, l), 0.0);",
+  "  float spec = pow(max(dot(n, normalize(l + v)), 0.0), 48.0);",
+  "  gl_FragColor = vec4(uColor * (0.28 + 0.72 * diff) + vec3(0.22 * spec), uOpacity);",
+  "}",
+].join("\n");
+
+type RayMesh = THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial>;
+
+/** A box ray-cast with the iso-surface shader, over the grid of `d`. */
+function rayMesh(d: VolumeDensity, values: Uint8Array, color: string): RayMesh {
+  const [nz, ny, nx] = d.shape;
+  const f = d.binning || 1;
+  const tex = new THREE.Data3DTexture(values, nx, ny, nz);
+  tex.format = THREE.RedFormat;
+  tex.type = THREE.UnsignedByteType;
+  tex.minFilter = tex.magFilter = THREE.LinearFilter;
+  tex.unpackAlignment = 1;
+  tex.needsUpdate = true;
+  // The grid covers whole blocks: it may pass the volume by < f voxels
+  const size = new THREE.Vector3(nx * f, ny * f, nz * f);
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    side: THREE.BackSide,
+    uniforms: {
+      uTex: { value: tex },
+      uCam: { value: new THREE.Vector3() },
+      uSize: { value: size },
+      uTexel: { value: new THREE.Vector3(f, f, f) },
+      uColor: { value: rgb(color) },
+      uLight: { value: new THREE.Vector3(0, 0, 1) },
+      uThr: { value: 0.5 },
+      uSign: { value: 1 },
+      uOpacity: { value: 1 },
+      uStep: { value: f * 0.5 },
+      uFirst: { value: 0 },
+      uMVP: { value: new THREE.Matrix4() },
+    },
+    vertexShader: VERTEX,
+    fragmentShader: FRAGMENT,
+  });
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), mat);
+  mesh.position.set(size.x / 2, -size.y / 2, size.z / 2);
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+function disposeMesh(mesh: THREE.Mesh) {
+  const mat = mesh.material as THREE.ShaderMaterial;
+  (mat.uniforms?.uTex?.value as THREE.Texture | undefined)?.dispose();
+  mat.dispose();
+  mesh.geometry.dispose();
+}
+
+/** Threshold in map units -> the 0-1 of the uint8 grid. */
+const level = (d: VolumeDensity, thr: number) => {
+  const [v0, v1] = d.valueRange;
+  return (thr - v0) / (v1 - v0 || 1);
+};
+
+/** Share of the canvas taken by what is framed (fit). */
+const FIT_MARGIN = 0.92;
+
+/** World bounds (x, -y, z) of the grid voxels inside the surface at the
+ * level (0-1 of the grid), or null when there are none. */
+function gridBounds(d: VolumeDensity, values: Uint8Array, lvl: number, below: boolean): THREE.Box3 | null {
+  const [nz, ny, nx] = d.shape;
+  const f = d.binning || 1;
+  const t = lvl * 255;
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -1, y1 = -1, z1 = -1;
+  for (let z = 0, i = 0; z < nz; z++) {
+    for (let y = 0; y < ny; y++) {
+      for (let x = 0; x < nx; x++, i++) {
+        const v = values[i];
+        if (below ? v >= t : v <= t) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+        if (z < z0) z0 = z;
+        if (z > z1) z1 = z;
+      }
+    }
+  }
+  if (x1 < 0) return null;
+  return new THREE.Box3(new THREE.Vector3(x0 * f, -(y1 + 1) * f, z0 * f),
+                        new THREE.Vector3((x1 + 1) * f, -y0 * f, (z1 + 1) * f));
+}
 
 function rgb(hex: string): THREE.Vector3 {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -119,9 +239,16 @@ export class IsoSurfaceScene {
   private readonly camera: THREE.PerspectiveCamera;
   private readonly ball: Trackball;
   private readonly dim: Vec3;
-  private mesh: THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial> | null = null;
+  private mesh: RayMesh | null = null;
   private density: VolumeDensity | null = null;
+  /** The grid values given to the GPU (smoothed, without dust). */
+  private values: Uint8Array | null = null;
+  /** The user moved the view since it was framed (fit). */
+  touched = false;
   private state: IsoState;
+  private mask: IsoMask | null = null;
+  private maskMesh: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> | null = null;
+  private maskStyle: MaskStyle = { show: false, color: "#5fd38d", opacity: 0.3 };
   private raf = 0;
   private fineTimer = 0;
   private coarse = false;
@@ -144,7 +271,10 @@ export class IsoSurfaceScene {
     this.canvas = this.renderer.domElement;
     this.camera = new THREE.PerspectiveCamera(40, width / height, 1, 100 * m);
     this.ball = new Trackball(this.canvas, {
-      onChange: () => this.moved(),
+      onChange: () => {
+        this.touched = true;
+        this.moved();
+      },
       isPan: () => this.state.pan,
       maxRadius: 50 * m,
     });
@@ -162,6 +292,7 @@ export class IsoSurfaceScene {
 
   /** New values of the same grid (e.g. smoothed or without dust). */
   setValues(values: Uint8Array) {
+    this.values = values;
     if (!this.mesh) return;
     const tex = this.mesh.material.uniforms.uTex.value as THREE.Data3DTexture;
     (tex.image as unknown as { data: Uint8Array }).data = values;
@@ -174,42 +305,49 @@ export class IsoSurfaceScene {
     if (this.disposed) return;
     this.removeMesh();
     this.density = d;
-    const [nz, ny, nx] = d.shape;
-    const f = d.binning || 1;
-    const tex = new THREE.Data3DTexture(values, nx, ny, nz);
-    tex.format = THREE.RedFormat;
-    tex.type = THREE.UnsignedByteType;
-    tex.minFilter = tex.magFilter = THREE.LinearFilter;
-    tex.unpackAlignment = 1;
-    tex.needsUpdate = true;
-    // The grid covers whole blocks: it may pass the volume by < f voxels
-    const size = new THREE.Vector3(nx * f, ny * f, nz * f);
-    const mat = new THREE.ShaderMaterial({
-      transparent: true,
-      side: THREE.BackSide,
-      uniforms: {
-        uTex: { value: tex },
-        uCam: { value: new THREE.Vector3() },
-        uSize: { value: size },
-        uTexel: { value: new THREE.Vector3(f, f, f) },
-        uColor: { value: rgb(this.state.color) },
-        uLight: { value: new THREE.Vector3(0, 0, 1) },
-        uThr: { value: 0.5 },
-        uSign: { value: 1 },
-        uOpacity: { value: 1 },
-        uStep: { value: f * 0.5 },
-        uMVP: { value: new THREE.Matrix4() },
-      },
-      vertexShader: VERTEX,
-      fragmentShader: FRAGMENT,
-    });
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), mat);
-    mesh.position.set(size.x / 2, -size.y / 2, size.z / 2);
+    this.values = values;
+    const mesh = rayMesh(d, values, this.state.color);
     mesh.renderOrder = 1;
-    mesh.frustumCulled = false;
     this.scene.add(mesh);
     this.mesh = mesh;
     this.sync();
+  }
+
+  /** The mask (replaces the previous one); null removes it. A map mask must
+   * be decoded first (prepareDensity). */
+  setMask(mask: IsoMask | null) {
+    if (this.disposed) return;
+    this.removeMask();
+    this.mask = mask;
+    if (mask?.type === "sphere") {
+      const mat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        uniforms: { uColor: { value: rgb(this.maskStyle.color) }, uOpacity: { value: this.maskStyle.opacity } },
+        vertexShader: SPHERE_VERTEX,
+        fragmentShader: SPHERE_FRAGMENT,
+      });
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(Math.max(mask.diameter / 2, 0.5), 64, 32), mat);
+      sphere.position.set(mask.center.x, -mask.center.y, mask.center.z);
+      this.maskMesh = sphere;
+    } else if (mask?.type === "map") {
+      const m = rayMesh(mask.density, densityValues(mask.density), this.maskStyle.color);
+      m.material.uniforms.uFirst.value = 1;
+      m.material.uniforms.uThr.value = level(mask.density, mask.threshold);
+      m.material.depthWrite = false;
+      this.maskMesh = m as unknown as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    }
+    if (this.maskMesh) {
+      // After the density: its depth hides the mask behind the surface
+      this.maskMesh.renderOrder = 2;
+      this.scene.add(this.maskMesh);
+    }
+    this.syncMask();
+  }
+
+  setMaskStyle(style: MaskStyle) {
+    this.maskStyle = style;
+    this.syncMask();
   }
 
   setState(state: IsoState) {
@@ -224,10 +362,63 @@ export class IsoSurfaceScene {
     this.render();
   }
 
+  /** The oblique view, framing what is drawn (see fit). */
   reset() {
+    this.fit();
+  }
+
+  /**
+   * The oblique view centred on what is drawn: the voxels inside the surface
+   * at the threshold and the shown mask (the whole box without them), at the
+   * distance that makes it as large as fits the canvas, both in width and
+   * height (FIT_MARGIN).
+   */
+  fit() {
     const { x, y, z } = this.dim;
-    this.ball.reset(new THREE.Vector3(x / 2, -y / 2, z / 2), 2.1 * Math.max(x, y, z));
+    const whole = new THREE.Box3(new THREE.Vector3(0, -y, 0), new THREE.Vector3(x, 0, z));
+    let content: THREE.Box3 | null = null;
+    if (this.density && this.values) {
+      content = gridBounds(this.density, this.values, level(this.density, this.state.threshold), this.state.below);
+    }
+    const mask = this.maskStyle.show ? this.maskBounds() : null;
+    if (mask) content = content ? content.union(mask) : mask;
+    const box = content ? content.intersect(whole) : whole;
+    if (box.isEmpty()) box.copy(whole);
+
+    const center = box.getCenter(new THREE.Vector3());
+    this.ball.reset(center, 1);
+    const q = this.ball.quat;
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+    const back = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+    const tanV = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * FIT_MARGIN;
+    const tanH = tanV * this.camera.aspect;
+    // The nearest camera (along `back`) that sees every corner of the box
+    let dist = 0;
+    for (const cx of [box.min.x, box.max.x]) {
+      for (const cy of [box.min.y, box.max.y]) {
+        for (const cz of [box.min.z, box.max.z]) {
+          const c = new THREE.Vector3(cx, cy, cz).sub(center);
+          const depth = c.dot(back);
+          dist = Math.max(dist, depth + Math.abs(c.dot(right)) / tanH, depth + Math.abs(c.dot(up)) / tanV);
+        }
+      }
+    }
+    this.ball.radius = Math.max(dist, 2);
+    this.touched = false;
     this.render();
+  }
+
+  /** World bounds of the mask, or null. */
+  private maskBounds(): THREE.Box3 | null {
+    const m = this.mask;
+    if (m?.type === "sphere") {
+      const r = m.diameter / 2;
+      const c = new THREE.Vector3(m.center.x, -m.center.y, m.center.z);
+      return new THREE.Box3(c.clone().subScalar(r), c.clone().addScalar(r));
+    }
+    if (m?.type === "map") return gridBounds(m.density, densityValues(m.density), level(m.density, m.threshold), false);
+    return null;
   }
 
   dispose() {
@@ -235,6 +426,7 @@ export class IsoSurfaceScene {
     cancelAnimationFrame(this.raf);
     clearTimeout(this.fineTimer);
     this.removeMesh();
+    this.removeMask();
     this.scene.traverse((obj) => {
       const o = obj as THREE.Mesh;
       o.geometry?.dispose?.();
@@ -246,18 +438,32 @@ export class IsoSurfaceScene {
   private removeMesh() {
     if (!this.mesh) return;
     this.scene.remove(this.mesh);
-    this.mesh.material.uniforms.uTex.value.dispose();
-    this.mesh.material.dispose();
-    this.mesh.geometry.dispose();
+    disposeMesh(this.mesh);
     this.mesh = null;
+  }
+
+  private removeMask() {
+    if (!this.maskMesh) return;
+    this.scene.remove(this.maskMesh);
+    disposeMesh(this.maskMesh);
+    this.maskMesh = null;
+  }
+
+  private syncMask() {
+    if (this.maskMesh) {
+      const u = this.maskMesh.material.uniforms;
+      u.uColor.value = rgb(this.maskStyle.color);
+      u.uOpacity.value = this.maskStyle.opacity;
+      this.maskMesh.visible = this.maskStyle.show;
+    }
+    this.render();
   }
 
   private sync() {
     const d = this.density;
     if (this.mesh && d) {
       const u = this.mesh.material.uniforms;
-      const [v0, v1] = d.valueRange;
-      u.uThr.value = (this.state.threshold - v0) / (v1 - v0 || 1);
+      u.uThr.value = level(d, this.state.threshold);
       u.uSign.value = this.state.below ? -1 : 1;
       u.uOpacity.value = this.state.opacity;
       u.uColor.value = rgb(this.state.color);
@@ -283,21 +489,25 @@ export class IsoSurfaceScene {
       if (this.disposed) return;
       this.ball.apply(this.camera);
       this.camera.updateMatrixWorld();
-      if (this.mesh && this.density) {
-        const u = this.mesh.material.uniforms;
-        const f = this.density.binning || 1;
-        // Local box space (the mesh is only translated)
-        u.uCam.value.copy(this.mesh.worldToLocal(this.camera.position.clone()));
-        // Key light above-left of the camera
-        u.uLight.value.set(-0.35, 0.45, 1).normalize().applyQuaternion(this.camera.quaternion);
-        u.uStep.value = f * (this.coarse || this.ball.dragging ? 1.25 : 0.5);
-        this.mesh.updateMatrixWorld();
-        u.uMVP.value
-          .copy(this.camera.projectionMatrix)
-          .multiply(this.camera.matrixWorldInverse)
-          .multiply(this.mesh.matrixWorld);
-      }
+      if (this.mesh && this.density) this.updateRay(this.mesh, this.density);
+      if (this.maskMesh && this.mask?.type === "map") this.updateRay(this.maskMesh as RayMesh, this.mask.density);
       this.renderer.render(this.scene, this.camera);
     });
+  }
+
+  /** Camera, light, step and projection of a ray-cast box. */
+  private updateRay(mesh: RayMesh, d: VolumeDensity) {
+    const u = mesh.material.uniforms;
+    const f = d.binning || 1;
+    // Local box space (the mesh is only translated)
+    u.uCam.value.copy(mesh.worldToLocal(this.camera.position.clone()));
+    // Key light above-left of the camera
+    u.uLight.value.set(-0.35, 0.45, 1).normalize().applyQuaternion(this.camera.quaternion);
+    u.uStep.value = f * (this.coarse || this.ball.dragging ? 1.25 : 0.5);
+    mesh.updateMatrixWorld();
+    u.uMVP.value
+      .copy(this.camera.projectionMatrix)
+      .multiply(this.camera.matrixWorldInverse)
+      .multiply(mesh.matrixWorld);
   }
 }

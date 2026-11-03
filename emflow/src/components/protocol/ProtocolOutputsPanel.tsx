@@ -6,7 +6,11 @@ import { useProjectService } from "@/ProjectServiceContext";
 
 import TableViewerDialog from "@/components/viewers/TableViewerDialog";
 import type { AnalyzeViewerResolveDecision } from "@/services/ProjectService";
-import { openExternalAnalyzeDecision } from "@/utils/analyze-viewer-decision";
+import {
+    openExternalAnalyzeDecision,
+    type VolumeViewerDecision,
+} from "@/utils/analyze-viewer-decision";
+import VolumeViewerDialog from "@/components/viewers/VolumeViewerDialog";
 import { withOutputPrefix } from "@/utils/output_label";
 
 
@@ -53,6 +57,8 @@ export default function ProtocolOutputsPanel({
         > | null
     >(null);
 
+
+    const [volumeViewerState, setVolumeViewerState] = useState<VolumeViewerDecision | null>(null);
 
     const normalizedOutputs = useMemo<NormalizedOutput[]>(() => {
         const arr = Array.isArray(outputsFromApi) ? outputsFromApi : [];
@@ -185,6 +191,10 @@ export default function ProtocolOutputsPanel({
                 if (res.handled) {
                     if (res.viewer === "table") {
                         setTableViewerState(res);
+                        return;
+                    }
+                    if (res.viewer === "volume") {
+                        setVolumeViewerState(res);
                         return;
                     }
 
@@ -918,6 +928,13 @@ export default function ProtocolOutputsPanel({
                     context={tableViewerState.context}
                     table={tableViewerState.table}
                     title={tableViewerState.title}
+                    protocolLabel={protocolLabel}
+                />
+            )}
+            {volumeViewerState && (
+                <VolumeViewerDialog
+                    decision={volumeViewerState}
+                    onClose={() => setVolumeViewerState(null)}
                     protocolLabel={protocolLabel}
                 />
             )}
