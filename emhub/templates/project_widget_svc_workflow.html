@@ -347,8 +347,13 @@ var svc = {
     });
   },
 
-  async fetchWorkflows() {
-    return workflows;
+  // Only the builtin templates can be loaded while editing a template
+  async fetchWorkflows(category) {
+    return (!category || category === 'builtin') ? workflows : [];
+  },
+
+  async saveWorkflow(projectId, payload) {
+    throw new Error("Export is disabled while editing workflow template files.");
   },
 
   async loadWorkflow(projectId, workflowInfo) {
@@ -364,6 +369,14 @@ var svc = {
       action: 'load_template',
       template_workflow_id: templateId,
     });
+  },
+
+  async exportWorkflowProtocols(projectId, payload) {
+    throw new Error("Copy and paste are disabled while editing workflow template files.");
+  },
+
+  async importWorkflowProtocols(projectId, payload) {
+    return { status: 1, errors: ["Copy and paste are disabled while editing workflow template files."] };
   },
 
   async exportProtocols(projectId, payload) {

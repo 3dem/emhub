@@ -28,12 +28,18 @@ import ReactFlow, {
   Node,
   ReactFlowInstance,
   MarkerType,
-  MiniMap,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { createStatusNodeWrapper } from "@/components/protocol/ProtocolNodeCardWrapper";
 import { ProtocolsDrawer } from "@/components/protocol/ProtocolsDrawer";
 import { ProjectWorkflowsPanel, ProjectWorkflow } from "@/components/projects/ProjectWorkflowsPanel";
+import { GraphMiniMap } from "@/components/projects/GraphMiniMap";
+import {
+  readWorkflowClipboard,
+  useWorkflowClipboard,
+  writeWorkflowClipboard,
+  type WorkflowClipboardState,
+} from "@/components/projects/workflowClipboard";
 
 import {
   Dialog,
@@ -71,6 +77,7 @@ import {
   type ProjectEffectiveSettings,
   type ProtocolOutputThumbnailItem,
   type ProtocolRuntimeSummary,
+  type WorkflowCategory,
 } from "@/services/ProjectService";
 import {
   DEFAULT_PROJECT_USER_SETTINGS,
@@ -513,15 +520,6 @@ type ProtocolHelpState = {
   error: string | null;
 };
 
-type WorkflowClipboardState = {
-  sourceProjectId: string | number;
-  sourceProjectName?: string;
-  protocolIds: string[];
-  workflow: unknown;
-  copiedAt: string;
-};
-
-let workflowClipboardMemory: WorkflowClipboardState | null = null;
 
 function buildPreferredTbChildOrderFromGraph(sourceNodes: Node[], sourceEdges: Edge[]): Record<string, string[]> {
   const xById = new Map<string, number>();
@@ -1175,15 +1173,18 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   const [workflows, setWorkflows] = useState<ProjectWorkflow[]>([]);
   const [workflowsLoading, setWorkflowsLoading] = useState(false);
   const [workflowsError, setWorkflowsError] = useState<string | null>(null);
-  const [workflowsLoadedOnce, setWorkflowsLoadedOnce] = useState(false);
+  // Category listed in the Workflows panel; the lists are cached per category
+  // and refreshed (in the background) every time the panel shows them
+  const [workflowCategory, setWorkflowCategory] = useState<WorkflowCategory>("builtin");
+  const workflowsCacheRef = useRef<Partial<Record<WorkflowCategory, ProjectWorkflow[]>>>({});
+  const workflowsRequestRef = useRef(0);
   const [miniMapEnabled, setMiniMapEnabled] = useState(true);
 
-  const [workflowClipboard, setWorkflowClipboardState] =
-    useState<WorkflowClipboardState | null>(() => workflowClipboardMemory);
+  // Copied protocols, shared with the other projects / tabs (localStorage)
+  const workflowClipboard = useWorkflowClipboard();
 
   const setWorkflowClipboard = useCallback((next: WorkflowClipboardState | null) => {
-    workflowClipboardMemory = next;
-    setWorkflowClipboardState(next);
+    writeWorkflowClipboard(next);
   }, []);
 
   // focusModeState
@@ -1413,8 +1414,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           browse: Boolean(remotePolicy.browse),
           continue: Boolean(remotePolicy.continue),
           duplicate: Boolean(remotePolicy.duplicate),
-          copyWorkflow: Boolean(remotePolicy.copyWorkflow),
-          pasteWorkflow: Boolean(remotePolicy.pasteWorkflow),
+          // Copy / paste are shown unless the host hides them
+          copyWorkflow: remotePolicy.copyWorkflow !== false,
+          pasteWorkflow: remotePolicy.pasteWorkflow !== false,
           export: Boolean(remotePolicy.export),
           manageTags: Boolean(remotePolicy.manageTags),
           rename: Boolean(remotePolicy.rename),
@@ -2303,24 +2305,18 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   }, [drawerOpen, workflowsOpen]);
 
 
-  const handleOpenWorkflows = useCallback(async () => {
-    if (!projectName) return;
+  const loadWorkflowsFor = useCallback(async (category: WorkflowCategory) => {
+    const requestId = ++workflowsRequestRef.current;
+    const cached = workflowsCacheRef.current[category];
 
-    // Ensure mutual exclusivity: opening Workflows closes Protocols
-    setDrawerOpen(false);
-    setWorkflowsOpen(true);
-    closeAllDockedForms();
-
-    // Avoid refetch if already loaded or currently loading
-    if (workflowsLoading || workflowsLoadedOnce) {
-      return;
-    }
+    // Show the cached list while it is refreshed
+    setWorkflows(cached ?? []);
+    setWorkflowsError(null);
+    setWorkflowsLoading(!cached);
 
     try {
-      setWorkflowsLoading(true);
-      setWorkflowsError(null);
-
-      const data = await svc.fetchWorkflows();
+      const data = await svc.fetchWorkflows(category);
+      if (requestId !== workflowsRequestRef.current) return;
 
       const normalizeStringArray = (value: unknown): string[] => {
         if (!Array.isArray(value)) return [];
@@ -2335,18 +2331,24 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       };
 
       const normalized: ProjectWorkflow[] = Array.isArray(data)
-        ? data.map((wf: any, idx: number) => {
+        ? data
+          // Hosts with categories tag each workflow; keep only this category
+          .filter((wf: any) => !wf?.category || wf.category === category)
+          .map((wf: any, idx: number) => {
           const requiredPluginNames = normalizeStringArray(wf.requiredPluginNames);
           const missingPluginNames = normalizeStringArray(wf.missingPluginNames);
+          const count = wf.protocolsCount ?? wf.jobs;
 
           return {
             id: String(wf.id ?? wf.name ?? `wf-${idx}`),
-            name: String(wf.name ?? wf.id ?? `Workflow ${idx + 1}`),
+            name: String(wf.name ?? wf.title ?? wf.id ?? `Workflow ${idx + 1}`),
             description: String(wf.description ?? ""),
+            category: (wf.category as WorkflowCategory | undefined) ?? category,
+            file: wf.file ? String(wf.file) : "",
             source: wf.source ? String(wf.source) : "",
             templatePath: wf.templatePath ? String(wf.templatePath) : "",
-            protocolsCount: Number.isFinite(Number(wf.protocolsCount))
-              ? Number(wf.protocolsCount)
+            protocolsCount: count != null && Number.isFinite(Number(count))
+              ? Number(count)
               : undefined,
             parseError: wf.parseError ? String(wf.parseError) : null,
             requiredPluginNames,
@@ -2357,18 +2359,34 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
         })
         : [];
 
+      workflowsCacheRef.current[category] = normalized;
       setWorkflows(normalized);
-      setWorkflowsLoadedOnce(true);
     } catch (err: any) {
+      if (requestId !== workflowsRequestRef.current) return;
       console.error("fetchWorkflows error:", err);
-      setWorkflows([]);
       const msg = err?.message || "Failed to load workflows.";
       setWorkflowsError(msg);
       toast.error(msg);
     } finally {
-      setWorkflowsLoading(false);
+      if (requestId === workflowsRequestRef.current) setWorkflowsLoading(false);
     }
-  }, [projectName, svc, workflowsLoading, workflowsLoadedOnce]);
+  }, [svc]);
+
+  const handleOpenWorkflows = useCallback(async () => {
+    if (!projectName) return;
+
+    // Ensure mutual exclusivity: opening Workflows closes Protocols
+    setDrawerOpen(false);
+    setWorkflowsOpen(true);
+    closeAllDockedForms();
+
+    await loadWorkflowsFor(workflowCategory);
+  }, [projectName, loadWorkflowsFor, workflowCategory]);
+
+  const handleWorkflowCategoryChange = useCallback((category: WorkflowCategory) => {
+    setWorkflowCategory(category);
+    void loadWorkflowsFor(category);
+  }, [loadWorkflowsFor]);
 
 
 
@@ -3192,8 +3210,8 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
             : [String(id)];
         duplicateNow(ids);
       },
-      onCopyWorkflow: () => {
-        void handleCopyWorkflow();
+      onCopyWorkflow: (id) => {
+        void handleCopyWorkflow(id);
       },
       onPasteWorkflow: () => {
         void handlePasteWorkflow();
@@ -7840,7 +7858,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
     ));
   };
 
-  const handleCopyWorkflow = async () => {
+  // Copy the selected protocols (one or many). From a node menu, nodeId is
+  // the clicked node: copied alone when it is not part of the selection
+  const handleCopyWorkflow = async (nodeId?: string) => {
     const currentProjectId = getProjectId();
 
     if (currentProjectId == null) {
@@ -7848,7 +7868,12 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       return;
     }
 
-    const protocolIds = getSelectedProtocolIdsForWorkflowCopy();
+    const selectedIds = getSelectedProtocolIdsForWorkflowCopy();
+    const clickedId = nodeId != null ? String(nodeId) : "";
+    const protocolIds =
+      clickedId && clickedId !== "PROJECT" && !selectedIds.includes(clickedId)
+        ? [clickedId]
+        : selectedIds;
 
     if (!protocolIds.length) {
       toast.error("Select at least one protocol to copy.");
@@ -7884,7 +7909,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
 
   const handlePasteWorkflow = async () => {
     const currentProjectId = getProjectId();
-    const clipboard = workflowClipboardMemory ?? workflowClipboard;
+    const clipboard = readWorkflowClipboard() ?? workflowClipboard;
 
     if (currentProjectId == null) {
       toast.error("Project is not loaded yet.");
@@ -7930,14 +7955,39 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       }
 
       const createdCount = Array.isArray(result.created) ? result.created.length : 0;
+      const currentName = String((project as any)?.name ?? (project as any)?.shortName ?? projectName ?? "");
+      const fromOther =
+        String(clipboard.sourceProjectId) !== String(currentProjectId) &&
+        (!clipboard.sourceProjectName || clipboard.sourceProjectName !== currentName);
+      const fromText = fromOther
+        ? ` from ${clipboard.sourceProjectName || `project ${clipboard.sourceProjectId}`}`
+        : "";
 
       toast.success(
         createdCount > 1
-          ? `${createdCount} protocols pasted.`
+          ? `${createdCount} protocols pasted${fromText}.`
           : createdCount === 1
-            ? "Protocol pasted."
-            : "Workflow pasted."
+            ? `Protocol pasted${fromText}.`
+            : `Workflow pasted${fromText}.`
       );
+
+      // Inputs from protocols that were not copied (another project) were
+      // cleared: they must be selected again
+      const cleared = Array.isArray(result.clearedInputs) ? result.clearedInputs : [];
+      if (cleared.length) {
+        const newIdBySource = new Map(
+          (result.created ?? []).map((c) => [String(c.sourceId ?? ""), String(c.newId)]),
+        );
+        const lines = cleared.map((c) => {
+          const id = newIdBySource.get(String(c.sourceId)) ?? String(c.sourceId);
+          return `${id}: ${c.param}`;
+        });
+        toast(
+          `Set the inputs again (they came from protocols that were not copied):\n${lines.slice(0, 8).join("\n")}` +
+            (lines.length > 8 ? `\n… and ${lines.length - 8} more` : ""),
+          { icon: "⚠️", duration: 10000, style: { whiteSpace: "pre-line" } },
+        );
+      }
 
       clearAllSelectionHard();
       await Promise.resolve(handleRefreshRef.current?.());
@@ -8238,6 +8288,8 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
       }
 
       if (modPressed(e) && !e.shiftKey && e.key.toLowerCase() === "c") {
+        // Selected text (e.g. a log or help text): let the browser copy it
+        if (String(window.getSelection?.() ?? "").trim()) return;
         e.preventDefault();
         e.stopPropagation();
         (e as any).stopImmediatePropagation?.();
@@ -8916,24 +8968,26 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
                 </button>
 
 
-                {contextMenuVisibilityPolicyRef.current.pasteWorkflow && (
+                {/* Only with copied protocols (this or another project / tab) */}
+                {contextMenuVisibilityPolicyRef.current.pasteWorkflow && workflowClipboard?.workflow ? (
                   <button
                     className="pp-canvasMenuItem"
                     onClick={() => {
                       handleCloseMenu();
                       void handlePasteWorkflow();
                     }}
-                    disabled={!projectId || !workflowClipboard?.workflow}
+                    disabled={!projectId}
                     title={
-                      workflowClipboard?.sourceProjectName
-                        ? `Paste workflow from ${workflowClipboard.sourceProjectName}`
-                        : "Paste copied workflow"
+                      `Paste ${workflowClipboard.protocolIds.length || ""} copied protocol` +
+                      `${workflowClipboard.protocolIds.length === 1 ? "" : "s"}` +
+                      (workflowClipboard.sourceProjectName ? ` from ${workflowClipboard.sourceProjectName}` : "")
                     }
                   >
                     <ClipboardPaste className="pp-canvasMenuIcon" />
-                    <span className="text-sm mb-1">Paste workflow</span>
+                    <span className="text-sm mb-1">Paste</span>
+                    <span className="pp-canvasMenuShortcut">{isMac ? "⌘ + V" : "Ctrl + V"}</span>
                   </button>
-                )}
+                ) : null}
 
                 <button
                   className="pp-canvasMenuItem"
@@ -9101,14 +9155,12 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
                 connectOnClick={viewMode !== "grid"}
               >
                 {miniMapEnabled && (
-                  <MiniMap
+                  <GraphMiniMap
                     position="bottom-left"
                     nodeColor={getMiniMapNodeColor}
                     nodeStrokeColor={getMiniMapNodeStroke}
                     nodeStrokeWidth={2}
-                    pannable
-                    zoomable
-                    zoomStep={1.2}
+                    viewStrokeColor={hostIsDark ? "rgba(96,165,250,0.85)" : "rgba(0,112,243,0.75)"}
                     maskColor={hostIsDark ? "rgba(15,23,42,0.55)" : "rgba(0,0,0,0.18)"}
                     style={{
                       background: hostIsDark ? "rgba(2,6,23,0.85)" : "rgba(255,255,255,0.92)",
@@ -9177,11 +9229,13 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
           <ProjectWorkflowsPanel
             open={workflowsOpen}
             onClose={() => setWorkflowsOpen(false)}
+            category={workflowCategory}
+            onCategoryChange={handleWorkflowCategoryChange}
             workflows={workflows}
             loading={workflowsLoading}
             errorMessage={workflowsError}
             projectId={Number(project?.id)}
-            onRetry={handleOpenWorkflows}
+            onRetry={() => void loadWorkflowsFor(workflowCategory)}
             onWorkflowLoaded={async () => {
               await handleRefresh();
               setWorkflowsOpen(false);

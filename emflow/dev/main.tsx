@@ -5,5 +5,6 @@ import { createFakeService } from "./fakeService.js";
 mountProjectPage({
   container: "#emflow-host",
   service: createFakeService(),
-  projectName: "43",
+  // ?project=<name>: the fake project as another one (copy / paste between tabs)
+  projectName: new URLSearchParams(location.search).get("project") ?? "43",
 });

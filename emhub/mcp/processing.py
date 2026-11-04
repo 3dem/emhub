@@ -582,15 +582,17 @@ def register_tools(mcp, client, allow_admin=False):
         exist, EMhub creates it (its parent folder must exist) with an
         empty pipeline and a 'data' link to data_path, so job inputs can be
         relative paths like 'data/mdoc/*.mdoc'. An existing processing_path
-        must already be a project (with default_pipeline.star) and is only
-        registered, if no other entry has it. Paths are on the EMhub
+        must already be a valid project (with a readable
+        default_pipeline.star) and is only registered, if no other entry
+        has it; data_path must not be given then. Paths are on the EMhub
         server machine. Add jobs then with processing_load_workflow or
         processing_save_job.
 
         Args:
             processing_path: Project folder, absolute path.
             data_path: Folder with the raw data (frames, mdoc files, gain
-                reference), required for a new project.
+                reference), required for a new project and not allowed
+                when registering an existing one.
             title: Optional title, the folder name is shown without it.
             description: Optional description.
             project_id: EMhub project to add the entry to, by default the

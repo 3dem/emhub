@@ -40,8 +40,12 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | | `stopProtocol`, `deleteProtocol(projectId, ids)`, `duplicateProtocol(projectId, items)` -> `{status, errors, workflow, duplicated}`, `renameProtocol(projectId, protocolId, {runName, comment})` | - | ProjectPage |
 | | `restartAll`, `continueAll`, `resetFrom` | - | ProjectPage (menu shortcuts) |
 | Catalog | `loadProtocols(projectId)` (protocol tree for the drawer) | `[]` | ProtocolsDrawer |
-| | `fetchWorkflows()`, `loadWorkflow(projectId, {workflowId})` | `[]`, success | ProjectPage, workflows panel |
-| | `exportProtocols(projectId, {protocolIds, directoryPath, filename})` | - | ProtocolNodeCard |
+| | `fetchWorkflows(category?)` (`builtin` default / `site` / `project`) -> `WorkflowDescriptor[]` (`id` = file name without `.json`, `name`, `description`, `category`, `file`, `protocolsCount`, `parseError`); hosts without categories may ignore it (items without `category` are shown in every category) | `[]` | ProjectPage (workflows panel), WorkflowExportDialog |
+| | `loadWorkflow(projectId, {workflowId, category?})` -> `{status, errors, workflow}` | success | workflows panel |
+| | `saveWorkflow(projectId, {protocolIds, category: 'site'\|'project', workflowId, name, description, overwrite})` -> `{id, file, category, protocolsCount}`; rejects (Error message shown in the dialog) when it exists without `overwrite` | throws "missing method" | WorkflowExportDialog (protocol Export) |
+| | `exportWorkflowProtocols(projectId, {protocolIds})` -> `{sourceProjectId, sourceProjectName, protocolIds, workflow}` (`workflow` is opaque: stored as is in the clipboard and given back to `importWorkflowProtocols`) | throws "missing method" | ProjectPage (Mod+C) |
+| | `importWorkflowProtocols(projectId, {workflow, mode: 'append', sourceProjectId, sourceProjectName})` -> `{status, errors, workflow, created: [{sourceId, newId}], clearedInputs: [{sourceId, param, value}]}` | throws "missing method" | ProjectPage (Mod+V, Paste) |
+| | `exportProtocols(projectId, {protocolIds, directoryPath, filename})` (legacy file export, no longer called by emflow) | - | - |
 | | `getNextProtocolSuggestions(projectId, protocolId)` | `[]` | ProtocolNodeCard |
 | Files | `resolveBrowserPaths(projectId, protocolId)` -> `{rootAbs, startPath, protocolRoot}`; `listRemoteDirectory(projectId, protocolId, path)` -> `[{name, path, isDir, size, mime}]`; `previewRemoteEntry(projectId, protocolId, path)` -> `{kind: text\|table\|image\|none, ...}` | - | RemoteFileDialog, ProtocolForm, ProjectPage |
 | Logs | `fetchProtocolLogChannels(projectId, protocolId)` -> `{channels: [{id, label, order}]}`; `fetchProtocolLogsChunk(projectId, protocolId, offsets)` -> `{chunks: [{channel, content, offset, resetOffset?, truncated?}]}` | empty | useProtocolLogs |
@@ -54,6 +58,48 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 When adding a method: declare it in `ProjectService.ts`, add a default in
 `normalizeService.ts` if it is optional, implement it in EMhub's svc template
 (and `dev/fakeService.js`), and add a row here.
+
+## Workflow categories (EMhub)
+
+`fetchWorkflows` / `loadWorkflow` / `saveWorkflow` work on three folders
+(`emhub/data/workflow_store.py`, `_workflows_dir` in `blueprints/api.py`):
+
+| Category | Folder | Writable |
+| --- | --- | --- |
+| `builtin` | `emwrap/config/workflows` (`ProcessingConfig.get_workflows_dir()`), top-level `.json` only: `config/workflows/internal` (spa-otf, tomo-otf, test workflows) is for the code and tests, never listed or loaded as Built-in (`get_workflow_file(id, internal=False)`) | no |
+| `site` | `<EMHUB_INSTANCE>/workflows` | managers only |
+| `project` | `<project>/.emhub/workflows` | project editors |
+
+`project_widget_svc.html` calls `/api/list_workflows` (`{category}` + the
+project selector), `/api/load_workflow` (`{workflow_id, category}`) and
+`/api/save_workflow` (`{run_ids, category, workflow_id, name, description,
+overwrite}`; the jobs come from `ProjectManager.exportWorkflow`, written as
+`{name, description, jobs}`; an existing file is only replaced with
+`overwrite`). `workflowsRequest` throws the server error without the
+traceback. A workflow id is a file name without `.json`
+(`[A-Za-z0-9][A-Za-z0-9._-]*`, same check in `workflowCategories.ts`). The
+template editor and fake-project services only list `builtin` and reject
+`saveWorkflow`; `dev/fakeService.js` keeps site/project workflows in memory
+(`loadWorkflow` only checks that it exists).
+
+## Copy / paste of protocols (EMhub)
+
+`exportWorkflowProtocols` posts `/api/get_workflow_jobs {run_ids}` (read
+only): `ProjectManager.getWorkflowJobs` gives `{jobs: [{jobid, jobtype,
+params}], project_path}`, the params as saved at copy time.
+`importWorkflowProtocols` posts `/api/load_workflow {workflow}` (needs edit
+permission on the target project) with its own request, since
+`requestAction` reports server errors as success, and returns `created`
+from `id_map` and `clearedInputs` from `cleared_inputs`.
+`ProjectManager.loadWorkflow` creates the jobs parents first, remapping the
+links between copied jobs. Params referencing a job folder not copied
+(`<Type>/jobNNN[/...]`) are kept when `project_path` is the target project
+(as Duplicate) and cleared otherwise (`external_inputs='clear'`, see
+`emwrap/tests/test_workflow_import.py`). Other paths (`data/...`, gain
+references) are copied as they are. The template editor and fake-project
+services reject both methods; `dev/fakeService.js` reports new ids without
+changing the graph, and `/?project=<name>` opens the fake project as
+another project (clears Scipion-like `<id>.<output>` pointers).
 
 ## Protocol outputs
 

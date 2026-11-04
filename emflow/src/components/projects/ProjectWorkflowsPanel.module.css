@@ -1083,3 +1083,88 @@
   cursor: not-allowed;
   box-shadow: none;
 }
+/* Workflow category selector (Built-in / Site / Project), in the header */
+.categoryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.categoryTabs {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.categoryTab {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 7px;
+  background: transparent;
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.categoryTab:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.categoryTab:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.8);
+  outline-offset: 1px;
+}
+
+.categoryTabActive,
+.categoryTabActive:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.categoryRefresh {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.categoryRefresh:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.categoryRefresh:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.categoryRefreshIcon {
+  width: 14px;
+  height: 14px;
+}
+
+.categoryHint {
+  font-size: 11px;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

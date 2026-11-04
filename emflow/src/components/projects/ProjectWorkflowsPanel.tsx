@@ -11,6 +11,9 @@ import {
 import toast from "react-hot-toast";
 
 import { useProjectService } from "@/ProjectServiceContext";
+import type { WorkflowCategory } from "@/services/ProjectService";
+
+import { WORKFLOW_CATEGORIES, getWorkflowCategoryInfo } from "./workflowCategories";
 
 import styles from "./ProjectWorkflowsPanel.module.css";
 
@@ -18,6 +21,8 @@ export interface ProjectWorkflow {
   id: string;
   name: string;
   description: string;
+  category?: WorkflowCategory;
+  file?: string;
   source?: string;
   templatePath?: string;
   protocolsCount?: number;
@@ -31,6 +36,9 @@ export interface ProjectWorkflow {
 interface ProjectWorkflowsPanelProps {
   open: boolean;
   onClose: () => void;
+  /** Category whose workflows are listed (Built-in / Site / Project). */
+  category: WorkflowCategory;
+  onCategoryChange: (category: WorkflowCategory) => void;
   workflows: ProjectWorkflow[];
   loading?: boolean;
   errorMessage?: string | null;
@@ -111,6 +119,8 @@ function getWorkflowDisabledReason(workflow: ProjectWorkflow) {
 export function ProjectWorkflowsPanel({
   open,
   onClose,
+  category,
+  onCategoryChange,
   workflows,
   loading = false,
   errorMessage = null,
@@ -179,6 +189,46 @@ export function ProjectWorkflowsPanel({
                 <span className={styles.headerSubtitle}>
                   Load predefined templates into the current project.
                 </span>
+                <div className={styles.categoryRow}>
+                  <div className={styles.categoryTabs} role="tablist" aria-label="Workflow category">
+                    {WORKFLOW_CATEGORIES.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={c.id === category}
+                        title={c.hint}
+                        className={[
+                          styles.categoryTab,
+                          c.id === category ? styles.categoryTabActive : "",
+                        ].join(" ")}
+                        onClick={() => {
+                          if (c.id !== category) {
+                            setSearchQuery("");
+                            onCategoryChange(c.id);
+                          }
+                        }}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                  {onRetry ? (
+                    <button
+                      type="button"
+                      className={styles.categoryRefresh}
+                      onClick={onRetry}
+                      disabled={loading}
+                      title="Reload the list"
+                      aria-label="Reload the workflows list"
+                    >
+                      <RefreshCw className={styles.categoryRefreshIcon} />
+                    </button>
+                  ) : null}
+                  <span className={styles.categoryHint}>
+                    {getWorkflowCategoryInfo(category).hint}
+                  </span>
+                </div>
               </div>
 
               <button
@@ -224,8 +274,10 @@ export function ProjectWorkflowsPanel({
                 </div>
               ) : !hasWorkflows ? (
                 <p className={styles.emptyText}>
-                  No workflows defined yet. You can add predefined pipelines
-                  later.
+                  {category === "builtin"
+                    ? "No built-in workflows available."
+                    : `No ${getWorkflowCategoryInfo(category).label.toLowerCase()} workflows yet. ` +
+                      "Use Export on selected protocols to save one."}
                 </p>
               ) : (
                 <div className={styles.bodyWrap}>
@@ -419,9 +471,17 @@ function ApplyWorkflowToCurrentProjectDialog({
     setSubmitting(true);
 
     try {
-      await svc.loadWorkflow(projectId, {
+      const result = await svc.loadWorkflow(projectId, {
         workflowId: String(workflow.id),
+        category: workflow.category,
       });
+
+      // Validation errors come back as {status: 1, errors}
+      if (result && Number(result.status) > 0) {
+        const errors = Array.isArray(result.errors) ? result.errors.map(String) : [];
+        setSubmitError(errors.join("\n") || "Failed to load the workflow.");
+        return;
+      }
 
       const targetName = projectName ?? String(projectId);
 

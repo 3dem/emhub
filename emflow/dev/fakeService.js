@@ -235,6 +235,37 @@ const fakePlot = (title, yTitle, f, type = "scatter") => {
   };
 };
 
+// Workflows by category (EMhub /api/list_workflows): builtin from menu.json
+// (read-only), site and project kept in memory, written by saveWorkflow
+const fakeWorkflows = {
+  site: [
+    { id: "site-spa-preprocessing", name: "Site SPA preprocessing",
+      description: "Motion correction and CTF of the facility.", jobs: 2 },
+  ],
+  project: [
+    { id: "my-picking", name: "My picking",
+      description: "Picking and extraction saved from this project.", jobs: 3 },
+  ],
+};
+const WORKFLOW_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+const listFakeWorkflows = (category = "builtin") => {
+  if (category === "builtin")
+    return menu.workflows.map((wf) => ({ ...wf, id: wf.id ?? wf.name, category }));
+  const list = fakeWorkflows[category];
+  if (!list) throw new Error(`Invalid workflow category '${category}'`);
+  return list.map((wf) => ({ ...wf, file: `${wf.id}.json`, category }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+};
+
+// ?project=<name> opens the fake project as another project (same data,
+// another path), to paste protocols copied in a tab without it
+const fakeProjectPath = () => {
+  const other = new URLSearchParams(location.search).get("project");
+  return other ? `${workflow.path}-${other}` : workflow.path;
+};
+let fakeNextJobId = 9000;
+
 export function createFakeService() {
   return {
     fetchList: async () => [],
@@ -263,8 +294,34 @@ export function createFakeService() {
     }),
 
     loadProtocols: async () => ({ ...wizardMenu, ...menu.protocols }),
-    fetchWorkflows: async () => menu.workflows,
-    loadWorkflow: async (projectId, info) => notImplemented("loadWorkflow", info),
+    fetchWorkflows: async (category) => {
+      log("fetchWorkflows", category);
+      await new Promise((r) => setTimeout(r, 150));
+      return listFakeWorkflows(category);
+    },
+    // Only checks that the workflow exists: no protocols are created
+    loadWorkflow: async (projectId, info) => {
+      const category = info.category ?? "builtin";
+      const found = listFakeWorkflows(category).some((wf) => String(wf.id) === String(info.workflowId));
+      log("loadWorkflow", category, info.workflowId, found);
+      return found
+        ? { status: 0, errors: [] }
+        : { status: 1, errors: [`Workflow not found: ${category}/${info.workflowId}`] };
+    },
+    saveWorkflow: async (projectId, payload) => {
+      log("saveWorkflow", payload);
+      const { category, workflowId, overwrite } = payload;
+      const list = fakeWorkflows[category];
+      if (!list) throw new Error(`Invalid workflow category '${category}'`);
+      if (!WORKFLOW_ID_RE.test(workflowId)) throw new Error(`Invalid workflow name '${workflowId}'`);
+      if (!payload.protocolIds?.length) throw new Error("Missing protocols");
+      const index = list.findIndex((wf) => wf.id === workflowId);
+      if (index >= 0 && !overwrite) throw new Error(`Workflow '${workflowId}' already exists`);
+      const wf = { id: workflowId, name: payload.name || workflowId,
+                   description: payload.description ?? "", jobs: payload.protocolIds.length };
+      if (index >= 0) list[index] = wf; else list.push(wf);
+      return { id: workflowId, file: `${workflowId}.json`, category, protocolsCount: wf.jobs };
+    },
 
     executeProtocol: async (projectId, protocolId, cls, params, mode) =>
       notImplemented(`executeProtocol(${mode})`, { protocolId, cls, params }),
@@ -274,6 +331,38 @@ export function createFakeService() {
     deleteProtocol: async (projectId, ids) => notImplemented("deleteProtocol", ids),
     duplicateProtocol: async (projectId, items) => notImplemented("duplicateProtocol", items),
     exportProtocols: async (projectId, payload) => notImplemented("exportProtocols", payload),
+
+    // Copy / paste of protocols (EMhub /api/get_workflow_jobs and
+    // /api/load_workflow with a workflow): the paste only reports the new
+    // ids, the fake graph does not change
+    exportWorkflowProtocols: async (projectId, { protocolIds }) => {
+      const jobs = protocolIds.map((id) => ({
+        jobid: String(id),
+        jobtype: workflow.protocols[id]?.label ?? "unknown",
+        params: structuredClone(protocols[id]?.values ?? {}),
+      }));
+      log("exportWorkflowProtocols", jobs);
+      return {
+        sourceProjectId: projectId,
+        sourceProjectName: `${workflow.name}${fakeProjectPath() === workflow.path ? "" : " (other)"}`,
+        protocolIds: protocolIds.map(String),
+        workflow: { jobs, project_path: fakeProjectPath() },
+      };
+    },
+    importWorkflowProtocols: async (projectId, { workflow: copied }) => {
+      await new Promise((r) => setTimeout(r, 300));
+      const jobs = copied?.jobs ?? [];
+      const copiedIds = new Set(jobs.map((j) => j.jobid));
+      const same = copied?.project_path === fakeProjectPath();
+      // Scipion-like pointers "<protocolId>.<output>" to protocols not copied
+      const clearedInputs = same ? [] : jobs.flatMap((j) =>
+        Object.entries(j.params ?? {})
+          .filter(([, v]) => typeof v === "string" && /^\d+\./.test(v) && !copiedIds.has(v.split(".")[0]))
+          .map(([param, value]) => ({ sourceId: j.jobid, param, value })));
+      const created = jobs.map((j) => ({ sourceId: j.jobid, newId: String(fakeNextJobId++) }));
+      log("importWorkflowProtocols", { same, created, clearedInputs });
+      return { status: 0, errors: [], created, protocolsCount: created.length, clearedInputs };
+    },
 
     renameProtocol: async (projectId, protocolId, { runName = "", comment = "" } = {}) => ({
       id: String(protocolId),
@@ -530,6 +619,8 @@ export function createFakeService() {
       browse: true,
       rename: true,
       duplicate: true,
+      copyWorkflow: true,
+      pasteWorkflow: true,
       delete: true,
       restart: false,
       continue: false,

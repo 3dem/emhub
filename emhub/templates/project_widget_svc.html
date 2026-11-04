@@ -4,7 +4,6 @@ var project_entry_extra = {{ project_entry_extra | tojson }};
 var get_project_args = {{ get_project_args | tojson }};
 var all_forms = {};
 var menu = {{ menu | tojson }};
-var workflows = {{ menu['workflows']|tojson }};
 
 // Caching mechanism for project_details
 var cache = {
@@ -184,6 +183,22 @@ async function handleRequestData(url, args, func) {
     }
   }
   return null;
+}
+
+// Request of the workflow list/save endpoints: return the data or throw
+// the error (without the server traceback), emflow shows it
+async function workflowsRequest(url, args) {
+  var data = null;
+  try {
+    data = await request(url, args);
+  } catch (error) {
+    throw new Error(error.responseText || error.message || "Received unknown error");
+  }
+  if (Array.isArray(data.errors) && data.errors.length > 0)
+    throw new Error(data.errors.join('\n'));
+  if ('error' in data)
+    throw new Error(String(data.error).replace(/^ERROR from Server: /, '').split('. Traceback:')[0]);
+  return data;
 }
 
 // Request of the wizard endpoints: return the 'wizard' result,
@@ -527,13 +542,96 @@ var svc = {
     return requestAction(Api.urls.duplicate_jobs, { run_ids: protocolIds });
   },
 
-  async fetchWorkflows() {
-    return workflows;
+  // Workflows of a category: builtin (emwrap), site (<instance>/workflows)
+  // or project (<project>/.emhub/workflows)
+  async fetchWorkflows(category) {
+    var data = await workflowsRequest(Api.urls.list_workflows,
+                                      { category: category || 'builtin' });
+    return (data.workflows || []).map(function (wf) {
+      return {
+        id: wf.id,
+        name: wf.title || wf.id,
+        description: wf.description || '',
+        category: wf.category,
+        file: wf.file,
+        protocolsCount: wf.jobs,
+        parseError: wf.parseError || null,
+      };
+    });
   },
 
   async loadWorkflow(projectId, workflowInfo) {
     var workflow_id = workflowInfo.workflowId || workflowInfo.id;
-    return requestAction(Api.urls.load_workflow, { workflow_id: workflow_id });
+    return requestAction(Api.urls.load_workflow, {
+      workflow_id: workflow_id,
+      category: workflowInfo.category || 'builtin'
+    });
+  },
+
+  // Save the protocols as a site or project workflow (the export dialog
+  // shows the error, e.g. when it exists and overwrite is not set)
+  async saveWorkflow(projectId, payload) {
+    var data = await workflowsRequest(Api.urls.save_workflow, {
+      run_ids: payload.protocolIds,
+      category: payload.category,
+      workflow_id: payload.workflowId,
+      name: payload.name,
+      description: payload.description || '',
+      overwrite: !!payload.overwrite
+    });
+    var wf = data.workflow;
+    return { id: wf.id, file: wf.file, category: wf.category, protocolsCount: wf.jobs };
+  },
+
+  // Copy (Ctrl/Cmd+C) of jobs: their params as a workflow, kept by emflow
+  // (localStorage) and pasted in this or another project
+  async exportWorkflowProtocols(projectId, payload) {
+    var data = await workflowsRequest(Api.urls.get_workflow_jobs,
+                                      { run_ids: payload.protocolIds });
+    var workflow = data.workflow;
+    return {
+      sourceProjectId: project_id,
+      sourceProjectName: project_details.name || null,
+      protocolIds: workflow.jobs.map(function (job) { return job.jobid; }),
+      workflow: workflow,
+      summary: { protocolCount: workflow.jobs.length },
+    };
+  },
+
+  // Paste (Ctrl/Cmd+V): the server creates the jobs with new ids, links
+  // between them are remapped and, from another project, the inputs from
+  // jobs that were not copied are cleared (clearedInputs)
+  async importWorkflowProtocols(projectId, payload) {
+    var data = null;
+    try {
+      data = await workflowsRequest(Api.urls.load_workflow,
+                                    { workflow: payload.workflow, widget: true });
+    } catch (error) {
+      return { status: 1, errors: [error.message], workflow: project_details.protocols };
+    }
+    var result = data.workflow;
+    var protocols = result.protocols;
+    for (const protocolId in protocols) {
+      var protocol = getObjectValue(project_details.protocols, protocolId, null);
+      if (protocol && protocols[protocolId].tags === undefined)
+        protocols[protocolId].tags = getObjectValue(protocol, 'tags', []);
+    }
+    project_details.protocols = protocols;
+    cache.refresh();
+
+    var idMap = result.id_map || {};
+    return {
+      status: 0,
+      errors: [],
+      workflow: protocols,
+      created: Object.keys(idMap).map(function (sourceId) {
+        return { sourceId: sourceId, newId: idMap[sourceId] };
+      }),
+      protocolsCount: Object.keys(idMap).length,
+      clearedInputs: (result.cleared_inputs || []).map(function (c) {
+        return { sourceId: c.jobid, param: c.param, value: c.value };
+      }),
+    };
   },
 
   async exportProtocols(projectId, payload) {
@@ -749,6 +847,8 @@ var svc = {
       browse: true,
       rename: true,
       duplicate: true,
+      copyWorkflow: true,
+      pasteWorkflow: true,
       delete: true,
       restart: false,
       continue: false,

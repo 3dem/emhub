@@ -11,10 +11,8 @@ import type {
   SetStateAction,
 } from "react";
 
-import RemoteFileDialog, {
-  RemoteEntry,
-  RemotePreview,
-} from "@/components/files/RemoteFileDialog";
+import WorkflowExportDialog from "@/components/projects/WorkflowExportDialog";
+import { useWorkflowClipboard } from "@/components/projects/workflowClipboard";
 import OverflowTooltipText from "@/components/ui/OverflowTooltipText";
 
 import { Handle, Position, useReactFlow } from "reactflow";
@@ -63,6 +61,7 @@ import {
   ArrowUp,
   Scan,
   Layers,
+  Workflow as WorkflowIcon,
   Eye,
   Tags,
   HelpCircle,
@@ -87,8 +86,6 @@ import type {
   AnalyzeViewerResolveDecision,
   Id,
   ProtocolTag as ServiceProtocolTag,
-  ResolveBrowserPathsResult,
-  ExportProtocolsRequestPayload,
 } from "@/services/ProjectService";
 
 import type { ProtocolTag } from "@/components/tags/tagTypes";
@@ -690,7 +687,7 @@ export default function ProtocolNodeCard({
   onDuplicate,
   onCopyWorkflow,
   onPasteWorkflow,
-  canPasteWorkflow = false,
+  canPasteWorkflow: _canPasteWorkflowProp,
   onDelete,
   onRestartAll,
   onContinueAll,
@@ -892,20 +889,12 @@ export default function ProtocolNodeCard({
     }, 180);
   }, []);
 
+  // Paste is offered only with copied protocols (this or another project / tab)
+  const workflowClipboard = useWorkflowClipboard();
+  const canPasteWorkflow = Boolean(workflowClipboard?.workflow);
+
   const [exportBrowserOpen, setExportBrowserOpen] = useState(false);
-  const [exportBusy, setExportBusy] = useState(false);
   const [exportProtocolIds, setExportProtocolIds] = useState<string[]>([]);
-  const [exportDefaultFilename, setExportDefaultFilename] = useState("protocols_export.json");
-
-  const buildDefaultExportFilename = useCallback((projectId: Id, protocolIds: string[]) => {
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const stamp =
-      `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_` +
-      `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-
-    return `protocols_export_${String(projectId)}_${stamp}.json`;
-  }, []);
 
   useEffect(() => {
     // cleanupNextStepTooltipTimer
@@ -1459,6 +1448,13 @@ export default function ProtocolNodeCard({
 
 
 
+  // Items of the "Workflow" submenu (node menus)
+  const showDuplicateItem = isMenuItemVisible("duplicate");
+  const showCopyItem = isMenuItemVisible("copyWorkflow") && !!onCopyWorkflow && !isProjectNode;
+  const showPasteItem = isMenuItemVisible("pasteWorkflow") && !!onPasteWorkflow && canPasteWorkflow;
+  const showExportItem = isMenuItemVisible("export");
+  const hasWorkflowMenu = showDuplicateItem || showCopyItem || showPasteItem || showExportItem;
+
   const FromIcon = graphDirection === "TB" ? ArrowDown : ArrowRight;
   const ToIcon = graphDirection === "TB" ? ArrowUp : ArrowLeft;
 
@@ -1634,23 +1630,7 @@ export default function ProtocolNodeCard({
     [isMac, armSuppressNextMenuAction, ensureRightClickSelectionIsUnambiguous],
   );
 
-  const resolveExportBrowserPaths = useCallback(async (): Promise<ResolveBrowserPathsResult> => {
-    return await svcRef.current.resolveBrowserPaths(-1, -1);
-  }, []);
-
-  const listExportRemoteDirectory = useCallback(async (relPath: string): Promise<RemoteEntry[]> => {
-    const items = await svcRef.current.listRemoteDirectory(-1, -1, relPath ?? "");
-    return Array.isArray(items) ? (items as RemoteEntry[]) : [];
-  }, []);
-
-  const previewExportRemoteEntry = useCallback(async (relPath: string): Promise<RemotePreview | null> => {
-    return await svcRef.current.previewRemoteEntry(-1, -1, relPath ?? "");
-  }, []);
-
-  const buildExportDownloadUrl = useCallback((relPath: string, inline: boolean = false) => {
-    return svcRef.current.buildProtocolDownloadUrl("-1", "-1", relPath ?? "", inline);
-  }, []);
-
+  // Export: save the selected protocols as a Site or Project workflow
   const handleExport = useCallback(() => {
     if (isProjectNode) return;
     if (normalizedProjectId == null) {
@@ -1665,76 +1645,17 @@ export default function ProtocolNodeCard({
     }
 
     setExportProtocolIds(protocolIds);
-    setExportDefaultFilename(buildDefaultExportFilename(normalizedProjectId, protocolIds));
     setExportBrowserOpen(true);
   }, [
-    buildDefaultExportFilename,
     getSelectedProtocolIdsForExport,
     isProjectNode,
     normalizedProjectId,
   ]);
 
-  const handlePickExportTarget = useCallback(
-    (directoryPath: string, _entry: RemoteEntry, filename?: string) => {
-      if (normalizedProjectId == null) {
-        toast.error("Project id is not available.");
-        return;
-      }
-
-      const finalDirectoryPath = String(directoryPath ?? "").trim();
-      const finalFilename = String(filename ?? "").trim();
-      const protocolIds = exportProtocolIds;
-
-      if (!finalDirectoryPath) {
-        toast.error("Please choose a destination folder.");
-        return;
-      }
-
-      if (!finalFilename) {
-        toast.error("Please provide a file name.");
-        return;
-      }
-
-      if (!protocolIds.length) {
-        toast.error("No protocols selected to export.");
-        return;
-      }
-
-      const run = async () => {
-        setExportBusy(true);
-
-        try {
-          const payload: ExportProtocolsRequestPayload = {
-            protocolIds,
-            directoryPath: finalDirectoryPath,
-            filename: finalFilename,
-          };
-
-          const result = await svcRef.current.exportProtocols(
-            normalizedProjectId as Id,
-            payload,
-          );
-
-          toast.success(`Export saved as ${result.filename ?? finalFilename}`);
-          setExportBrowserOpen(false);
-          setExportProtocolIds([]);
-        } catch (e: any) {
-          toast.error(coerceErrorMessage(e, "Failed to export protocols"));
-        } finally {
-          setExportBusy(false);
-        }
-      };
-
-      void run();
-    },
-    [exportProtocolIds, normalizedProjectId],
-  );
-
-  const handleCloseExportBrowser = useCallback(() => {
-    if (exportBusy) return;
+  const handleCloseExportDialog = useCallback(() => {
     setExportBrowserOpen(false);
     setExportProtocolIds([]);
-  }, [exportBusy]);
+  }, []);
 
   const mod = isMac ? "⌘" : "Ctrl";
   const modShift = isMac ? "⌘⇧" : "Ctrl+Shift";
@@ -2713,50 +2634,7 @@ export default function ProtocolNodeCard({
                         </div>
                       </DropdownMenuItem>)}
 
-                    {isMenuItemVisible("duplicate") && (
-                      <DropdownMenuItem onSelect={() => handleDuplicate()}>
-                        <div className={styles.menuRow}>
-                          <span className={styles.menuLeft}>
-                            <Copy className={styles.menuItemIcon} />
-                            <span>Duplicate</span>
-                          </span>
-                          <ShortcutHint text={shortcuts.duplicate} />
-                        </div>
-                      </DropdownMenuItem>)}
-
-                    {isMenuItemVisible("copyWorkflow") && onCopyWorkflow && !isProjectNode && (
-                      <DropdownMenuItem onSelect={() => handleCopyWorkflow()}>
-                        <div className={styles.menuRow}>
-                          <span className={styles.menuLeft}>
-                            <ClipboardCopy className={styles.menuItemIcon} />
-                            <span>Copy workflow</span>
-                          </span>
-                          <ShortcutHint text={shortcuts.copyWorkflow} />
-                        </div>
-                      </DropdownMenuItem>
-                    )}
-
-                    {isMenuItemVisible("pasteWorkflow") && onPasteWorkflow && (
-                      <DropdownMenuItem
-                        disabled={!canPasteWorkflow}
-                        onSelect={() => handlePasteWorkflow()}
-                      >
-                        <div className={styles.menuRow}>
-                          <span className={styles.menuLeft}>
-                            <ClipboardPaste className={styles.menuItemIcon} />
-                            <span>Paste workflow</span>
-                          </span>
-                          <ShortcutHint text={shortcuts.pasteWorkflow} />
-                        </div>
-                      </DropdownMenuItem>
-                    )}
-
-                    {(isMenuItemVisible("delete") ||
-                      isMenuItemVisible("duplicate") ||
-                      onCopyWorkflow ||
-                      onPasteWorkflow) && (
-                        <DropdownMenuSeparator />
-                      )}
+                    {isMenuItemVisible("delete") && <DropdownMenuSeparator />}
 
                     {isMenuItemVisible("manageTags") && (
                       <DropdownMenuSub>
@@ -2837,23 +2715,7 @@ export default function ProtocolNodeCard({
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>)}
 
-                    {isMenuItemVisible("export") && (
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          handleExport();
-                        }}
-                      >
-                        <div className={styles.menuRow}>
-                          <span className={styles.menuLeft}>
-                            <FileUp className={styles.menuItemIcon} />
-                            <span>Export</span>
-                          </span>
-                        </div>
-                      </DropdownMenuItem>
-                    )}
-
-                    {(isMenuItemVisible("export") || isMenuItemVisible("manageTags")) && (
+                    {isMenuItemVisible("manageTags") && isMenuItemVisible("nextSteps") && (
                       <DropdownMenuSeparator />
                     )}
 
@@ -2882,6 +2744,72 @@ export default function ProtocolNodeCard({
                           onFocusOutside={preventMenuDismissWhileHelpOpen}
                           onInteractOutside={preventMenuDismissWhileHelpOpen}>
                           {renderNextStepSubContent("dropdown")}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    )}
+
+                    {/* Workflow: duplicate, copy / paste (also to other projects) and export */}
+                    {hasWorkflowMenu && <DropdownMenuSeparator />}
+                    {hasWorkflowMenu && (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <div className={styles.menuRow}>
+                            <span className={styles.menuLeft}>
+                              <WorkflowIcon className={styles.menuItemIcon} />
+                              <span>Workflow</span>
+                            </span>
+                          </div>
+                        </DropdownMenuSubTrigger>
+
+                        <DropdownMenuSubContent className={styles.menuContent} sideOffset={8}>
+                          {showDuplicateItem && (
+                          <DropdownMenuItem onSelect={() => handleDuplicate()}>
+                            <div className={styles.menuRow}>
+                              <span className={styles.menuLeft}>
+                                <Copy className={styles.menuItemIcon} />
+                                <span>Duplicate</span>
+                              </span>
+                              <ShortcutHint text={shortcuts.duplicate} />
+                            </div>
+                          </DropdownMenuItem>
+                          )}
+                          {showCopyItem && (
+                          <DropdownMenuItem onSelect={() => handleCopyWorkflow()}>
+                            <div className={styles.menuRow}>
+                              <span className={styles.menuLeft}>
+                                <ClipboardCopy className={styles.menuItemIcon} />
+                                <span>Copy</span>
+                              </span>
+                              <ShortcutHint text={shortcuts.copyWorkflow} />
+                            </div>
+                          </DropdownMenuItem>
+                          )}
+                          {showPasteItem && (
+                          <DropdownMenuItem onSelect={() => handlePasteWorkflow()}>
+                            <div className={styles.menuRow}>
+                              <span className={styles.menuLeft}>
+                                <ClipboardPaste className={styles.menuItemIcon} />
+                                <span>Paste</span>
+                              </span>
+                              <ShortcutHint text={shortcuts.pasteWorkflow} />
+                            </div>
+                          </DropdownMenuItem>
+                          )}
+                          {showExportItem && (
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              handleExport();
+                            }}
+                          >
+                            <div className={styles.menuRow}>
+                              <span className={styles.menuLeft}>
+                                <FileUp className={styles.menuItemIcon} />
+                                <span>Export</span>
+                              </span>
+                            </div>
+                          </DropdownMenuItem>
+                          )}
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                     )}
@@ -3183,50 +3111,7 @@ export default function ProtocolNodeCard({
             </div>
           </ContextMenuItem>)}
 
-        {isMenuItemVisible("duplicate") && (
-          <ContextMenuItem onClick={handleDuplicate}>
-            <div className={styles.menuRow}>
-              <span className={styles.menuLeft}>
-                <Copy className={styles.menuItemIcon} />
-                <span>Duplicate</span>
-              </span>
-              <ShortcutHint text={shortcuts.duplicate} />
-            </div>
-          </ContextMenuItem>)}
-
-        {isMenuItemVisible("copyWorkflow") && onCopyWorkflow && !isProjectNode && (
-          <ContextMenuItem onClick={handleCopyWorkflow}>
-            <div className={styles.menuRow}>
-              <span className={styles.menuLeft}>
-                <ClipboardCopy className={styles.menuItemIcon} />
-                <span>Copy workflow</span>
-              </span>
-              <ShortcutHint text={shortcuts.copyWorkflow} />
-            </div>
-          </ContextMenuItem>
-        )}
-
-        {isMenuItemVisible("pasteWorkflow") && onPasteWorkflow && (
-          <ContextMenuItem
-            disabled={!canPasteWorkflow}
-            onClick={handlePasteWorkflow}
-          >
-            <div className={styles.menuRow}>
-              <span className={styles.menuLeft}>
-                <ClipboardPaste className={styles.menuItemIcon} />
-                <span>Paste workflow</span>
-              </span>
-              <ShortcutHint text={shortcuts.pasteWorkflow} />
-            </div>
-          </ContextMenuItem>
-        )}
-
-        {(isMenuItemVisible("delete") ||
-          isMenuItemVisible("duplicate") ||
-          onCopyWorkflow ||
-          onPasteWorkflow) && (
-            <ContextMenuSeparator />
-          )}
+        {isMenuItemVisible("delete") && <ContextMenuSeparator />}
 
         {isMenuItemVisible("manageTags") && (
           <ContextMenuSub>
@@ -3307,18 +3192,7 @@ export default function ProtocolNodeCard({
             </ContextMenuSubContent>
           </ContextMenuSub>)}
 
-        {isMenuItemVisible("export") && (
-          <ContextMenuItem onClick={handleExport}>
-            <div className={styles.menuRow}>
-              <span className={styles.menuLeft}>
-                <FileUp className={styles.menuItemIcon} />
-                <span>Export</span>
-              </span>
-            </div>
-          </ContextMenuItem>
-        )}
-
-        {isMenuItemVisible("export") && <ContextMenuSeparator />}
+        {isMenuItemVisible("manageTags") && isMenuItemVisible("nextSteps") && <ContextMenuSeparator />}
 
         {isMenuItemVisible("nextSteps") && (
           <ContextMenuSub
@@ -3348,6 +3222,69 @@ export default function ProtocolNodeCard({
             </ContextMenuSubContent>
           </ContextMenuSub>)}
 
+
+        {/* Workflow: duplicate, copy / paste (also to other projects) and export */}
+        {hasWorkflowMenu && <ContextMenuSeparator />}
+        {hasWorkflowMenu && (
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>
+              <div className={styles.menuRow}>
+                <span className={styles.menuLeft}>
+                  <WorkflowIcon className={styles.menuItemIcon} />
+                  <span>Workflow</span>
+                </span>
+              </div>
+            </ContextMenuSubTrigger>
+
+            <ContextMenuSubContent className={styles.menuContent} sideOffset={8}>
+              {showDuplicateItem && (
+              <ContextMenuItem onClick={handleDuplicate}>
+                <div className={styles.menuRow}>
+                  <span className={styles.menuLeft}>
+                    <Copy className={styles.menuItemIcon} />
+                    <span>Duplicate</span>
+                  </span>
+                  <ShortcutHint text={shortcuts.duplicate} />
+                </div>
+              </ContextMenuItem>
+              )}
+              {showCopyItem && (
+              <ContextMenuItem onClick={handleCopyWorkflow}>
+                <div className={styles.menuRow}>
+                  <span className={styles.menuLeft}>
+                    <ClipboardCopy className={styles.menuItemIcon} />
+                    <span>Copy</span>
+                  </span>
+                  <ShortcutHint text={shortcuts.copyWorkflow} />
+                </div>
+              </ContextMenuItem>
+              )}
+              {showPasteItem && (
+              <ContextMenuItem onClick={handlePasteWorkflow}>
+                <div className={styles.menuRow}>
+                  <span className={styles.menuLeft}>
+                    <ClipboardPaste className={styles.menuItemIcon} />
+                    <span>Paste</span>
+                  </span>
+                  <ShortcutHint text={shortcuts.pasteWorkflow} />
+                </div>
+              </ContextMenuItem>
+              )}
+              {showExportItem && (
+              <ContextMenuItem
+                onClick={handleExport}
+              >
+                <div className={styles.menuRow}>
+                  <span className={styles.menuLeft}>
+                    <FileUp className={styles.menuItemIcon} />
+                    <span>Export</span>
+                  </span>
+                </div>
+              </ContextMenuItem>
+              )}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        )}
 
       </ContextMenuContent>
 
@@ -3459,24 +3396,12 @@ export default function ProtocolNodeCard({
         </Dialog>
       ) : null}
 
-      {exportBrowserOpen ? (
-        <RemoteFileDialog
+      {exportBrowserOpen && normalizedProjectId != null ? (
+        <WorkflowExportDialog
           open
-          onClose={handleCloseExportBrowser}
-          title="Export protocols"
-          projectId={-1}
-          protocolId={-1}
-          mode="save"
-          defaultFilename={exportDefaultFilename}
-          filenameLabel="Export file name"
-          confirmLabel={exportBusy ? "Saving..." : "Save"}
-          closeOnPick={false}
-          busy={exportBusy}
-          resolveBrowserPaths={resolveExportBrowserPaths}
-          listRemoteDirectory={listExportRemoteDirectory}
-          previewRemoteEntry={previewExportRemoteEntry}
-          buildDownloadUrl={buildExportDownloadUrl}
-          onPick={handlePickExportTarget}
+          onClose={handleCloseExportDialog}
+          projectId={normalizedProjectId as Id}
+          protocolIds={exportProtocolIds}
         />
       ) : null}
 

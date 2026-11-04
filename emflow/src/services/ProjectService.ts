@@ -2,6 +2,8 @@
 
 export interface loadWorkflowPayload {
   workflowId: string;
+  /** Category of the workflow (default "builtin"). */
+  category?: WorkflowCategory;
 }
 
 export type AuthenticatedRequestOptions = {
@@ -492,13 +494,50 @@ export type ShareableUser = {
 // Project workflows / templates (predefined pipelines)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Where a workflow lives: shipped with the processing code (builtin,
+ * read-only), the site (EMhub instance folder) or the project folder.
+ */
+export type WorkflowCategory = "builtin" | "site" | "project";
+
+/** Categories a workflow can be saved to (saveWorkflow). */
+export type WritableWorkflowCategory = Exclude<WorkflowCategory, "builtin">;
+
 export type WorkflowDescriptor = {
-  /** Workflow identifier (index, db id, or slug). */
+  /** Workflow identifier (index, db id, or slug); the file name without .json for the categories. */
   id: Id;
   /** Human-friendly workflow name to display in the UI. */
   name: string;
   /** Short description explaining what this workflow does. */
   description?: string;
+  /** Category the workflow was listed from. */
+  category?: WorkflowCategory;
+  /** File name (e.g. "spa-otf.json"). */
+  file?: string;
+  /** Number of jobs / protocols in the workflow. */
+  protocolsCount?: number;
+  /** The file could not be read. */
+  parseError?: string | null;
+};
+
+export type SaveWorkflowPayload = {
+  /** Protocols (jobs) to save as the workflow, in order. */
+  protocolIds: Id[];
+  category: WritableWorkflowCategory;
+  /** File name without .json (letters, digits, ".", "_", "-"). */
+  workflowId: string;
+  /** Label shown in the workflow lists. */
+  name: string;
+  description?: string;
+  /** Replace an existing workflow with the same workflowId (asked to the user first). */
+  overwrite?: boolean;
+};
+
+export type SaveWorkflowResult = {
+  id: string;
+  file?: string;
+  category: WritableWorkflowCategory;
+  protocolsCount?: number;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -945,6 +984,15 @@ export type WorkflowImportResult = {
   }>;
   protocolsCount?: number;
   dependenciesCount?: number;
+  /**
+   * Params emptied because they referenced protocols that were not copied
+   * (pasting from another project): sourceId is the copied protocol id.
+   */
+  clearedInputs?: Array<{
+    sourceId: Id;
+    param: string;
+    value?: string;
+  }>;
 };
 
 export type WriteRemoteFilePayload = {
@@ -1075,10 +1123,20 @@ export interface ProjectService<
   loadProtocols(projectId: Id): Promise<TProtocol[] | any>;
 
   /**
-  * List predefined workflows / pipelines available for a project.
-  * Backend may filter them by project type, owner, or permissions.
+  * List predefined workflows / pipelines available for a project, of the
+  * given category (default "builtin"). Hosts without categories ignore it.
   */
-  fetchWorkflows(): Promise<WorkflowDescriptor[] | any>;
+  fetchWorkflows(category?: WorkflowCategory): Promise<WorkflowDescriptor[] | any>;
+
+  /**
+  * Save the given protocols as a workflow of the site or the project
+  * (the workflow export dialog). Rejects when the workflow exists and
+  * payload.overwrite is not set.
+  */
+  saveWorkflow(
+    projectId: Id,
+    payload: SaveWorkflowPayload,
+  ): Promise<SaveWorkflowResult>;
 
   loadWorkflow(
     projectId: string | number,

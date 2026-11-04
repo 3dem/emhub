@@ -128,12 +128,24 @@ var svc = {
     return menu.protocols;
   },
 
-  async fetchWorkflows() {
-    return menu.workflows;
+  async fetchWorkflows(category) {
+    return (!category || category === 'builtin') ? menu.workflows : [];
+  },
+
+  async saveWorkflow(projectId, payload) {
+    throw new Error("Saving workflows is not available in the fake project.");
   },
 
   async loadWorkflow(projectId, workflowId) {
     return { success: true };
+  },
+
+  async exportWorkflowProtocols(projectId, payload) {
+    throw new Error("Copy and paste are not available in the fake project.");
+  },
+
+  async importWorkflowProtocols(projectId, payload) {
+    return { status: 1, errors: ["Copy and paste are not available in the fake project."] };
   },
 
   async exportProtocols(projectId, payload) {

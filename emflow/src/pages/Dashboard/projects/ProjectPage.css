@@ -1814,3 +1814,11 @@
 .pp-canvasMenuItem:disabled .pp-canvasMenuIcon {
   opacity: 0.55;
 }
+/* Shortcut hint at the right of a canvas menu item */
+.emflow-root .pp-canvasMenuShortcut {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
