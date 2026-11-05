@@ -73,8 +73,32 @@ def project_file_path(root, rel_path):
             pass
         if any(_path_inside(full_path, b) for b in bases):
             return full_path
+        # Written where the project is mounted elsewhere (the cluster path
+        # in a STAR file, opened on a workstation): the same file under root
+        if mapped := _remount_path(root, full_path):
+            return mapped
 
     raise ValueError(f"Invalid path, outside of the project: {rel_path}")
+
+
+def _remount_path(root, abs_path):
+    """ abs_path (an absolute path outside root) as a path inside root, when
+    the project was mounted at another place where it was written: the part
+    after the project folder's name (the last time it appears), else the
+    longest end of abs_path (two components or more) that exists under
+    root. None if there is none. """
+    parts = [p for p in abs_path.split(os.sep) if p]
+    name = os.path.basename(root.rstrip(os.sep))
+    if name in parts[:-1]:
+        i = len(parts) - 1 - parts[::-1].index(name)
+        candidate = os.path.join(root, *parts[i + 1:])
+        if os.path.exists(candidate):
+            return candidate
+    for i in range(1, len(parts) - 1):
+        candidate = os.path.join(root, *parts[i:])
+        if os.path.exists(candidate):
+            return candidate
+    return None
 
 
 def get_processing_type(project_path):

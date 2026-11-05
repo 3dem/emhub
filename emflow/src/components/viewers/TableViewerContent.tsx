@@ -4,6 +4,7 @@ import { normalizeTitles } from "./Plot";
 
 import type { TableViewerPaneContent } from "@/services/ProjectService";
 import ImageSlider from "./ImageSlider";
+import TiltSeriesViewer from "./TiltSeriesViewer";
 
 /**
  * Pane content kinds that are rendered generically (not bound to a
@@ -12,7 +13,7 @@ import ImageSlider from "./ImageSlider";
  */
 export type TableViewerGenericContent = Extract<
     TableViewerPaneContent,
-    { kind: "text" | "html" | "iframe" | "image" | "plotly" | "imageSlider" }
+    { kind: "text" | "html" | "iframe" | "image" | "plotly" | "imageSlider" | "tiltSeries" }
 >;
 
 const GENERIC_KINDS = new Set<string>([
@@ -22,6 +23,7 @@ const GENERIC_KINDS = new Set<string>([
     "image",
     "plotly",
     "imageSlider",
+    "tiltSeries",
 ]);
 
 export function isGenericTableViewerContent(
@@ -154,5 +156,7 @@ export default function TableViewerContent({
                     <ImageSlider content={content} fit={fit} />
                 </Box>
             );
+        case "tiltSeries":
+            return <TiltSeriesViewer content={content} fit={fit} />;
     }
 }

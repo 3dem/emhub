@@ -250,7 +250,8 @@ const ICON_MASK = svg(<>
 </>);
 const ICON_VOLUME = svg(<><path d="M8 1.5l6 3v7l-6 3-6-3v-7z" strokeDasharray="2 2" /><path d="M2 4.5l6 3 6-3M8 7.5v7" /></>);
 
-function ToolButton({ title, active, onClick, children, hidden }: {
+/** A toolbar button (`styles.toolbar`); also used by TiltSeriesViewer. */
+export function ToolButton({ title, active, onClick, children, hidden }: {
   title: string;
   active?: boolean;
   onClick: () => void;

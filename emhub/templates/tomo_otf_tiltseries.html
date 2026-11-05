@@ -501,7 +501,7 @@
                 {% if tomogram %}waiting++;{% endif %}
                 {% if hasStack %}
                 otfViewStack('#otf-viewers', tomoName, {{ alignedStack|tojson }},
-                             {{ stackLabels|tojson }}, ready('stack'));
+                             {{ tiltSeriesStar|tojson }}, ready('stack'));
                 {% endif %}
                 {% if tomogram %}
                 otfViewTomogram('#otf-viewers', tomoName, {{ tomogram|tojson }},
@@ -510,15 +510,30 @@
             }
         });
 
-        // The stack image starts level with the tomogram's Z section
+        /* The tilt series viewer (mounted with fit) is kept as high as the
+           tomogram viewer beside it, so neither needs scrolling; its expand
+           button shows it over the whole window.  Wrapped under the tomogram
+           (narrow window), or while the tomogram viewer is expanded (its
+           body then collapses), it keeps the height from the CSS. */
         function otfAlignViewers(panels) {
             if (!panels.stack || !panels.tomogram) return;
-            var $s = panels.stack.find('canvas'), $z = panels.tomogram.find('#otf-vol-z canvas');
-            if (!$s.length || !$z.length) return;
+            var stackBody = panels.stack.find('#otf-viewer-body-stack')[0];
+            var tomoBody = panels.tomogram.find('#otf-viewer-body-tomogram')[0];
+            if (!stackBody || !tomoBody) return;
             var top = function(el) { return el.getBoundingClientRect().top; };
-            if (Math.abs(top(panels.stack[0]) - top(panels.tomogram[0])) > 2) return;  // wrapped
-            var dy = top($z[0]) - top($s[0]);
-            if (dy > 0) panels.stack.css('padding-top', dy);
+            var sync = function() {
+                if (!$.contains(document, stackBody)) return;
+                var h = tomoBody.getBoundingClientRect().height;
+                var side = Math.abs(top(panels.stack[0]) - top(panels.tomogram[0])) <= 2;
+                stackBody.style.height = side && h >= 320 ? Math.round(h) + 'px' : '';
+            };
+            sync();
+            if (window.otfViewersObserver) window.otfViewersObserver.disconnect();
+            if (window.ResizeObserver) {
+                window.otfViewersObserver = new ResizeObserver(sync);
+                window.otfViewersObserver.observe(tomoBody);
+                window.otfViewersObserver.observe(panels.stack[0]);
+            }
         }
 
         /* Tilt selection: a box on each image, and presets by tilt QC.

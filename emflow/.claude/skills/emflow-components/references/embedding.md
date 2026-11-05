@@ -3,7 +3,7 @@
 ## Mount API
 
 Any registered component (`EMFlow.components`: `ProjectPage`, `VolumeViewer`,
-`Plot`, `ImageSlider`, `TableViewerContent`, `TableViewerGrid`) is mounted the same way:
+`Plot`, `ImageSlider`, `TiltSeriesViewer`, `TableViewerContent`, `TableViewerGrid`) is mounted the same way:
 
 ```js
 const h = EMFlow.mount("VolumeViewer", {
@@ -76,6 +76,14 @@ shared default (fetch, no base url). VolumeViewer and Plot take a
 - Volume viewers: `tomo_otf_dashboard.html` (`otfOrthoViewer`, the pane from
   `resolve_table_view_pane` as `data`) and `processing_tomogram_card.html`
   mount `VolumeViewer`.
+- Tilt series viewer: `tomo_otf_dashboard.html` (`otfViewer`, a `tiltSeries`
+  pane of the `aligned-slices` action with the stack and the series STAR in
+  the row cells; `otfViewStack`) mounts `TiltSeriesViewer` in the tilt
+  series window's "Alignment & tomogram" tab with `fit` and `expandable`,
+  and the mount option `fill: true` (without it the shell is as high as its
+  content, so `fit` has nothing to fill). The stack panel is
+  `flex: 1 1 460px`, at most 760px; its body is kept as high as the tomogram
+  viewer's by `otfAlignViewers`, else `min(70vh, 720px)`.
 - Built files live in EMhub's `emhub/static/libs/js/emflow.js` and
   `emhub/static/libs/css/emflow.css` (committed); `./build_and_copy.sh`
   updates them (`EMHUB_LIBS` to override the target). `./track.sh off`
@@ -124,6 +132,12 @@ A new component that portals must use one of these targets. A nested MUI
   scans `src/` (`source("../../..")` in ProjectPage.css).
 - `dark:` utilities follow the `dark` class (`@custom-variant dark`), never
   the OS preference.
+- EMhub's `static/libs/css/style.css` hid every radio button until 2026-11
+  (`.product-colors input[type=checkbox], input[type=radio] { display: none }`,
+  the second selector unscoped; now scoped to `.product-colors`). Older EMhub
+  installs still have it, so a component with native radios shows them
+  itself, e.g. TiltSeriesViewer's `.root input[type="radio"] { display:
+  inline-block }`.
 
 Audit after style changes: every rule of `dist/emflow.css` must start with
 `.emflow-root` (except `@keyframes` contents, `@font-face`, `@property`), and
