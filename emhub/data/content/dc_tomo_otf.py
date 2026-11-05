@@ -199,16 +199,6 @@ FINGERPRINT_TARGET_KEY = {'rlnCtfMaxResolution': 'ctf',
                           'rlnAccumMotionTotal': 'motion'}
 
 
-def _tilt_label(tilt):
-    """ A tilt named as everywhere in the tilt series window. """
-    parts = []
-    if (movie := _movie_index(tilt)) is not None:
-        parts.append(f'Movie index {movie}')
-    if (angle := tilt.get(COL_TILT_ANGLE)) is not None:
-        parts.append(f'tilt {angle + 0.0:.1f}°'.replace('-0.0°', '0.0°'))
-    return ' · '.join(parts)
-
-
 def _dropped_label(tilt):
     """ Where processing dropped a tilt, e.g. 'dropped at alignment'. """
     stage = STAGE_SHORT.get(tilt.get('droppedAt'), 'a later stage')
@@ -927,8 +917,6 @@ def register_content(dc):
             except OSError:
                 pass
 
-        stack_tilts = session.aligned_stack_tilts(ts)
-
         style = STATUS_STYLE[ts.status]
         return {
             'error': None,
@@ -949,10 +937,6 @@ def register_content(dc):
             # The tomogram's voxel, from RELION's binning of the original pixel
             'tomoPixelSize': (ts.pixelSize * ts.tomoBinning
                               if ts.pixelSize and ts.tomoBinning else None),
-            # The aligned stack's sections named by their tilt, when the
-            # stack's angles tell which is which
-            'stackLabels': (None if stack_tilts is None
-                            else [_tilt_label(t) for t in stack_tilts]),
             'tiltSeriesStar': ts.tiltSeriesStar,
             'alignedStack': ts.alignedStack,
             'tomogram': ts.tomogram,
