@@ -155,6 +155,11 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
 .otf-viewers { display: flex; flex-wrap: wrap; gap: 0 32px; align-items: flex-start; }
 .otf-viewer-panel { min-width: 0; }
 .otf-viewer-panel h6 { overflow-wrap: anywhere; }
+/* The tilt series viewer (emflow, mounted with fit) fits the box it is
+   given: this height until it is kept as high as the tomogram viewer
+   (otfAlignViewers in tomo_otf_tiltseries.html) */
+.otf-viewer-panel[data-viewer="stack"] { flex: 1 1 460px; max-width: 760px; }
+#otf-viewer-body-stack { height: min(70vh, 720px); }
 /* Tomogram orthogonal sections; the lines mark the other two slices */
 /* Each figure's flex-grow is its image's width/height, so both images
    are the same height */
@@ -531,16 +536,16 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
             if (pane.kind === 'imageSlider' && pane.axes && pane.dimensions &&
                     pane.axes.x && pane.axes.y && pane.axes.z) {
                 otfOrthoViewer($body, pane, opts.voxel);
+            } else if (pane.kind === 'tiltSeries') {
+                // emflow TiltSeriesViewer (as the Slices of the project's
+                // tilt series grid), fitted to its box, with an expand
+                // button to the whole window; it unmounts by itself when replaced
+                // (fill: the emflow shell takes the box height, else fit has
+                // no height to fill and the image shrinks to its minimum)
+                EMFlow.mount('TiltSeriesViewer', {container: $body[0], fill: true,
+                             props: {content: pane, fit: true, expandable: true}});
             } else if (pane.kind === 'imageSlider') {
-                // Sections named by their tilt when the dashboard matched them
-                var slices = pane.slices, prefix = pane.sliderPrefix || '';
-                var keys = Object.keys(slices);
-                if (opts.labels && opts.labels.length === keys.length) {
-                    slices = {};
-                    keys.forEach(function(k, i) { slices[opts.labels[i]] = pane.slices[k]; });
-                    prefix = '';
-                }
-                new ImageSliderCard(bodyId, slices, {slider_prefix: prefix});
+                new ImageSliderCard(bodyId, pane.slices, {slider_prefix: pane.sliderPrefix || ''});
             } else if (pane.kind === 'text') {
                 $body.append($('<pre class="small" style="max-height: 60vh; overflow: auto"></pre>')
                              .text(pane.text));
@@ -757,10 +762,12 @@ tr.otf-row-last td:first-child { box-shadow: inset 3px 0 0 var(--otf-data); }
         otfViewer(into, 'metadata', {actionId: 'metadata', starPath: starPath, rowLabel: tomoName},
                   {}, done);
     };
-    window.otfViewStack = function(into, tomoName, stackPath, labels, done) {
+    // The stack with the alignment of the tilt series STAR (TiltSeriesViewer)
+    window.otfViewStack = function(into, tomoName, stackPath, starPath, done) {
         otfViewer(into, 'stack', {actionId: 'aligned-slices', rowLabel: tomoName,
-                                  row: {cells: {rlnTiltSeriesAligned: stackPath}}},
-                  {labels: labels}, done);
+                                  row: {cells: {rlnTiltSeriesAligned: stackPath,
+                                                rlnTomoTiltSeriesStarFile: starPath}}},
+                  {}, done);
     };
     window.otfViewTomogram = function(into, tomoName, tomoPath, voxel, done) {
         otfViewer(into, 'tomogram', {actionId: 'volume-slices', rowLabel: tomoName,

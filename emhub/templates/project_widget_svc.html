@@ -543,11 +543,11 @@ var svc = {
   },
 
   // Workflows of a category: builtin (emwrap), site (<instance>/workflows)
-  // or project (<project>/.emhub/workflows)
+  // or project (<project>/.emhub/workflows), with the folder they are in
   async fetchWorkflows(category) {
     var data = await workflowsRequest(Api.urls.list_workflows,
                                       { category: category || 'builtin' });
-    return (data.workflows || []).map(function (wf) {
+    var workflows = (data.workflows || []).map(function (wf) {
       return {
         id: wf.id,
         name: wf.title || wf.id,
@@ -558,6 +558,7 @@ var svc = {
         parseError: wf.parseError || null,
       };
     });
+    return { workflows: workflows, folder: data.folder || null };
   },
 
   async loadWorkflow(projectId, workflowInfo) {

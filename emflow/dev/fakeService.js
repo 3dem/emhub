@@ -193,6 +193,52 @@ const fakeSlices = (count, label, width = 256, height = 256) => {
   return slices;
 };
 
+// A tilt series pane (kind "tiltSeries") as build_tilt_series_viewer_pane_content
+// sends it: gold beads at fixed 3D positions projected on each tilt
+// (-60..60°, dose-symmetric movie order) and then rotated by rlnTomoZRot and
+// shifted, as acquired. "Apply alignment" must undo exactly that: the beads
+// then move only across a vertical tilt axis. Every 7th tilt is off by 40 Å.
+export const fakeTiltSeries = (name, w = 360, h = 256, pixelSize = 10) => {
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const beads = Array.from({ length: 14 }, (_, i) => [
+    ((i * 73) % 200) - 100, ((i * 47) % 180) - 90, ((i * 31) % 60) - 30]);   // x, y, z (px)
+  const zRot = -85.6, rot = (zRot * Math.PI) / 180;
+  const order = [0];   // dose-symmetric: 0, 3, -3, -6, 6, 9, -9 ...
+  for (let k = 1; order.length < 41; k++) order.push(...(k % 2 ? [3 * k, -3 * k] : [-3 * k, 3 * k]));
+  const tilts = Array.from({ length: 41 }, (_, i) => {
+    const angle = -60 + 3 * i, a = (angle * Math.PI) / 180;
+    const sx = 60 * Math.sin(i / 5) + (i % 7 === 3 ? 40 : 0), sy = -40 * Math.cos(i / 6);   // Å
+    ctx.fillStyle = "#6b7280";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#111";
+    for (const [x, y, z] of beads) {
+      // Aligned frame (axis along y): (x cos a + z sin a, y); acquired:
+      // R(zRot) of it + the centre + the shift
+      const fx = x * Math.cos(a) + z * Math.sin(a), fy = y;
+      const px = Math.cos(rot) * fx - Math.sin(rot) * fy + w / 2 + sx / pixelSize;
+      const py = Math.sin(rot) * fx + Math.cos(rot) * fy + h / 2 + sy / pixelSize;
+      ctx.beginPath();
+      ctx.arc(px, py, 4, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+    ctx.fillStyle = "#fff";
+    ctx.font = "14px sans-serif";
+    ctx.fillText(`${name} ${angle}°`, 8, 20);
+    return {
+      image: canvas.toDataURL("image/png").split(",")[1],
+      movieIndex: order.indexOf(angle) + 1, tiltAngle: angle, xTilt: 0, yTilt: angle + 0.01 * Math.sin(i),
+      zRot, shiftX: sx, shiftY: sy, dose: 3 * order.indexOf(angle),
+      defocusU: 30000 + 50 * Math.abs(angle), defocusV: 30400 + 50 * Math.abs(angle),
+      ctfMaxResolution: 6 + Math.abs(angle) / 10, section: i,
+    };
+  });
+  return { kind: "tiltSeries", title: "Slices", tilts, imageSize: [w, h], pixelSize,
+           tiltAxisAngle: zRot, hasAlignment: true };
+};
+
 // Picking template as EMhub sends it (coords3d.py): a surface in Å, centered;
 // a cone pointing along +Z, so the particle orientations are visible
 const coneTemplate = (radius, height, n = 16) => {
@@ -258,6 +304,13 @@ const listFakeWorkflows = (category = "builtin") => {
     .sort((a, b) => a.id.localeCompare(b.id));
 };
 
+// Folders of the categories, as EMhub returns them with the list
+const fakeWorkflowsFolder = (category = "builtin") => ({
+  builtin: "/opt/emwrap/config/workflows",
+  site: "/data/emhub/instance/workflows",
+  project: `${fakeProjectPath()}/.emhub/workflows`,
+})[category] ?? null;
+
 // ?project=<name> opens the fake project as another project (same data,
 // another path), to paste protocols copied in a tab without it
 const fakeProjectPath = () => {
@@ -297,7 +350,7 @@ export function createFakeService() {
     fetchWorkflows: async (category) => {
       log("fetchWorkflows", category);
       await new Promise((r) => setTimeout(r, 150));
-      return listFakeWorkflows(category);
+      return { workflows: listFakeWorkflows(category), folder: fakeWorkflowsFolder(category) };
     },
     // Only checks that the workflow exists: no protocols are created
     loadWorkflow: async (projectId, info) => {
@@ -417,8 +470,7 @@ export function createFakeService() {
         // Other grid layouts with ?gridLayout=cols|rows|span-top|span-bottom|span-left|span-right
         const layout = new URLSearchParams(location.search).get("gridLayout") ?? "2x2";
         const contents = [
-          { kind: "imageSlider", title: "Slices", sliderPrefix: "Tilt: ",
-            sliceLabelOffset: 1, slices: fakeSlices(41, `${name} tilt`, 360, 256) },
+          fakeTiltSeries(name),
           fakePlot("Tilt angles", "Dose (e-/Å²)", (a) => 3.1 * Math.abs(a) / 3),
           fakePlot("Motion", "Accumulated motion (Å)", (a) => 2 + Math.abs(a) / 20),
           // TS_0003: a cell that failed on the host

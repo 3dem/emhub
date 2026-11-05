@@ -1074,8 +1074,11 @@ def resolve_table_view_pane():
                 raise Exception(
                     f'Action {action_id!r} is not supported for {type_key}'
                 )
-            return build_aligned_stack_slider_pane_content(
+            # The tilt series viewer, with the alignment of the row's
+            # per tilt series STAR when there is one
+            return build_tilt_series_viewer_pane_content(
                 root,
+                resolve_row_star_path(attrs, row_cells),
                 stack_rel,
                 title=stack_rel,
             )
@@ -1603,18 +1606,19 @@ def _workflows_dir(category, pm=None):
 @flask_login.login_required
 def list_workflows():
     """ Return the workflows of a category (builtin, site or project):
-    id, file, title, description, category and number of jobs. The
-    project category needs the project selector (session_id, entry_id
-    or path). """
+    id, file, title, description, category and number of jobs, and in
+    'folder' the folder they are read from (and saved to). The project
+    category needs the project selector (session_id, entry_id or path). """
     def _handle(**attrs):
         category = workflow_store.check_category(attrs.get('category'))
         pm = None
         if category == workflow_store.PROJECT:
             _, pm = get_project_manager(**attrs)
-        return workflow_store.list_workflows(_workflows_dir(category, pm),
-                                             category)
+        folder = _workflows_dir(category, pm)
+        return {'workflows': workflow_store.list_workflows(folder, category),
+                'folder': folder}
 
-    return _handle_item(_handle, 'workflows')
+    return _handle_item(_handle, None)
 
 
 @api_bp.route('/save_workflow', methods=['POST'])
@@ -2369,7 +2373,9 @@ def _handle_item(handle_func, result_key):
         else:
             raise Exception("Expecting JSON or Form request.")
         result = handle_func(**attrs)
-        return send_json_data({result_key: result})
+        # Without result_key, the result dict holds the response keys
+        return send_json_data(result if result_key is None
+                              else {result_key: result})
     except JobValidationError as e:
         return send_json_data({'errors': list(e.errors), 'status': 1})
     except Exception as e:

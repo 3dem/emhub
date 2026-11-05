@@ -344,6 +344,7 @@ export type TableViewerPaneContent =
     figure: Record<string, unknown>;
   }
   | TableViewerImageSliderContent
+  | TableViewerTiltSeriesContent
   | TableViewerGridContent;
 
 /**
@@ -429,6 +430,63 @@ export type TableViewerImageSliderContent = {
       density?: { shape: [number, number, number]; data: string; voxelSize: number; level: number };
     };
   };
+};
+
+/** One tilt of a TableViewerTiltSeriesContent; values from the per tilt
+ * series STAR, null when it does not have them. */
+export type TiltSeriesTilt = {
+  /** Base64 PNG (without data: prefix) of the unaligned tilt image. */
+  image: string;
+  /** rlnTomoTiltMovieIndex */
+  movieIndex: number | null;
+  /** rlnTomoNominalStageTiltAngle (°) */
+  tiltAngle: number | null;
+  /** rlnTomoXTilt, rlnTomoYTilt, rlnTomoZRot (°) */
+  xTilt: number | null;
+  yTilt: number | null;
+  zRot: number | null;
+  /** rlnTomoXShiftAngst, rlnTomoYShiftAngst (Å) */
+  shiftX: number | null;
+  shiftY: number | null;
+  /** rlnMicrographPreExposure (e/Å²) */
+  dose: number | null;
+  /** rlnDefocusU, rlnDefocusV (Å) */
+  defocusU: number | null;
+  defocusV: number | null;
+  /** rlnCtfMaxResolution (Å) */
+  ctfMaxResolution: number | null;
+  /** Section of the stack the image comes from. */
+  section?: number;
+  /** rlnTomoDeformationCoefficients: the local alignment of the tilt (see
+   * TableViewerTiltSeriesContent.deformation). */
+  deformation?: number[];
+};
+
+/** Local alignment of a tilt series: RELION 5 2D deformations
+ * (rlnTomoDeformationType, rlnTomoDeformationGridSizeX / Y of the global
+ * STAR), evaluated in pixels of the full size tilt images (imageSize). */
+export type TiltSeriesDeformation = {
+  type: "spline" | "Fourier" | "linear" | string;
+  gridSize: [number, number];
+  imageSize: [number, number];
+};
+
+/** A tilt series for TiltSeriesViewer: its tilt images, sorted by tilt
+ * angle, with their RELION alignment, so the viewer can apply it. */
+export type TableViewerTiltSeriesContent = {
+  kind: "tiltSeries";
+  title?: string;
+  tilts: TiltSeriesTilt[];
+  /** [width, height] of the images in pixels. */
+  imageSize: [number, number];
+  /** Å per pixel of the images (the shifts are divided by it); null: unknown. */
+  pixelSize: number | null;
+  /** rlnTomoNominalTiltAxisAngle (°), drawn when there is no alignment. */
+  tiltAxisAngle?: number | null;
+  /** Whether the tilts have rlnTomoZRot and the X / Y shifts. */
+  hasAlignment: boolean;
+  /** Local alignment, when the STAR has it (per tilt `deformation`). */
+  deformation?: TiltSeriesDeformation | null;
 };
 
 export type AnalyzeViewerResolveContext = {
@@ -518,6 +576,17 @@ export type WorkflowDescriptor = {
   protocolsCount?: number;
   /** The file could not be read. */
   parseError?: string | null;
+};
+
+/**
+ * fetchWorkflows result of the hosts that know where the workflows of the
+ * category are stored: `folder` is shown in the workflows panel and the
+ * export dialog (a plain array is still accepted).
+ */
+export type WorkflowsListing = {
+  workflows: WorkflowDescriptor[];
+  /** Absolute folder the workflows are read from and saved to. */
+  folder?: string | null;
 };
 
 export type SaveWorkflowPayload = {
@@ -1126,7 +1195,7 @@ export interface ProjectService<
   * List predefined workflows / pipelines available for a project, of the
   * given category (default "builtin"). Hosts without categories ignore it.
   */
-  fetchWorkflows(category?: WorkflowCategory): Promise<WorkflowDescriptor[] | any>;
+  fetchWorkflows(category?: WorkflowCategory): Promise<WorkflowDescriptor[] | WorkflowsListing | any>;
 
   /**
   * Save the given protocols as a workflow of the site or the project

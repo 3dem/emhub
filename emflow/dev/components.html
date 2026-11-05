@@ -55,6 +55,16 @@
           <select id="pane-select"></select></h6>
         <div id="pane-demo" style="height: 820px"></div>
       </div></div>
+      <div class="row mt-3">
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>TiltSeriesViewer, a tilt series with its alignment (node_modules/.dev-data/tiltseries.json, not in the repository)</h6>
+          <div id="ts-viewer"></div>
+        </div></div></div>
+        <div class="col-6"><div class="card"><div class="card-body">
+          <h6>The same in the Slices cell of the tilt series grid (TableViewerGrid)</h6>
+          <div id="ts-grid" style="height: 760px"></div>
+        </div></div></div>
+      </div>
       <div class="card mt-3"><div class="card-body">
         <h6>Plot (bundled plotly.js <span id="plotly-version"></span>)</h6><div id="plot"></div>
       </div></div>
@@ -261,6 +271,23 @@
         });
         select.onchange = () => window.devPanes.update({ content: panes[select.value] });
       }).catch(() => { document.getElementById("pane-demo").textContent = "No node_modules/.dev-data/panes.json"; });
+
+      // A tilt series pane as build_tilt_series_viewer_pane_content sends it
+      // (Warp ts_align of a real tilt series, written from EMhub)
+      fetch("/node_modules/.dev-data/tiltseries.json").then((r) => r.json()).then((ts) => {
+        window.devTilts = EMFlow.mount("TiltSeriesViewer", { container: "#ts-viewer", props: { content: ts } });
+        window.devTiltsGrid = EMFlow.mount("TableViewerGrid", {
+          container: "#ts-grid",
+          props: { content: { kind: "grid", title: "Tilt series", layout: "2x2", cells: {
+            topLeft: { ...ts, title: "Slices" },
+            topRight: { kind: "empty", title: "Tilt angles", message: "(plot)" },
+            bottomLeft: { kind: "empty", title: "Motion", message: "(plot)" },
+            bottomRight: { kind: "empty", title: "Defocus", message: "(plot)" },
+          } } },
+        });
+      }).catch(() => {
+        document.getElementById("ts-viewer").textContent = "No node_modules/.dev-data/tiltseries.json";
+      });
 
       document.getElementById("plotly-version").textContent = EMFlow.Plotly.version;
       window.devPlot = EMFlow.mount("Plot", {

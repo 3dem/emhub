@@ -40,7 +40,7 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | | `stopProtocol`, `deleteProtocol(projectId, ids)`, `duplicateProtocol(projectId, items)` -> `{status, errors, workflow, duplicated}`, `renameProtocol(projectId, protocolId, {runName, comment})` | - | ProjectPage |
 | | `restartAll`, `continueAll`, `resetFrom` | - | ProjectPage (menu shortcuts) |
 | Catalog | `loadProtocols(projectId)` (protocol tree for the drawer) | `[]` | ProtocolsDrawer |
-| | `fetchWorkflows(category?)` (`builtin` default / `site` / `project`) -> `WorkflowDescriptor[]` (`id` = file name without `.json`, `name`, `description`, `category`, `file`, `protocolsCount`, `parseError`); hosts without categories may ignore it (items without `category` are shown in every category) | `[]` | ProjectPage (workflows panel), WorkflowExportDialog |
+| | `fetchWorkflows(category?)` (`builtin` default / `site` / `project`) -> `{workflows: WorkflowDescriptor[], folder}` (`WorkflowsListing`; `folder` = absolute folder of the category, shown in the panel and export dialog headers) or a plain `WorkflowDescriptor[]` (`id` = file name without `.json`, `name`, `description`, `category`, `file`, `protocolsCount`, `parseError`); hosts without categories may ignore it (items without `category` are shown in every category) | `[]` | ProjectPage (workflows panel), WorkflowExportDialog |
 | | `loadWorkflow(projectId, {workflowId, category?})` -> `{status, errors, workflow}` | success | workflows panel |
 | | `saveWorkflow(projectId, {protocolIds, category: 'site'\|'project', workflowId, name, description, overwrite})` -> `{id, file, category, protocolsCount}`; rejects (Error message shown in the dialog) when it exists without `overwrite` | throws "missing method" | WorkflowExportDialog (protocol Export) |
 | | `exportWorkflowProtocols(projectId, {protocolIds})` -> `{sourceProjectId, sourceProjectName, protocolIds, workflow}` (`workflow` is opaque: stored as is in the clipboard and given back to `importWorkflowProtocols`) | throws "missing method" | ProjectPage (Mod+C) |
@@ -170,7 +170,14 @@ table: TableViewerData = {
 
 - Cell/column/row action -> `resolveTableViewerAction(context, {actionId, rowId, columnId, rowData: row.data, cellContext})`
   -> `TableViewerPaneContent` (`empty`, `text`, `html`, `iframe`, `image`,
-  `plotly`, `imageSlider`, `grid`). An `imageSlider` with `layout: "volume"`
+  `plotly`, `imageSlider`, `tiltSeries`, `grid`). A `tiltSeries` (`TableViewerTiltSeriesContent`:
+  `tilts` sorted by tilt angle, each `{image (base64 PNG, unaligned), movieIndex, tiltAngle, xTilt,
+  yTilt, zRot, shiftX, shiftY (Å), dose, defocusU, defocusV, ctfMaxResolution, section?}`,
+  `imageSize`, `pixelSize` (Å/px of the images sent), `tiltAxisAngle`, `hasAlignment`, `deformation`
+  `{type, gridSize, imageSize}` or null, with the per tilt `deformation` coefficients
+  (rlnTomoDeformationCoefficients; type and grid from the series' row in the global STAR of the job
+  that wrote its STAR, `_series_global_row`; imageSize from a full size tilt image header)) is shown by
+  `TiltSeriesViewer`; EMhub builds it with `build_tilt_series_viewer_pane_content`. An `imageSlider` with `layout: "volume"`
   (dimensions and X, Y, Z slices, optional `voxelSize`, `coordinates` with
   `angles` / `template` — `{vertices, faces, density?}`, where `density` is
   `{shape: [z, y, x], data: base64 uint8, voxelSize, level}` from
@@ -222,8 +229,8 @@ table: TableViewerData = {
   columns, bottomLeft, bottomRight), `span-bottom` (topLeft, topRight,
   bottom), `span-left` (left over both rows, topRight, bottomRight),
   `span-right` (topLeft, bottomLeft, right). Cells take the generic kinds
-  (text, html, iframe, image, plotly, imageSlider; single-axis sliders are
-  fitted to the cell) or `empty` with a message (a cell that failed); the
+  (text, html, iframe, image, plotly, imageSlider, tiltSeries; single-axis sliders and the
+  tilt series viewer are fitted to the cell) or `empty` with a message (a cell that failed); the
   content title becomes the cell header. Missing slots stay empty.
   Note: only `row.data` is sent back, not `row.cells`.
 - Action `icon` names an icon of `components/analyze/table-viewer-action-icons.tsx`
@@ -255,8 +262,8 @@ EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
   **Coordinates**, `nCoords`) and **TS / Tomogram** (`tsTomo`); Tomo name
   and Coordinates are `sortable`. `tsTomo`
   has per-row icon actions: `ts-view` (`tilt-series`:
-  a `2x2` grid: slices of the aligned stack, or of the tilt images of the
-  series STAR sorted by tilt angle, | tilt angles (dose vs tilt angle);
+  a `2x2` grid: Slices = the `tiltSeries` pane (TiltSeriesViewer) of the
+  stack, else of the tilt images of the series STAR, with the STAR's alignment, | tilt angles (dose vs tilt angle);
   motion | defocus (µm) plots; each cell an `empty` message if it fails) and `tomo-view` (`tomogram`, only rows with a tomogram: X/Y/Z volume
   slices, with the row's particle `coordinates` for TomoCoordinates). The
   plots are in the grid, so these rows have no row actions (spec

@@ -900,10 +900,9 @@ def build_aligned_stack_slider_pane_content(root, stack_rel, title=None):
     )
 
 
-def _read_tilt_image(root, image_rel):
-    """Return the 2D array of a tilt image, given as 'path' or 'N@stack' (1-based)."""
-    import mrcfile
-
+def _tilt_image_path(root, image_rel):
+    """The path of a tilt image given as 'path' or 'N@stack' (1-based) and
+    its index in the stack (None for a single image)."""
     index = None
     if '@' in image_rel:
         index_str, image_rel = image_rel.split('@', 1)
@@ -911,53 +910,280 @@ def _read_tilt_image(root, image_rel):
     image_path = _resolve_data_path(root, image_rel)
     if not image_path or not os.path.exists(image_path):
         raise Exception(f'Tilt image not found: {image_rel}')
+    return image_path, index
 
+
+def _tilt_image_size(root, image_rel):
+    """[width, height] of a tilt image from its MRC header, or None."""
+    import mrcfile
+
+    try:
+        image_path, _ = _tilt_image_path(root, image_rel)
+        with mrcfile.open(image_path, header_only=True, permissive=True) as mrc:
+            return [int(mrc.header.nx), int(mrc.header.ny)]
+    except Exception:
+        return None
+
+
+def _read_tilt_image(root, image_rel):
+    """Return the 2D array of a tilt image, given as 'path' or 'N@stack'
+    (1-based), and its Å per pixel (None when the MRC header does not say)."""
+    import mrcfile
+
+    image_path, index = _tilt_image_path(root, image_rel)
     with mrcfile.mmap(image_path, permissive=True) as mrc:
         data = mrc.data
         if data.ndim == 3:
             data = data[index or 0]
-        return data.copy()
+        return data.copy(), _mrc_pixel_size(mrc)
 
 
-def build_tilt_images_slider_pane_content(root, star_rel, title=None):
-    """Build image-slider pane content from the tilt images of a series STAR,
-    sorted by tilt angle (for tilt series without an aligned stack)."""
+# Per tilt values of emflow's TiltSeriesViewer: pane key -> per tilt series
+# STAR column. Angles in degrees, shifts in Å, defocus in Å, dose in e/Å²
+_TS_VIEWER_FIELDS = {
+    'tiltAngle': TILT_ANGLE_X_COL,
+    'xTilt': 'rlnTomoXTilt',
+    'yTilt': 'rlnTomoYTilt',
+    'zRot': 'rlnTomoZRot',
+    'shiftX': 'rlnTomoXShiftAngst',
+    'shiftY': 'rlnTomoYShiftAngst',
+    'dose': 'rlnMicrographPreExposure',
+    'defocusU': 'rlnDefocusU',
+    'defocusV': 'rlnDefocusV',
+    'ctfMaxResolution': 'rlnCtfMaxResolution',
+}
+_TS_VIEWER_IMAGE_SIZE = 512
+
+
+def _finite_float(value):
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return v if v == v and abs(v) != float('inf') else None
+
+
+def _mrc_pixel_size(mrc):
+    """Å per pixel of an open MRC, or None when the header does not say."""
+    try:
+        px = float(mrc.voxel_size.x)
+    except Exception:
+        return None
+    return px if px > 0 else None
+
+
+def _parse_coefficients(value):
+    """The numbers of a STAR list value ('[1.0,2.0,...]'), or None."""
+    if not value or value == 'None':
+        return None
+    try:
+        return [float(v) for v in str(value).strip('[] ').split(',') if v.strip()]
+    except ValueError:
+        return None
+
+
+def _series_global_row(star_path, tomo_name):
+    """The row of a tilt series in the global STAR of the job that wrote its
+    per tilt series STAR (<job>/tilt_series/<name>.star -> <job>/*.star with
+    a 'global' table), or None."""
+    from glob import glob
+    job_dir = os.path.dirname(os.path.dirname(star_path))
+    for path in sorted(glob(os.path.join(job_dir, '*.star'))):
+        try:
+            with StarFile(path) as sf:
+                if 'global' not in sf.getTableNames():
+                    continue
+                for row in sf.iterTable('global', guessType=False):
+                    if getattr(row, 'rlnTomoName', None) == tomo_name:
+                        return row._asdict()
+        except Exception:
+            continue
+    return None
+
+
+def _series_deformation(root, star_path, tomo_name, rows, image_size, image_px):
+    """The local alignment of a tilt series (RELION 2D deformations: type and
+    grid size from its global STAR row, rlnTomoDeformationCoefficients per
+    tilt), as {'type', 'gridSize', 'imageSize'}: imageSize is the size of
+    the tilt images RELION deforms (full size, at rlnTomoTiltSeriesPixelSize),
+    from the header of a tilt image, else from the size of the images sent.
+    None without deformations."""
+    if not any(_parse_coefficients(r.get('rlnTomoDeformationCoefficients')) for r in rows):
+        return None
+    g = _series_global_row(star_path, tomo_name) or {}
+    dtype = g.get('rlnTomoDeformationType')
+    gx = _finite_float(g.get('rlnTomoDeformationGridSizeX'))
+    gy = _finite_float(g.get('rlnTomoDeformationGridSizeY'))
+    if not dtype or not gx or not gy:
+        return None
+    full = None
+    for r in rows:
+        if full := _tilt_image_size(root, r.get('rlnMicrographName') or ''):
+            break
+    ts_px = _finite_float(g.get('rlnTomoTiltSeriesPixelSize'))
+    if full is None and ts_px and image_px and image_size[0]:
+        full = [round(image_size[0] * image_px / ts_px), round(image_size[1] * image_px / ts_px)]
+    if full is None:
+        return None
+    return {'type': dtype, 'gridSize': [int(gx), int(gy)], 'imageSize': full}
+
+
+def _stack_section_tilts(stack_path, tilts, angle_key):
+    """ The tilt (one of the dicts in tilts) of each section of a tilt
+    series stack, in stack order, or None if that cannot be told.
+
+    The stack's angles are in the IMOD .tlt file beside it, and AreTomo and
+    Warp may write them with the opposite sign to RELION's angles (angle_key
+    of each tilt).  The sign is the one under which every section matches a
+    tilt to within rounding; when both signs fit equally (a perfectly
+    symmetric scheme) the order is ambiguous and None is returned.
+    """
+    tilts = [t for t in tilts if t.get(angle_key) is not None]
+    if not stack_path or not tilts:
+        return None
+    tlt = os.path.splitext(stack_path)[0] + '.tlt'
+    try:
+        with open(tlt) as f:
+            angles = [float(v) for v in f.read().split()]
+    except (OSError, ValueError):
+        return None
+    if not angles or len(angles) > len(tilts):
+        return None
+
+    def match(sign):
+        # Each section's nearest tilt, and the worst mismatch
+        picks = [min(tilts, key=lambda t: abs(t[angle_key] - sign * a))
+                 for a in angles]
+        worst = max(abs(t[angle_key] - sign * a) for t, a in zip(picks, angles))
+        return worst, picks
+
+    (err_same, same), (err_flip, flip) = match(1), match(-1)
+    best_err, best = min((err_same, same), (err_flip, flip), key=lambda m: m[0])
+    other_err = max(err_same, err_flip)
+    # Rounding is within 0.01 degree; a sign is only trusted if the other
+    # one fits clearly worse, and every section must be a different tilt
+    if best_err > 0.02 or other_err < 2 * best_err + 0.01:
+        return None
+    if len({id(t) for t in best}) != len(best):
+        return None
+    return best
+
+
+def build_tilt_series_viewer_pane_content(root, star_rel=None, stack_rel=None,
+                                          title=None, pixel_size=None):
+    """Pane content of emflow's TiltSeriesViewer ({kind: 'tiltSeries'}): the
+    tilt images sorted by tilt angle, each with its movie index, tilt angle,
+    alignment (rlnTomoXTilt / YTilt / ZRot, X / Y shift in Å) and dose, defocus
+    and CTF fit from the per tilt series STAR, so the viewer can show the
+    images with the alignment applied or not.
+
+    The images come from the tilt series stack (rlnTiltSeriesAligned: the
+    unaligned stack Warp and AreTomo3 write for IMOD, with the .xf beside
+    it), its sections matched to the STAR rows by the angles of its .tlt, or
+    in STAR order when there is no .tlt and the counts agree; without a stack,
+    from the tilt images of the STAR (rlnMicrographName). Without a STAR only
+    the stack sections are shown. pixel_size: Å per pixel of the images when
+    their MRC header does not say (rlnTomoTiltSeriesPixelSize).
+
+    The local alignment, when the STAR has rlnTomoDeformationCoefficients,
+    is sent as 'deformation' (see _series_deformation) and the coefficients
+    of each tilt as its 'deformation'.
+    """
+    import mrcfile
     from emtools.image import Thumbnail
 
-    full_path = project_file_path(root, star_rel)
-    if not os.path.exists(full_path):
-        raise Exception(f'STAR file not found: {star_rel}')
+    rows, table_name, full_path = [], None, None
+    if star_rel:
+        full_path = project_file_path(root, star_rel)
+        if not os.path.exists(full_path):
+            raise Exception(f'STAR file not found: {star_rel}')
+        with StarFile(full_path) as sf:
+            table_name = _resolve_series_star_table_name(sf)
+            if not table_name:
+                raise Exception('STAR file has no tables')
+            rows = [row._asdict() for row in sf.iterTable(table_name, guessType=False)]
 
-    with StarFile(full_path) as sf:
-        table_name = _resolve_series_star_table_name(sf)
-        if not table_name:
-            raise Exception('STAR file has no tables')
-        tilts = [row._asdict() for row in sf.iterTable(table_name, guessType=False)]
-
-    tilts = [t for t in tilts if t.get('rlnMicrographName')]
-    if not tilts:
-        raise Exception(f'No tilt images (rlnMicrographName) in {star_rel}')
-
-    def _tilt_angle(tilt):
-        try:
-            return float(tilt.get(TILT_ANGLE_X_COL))
-        except (TypeError, ValueError):
-            return 0.0
-
-    tilts.sort(key=_tilt_angle)
-    size = 512
+    size = _TS_VIEWER_IMAGE_SIZE
     thumb = Thumbnail.Tilt(max_size=(size, size), output_format='base64')
-    slices = {
-        str(i): thumb.from_array(Thumbnail.bin_array(
-            _read_tilt_image(root, tilt['rlnMicrographName']), size))
-        for i, tilt in enumerate(tilts)
-    }
+    image_size = [None, None]
+
+    def _image(array, source_px):
+        """The base64 PNG of a tilt and the Å per pixel of it."""
+        binned = Thumbnail.bin_array(array, size)
+        encoded = thumb.from_array(binned)
+        out_w = max(1, round(binned.shape[1] / (thumb.scale or 1)))
+        out_h = max(1, round(binned.shape[0] / (thumb.scale or 1)))
+        image_size[:] = [out_w, out_h]
+        return encoded, (source_px * array.shape[1] / out_w) if source_px else None
+
+    def _tilt(row, section=None):
+        tilt = {key: _finite_float(row.get(col)) for key, col in _TS_VIEWER_FIELDS.items()}
+        movie = _finite_float(row.get('rlnTomoTiltMovieIndex'))
+        tilt['movieIndex'] = None if movie is None else int(movie)
+        if coefficients := _parse_coefficients(row.get('rlnTomoDeformationCoefficients')):
+            tilt['deformation'] = coefficients
+        if section is not None:
+            tilt['section'] = section
+        return tilt
+
+    tilts, image_px = [], None
+    stack_path = _resolve_data_path(root, stack_rel) if stack_rel and stack_rel != 'None' else None
+    if stack_path and os.path.exists(stack_path):
+        with mrcfile.mmap(stack_path, permissive=True) as mrc:
+            data = mrc.data if mrc.data.ndim == 3 else mrc.data[None]
+            source_px = _mrc_pixel_size(mrc) or pixel_size
+            n = data.shape[0]
+            # The STAR row of each section: by the .tlt angles (Warp writes
+            # rlnTomoYTilt there, AreTomo the nominal angle), else by order
+            parsed = [dict(r, **{k: _finite_float(r.get(c)) for k, c in
+                                 (('_yTilt', 'rlnTomoYTilt'), ('_nominal', TILT_ANGLE_X_COL))})
+                      for r in rows]
+            matched = (_stack_section_tilts(stack_path, parsed, '_yTilt')
+                       or _stack_section_tilts(stack_path, parsed, '_nominal'))
+            if matched is None and len(rows) == n:
+                matched = rows
+            for i in range(n):
+                tilt = _tilt(matched[i] if matched else {}, section=i)
+                tilt['image'], image_px = _image(data[i], source_px)
+                tilts.append(tilt)
+    elif rows:
+        for row in rows:
+            if not row.get('rlnMicrographName'):
+                continue
+            array, source_px = _read_tilt_image(root, row['rlnMicrographName'])
+            tilt = _tilt(row)
+            tilt['image'], image_px = _image(array, source_px or pixel_size)
+            tilts.append(tilt)
+        if not tilts:
+            raise Exception(f'No tilt images (rlnMicrographName) in {star_rel}')
+    else:
+        raise Exception('Missing tilt series stack or STAR file')
+
+    def _order(t):
+        angle = t['tiltAngle'] if t['tiltAngle'] is not None else t['yTilt']
+        return (angle is None, angle or 0.0, t.get('section', 0))
+
+    tilts.sort(key=_order)
+    # The table of a per tilt series STAR is named after the tilt series
+    deformation = (_series_deformation(root, full_path, table_name, rows, image_size, image_px)
+                   if rows else None)
+    if deformation is None:
+        for t in tilts:
+            t.pop('deformation', None)
+    axis = next((a for a in (_finite_float(r.get('rlnTomoNominalTiltAxisAngle')) for r in rows)
+                 if a is not None), None)
     return {
-        'kind': 'imageSlider',
-        'title': title or star_rel,
-        'slices': slices,
-        'sliderPrefix': 'Tilt: ',
-        'sliceLabelOffset': 1,
+        'kind': 'tiltSeries',
+        'title': title or stack_rel or star_rel,
+        'tilts': tilts,
+        'imageSize': image_size,
+        # Å per pixel of the images sent, for the shifts and the ruler
+        'pixelSize': image_px,
+        'tiltAxisAngle': axis,
+        'hasAlignment': any(t['zRot'] is not None and t['shiftX'] is not None
+                            and t['shiftY'] is not None for t in tilts),
+        # Local alignment (2D deformation of each tilt), or None
+        'deformation': deformation,
     }
 
 
@@ -970,14 +1196,15 @@ def _grid_cell(title, build, *args, **kwargs):
 
 
 def build_tilt_series_grid_pane_content(root, row_cells, star_rel, row_label):
-    """2 x 2 grid for a tilt series: slices (aligned stack, else the tilt
-    images) | tilt angles (dose vs tilt angle); motion | defocus plots."""
-    if stack_rel := resolve_row_aligned_stack_path(row_cells):
-        slices = _grid_cell('Slices', build_aligned_stack_slider_pane_content,
-                            root, stack_rel)
-    elif star_rel:
-        slices = _grid_cell('Slices', build_tilt_images_slider_pane_content,
-                            root, star_rel)
+    """2 x 2 grid for a tilt series: the tilt series viewer (the stack, else
+    the tilt images, with the alignment of the STAR) | tilt angles (dose vs
+    tilt angle); motion | defocus plots."""
+    stack_rel = resolve_row_aligned_stack_path(row_cells)
+    if stack_rel or star_rel:
+        slices = _grid_cell('Slices', build_tilt_series_viewer_pane_content,
+                            root, star_rel, stack_rel,
+                            pixel_size=_finite_float(row_cells.get('tsPixelSize')
+                                                     or row_cells.get('rlnTomoTiltSeriesPixelSize')))
     else:
         slices = {'kind': 'empty', 'title': 'Slices',
                   'message': 'Missing tilt series stack or STAR file'}

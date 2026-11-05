@@ -27,3 +27,21 @@ export const WORKFLOW_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 export function normalizeWorkflowId(value: string): string {
   return String(value ?? "").trim().replace(/\.json$/i, "");
 }
+
+/**
+ * Split a fetchWorkflows result: a plain array (hosts without folders) or
+ * {workflows, folder}.
+ */
+export function unpackWorkflowsListing(data: unknown): { workflows: any[]; folder: string | null } {
+  if (Array.isArray(data)) return { workflows: data, folder: null };
+  const obj = (data ?? {}) as { workflows?: unknown; folder?: unknown };
+  return {
+    workflows: Array.isArray(obj.workflows) ? obj.workflows : [],
+    folder: typeof obj.folder === "string" && obj.folder ? obj.folder : null,
+  };
+}
+
+/** Path of a file in a workflows folder. */
+export function joinWorkflowPath(folder: string, file: string): string {
+  return `${folder.replace(/\/+$/, "")}/${file}`;
+}
