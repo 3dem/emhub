@@ -34,6 +34,7 @@ import { createStatusNodeWrapper } from "@/components/protocol/ProtocolNodeCardW
 import { ProtocolsDrawer } from "@/components/protocol/ProtocolsDrawer";
 import { ProjectWorkflowsPanel, ProjectWorkflow } from "@/components/projects/ProjectWorkflowsPanel";
 import { GraphMiniMap } from "@/components/projects/GraphMiniMap";
+import { unpackWorkflowsListing } from "@/components/projects/workflowCategories";
 import {
   readWorkflowClipboard,
   useWorkflowClipboard,
@@ -1177,6 +1178,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
   // and refreshed (in the background) every time the panel shows them
   const [workflowCategory, setWorkflowCategory] = useState<WorkflowCategory>("builtin");
   const workflowsCacheRef = useRef<Partial<Record<WorkflowCategory, ProjectWorkflow[]>>>({});
+  // Folder of each category (shown in the panel header), when the host gives it
+  const [workflowsFolder, setWorkflowsFolder] = useState<string | null>(null);
+  const workflowsFolderCacheRef = useRef<Partial<Record<WorkflowCategory, string | null>>>({});
   const workflowsRequestRef = useRef(0);
   const [miniMapEnabled, setMiniMapEnabled] = useState(true);
 
@@ -2311,11 +2315,14 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
 
     // Show the cached list while it is refreshed
     setWorkflows(cached ?? []);
+    setWorkflowsFolder(workflowsFolderCacheRef.current[category] ?? null);
     setWorkflowsError(null);
     setWorkflowsLoading(!cached);
 
     try {
-      const data = await svc.fetchWorkflows(category);
+      const { workflows: data, folder } = unpackWorkflowsListing(
+        await svc.fetchWorkflows(category),
+      );
       if (requestId !== workflowsRequestRef.current) return;
 
       const normalizeStringArray = (value: unknown): string[] => {
@@ -2360,7 +2367,9 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
         : [];
 
       workflowsCacheRef.current[category] = normalized;
+      workflowsFolderCacheRef.current[category] = folder;
       setWorkflows(normalized);
+      setWorkflowsFolder(folder);
     } catch (err: any) {
       if (requestId !== workflowsRequestRef.current) return;
       console.error("fetchWorkflows error:", err);
@@ -9232,6 +9241,7 @@ export default function ProjectPage({ projectName }: ProjectPageProps) {
             category={workflowCategory}
             onCategoryChange={handleWorkflowCategoryChange}
             workflows={workflows}
+            folder={workflowsFolder}
             loading={workflowsLoading}
             errorMessage={workflowsError}
             projectId={Number(project?.id)}

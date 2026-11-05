@@ -15,6 +15,8 @@ import type { WorkflowCategory } from "@/services/ProjectService";
 
 import { WORKFLOW_CATEGORIES, getWorkflowCategoryInfo } from "./workflowCategories";
 
+import { WorkflowsHeader } from "./WorkflowsHeader";
+
 import styles from "./ProjectWorkflowsPanel.module.css";
 
 export interface ProjectWorkflow {
@@ -40,6 +42,8 @@ interface ProjectWorkflowsPanelProps {
   category: WorkflowCategory;
   onCategoryChange: (category: WorkflowCategory) => void;
   workflows: ProjectWorkflow[];
+  /** Folder the workflows of the category are read from (when the host knows it). */
+  folder?: string | null;
   loading?: boolean;
   errorMessage?: string | null;
   onRetry?: () => void;
@@ -122,6 +126,7 @@ export function ProjectWorkflowsPanel({
   category,
   onCategoryChange,
   workflows,
+  folder = null,
   loading = false,
   errorMessage = null,
   onRetry,
@@ -183,63 +188,21 @@ export function ProjectWorkflowsPanel({
       <div className={styles.host}>
         <div className={shellClassName} aria-hidden={!open}>
           <div className={styles.panel}>
-            <div className={styles.header}>
-              <div className={styles.headerLeft}>
-                <span className={styles.headerTitle}>Workflows</span>
-                <span className={styles.headerSubtitle}>
-                  Load predefined templates into the current project.
-                </span>
-                <div className={styles.categoryRow}>
-                  <div className={styles.categoryTabs} role="tablist" aria-label="Workflow category">
-                    {WORKFLOW_CATEGORIES.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={c.id === category}
-                        title={c.hint}
-                        className={[
-                          styles.categoryTab,
-                          c.id === category ? styles.categoryTabActive : "",
-                        ].join(" ")}
-                        onClick={() => {
-                          if (c.id !== category) {
-                            setSearchQuery("");
-                            onCategoryChange(c.id);
-                          }
-                        }}
-                      >
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-                  {onRetry ? (
-                    <button
-                      type="button"
-                      className={styles.categoryRefresh}
-                      onClick={onRetry}
-                      disabled={loading}
-                      title="Reload the list"
-                      aria-label="Reload the workflows list"
-                    >
-                      <RefreshCw className={styles.categoryRefreshIcon} />
-                    </button>
-                  ) : null}
-                  <span className={styles.categoryHint}>
-                    {getWorkflowCategoryInfo(category).hint}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className={styles.closeButton}
-                aria-label="Close workflows panel"
-              >
-                <X className={styles.closeIcon} />
-              </button>
-            </div>
+            <WorkflowsHeader
+              title="Workflows"
+              subtitle="Load predefined templates into the current project."
+              path={folder}
+              categories={WORKFLOW_CATEGORIES}
+              category={category}
+              onCategoryChange={(next) => {
+                setSearchQuery("");
+                onCategoryChange(next);
+              }}
+              onRefresh={onRetry}
+              loading={loading}
+              onClose={onClose}
+              closeLabel="Close workflows panel"
+            />
 
             <div className={styles.content}>
               {loading ? (

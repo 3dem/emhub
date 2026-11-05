@@ -258,6 +258,13 @@ const listFakeWorkflows = (category = "builtin") => {
     .sort((a, b) => a.id.localeCompare(b.id));
 };
 
+// Folders of the categories, as EMhub returns them with the list
+const fakeWorkflowsFolder = (category = "builtin") => ({
+  builtin: "/opt/emwrap/config/workflows",
+  site: "/data/emhub/instance/workflows",
+  project: `${fakeProjectPath()}/.emhub/workflows`,
+})[category] ?? null;
+
 // ?project=<name> opens the fake project as another project (same data,
 // another path), to paste protocols copied in a tab without it
 const fakeProjectPath = () => {
@@ -297,7 +304,7 @@ export function createFakeService() {
     fetchWorkflows: async (category) => {
       log("fetchWorkflows", category);
       await new Promise((r) => setTimeout(r, 150));
-      return listFakeWorkflows(category);
+      return { workflows: listFakeWorkflows(category), folder: fakeWorkflowsFolder(category) };
     },
     // Only checks that the workflow exists: no protocols are created
     loadWorkflow: async (projectId, info) => {

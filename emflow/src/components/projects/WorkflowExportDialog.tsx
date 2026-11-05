@@ -10,8 +10,6 @@ import {
   DialogContentText,
   DialogTitle,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
 } from "@mui/material";
 import { FileText } from "lucide-react";
 
@@ -26,8 +24,11 @@ import {
   WORKFLOW_ID_PATTERN,
   WRITABLE_WORKFLOW_CATEGORIES,
   getWorkflowCategoryInfo,
+  joinWorkflowPath,
   normalizeWorkflowId,
+  unpackWorkflowsListing,
 } from "./workflowCategories";
+import { WorkflowsHeader } from "./WorkflowsHeader";
 import styles from "./WorkflowExportDialog.module.css";
 
 type ExistingWorkflow = {
@@ -75,6 +76,8 @@ export function WorkflowExportDialog({
   const [workflows, setWorkflows] = useState<ExistingWorkflow[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  // Folder of the category, where the workflow is saved (when the host gives it)
+  const [folder, setFolder] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const [filename, setFilename] = useState("");
@@ -92,8 +95,11 @@ export function WorkflowExportDialog({
     setListLoading(true);
     setListError(null);
     try {
-      const data = await svc.fetchWorkflows(cat);
+      const { workflows: data, folder: catFolder } = unpackWorkflowsListing(
+        await svc.fetchWorkflows(cat),
+      );
       if (requestId !== requestRef.current) return;
+      setFolder(catFolder);
       const list: ExistingWorkflow[] = Array.isArray(data)
         ? data
           .filter((wf: any) => !wf?.category || wf.category === cat)
@@ -113,6 +119,7 @@ export function WorkflowExportDialog({
     } catch (e) {
       if (requestId !== requestRef.current) return;
       setWorkflows([]);
+      setFolder(null);
       setListError(errorMessage(e, "Failed to list the workflows."));
     } finally {
       if (requestId === requestRef.current) setListLoading(false);
@@ -141,9 +148,10 @@ export function WorkflowExportDialog({
     setSaveError(null);
   };
 
-  const handleCategoryChange = (next: WritableWorkflowCategory | null) => {
-    if (!next || next === category || busy) return;
+  const handleCategoryChange = (next: WritableWorkflowCategory) => {
+    if (next === category || busy) return;
     setCategory(next);
+    setFolder(null);
     // The form may hold a workflow of the previous category
     clearForm();
     void loadList(next);
@@ -206,6 +214,10 @@ export function WorkflowExportDialog({
   };
 
   const categoryInfo = getWorkflowCategoryInfo(category);
+  // File the workflow is saved to (the folder until the name is valid)
+  const savePath = folder
+    ? joinWorkflowPath(folder, filenameValid ? `${workflowId}.json` : "")
+    : null;
   const protocolsText = protocolIds.length === 1 ? "1 protocol" : `${protocolIds.length} protocols`;
 
   return (
@@ -215,30 +227,24 @@ export function WorkflowExportDialog({
         onClose={busy ? undefined : onClose}
         maxWidth="md"
         fullWidth
+        slotProps={{ paper: { sx: { borderRadius: "16px", overflow: "hidden" } } }}
       >
-        <DialogTitle className={styles.title}>
-          <span>Export workflow</span>
-          <span className={styles.subtitle}>Save {protocolsText} as a reusable workflow.</span>
-        </DialogTitle>
+        <WorkflowsHeader
+          title="Export workflow"
+          subtitle={`Save ${protocolsText} as a reusable workflow.`}
+          path={savePath}
+          pathLabel="Save to"
+          categories={WRITABLE_WORKFLOW_CATEGORIES}
+          category={category}
+          onCategoryChange={handleCategoryChange}
+          onRefresh={() => void loadList(category)}
+          loading={listLoading}
+          disabled={busy}
+          onClose={onClose}
+          closeLabel="Close export dialog"
+        />
 
-        <DialogContent dividers className={styles.content}>
-          <div className={styles.categoryRow}>
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={category}
-              onChange={(_e, v) => handleCategoryChange(v)}
-              aria-label="Save to"
-            >
-              {WRITABLE_WORKFLOW_CATEGORIES.map((c) => (
-                <ToggleButton key={c.id} value={c.id} sx={{ textTransform: "none", px: 2 }}>
-                  {c.label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            <span className={styles.categoryHint}>{categoryInfo.hint}</span>
-          </div>
-
+        <DialogContent className={styles.content}>
           <div className={styles.columns}>
             <div className={styles.listPane}>
               <div className={styles.paneLabel}>

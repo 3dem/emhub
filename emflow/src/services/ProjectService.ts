@@ -520,6 +520,17 @@ export type WorkflowDescriptor = {
   parseError?: string | null;
 };
 
+/**
+ * fetchWorkflows result of the hosts that know where the workflows of the
+ * category are stored: `folder` is shown in the workflows panel and the
+ * export dialog (a plain array is still accepted).
+ */
+export type WorkflowsListing = {
+  workflows: WorkflowDescriptor[];
+  /** Absolute folder the workflows are read from and saved to. */
+  folder?: string | null;
+};
+
 export type SaveWorkflowPayload = {
   /** Protocols (jobs) to save as the workflow, in order. */
   protocolIds: Id[];
@@ -1126,7 +1137,7 @@ export interface ProjectService<
   * List predefined workflows / pipelines available for a project, of the
   * given category (default "builtin"). Hosts without categories ignore it.
   */
-  fetchWorkflows(category?: WorkflowCategory): Promise<WorkflowDescriptor[] | any>;
+  fetchWorkflows(category?: WorkflowCategory): Promise<WorkflowDescriptor[] | WorkflowsListing | any>;
 
   /**
   * Save the given protocols as a workflow of the site or the project

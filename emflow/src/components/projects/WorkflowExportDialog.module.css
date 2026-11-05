@@ -1,42 +1,21 @@
-.title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.subtitle {
-  font-size: 13px;
-  font-weight: 400;
-  color: #64748b;
-}
-
 .content {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.categoryRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.categoryHint {
-  font-size: 12px;
-  color: #64748b;
+  /* Below the dark header (WorkflowsHeader) */
+  padding-top: 16px !important;
 }
 
 /* The list (left) and the description (right) both stretch to the bottom
    of the columns, so they end on the same line. 400px when the window
    allows it, shorter in small windows so the dialog never scrolls: the rest
-   of the dialog (title, category row, actions, paddings) and MUI's 32px
-   margins take ~290px of the window height */
+   of the dialog (header with the path and tabs, actions, paddings) and
+   MUI's 32px margins take ~300px of the window height */
 .columns {
   display: grid;
   grid-template-columns: minmax(220px, 2fr) 3fr;
   gap: 16px;
-  height: clamp(240px, calc(100vh - 290px), 400px);
+  height: clamp(240px, calc(100vh - 300px), 400px);
 }
 
 .listPane {
