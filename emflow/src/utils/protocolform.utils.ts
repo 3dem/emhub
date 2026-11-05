@@ -188,6 +188,34 @@ export function normalizeEnumOptions(choicesRaw: any): EnumOption[] {
   return [];
 }
 
+export function orderEnumOptions(options: EnumOption[], orderRaw: any): EnumOption[] {
+  if (orderRaw === undefined) return options;
+  if (!Array.isArray(orderRaw)) {
+    throw new Error("Enum order must be a list of choice keys");
+  }
+
+  const optionsByValue = new Map<string, EnumOption>();
+  for (const option of options) optionsByValue.set(option.value, option);
+  const orderedValues = new Set<string>();
+  const orderedOptions: EnumOption[] = [];
+  for (const value of orderRaw) {
+    if (typeof value !== "string") {
+      throw new Error(`Enum order contains an unknown choice key: ${String(value)}`);
+    }
+    if (orderedValues.has(value)) {
+      throw new Error(`Enum order contains duplicate choice key: ${value}`);
+    }
+    const option = optionsByValue.get(value);
+    if (!option) {
+      throw new Error(`Enum order contains an unknown choice key: ${value}`);
+    }
+    orderedValues.add(value);
+    orderedOptions.push(option);
+  }
+
+  return [...orderedOptions, ...options.filter((option) => !orderedValues.has(option.value))];
+}
+
 export function normalizeEnumSelection(raw: any, choicesRaw: any, fallbackRaw: any): string {
   const options = normalizeEnumOptions(choicesRaw);
   if (options.length === 0) return String(parseFromJSONValue(raw) ?? fallbackRaw ?? "");

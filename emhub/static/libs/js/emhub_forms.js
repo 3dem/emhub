@@ -531,7 +531,30 @@ function createOrUpdateSession(session_params){
                       }
                     }
                 }
-
+                if (Object.prototype.hasOwnProperty.call(param, 'order')) {
+                    if (!Array.isArray(param.order)) {
+                        throw new Error(`Enum '${param.name}' order must be a list of choice keys`);
+                    }
+                    let orderedValues = [];
+                    for (const value of param.order) {
+                      if (typeof value !== 'string' || !values.includes(value)) {
+                          throw new Error(`Enum '${param.name}' order contains an unknown choice key: ${value}`);
+                      }
+                      if (orderedValues.includes(value)) {
+                          throw new Error(`Enum '${param.name}' order contains duplicate choice key: ${value}`);
+                      }
+                      orderedValues.push(value);
+                    }
+                    for (const value of values) {
+                      if (!orderedValues.includes(value)) orderedValues.push(value);
+                    }
+                    const orderedOptions = orderedValues.map(value => {
+                      const index = values.indexOf(value);
+                      return {value: values[index], label: labels[index]};
+                    });
+                    values = orderedOptions.map(option => option.value);
+                    labels = orderedOptions.map(option => option.label);
+                }
                 var div = document.createElement('div');
                 div.className = 'col-8 form-group';
 
