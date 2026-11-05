@@ -34,7 +34,9 @@ export default function AlignmentPlot({ tilts, hasAlignment, metrics, cur, width
   const dark = theme === "dark";
   const xs = useMemo(() => tilts.map((t, i) => t.tiltAngle ?? t.yTilt ?? i + 1), [tilts]);
   const xTitle = tilts.some((t) => t.tiltAngle != null || t.yTilt != null) ? "Tilt angle (°)" : "Tilt";
-  const metricViews = VIEWS.filter((v) => metrics?.[v]);
+  // Only views with a value: a panel of nulls is an empty axis at Plotly's
+  // default range (-1 to 4)
+  const metricViews = VIEWS.filter((v) => metrics?.[v]?.some((c) => c != null && Number.isFinite(c)));
 
   const data = useMemo(() => {
     const text = tilts.map(tiltLabel);

@@ -55,7 +55,10 @@ export default function useNeighbourCorrelation({ ready, n, views, greyAt, geom,
         for (let i = 0; i < n; i++) {
           if (!live) return;
           const grey = greyAt(i);
-          if (!grey) { prepared.push(null); continue; }
+          // Every image must be in (ready); one missing means they are not
+          // the images of this run (another tilt series): no result, rather
+          // than a result of nulls that is never measured again
+          if (!grey) return;
           const g = v === "raw" ? scaleGrey(grey, geom.w, geom.h, scale)
             : warpTilt(grey, geom, tilts[i], VIEW_APPLY[v], theta0, scale, 6);
           prepared.push(prepareForCorrelation(g, pxMetric));

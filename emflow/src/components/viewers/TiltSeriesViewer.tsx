@@ -74,6 +74,10 @@ const RULER_COLOR = "#f97316";
 const FIELD_COLOR = VIEW_COLOR.both;
 const DEG = Math.PI / 180;
 
+/** One empty list, so `tilts` keeps its identity without tilts (the images
+ * effect depends on it). */
+const NO_TILTS: TiltSeriesTilt[] = [];
+
 /** The choices of the last viewer, for the next tilt series (another row,
  * or a viewer mounted anew by the host, e.g. the OTF dashboard). */
 const remembered = {
@@ -113,7 +117,7 @@ export default function TiltSeriesViewer({
   expandable?: boolean;
 }) {
   const loader = useDataLoader();
-  const tilts = content.tilts ?? [];
+  const tilts = content.tilts ?? NO_TILTS;
   const n = tilts.length;
   const [w, h] = content.imageSize ?? [512, 512];
   const px = content.pixelSize && content.pixelSize > 0 ? content.pixelSize : null;
@@ -240,11 +244,16 @@ export default function TiltSeriesViewer({
   const images = useRef(new Map<number, HTMLImageElement>());
   const greys = useRef(new Map<number, Float32Array>());
   const warped = useRef(new Map<string, HTMLCanvasElement>());
-  const [loaded, setLoaded] = useState(0);
+  // The images loaded, counted per tilt series: a count kept from the
+  // previous one (the viewer stays mounted for another row of the grid)
+  // made the correlation start before the images were in, all null
+  const [loadState, setLoadState] = useState({ tilts, count: 0 });
+  const loaded = loadState.tilts === tilts ? loadState.count : 0;
   useEffect(() => {
     images.current = new Map();
     greys.current = new Map();
     warped.current = new Map();
+    setLoadState({ tilts, count: 0 });
     let live = true;
     // The current tilt first, then the others for playing
     const order = [cur, ...tilts.map((_, i) => i).filter((i) => i !== cur)];
@@ -252,7 +261,7 @@ export default function TiltSeriesViewer({
       loader.image(tilts[i].image).then((img) => {
         if (!live) return;
         images.current.set(i, img);
-        setLoaded((v) => v + 1);
+        setLoadState((s) => (s.tilts === tilts ? { tilts, count: s.count + 1 } : s));
       }, () => undefined);
     });
     return () => { live = false; };
