@@ -407,6 +407,9 @@ class RelionSessionData(SessionData):
 
     def get_run(self, runId):
         wf = self.project.get_workflow()
+        # Job ids have no trailing slash, but Relion-style ids
+        # (e.g. 'MotionCorr/job002/') are commonly used
+        runId = runId.rstrip('/') if runId else runId
         if job := wf.getJob(runId, None):
             return RelionRun(self, self.join(runId), job, data=runId)
         else:

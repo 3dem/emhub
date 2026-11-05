@@ -649,6 +649,8 @@ def get_session_run():
     def _get_run(**attrs):
         pp, pm = get_project_manager(**attrs)
         run = pp['run']
+        if run is None and not attrs.get('job_type'):
+            raise Exception(f"Job not found: {attrs.get('run_id')}")
         jobtype = run.jobtype if run else attrs['job_type']
         outputs = attrs.get('output', ['json'])
         results = {}
@@ -1385,7 +1387,9 @@ def load_workflow():
 
         workflow_id = attrs.get('workflow_id')
         category = attrs.get('category') or workflow_store.BUILTIN
-        external_inputs = attrs.get('external_inputs') or 'keep'
+        # Job ids of templates and exported files come from other projects:
+        # clear their references to jobs that are not in the workflow
+        external_inputs = attrs.get('external_inputs') or 'clear'
         if workflow := attrs.get('workflow'):
             # Jobs copied from a project (/api/get_workflow_jobs), pasted here
             if not isinstance(workflow, dict) or not isinstance(workflow.get('jobs'), list):
@@ -1566,11 +1570,15 @@ def export_workflow():
         output_path = attrs['output_path']
         if not output_path.endswith('.json'):
             raise Exception(f"Expecting a .json output file: {output_path}")
-        workflow_file = pm.exportWorkflow(attrs['run_ids'], output_path)
+        cleared = []
+        workflow_file = pm.exportWorkflow(attrs['run_ids'], output_path,
+                                          cleared=cleared)
         return {
             'protocols': pp['project'].get_workflow(widget=True),
             'workflow_file': os.path.basename(workflow_file),
             'exported_jobs': len(attrs['run_ids']),
+            # Params referencing jobs that were not exported
+            'cleared_inputs': cleared,
         }
 
     return handle_workflow(_export_workflow, edit=True)
@@ -1634,7 +1642,9 @@ def save_workflow():
 
         # Let emwrap build the jobs list, then add the name and description
         os.makedirs(folder, exist_ok=True)
-        tmp = pm.exportWorkflow(run_ids, path + '.jobs', in_project=False)
+        cleared = []
+        tmp = pm.exportWorkflow(run_ids, path + '.jobs', in_project=False,
+                                cleared=cleared)
         try:
             with open(tmp) as f:
                 jobs = json.load(f).get('jobs', [])
@@ -1653,6 +1663,8 @@ def save_workflow():
             'file': os.path.basename(path),
             'category': category,
             'jobs': len(jobs),
+            # Params referencing jobs that were not saved
+            'cleared_inputs': cleared,
         }
 
     def _handle(**attrs):

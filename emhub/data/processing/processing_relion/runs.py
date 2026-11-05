@@ -95,6 +95,12 @@ class RelionRun(SessionRun):
         return self.join('run.err')
 
     def getInputsOutputs(self):
+        """ Inputs and outputs of the job: the ids of its nodes in the
+        workflow graph (e.g. 'External/job010/mask.mrc'), unless the
+        pipeline described them in info.json (dicts with label, info and
+        files). Most emwrap pipelines write empty 'inputs' and 'outputs'
+        there, so the graph is used then. Use RelionRun.ioFiles to get the
+        files of an item of either kind. """
         if self._ios is None:
             ios = {'inputs': [], 'outputs': []}
 
@@ -106,8 +112,14 @@ class RelionRun(SessionRun):
 
             info = ProcessingPipeline.readJobInfo(infoJson, default={})
             for k in ['inputs', 'outputs']:
-                if k in info:
-                    ios[k] = [e for e in info[k].values()]
+                entries = info.get(k)
+                # Only entries describing the data, other pipelines store
+                # plain values (e.g. tilt analysis {'type': ..., 'star': ...})
+                entries = [e for e in (entries.values()
+                                       if isinstance(entries, dict) else [])
+                           if isinstance(e, dict)]
+                if entries:
+                    ios[k] = entries
             # elif os.path.exists(jobPipeline):
             #     with StarFile(jobPipeline) as sf:
             #         tables = sf.getTableNames()
@@ -121,13 +133,22 @@ class RelionRun(SessionRun):
 
         return self._ios
 
+    @staticmethod
+    def ioFiles(item):
+        """ Files (relative to the project) of an input or output returned
+        by getInputsOutputs: a graph node id or an info.json entry. """
+        if isinstance(item, str):
+            return [item]
+        return [f[0] if isinstance(f, (list, tuple)) else f
+                for f in item.get('files') or []]
+
     def _getOutputMics(self):
         """ Find if there are micrographs (with/without CTF) in outputs. """
         mics = micsCtf = None
-        
+
         for o in self.getInputsOutputs()['outputs']:
-            if files := o.get('files', []):
-                f = files[0][0]
+            if files := self.ioFiles(o):
+                f = files[0]
                 if f.endswith('micrographs_ctf.star'):
                     micsCtf = self.project.join(f)
                 elif f.endswith('micrographs.star'):
@@ -189,8 +210,9 @@ class RelionRun(SessionRun):
             if iterFile:
                 data['iter_file'] = iterFile
                 ios = self.getInputsOutputs()
-                inputParticles = [self.project.join(i) for i in ios['inputs']
-                                  if i.endswith('.star')][0]
+                inputParticles = [self.project.join(f) for i in ios['inputs']
+                                  for f in self.ioFiles(i)
+                                  if f.endswith('.star')][0]
                 with StarFile(inputParticles) as sf:
                     nParticles = sf.getTableSize('particles')
 
@@ -335,7 +357,9 @@ class RelionRun(SessionRun):
             data = _load_micrograph_data(mics)
         elif self.className in ['autopick', 'manualpick']:
             coordStar = self.join(f'{self.className}.star')
-            for i in self.getInputsOutputs()['inputs']:
+            inputFiles = [f for i in self.getInputsOutputs()['inputs']
+                          for f in self.ioFiles(i)]
+            for i in inputFiles:
                 iBase = os.path.basename(i)
                 if iBase.startswith('micrographs'):
                     data = _load_micrograph_data(p.join(i))
