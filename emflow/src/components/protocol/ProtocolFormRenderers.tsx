@@ -21,6 +21,7 @@ import {
   coerceBooleanValue,
   coerceReadOnlyFlag,
   normalizeEnumOptions,
+  orderEnumOptions,
   normalizeEnumSelection,
 } from "@/utils/protocolform.utils";
 
@@ -272,7 +273,7 @@ export function renderEnumParamRow({
   def,
   value,
 }: EnumRendererProps): JSX.Element | null {
-  const options = normalizeEnumOptions(def.choices);
+  const options = orderEnumOptions(normalizeEnumOptions(def.choices), def.order);
   if (options.length === 0) return null;
 
   const safeSel = normalizeEnumSelection(value ?? def.default ?? "", def.choices, def.default);
