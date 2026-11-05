@@ -15,6 +15,24 @@
 
             <a class="mb-0" href="{{ url }}" style="min-width: 0; overflow-wrap: anywhere"><h5>{{ tp['title'] }}</h5></a>
             <div class="ml-auto pl-2 d-flex flex-nowrap flex-shrink-0">
+                <div class="dropdown mr-2">
+                    <a href="#" data-toggle="dropdown" title="Workspaces of the project"><i class="fas fa-folder"></i></a>
+                    <div class="dropdown-menu dropdown-menu-right ws-menu px-3">
+                        {% if workspaces %}
+                            <h6 class="dropdown-header px-0">Workspaces</h6>
+                            {% for w in workspaces %}
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input ws-check"
+                                       id="ws-{{ tp['id'] }}-{{ w['id'] }}" value="{{ w['id'] }}"
+                                       {% if w['id'] in tp['workspace_ids'] %}checked{% endif %}>
+                                <label class="custom-control-label text-nowrap" for="ws-{{ tp['id'] }}-{{ w['id'] }}">{{ w['name'] }}</label>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted small text-nowrap">No workspaces yet</span>
+                        {% endif %}
+                    </div>
+                </div>
                 <a href="javascript:showEntryForm({{ tp['id'] }}, {{ tp['project_id'] }})" class="mr-2"
                    title="Edit project"><i class="fas fa-edit"></i></a>
                 <a href="javascript:deleteTomoProject({{ tp['id'] }}, '{{ tp['title'] }}')" class="mr-2"
@@ -34,25 +52,6 @@
             <a href="{{ url_for_content('tomo_otf_dashboard', entry_id=tp['id']) }}"
                class="btn btn-sm btn-outline-primary py-0 mr-2">
                 <i class="fas fa-chart-line mr-1"></i>Dashboard</a>
-            <div class="dropdown ml-auto">
-                <a href="#" class="btn btn-sm btn-outline-primary py-0" data-toggle="dropdown">
-                    <i class="fas fa-folder mr-1"></i>Workspace</a>
-                <div class="dropdown-menu dropdown-menu-right ws-menu px-3">
-                    {% if workspaces %}
-                        <h6 class="dropdown-header px-0">Workspaces</h6>
-                        {% for w in workspaces %}
-                        <div class="custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input ws-check"
-                                   id="ws-{{ tp['id'] }}-{{ w['id'] }}" value="{{ w['id'] }}"
-                                   {% if w['id'] in tp['workspace_ids'] %}checked{% endif %}>
-                            <label class="custom-control-label text-nowrap" for="ws-{{ tp['id'] }}-{{ w['id'] }}">{{ w['name'] }}</label>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <span class="text-muted small text-nowrap">No workspaces yet</span>
-                    {% endif %}
-                </div>
-            </div>
         </div>
 
     </div>
