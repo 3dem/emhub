@@ -11,6 +11,7 @@ import os
 import re
 
 from emwrap.base import ProcessingConfig
+from emwrap.base import workflow_refs
 
 from emhub.data.processing.processing_relion.project import RelionSessionData
 
@@ -26,35 +27,9 @@ def get_job_form_definition(job_type, job_values=None):
     )
 
 
-def _param_references_job(param_value, job_id):
-    """Return True when a param value points at a job folder or its outputs."""
-    if not isinstance(param_value, str):
-        return False
-    return param_value == job_id or param_value.startswith(f'{job_id}/')
-
-
-def _build_job_graph(jobs):
-    """Infer parent/child links from parameter references between job ids."""
-    job_dict = {}
-    for entry in jobs:
-        job_id = entry['jobid']
-        job_dict[job_id] = {
-            'entry': entry,
-            'parents': set(),
-            'children': set(),
-        }
-
-    for job_id, job_info in job_dict.items():
-        params = job_info['entry'].get('params') or {}
-        for value in params.values():
-            if not isinstance(value, str):
-                continue
-            for other_id in job_dict:
-                if other_id != job_id and _param_references_job(value, other_id):
-                    job_info['parents'].add(other_id)
-                    job_dict[other_id]['children'].add(job_id)
-
-    return job_dict
+def _jobs_dict(jobs):
+    """ Return the {job_id: entry} of workflow file jobs, in their order. """
+    return {workflow_refs.normalize_id(e['jobid']): e for e in jobs}
 
 
 def _next_job_id(jobs, folder='External'):
@@ -88,12 +63,13 @@ def _protocol_template(job_id, job_type, parents, children, label=None):
 
 def jobs_to_protocols(jobs):
     """Convert workflow file jobs to the structure expected by the project widget."""
-    graph = _build_job_graph(jobs)
+    job_dict = _jobs_dict(jobs)
+    graph = workflow_refs.build_graph(job_dict)
     root = _protocol_template('PROJECT', 'PROJECT', [], [], label='')
     protocols = {'PROJECT': root}
 
     for job_id, job_info in graph.items():
-        entry = job_info['entry']
+        entry = job_dict[job_id]
         parents = list(job_info['parents'])
         children = list(job_info['children'])
         if not parents:
@@ -148,66 +124,22 @@ class WorkflowEditor:
         self._ensure_jobs()
         return _next_job_id(self.jobs, folder=folder)
 
-    @staticmethod
-    def _remap_param_value(value, parents, id_map):
-        if not isinstance(value, str):
-            return value
-        for parent_id in sorted(parents, key=len, reverse=True):
-            if _param_references_job(value, parent_id):
-                if parent_id in id_map:
-                    return value.replace(parent_id, id_map[parent_id], 1)
-                return ''
-        return value
+    def _append_job(self, job_id, job_type, params):
+        """ Append a new job entry, numbered after the existing ones of the
+        same folder as job_id, and return its id. """
+        match = _JOB_ID_RE.match(job_id)
+        new_id = self._next_job_id(match.group('folder') if match else 'External')
+        self.jobs.append({'jobid': new_id, 'jobtype': job_type, 'params': params})
+        return new_id
 
-    def _instanciate_job_entries(self, job_dict):
+    def _instanciate_job_entries(self, job_dict, external_inputs='keep'):
         """
-        Create new job entries with incrementing ids and remapped dependencies.
-        Mirrors ProjectManager._instanciateJobs.
+        Create new job entries with incrementing ids and remapped dependencies
+        (see workflow_refs.instantiate, also used by ProjectManager).
         """
         self._ensure_jobs()
-
-        for job_id, job_info in job_dict.items():
-            for key, value in (job_info.get('params') or {}).items():
-                for other_id in job_dict:
-                    if other_id != job_id and _param_references_job(value, other_id):
-                        job_info['parents'].add(other_id)
-                        job_dict[other_id]['children'].add(job_id)
-
-        remaining = set(job_dict.keys())
-        id_map = {}
-
-        while remaining:
-            ready = [
-                job_id for job_id in remaining
-                if job_dict[job_id]['parents'].issubset(id_map)
-            ]
-            if not ready:
-                raise Exception(
-                    "Workflow job dependency cycle or missing parent references."
-                )
-
-            for job_id in ready:
-                job_info = job_dict[job_id]
-                folder = 'External'
-                match = _JOB_ID_RE.match(job_id)
-                if match:
-                    folder = match.group('folder')
-
-                new_id = self._next_job_id(folder)
-                new_params = {
-                    key: self._remap_param_value(value, job_info['parents'], id_map)
-                    for key, value in job_info['params'].items()
-                }
-                entry = {
-                    'jobid': new_id,
-                    'jobtype': job_info['jobtype'],
-                    'params': new_params,
-                }
-                self.jobs.append(entry)
-                id_map[job_id] = new_id
-                remaining.remove(job_id)
-
-        return id_map
+        return workflow_refs.instantiate(job_dict, self._append_job,
+                                         external_inputs=external_inputs)
 
     def duplicate_jobs(self, job_ids):
         """Duplicate jobs preserving intra-selection dependencies."""
@@ -217,12 +149,10 @@ class WorkflowEditor:
             entry = self._find_job(raw_id)
             if not entry:
                 continue
-            job_id = str(entry['jobid'])
+            job_id = workflow_refs.normalize_id(entry['jobid'])
             job_dict[job_id] = {
                 'jobtype': entry['jobtype'],
                 'params': copy.deepcopy(entry.get('params', {})),
-                'parents': set(),
-                'children': set(),
             }
 
         id_map = {}
@@ -240,16 +170,16 @@ class WorkflowEditor:
         self._ensure_jobs()
         template = ProcessingConfig.get_workflow(template_workflow_id)
         job_dict = {
-            str(entry['jobid']): {
+            workflow_refs.normalize_id(entry['jobid']): {
                 'jobtype': entry['jobtype'],
                 'params': copy.deepcopy(entry.get('params', {})),
-                'parents': set(),
-                'children': set(),
             }
             for entry in template.get('jobs', [])
         }
+        # References to jobs that are not in the loaded template would
+        # point at unrelated jobs of this one: clear them
         if job_dict:
-            self._instanciate_job_entries(job_dict)
+            self._instanciate_job_entries(job_dict, external_inputs='clear')
         return jobs_to_protocols(self.jobs)
 
     def get_widget_data(self):

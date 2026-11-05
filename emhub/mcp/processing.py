@@ -250,7 +250,7 @@ def register_tools(mcp, client, allow_admin=False):
                                 entry_id: Optional[int] = None,
                                 path: Optional[str] = None) -> list[dict]:
         """ Get the jobs of a processing project and how they connect.
-        Each job has an 'id' (e.g. 'MotionCorr/job002/', used as run_id by
+        Each job has an 'id' (e.g. 'MotionCorr/job002', used as run_id by
         the other tools), a 'label' (job alias and elapsed time), 'status'
         (e.g. 'launched', 'running', 'finished', 'failed', 'aborted',
         'scheduled', 'saved'), 'type' (job type) and 'links' (ids of the
@@ -715,8 +715,10 @@ def register_tools(mcp, client, allow_admin=False):
             session_id, entry_id, path: Project selector, provide one.
 
         Returns:
-            The written file (relative to the project root) and the
-            number of exported jobs.
+            The written file (relative to the project root), the
+            number of exported jobs and 'cleared_inputs': the params
+            referencing jobs that were not exported, cleared in the file
+            (their job ids would mean other jobs where it is loaded).
         """
         sel = _project_selector(session_id, entry_id, path)
         if not run_ids:
@@ -915,8 +917,10 @@ def register_tools(mcp, client, allow_admin=False):
             session_id, entry_id, path: Project selector, provide one.
 
         Returns:
-            The number of created jobs and 'id_map', the new job id of
-            each job of the workflow.
+            The number of created jobs, 'id_map', the new job id of
+            each job of the workflow, and 'cleared_inputs': the params
+            referencing jobs that are not in the workflow, left empty to
+            be set by the user (e.g. the input from a previous workflow).
         """
         if (workflow_id is None) == (workflow_file is None):
             raise EmhubMcpError("Provide exactly one of 'workflow_id' or "
