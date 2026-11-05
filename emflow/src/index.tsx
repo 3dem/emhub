@@ -19,6 +19,7 @@ import VolumeViewer from "./components/viewers/VolumeViewer";
 import Plot from "./components/viewers/Plot";
 import ImageSlider from "./components/viewers/ImageSlider";
 import TableViewerContent from "./components/viewers/TableViewerContent";
+import TiltSeriesViewer from "./components/viewers/TiltSeriesViewer";
 import TableViewerGrid from "./components/viewers/TableViewerGrid";
 import { mountComponent, type MountableComponent, type MountOptions, type Mounted } from "./widget/mount";
 import { ROOT_CLASS } from "./widget/constants";
@@ -56,6 +57,8 @@ const COMPONENTS: Record<string, MountableComponent> = {
   VolumeViewer: { component: VolumeViewer },
   Plot: { component: Plot },
   ImageSlider: { component: ImageSlider },
+  /** A tilt series pane ({kind: "tiltSeries"}, prop content) with its alignment. */
+  TiltSeriesViewer: { component: TiltSeriesViewer },
   /** Any table-viewer pane content ({kind: "imageSlider" | "plotly" | "text" ...}). */
   TableViewerContent: { component: TableViewerContent },
   /** A grid pane ({kind: "grid", layout, cells}), filling the container. */

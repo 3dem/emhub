@@ -1,0 +1,144 @@
+/* TiltSeriesViewer. The toolbar and its buttons are VolumeViewer's
+   (VolumeViewer.module.css), so both viewers look the same; the --vv-*
+   variables they use are set here too. Colors come from the theme tokens. */
+.root {
+  --vv-accent: #1f77b4;
+  --vv-muted: var(--muted-foreground);
+  --vv-border: var(--border);
+  --vv-surface: var(--muted);
+  --ts-apply: #16a34a;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--foreground);
+  outline: none;
+}
+
+/* Fit to the container (grid cell, right pane): the image takes the room
+   left by the toolbar, slider, info line and plot */
+.fit {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Expanded: over the whole browser window, above the host page and dialogs
+   (as VolumeViewer's), fitted to it (with .fit) */
+.full {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  height: auto;
+  padding: 12px 16px;
+  background: var(--background);
+}
+
+/* The expand button, at the end of the toolbar */
+.expand {
+  margin-left: auto;
+}
+
+.view {
+  position: relative;
+  min-height: 120px;
+  background: #000;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.fit .view {
+  flex: 1;
+  min-height: 80px;
+}
+
+.view canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.sliderRow select {
+  font-size: 0.75rem;
+  padding: 1px 2px;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.playBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.playBtn:hover {
+  background: var(--vv-surface);
+}
+
+.label {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.info {
+  font-size: 0.75rem;
+  color: var(--vv-muted);
+  line-height: 1.35;
+  min-height: 1.35em;
+}
+
+.info b {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.warn {
+  font-size: 0.75rem;
+  color: #c2410c;
+}
+
+.plot {
+  flex: none;
+  margin-top: 4px;
+}
+
+/* The alignment button of the toolbar: its icon green while applied */
+.icon {
+  display: inline-flex;
+}
+
+.appliedIcon {
+  color: var(--ts-apply);
+}
+
+/* The alignment radio buttons (in the alignment panel): EMhub's style.css
+   hides every radio ("input[type=radio] { display: none }", a selector list
+   meant for .product-colors only), so show them again inside the viewer */
+.root input[type="radio"] {
+  display: inline-block;
+  margin: 0;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.root input[type="radio"]:disabled {
+  cursor: default;
+}
+

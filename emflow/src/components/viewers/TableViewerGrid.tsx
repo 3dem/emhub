@@ -215,8 +215,12 @@ export default function TableViewerGrid({
         >
             {layout.slots.map((slot) => (
                 <GridCell
-                    // Remount when expanding/collapsing so plots fit the new size
-                    key={`${slot}-${expanded ? "expanded" : "grid"}`}
+                    // Remount when expanding/collapsing so plots fit the new
+                    // size; a tilt series viewer keeps its state (the tilt,
+                    // the alignment applied, zoom) and fits by itself
+                    key={content.cells[slot]?.kind === "tiltSeries"
+                        ? slot
+                        : `${slot}-${expanded ? "expanded" : "grid"}`}
                     slot={slot}
                     content={content.cells[slot]}
                     expanded={expanded === slot}
