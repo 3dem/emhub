@@ -1,0 +1,215 @@
+/* Dark header shared by the workflows panel and the export dialog:
+   title, subtitle, folder of the workflows and the category tabs */
+.header {
+  position: relative;
+  padding: 14px 52px 12px 14px;
+
+  background: #111827;
+
+  color: #f3f4f6;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+:global(.dark) .header {
+  border-bottom-color: rgba(31, 41, 55, 0.9);
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.headerTitle {
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.headerSubtitle {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(243, 244, 246, 0.72);
+}
+
+.closeButton {
+  -webkit-appearance: none;
+  appearance: none;
+  font: inherit;
+
+  position: absolute;
+  top: 15px;
+  right: 14px;
+
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  line-height: 0;
+
+  border-radius: 9999px;
+
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.10);
+  color: #f3f4f6;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.closeButton:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.closeButton:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.35);
+}
+
+:global(.dark) .closeButton {
+  border-color: rgba(55, 65, 81, 0.95);
+  background: rgba(31, 41, 55, 0.85);
+  color: #9ca3af;
+}
+
+:global(.dark) .closeButton:hover {
+  background: rgba(55, 65, 81, 0.95);
+  color: #f9fafb;
+}
+
+.closeIcon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  color: currentColor;
+  stroke: currentColor;
+}
+
+/* Workflow category selector (Built-in / Site / Project), in the header */
+.categoryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.categoryTabs {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.categoryTab {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 7px;
+  background: transparent;
+  color: #cbd5e1;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.categoryTab:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.categoryTab:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.8);
+  outline-offset: 1px;
+}
+
+.categoryTabActive,
+.categoryTabActive:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.categoryRefresh {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.categoryRefresh:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.categoryRefresh:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.categoryRefreshIcon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Folder of the workflows (or file the export is saved to) */
+.pathLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #cbd5e1;
+}
+
+.pathLabel {
+  flex: 0 0 auto;
+  color: #94a3b8;
+}
+
+.pathIcon {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  color: #94a3b8;
+}
+
+/* Long paths keep their end (the folder or file name) visible */
+.pathText {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.pathTextInner {
+  direction: ltr;
+  unicode-bidi: embed;
+}
+
+.categoryTab:disabled,
+.closeButton:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

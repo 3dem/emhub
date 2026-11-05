@@ -57,6 +57,7 @@ from emwrap.base.wizards import Wizards
 from emhub.utils import (datetime_from_isoformat, datetime_to_isoformat,
                          send_json_data, send_error)
 from emhub.data.data_manager import SqlFilterError
+from emhub.data import workflow_store
 from emhub.data.processing import (resolve_project_root, resolve_processing_path,
                                    project_file_path)
 from .api_viewers import *
@@ -1386,7 +1387,22 @@ def load_workflow():
         from emwrap.base import ProcessingConfig
 
         workflow_id = attrs.get('workflow_id')
-        if project_file := attrs.get('workflow_file'):
+        category = attrs.get('category') or workflow_store.BUILTIN
+        external_inputs = attrs.get('external_inputs') or 'keep'
+        if workflow := attrs.get('workflow'):
+            # Jobs copied from a project (/api/get_workflow_jobs), pasted here
+            if not isinstance(workflow, dict) or not isinstance(workflow.get('jobs'), list):
+                raise Exception("Expecting a workflow with a 'jobs' list")
+            workflow_file = 'clipboard'
+            workflow_id = None
+            # Inputs from jobs that were not copied only mean the same jobs
+            # in the source project: clear them when pasting elsewhere
+            if not attrs.get('external_inputs'):
+                source = workflow.get('project_path') or ''
+                same = bool(source) and (os.path.realpath(source) ==
+                                         os.path.realpath(pp['project'].path))
+                external_inputs = 'keep' if same else 'clear'
+        elif project_file := attrs.get('workflow_file'):
             # A workflow JSON in the project (e.g. from /api/export_workflow)
             workflow_file = project_file_path(pp['project'].path, project_file)
             if not workflow_file.endswith('.json'):
@@ -1395,19 +1411,32 @@ def load_workflow():
                 raise Exception(f"Workflow file not found: {project_file}")
             with open(workflow_file) as f:
                 workflow = json.load(f)
+        elif workflow_id and category != workflow_store.BUILTIN:
+            # A site or project workflow (see /api/list_workflows)
+            folder = _workflows_dir(category, pm)
+            workflow_file = workflow_store.workflow_path(folder, workflow_id)
+            workflow = workflow_store.read_workflow(folder, workflow_id)
         elif workflow_id:
-            workflow_file = ProcessingConfig.get_workflow_file(workflow_id)
+            # Built-in: only the ones offered to users, not the internal
+            # workflows of the code (config/workflows/internal)
+            workflow_id = workflow_store.check_workflow_id(workflow_id)
+            workflow_file = ProcessingConfig.get_workflow_file(workflow_id,
+                                                               internal=False)
             if not os.path.exists(workflow_file):
                 raise Exception(f"Workflow file not found: {workflow_file}")
-            workflow = ProcessingConfig.get_workflow(workflow_id)
+            workflow = ProcessingConfig.get_workflow(workflow_id,
+                                                     internal=False)
         else:
             raise Exception("Missing 'workflow_id' or 'workflow_file'")
 
         expected_jobs = len(workflow.get('jobs', []))
-        id_map = pm.loadWorkflow(workflow=workflow)
+        cleared = []
+        id_map = pm.loadWorkflow(workflow=workflow,
+                                 external_inputs=external_inputs,
+                                 cleared=cleared)
         if len(id_map) != expected_jobs:
             raise Exception(
-                f"Workflow load mismatch for {workflow_id or project_file}: "
+                f"Workflow load mismatch for {workflow_id or os.path.basename(workflow_file)}: "
                 f"expected {expected_jobs} jobs from {workflow_file}, "
                 f"created {len(id_map)}"
             )
@@ -1415,9 +1444,12 @@ def load_workflow():
         return {
             'protocols': protocols,
             'workflow_id': workflow_id,
+            'category': category,
             'workflow_file': os.path.basename(workflow_file),
             'loaded_jobs': len(id_map),
             'id_map': id_map,
+            'external_inputs': external_inputs,
+            'cleared_inputs': cleared,
         }
 
     return handle_workflow(_load_workflow, edit=True)
@@ -1429,8 +1461,9 @@ def create_tomo_project():
     """ Create a tomography processing project: a 'tomo_processing' entry,
     as the 'Tomography Processing' form does. A new processing_path is
     created (its parent must exist) with a 'data' link to data_path; an
-    existing one must already be a project (default_pipeline.star) not
-    registered by another entry.
+    existing one must already be a valid project (readable
+    default_pipeline.star) not registered by another entry, and then
+    data_path must not be given.
 
     The entry goes to project_id, or to the default tomo project of the
     current user (created if needed), as in the processing_tomo_list page.
@@ -1476,6 +1509,55 @@ def create_tomo_project():
     return _handle_item(_handle, 'entry')
 
 
+@api_bp.route('/tomo_workspaces', methods=['POST'])
+@flask_login.login_required
+def tomo_workspaces():
+    """ Manage the workspaces (groups of tomo_processing entries) of the
+    current user: attrs['action'] is create (name, optional entries),
+    rename (id, name),
+    delete (id) or set_entry (entry_id, workspace_ids).  Returns the
+    updated list of workspaces. """
+    from emhub.data.content.dc_tomo import (
+        TOMO_WORKSPACES_KEY, get_tomo_workspaces, update_tomo_workspaces)
+
+    def _handle(**attrs):
+        action = attrs.pop('action', None)
+        entry_ids = attrs.get('entries', []) if action == 'create' else []
+        if action == 'set_entry':
+            entry_ids = [attrs['entry_id']]
+        for entry_id in entry_ids:
+            entry = app.dm.get_entry_by(id=int(entry_id))
+            if entry is None or entry.type != 'tomo_processing':
+                raise Exception(f"Tomo project {entry_id} does not exist")
+        user = app.dm.get_user_by(id=app.user.id)
+        workspaces = update_tomo_workspaces(get_tomo_workspaces(user),
+                                            action, **attrs)
+        app.dm.update_user(id=user.id,
+                           extra={TOMO_WORKSPACES_KEY: workspaces},
+                           log_operation=False)
+        return workspaces
+
+    return _handle_item(_handle, 'workspaces')
+
+
+@api_bp.route('/get_workflow_jobs', methods=['POST'])
+@flask_login.login_required
+def get_workflow_jobs():
+    """ Return the jobs run_ids of a project as a workflow
+    {'jobs': [{jobid, jobtype, params}]}, e.g. to copy them and load them
+    in another project with /api/load_workflow (workflow attr). Nothing
+    is written. """
+    def _get_workflow_jobs(pp, pm, **attrs):
+        run_ids = attrs.get('run_ids') or []
+        if not run_ids:
+            raise Exception("Missing 'run_ids': select the jobs to copy")
+        workflow = pm.getWorkflowJobs(run_ids)
+        workflow['project_path'] = pp['project'].path
+        return workflow
+
+    return handle_workflow(_get_workflow_jobs)
+
+
 @api_bp.route('/export_workflow', methods=['POST'])
 @flask_login.login_required
 def export_workflow():
@@ -1495,6 +1577,94 @@ def export_workflow():
         }
 
     return handle_workflow(_export_workflow, edit=True)
+
+
+def _workflows_dir(category, pm=None):
+    """ Folder of the workflows of a category (see data/workflow_store.py):
+    builtin (emwrap), site (<instance>/workflows) or the project
+    (<project>/.emhub/workflows, pm is its ProjectManager). """
+    category = workflow_store.check_category(category)
+    if category == workflow_store.BUILTIN:
+        from emwrap.base import ProcessingConfig
+        return ProcessingConfig.get_workflows_dir()
+    if category == workflow_store.SITE:
+        return os.path.join(app.instance_path, 'workflows')
+    if pm is None:
+        raise Exception("A project is required for the project workflows")
+    return os.path.join(pm.join('.emhub'), 'workflows')
+
+
+@api_bp.route('/list_workflows', methods=['POST'])
+@flask_login.login_required
+def list_workflows():
+    """ Return the workflows of a category (builtin, site or project):
+    id, file, title, description, category and number of jobs, and in
+    'folder' the folder they are read from (and saved to). The project
+    category needs the project selector (session_id, entry_id or path). """
+    def _handle(**attrs):
+        category = workflow_store.check_category(attrs.get('category'))
+        pm = None
+        if category == workflow_store.PROJECT:
+            _, pm = get_project_manager(**attrs)
+        folder = _workflows_dir(category, pm)
+        return {'workflows': workflow_store.list_workflows(folder, category),
+                'folder': folder}
+
+    return _handle_item(_handle, None)
+
+
+@api_bp.route('/save_workflow', methods=['POST'])
+@flask_login.login_required
+def save_workflow():
+    """ Save the jobs run_ids of a project as a workflow of the site
+    (managers only) or project category, with workflow_id as file name
+    (without .json), name and description. An existing workflow is only
+    replaced with overwrite=True. """
+    def _save_workflow(pp, pm, **attrs):
+        category = workflow_store.check_category(attrs.get('category'),
+                                                 writable=True)
+        if category == workflow_store.SITE and not app.user.is_manager:
+            raise Exception("Only managers can save site workflows")
+        workflow_id = workflow_store.check_workflow_id(attrs.get('workflow_id'))
+        run_ids = attrs.get('run_ids') or []
+        if not run_ids:
+            raise Exception("Missing 'run_ids': select the jobs to save")
+
+        folder = _workflows_dir(category, pm)
+        path = workflow_store.workflow_path(folder, workflow_id)
+        overwrite = bool(attrs.get('overwrite', False))
+        if os.path.exists(path) and not overwrite:
+            raise Exception(f"Workflow '{workflow_id}' already exists")
+
+        # Let emwrap build the jobs list, then add the name and description
+        os.makedirs(folder, exist_ok=True)
+        tmp = pm.exportWorkflow(run_ids, path + '.jobs', in_project=False)
+        try:
+            with open(tmp) as f:
+                jobs = json.load(f).get('jobs', [])
+        finally:
+            os.remove(tmp)
+
+        workflow = {
+            'name': (attrs.get('name') or '').strip() or workflow_id,
+            'description': (attrs.get('description') or '').strip(),
+            'jobs': jobs,
+        }
+        workflow_store.write_workflow(folder, workflow_id, workflow,
+                                      overwrite=overwrite)
+        return {
+            'id': workflow_id,
+            'file': os.path.basename(path),
+            'category': category,
+            'jobs': len(jobs),
+        }
+
+    def _handle(**attrs):
+        _check_can_edit_project(attrs)
+        pp, pm = get_project_manager(**attrs)
+        return _save_workflow(pp, pm, **attrs)
+
+    return _handle_item(_handle, 'workflow')
 
 
 @api_bp.route('/get_workflow_templates', methods=['POST'])
@@ -2191,7 +2361,9 @@ def _handle_item(handle_func, result_key):
         else:
             raise Exception("Expecting JSON or Form request.")
         result = handle_func(**attrs)
-        return send_json_data({result_key: result})
+        # Without result_key, the result dict holds the response keys
+        return send_json_data(result if result_key is None
+                              else {result_key: result})
     except JobValidationError as e:
         return send_json_data({'errors': list(e.errors), 'status': 1})
     except Exception as e:

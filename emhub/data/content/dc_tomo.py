@@ -52,6 +52,35 @@ DEFAULT_SESSION = {
 }
 
 
+def _check_existing_tomo_project(ppath):
+    """ Raise an error if the existing ppath is not a valid project: a folder
+    with a readable default_pipeline.star (with a pipeline_general table). """
+    hint = ("To avoid mistakes, provide the path of a valid existing project, "
+            "or a new (non-existing) processing path to create the project "
+            "folder from scratch.")
+
+    if not os.path.isdir(ppath):
+        raise Exception(f"Processing path '{ppath}' exists but is not a "
+                        f"folder. {hint}")
+
+    pipeline_star = os.path.join(ppath, 'default_pipeline.star')
+    if not os.path.isfile(pipeline_star):
+        raise Exception(f"Processing path '{ppath}' exists but is not a "
+                        f"project: '{pipeline_star}' was not found. {hint}")
+
+    try:
+        with StarFile(pipeline_star) as sf:
+            tables = sf.getTableNames()
+    except Exception as e:
+        raise Exception(f"Processing path '{ppath}' is not a valid project: "
+                        f"can not read '{pipeline_star}' ({e}). {hint}")
+
+    if 'pipeline_general' not in tables:
+        raise Exception(f"Processing path '{ppath}' is not a valid project: "
+                        f"'{pipeline_star}' has no 'pipeline_general' table. "
+                        f"{hint}")
+
+
 def _get_tomo_project_last_modified(processing_path):
     """Return latest mtime from .emhub/project.json or default_pipeline.star."""
     from emwrap.base.project_data import PROJECT_JSON
@@ -103,6 +132,66 @@ def _group_tomo_projects_by_week(entries):
         ('Last Week', last_week),
         ('Others', others),
     ]
+
+
+# ---------------------- Tomo project workspaces ---------------------------
+# Per-user groups of tomo_processing entries, kept in the user's extra:
+#   user.extra['tomo_workspaces'] = [{'id': 1, 'name': 'X', 'entries': [12]}]
+# An entry can be in none, one or several workspaces; they also hold
+# projects shared with the user.  Removing a workspace never touches entries.
+TOMO_WORKSPACES_KEY = 'tomo_workspaces'
+
+
+def get_tomo_workspaces(user):
+    return [dict(w) for w in (user.extra or {}).get(TOMO_WORKSPACES_KEY, [])]
+
+
+def update_tomo_workspaces(workspaces, action, **attrs):
+    """ Return a new workspaces list after applying the action:
+    create (name, optional entries), rename (id, name), delete (id) or
+    set_entry (entry_id, workspace_ids: the entry's full membership). """
+    workspaces = [dict(w, entries=list(w.get('entries', [])))
+                  for w in workspaces]
+
+    def _name():
+        name = (attrs.get('name') or '').strip()
+        if not name:
+            raise Exception("Workspace name can not be empty")
+        if any(w['name'].lower() == name.lower() and w['id'] != attrs.get('id')
+               for w in workspaces):
+            raise Exception(f"There is already a workspace named '{name}'")
+        return name
+
+    def _get(wid):
+        for w in workspaces:
+            if w['id'] == wid:
+                return w
+        raise Exception(f"Workspace {wid} does not exist")
+
+    if action == 'create':
+        wid = max((w['id'] for w in workspaces), default=0) + 1
+        entries = list(dict.fromkeys(int(i) for i in attrs.get('entries', [])))
+        workspaces.append({'id': wid, 'name': _name(), 'entries': entries})
+    elif action == 'rename':
+        attrs['id'] = int(attrs['id'])
+        _get(attrs['id'])['name'] = _name()
+    elif action == 'delete':
+        w = _get(int(attrs['id']))
+        workspaces.remove(w)
+    elif action == 'set_entry':
+        entry_id = int(attrs['entry_id'])
+        wids = set(int(i) for i in attrs.get('workspace_ids', []))
+        for i in wids:
+            _get(i)
+        for w in workspaces:
+            if w['id'] in wids and entry_id not in w['entries']:
+                w['entries'].append(entry_id)
+            elif w['id'] not in wids and entry_id in w['entries']:
+                w['entries'].remove(entry_id)
+    else:
+        raise Exception(f"Unknown workspace action '{action}'")
+
+    return workspaces
 
 
 
@@ -421,11 +510,20 @@ def register_content(dc):
             raise Exception(f"Processing path can not be empty.")
 
         if os.path.exists(ppath):
-            pipeline_star = os.path.join(ppath, 'default_pipeline.star')
-            if not os.path.exists(pipeline_star):
-                raise Exception(f"Pipeline star file '{pipeline_star}' does not exist!. "
-                                f"Please choose an existing project or create a new one.")
-            
+            # Registering an existing project: its data is already linked,
+            # a data path here would be ignored and could be misleading.
+            # Only on creation (no id yet): entries created with a new
+            # project folder keep their data_path and must stay editable.
+            if dpath and entry.id is None:
+                raise Exception(
+                    f"Processing path '{ppath}' already exists, so it is "
+                    f"registered as an existing project and the data path "
+                    f"must be empty. Remove the data path, or use a new "
+                    f"(non-existing) processing path to create a project "
+                    f"linked to that data.")
+
+            _check_existing_tomo_project(ppath)
+
         else:
             # Only require the data path if the project path does not exist
             if not dpath:
@@ -523,6 +621,19 @@ def register_content(dc):
         shared_projects = data['shared_projects']
         _sort_tomo_entries_by_modified(shared_projects)
         data['shared_projects'] = shared_projects
+
+        # Workspaces of the user, with only the entries visible in this page
+        visible = {e['id'] for e in my_entries + shared_projects}
+        workspaces = get_tomo_workspaces(dc.app.user)
+        entry_ws = defaultdict(list)
+        for w in workspaces:
+            w['entries'] = [i for i in w.get('entries', []) if i in visible]
+            for i in w['entries']:
+                entry_ws[i].append(w['id'])
+        for e in my_entries + shared_projects:
+            e['workspace_ids'] = entry_ws.get(e['id'], [])
+        data['workspaces'] = workspaces
+        data['num_projects'] = len(visible)
 
         return data
 

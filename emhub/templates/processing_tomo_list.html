@@ -5,26 +5,53 @@
     <!-- Processing Project Card -->
     {% set card_color='#ebf7f9' %}
 
-    <div class="card w-auto mr-3" style="background-color: {{ card_color }}; min-width: 500px; max-width: 700px">
+    <div class="card mr-3 mb-3 tomo-card" data-entry-id="{{ tp['id'] }}"
+         data-workspaces="{{ tp['workspace_ids']|join(',') }}"
+         style="background-color: {{ card_color }}; width: 480px">
 
         <div class="card-header d-flex" style="background-color: {{ card_color }};">
 
             {% set url = url_for_content('tomo_session', tomo_session_id=tp['id']) %}
-            
-            <a class="mb-0" href="{{ url }}"><h5>{{ tp['title'] }}</h5></a>
-            <div class=" ml-auto row">
-                <a href="{{ url }}" class="mr-2"><i class="fas fa-external-link-alt"></i></a>
-                <a href="javascript:showEntryForm({{ tp['id'] }}, {{ tp['project_id'] }})" class="mr-2"><i class="fas fa-edit"></i></a>
-                <a href="javascript:deleteTomoProject({{ tp['id'] }}, '{{ tp['title'] }}')" class="mr-2"><i class="fas fa-trash"></i></a>
+
+            <a class="mb-0" href="{{ url }}" style="min-width: 0; overflow-wrap: anywhere"><h5>{{ tp['title'] }}</h5></a>
+            <div class="ml-auto pl-2 d-flex flex-nowrap flex-shrink-0">
+                <div class="dropdown mr-2">
+                    <a href="#" data-toggle="dropdown" title="Workspaces of the project"><i class="fas fa-folder"></i></a>
+                    <div class="dropdown-menu dropdown-menu-right ws-menu px-3">
+                        {% if workspaces %}
+                            <h6 class="dropdown-header px-0">Workspaces</h6>
+                            {% for w in workspaces %}
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input ws-check"
+                                       id="ws-{{ tp['id'] }}-{{ w['id'] }}" value="{{ w['id'] }}"
+                                       {% if w['id'] in tp['workspace_ids'] %}checked{% endif %}>
+                                <label class="custom-control-label text-nowrap" for="ws-{{ tp['id'] }}-{{ w['id'] }}">{{ w['name'] }}</label>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted small text-nowrap">No workspaces yet</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <a href="javascript:showEntryForm({{ tp['id'] }}, {{ tp['project_id'] }})" class="mr-2"
+                   title="Edit project"><i class="fas fa-edit"></i></a>
+                <a href="javascript:deleteTomoProject({{ tp['id'] }}, '{{ tp['title'] }}')" class="mr-2"
+                   title="Delete project"><i class="fas fa-trash"></i></a>
             </div>
         </div>
 
         <div class="card-body">
-            <p>Path: <small>{{ data['processing_path'] }}</small></p>
-            <a href="{{ url_for_content('tomo_otf_dashboard', entry_id=tp['id']) }}"
-               class="btn btn-sm btn-outline-primary">
-               <i class="fas fa-chart-line mr-1"></i> On-the-fly dashboard</a>
+            <p class="mb-0">Path:
+                <small style="overflow-wrap: anywhere; user-select: all"
+                       title="Click to select the whole path">{{ data['processing_path'] }}</small></p>
+        </div>
 
+        <div class="card-footer d-flex align-items-center" style="background-color: {{ card_color }};">
+            <a href="{{ url }}" class="btn btn-sm btn-outline-primary py-0 mr-2">
+                <i class="fas fa-external-link-alt mr-1"></i>Open</a>
+            <a href="{{ url_for_content('tomo_otf_dashboard', entry_id=tp['id']) }}"
+               class="btn btn-sm btn-outline-primary py-0 mr-2">
+                <i class="fas fa-chart-line mr-1"></i>Dashboard</a>
         </div>
 
     </div>
@@ -41,49 +68,90 @@
     <!-- table row -->
     {{ macros.hidden_hour_id() }}
 
-    <div class="row"> 
+    <div class="row">
         <div class="col-12 mb-3 ml-0 pl-0">
             <a href="javascript:createTomoProject({{ default_project_id }})" class="btn btn-primary"><i class="fas fa-plus-circle"></i> Create New Project</a>
-            <a href="{{ url_for_content('benchmarks') }}" class="btn btn-outline-primary ml-2"><i class="fas fa-stopwatch"></i> Benchmarks</a>
         </div>
 
-    <div class="card col-12">
-        <div class="card-header"><h3>My Projects</h3></div>
-        <div class="card-body">
-            {% for label, project_entries in my_project_sections %}
-                {% if project_entries %}
-                <h5 class="{% if not loop.first %}mt-4 {% endif %}mb-2">{{ label }}</h5>
-                <div class="row">
-                    {% for tp in project_entries %}
-                        {{ project_card(tp) }}
-                    {% endfor %}
-                </div>
-                {% endif %}
+    <!-- Workspace tabs (vertical, as in the applications page) -->
+    <div class="col-12 mb-5 ml-0 pl-0">
+    <div class="tab-vertical">
+        <ul class="nav nav-tabs" id="ws-tabs" role="tablist" style="min-width: 200px">
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-ws="all" role="tab">All
+                    <span class="badge badge-light ml-1">{{ num_projects }}</span></a>
+            </li>
+            {% for w in workspaces %}
+            <li class="nav-item">
+                <a class="nav-link d-flex align-items-center" href="#" data-ws="{{ w['id'] }}" role="tab"><span>{{ w['name'] }}</span>
+                    <span class="badge badge-light ml-1">{{ w['entries']|length }}</span>
+                    <span class="ws-tab-actions ml-auto pl-3 text-nowrap">
+                        <i class="fas fa-edit ml-1" data-action="rename" title="Rename workspace"></i>
+                        <i class="fas fa-trash ml-1" data-action="delete" title="Delete workspace"></i>
+                    </span></a>
+            </li>
             {% endfor %}
-        </div>
-    </div>
-    <!-- end table row -->
+            <li class="nav-item text-center">
+                <a href="javascript:createWorkspace()" class="btn btn-sm btn-outline-primary mt-2"
+                   title="New workspace"><i class="fas fa-plus"></i> Workspace</a>
+            </li>
+        </ul>
 
-    <div class="card col-12">
-        <div class="card-header"><h3>Shared with me</h3></div>
-        <div class="card-body">
-            
-            <div class="row">
+        <div class="tab-content">
+            <div class="card">
+                <div class="card-header"><h4 class="mb-0">My Projects</h4></div>
+                <div class="card-body">
+                    {% for label, project_entries in my_project_sections %}
+                        {% if project_entries %}
+                        <div class="ws-section">
+                        <h5 class="mb-2">{{ label }}</h5>
+                        <div class="row mb-4 mx-0">
+                            {% for tp in project_entries %}
+                                {{ project_card(tp) }}
+                            {% endfor %}
+                        </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                    <p class="text-muted ws-empty" style="display: none">No projects in this workspace.</p>
+                </div>
+            </div>
 
-                {% for tp in shared_projects %}
-                        
-                    {{ project_card(tp) }}
-
-                {% endfor %}
-
+            <div class="card mb-0">
+                <div class="card-header"><h4 class="mb-0">Shared with me</h4></div>
+                <div class="card-body">
+                    <div class="ws-section">
+                    <div class="row mx-0">
+                        {% for tp in shared_projects %}
+                            {{ project_card(tp) }}
+                        {% endfor %}
+                    </div>
+                    </div>
+                    <p class="text-muted ws-empty" style="display: none">No shared projects in this workspace.</p>
+                </div>
             </div>
         </div>
+    </div>
     </div>
 
     </div>
 </div>
 
+<style>
+    /* Hidden but still taking space in every tab, so the column keeps
+       the width of the widest tab when the selection changes */
+    #ws-tabs .ws-tab-actions { visibility: hidden; }
+    #ws-tabs .nav-link.active .ws-tab-actions { visibility: visible; }
+    /* Less right padding than the theme (49px): icons close to the edge */
+    #ws-tabs .nav-link { padding-right: 15px; }
+    #ws-tabs .ws-tab-actions i { cursor: pointer; color: #71748d; }
+    #ws-tabs .ws-tab-actions i:hover { color: #5969ff; }
+</style>
+
 <script>
+    var tomoWorkspaces = {{ workspaces|tojson }};
+    var WS_STORAGE_KEY = 'emhub.tomo_workspace';
+
     function createTomoProject(project_id){
         showEntryForm(null, project_id, 'tomo_processing');
     }
@@ -98,8 +166,172 @@
         });
     }
 
+    // ---------------------- Workspaces ----------------------------------
+    function currentWorkspace() {
+        var ws = localStorage.getItem(WS_STORAGE_KEY) || 'all';
+        if (ws !== 'all' && !tomoWorkspaces.some(w => String(w.id) === ws))
+            ws = 'all';
+        return ws;
+    }
+
+    function getWorkspace(ws) {
+        return tomoWorkspaces.find(w => String(w.id) === String(ws));
+    }
+
+    function showWorkspace(ws) {
+        ws = String(ws);
+        localStorage.setItem(WS_STORAGE_KEY, ws);
+        $('#ws-tabs .nav-link').removeClass('active');
+        $(`#ws-tabs .nav-link[data-ws="${ws}"]`).addClass('active');
+
+        $('.tomo-card').each(function() {
+            var wss = String($(this).data('workspaces')).split(',');
+            $(this).toggle(ws === 'all' || wss.includes(ws));
+        });
+        $('.ws-section').each(function() {
+            $(this).toggle($(this).find('.tomo-card').filter(function() {
+                return $(this).css('display') !== 'none';
+            }).length > 0);
+        });
+        $('.ws-empty').each(function() {
+            var anyVisible = $(this).siblings('.ws-section').filter(function() {
+                return $(this).css('display') !== 'none';
+            }).length > 0;
+            $(this).toggle(ws !== 'all' && !anyVisible);
+        });
+    }
+
+    function workspaceNameDialog(title, okText, name, callback) {
+        var input = $('<input type="text" class="form-control" id="ws-name-input">');
+        input.attr('value', name || '');
+        confirm(title, 'Name: ' + input.prop('outerHTML'), 'Cancel', okText, function() {
+            callback($('#ws-name-input').val().trim());
+        });
+    }
+
+    function sendWorkspaces(attrs, onDone) {
+        send_ajax_json(Api.urls.tomo_workspaces, attrs, function(json) {
+            if ('workspaces' in json)
+                onDone(json.workspaces);
+            else
+                showError(json.error || 'Unexpected response from server.');
+        });
+    }
+
+    function createWorkspace() {
+        // All projects in the page (a project is shown only once here)
+        var projects = {};
+        $('.tomo-card').each(function() {
+            var id = $(this).data('entry-id');
+            if (!(id in projects))
+                projects[id] = $(this).find('.card-header h5').first().text().trim();
+        });
+        var input = $('<input type="text" class="form-control mb-3" id="ws-name-input">');
+        var list = $('<div id="ws-new-projects" class="border rounded p-2" ' +
+                     'style="max-height: 300px; overflow-y: auto">');
+        $.each(projects, function(id, title) {
+            var cid = 'ws-new-' + id;
+            var item = $('<div class="custom-control custom-checkbox">');
+            item.append($('<input type="checkbox" class="custom-control-input">')
+                        .attr({id: cid, value: id}));
+            item.append($('<label class="custom-control-label">').attr('for', cid).text(title));
+            list.append(item);
+        });
+        if ($.isEmptyObject(projects))
+            list.append('<span class="text-muted small">No projects yet</span>');
+        var body = 'Name: ' + input.prop('outerHTML') +
+                   'Projects to include:' + list.prop('outerHTML');
+
+        confirm('New Workspace', body, 'Cancel', 'Create', function() {
+            var name = $('#ws-name-input').val().trim();
+            var entries = $('#ws-new-projects input:checked').map(function() {
+                return parseInt(this.value);
+            }).get();
+            sendWorkspaces({action: 'create', name: name, entries: entries}, function(wss) {
+                localStorage.setItem(WS_STORAGE_KEY, String(wss[wss.length - 1].id));
+                location.reload();
+            });
+        });
+    }
+
+    function renameWorkspace(ws) {
+        var w = getWorkspace(ws);
+        workspaceNameDialog('Rename Workspace', 'Rename', w.name, function(name) {
+            sendWorkspaces({action: 'rename', id: w.id, name: name},
+                           function() { location.reload(); });
+        });
+    }
+
+    function deleteWorkspace(ws) {
+        var w = getWorkspace(ws);
+        var name = $('<span>').text(w.name).html();
+        confirm('Delete Workspace',
+                `Do you want to DELETE workspace '${name}'?<br><br>` +
+                'Its projects are not deleted, they remain in the "All" tab.',
+                'Cancel', 'Delete', function() {
+            sendWorkspaces({action: 'delete', id: w.id}, function() {
+                localStorage.setItem(WS_STORAGE_KEY, 'all');
+                location.reload();
+            });
+        });
+    }
+
+    function setEntryWorkspaces(card) {
+        var entryId = card.data('entry-id');
+        var ids = card.find('.ws-check:checked').map(function() {
+            return parseInt(this.value);
+        }).get();
+        sendWorkspaces({action: 'set_entry', entry_id: entryId, workspace_ids: ids},
+                       function(wss) {
+            tomoWorkspaces = wss;
+            // The same project may appear twice (my projects + shared)
+            $(`.tomo-card[data-entry-id="${entryId}"]`).each(function() {
+                $(this).data('workspaces', ids.join(','));
+                $(this).attr('data-workspaces', ids.join(','));
+                $(this).find('.ws-check').each(function() {
+                    this.checked = ids.includes(parseInt(this.value));
+                });
+            });
+            wss.forEach(function(w) {
+                $(`#ws-tabs .nav-link[data-ws="${w.id}"] .badge`).text(w.entries.length);
+            });
+            showWorkspace(currentWorkspace());
+        });
+    }
+
     (function(window, document, $, undefined) {
     "use strict";
+
+        $('#ws-tabs .nav-link[data-ws]').on('click', function(e) {
+            e.preventDefault();
+            showWorkspace($(this).data('ws'));
+        });
+        // Rename/delete icons, shown in the active workspace tab
+        $('#ws-tabs .ws-tab-actions i').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var ws = $(this).closest('.nav-link').data('ws');
+            if ($(this).data('action') === 'rename')
+                renameWorkspace(ws);
+            else
+                deleteWorkspace(ws);
+        });
+        // Keep the menu open while (un)checking workspaces
+        $('.ws-menu').on('click', function(e) { e.stopPropagation(); });
+        $('.ws-check').on('change', function() {
+            setEntryWorkspaces($(this).closest('.tomo-card'));
+        });
+
+        // Same height for all cards: the tallest one (measured while all
+        // are shown, the footer stays at the bottom since the body grows)
+        var maxHeight = 0;
+        $('.tomo-card').each(function() {
+            maxHeight = Math.max(maxHeight, $(this).outerHeight());
+        });
+        if (maxHeight > 0)
+            $('.tomo-card').css('height', maxHeight + 'px');
+
+        showWorkspace(currentWorkspace());
 
     })(window, document, window.jQuery);
 </script>

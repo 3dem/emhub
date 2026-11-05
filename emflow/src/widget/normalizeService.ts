@@ -72,6 +72,7 @@ export function normalizeServiceAPI(srv: any): ProjectService {
 
   mapFn("fetchWorkflows", "listProjectWorkflows", "listWorkflows", "fetchWorkflows");
   mapFn("loadWorkflow", "applyWorkflow", "applyTemplateToProject", "runWorkflowOnProject");
+  mapFn("saveWorkflow", "saveWorkflow");
 
   mapFn("fetchProtocolDetails", "getProtocol", "getProtocolDetails");
   mapFn("fetchProtocolRuntimeSummaries","fetchProtocolRuntimeSummaries","getProtocolRuntimeSummaries",);
@@ -169,6 +170,9 @@ export function normalizeServiceAPI(srv: any): ProjectService {
   ensureFn("loadProtocols", async () => []);
   ensureFn("fetchWorkflows", async () => []);
   ensureFn("loadWorkflow", async () => ({ success: true }));
+  ensureFn("saveWorkflow", async () => { throw createMissingServiceMethodError("saveWorkflow"); });
+  ensureFn("exportWorkflowProtocols", async () => { throw createMissingServiceMethodError("exportWorkflowProtocols"); });
+  ensureFn("importWorkflowProtocols", async () => { throw createMissingServiceMethodError("importWorkflowProtocols"); });
   ensureFn("listProjectTags", async () => []);
   ensureFn("listProtocolTagIds", async () => []);
   ensureFn("createProjectTag", async () => { throw createMissingServiceMethodError("createProjectTag"); });

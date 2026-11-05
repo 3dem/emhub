@@ -11,6 +11,11 @@ import {
 import toast from "react-hot-toast";
 
 import { useProjectService } from "@/ProjectServiceContext";
+import type { WorkflowCategory } from "@/services/ProjectService";
+
+import { WORKFLOW_CATEGORIES, getWorkflowCategoryInfo } from "./workflowCategories";
+
+import { WorkflowsHeader } from "./WorkflowsHeader";
 
 import styles from "./ProjectWorkflowsPanel.module.css";
 
@@ -18,6 +23,8 @@ export interface ProjectWorkflow {
   id: string;
   name: string;
   description: string;
+  category?: WorkflowCategory;
+  file?: string;
   source?: string;
   templatePath?: string;
   protocolsCount?: number;
@@ -31,7 +38,12 @@ export interface ProjectWorkflow {
 interface ProjectWorkflowsPanelProps {
   open: boolean;
   onClose: () => void;
+  /** Category whose workflows are listed (Built-in / Site / Project). */
+  category: WorkflowCategory;
+  onCategoryChange: (category: WorkflowCategory) => void;
   workflows: ProjectWorkflow[];
+  /** Folder the workflows of the category are read from (when the host knows it). */
+  folder?: string | null;
   loading?: boolean;
   errorMessage?: string | null;
   onRetry?: () => void;
@@ -111,7 +123,10 @@ function getWorkflowDisabledReason(workflow: ProjectWorkflow) {
 export function ProjectWorkflowsPanel({
   open,
   onClose,
+  category,
+  onCategoryChange,
   workflows,
+  folder = null,
   loading = false,
   errorMessage = null,
   onRetry,
@@ -173,23 +188,21 @@ export function ProjectWorkflowsPanel({
       <div className={styles.host}>
         <div className={shellClassName} aria-hidden={!open}>
           <div className={styles.panel}>
-            <div className={styles.header}>
-              <div className={styles.headerLeft}>
-                <span className={styles.headerTitle}>Workflows</span>
-                <span className={styles.headerSubtitle}>
-                  Load predefined templates into the current project.
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={onClose}
-                className={styles.closeButton}
-                aria-label="Close workflows panel"
-              >
-                <X className={styles.closeIcon} />
-              </button>
-            </div>
+            <WorkflowsHeader
+              title="Workflows"
+              subtitle="Load predefined templates into the current project."
+              path={folder}
+              categories={WORKFLOW_CATEGORIES}
+              category={category}
+              onCategoryChange={(next) => {
+                setSearchQuery("");
+                onCategoryChange(next);
+              }}
+              onRefresh={onRetry}
+              loading={loading}
+              onClose={onClose}
+              closeLabel="Close workflows panel"
+            />
 
             <div className={styles.content}>
               {loading ? (
@@ -224,8 +237,10 @@ export function ProjectWorkflowsPanel({
                 </div>
               ) : !hasWorkflows ? (
                 <p className={styles.emptyText}>
-                  No workflows defined yet. You can add predefined pipelines
-                  later.
+                  {category === "builtin"
+                    ? "No built-in workflows available."
+                    : `No ${getWorkflowCategoryInfo(category).label.toLowerCase()} workflows yet. ` +
+                      "Use Export on selected protocols to save one."}
                 </p>
               ) : (
                 <div className={styles.bodyWrap}>
@@ -419,9 +434,17 @@ function ApplyWorkflowToCurrentProjectDialog({
     setSubmitting(true);
 
     try {
-      await svc.loadWorkflow(projectId, {
+      const result = await svc.loadWorkflow(projectId, {
         workflowId: String(workflow.id),
+        category: workflow.category,
       });
+
+      // Validation errors come back as {status: 1, errors}
+      if (result && Number(result.status) > 0) {
+        const errors = Array.isArray(result.errors) ? result.errors.map(String) : [];
+        setSubmitError(errors.join("\n") || "Failed to load the workflow.");
+        return;
+      }
 
       const targetName = projectName ?? String(projectId);
 

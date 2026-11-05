@@ -1,0 +1,160 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Below the dark header (WorkflowsHeader) */
+  padding-top: 16px !important;
+}
+
+/* The list (left) and the description (right) both stretch to the bottom
+   of the columns, so they end on the same line. 400px when the window
+   allows it, shorter in small windows so the dialog never scrolls: the rest
+   of the dialog (header with the path and tabs, actions, paddings) and
+   MUI's 32px margins take ~300px of the window height */
+.columns {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) 3fr;
+  gap: 16px;
+  height: clamp(240px, calc(100vh - 300px), 400px);
+}
+
+.listPane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.paneLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.8);
+}
+
+:global(.dark) .list {
+  border-color: #334155;
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.listMessage,
+.listError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.listError {
+  color: #b91c1c;
+}
+
+.listItem {
+  appearance: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid #eef2f7;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+:global(.dark) .listItem {
+  border-bottom-color: #1e293b;
+}
+
+.listItem:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.listItem:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.7);
+  outline-offset: -2px;
+}
+
+.listItemSelected,
+.listItemSelected:hover {
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.listIcon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: #64748b;
+}
+
+.listText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.listName {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listFile {
+  font-size: 11px;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formPane {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 22px;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The description takes the rest of the column height */
+.descriptionField {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.descriptionField :global(.MuiInputBase-root) {
+  height: 100%;
+  align-items: flex-start;
+}
+
+/* TextareaAutosize sets an inline height: fill the field instead (not its
+   hidden measuring copy, aria-hidden) */
+.descriptionField textarea:not([aria-hidden]) {
+  height: 100% !important;
+  overflow-y: auto !important;
+}
+
+.ext {
+  font-size: 12px;
+  color: #94a3b8;
+}
