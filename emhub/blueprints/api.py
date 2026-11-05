@@ -1071,8 +1071,11 @@ def resolve_table_view_pane():
                 raise Exception(
                     f'Action {action_id!r} is not supported for {type_key}'
                 )
-            return build_aligned_stack_slider_pane_content(
+            # The tilt series viewer, with the alignment of the row's
+            # per tilt series STAR when there is one
+            return build_tilt_series_viewer_pane_content(
                 root,
+                resolve_row_star_path(attrs, row_cells),
                 stack_rel,
                 title=stack_rel,
             )
