@@ -63,6 +63,8 @@ from emhub.data.processing import (resolve_project_root, resolve_processing_path
 from .api_viewers import *
 from .api_viewers_spa import (resolve_spa_table_view_type, build_spa_table,
                               build_spa_pane_content, create_classes_subset)
+from emhub.data.processing.job_views import (JOB_VIEW_CLASS, build_job_view_table,
+                                              build_job_view_pane)
 from .api_viewers_warp import (resolve_warp_table_view_type,
                                build_warp_population_table, build_warp_pane_content)
 
@@ -807,6 +809,10 @@ def get_table_view_data():
         if not star_path:
             raise Exception('Missing starPath / outputPath')
 
+        # Views of a whole job (e.g. CTF plots), not a file
+        if pointer_class == JOB_VIEW_CLASS:
+            return build_job_view_table(root, star_path)
+
         full_path = project_file_path(root, star_path)
         if not os.path.exists(full_path):
             raise Exception(f'STAR file not found: {star_path}')
@@ -1021,6 +1027,10 @@ def resolve_table_view_pane():
         row_cells = row.get('cells') or {}
 
         output_path = attrs.get('outputPath') or attrs.get('starPath') or attrs.get('path')
+        # Views of a whole job (e.g. CTF plots): outputPath is '<job id>#<view id>'
+        if pointer_class == JOB_VIEW_CLASS:
+            return build_job_view_pane(root, attrs.get('outputPath'), action_id, row_cells)
+
         output_full = project_file_path(root, output_path) if output_path else None
         # Warp/M population
         if resolve_warp_table_view_type(pointer_class, output_full):
@@ -1214,6 +1224,30 @@ def get_volume_viewer():
             root, attrs['path'], attrs.get('pointerClass') or 'Volume')
 
     return _handle_item(_handle, 'paneContent')
+
+
+@api_bp.route('/get_pdf_file', methods=['GET'])
+@flask_login.login_required
+def get_pdf_file():
+    """ PDF file of a processing project (e.g. a Relion logfile.pdf), shown
+    inline by the browser (in emflow's PDF viewer dialog). A GET request,
+    since it is the src of an iframe. args: root and path (relative to
+    root or absolute inside the project, see project_file_path). Only PDF
+    files are served. """
+    root = request.args.get('root', '')
+    path = request.args.get('path', '')
+    try:
+        if not path.lower().endswith('.pdf'):
+            raise ValueError(f"Not a PDF file: {path}")
+        full_path = project_file_path(root, path)
+        if not os.path.isfile(full_path):
+            raise FileNotFoundError(f"File not found: {path}")
+    except (ValueError, FileNotFoundError) as e:
+        return flask.Response(str(e), status=404, mimetype='text/plain')
+
+    return flask.send_file(full_path, mimetype='application/pdf',
+                           as_attachment=False, conditional=True,
+                           download_name=os.path.basename(full_path))
 
 
 @api_bp.route('/get_file_chunks', methods=['POST'])

@@ -698,9 +698,24 @@ var svc = {
       };
     }
 
+    // PDF files (e.g. Relion logfile.pdf): emflow's PDF viewer dialog, the
+    // browser renders the file served by /api/get_pdf_file in an iframe
+    if (pointerClass === 'PdfFile' || (/\.pdf$/i.test(outputPath) && pointerClass === 'File')) {
+      return {
+        handled: true,
+        viewer: "pdf",
+        title: outputPath || ctx.outputName,
+        pointerClass: 'PdfFile',
+        url: Api.urls.get_pdf_file + '?' + new URLSearchParams({
+          root: project_details.path, path: outputPath }).toString()
+      };
+    }
+
     if (pointerClass === 'TiltSeriesMovies' || pointerClass === 'TiltSeries' || pointerClass === 'TiltSeriesAligned' || pointerClass === 'Tomograms' || pointerClass === 'TomoCoordinates' || pointerClass === 'TomoParticles' ||
         pointerClass === 'Movies' || pointerClass === 'Micrographs' || pointerClass === 'MultiClasses2D' ||
-        pointerClass === 'Particles' || pointerClass === 'Classes3D' || pointerClass === 'WarpPopulation') {
+        pointerClass === 'Particles' || pointerClass === 'Classes3D' || pointerClass === 'WarpPopulation' ||
+        // Views of a whole job (e.g. CTF Plots), value '<job id>#<view id>'
+        pointerClass === 'JobView') {
       return buildTableViewerAnalyzeDecision(ctx, pointerClass);
     }
 
