@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState, type MouseEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
     Box,
     Button,
@@ -39,6 +39,7 @@ import type {
     TableViewerEdit,
     TableViewerEditAction,
     TableViewerGridSlot,
+    TableViewerInitialAction,
 } from "@/services/ProjectService";
 import { getTableViewerActionIcon } from "./TableViewerActionIcons";
 import TableViewerGrid from "./TableViewerGrid";
@@ -110,6 +111,48 @@ function compareCellValues(
         numeric: true,
         sensitivity: "base",
     });
+}
+
+/** The row and action of a table's initialAction (see
+ * TableViewerInitialAction), or null if the row or action does not exist. */
+function findInitialAction(
+    table: TableViewerData,
+    initial: TableViewerInitialAction,
+): {
+    row: TableViewerRow;
+    action: TableViewerAction;
+    columnId?: string;
+    cellContext?: TableViewerCellContext;
+} | null {
+    const row = table.rows.find(
+        (r) => String(r.id) === String(initial.rowId),
+    );
+    if (!row) return null;
+
+    const columnId = initial.columnId;
+    const cellContext = columnId
+        ? row.cellContexts?.[columnId]
+        : undefined;
+    if (!initial.actionId) {
+        const action = cellContext?.defaultAction ?? row.defaultAction;
+        return action && !action.disabled
+            ? { row, action, columnId, cellContext }
+            : null;
+    }
+
+    const candidates: TableViewerAction[] = [
+        ...(cellContext?.defaultAction ? [cellContext.defaultAction] : []),
+        ...(cellContext?.actions ?? []),
+        ...(columnId
+            ? table.columns.find((c) => c.id === columnId)?.actions ?? []
+            : []),
+        ...(row.defaultAction ? [row.defaultAction] : []),
+        ...(row.actions ?? []),
+    ];
+    const action = candidates.find(
+        (a) => a.id === initial.actionId && !a.disabled,
+    );
+    return action ? { row, action, columnId, cellContext } : null;
 }
 
 export default function TableViewerPane({
@@ -374,6 +417,26 @@ export default function TableViewerPane({
             }
         }
     };
+
+    // table.initialAction: select its row and resolve its action once per
+    // table shown
+    const initialActionTableRef = useRef<TableViewerData | null>(null);
+    useEffect(() => {
+        const initial = table.initialAction;
+        if (!initial || initialActionTableRef.current === table) return;
+        initialActionTableRef.current = table;
+        const found = findInitialAction(table, initial);
+        if (!found) return;
+        setSelectedRowId(found.row.id);
+        void handleAction(
+            found.action,
+            found.row,
+            found.columnId,
+            found.cellContext,
+        );
+        // handleAction only depends on the context and the service
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [table]);
 
     const handleEditAction = async (
         action: TableViewerEditAction,

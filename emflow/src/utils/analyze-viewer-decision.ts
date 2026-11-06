@@ -10,6 +10,17 @@ export type VolumeViewerDecision = Extract<
   { handled: true; viewer: "volume" }
 >;
 
+export type PdfViewerDecision = Extract<
+  AnalyzeViewerResolveDecision,
+  { handled: true; viewer: "pdf" }
+>;
+
+export function isPdfViewerAnalyzeDecision(
+  decision: AnalyzeViewerResolveDecision | null | undefined,
+): decision is PdfViewerDecision {
+  return !!decision && decision.handled === true && decision.viewer === "pdf";
+}
+
 export function isVolumeViewerAnalyzeDecision(
   decision: AnalyzeViewerResolveDecision | null | undefined,
 ): decision is VolumeViewerDecision {
@@ -26,7 +37,8 @@ export function openExternalAnalyzeDecision(
   decision: AnalyzeViewerResolveDecision | null | undefined,
   defaultTarget: "_self" | "_blank" = "_blank",
 ): boolean {
-  if (!decision || decision.handled !== true || decision.viewer === "table" || decision.viewer === "volume") {
+  if (!decision || decision.handled !== true || decision.viewer === "table" || decision.viewer === "volume"
+      || decision.viewer === "pdf") {
     return false;
   }
 

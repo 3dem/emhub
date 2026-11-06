@@ -203,6 +203,20 @@ function mergeNodeOutputs(
     return freshNode;
   }
 
+  // Keep the shown outputs only within the same run: after a Restart (the
+  // job was finished/failed, or a new run session started) the backend
+  // cleared them, so the old ones must not stay until the job ends.
+  if (
+    !continuesElapsedTimerSession(
+      currentNode?.data?.status,
+      freshNode.data?.status,
+      currentNode?.data?.elapsedSessionId,
+      freshNode.data?.elapsedSessionId,
+    )
+  ) {
+    return freshNode;
+  }
+
   if (!currentOutputs.length) {
     return freshNode;
   }

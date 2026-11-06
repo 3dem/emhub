@@ -173,7 +173,17 @@ const fakeTomogramsTable = () => ({
     },
   })),
   editActions: [{ id: "create-subset", label: "Create subset", requiresChanges: true }],
+  // &initialAction[=<row>:<action>] opens that action with the table
+  // (default TS_0001:ts-view, an action of the TS / Tomogram column)
+  ...fakeInitialAction(),
 });
+
+function fakeInitialAction() {
+  const value = new URLSearchParams(location.search).get("initialAction");
+  if (value === null) return {};
+  const [rowId, actionId] = (value || "TS_0001:ts-view").split(":");
+  return { initialAction: { rowId, actionId, columnId: "tsTomo" } };
+}
 
 // Base64 PNG slices (no data: prefix) with the slice number drawn on them
 const fakeSlices = (count, label, width = 256, height = 256) => {
@@ -425,6 +435,14 @@ export function createFakeService() {
 
     resolveAnalyzeViewer: async (ctx) => {
       log("resolveAnalyzeViewer", ctx);
+      // PDF files (or any output with ?pdfOutput): the PDF viewer dialog, the
+      // file served as EMhub's /api/get_pdf_file does (here a static file)
+      if (ctx.pointerClass === "PdfFile" || new URLSearchParams(location.search).has("pdfOutput")) {
+        return {
+          handled: true, viewer: "pdf", title: ctx.outputName, pointerClass: "PdfFile",
+          url: new URL("./fake_logfile.pdf", import.meta.url).href,
+        };
+      }
       // Volumes (and, with ?maskOutput, as masks): the volume viewer dialog,
       // as EMhub's /api/get_volume_viewer answers (inline here)
       if (ctx.pointerClass === "Volume" || ctx.pointerClass === "VolumeMask") {
