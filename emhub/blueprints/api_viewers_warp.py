@@ -4,8 +4,9 @@ The table has one row per volume (3D .mrc) of each species of the population
 (the sharpened map first). Its panes:
 
 - volume (selecting a row): the volume in emflow's VolumeViewer (scaled to at
-  most WARP_MAX_SIZE voxels per side, loaded by the viewer) above the FSC
-  curves and the local resolution histogram of its species.
+  most WARP_MAX_SIZE voxels per side, loaded by the viewer) in the left
+  column, over both rows, beside the FSC curves above the local resolution
+  histogram of its species.
 - refinement: the species summary and its refinement history (resolution
   and B-factor of each round, see emhub.data.warp_m.refinement_history).
 - series: per tilt series particles, score gain and time of the last M
@@ -161,7 +162,8 @@ def build_warp_population_table(full_path, root):
 def build_warp_fsc_plot_content(full_path, title=None):
     """ Plotly FSC curves of a species (its *_fsc.star), with the look of
     the previous Highcharts plot: resolution reversed on X, the 0.5 and
-    0.143 thresholds dashed, legend below (as it was in narrow places). """
+    0.143 thresholds dashed, legend below the axis title (as it was in
+    narrow places). """
     table = StarFile.getTableFromFile('', full_path, guessType=False)
     x = []
     ys = {label: [] for label, _ in _FSC_SERIES}
@@ -202,10 +204,13 @@ def build_warp_fsc_plot_content(full_path, title=None):
                 {'title': {'text': 'FSC'}, 'range': [-0.25, 1.25]},
                 shapes=[threshold(0.5), threshold(0.143)],
                 # Below the plot, as the Highcharts plot did in narrow places
-                # (the plot shares the pane with the volume)
+                # (the plot shares the pane with the volume): at the bottom of
+                # the figure, so it never covers the axis title whatever the
+                # height of the cell, two entries per row
                 legend={'orientation': 'h', 'x': 0.5, 'xanchor': 'center',
-                        'y': -0.22, 'yanchor': 'top'},
-                margin={'l': 64, 'r': 16, 't': 48, 'b': 84}),
+                        'yref': 'container', 'y': 0, 'yanchor': 'bottom',
+                        'entrywidth': 0.5, 'entrywidthmode': 'fraction'},
+                margin={'l': 64, 'r': 16, 't': 48, 'b': 100}),
         },
     }
 
@@ -222,19 +227,21 @@ def build_warp_pane_content(action_id, root, row_cells):
 
 
 def build_warp_volume_pane_content(root, row_cells):
-    """ The volume of the row (VolumeViewer, loaded by the viewer) above
-    the FSC curves and the local resolution of its species. """
+    """ The volume of the row (VolumeViewer, loaded by the viewer) in the
+    left column, over both rows (the most room, so no tab scrolls), beside
+    the FSC curves above the local resolution of its species (or the FSC
+    alone). """
     volume = row_cells.get('volumePath')
     if not volume:
         return {'kind': 'empty', 'title': row_cells.get('species', ''),
                 'message': 'This species has no maps; see its refinement and tilt series'}
     name = row_cells.get('volume') or os.path.basename(volume)
     try:
-        top = build_volume_viewer_pane_content(
+        viewer = build_volume_viewer_pane_content(
             root, volume, title=name, slices=False, density='lazy',
             max_size=WARP_MAX_SIZE, viewer_config=MAP_VIEWER_CONFIG)
     except Exception as e:
-        top = {'kind': 'empty', 'title': name, 'message': str(e)}
+        viewer = {'kind': 'empty', 'title': name, 'message': str(e)}
 
     species = row_cells.get('species', '')
     fsc = _resolve_data_path(root, row_cells.get('fscPath'))
@@ -242,11 +249,11 @@ def build_warp_volume_pane_content(root, row_cells):
         res = row_cells.get('resolution')
         title = f'FSC — {species}' + (f' ({res} Å)' if res else '')
         try:
-            bottom = build_warp_fsc_plot_content(fsc, title=title)
+            fsc_plot = build_warp_fsc_plot_content(fsc, title=title)
         except Exception as e:
-            bottom = {'kind': 'empty', 'title': 'FSC', 'message': str(e)}
+            fsc_plot = {'kind': 'empty', 'title': 'FSC', 'message': str(e)}
     else:
-        bottom = {'kind': 'empty', 'title': 'FSC', 'message': f'No FSC file for {species}'}
+        fsc_plot = {'kind': 'empty', 'title': 'FSC', 'message': f'No FSC file for {species}'}
 
     localres = None
     if species_file := _resolve_data_path(root, row_cells.get('speciesPath')):
@@ -254,10 +261,10 @@ def build_warp_volume_pane_content(root, row_cells):
         if bins:
             localres = build_warp_localres_plot_content(bins, title=f'Local resolution — {species}')
     if not localres:
-        return {'kind': 'grid', 'title': f'{species} — {name}', 'layout': 'rows',
-                'cells': {'top': top, 'bottom': bottom}}
-    return {'kind': 'grid', 'title': f'{species} — {name}', 'layout': 'span-top',
-            'cells': {'top': top, 'bottomLeft': bottom, 'bottomRight': localres}}
+        return {'kind': 'grid', 'title': f'{species} — {name}', 'layout': 'cols',
+                'cells': {'left': viewer, 'right': fsc_plot}}
+    return {'kind': 'grid', 'title': f'{species} — {name}', 'layout': 'span-left',
+            'cells': {'left': viewer, 'topRight': fsc_plot, 'bottomRight': localres}}
 
 
 def _species_file_path(species_file, suffix):

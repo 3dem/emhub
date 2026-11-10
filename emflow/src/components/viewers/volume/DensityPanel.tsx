@@ -3,8 +3,10 @@
 // Side panel of the "3D volume" tab: the histogram of the voxel values (in
 // the units of the map, from the host) with the threshold on it (click or
 // drag to move it), the threshold, the share of voxels it encloses, the
-// opacity, color and the detail of the grid.
-import { useRef, type PointerEvent as ReactPointerEvent } from "react";
+// opacity, color and the detail of the grid. Beside the scene its two groups
+// (threshold and dark density; surface options) are stacked; below it
+// (`width`) they are two columns, so the panel is about half as high.
+import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import styles from "../VolumeViewer.module.css";
 import type { VolumeDensity } from "./volumeMath";
 
@@ -140,6 +142,12 @@ type Props = DensityOptions & {
   /** Blobs hidden as dust. */
   hidden?: number;
   onChange: (patch: Partial<DensityOptions>) => void;
+  /** Most height (it scrolls when longer). */
+  maxHeight?: number;
+  /** Below the scene: this width, the two groups side by side. */
+  width?: number;
+  /** The height the panel needs to show without scrolling. */
+  onHeight?: (height: number) => void;
 };
 
 export default function DensityPanel(props: Props) {
@@ -153,88 +161,100 @@ export default function DensityPanel(props: Props) {
   const sigma = s && s.std > 0 ? (threshold - s.mean) / s.std : null;
   const frac = h ? enclosedFraction(h, threshold, below) : null;
 
-  return (
-    <div className={styles.isoPanel}>
-      {h ? (
-        <>
-          <HistogramPlot h={h} binned={d.binning > 1} threshold={threshold} below={below} color={color}
-                         onThreshold={(t) => onChange({ threshold: t })} />
-          <div className={styles.histAxis}><span>{fmt(lo)}</span><span>{fmt(hi)}</span></div>
-          <div className={styles.histLegend}>
-            <span><i className={styles.keyFull} /> Full volume</span>
-            {d.binning > 1 && h.shown && <span><i className={styles.keyShown} /> Scaled grid (surface)</span>}
-          </div>
-        </>
-      ) : <div className={styles.msg}>No histogram from the host.</div>}
+  // Its natural height (scrollHeight also counts what is scrolled out)
+  const root = useRef<HTMLDivElement>(null);
+  const onHeight = props.onHeight;
+  useLayoutEffect(() => {
+    if (root.current && onHeight) onHeight(root.current.scrollHeight);
+  });
 
-      <label className={styles.panelSelect}>
-        <span>Threshold</span>
-        <input type="number" className={styles.isoNumber} value={Number(threshold.toPrecision(5))} step={step}
-               onChange={(e) => { const v = Number(e.target.value); if (isFinite(v) && e.target.value !== "") onChange({ threshold: v }); }} />
-      </label>
-      <input type="range" className={styles.isoRange} min={lo} max={hi} step={step} value={threshold}
-             onChange={(e) => onChange({ threshold: Number(e.target.value) })} />
-      <div className={styles.isoNote}>
-        {sigma !== null && <>{sigma >= 0 ? "mean + " : "mean − "}{Math.abs(sigma).toFixed(2)} σ</>}
-        {frac !== null && <>{sigma !== null && " · "}encloses {(frac * 100).toPrecision(2)}% of the voxels</>}
+  const cols = props.width !== undefined;
+  return (
+    <div ref={root} className={cols ? `${styles.isoPanel} ${styles.isoCols}` : styles.isoPanel}
+         style={{ maxHeight: props.maxHeight, width: props.width }}>
+      <div className={styles.isoGroup}>
+        {h ? (
+          <>
+            <HistogramPlot h={h} binned={d.binning > 1} threshold={threshold} below={below} color={color}
+                           onThreshold={(t) => onChange({ threshold: t })} />
+            <div className={styles.histAxis}><span>{fmt(lo)}</span><span>{fmt(hi)}</span></div>
+            <div className={styles.histLegend}>
+              <span><i className={styles.keyFull} /> Full volume</span>
+              {d.binning > 1 && h.shown && <span><i className={styles.keyShown} /> Scaled grid (surface)</span>}
+            </div>
+          </>
+        ) : <div className={styles.msg}>No histogram from the host.</div>}
+
+        <label className={styles.panelSelect}>
+          <span>Threshold</span>
+          <input type="number" className={styles.isoNumber} value={Number(threshold.toPrecision(5))} step={step}
+                 onChange={(e) => { const v = Number(e.target.value); if (isFinite(v) && e.target.value !== "") onChange({ threshold: v }); }} />
+        </label>
+        <input type="range" className={styles.isoRange} min={lo} max={hi} step={step} value={threshold}
+               onChange={(e) => onChange({ threshold: Number(e.target.value) })} />
+        <div className={styles.isoNote}>
+          {sigma !== null && <>{sigma >= 0 ? "mean + " : "mean − "}{Math.abs(sigma).toFixed(2)} σ</>}
+          {frac !== null && <>{sigma !== null && " · "}encloses {(frac * 100).toPrecision(2)}% of the voxels</>}
+        </div>
+        <label className={styles.panelRow} title="Linked to the Invert button of the toolbar">
+          <input type="checkbox" checked={below} onChange={(e) => onChange({ below: e.target.checked })} />
+          Dark density (enclose values below)
+        </label>
       </div>
 
-      <label className={styles.panelRow}>
-        <input type="checkbox" checked={below} onChange={(e) => onChange({ below: e.target.checked })} />
-        Dark density (enclose values below)
-      </label>
-
-      <label className={styles.panelRow}>
-        <input type="checkbox" checked={props.dust > 0}
-               onChange={(e) => onChange({ dust: e.target.checked ? 20 : 0 })} />
-        Hide dust{props.dust > 0 && props.hidden ? ` (${props.hidden} blobs)` : ""}
-      </label>
-      {props.dust > 0 && (
-        <div className={styles.panelSub}>
-          <span>Blobs smaller than {props.dust} voxels</span>
-          <input type="range" min={0} max={DUST_SIZES.length - 1} step={1}
-                 value={DUST_SIZES.reduce((b, v, i) => (Math.abs(v - props.dust) < Math.abs(DUST_SIZES[b] - props.dust) ? i : b), 0)}
-                 onChange={(e) => onChange({ dust: DUST_SIZES[Number(e.target.value)] })} />
-        </div>
-      )}
-      <label className={styles.panelRow}>
-        <input type="checkbox" checked={props.smooth} onChange={(e) => onChange({ smooth: e.target.checked })} />
-        Smooth the surface (display only)
-      </label>
-
-      <label className={styles.panelSelect}>
-        <span>Opacity</span>
-        <input type="range" min={5} max={100} step={1} value={Math.round(opacity * 100)} style={{ flex: 1 }}
-               onChange={(e) => onChange({ opacity: Number(e.target.value) / 100 })} />
-        <span className={styles.isoValue}>{Math.round(opacity * 100)}%</span>
-      </label>
-
-      <label className={styles.panelSelect}>
-        <span>Color</span>
-        <input type="color" className={styles.panelColor} style={{ marginLeft: 0 }} value={color}
-               onChange={(e) => onChange({ color: e.target.value })} />
-      </label>
-
-      {props.onDetail && (
-        <label className={styles.panelSelect}>
-          <span>Detail</span>
-          <select value={props.detail} disabled={props.loading}
-                  onChange={(e) => props.onDetail!(Number(e.target.value))}>
-            {DETAILS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-          </select>
+      <div className={styles.isoGroup}>
+        <label className={styles.panelRow}>
+          <input type="checkbox" checked={props.dust > 0}
+                 onChange={(e) => onChange({ dust: e.target.checked ? 20 : 0 })} />
+          Hide dust{props.dust > 0 && props.hidden ? ` (${props.hidden} blobs)` : ""}
         </label>
-      )}
-
-      <div className={styles.isoNote}>
-        {props.loading ? "Loading the grid…" : (
-          <>
-            Grid {nx} × {ny} × {nz}
-            {d.binning > 1
-              ? <> ({d.method ?? `binned ×${d.binning}`} from {props.dims.join(" × ")})</>
-              : " (full resolution)"}
-          </>
+        {props.dust > 0 && (
+          <div className={styles.panelSub}>
+            <span>Blobs smaller than {props.dust} voxels</span>
+            <input type="range" min={0} max={DUST_SIZES.length - 1} step={1}
+                   value={DUST_SIZES.reduce((b, v, i) => (Math.abs(v - props.dust) < Math.abs(DUST_SIZES[b] - props.dust) ? i : b), 0)}
+                   onChange={(e) => onChange({ dust: DUST_SIZES[Number(e.target.value)] })} />
+          </div>
         )}
-        {s && <><br />Full volume: min {fmt(s.min)}, max {fmt(s.max)}, mean {fmt(s.mean)}, σ {fmt(s.std)}</>}
+        <label className={styles.panelRow}>
+          <input type="checkbox" checked={props.smooth} onChange={(e) => onChange({ smooth: e.target.checked })} />
+          Smooth the surface (display only)
+        </label>
+
+        <label className={styles.panelSelect}>
+          <span>Opacity</span>
+          <input type="range" min={5} max={100} step={1} value={Math.round(opacity * 100)} style={{ flex: 1, minWidth: 0 }}
+                 onChange={(e) => onChange({ opacity: Number(e.target.value) / 100 })} />
+          <span className={styles.isoValue}>{Math.round(opacity * 100)}%</span>
+        </label>
+
+        <label className={styles.panelSelect}>
+          <span>Color</span>
+          <input type="color" className={styles.panelColor} style={{ marginLeft: 0 }} value={color}
+                 onChange={(e) => onChange({ color: e.target.value })} />
+        </label>
+
+        {props.onDetail && (
+          <label className={styles.panelSelect}>
+            <span>Detail</span>
+            <select value={props.detail} disabled={props.loading}
+                    onChange={(e) => props.onDetail!(Number(e.target.value))}>
+              {DETAILS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+          </label>
+        )}
+
+        <div className={styles.isoNote}>
+          {props.loading ? "Loading the grid…" : (
+            <>
+              Grid {nx} × {ny} × {nz}
+              {d.binning > 1
+                ? <> ({d.method ?? `binned ×${d.binning}`} from {props.dims.join(" × ")})</>
+                : " (full resolution)"}
+            </>
+          )}
+          {s && <><br />Full volume: min {fmt(s.min)}, max {fmt(s.max)}, mean {fmt(s.mean)}, σ {fmt(s.std)}</>}
+        </div>
       </div>
     </div>
   );

@@ -14,6 +14,12 @@ TEMPLATE_MAX_GRID = 64
 TEMPLATE_DENSITY_GRID = 48
 # job.star option holding the template map, e.g. "pytom.template  PyTom/job023/x_template.mrc"
 _TEMPLATE_OPTION = re.compile(r'^\s*(\S*template\S*)\s+(\S+\.mrc)\s*$', re.IGNORECASE | re.MULTILINE)
+# Options of a job.star with its input particles or coordinates (followed
+# back to find the template of the picking job), and the STAR files in them
+_INPUT_COORDS = re.compile(r'^\s*\S*(?:coord|particles|optimisation|input_set)\S*\s+(.+)$',
+                           re.IGNORECASE | re.MULTILINE)
+_STAR_VALUE = re.compile(r"[^\s'\",\[\]]+\.star")
+_TEMPLATE_MAX_JOBS = 40
 
 SCORE_COLUMNS = (
     'rlnLCCmax',
@@ -356,26 +362,49 @@ def load_coords3d_tomogram_slice(root, output_path, tomo_id, slice_index, axis='
 
 def _find_template_path(root, output_path):
     """ Template map of the job that produced the particles: the 'template'
-    option of the job.star found going up from the output file. """
+    option of the job.star found going up from the output file. A job
+    without one (e.g. WarpExportParticles, an EMwrap merge of sets) is
+    followed back through its input coordinates (_INPUT_COORDS options) to
+    the picking job, up to _TEMPLATE_MAX_JOBS jobs. """
     from emhub.data.processing import project_file_path
 
     project = resolve_project_root(root)
-    folder = os.path.dirname(_resolve_star_path(root, output_path))
-    while folder.startswith(project) and folder != project:
-        job_star = os.path.join(folder, 'job.star')
-        if os.path.exists(job_star):
-            with open(job_star) as f:
-                for name, value in _TEMPLATE_OPTION.findall(f.read()):
-                    if 'mask' in name.lower():
-                        continue
-                    try:
-                        path = project_file_path(root, value)
-                    except ValueError:
-                        continue
-                    if path and os.path.exists(path):
-                        return path
+
+    def job_star_of(path):
+        folder = os.path.dirname(path)
+        while folder.startswith(project) and folder != project:
+            job_star = os.path.join(folder, 'job.star')
+            if os.path.exists(job_star):
+                return job_star
+            folder = os.path.dirname(folder)
+        return None
+
+    def project_path(value):
+        try:
+            return project_file_path(root, value)
+        except ValueError:
             return None
-        folder = os.path.dirname(folder)
+
+    queue = [job_star_of(_resolve_star_path(root, output_path))]
+    seen = set()
+    while queue and len(seen) < _TEMPLATE_MAX_JOBS:
+        job_star = queue.pop(0)
+        if not job_star or job_star in seen:
+            continue
+        seen.add(job_star)
+        with open(job_star) as f:
+            text = f.read()
+        for name, value in _TEMPLATE_OPTION.findall(text):
+            if 'mask' in name.lower():
+                continue
+            path = project_path(value)
+            if path and os.path.exists(path):
+                return path
+        for line in _INPUT_COORDS.findall(text):
+            for value in _STAR_VALUE.findall(line):
+                path = project_path(value)
+                if path and os.path.exists(path):
+                    queue.append(job_star_of(path))
     return None
 
 

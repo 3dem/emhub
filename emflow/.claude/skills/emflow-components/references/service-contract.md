@@ -16,7 +16,7 @@ with `?tomoTable` in the url to get a fake Tomograms table viewer with the
 Selected column, Create subset and the TS / Tomogram icon column; its tilt-series icon opens a fake `2x2`
 grid, with `&gridLayout=<layout>` for the other layouts; `?tomoTable=coords`
 gives a TomoCoordinates table whose tomogram icon shows particles on the
-slices; `?outputPrefix` gives the outputs a label prefix, `Out01`... for
+slices; `?classesTable` a fake 3D classes table with its iterations in the Iteration select (`loadTableViewerVariant`); `?outputPrefix` gives the outputs a label prefix, `Out01`... for
 all but the first output of each protocol). Actions take 0.7 s there, to show the pane's loading state. Update
 it when the contract changes.
 
@@ -53,7 +53,7 @@ Argument names: `projectId` is the `projectName` passed to `mountProjectPage`
 | Wizards | `openWizard(projectId, protocolId, protocolClassName, wizardId, params)` -> `WizardOpenResult` `{errors?} \| {id, label, ui, inputs, data, warnings}`; `applyWizard(..., wizardId, params, outputs)` -> `{errors?} \| {params, warnings}`. `previewWizard(..., wizardId, params, outputs)` -> `WizardPreviewResult` `{errors?} \| {data, warnings}` (optional; data for the values being chosen, e.g. a tentative mask; EMhub `/api/wizard_preview`). `protocolId` is null for a new protocol, `params` the unsaved form values. Optional: without them the wizard buttons are hidden. EMhub: `/api/wizard_open`, `/api/wizard_apply` (`emwrap.base.wizards.Wizards`), errors returned (not shown by the svc) | wand hidden | ProtocolForm |
 | Outputs | `resolveAnalyzeViewer(ctx)` (see below) | `{handled:false}` | ProtocolNodeCard, ProtocolOutputsPanel |
 | | `fetchOutputPreview` | - | ProtocolOutputsPanel |
-| Table viewer | `resolveTableViewerAction`, `executeTableViewerEditAction`, `resolveTableViewerChildren` (see below) | empty pane / failure / no children | table-viewer-pane |
+| Table viewer | `resolveTableViewerAction`, `executeTableViewerEditAction`, `resolveTableViewerChildren`, `loadTableViewerVariant` (see below) | empty pane / failure / no children / null | table-viewer-pane |
 
 When adding a method: declare it in `ProjectService.ts`, add a default in
 `normalizeService.ts` if it is optional, implement it in EMhub's svc template
@@ -165,7 +165,8 @@ table: TableViewerData = {
   rows: [{id, cells: {colId: value}, data?, actions?, defaultAction?,
           cellContexts?: {colId: {edit?: {type: "boolean", field}, actions?, children?}},
           children?}],
-  actions?, editActions?: [{id, label, requiresChanges?}], page? }
+  actions?, editActions?: [{id, label, requiresChanges?}], page?,
+  variants?: {label, value, options: [{id, label}]} }   // other versions, e.g. iterations
 ```
 
 - Cell/column/row action -> `resolveTableViewerAction(context, {actionId, rowId, columnId, rowData: row.data, cellContext})`
@@ -181,7 +182,10 @@ table: TableViewerData = {
   (dimensions and X, Y, Z slices, optional `voxelSize`, `coordinates` with
   `angles` / `template` — `{vertices, faces, density?}`, where `density` is
   `{shape: [z, y, x], data: base64 uint8, voxelSize, level}` from
-  `coords3d.py` `_template_density`, ≤ 48³ — `density` of the volume for
+  `coords3d.py` `_template_density`, ≤ 48³; the template map is the `template` option of the
+  job.star of the job of the coordinates or, when it has none (WarpExportParticles, EMwrap merge
+  or subset, Class3D...), of the job reached back through its input coordinates / particles /
+  optimisation sets (`_find_template_path`, up to 40 jobs) — `density` of the volume for
   the 3D volume tab and `viewerConfig` for the VolumeViewer tabs, tools and
   defaults) is shown by `VolumeViewer`. The X, Y, Z slices may be missing
   when `density` is inline (the slices are drawn from it). The volume
@@ -206,10 +210,12 @@ table: TableViewerData = {
   data from `data/warp_m.py`) is a table of the 3D volumes of its species
   (sharpened map first; species, volume, box, Å/px, resolution, particles; a
   species without maps still gets a row). Its row panes (`grid`s):
-  - volume (default, `span-top`): the volume (VolumeViewer, density request
-    with maxSize 256) above the Plotly FSC curves (`*_fsc.star`, the look of
-    the former Highcharts plot: own title, dashed 0.5 / 0.143, reversed
-    resolution, legend below) and the local resolution histogram
+  - volume (default, `span-left`; `cols` without a local resolution): the
+    volume (VolumeViewer, density request with maxSize 256) over the left
+    column, beside the Plotly FSC curves (`*_fsc.star`, the look of the
+    former Highcharts plot: own title, dashed 0.5 / 0.143, reversed
+    resolution, legend at the bottom of the figure, under the axis title,
+    two entries per row) above the local resolution histogram
     (`*_localres.star`, with its median).
   - refinement (`span-top`): resolution and B-factor per round (a point per
     new species version), the species summary (html) and the rounds (html:
@@ -250,6 +256,21 @@ table: TableViewerData = {
   `fetchProject`); EMhub sets it for the subset actions and invalidates its
   project cache, so `fetchProject` gets the workflow with the new job.
 - Expanding child rows -> `resolveTableViewerChildren(context, {rowId, childrenId, rowData, cellContext})`.
+- `table.variants` (more than one option): a select in the table toolbar
+  (`variants.label`, e.g. "Iteration"); choosing one ->
+  `loadTableViewerVariant(context, optionId)` -> `{context, table}` (null by
+  default: an error toast). `TableViewerDialog` then shows that table with
+  that context (the pane is keyed by `variants.value`, so its state, open
+  pane and draft edits are reset), so the row actions and edit actions use
+  the new version. EMhub: the Classes3D table (`build_classes3d_table`)
+  sends the iterations of its Relion job (`_iteration_variants`: every
+  `*_optimiser.star` of the folder, "Iteration N", "(continue N)", the
+  final `run_optimiser.star` last as "Final"; the value is the file name),
+  and `loadTableViewerVariant` loads `loadTableViewData(<folder of
+  context.outputPath>/<id>)` and returns the context with that
+  `outputPath`. Its columns: Class, Volume, Particles, % Particles,
+  Resolution (Å) (`rlnEstimatedResolution` of the iteration's model STAR,
+  empty when Relion writes 999).
 
 EMhub's adapter (`adaptTableViewData` in `project_widget_svc.html`):
 
