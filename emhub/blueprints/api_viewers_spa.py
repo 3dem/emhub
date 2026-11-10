@@ -151,6 +151,7 @@ SPA_TABLE_VIEW_SPECS = {
             {'id': 'volume', 'label': 'Volume', 'align': 'left'},
             {'id': 'particles', 'label': 'Particles', 'align': 'right', 'sortable': True},
             {'id': 'percent', 'label': '% Particles', 'align': 'right', 'sortable': True},
+            {'id': 'resolution', 'label': 'Resolution (Å)', 'align': 'right', 'sortable': True},
         ],
         'actions': [_ACTION_VOLUME],
         # Show the volume when clicking on a class row
@@ -747,11 +748,51 @@ def _iteration_star(optimiser_star, suffix):
     return optimiser_star.replace('_optimiser.star', suffix)
 
 
+# Iteration of a Relion optimiser STAR file (run_it025_optimiser.star,
+# run_ct5_it025_optimiser.star when continued; run_optimiser.star: final)
+_ITERATION_OPTIMISER = re.compile(r'_(?:ct(\d+)_)?it(\d+)_optimiser\.star$')
+
+
+def _iteration_label(name):
+    m = _ITERATION_OPTIMISER.search(name)
+    if not m:
+        return 'Final'
+    return f'Iteration {int(m.group(2))}' + (f' (continue {int(m.group(1))})' if m.group(1) else '')
+
+
+def _iteration_variants(optimiser_star):
+    """ The iterations of the job of a Relion optimiser STAR file, for the
+    table viewer's select (TableViewerData.variants): the option ids are
+    the optimiser file names, in the folder of the shown one. """
+    folder = os.path.dirname(optimiser_star)
+
+    def order(name):
+        m = _ITERATION_OPTIMISER.search(name)
+        # The final result last
+        return (1, 0, 0) if not m else (0, int(m.group(1) or 0), int(m.group(2)))
+
+    names = sorted((f for f in os.listdir(folder) if f.endswith('_optimiser.star')), key=order)
+    return {'label': 'Iteration',
+            'value': os.path.basename(optimiser_star),
+            'options': [{'id': n, 'label': _iteration_label(n)} for n in names]}
+
+
+def _resolution(value):
+    """ Estimated resolution of a class in Å, 2 decimals; None when Relion
+    has none (it writes 999 for an empty class). """
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(v, 2) if 0 < v < 999 else None
+
+
 def build_classes3d_table(full_path):
     """Table with one row per 3D class of a Relion iteration: the class id
     (from the volume filename), the class volume, its number of particles
-    (counted from the data STAR of the iteration) and their percentage of
-    the total. """
+    (counted from the data STAR of the iteration), their percentage of
+    the total and its estimated resolution (model STAR). The other
+    iterations of the job are given as variants (the viewer's select). """
     from collections import Counter
 
     spec = SPA_TABLE_VIEW_SPECS['classes3d']
@@ -763,7 +804,7 @@ def build_classes3d_table(full_path):
 
     with StarFile(model_star) as sf:
         ps = sf.getTable('model_general', guessType=False)[0].rlnPixelSize
-        volumes = [row.rlnReferenceImage
+        classes = [(row.rlnReferenceImage, getattr(row, 'rlnEstimatedResolution', None))
                    for row in sf.iterTable('model_classes', guessType=False)]
 
     counts = Counter()
@@ -774,7 +815,7 @@ def build_classes3d_table(full_path):
 
     total = sum(counts.values())
     rows = []
-    for i, volume in enumerate(volumes, 1):
+    for i, (volume, resolution) in enumerate(classes, 1):
         m = _CLASS_VOLUME_ID.search(volume)
         class_id = int(m.group(1)) if m else i
         cells = {
@@ -783,15 +824,18 @@ def build_classes3d_table(full_path):
             'volumePath': volume,
             'particles': counts.get(class_id, 0),
             'percent': round(100 * counts.get(class_id, 0) / total, 2) if total else 0,
+            'resolution': _resolution(resolution),
         }
         rows.append({'id': class_id, 'cells': cells, 'actions': [],
                      'defaultAction': _table_view_action_payload(spec['default_action'])})
 
-    title = (f"{spec['title']} ({len(rows)} classes, "
-             f"{total} particles, {float(ps):0.3f} Å/px)")
+    title = (f"{spec['title']} — {_iteration_label(os.path.basename(full_path))} "
+             f"({len(rows)} classes, {total} particles, {float(ps):0.3f} Å/px)")
     return {'title': title,
             'columns': _table_view_column_actions(spec),
-            'rows': rows}
+            'rows': rows,
+            'variants': _iteration_variants(full_path)}
+
 
 
 # Most voxels of the density grid of a 3D class (e.g. 158^3 at full size)

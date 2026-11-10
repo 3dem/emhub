@@ -283,10 +283,29 @@ export type TableViewerPage = {
   total: number;
 };
 
+/** Other versions of a table the host can load (e.g. the iterations of a
+ * Relion job), shown as a select in the table toolbar; choosing one calls
+ * loadTableViewerVariant. */
+export type TableViewerVariants = {
+  /** Label of the select ("Iteration"). */
+  label: string;
+  /** Id of the shown version. */
+  value: string;
+  options: { id: string; label: string }[];
+};
+
+/** A version of a table and the context of its requests (e.g. its path). */
+export type TableViewerVariantData = {
+  context: TableViewerContext;
+  table: TableViewerData;
+};
+
 export type TableViewerData = {
   title?: string;
   columns: TableViewerColumn[];
   rows: TableViewerRow[];
+
+  variants?: TableViewerVariants;
 
   actions?: TableViewerAction[];
 
@@ -1318,6 +1337,13 @@ export interface ProjectService<
     context: TableViewerContext,
     request: TableViewerChildrenRequest
   ): Promise<TableViewerChildrenData>;
+
+  /** Optional: another version of the table (TableViewerData.variants), with
+   * the context of its requests; null when the host has none (default). */
+  loadTableViewerVariant(
+    context: TableViewerContext,
+    variantId: string
+  ): Promise<TableViewerVariantData | null>;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Analyze Results (Coordinates 3D + linked tomograms)

@@ -39,6 +39,7 @@ import type {
     TableViewerEdit,
     TableViewerEditAction,
     TableViewerGridSlot,
+    TableViewerVariantData,
 } from "@/services/ProjectService";
 import { getTableViewerActionIcon } from "./TableViewerActionIcons";
 import TableViewerGrid from "./TableViewerGrid";
@@ -51,6 +52,8 @@ import toast from "react-hot-toast";
 type TableViewerPaneProps = {
     context: TableViewerContext;
     table: TableViewerData;
+    /** Shows another version of the table (TableViewerData.variants). */
+    onVariant?: (view: TableViewerVariantData) => void;
 };
 
 type ActivePane =
@@ -115,8 +118,24 @@ function compareCellValues(
 export default function TableViewerPane({
     context,
     table,
+    onVariant,
 }: TableViewerPaneProps) {
     const svc = useProjectService();
+    // Another version of the table (e.g. an iteration), loaded by the host
+    const variants = onVariant ? table.variants : undefined;
+    const [variantLoading, setVariantLoading] = useState<string | null>(null);
+    const chooseVariant = async (id: string) => {
+        if (!variants || id === variants.value) return;
+        setVariantLoading(id);
+        try {
+            const view = await svc.loadTableViewerVariant(context, id);
+            if (!view) throw new Error(`The host cannot load this ${variants.label.toLowerCase()}.`);
+            onVariant!(view);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : String(error));
+            setVariantLoading(null);
+        }
+    };
     const refreshProject = useProjectRefresh();
     const [searchValue, setSearchValue] = useState("");
     const [selectedRowId, setSelectedRowId] = useState<string | number | null>(
@@ -1462,6 +1481,35 @@ export default function TableViewerPane({
                             ? `${totalRows} items`
                             : `${table.rows.length} / ${totalRows} loaded`}
                     </Typography>
+
+                    {variants && variants.options.length > 1 && (
+                        <TextField
+                            select
+                            size="small"
+                            label={variants.label}
+                            value={variantLoading ?? variants.value}
+                            disabled={Boolean(variantLoading)}
+                            onChange={(event) => chooseVariant(event.target.value)}
+                            sx={{
+                                minWidth: 150,
+                                "& .MuiOutlinedInput-root": {
+                                    height: 34,
+                                    borderRadius: 2,
+                                    backgroundColor: "#ffffff",
+                                    fontSize: "0.76rem",
+                                },
+                                "& .MuiInputLabel-root": { fontSize: "0.76rem" },
+                            }}
+                            SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 360 } } } }}
+                        >
+                            {variants.options.map((option) => (
+                                <MenuItem key={option.id} value={option.id} sx={{ fontSize: "0.76rem" }}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                    )}
+                    {variantLoading && <CircularProgress size={16} />}
 
                     {draftEditList.length > 0 && (
                         <Typography

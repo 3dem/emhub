@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
     Box,
     Chip,
@@ -27,11 +28,18 @@ type TableViewerDialogProps = {
 export default function TableViewerDialog({
     open,
     onClose,
-    context,
-    table,
+    context: givenContext,
+    table: givenTable,
     title,
     protocolLabel = "",
 }: TableViewerDialogProps) {
+    // The shown version of the table (another iteration, see
+    // TableViewerData.variants) replaces the given one with its context
+    const [view, setView] = useState({ context: givenContext, table: givenTable });
+    useEffect(() => {
+        setView({ context: givenContext, table: givenTable });
+    }, [givenContext, givenTable]);
+    const { context, table } = view;
     const resolvedTitle =
         title ||
         table.title ||
@@ -219,8 +227,10 @@ export default function TableViewerDialog({
                 }}
             >
                 <TableViewerPane
+                    key={table.variants?.value}
                     context={context}
                     table={table}
+                    onVariant={setView}
                 />
             </DialogContent>
         </Dialog>
