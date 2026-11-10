@@ -4,8 +4,8 @@
 //   - Slices: linked X/Y/Z sections (volume/VolumeSlices.tsx) with select,
 //     ruler, zoom and pan tools, contrast, crosshair and particles.
 //   - 3D planes: three orthogonal planes in a rotatable scene, at most two
-//     shown, the faint whole volume and the particles or their template
-//     (volume/VolumeScene3D.ts).
+//     shown, the faint whole volume and the particles as dots, spheres
+//     (oriented by an arrow) or their template (volume/VolumeScene3D.ts).
 //   - 3D volume: the density as an iso-surface with its histogram, threshold,
 //     opacity and inverted contrast (volume/IsoSurfaceView.tsx); only with a
 //     `density`.
@@ -53,7 +53,7 @@ import VolumeSlices, {
   type SliceMask,
   type VolumeSlicesHandle,
 } from "./volume/VolumeSlices";
-import { VolumeScene3D, type SceneState } from "./volume/VolumeScene3D";
+import { VolumeScene3D, type ParticleDraw, type SceneState } from "./volume/VolumeScene3D";
 import ParticlesPanel, { type ParticleOptions } from "./volume/ParticlesPanel";
 import MaskPanel, { type MaskOptions } from "./volume/MaskPanel";
 import IsoSurfaceView, {
@@ -99,8 +99,14 @@ export type VolumeViewerDefaults = {
     tolerance?: number;
     /** CSS hex (#ffa500). */
     color?: string;
-    /** Drawn as the oriented template (false: dots). */
+    /** Drawn as the oriented template (false: dots); see drawAs. */
     template?: boolean;
+    /** 3D planes: "dots", "sphere" (with an arrow along the orientation when
+     * there are angles) or "template" (needs one); by default "template"
+     * with `template: true`, else "dots". */
+    drawAs?: ParticleDraw;
+    /** Sphere radius in voxels (the template's, or 8). */
+    sphereRadius?: number;
   };
   /** Shown planes of 3D planes, at most two (["z", "y"]). */
   planes?: Axis[];
@@ -414,7 +420,19 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     // One contrast for all the tabs (3D volume: the dark density)
     const [inverted, setInverted] = useState(Boolean(defaults.inverted ?? defaults.iso?.below));
     const [volOn, setVolOn] = useState(false);
-    const [tmplOn, setTmplOn] = useState(Boolean(dParts.template && hasTemplate));
+    // Dots, spheres or the template (only with one)
+    const [drawAs, setDrawAs] = useState<ParticleDraw>(() => {
+      const d = dParts.drawAs ?? (dParts.template ? "template" : "dots");
+      return d === "template" && !hasTemplate ? "dots" : d;
+    });
+    // The template's radius (its farthest vertex) in voxels, else 8
+    const [sphereRadius, setSphereRadius] = useState(() => {
+      if (dParts.sphereRadius && dParts.sphereRadius > 0) return dParts.sphereRadius;
+      const v = hasTemplate ? P!.template!.vertices : [];
+      let r2 = 0;
+      for (let i = 0; i + 2 < v.length; i += 3) r2 = Math.max(r2, v[i] ** 2 + v[i + 1] ** 2 + v[i + 2] ** 2);
+      return r2 && vs?.x ? Math.max(1, Math.round(Math.sqrt(r2) / vs.x)) : 8;
+    });
     // Particles: only those near the sections/planes (± tolerance) or all, per
     // tab: near the sections in Slices, all in 3D planes by default
     const [nearSlices, setNearSlices] = useState(dParts.nearSlices ?? true);
@@ -723,7 +741,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       if (o.partsOn !== undefined) setPartsOn(o.partsOn);
       if (o.nearOnly !== undefined) (tab === "view3d" ? setNear3d : setNearSlices)(o.nearOnly);
       if (o.tolerance !== undefined) setTolerance(o.tolerance);
-      if (o.tmplOn !== undefined) setTmplOn(o.tmplOn);
+      if (o.drawAs !== undefined) setDrawAs(o.drawAs);
+      if (o.sphereRadius !== undefined) setSphereRadius(o.sphereRadius);
       if (o.templateLevel !== undefined) setTemplateLevel(o.templateLevel);
       if (o.color !== undefined) setParticleColor(o.color);
     };
@@ -759,7 +778,11 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
               partsOn={partsOn}
               nearOnly={is3d ? near3d : nearSlices}
               tolerance={tolerance}
-              tmplOn={tmplOn}
+              drawAs={drawAs}
+              sphereRadius={sphereRadius}
+              maxRadius={Math.max(20, Math.round(Math.min(X, Y, Z) / 4), sphereRadius)}
+              hasAngles={Boolean(P?.angles?.length)}
+              angpix={vs?.x ?? null}
               templateLevel={templateLevel}
               color={particleColor}
               hasTemplate={hasTemplate}
@@ -851,8 +874,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
     const sceneHost = useRef<HTMLDivElement>(null);
     const [sceneError, setSceneError] = useState<string | null>(null);
     const sceneState: SceneState = {
-      pos, sel, partsOn, tmplOn, volOn, inverted, active, volOpacity, mode, nearOnly: near3d, tolerance, templateLevel,
-      particleColor,
+      pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, mode, nearOnly: near3d, tolerance,
+      templateLevel, particleColor,
     };
     const sceneStateRef = useRef(sceneState);
     sceneStateRef.current = sceneState;
@@ -896,8 +919,8 @@ const VolumeViewerCore = forwardRef<VolumeViewerHandle, VolumeViewerProps & {
       sceneRef.current?.setState(sceneState);
       // the fields are the dependencies
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pos, sel, partsOn, tmplOn, volOn, inverted, active, volOpacity, mode, near3d, tolerance, templateLevel,
-        particleColor]);
+    }, [pos, partsOn, drawAs, sphereRadius, volOn, inverted, active, volOpacity, mode, near3d, tolerance,
+        templateLevel, particleColor]);
     useEffect(() => {
       sceneRef.current?.resize(size3d[0], size3d[1]);
     }, [size3d]);

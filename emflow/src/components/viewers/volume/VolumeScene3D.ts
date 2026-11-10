@@ -1,9 +1,10 @@
 // src/components/viewers/volume/VolumeScene3D.ts
 //
 // The 3D tab of VolumeViewer: three orthogonal planes textured with the
-// current slices (at most two shown), the volume box, the position marker,
-// picked particles (points, or the template surface at each particle) and an
-// optional faint ray-marched volume. Renders on demand (no animation loop).
+// current slices (at most two shown), the volume box, picked particles
+// (points, spheres with an arrow along their orientation, or the template
+// surface at each particle) and an optional faint ray-marched volume.
+// Renders on demand (no animation loop).
 // The world is the voxel space with y flipped (three.js y goes up).
 import * as THREE from "three";
 import { templateMesh, type ParticleTemplate } from "./templateSurface";
@@ -21,11 +22,15 @@ import {
   type VoxelSize,
 } from "./volumeMath";
 
+/** How the particles are drawn in 3D. */
+export type ParticleDraw = "dots" | "sphere" | "template";
+
 export type SceneState = {
   pos: Vec3;
-  sel: number;
   partsOn: boolean;
-  tmplOn: boolean;
+  drawAs: ParticleDraw;
+  /** Sphere radius, voxels. */
+  sphereRadius: number;
   /** Only the particles within `tolerance` voxels of a shown plane. */
   nearOnly: boolean;
   tolerance: number;
@@ -55,6 +60,21 @@ export type SceneOptions = {
 };
 
 const toWorld = (x: number, y: number, z: number) => new THREE.Vector3(x, -y, z);
+
+/** One geometry of two indexed geometries (positions and normals). */
+function mergeGeometries(a: THREE.BufferGeometry, b: THREE.BufferGeometry): THREE.BufferGeometry {
+  const g = new THREE.BufferGeometry();
+  for (const name of ["position", "normal"]) {
+    const x = a.getAttribute(name).array as Float32Array, y = b.getAttribute(name).array as Float32Array;
+    const arr = new Float32Array(x.length + y.length);
+    arr.set(x);
+    arr.set(y, x.length);
+    g.setAttribute(name, new THREE.BufferAttribute(arr, 3));
+  }
+  const ia = Array.from(a.getIndex()!.array), off = a.getAttribute("position").count;
+  g.setIndex([...ia, ...Array.from(b.getIndex()!.array, (i) => i + off)]);
+  return g;
+}
 
 const VOLUME_VERTEX = "varying vec3 vP; void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
 
@@ -93,14 +113,18 @@ export class VolumeScene3D {
   private readonly scene = new THREE.Scene();
   private readonly camera: THREE.PerspectiveCamera;
   private readonly planes = {} as Record<Axis, THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>>;
-  private readonly marker: THREE.Mesh;
   private readonly tex = new Map<string, THREE.Texture>();
   private readonly pending = new Set<string>();
   private readonly ray = new THREE.Raycaster();
   private readonly ball: Trackball;
   private points: THREE.Points | null = null;
-  private selMark: THREE.Mesh | null = null;
   private tmpl: THREE.InstancedMesh | null = null;
+  /** Spheres and, with angles, arrows along each particle's Z axis. */
+  private spheres: THREE.InstancedMesh | null = null;
+  private arrows: THREE.InstancedMesh | null = null;
+  /** Unit Z axis of each particle in the world (null without angles). */
+  private dirs: THREE.Vector3[] | null = null;
+  private drawnKey = "";
   private tmplMatrices: THREE.Matrix4[] = [];
   private tmplLevel: number | null = null;
   /** Indices of the particles shown (all, or near the shown planes). */
@@ -156,12 +180,6 @@ export class VolumeScene3D {
     box.position.set(X / 2, -Y / 2, Z / 2);
     this.scene.add(box);
 
-    this.marker = new THREE.Mesh(
-      new THREE.SphereGeometry(m / 120, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0x339af0 }),
-    );
-    this.scene.add(this.marker);
-
     const P = options.particles;
     if (P) {
       const n = P.x.length;
@@ -178,13 +196,12 @@ export class VolumeScene3D {
         new THREE.PointsMaterial({ color: state.particleColor, size: 3.5, sizeAttenuation: false }),
       );
       this.scene.add(this.points);
+      this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+      const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+      sun.position.set(1, 1, 2);
+      this.scene.add(sun);
       if (P.template?.faces?.length && options.voxelSize?.x) this.buildTemplate(P, state.templateLevel);
-      this.selMark = new THREE.Mesh(
-        new THREE.SphereGeometry(m / 70, 12, 12),
-        new THREE.MeshBasicMaterial({ color: 0xff3b30 }),
-      );
-      this.selMark.visible = false;
-      this.scene.add(this.selMark);
+      this.buildSpheres(P);
     }
 
     this.reset();
@@ -291,10 +308,12 @@ export class VolumeScene3D {
     });
   }
 
-  /** Planes, marker, particles and volume from the current state. */
+  /** Planes, particles and volume from the current state. */
   sync() {
     if (this.disposed) return;
-    const { pos, sel, partsOn, tmplOn, active } = this.state;
+    const { pos, partsOn, active } = this.state;
+    const tmplOn = this.state.drawAs === "template" && Boolean(this.tmpl);
+    const sphereOn = this.state.drawAs === "sphere";
     const { x: X, y: Y, z: Z } = this.o.dim;
     for (const a of AXES) {
       const key = this.o.keys[a][nearest(this.o.keys[a], pos[a])];
@@ -309,19 +328,22 @@ export class VolumeScene3D {
       m.material.needsUpdate = true;
       m.visible = active.includes(a);
     }
-    this.marker.position.copy(toWorld(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5));
     const P = this.o.particles;
-    if (P && this.points && this.selMark) {
+    if (P && this.points) {
       this.updateShown(P);
-      this.points.visible = partsOn && !(tmplOn && this.tmpl);
-      (this.points.material as THREE.PointsMaterial).color.set(this.state.particleColor);
-      if (this.tmpl) (this.tmpl.material as THREE.MeshLambertMaterial).color.set(this.state.particleColor);
+      const color = this.state.particleColor;
+      this.points.visible = partsOn && !tmplOn && !sphereOn;
+      (this.points.material as THREE.PointsMaterial).color.set(color);
       if (this.tmpl) {
+        (this.tmpl.material as THREE.MeshLambertMaterial).color.set(color);
         if (tmplOn && this.state.templateLevel !== this.tmplLevel) this.setTemplateGeometry(P, this.state.templateLevel);
         this.tmpl.visible = partsOn && tmplOn;
       }
-      this.selMark.visible = partsOn && sel >= 0;
-      if (sel >= 0) this.selMark.position.copy(toWorld(P.x[sel] + 0.5, P.y[sel] + 0.5, P.z[sel] + 0.5));
+      for (const mesh of [this.spheres, this.arrows]) {
+        if (!mesh) continue;
+        (mesh.material as THREE.MeshLambertMaterial).color.set(color);
+        mesh.visible = partsOn && sphereOn;
+      }
     }
     this.updateVolume();
     this.render();
@@ -350,6 +372,61 @@ export class VolumeScene3D {
       this.tmpl.count = shown.length;
       this.tmpl.instanceMatrix.needsUpdate = true;
     }
+    // Spheres (and arrows) only when drawn: their size is the radius
+    const r = Math.max(0.5, this.state.sphereRadius);
+    const key = this.state.drawAs === "sphere" ? `${shown.join(",")}|${r}` : "";
+    if (this.spheres && key && key !== this.drawnKey) {
+      const mat = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(r, r, r);
+      const zAxis = new THREE.Vector3(0, 0, 1);
+      shown.forEach((i, k) => {
+        const w = toWorld(P.x[i] + 0.5, P.y[i] + 0.5, P.z[i] + 0.5);
+        this.spheres!.setMatrixAt(k, mat.compose(w, q.identity(), sc));
+        if (this.arrows && this.dirs) {
+          this.arrows.setMatrixAt(k, mat.compose(w, q.setFromUnitVectors(zAxis, this.dirs[i]), sc));
+        }
+      });
+      for (const mesh of [this.spheres, this.arrows]) {
+        if (!mesh) continue;
+        mesh.count = shown.length;
+        mesh.instanceMatrix.needsUpdate = true;
+      }
+      this.drawnKey = key;
+    }
+  }
+
+  /* Spheres at the particles (translucent, so the arrow shows inside) and,
+     when they have angles, an arrow from the centre along each one's Z axis
+     (the RELION rotation, as the template), out of the sphere. Both are
+     scaled to the radius per instance. */
+  private buildSpheres(P: VolumeCoordinates) {
+    const n = P.x.length;
+    const color = this.state.particleColor;
+    this.spheres = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1, 20, 14),
+      new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.45, depthWrite: false }),
+      n,
+    );
+    this.spheres.renderOrder = 2;
+    if (P.angles?.length) {
+      this.dirs = [];
+      for (let i = 0; i < n; i++) {
+        const e = particleRotation(P.angles[i], 1);
+        this.dirs.push(new THREE.Vector3(e[2], e[5], e[8]).normalize());
+      }
+      // Along +Z: a shaft from the centre, the head just out of the sphere
+      const shaft = new THREE.CylinderGeometry(0.11, 0.11, 1.35, 8).rotateX(Math.PI / 2).translate(0, 0, 0.675);
+      const head = new THREE.ConeGeometry(0.3, 0.55, 12).rotateX(Math.PI / 2).translate(0, 0, 1.625);
+      this.arrows = new THREE.InstancedMesh(mergeGeometries(shaft, head), new THREE.MeshLambertMaterial({ color }), n);
+      shaft.dispose();
+      head.dispose();
+    }
+    for (const mesh of [this.spheres, this.arrows]) {
+      if (!mesh) continue;
+      mesh.visible = false;
+      mesh.frustumCulled = false;
+      mesh.count = 0;
+      this.scene.add(mesh);
+    }
   }
 
   /* One instanced mesh of the template surface (Å) scaled to voxels, rotated
@@ -371,10 +448,6 @@ export class VolumeScene3D {
     mesh.visible = false;
     mesh.frustumCulled = false;
     this.scene.add(mesh);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-    sun.position.set(1, 1, 2);
-    this.scene.add(sun);
     this.tmpl = mesh;
     this.setTemplateGeometry(P, level);
   }

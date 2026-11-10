@@ -181,7 +181,10 @@ table: TableViewerData = {
   (dimensions and X, Y, Z slices, optional `voxelSize`, `coordinates` with
   `angles` / `template` — `{vertices, faces, density?}`, where `density` is
   `{shape: [z, y, x], data: base64 uint8, voxelSize, level}` from
-  `coords3d.py` `_template_density`, ≤ 48³ — `density` of the volume for
+  `coords3d.py` `_template_density`, ≤ 48³; the template map is the `template` option of the
+  job.star of the job of the coordinates or, when it has none (WarpExportParticles, EMwrap merge
+  or subset, Class3D...), of the job reached back through its input coordinates / particles /
+  optimisation sets (`_find_template_path`, up to 40 jobs) — `density` of the volume for
   the 3D volume tab and `viewerConfig` for the VolumeViewer tabs, tools and
   defaults) is shown by `VolumeViewer`. The X, Y, Z slices may be missing
   when `density` is inline (the slices are drawn from it). The volume
