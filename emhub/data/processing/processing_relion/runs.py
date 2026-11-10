@@ -27,7 +27,8 @@ import mrcfile
 from emtools.utils import Path, Timer, Pretty, FolderManager
 from emtools.metadata import StarFile, EPU, SqliteFile, Table, RelionStar
 from emtools.image import Thumbnail
-from emwrap.base import ProcessingConfig, ProjectManager, JobForm, ProcessingPipeline
+from emwrap.base import (ProcessingConfig, ProjectManager, JobForm,
+                         ProcessingPipeline, read_job_params)
 
 from ..base import SessionRun, SessionData, hours
 
@@ -45,7 +46,9 @@ class RelionRun(SessionRun):
         self.extra = kwargs
 
         if self.exists('job.star'):
-            self.values = RelionStar.read_jobstar(self.join('job.star'))
+            # job.star.emwrap while relion_pipeliner runs the job, it keeps
+            # the options the pipeliner drops from job.star (e.g. queue.*)
+            self.values = read_job_params(os.path.dirname(self.join('job.star')))
             job_form = ProcessingConfig.get_job_form(self.jobtype)
             if job_form:
                 self.values = JobForm.decode_json_params(job_form, self.values)

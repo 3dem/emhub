@@ -283,6 +283,15 @@ export type TableViewerPage = {
   total: number;
 };
 
+/** The action resolved when the table is shown (its row is selected), as if
+ * clicked: actionId is one of the row's actions (its defaultAction, actions,
+ * cell actions or column actions), the row's defaultAction if omitted. */
+export type TableViewerInitialAction = {
+  rowId: string | number;
+  actionId?: string;
+  columnId?: string;
+};
+
 /** Other versions of a table the host can load (e.g. the iterations of a
  * Relion job), shown as a select in the table toolbar; choosing one calls
  * loadTableViewerVariant. */
@@ -305,6 +314,7 @@ export type TableViewerData = {
   columns: TableViewerColumn[];
   rows: TableViewerRow[];
 
+  initialAction?: TableViewerInitialAction;
   variants?: TableViewerVariants;
 
   actions?: TableViewerAction[];
@@ -555,6 +565,15 @@ export type AnalyzeViewerResolveDecision =
     pointerClass?: string;
     data?: Record<string, any>;
     source?: { path: string; payload?: Record<string, unknown> };
+  }
+  | {
+    // A PDF file (PdfViewerDialog): the browser renders the file at `url`
+    // (given by the host, e.g. EMhub's /api/get_pdf_file) in an iframe
+    handled: true;
+    viewer: "pdf";
+    url: string;
+    title?: string;
+    pointerClass?: string;
   };
 
 // ─────────────────────────────────────────────────────────────────────────────

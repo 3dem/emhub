@@ -28,7 +28,7 @@ from emtools.utils import Path, Timer, Pretty, FolderManager
 from emtools.metadata import StarFile, EPU, SqliteFile, RelionStar
 from emtools.image import Thumbnail
 
-from emwrap.base import ProcessingConfig, ProjectManager
+from emwrap.base import ProcessingConfig, ProjectManager, read_job_params
 from emwrap.base.job_form import JobForm
 from emwrap.base.wizards import Wizards
 
@@ -320,6 +320,9 @@ class RelionSessionData(SessionData):
         """ Convert a project workflow to another
         structure expected by the widget in the UI.
         """
+        # Imported here: job_views imports emhub.data.processing (cycle)
+        from ..job_views import job_view_outputs
+
         root = {
             "id": "PROJECT",
             "children": [],
@@ -369,6 +372,11 @@ class RelionSessionData(SessionData):
                     "value": o.id,
                     "parentId": job.id
                 })
+
+            # Views of the whole job (e.g. CTF plots), as extra outputs
+            if job['status'] == 'Succeeded':
+                outputs.extend(job_view_outputs(job.id, job['jobtype'],
+                                                self.join(job.id)))
 
             prot = {
                 'id': job.id,
@@ -456,9 +464,8 @@ class RelionSessionData(SessionData):
         # jobValues is usually filled by RelionRun, but callers may only pass
         # runId (e.g. form-only requests); read the star file directly then.
         if jobValues is None and runId:
-            jobStar = self.join(runId, 'job.star')
-            if os.path.exists(jobStar):
-                jobValues = RelionStar.read_jobstar(jobStar)
+            if os.path.exists(self.join(runId, 'job.star')):
+                jobValues = read_job_params(self.join(runId))
 
         jobForm = ProcessingConfig.get_job_form(jobType)
 

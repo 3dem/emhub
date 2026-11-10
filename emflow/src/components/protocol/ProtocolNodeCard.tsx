@@ -74,11 +74,14 @@ import {
 
 import TableViewerDialog from "@/components/viewers/TableViewerDialog";
 import VolumeViewerDialog from "@/components/viewers/VolumeViewerDialog";
+import PdfViewerDialog from "@/components/viewers/PdfViewerDialog";
 import {
+  isPdfViewerAnalyzeDecision,
   isTableViewerAnalyzeDecision,
   isVolumeViewerAnalyzeDecision,
   openExternalAnalyzeDecision,
   type TableViewerDecision,
+  type PdfViewerDecision,
   type VolumeViewerDecision,
 } from "@/utils/analyze-viewer-decision";
 import type {
@@ -1691,6 +1694,7 @@ export default function ProtocolNodeCard({
 
   const [tableViewerState, setTableViewerState] = useState<TableViewerDecision | null>(null);
   const [volumeViewerState, setVolumeViewerState] = useState<VolumeViewerDecision | null>(null);
+  const [pdfViewerState, setPdfViewerState] = useState<PdfViewerDecision | null>(null);
 
   const canOpenViewer = !isProjectNode && data.projectId != null;
 
@@ -2006,6 +2010,10 @@ export default function ProtocolNodeCard({
             }
             if (isVolumeViewerAnalyzeDecision(decision)) {
               setVolumeViewerState(decision);
+              return;
+            }
+            if (isPdfViewerAnalyzeDecision(decision)) {
+              setPdfViewerState(decision);
               return;
             }
 
@@ -2364,6 +2372,13 @@ export default function ProtocolNodeCard({
         <VolumeViewerDialog
           decision={volumeViewerState}
           onClose={() => setVolumeViewerState(null)}
+          protocolLabel={headerDisplayName}
+        />
+      ) : null}
+      {pdfViewerState ? (
+        <PdfViewerDialog
+          decision={pdfViewerState}
+          onClose={() => setPdfViewerState(null)}
           protocolLabel={headerDisplayName}
         />
       ) : null}

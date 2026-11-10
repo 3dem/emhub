@@ -141,19 +141,39 @@ Return one of (`AnalyzeViewerResolveDecision`):
 - `{handled: true, viewer: "volume", title?, pointerClass?, data? | source?: {path, payload}}`
   -> `VolumeViewerDialog`: the VolumeViewer pane content inline or loaded
   with the DataLoader (its `viewerConfig` sets the viewer).
+- `{handled: true, viewer: "pdf", url, title?, pointerClass?}` ->
+  `PdfViewerDialog`: the browser's own PDF viewer in an iframe with
+  `src = url` (emflow does not fetch it, the url is from the host), and a
+  button to open it in a new tab.
 
 EMhub (`project_widget_svc.html`) returns `viewer: "table"` for
 `TiltSeriesMovies`, `TiltSeries`, `TiltSeriesAligned`, `Tomograms`,
 `TomoCoordinates`, `TomoParticles`, `Movies`, `Micrographs`,
 `MultiClasses2D`, `Classes3D`, `Particles` (table built by the server:
-`get_table_view_data`). It returns `viewer: "volume"` for `Volume` and `VolumeMask` outputs
+`get_table_view_data`), and for `JobView` outputs: views of a whole job that
+EMhub adds as extra ("fake") outputs of finished jobs
+(`emhub/data/processing/job_views.py`, `job_view_outputs` called from
+`processing_relion/project.py`), with value `<job id>#<view id>`; they are
+not files, so their pointerClass matches no input. `CTF Plots`
+(`relion.ctffind.tomo`) and `Motion Plots` (`relion.motioncorr.tomo`) are
+tables of the metrics of Relion's logfile.pdf (one row per STAR label, with
+its statistics); a row (default action `plots`, opened for the first row
+with `initialAction`) shows a `cols` grid: the values of all tilt images,
+one trace per tilt series, and the histogram (`data/processing/star_columns.py`,
+reusable for any STAR columns). New views subclass `JobView`, or
+`StarColumnsPlotsView` with only their METRICS, and are registered with
+`register_job_view`. It returns `viewer: "volume"` for `Volume` and `VolumeMask` outputs
 (`.mrc`) with `source` = `/api/get_volume_viewer` `{root, path,
 pointerClass}` (`build_volume_output_pane_content`, `VOLUME_OUTPUT_VIEWER_CONFIG`:
 3D volume first, Slices without the select tool or crosshair, densities of
 at most 256 px; a `VolumeMask` is shown over the map it was created from: the
 input volume in the job.star of `emw-relion-mask_create`, or `<name>.mrc`
 next to `<name>_mask.mrc` (PyTom); the mask alone if not found or not on the
-same box). Other files still open EMhub's own viewer (`visualizeOutput`).
+same box). It returns `viewer: "pdf"` for `PdfFile` outputs (and `File`
+outputs ending in `.pdf`, cached before emwrap had the type) with `url` =
+`/api/get_pdf_file?root=&path=` (GET, login required, only `.pdf` files
+inside the project, checked with `project_file_path`). Other files still
+open EMhub's own viewer (`visualizeOutput`).
 
 ## Table viewer protocol
 
@@ -166,9 +186,17 @@ table: TableViewerData = {
           cellContexts?: {colId: {edit?: {type: "boolean", field}, actions?, children?}},
           children?}],
   actions?, editActions?: [{id, label, requiresChanges?}], page?,
+  initialAction?: {rowId, actionId?, columnId?},
   variants?: {label, value, options: [{id, label}]} }   // other versions, e.g. iterations
 ```
 
+- `initialAction`: when the table is shown, its row is selected and its
+  action resolved as if clicked (once per table object): `actionId` is
+  looked up in the cell context of `columnId`, the column actions, the row's
+  `defaultAction` and `actions`; without `actionId` the cell's or row's
+  `defaultAction`. Ignored if the row or action does not exist
+  (`findInitialAction` in `TableViewerPane.tsx`). The dev page tries it with
+  `?tomoTable&initialAction[=<row>:<action>]`.
 - Cell/column/row action -> `resolveTableViewerAction(context, {actionId, rowId, columnId, rowData: row.data, cellContext})`
   -> `TableViewerPaneContent` (`empty`, `text`, `html`, `iframe`, `image`,
   `plotly`, `imageSlider`, `tiltSeries`, `grid`). A `tiltSeries` (`TableViewerTiltSeriesContent`:
