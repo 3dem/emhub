@@ -293,21 +293,30 @@
                         <span class="otf-dot otf-shape-{{ r.statusShape }} mr-1"
                               style="background: {{ r.statusColor }}; color: {{ r.statusColor }}"></span>
                         <small>{{ r.statusLabel }}</small>
-                        {% if r.reasons %}
+                        {# Failed after motion correction and CTF: its data
+                           quality too, with the stage that failed first #}
+                        {% set why = ([r.failedLabel ~ ' could not process this tilt series'] if r.quality else []) + r.reasons %}
+                        {% if r.quality %}
+                            <span class="otf-dot otf-shape-{{ r.qualityShape }} ml-2 mr-1"
+                                  style="background: {{ r.qualityColor }}; color: {{ r.qualityColor }}"></span>
+                            <small>{{ r.qualityLabel }}</small>
+                        {% endif %}
+                        {% if why %}
                             <i class="fas fa-info-circle otf-why ml-1" data-toggle="tooltip"
                                data-html="true" data-placement="right"
-                               title="{{ r.reasons|join('<br><br>') }}"></i>
+                               title="{{ why|join('<br><br>') }}"></i>
                         {% endif %}
                     </td>
 
-                    {% if r.status == 'failed' %}
+                    {% if r.status == 'failed' and not r.quality %}
                         {# A stage that could not process this series is a
                            different problem from poor data, so it does not
-                           get dressed up with empty metric columns. #}
+                           get dressed up with empty metric columns; failed
+                           after motion correction and CTF it has data to
+                           show, see below. #}
                         <td colspan="{{ nMetricCols }}" class="text-muted">
                             <small>
-                                {{ stages|selectattr('key', 'equalto', r.failedAt)|map(attribute='label')|first|default(r.failedAt) }}
-                                could not process this tilt series
+                                {{ r.failedLabel }} could not process this tilt series
                             </small>
                         </td>
                     {% elif r.status == 'running' %}
