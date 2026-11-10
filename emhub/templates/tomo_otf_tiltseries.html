@@ -16,6 +16,11 @@
             <span class="otf-dot otf-shape-{{ statusShape }} mr-1"
                   style="background: {{ statusColor }}; color: {{ statusColor }}"></span>
             <small>{{ statusLabel }}</small>
+            {% if quality %}
+                <span class="otf-dot otf-shape-{{ qualityShape }} ml-2 mr-1"
+                      style="background: {{ qualityColor }}; color: {{ qualityColor }}"></span>
+                <small>{{ qualityLabel }}</small>
+            {% endif %}
         </span>
         <small class="text-muted">
             {{ nUsed }} of {{ nTilts }} tilts used
@@ -33,7 +38,7 @@
     <div class="modal-body">
 
         {% if reasons %}
-            <div class="alert {{ 'alert-danger' if status == 'bad' else 'alert-warning' }} py-2">
+            <div class="alert {{ 'alert-danger' if (quality or status) == 'bad' else 'alert-warning' }} py-2">
                 <small>
                 {% for r in reasons %}{{ r }}{% if not loop.last %} &middot; {% endif %}{% endfor %}
                 </small>
@@ -42,8 +47,10 @@
 
         {% if failedAt %}
             <div class="alert alert-danger py-2">
-                <small>This tilt series is listed in the failed output of the
-                {{ failedAt }} stage, so later stages never received it.</small>
+                <small>{{ failedLabel }} could not process this tilt series, so
+                later stages never received it.{% if quality %} Its motion
+                correction and CTF data are judged and shown as usual, and it
+                can still be curated.{% endif %}</small>
             </div>
         {% endif %}
 

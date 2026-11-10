@@ -247,14 +247,27 @@ SORT_KEYS = {
 }
 
 
+def _quality_style(ts):
+    """ The data quality of a tilt series that failed after motion
+    correction and CTF, for the status cell beside 'Processing failed':
+    {'quality', 'qualityLabel', 'qualityColor', 'qualityShape'}, the
+    quality None for any other series. """
+    quality = ts.quality if ts.status == STATUS_FAILED else None
+    style = STATUS_STYLE.get(quality) or {}
+    return {'quality': quality, 'qualityLabel': style.get('label'),
+            'qualityColor': style.get('color'), 'qualityShape': style.get('shape')}
+
+
 def _stage_dots(ts):
     """ One dot per pipeline stage for the table: done, processing,
-    failed or waiting, and a tooltip saying which is which. """
+    failed or waiting, and a tooltip saying which is which.  An optional
+    stage (alignment, reconstruction) still running shows as processing
+    without changing the status of the series. """
     dots, tip = [], []
     for key, spec in STAGES.items():
-        if ts.status == STATUS_FAILED and ts.failedAt == key:
+        if ts.failedAt == key:
             state = 'failed'
-        elif ts.status == STATUS_RUNNING and ts.stage == key:
+        elif (ts.status == STATUS_RUNNING and ts.stage == key) or key in ts.pending:
             state = 'processing'
         elif key in ts.stagesSeen:
             state = 'done'
@@ -543,6 +556,10 @@ def register_content(dc):
                 'statusOrder': style['order'],
                 'reasons': t.reasons,
                 'failedAt': t.failedAt,
+                'failedLabel': STAGES[t.failedAt]['label'] if t.failedAt in STAGES else t.failedAt,
+                # Failed after motion correction and CTF: its data is still
+                # judged (TiltSeriesMetrics.quality) and its metrics shown
+                **_quality_style(t),
                 'stage': t.stage,
                 'stageLabel': STAGES[t.stage]['label'] if t.stage else '',
                 'nTilts': t.nTilts,
@@ -930,6 +947,8 @@ def register_content(dc):
             'reasons': ts.reasons,
             'notReported': ts.notReported,
             'failedAt': ts.failedAt,
+            'failedLabel': STAGES[ts.failedAt]['label'] if ts.failedAt in STAGES else ts.failedAt,
+            **_quality_style(ts),
             'nTilts': ts.nTilts,
             'nUsed': ts.nUsed,
             'pixelSize': ts.pixelSize,
